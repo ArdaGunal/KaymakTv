@@ -1,0 +1,16 @@
+{
+  "success": "Success",
+  "error": "Error",
+  "ok": "OK",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "goToSettings": "Go to Settings",
+  "loading": "Loading...",
+  "markOnlyThis": "Mark Only This",
+  "markPreviousToo": "Mark Previous Too",
+  "noResults": "No Results",
+  "retry": "Retry",
+  "settings": "Settings",
+  "write": "Write"
+}

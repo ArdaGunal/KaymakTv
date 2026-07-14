@@ -1,0 +1,11 @@
+{
+  "shows": "Diziler",
+  "movies": "Filmler",
+  "explore": "Keşfet",
+  "profile": "Profil",
+  "favShows": "Favori diziler",
+  "favMovies": "Favori filmler",
+  "lists": "Listeler",
+  "library": "Kütüphane",
+  "totalCount": "Toplam: {{count}} {{title}}"
+}

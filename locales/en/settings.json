@@ -1,0 +1,19 @@
+{
+  "language": "Language Settings",
+  "languageSubtitle": "Select app language",
+  "turkish": "Turkish",
+  "english": "English",
+  "traktAccount": "Trakt Account",
+  "traktSubtitle": "Synchronization settings",
+  "traktDescription": "Connect your Trakt account to sync your shows, movies, and library. Watch history and ratings within the app are synchronized with Trakt.",
+  "redirectUriCopy": "Redirect URI (Copy this to Trakt)",
+  "loginTrakt": "Log In with Trakt",
+  "pollingAuth": "Waiting for login...",
+  "loggedInText": "Your Trakt account is successfully linked!",
+  "goToApp": "Go to App",
+  "logoutReset": "Log Out and Reset",
+  "loginCanceled": "Login process was canceled.",
+  "loginSuccessText": "Successfully logged into your Trakt account!",
+  "communicationError": "An error occurred while communicating with Trakt.",
+  "termsAcceptance": "I have read and agree to the <1>Terms of Use</1>."
+}

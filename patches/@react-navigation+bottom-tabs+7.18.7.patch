@@ -1,0 +1,39 @@
+diff --git a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+index 0996e5d..17c3347 100644
+--- a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
++++ b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+@@ -174,7 +174,7 @@ export function BottomTabView(props) {
+           sceneStyleInterpolator = NAMED_TRANSITIONS_PRESETS[animation].sceneStyleInterpolator
+         } = descriptor.options;
+         const isFocused = state.index === index;
+-        const isPreloaded = state.preloadedRouteKeys.includes(route.key);
++        const isPreloaded = state.preloadedRouteKeys?.includes(route.key);
+         if (lazy && !loaded.includes(route.key) && !isFocused && !isPreloaded) {
+           // Don't render a lazy screen if we've never navigated to it or it wasn't preloaded
+           return null;
+diff --git a/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx b/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx
+index 7e22d0c..5a0239c 100644
+--- a/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx
++++ b/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx
+@@ -338,7 +338,7 @@ export function NativeBottomTabView({ state, navigation, descriptors }: Props) {
+         {state.routes.map((route, index) => {
+           const { options, render, navigation } = descriptors[route.key];
+           const isFocused = state.index === index;
+-          const isPreloaded = state.preloadedRouteKeys.includes(route.key);
++          const isPreloaded = state.preloadedRouteKeys?.includes(route.key);
+ 
+           const {
+             title,
+diff --git a/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx b/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx
+index ec0491e..fdb28fb 100644
+--- a/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx
++++ b/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx
+@@ -266,7 +266,7 @@ export function BottomTabView(props: Props) {
+               .sceneStyleInterpolator,
+           } = descriptor.options;
+           const isFocused = state.index === index;
+-          const isPreloaded = state.preloadedRouteKeys.includes(route.key);
++          const isPreloaded = state.preloadedRouteKeys?.includes(route.key);
+ 
+           if (
+             lazy &&

@@ -1,0 +1,37 @@
+{
+  "title": "KAYMAK APP TERMS OF USE AND PRIVACY POLICY",
+  "sections": [
+    {
+      "heading": "1. Scope and Acceptance",
+      "text": "By using the Kaymak application (hereinafter referred to as the \"App\"), you fully agree to these terms and the privacy policy. If you do not agree to the terms, you must stop using the App."
+    },
+    {
+      "heading": "2. Third-Party Services and Data Accuracy",
+      "text": "The App provides series and movie data, images, and content information via third-party APIs such as Trakt and TMDB. Kaymak does not guarantee the accuracy, currency, or uninterrupted availability of this data. The App developer cannot be held responsible for interruptions or data losses experienced in third-party services."
+    },
+    {
+      "heading": "3. User Content and Comments",
+      "text": "Users are entirely responsible for the comments and content they share within the App. Insulting, hate speech, illegal content, or comments that violate the intellectual property rights of third parties cannot be hosted. Kaymak reserves the right to delete content and accounts it deems inappropriate without prior notice. The App is in the position of a \"Hosting Provider\" within the scope of law No. 5651, and has no obligation to monitor user content in advance."
+    },
+    {
+      "heading": "4. Privacy and Data Security",
+      "text": "The App securely processes and stores your viewing history and profile data to provide you with a better experience. Your personal data is protected in accordance with KVKK standards and will never be shared with any third party or advertising company to be sold, except for legal obligations. Your login operations (OAuth etc.) are carried out over encrypted infrastructures in accordance with security standards. The App never stores your password on its systems."
+    },
+    {
+      "heading": "5. Account Security",
+      "text": "Ensuring the security of your device and preventing unauthorized access is entirely the user's responsibility. The App cannot be held responsible for data changes that may result from unauthorized access to Trakt or your other linked accounts."
+    },
+    {
+      "heading": "6. Intellectual Property Rights",
+      "text": "The App's interface, brand identity, logo, and original software codes belong to the developer team. Posters and series/movie information provided by third parties are within the copyright scope of the respective providers (TMDB, Trakt)."
+    },
+    {
+      "heading": "7. Disclaimer",
+      "text": "The App is provided \"as is\". The developer team cannot be held responsible for any direct or indirect material/moral damages that may arise from the use of the App."
+    },
+    {
+      "heading": "8. Right to Modify Terms",
+      "text": "The developer team reserves the right to change these Terms of Use and Privacy Policy texts without prior notice. The changes will take effect as soon as they are published via the App."
+    }
+  ]
+}

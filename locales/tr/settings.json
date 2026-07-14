@@ -1,0 +1,19 @@
+{
+  "language": "Dil Değiştirme",
+  "languageSubtitle": "Uygulama dilini seçin",
+  "turkish": "Türkçe",
+  "english": "İngilizce",
+  "traktAccount": "Trakt Hesabı",
+  "traktSubtitle": "Senkronizasyon ayarları",
+  "traktDescription": "Dizileri, filmleri ve kütüphanenizi senkronize etmek için Trakt hesabınızı bağlayın. Uygulama içerisinde yapılan izleme geçmişi ve puanlamalar Trakt ile senkronize çalışır.",
+  "redirectUriCopy": "Redirect URI (Bunu Trakt'a kopyala)",
+  "loginTrakt": "Trakt ile Giriş Yap",
+  "pollingAuth": "Giriş bekleniyor...",
+  "loggedInText": "Trakt hesabınız başarıyla bağlandı!",
+  "goToApp": "Uygulamaya Git",
+  "logoutReset": "Çıkış Yap ve Sıfırla",
+  "loginCanceled": "Giriş işlemi iptal edildi.",
+  "loginSuccessText": "Trakt hesabınıza başarıyla giriş yaptınız!",
+  "communicationError": "Trakt ile iletişim kurarken bir hata oluştu.",
+  "termsAcceptance": "<1>Kullanım Koşulları'nı</1> okudum, onaylıyorum."
+}

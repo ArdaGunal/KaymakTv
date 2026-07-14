@@ -1,0 +1,37 @@
+{
+  "title": "KAYMAK UYGULAMASI KULLANIM KOŞULLARI VE GİZLİLİK BİLDİRİMİ",
+  "sections": [
+    {
+      "heading": "1. Kapsam ve Kabul",
+      "text": "Kaymak uygulamasını (bundan sonra \"Uygulama\" olarak anılacaktır) kullanarak bu koşulları ve gizlilik bildirimini tamamen kabul etmiş sayılırsınız. Şartları kabul etmiyorsanız, Uygulamayı kullanmayı bırakmalısınız."
+    },
+    {
+      "heading": "2. Üçüncü Taraf Hizmetleri ve Veri Doğruluğu",
+      "text": "Uygulama, dizi ve film verilerini, görsellerini ve içerik bilgilerini Trakt ve TMDB gibi üçüncü taraf API'ler üzerinden sağlamaktadır. Kaymak, bu verilerin doğruluğunu, güncelliğini veya kesintisiz sunulacağını garanti etmez. Üçüncü taraf servislerde yaşanabilecek kesintilerden veya veri kayıplarından Uygulama geliştiricisi sorumlu tutulamaz."
+    },
+    {
+      "heading": "3. Kullanıcı İçerikleri ve Yorumlar",
+      "text": "Kullanıcılar, Uygulama içerisinde paylaştıkları yorumlardan ve içeriklerden bütünüyle kendileri sorumludur. Hakaret, nefret söylemi, yasa dışı içerik veya üçüncü şahısların fikri mülkiyet haklarını ihlal eden yorumlar barındırılamaz. Kaymak, uygunsuz bulduğu içerikleri ve hesapları önceden haber vermeksizin silme hakkını saklı tutar. Uygulama, 5651 sayılı kanun kapsamında \"Yer Sağlayıcı\" konumundadır ve kullanıcı içeriklerini peşinen denetleme yükümlülüğü bulunmamaktadır."
+    },
+    {
+      "heading": "4. Gizlilik ve Veri Güvenliği",
+      "text": "Uygulama, size daha iyi bir deneyim sunmak amacıyla izleme geçmişinizi ve profil verilerinizi güvenli bir şekilde işler ve saklar. Kişisel verileriniz KVKK standartlarına uygun olarak korunmakta olup, yasal zorunluluklar dışında hiçbir üçüncü şahıs veya reklam şirketiyle satılmak amacıyla paylaşılmaz. Giriş işlemleriniz (OAuth vb.) güvenlik standartlarına uygun olarak şifrelenmiş altyapılar üzerinden gerçekleştirilir. Uygulama, şifrenizi asla sistemlerinde tutmaz."
+    },
+    {
+      "heading": "5. Hesap Güvenliği",
+      "text": "Cihazınızın güvenliğini sağlamak ve yetkisiz erişimleri önlemek bütünüyle kullanıcının sorumluluğundadır. Trakt veya bağlı diğer hesaplarınıza izinsiz erişimden kaynaklanabilecek veri değişikliklerinden Uygulama sorumlu tutulamaz."
+    },
+    {
+      "heading": "6. Fikri Mülkiyet Hakları",
+      "text": "Uygulamanın arayüzü, marka kimliği, logosu ve özgün yazılım kodları geliştirici ekibe aittir. Üçüncü şahıslardan sağlanan afiş ve dizi/film bilgileri ise ilgili sağlayıcıların (TMDB, Trakt) telif hakları kapsamındadır."
+    },
+    {
+      "heading": "7. Sorumluluk Reddi (Disclaimer)",
+      "text": "Uygulama \"olduğu gibi\" sunulmaktadır. Uygulamanın kullanımından doğabilecek doğrudan veya dolaylı hiçbir maddi/manevi zarardan geliştirici ekip sorumlu tutulamaz."
+    },
+    {
+      "heading": "8. Koşullarda Değişiklik Hakkı",
+      "text": "Geliştirici ekip, bu Kullanım Koşulları ve Gizlilik Politikası metnini önceden haber vermeksizin değiştirme hakkını saklı tutar. Yapılan değişiklikler Uygulama üzerinden yayınlandığı an yürürlüğe girer."
+    }
+  ]
+}

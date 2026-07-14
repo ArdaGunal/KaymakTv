@@ -1,0 +1,16 @@
+{
+  "success": "Başarılı",
+  "error": "Hata",
+  "ok": "Tamam",
+  "cancel": "İptal",
+  "save": "Kaydet",
+  "delete": "Sil",
+  "goToSettings": "Ayarlara Git",
+  "loading": "Yükleniyor...",
+  "markOnlyThis": "Sadece Bunu İşaretle",
+  "markPreviousToo": "Öncekileri de İşaretle",
+  "noResults": "Sonuç Bulunamadı",
+  "retry": "Tekrar Dene",
+  "settings": "Ayarlar",
+  "write": "Yaz"
+}

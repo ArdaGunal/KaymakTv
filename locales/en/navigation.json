@@ -1,0 +1,11 @@
+{
+  "shows": "Shows",
+  "movies": "Movies",
+  "explore": "Explore",
+  "profile": "Profile",
+  "favShows": "Favorite Shows",
+  "favMovies": "Favorite Movies",
+  "lists": "Lists",
+  "library": "Library",
+  "totalCount": "Total: {{count}} {{title}}"
+}
