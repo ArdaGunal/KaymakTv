@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import LoadingIndicator from '../components/LoadingIndicator';
 
 import { useRouter } from 'expo-router';
@@ -20,6 +20,8 @@ export default function Settings() {
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
 
   const changeLanguage = (lng: string) => {
@@ -125,10 +127,11 @@ export default function Settings() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>{t('traktAccount')}</Text>
-        <Text style={styles.subtitle}>{t('traktSubtitle')}</Text>
-      </View>
+      <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
+        <View style={[styles.headerContainer, isDesktop && { alignItems: 'center', marginBottom: 40 }]}>
+          <Text style={[styles.title, isDesktop && { fontSize: 36, textAlign: 'center' }]}>{t('traktAccount')}</Text>
+          <Text style={[styles.subtitle, isDesktop && { textAlign: 'center', fontSize: 18 }]}>{t('traktSubtitle')}</Text>
+        </View>
 
       <View style={styles.formContainer}>
         {!accessToken ? (
@@ -213,6 +216,7 @@ export default function Settings() {
             </TouchableOpacity>
           </View>
         )}
+        </View>
       </View>
       <Modal
         visible={isLegalModalVisible}
@@ -251,6 +255,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     padding: 24,
     justifyContent: 'center',
+  },
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
+  desktopCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    padding: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.4,
+    shadowRadius: 30,
+    elevation: 15,
   },
   headerContainer: {
     marginBottom: 32,

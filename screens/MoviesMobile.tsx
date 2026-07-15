@@ -4,6 +4,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 
 import ConfettiCannon from 'react-native-confetti-cannon';
 import MovieCard from '../components/movies/MovieCard';
+import LoginPaywall from '../components/LoginPaywall';
 import { getMoviePoster } from '../services/tmdbApi';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../context/AuthContext';
@@ -27,7 +28,7 @@ export default function MoviesScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedMovieName, setFinishedMovieName] = useState('');
   
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const { watchlistMovies, calendarMovies, isLoading: isLibraryLoading } = useLibrary();
 
   const groupedUpcomingMovies = useMemo(() => {
@@ -211,6 +212,14 @@ export default function MoviesScreen() {
       setRenderedTab(tab);
     }, 50);
   };
+
+  if (isGuest) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan filmlerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

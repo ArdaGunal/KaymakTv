@@ -99,14 +99,18 @@ export default function MyInlineComment({ mediaId, mediaType, episodeTraktId, on
   const placeholderText = mediaType === 'episode' ? t('whatDoYouThink') :
                           mediaType === 'show' ? t('whatDoYouThinkShow') : t('whatDoYouThinkMovie');
 
+  if (isGuest) {
+    return (
+      <View style={{ backgroundColor: 'rgba(23, 32, 51, 0.5)', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#1e293b' }}>
+        <Text style={{ color: '#64748b', fontStyle: 'italic', fontSize: 14 }}>Yorum yapmak için giriş yapın</Text>
+      </View>
+    );
+  }
+
   return (
     <TouchableOpacity 
       style={{ backgroundColor: '#172033', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
       onPress={() => {
-        if (isGuest) {
-          Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-          return;
-        }
         onPressWrite();
       }}
     >

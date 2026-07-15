@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { useResponsive } from '../../hooks/useResponsive';
 import MoviesMobile from '../../screens/MoviesMobile';
 import { viewAllStore } from '../../utils/viewAllStore';
+import LoginPaywall from '../../components/LoginPaywall';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +34,7 @@ export default function MoviesScreenWeb() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedMovieName, setFinishedMovieName] = useState('');
   
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const { watchlistMovies, calendarMovies, isLoading: isLibraryLoading, refreshLibrary } = useLibrary();
 
@@ -236,6 +237,16 @@ export default function MoviesScreenWeb() {
 
   if (!isDesktop) {
     return <MoviesMobile />;
+  }
+
+  if (isGuest) {
+    return (
+      <View style={styles.pageBackground}>
+        <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
+          <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan filmlerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+        </View>
+      </View>
+    );
   }
 
   return (

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback, Platform, Share } from 'react-native';
 import LoadingIndicator from '../../components/LoadingIndicator';
 
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Star, X, Info, Heart, Check } from 'lucide-react-native';
+import { ChevronLeft, Star, X, Info, Heart, Check, Share2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WebView } from 'react-native-webview';
 
@@ -19,12 +19,14 @@ import MyInlineComment from '../../components/MyInlineComment';
 import { useLibrary } from '../../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 
 export default function EpisodeDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id, showId, showTmdbId, showSlug, season, episode, showName } = useLocalSearchParams();
   const { userRatingsEpisodes, refreshLibrary, showProgressMap, unwatchEpisode } = useLibrary();
+  const { isGuest } = useAuth();
   const { t } = useTranslation('media');
   const { mediaData, isLoading, refreshData } = useEpisodeDetail(showId, showTmdbId, season, episode);
   const episodeData = mediaData.detail;
@@ -45,6 +47,14 @@ export default function EpisodeDetailScreen() {
     setRevealedSpoilers(prev => ({ ...prev, [commentId]: !prev[commentId] }));
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   const epTraktId = parseInt(id as string, 10);
   const myRating = userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === epTraktId)?.rating;
 
@@ -62,6 +72,19 @@ export default function EpisodeDetailScreen() {
       setRatingModalVisible(false);
       refreshLibrary();
     } catch(e) { console.error(e) }
+  };
+
+  const handleShare = async () => {
+    try {
+      const safeTitle = encodeURIComponent(showName as string || '');
+      const url = `https://kaymaktv.com/episode/${epTraktId}?showId=${showId}&showTmdbId=${showTmdbId}&season=${season}&episode=${episode}&showName=${safeTitle}`;
+      
+      await Share.share({
+        message: `${showName} S${season} E${episode} ${t('shareEpisodeMsg', 'bölümüne göz at!')}\n${url}`,
+      });
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   if (isLoading) {
@@ -94,8 +117,12 @@ export default function EpisodeDetailScreen() {
             style={styles.gradientOverlay}
           />
 
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <ChevronLeft color="#fff" size={24} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+            <Share2 color="#fff" size={24} />
           </TouchableOpacity>
 
           <View style={styles.headerContent}>
@@ -124,6 +151,10 @@ export default function EpisodeDetailScreen() {
                   const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
 
                   const handleUnwatch = async () => {
+                    if (isGuest) {
+                      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+                      return;
+                    }
                     setIsCheckLoading(true);
                     try {
                       await unwatchEpisode(traktIdNum, sNum, eNum);
@@ -362,6 +393,7 @@ const styles = StyleSheet.create({
   stillPlaceholder: { width: '100%', height: '100%', backgroundColor: '#0B1120' },
   gradientOverlay: { ...StyleSheet.absoluteFillObject },
   backButton: { position: 'absolute', top: 50, left: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  shareButton: { position: 'absolute', top: 50, right: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   headerContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, zIndex: 5 },
   showName: { fontSize: 14, color: '#3b82f6', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
   episodeIdentifier: { fontSize: 13, color: '#a3a3a3', marginBottom: 6 },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform, UIManager, LayoutAnimation, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform, UIManager, LayoutAnimation, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import LoadingIndicator from '../../components/LoadingIndicator';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -20,6 +20,7 @@ import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +46,7 @@ const {
     unwatchEpisode,
     rewatchEpisode
   } = useLibrary();
+  const { isGuest } = useAuth();
   const traktIdNum = parseInt(id as string, 10);
   const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgressMap);
   const showData = mediaData.summary;
@@ -100,6 +102,10 @@ const {
   };
 
   const handleMarkSeason = async (seasonNum: number, isWatched: boolean) => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     try {
       setSeasonLoading(prev => ({ ...prev, [seasonNum]: true }));
       if (isWatched) {
@@ -115,6 +121,10 @@ const {
   };
 
   const handleUnwatchEpisode = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     if (!selectedEpisode) return;
     setLocalLoadingOption('remove');
     try {
@@ -130,6 +140,10 @@ const {
   };
 
   const handleRewatchEpisode = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     if (!selectedEpisode) return;
     setLocalLoadingOption('rewatch');
     try {

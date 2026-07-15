@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Dimensions, Platform, UIManager, LayoutAnimation } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Dimensions, Platform, UIManager, LayoutAnimation, Alert } from 'react-native';
 import LoadingIndicator from '../../components/LoadingIndicator';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -16,6 +16,7 @@ import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -48,6 +49,7 @@ export default function MovieDetailScreen() {
     toggleWatchlistStatus,
     deleteMediaFromHistory 
   } = useLibrary();
+  const { isGuest } = useAuth();
   const [actionLoading, setActionLoading] = useState(false);
 
   const traktIdNum = parseInt(id as string, 10);
@@ -203,6 +205,10 @@ export default function MovieDetailScreen() {
   };
 
   const handleMarkAsWatched = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     if (isWatched || actionLoading) return;
     try {
       setActionLoading(true);

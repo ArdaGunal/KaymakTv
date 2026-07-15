@@ -62,6 +62,14 @@ export default function MediaHero({
     setRatingModalVisible(false);
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   const handleRemove = () => {
     onRemoveRating();
     setRatingModalVisible(false);
@@ -69,7 +77,10 @@ export default function MediaHero({
 
   const handleShare = async () => {
     try {
-      const url = type === 'show' ? `https://trakt.tv/shows/${data.ids.trakt}` : `https://trakt.tv/movies/${data.ids.trakt}`;
+      const url = type === 'show' 
+        ? `https://kaymaktv.com/show/${data.ids.trakt}?tmdbId=${data.ids.tmdb}` 
+        : `https://kaymaktv.com/movie/${data.ids.trakt}?tmdbId=${data.ids.tmdb}`;
+        
       await Share.share({
         message: `${data.title} ${type === 'show' ? t('shareShowMsg') : t('shareMovieMsg')}\n${url}`,
       });
@@ -139,7 +150,7 @@ export default function MediaHero({
           colors={['transparent', 'rgba(11,17,32,0.8)', '#0B1120']}
           style={styles.gradientOverlay}
         />
-        <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBack}>
           <ChevronLeft color="#fff" size={32} />
         </TouchableOpacity>
         <TouchableOpacity style={[styles.homeButton, { top: insets.top + 10 }]} onPress={() => router.dismissAll()}>
