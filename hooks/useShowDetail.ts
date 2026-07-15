@@ -55,7 +55,9 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         
         const comments = results[4].status === 'fulfilled' ? results[4].value?.data || [] : [];
         
-        const slimSeasons = seasons.map((s: any) => ({
+        const slimSeasons = seasons
+          .filter((s: any) => s.number >= 0 && s.episodes && s.episodes.length > 0)
+          .map((s: any) => ({
           number: s.number,
           aired_episodes: s.aired_episodes || 0,
           episodes: (s.episodes || []).map((ep: any) => ({

@@ -343,7 +343,9 @@ const {
                       onPress={() => toggleSeason(season.number)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.seasonTitle}>{t('seasonNum', { number: season.number })}</Text>
+                      <Text style={styles.seasonTitle}>
+                        {season.number === 0 ? t('specials', 'Özel Bölümler') : t('seasonNum', { number: season.number })}
+                      </Text>
                       <View style={{flexDirection: 'row', alignItems: 'center'}}>
                          {(() => {
                            const seasonProgress = showProgressMap[id as string]?.seasons?.find((s:any) => s.number === season.number);

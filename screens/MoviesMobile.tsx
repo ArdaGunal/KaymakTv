@@ -29,7 +29,7 @@ export default function MoviesScreen() {
   const [finishedMovieName, setFinishedMovieName] = useState('');
   
   const { accessToken, isGuest } = useAuth();
-  const { watchlistMovies, calendarMovies, isLoading: isLibraryLoading } = useLibrary();
+  const { watchlistMovies, calendarMovies, isMoviesLoading } = useLibrary();
 
   const groupedUpcomingMovies = useMemo(() => {
     const groups: { title: string, data: any[] }[] = [];
@@ -46,7 +46,7 @@ export default function MoviesScreen() {
 
   useEffect(() => {
     if (accessToken) {
-      if (!isLibraryLoading) {
+      if (!isMoviesLoading) {
         InteractionManager.runAfterInteractions(() => {
           processData();
         });
@@ -56,7 +56,7 @@ export default function MoviesScreen() {
       setUpcomingMovies([]);
       setIsLoading(false);
     }
-  }, [accessToken, isLibraryLoading, watchlistMovies, calendarMovies, i18n.language]);
+  }, [accessToken, isMoviesLoading, watchlistMovies, calendarMovies, i18n.language]);
 
   const processData = async () => {
     setIsLoading(true);
@@ -240,7 +240,7 @@ export default function MoviesScreen() {
         </TouchableOpacity>
       </View>
 
-      {isLoading || isLibraryLoading ? (
+      {isLoading || isMoviesLoading ? (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
           <View style={{ marginBottom: 16 }}>
             <SkeletonLoader width={100} height={20} style={{ marginBottom: 12, marginLeft: 16 }} />

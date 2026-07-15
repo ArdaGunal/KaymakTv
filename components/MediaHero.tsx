@@ -188,7 +188,7 @@ export default function MediaHero({
             <View style={styles.ratingBadge}>
               <Star size={14} color="#facc15" fill="#facc15" />
               <Text style={styles.ratingText}>
-                {data.rating ? data.rating.toFixed(1) : '-'}
+                {data.rating ? (data.rating / 2).toFixed(1) : '-'}
               </Text>
             </View>
 
@@ -206,7 +206,7 @@ export default function MediaHero({
             >
               <Star size={14} color={userRating ? "#3b82f6" : "#a3a3a3"} fill={userRating ? "#3b82f6" : "transparent"} />
               <Text style={[styles.userRatingText, userRating ? styles.userRatingTextActive : null]}>
-                {userRating ? `${userRating}/10` : t('rate')}
+                {userRating ? `${(userRating / 2).toFixed(1)}/5` : t('rate')}
               </Text>
             </TouchableOpacity>
           </View>

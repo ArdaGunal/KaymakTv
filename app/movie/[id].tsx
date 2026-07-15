@@ -144,20 +144,14 @@ export default function MovieDetailScreen() {
         setMovieData(summary);
         setCastData(cast || []);
         
-        const mappedRelated = await Promise.all((related || []).map(async (item: any) => {
-           const rTmdb = item.ids?.tmdb;
-           let rImg = null;
-           if (rTmdb) {
-              rImg = await getMoviePoster(rTmdb);
-           }
+        const mappedRelated = (related || []).map((item: any) => {
            return {
               id: item.ids.trakt,
               rawTraktId: item.ids.trakt,
-              tmdbId: rTmdb,
-              title: item.title,
-              image: rImg
+              tmdbId: item.ids?.tmdb,
+              title: item.title
            };
-        }));
+        });
         setRelatedMovies(mappedRelated);
 
         if (tmdbIdNum) {

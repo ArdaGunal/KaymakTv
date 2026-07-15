@@ -69,6 +69,7 @@ interface LibraryContextType {
   showProgressMap: Record<string, any>;
   calendarSeasonsMap: Record<string, any>;
   isLoading: boolean;
+  isMoviesLoading: boolean;
   refreshLibrary: () => Promise<void>;
   markEpisodeAsWatched: (showId: number, season: number, episode: number) => Promise<any>;
   markSeasonAsWatched: (showId: number, season: number) => Promise<any>;
@@ -122,6 +123,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
   
   const [languageRefreshKey, setLanguageRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMoviesLoading, setIsMoviesLoading] = useState(true);
   const lastFetchTimeRef = useRef<number>(0);
   const currentTokenRef = useRef<string | null>(null);
 
@@ -194,6 +196,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
   const fetchFreshData = useCallback(async (force = false) => {
     if (!accessToken) {
       setIsLoading(false);
+      setIsMoviesLoading(false);
       return;
     }
     
@@ -204,9 +207,11 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     if (!force && (now - lastFetchTimeRef.current < tenMinutes)) {
       console.log('TTL geÃ§erli, arka plan fetch iÅŸlemi atlanÄ±yor...');
       setIsLoading(false);
+      setIsMoviesLoading(false);
       return;
     }
     
+    setIsMoviesLoading(true);
     try {
       // ÖNCELİKLİ (KRİTİK) İSTEKLER - Ana ekran (Diziler) için gerekenler
       // Sadece 3 istek atarak tarayıcının 6 connection limitini aşmıyoruz!
@@ -214,18 +219,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       const pWlistShows = getWatchlistShows().catch((e) => { console.error('getWatchlistShows failed', e.message); return null; });
       const pCalShows = getMyCalendarShows(33).catch((e) => { console.error('getMyCalendarShows failed', e.message); return null; });
 
-      // ARKA PLAN (İKİNCİL) İSTEKLER - Diğer sekmeler için
-      const secondaryPromises = Promise.all([
-        getWatchedMovies().catch((e) => { console.error('getWatchedMovies failed', e.message); return null; }),
-        getWatchlistMovies().catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
-        getMyCalendarMovies(33).catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; }),
-        getCustomLists().catch((e) => { console.error('getCustomLists failed', e.message); return null; }),
-        getFavoriteShows().catch((e) => { console.error('getFavoriteShows failed', e.message); return null; }),
-        getFavoriteMovies().catch((e) => { console.error('getFavoriteMovies failed', e.message); return null; }),
-        getUserRatings('shows').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
-        getUserRatings('movies').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
-        getUserRatings('episodes').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
-      ]);
+      // ARKA PLAN (İKİNCİL) İSTEKLER - Aşağıda ayrı ele alınacak
 
       const [showsData, wlistShows, calShows] = await Promise.all([pShowsData, pWlistShows, pCalShows]);
 
@@ -287,40 +281,64 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       // UI KİLİDİNİ AÇ! Ana sayfa için gerekenler geldi.
       setIsLoading(false); 
 
-      // İkincil veriler gelince state'leri güncelle
-      secondaryPromises.then(([moviesData, wlistMovies, calMovies, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData]) => {
-        if (moviesData !== null) setWatchedMovies(moviesData);
+      // TIER 2: FİLMLER SEKME İHTİYAÇLARI (Acil)
+      Promise.all([
+        getWatchlistMovies().catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
+        getMyCalendarMovies(33).catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; })
+      ]).then(([wlistMovies, calMovies]) => {
         if (wlistMovies !== null) setWatchlistMovies(wlistMovies);
         if (calMovies !== null) setCalendarMovies(calMovies);
-        if (listsData !== null) setCustomLists(listsData);
-        if (fShowsData !== null) setFavShows(fShowsData);
-        if (fMoviesData !== null) setFavMovies(fMoviesData);
-        if (rShowsData !== null) setUserRatingsShows(rShowsData);
-        if (rMoviesData !== null) setUserRatingsMovies(rMoviesData);
-        if (rEpisodesData !== null) setUserRatingsEpisodes(rEpisodesData);
         
-        // Cache kaydetmeyi de arka plana alalım (QuotaExceeded riskine karşı UI'ı bloklamasın)
-        const multiSetDataInitial: [string, string][] = [];
-        const setIfValidInitial = (key: string, data: any, prevData: any) => {
-           const finalData = data !== null ? data : prevData;
-           multiSetDataInitial.push([key, JSON.stringify(finalData)]);
-        };
-
-        setIfValidInitial(CACHE_KEYS.watchedShows, showsData, watchedShows);
-        setIfValidInitial(CACHE_KEYS.watchedMovies, moviesData, watchedMovies);
-        setIfValidInitial(CACHE_KEYS.customLists, listsData, customLists);
-        setIfValidInitial(CACHE_KEYS.favShows, fShowsData, favShows);
-        setIfValidInitial(CACHE_KEYS.favMovies, fMoviesData, favMovies);
-        setIfValidInitial(CACHE_KEYS.watchlistShows, wlistShows, watchlistShows);
-        setIfValidInitial(CACHE_KEYS.calendarShows, calShows, calendarShows);
-        setIfValidInitial(CACHE_KEYS.watchlistMovies, wlistMovies, watchlistMovies);
-        setIfValidInitial(CACHE_KEYS.calendarMovies, calMovies, calendarMovies);
-        setIfValidInitial(CACHE_KEYS.userRatingsShows, rShowsData, userRatingsShows);
-        setIfValidInitial(CACHE_KEYS.userRatingsMovies, rMoviesData, userRatingsMovies);
-        setIfValidInitial(CACHE_KEYS.userRatingsEpisodes, rEpisodesData, userRatingsEpisodes);
+        setIsMoviesLoading(false); // Filmler kalkanı kalktı!
         
-        AsyncStorage.multiSet(multiSetDataInitial).catch(err => console.log('Initial cache save error (Likely QuotaExceeded on Web):', err));
+        const multiSetDataMovies: [string, string][] = [];
+        const prevWatchlistMovies = wlistMovies !== null ? wlistMovies : watchlistMovies;
+        const prevCalendarMovies = calMovies !== null ? calMovies : calendarMovies;
+        
+        multiSetDataMovies.push([CACHE_KEYS.watchlistMovies, JSON.stringify(prevWatchlistMovies)]);
+        multiSetDataMovies.push([CACHE_KEYS.calendarMovies, JSON.stringify(prevCalendarMovies)]);
+        AsyncStorage.multiSet(multiSetDataMovies).catch(err => console.log(err));
       });
+
+      // TIER 3: ARKA PLAN İSTEKLERİ (Ağır Yük - Geçmiş, Puanlar vb.)
+      setTimeout(() => {
+        Promise.all([
+          getWatchedMovies().catch((e) => { console.error('getWatchedMovies failed', e.message); return null; }),
+          getCustomLists().catch((e) => { console.error('getCustomLists failed', e.message); return null; }),
+          getFavoriteShows().catch((e) => { console.error('getFavoriteShows failed', e.message); return null; }),
+          getFavoriteMovies().catch((e) => { console.error('getFavoriteMovies failed', e.message); return null; }),
+          getUserRatings('shows').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
+          getUserRatings('movies').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
+          getUserRatings('episodes').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
+        ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData]) => {
+          if (moviesData !== null) setWatchedMovies(moviesData);
+          if (listsData !== null) setCustomLists(listsData);
+          if (fShowsData !== null) setFavShows(fShowsData);
+          if (fMoviesData !== null) setFavMovies(fMoviesData);
+          if (rShowsData !== null) setUserRatingsShows(rShowsData);
+          if (rMoviesData !== null) setUserRatingsMovies(rMoviesData);
+          if (rEpisodesData !== null) setUserRatingsEpisodes(rEpisodesData);
+
+          const multiSetDataInitial: [string, string][] = [];
+          const setIfValidInitial = (key: string, data: any, prevData: any) => {
+            const finalData = data !== null ? data : prevData;
+            multiSetDataInitial.push([key, JSON.stringify(finalData)]);
+          };
+
+          setIfValidInitial(CACHE_KEYS.watchedShows, showsData, watchedShows);
+          setIfValidInitial(CACHE_KEYS.watchedMovies, moviesData, watchedMovies);
+          setIfValidInitial(CACHE_KEYS.customLists, listsData, customLists);
+          setIfValidInitial(CACHE_KEYS.favShows, fShowsData, favShows);
+          setIfValidInitial(CACHE_KEYS.favMovies, fMoviesData, favMovies);
+          setIfValidInitial(CACHE_KEYS.watchlistShows, wlistShows, watchlistShows);
+          setIfValidInitial(CACHE_KEYS.calendarShows, calShows, calendarShows);
+          setIfValidInitial(CACHE_KEYS.userRatingsShows, rShowsData, userRatingsShows);
+          setIfValidInitial(CACHE_KEYS.userRatingsMovies, rMoviesData, userRatingsMovies);
+          setIfValidInitial(CACHE_KEYS.userRatingsEpisodes, rEpisodesData, userRatingsEpisodes);
+          
+          AsyncStorage.multiSet(multiSetDataInitial).catch(err => console.log('Initial cache save error:', err));
+        });
+      }, 500);
 
 
 
@@ -476,6 +494,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       setUserRatingsEpisodes([]);
       setShowProgressMap({});
       setIsLoading(false);
+      setIsMoviesLoading(false);
     }
   }, [accessToken, authIsLoading, loadCache, fetchFreshData, languageRefreshKey]);
 
@@ -916,6 +935,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     showProgressMap,
     calendarSeasonsMap,
     isLoading,
+    isMoviesLoading,
     refreshLibrary: async () => await fetchFreshData(true),
     markEpisodeAsWatched,
     markSeasonAsWatched,
@@ -930,7 +950,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
   }), [
     watchedShows, watchedMovies, customLists, favShows, favMovies, 
     watchlistShows, calendarShows, watchlistMovies, calendarMovies, 
-    userRatingsShows, userRatingsMovies, userRatingsEpisodes, showProgressMap, isLoading, fetchFreshData, markEpisodeAsWatched, markSeasonAsWatched, markEpisodesUpToAsWatched, markMovieAsWatched, toggleWatchlistStatus, hideMediaFromProgress, deleteMediaFromHistory, unwatchEpisode, unwatchSeason, rewatchEpisode
+    userRatingsShows, userRatingsMovies, userRatingsEpisodes, showProgressMap, isLoading, isMoviesLoading, fetchFreshData, markEpisodeAsWatched, markSeasonAsWatched, markEpisodesUpToAsWatched, markMovieAsWatched, toggleWatchlistStatus, hideMediaFromProgress, deleteMediaFromHistory, unwatchEpisode, unwatchSeason, rewatchEpisode
   ]);
 
   return (

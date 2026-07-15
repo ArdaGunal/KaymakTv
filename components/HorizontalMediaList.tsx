@@ -28,15 +28,15 @@ export default function HorizontalMediaList({ title, titleIcon, data, onShowAll,
       style={styles.card} 
       activeOpacity={0.7}
       onPress={() => {
-        const traktId = item.rawTraktId || item.id;
-        const tmdbId = item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
+        const traktId = item.rawTraktId || item.id || item.ids?.trakt || item.show?.ids?.trakt || item.movie?.ids?.trakt;
+        const tmdbId = item.tmdbId || item.ids?.tmdb || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
         if (traktId) {
           router.push(`/${type}/${traktId}?tmdbId=${tmdbId}`);
         }
       }}
     >
       <MediaPoster 
-        tmdbId={item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb} 
+        tmdbId={item.tmdbId || item.ids?.tmdb || item.show?.ids?.tmdb || item.movie?.ids?.tmdb} 
         type={type} 
         title={item.title || item.show?.title || item.movie?.title} 
         style={styles.poster} 
