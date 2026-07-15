@@ -99,9 +99,27 @@ app.post('/api/trakt', async (req, res) => {
 // ==========================================
 // STATIC FILES & SPA FALLBACK
 // ==========================================
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'dist'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      // index.html asla önbelleğe alınmamalı, her zaman sunucuya sorulmalı
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      // JS, CSS, resim gibi statik dosyalar kalıcı olarak önbelleğe alınabilir (1 yıl)
+      // Çünkü Expo isimlerine hash ekliyor (entry-123.js gibi), değişirse yeni dosya istenir.
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 app.use((req, res) => {
+  // SPA Fallback (örneğin /settings adresine direkt gidildiğinde) 
+  // index.html gönderilirken aynı önbellek kuralları geçerli olmalı
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
