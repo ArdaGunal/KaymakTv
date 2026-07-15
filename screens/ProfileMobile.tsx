@@ -156,6 +156,7 @@ export default function ProfileScreen() {
             title={t('lists')} 
             data={lists} 
             onShowAll={() => router.push('/library/lists')}
+            type="list"
           />
 
           <HorizontalShowList 

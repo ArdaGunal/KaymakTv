@@ -121,16 +121,26 @@ export default function LibraryScreen() {
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => {
       if (item.id) {
-        const routeType = type === 'shows' || type === 'favShows' ? 'show' : 'movie';
-        router.push(`/${routeType}/${item.id}?tmdbId=${item.tmdbId || ''}`);
+        if (type === 'lists') {
+          router.push(`/list/${item.id}?name=${encodeURIComponent(item.title)}`);
+        } else {
+          const routeType = type === 'shows' || type === 'favShows' ? 'show' : 'movie';
+          router.push(`/${routeType}/${item.id}?tmdbId=${item.tmdbId || ''}`);
+        }
       }
     }}>
-      <MediaPoster 
-        tmdbId={item.tmdbId} 
-        type={type === 'shows' || type === 'favShows' ? 'show' : 'movie'} 
-        title={item.title} 
-        style={styles.poster} 
-      />
+      {type === 'lists' ? (
+        <View style={[styles.poster, { backgroundColor: '#1e293b', justifyContent: 'center', alignItems: 'center', padding: 10, borderWidth: 1, borderColor: '#334155' }]}>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold', textAlign: 'center' }}>{item.title}</Text>
+        </View>
+      ) : (
+        <MediaPoster 
+          tmdbId={item.tmdbId} 
+          type={type === 'shows' || type === 'favShows' ? 'show' : 'movie'} 
+          title={item.title} 
+          style={styles.poster} 
+        />
+      )}
     </TouchableOpacity>
   );
 

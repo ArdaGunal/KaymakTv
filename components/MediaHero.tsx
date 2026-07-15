@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Pressable, Share, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronLeft, Play, Star, ChevronDown, Home, MoreVertical, Bookmark, EyeOff, Trash2, Share2, CheckCheck } from 'lucide-react-native';
+import { ChevronLeft, Play, Star, ChevronDown, Home, MoreVertical, Bookmark, Heart, EyeOff, Trash2, Share2, CheckCheck, ListPlus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import StarSlider from './StarSlider';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useResponsive } from '../hooks/useResponsive';
+import { BlurView } from 'expo-blur';
+import AddToListModal from './AddToListModal';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -16,10 +19,12 @@ interface MediaHeroProps {
   trailerId: string | null;
   userRating: number | null;
   isWatchlisted?: boolean;
+  isFavorited?: boolean;
   isWatched?: boolean;
   onRate: (rating: number) => void;
   onRemoveRating: () => void;
   onToggleWatchlist: () => void;
+  onToggleFavorite?: () => void;
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
@@ -35,10 +40,12 @@ export default function MediaHero({
   trailerId,
   userRating,
   isWatchlisted,
+  isFavorited,
   isWatched,
   onRate,
   onRemoveRating,
   onToggleWatchlist,
+  onToggleFavorite,
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
@@ -47,8 +54,10 @@ export default function MediaHero({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
+  const { isDesktop } = useResponsive();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [listModalVisible, setListModalVisible] = useState(false);
 
   const formatRuntime = (minutes: number) => {
     if (!minutes) return null;
@@ -97,6 +106,18 @@ export default function MediaHero({
       return;
     }
     onToggleWatchlist();
+    setOptionsModalVisible(false);
+  };
+
+  const handleToggleFavorite = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      setOptionsModalVisible(false);
+      return;
+    }
+    if (onToggleFavorite) {
+      onToggleFavorite();
+    }
     setOptionsModalVisible(false);
   };
 
@@ -194,20 +215,61 @@ export default function MediaHero({
 
             {/* User Rating (Delicate Button) */}
             <TouchableOpacity 
-              style={[styles.userRatingBadge, userRating ? styles.userRatingActive : null]} 
+              style={[styles.userRatingBadge, (userRating !== undefined && userRating !== null) ? styles.userRatingActive : null]} 
+              onPress={() => {
+                if (isGuest) {
+                  Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+                  return;
+                }
+                setRatingModalVisible(true)
+              }}
+              activeOpacity={0.7}
+            >
+              <Star size={14} color={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "transparent"} />
+              <Text style={[styles.userRatingText, (userRating !== undefined && userRating !== null) ? styles.userRatingTextActive : null]}>
+                {(userRating !== undefined && userRating !== null) ? `${(userRating / 2).toFixed(1)}/5` : t('rate')}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Quick Favorite Button */}
+            <TouchableOpacity 
+              style={[
+                styles.userRatingBadge, 
+                isFavorited ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' } : null
+              ]} 
+              activeOpacity={0.7}
+              onPress={handleToggleFavorite}
+            >
+              <Heart size={16} color={isFavorited ? "#ef4444" : "#a3a3a3"} fill={isFavorited ? "#ef4444" : "transparent"} />
+            </TouchableOpacity>
+
+            {/* Quick Add to List Button */}
+            <TouchableOpacity 
+              style={[
+                styles.userRatingBadge, 
+                (!isDesktop && isWatchlisted) ? { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' } : null
+              ]} 
               activeOpacity={0.7}
               onPress={() => {
                 if (isGuest) {
                   Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
                   return;
                 }
-                setRatingModalVisible(true);
+                if (!isDesktop) {
+                  onToggleWatchlist();
+                } else {
+                  setListModalVisible(true);
+                }
               }}
+              onLongPress={() => {
+                if (isGuest) return;
+                if (!isDesktop) {
+                  setListModalVisible(true);
+                }
+              }}
+              delayLongPress={400}
             >
-              <Star size={14} color={userRating ? "#3b82f6" : "#a3a3a3"} fill={userRating ? "#3b82f6" : "transparent"} />
-              <Text style={[styles.userRatingText, userRating ? styles.userRatingTextActive : null]}>
-                {userRating ? `${(userRating / 2).toFixed(1)}/5` : t('rate')}
-              </Text>
+              <ListPlus size={16} color={(!isDesktop && isWatchlisted) ? "#3b82f6" : "#a3a3a3"} />
             </TouchableOpacity>
           </View>
         </View>
@@ -244,20 +306,20 @@ export default function MediaHero({
 
       {/* RATING MODAL */}
       <Modal visible={ratingModalVisible} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setRatingModalVisible(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>{t('giveRating')}</Text>
-            <StarSlider 
-              initialRating={userRating} 
-              onRate={(val) => { 
-                handleRate(val); 
-                setRatingModalVisible(false); 
-              }} 
-              onRemove={userRating ? () => { 
-                handleRemove(); 
-                setRatingModalVisible(false); 
-              } : undefined}
-            />
+        <Pressable style={[styles.modalOverlay, styles.centeredOverlay]} onPress={() => setRatingModalVisible(false)}>
+          <Pressable style={styles.modalContentWrapper} onPress={(e) => e.stopPropagation()}>
+            <BlurView intensity={90} tint="dark" style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{t('giveRating')}</Text>
+              <StarSlider 
+                initialRating={(userRating !== undefined && userRating !== null) ? userRating : 0} 
+                onRate={(val) => { 
+                  handleRate(val); 
+                }}
+                onRemove={(userRating !== undefined && userRating !== null) ? () => { 
+                  handleRemove();
+                } : undefined}
+              />
+            </BlurView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -312,6 +374,13 @@ export default function MediaHero({
           </View>
         </Pressable>
       </Modal>
+
+      <AddToListModal
+        visible={listModalVisible}
+        onClose={() => setListModalVisible(false)}
+        mediaId={data?.ids?.trakt}
+        mediaType={type}
+      />
     </View>
   );
 }
@@ -502,14 +571,23 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
+  centeredOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContentWrapper: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: 360,
+  },
   modalContent: {
-    backgroundColor: '#172033',
+    backgroundColor: 'rgba(23, 32, 51, 0.7)',
     padding: 24,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
   },
   modalTitle: {
     color: '#ffffff',

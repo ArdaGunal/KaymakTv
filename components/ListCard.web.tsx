@@ -1,34 +1,44 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { List as ListIcon } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 export default function ListCard({ data }: { data: any }) {
+  const router = useRouter();
+
   return (
     <TouchableOpacity 
-      style={styles.listCard}
+      style={styles.container}
       activeOpacity={0.8}
       // @ts-ignore
-      onPress={() => console.log('List clicked:', data.id)}
+      onPress={() => router.push(`/list/${data.id}?name=${encodeURIComponent(data.title)}`)}
     >
-      <View style={styles.listImageContainer}>
-        <View style={styles.listPlaceholder}>
-          <ListIcon color="#4b5563" size={32} />
+      <View style={styles.listCard}>
+        <View style={styles.listImageContainer}>
+          <View style={styles.listPlaceholder}>
+            <ListIcon color="#4b5563" size={32} />
+          </View>
+          <View style={styles.listHoverOverlay} {...{ className: 'hover-overlay' }} />
         </View>
-        <View style={styles.listHoverOverlay} {...{ className: 'hover-overlay' }} />
+        <Text style={styles.listTitle} numberOfLines={2}>{data.title}</Text>
       </View>
-      <Text style={styles.listTitle} numberOfLines={2}>{data.title}</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    marginRight: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+  },
   listCard: {
-    width: '100%',
+    width: 180,
     ...( { cursor: 'pointer', transition: 'transform 0.3s ease' } as any)
   },
   listImageContainer: {
-    width: '100%',
-    aspectRatio: 1,
+    width: 180,
+    height: 180,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#1f2937',
@@ -54,6 +64,7 @@ const styles = StyleSheet.create({
     color: '#e5e7eb', 
     fontSize: 14, 
     fontWeight: '500',
-    textAlign: 'center'
+    textAlign: 'center',
+    marginTop: 8
   }
 });

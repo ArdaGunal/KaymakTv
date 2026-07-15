@@ -91,7 +91,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
           <View style={styles.ratingContainer}>
             <Star size={14} color="#facc15" fill="#facc15" />
             <Text style={styles.ratingText}>
-              {media?.rating ? media.rating.toFixed(1) : '-'}
+              {media?.rating ? (media.rating / 2).toFixed(1) : '-'}
             </Text>
           </View>
           {data.watchers !== undefined && (

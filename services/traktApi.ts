@@ -85,12 +85,19 @@ const getTraktClient = async () => {
         isRefreshing = true;
 
         const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
-        const proxyUrl = process.env.EXPO_PUBLIC_PROXY_URL || '/api/trakt';
+        const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+        const clientSecret = process.env.EXPO_PUBLIC_TRAKT_CLIENT_SECRET;
 
-        if (refreshToken && proxyUrl) {
+        if (refreshToken && clientId && clientSecret) {
           try {
-            console.log('Trakt API 401 hatasÄ±. Refresh Token ile yeni token alÄ±nÄ±yor...');
-            const { data } = await axios.post(proxyUrl, { refresh_token: refreshToken });
+            console.log('Trakt API 401 hatası. Refresh Token ile yeni token alınıyor...');
+            const { data } = await axios.post('https://api.trakt.tv/oauth/token', { 
+              refresh_token: refreshToken,
+              client_id: clientId,
+              client_secret: clientSecret,
+              grant_type: 'refresh_token',
+              redirect_uri: 'urn:ietf:wg:oauth:2.0:oob'
+            });
             const newAccessToken = data.access_token;
             const newRefreshToken = data.refresh_token;
 
@@ -130,17 +137,23 @@ const getTraktClient = async () => {
 
 export const exchangeAuthCode = async (code: string, redirectUri: string) => {
   try {
-    const proxyUrl = process.env.EXPO_PUBLIC_PROXY_URL || '/api/trakt';
-    if (!proxyUrl) {
-      throw new Error('Proxy URL bulunamadÃ„Â±. LÃƒÂ¼tfen .env dosyasÃ„Â±nÃ„Â± kontrol edin.');
+    const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+    const clientSecret = process.env.EXPO_PUBLIC_TRAKT_CLIENT_SECRET;
+    
+    if (!clientId || !clientSecret) {
+      throw new Error('Trakt Client ID veya Secret bulunamadı. Lütfen .env dosyasını kontrol edin.');
     }
-    const response = await axios.post(proxyUrl, {
+
+    const response = await axios.post('https://api.trakt.tv/oauth/token', {
       code,
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
     });
     return response.data; // { access_token, refresh_token, ... }
   } catch (error: any) {
-    console.error('exchangeAuthCode HatasÃ„Â±:', error?.response?.data || error);
+    console.error('exchangeAuthCode Hatası:', error?.response?.data || error);
     throw error;
   }
 };
@@ -363,32 +376,148 @@ export const getCustomLists = async (page = 1, limit = 20) => {
     const response = await client.get(`/users/me/lists?page=${page}&limit=${limit}`);
     return response.data;
   } catch (error) {
-    console.error('Trakt API HatasÃ„Â± (getCustomLists):', error);
+    console.error('Trakt API Hatası (getCustomLists):', error);
     throw error;
   }
 };
 
-export const getFavoriteShows = async (page = 1, limit = 20) => {
+export const createCustomList = async (name: string, description: string = '') => {
   try {
     const client = await getTraktClient();
-    const response = await client.get(`/sync/ratings/shows?rating=10&extended=full&page=${page}&limit=${limit}`);
+    const response = await client.post('/users/me/lists', {
+      name,
+      description,
+      privacy: 'private',
+      display_numbers: false,
+      allow_comments: false
+    });
     return response.data;
   } catch (error) {
-    console.error('Trakt API HatasÃ„Â± (getFavoriteShows):', error);
+    console.error('Trakt API Hatası (createCustomList):', error);
     throw error;
   }
 };
 
-export const getFavoriteMovies = async (page = 1, limit = 20) => {
+export const deleteCustomList = async (listId: number | string) => {
   try {
     const client = await getTraktClient();
-    const response = await client.get(`/sync/ratings/movies?rating=10&extended=full&page=${page}&limit=${limit}`);
-    return response.data;
+    await client.delete(`/users/me/lists/${listId}`);
   } catch (error) {
-    console.error('Trakt API HatasÃ„Â± (getFavoriteMovies):', error);
+    console.error('Trakt API Hatası (deleteCustomList):', error);
     throw error;
   }
 };
+
+export const getCustomListItems = async (listId: number | string) => {
+  try {
+    const client = await getTraktClient();
+    const response = await client.get(`/users/me/lists/${listId}/items?extended=full`);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (getCustomListItems):', error);
+    throw error;
+  }
+};
+
+export const addMediaToCustomList = async (listId: number | string, mediaId: number, type: 'show' | 'movie') => {
+  try {
+    const client = await getTraktClient();
+    const payload = {
+      [type === 'show' ? 'shows' : 'movies']: [{ ids: { trakt: mediaId } }]
+    };
+    const response = await client.post(`/users/me/lists/${listId}/items`, payload);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (addMediaToCustomList):', error);
+    throw error;
+  }
+};
+
+export const removeMediaFromCustomList = async (listId: number | string, mediaId: number, type: 'show' | 'movie') => {
+  try {
+    const client = await getTraktClient();
+    const payload = {
+      [type === 'show' ? 'shows' : 'movies']: [{ ids: { trakt: mediaId } }]
+    };
+    const response = await client.post(`/users/me/lists/${listId}/items/remove`, payload);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (removeMediaFromCustomList):', error);
+    throw error;
+  }
+};
+
+export const getOrCreateLikedList = async () => {
+  const client = await getTraktClient();
+  const { data: lists } = await client.get('/users/me/lists');
+  
+  let likedList = lists.find((l: any) => l.name === 'Beğenilen Diziler' || l.name === 'Beğenilenler');
+  
+  if (!likedList) {
+    const { data: newList } = await client.post('/users/me/lists', {
+      name: 'Beğenilen Diziler',
+      description: 'Kalp butonuna basarak beğendiğim içerikler.',
+      privacy: 'private',
+      display_numbers: false,
+      allow_comments: false
+    });
+    likedList = newList;
+  }
+  return likedList.ids.trakt;
+};
+
+export const getLikedShows = async () => {
+  try {
+    const listId = await getOrCreateLikedList();
+    const client = await getTraktClient();
+    const response = await client.get(`/users/me/lists/${listId}/items/shows?extended=full`);
+    // Custom list items return an array of { id, rank, listed_at, type, show: { ... } }
+    // So we map them to return just the show object similar to favorites API
+    return response.data.map((item: any) => ({
+      listed_at: item.listed_at,
+      show: item.show
+    }));
+  } catch (error) {
+    console.error('Trakt API Hatası (getLikedShows):', error);
+    throw error;
+  }
+};
+
+export const getLikedMovies = async () => {
+  try {
+    const listId = await getOrCreateLikedList();
+    const client = await getTraktClient();
+    const response = await client.get(`/users/me/lists/${listId}/items/movies?extended=full`);
+    return response.data.map((item: any) => ({
+      listed_at: item.listed_at,
+      movie: item.movie
+    }));
+  } catch (error) {
+    console.error('Trakt API Hatası (getLikedMovies):', error);
+    throw error;
+  }
+};
+
+export const toggleLikedMedia = async (id: number, type: 'show' | 'movie', isAdding: boolean) => {
+  try {
+    const listId = await getOrCreateLikedList();
+    const client = await getTraktClient();
+    const endpoint = isAdding ? `/users/me/lists/${listId}/items` : `/users/me/lists/${listId}/items/remove`;
+    const payload = {
+      [type === 'show' ? 'shows' : 'movies']: [
+        {
+          ids: { trakt: id }
+        }
+      ]
+    };
+    const response = await client.post(endpoint, payload);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (toggleLikedMedia):', error);
+    throw error;
+  }
+};
+
 
 export const getMyCalendarShows = async (days = 30) => {
   try {

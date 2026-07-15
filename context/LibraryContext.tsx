@@ -50,7 +50,13 @@ import {
   removeFromWatchlistTrakt,
   hideItemTrakt,
   removeFromHistoryTrakt,
-  getShowSeasons
+  getShowSeasons,
+  toggleLikedMedia,
+  getLikedShows,
+  getLikedMovies,
+  createCustomList,
+  addMediaToCustomList,
+  removeMediaFromCustomList
 } from '../services/traktApi';
 
 interface LibraryContextType {
@@ -79,8 +85,13 @@ interface LibraryContextType {
   rewatchEpisode: (showId: number, season: number, episode: number) => Promise<any>;
   markMovieAsWatched: (movieId: number) => Promise<void>;
   toggleWatchlistStatus: (id: number, type: 'show' | 'movie', isCurrentlyWatchlisted: boolean, mediaData: any) => Promise<void>;
+  toggleFavoriteStatus: (id: number, type: 'show' | 'movie', isCurrentlyFavorited: boolean, mediaData: any) => Promise<void>;
   hideMediaFromProgress: (id: number, type: 'show' | 'movie') => Promise<void>;
   deleteMediaFromHistory: (id: number, type: 'show' | 'movie') => Promise<void>;
+  createNewList: (name: string, description?: string) => Promise<any>;
+  toggleMediaInList: (listId: number, mediaId: number, type: 'show' | 'movie', isAdding: boolean) => Promise<void>;
+  setLocalRating: (id: number, type: 'show' | 'movie' | 'episode', rating: number) => void;
+  removeLocalRating: (id: number, type: 'show' | 'movie' | 'episode') => void;
 }
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
@@ -305,8 +316,8 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
         Promise.all([
           getWatchedMovies().catch((e) => { console.error('getWatchedMovies failed', e.message); return null; }),
           getCustomLists().catch((e) => { console.error('getCustomLists failed', e.message); return null; }),
-          getFavoriteShows().catch((e) => { console.error('getFavoriteShows failed', e.message); return null; }),
-          getFavoriteMovies().catch((e) => { console.error('getFavoriteMovies failed', e.message); return null; }),
+          getLikedShows().catch((e) => { console.error('getLikedShows failed', e.message); return null; }),
+          getLikedMovies().catch((e) => { console.error('getLikedMovies failed', e.message); return null; }),
           getUserRatings('shows').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
           getUserRatings('movies').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
           getUserRatings('episodes').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
@@ -881,6 +892,46 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, []);
 
+  const toggleFavoriteStatus = useCallback(async (id: number, type: 'show' | 'movie', isCurrentlyFavorited: boolean, mediaData: any) => {
+    let previousFavShows: any[] | null = null;
+    let previousFavMovies: any[] | null = null;
+
+    if (type === 'show') {
+      setFavShows(prev => {
+        previousFavShows = prev;
+        const newFavs = isCurrentlyFavorited 
+          ? prev.filter(p => p.show?.ids?.trakt !== id)
+          : [{ listed_at: new Date().toISOString(), show: mediaData }, ...prev];
+        safeStorageSet(CACHE_KEYS.favShows, JSON.stringify(newFavs));
+        return newFavs;
+      });
+    } else {
+      setFavMovies(prev => {
+        previousFavMovies = prev;
+        const newFavs = isCurrentlyFavorited 
+          ? prev.filter(p => p.movie?.ids?.trakt !== id)
+          : [{ listed_at: new Date().toISOString(), movie: mediaData }, ...prev];
+        safeStorageSet(CACHE_KEYS.favMovies, JSON.stringify(newFavs));
+        return newFavs;
+      });
+    }
+
+    try {
+      // Trakt API'ye özel listeye ekleme/çıkarma isteğini gönder
+      await toggleLikedMedia(id, type, !isCurrentlyFavorited);
+    } catch (err) {
+      console.error('Toggle favorite hatası, rollback yapılıyor:', err);
+      if (type === 'show' && previousFavShows !== null) {
+        setFavShows(previousFavShows);
+        safeStorageSet(CACHE_KEYS.favShows, JSON.stringify(previousFavShows));
+      } else if (type === 'movie' && previousFavMovies !== null) {
+        setFavMovies(previousFavMovies);
+        safeStorageSet(CACHE_KEYS.favMovies, JSON.stringify(previousFavMovies));
+      }
+      throw err; 
+    }
+  }, []);
+
   const hideMediaFromProgress = useCallback(async (id: number, type: 'show' | 'movie') => {
     try {
       await hideItemTrakt(id, type);
@@ -914,10 +965,96 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     try {
       await removeFromHistoryTrakt(id, type);
     } catch (err) {
-      console.error('Delete from history hatasÄ±:', err);
+      console.error('Delete from history hatası:', err);
       fetchFreshData(true);
     }
   }, [fetchFreshData]);
+
+  const createNewList = useCallback(async (name: string, description?: string) => {
+    try {
+      const newList = await createCustomList(name, description);
+      setCustomLists(prev => {
+        const updated = [newList, ...prev];
+        safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(updated));
+        return updated;
+      });
+      return newList;
+    } catch (err) {
+      console.error('Liste oluşturma hatası:', err);
+      throw err;
+    }
+  }, []);
+
+  const toggleMediaInList = useCallback(async (listId: number, mediaId: number, type: 'show' | 'movie', isAdding: boolean) => {
+    try {
+      if (isAdding) {
+        await addMediaToCustomList(listId, mediaId, type);
+      } else {
+        await removeMediaFromCustomList(listId, mediaId, type);
+      }
+      
+      setCustomLists(prev => {
+        const updated = prev.map(list => {
+          if (list.ids.trakt === listId) {
+            return {
+              ...list,
+              item_count: isAdding ? (list.item_count || 0) + 1 : Math.max(0, (list.item_count || 0) - 1)
+            };
+          }
+          return list;
+        });
+        safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(updated));
+        return updated;
+      });
+    } catch (err) {
+      console.error('Liste medyası ekle/çıkar hatası:', err);
+    }
+  }, []);
+
+  const setLocalRating = useCallback((id: number, type: 'show' | 'movie' | 'episode', rating: number) => {
+    const updateStateAndCache = (
+      setFn: React.Dispatch<React.SetStateAction<any[]>>,
+      cacheKey: string,
+      itemKey: string
+    ) => {
+      setFn(prev => {
+        // Eğer zaten varsa güncelle
+        const existsIndex = prev.findIndex(r => r[itemKey]?.ids?.trakt === id);
+        let updated;
+        if (existsIndex >= 0) {
+          updated = [...prev];
+          updated[existsIndex] = { ...updated[existsIndex], rating };
+        } else {
+          // Yoksa ekle
+          updated = [...prev, { rating, [itemKey]: { ids: { trakt: id } } }];
+        }
+        safeStorageSet(cacheKey, JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    if (type === 'show') updateStateAndCache(setUserRatingsShows, CACHE_KEYS.userRatingsShows, 'show');
+    else if (type === 'movie') updateStateAndCache(setUserRatingsMovies, CACHE_KEYS.userRatingsMovies, 'movie');
+    else if (type === 'episode') updateStateAndCache(setUserRatingsEpisodes, CACHE_KEYS.userRatingsEpisodes, 'episode');
+  }, []);
+
+  const removeLocalRating = useCallback((id: number, type: 'show' | 'movie' | 'episode') => {
+    const removeStateAndCache = (
+      setFn: React.Dispatch<React.SetStateAction<any[]>>,
+      cacheKey: string,
+      itemKey: string
+    ) => {
+      setFn(prev => {
+        const updated = prev.filter(r => r[itemKey]?.ids?.trakt !== id);
+        safeStorageSet(cacheKey, JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    if (type === 'show') removeStateAndCache(setUserRatingsShows, CACHE_KEYS.userRatingsShows, 'show');
+    else if (type === 'movie') removeStateAndCache(setUserRatingsMovies, CACHE_KEYS.userRatingsMovies, 'movie');
+    else if (type === 'episode') removeStateAndCache(setUserRatingsEpisodes, CACHE_KEYS.userRatingsEpisodes, 'episode');
+  }, []);
 
   const value = useMemo(() => ({
     watchedShows,
@@ -942,15 +1079,20 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     markEpisodesUpToAsWatched,
     markMovieAsWatched,
     toggleWatchlistStatus,
+    toggleFavoriteStatus,
     hideMediaFromProgress,
     deleteMediaFromHistory,
     unwatchEpisode,
     unwatchSeason,
-    rewatchEpisode
+    rewatchEpisode,
+    createNewList,
+    toggleMediaInList,
+    setLocalRating,
+    removeLocalRating
   }), [
     watchedShows, watchedMovies, customLists, favShows, favMovies, 
-    watchlistShows, calendarShows, watchlistMovies, calendarMovies, 
-    userRatingsShows, userRatingsMovies, userRatingsEpisodes, showProgressMap, isLoading, isMoviesLoading, fetchFreshData, markEpisodeAsWatched, markSeasonAsWatched, markEpisodesUpToAsWatched, markMovieAsWatched, toggleWatchlistStatus, hideMediaFromProgress, deleteMediaFromHistory, unwatchEpisode, unwatchSeason, rewatchEpisode
+    watchlistShows, calendarShows, watchlistMovies, calendarMovies, calendarSeasonsMap,
+    userRatingsShows, userRatingsMovies, userRatingsEpisodes, showProgressMap, isLoading, isMoviesLoading, fetchFreshData, markEpisodeAsWatched, markSeasonAsWatched, markEpisodesUpToAsWatched, markMovieAsWatched, toggleWatchlistStatus, toggleFavoriteStatus, hideMediaFromProgress, deleteMediaFromHistory, unwatchEpisode, unwatchSeason, rewatchEpisode, createNewList, toggleMediaInList, setLocalRating, removeLocalRating
   ]);
 
   return (

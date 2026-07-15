@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform, UIManager, LayoutAnimation, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import LoadingIndicator from '../../components/LoadingIndicator';
+import { BlurView } from 'expo-blur';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { ChevronLeft, Play, ChevronDown, ChevronUp, Check, CheckCheck, Star } from 'lucide-react-native';
@@ -40,8 +41,12 @@ const {
     userRatingsEpisodes,
     watchlistShows,
     toggleWatchlistStatus,
+    favShows,
+    toggleFavoriteStatus,
     hideMediaFromProgress,
     deleteMediaFromHistory,
+    setLocalRating,
+    removeLocalRating,
     refreshLibrary,
     unwatchEpisode,
     rewatchEpisode
@@ -82,21 +87,25 @@ const {
   const userRating = userRatingObj ? userRatingObj.rating : null;
 
   const isWatchlisted = watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
+  const isFavorited = favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
 
   const handleRate = async (rating: number) => {
     try {
+      setLocalRating(traktIdNum, 'show', rating * 2);
       await addRating(traktIdNum, 'show', rating);
-      await refreshLibrary();
     } catch (e) {
+      removeLocalRating(traktIdNum, 'show');
+      Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
   };
 
   const handleRemoveRating = async () => {
     try {
+      removeLocalRating(traktIdNum, 'show');
       await removeRating(traktIdNum, 'show');
-      await refreshLibrary();
     } catch (e) {
+      Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
       console.error(e);
     }
   };
@@ -200,11 +209,13 @@ const {
   const handleRateEpisode = async (rating: number) => {
     if (!selectedEpisode?.traktId) return;
     try {
+      setLocalRating(selectedEpisode.traktId, 'episode', rating * 2);
       await addRating(selectedEpisode.traktId, 'episode', rating);
       setEpisodeRatingModalVisible(false);
       setSelectedEpisode(null);
-      refreshLibrary();
     } catch (e) {
+      removeLocalRating(selectedEpisode.traktId, 'episode');
+      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
       console.error(e);
     }
   };
@@ -212,11 +223,12 @@ const {
   const handleRemoveEpisodeRating = async () => {
     if (!selectedEpisode?.traktId) return;
     try {
+      removeLocalRating(selectedEpisode.traktId, 'episode');
       await removeRating(selectedEpisode.traktId, 'episode');
       setEpisodeRatingModalVisible(false);
       setSelectedEpisode(null);
-      refreshLibrary();
     } catch (e) {
+      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
       console.error(e);
     }
   };
@@ -259,9 +271,11 @@ const {
           trailerId={trailerId}
           userRating={userRating}
           isWatchlisted={isWatchlisted}
+          isFavorited={isFavorited}
           onRate={handleRate}
           onRemoveRating={handleRemoveRating}
           onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
+          onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
           onHideFromProgress={() => hideMediaFromProgress(traktIdNum, 'show')}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
         />
@@ -507,15 +521,17 @@ const {
       {/* Episode Rating Modal */}
       <Modal visible={episodeRatingModalVisible} transparent animationType="fade">
         <TouchableWithoutFeedback onPress={() => setEpisodeRatingModalVisible(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, styles.centeredOverlay]}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>{t('rateEpisode')}</Text>
-                <StarSlider 
-                  initialRating={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId)?.rating} 
-                  onRate={handleRateEpisode} 
-                  onRemove={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId) ? handleRemoveEpisodeRating : undefined}
-                />
+              <View style={styles.modalContentWrapper}>
+                <BlurView intensity={90} tint="dark" style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>{t('rateEpisode')}</Text>
+                  <StarSlider 
+                    initialRating={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId)?.rating} 
+                    onRate={handleRateEpisode} 
+                    onRemove={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId) ? handleRemoveEpisodeRating : undefined}
+                  />
+                </BlurView>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -571,8 +587,10 @@ const styles = StyleSheet.create({
   episodeName: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 2 },
   episodeDate: { color: '#737373', fontSize: 11 },
   watchedIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#0B1120', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  centeredOverlay: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  modalContentWrapper: { borderRadius: 24, overflow: 'hidden', width: '100%', maxWidth: 360 },
+  modalContent: { backgroundColor: 'rgba(23, 32, 51, 0.7)', padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
   modalHeader: { marginBottom: 20 },
   modalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   modalSubtitle: { color: '#a3a3a3', fontSize: 13 },

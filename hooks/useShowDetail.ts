@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getShowSummary, getShowSeasons, getShowCast, getRelatedShows, getMediaComments } from '../services/traktApi';
+import { getShowSummary, getShowSeasons, getRelatedShows, getMediaComments } from '../services/traktApi';
+import { getTmdbCast } from '../services/tmdbApi';
 import { cacheManager } from '../utils/cacheManager';
 
 interface MediaData {
@@ -27,7 +28,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
 
     const loadData = async () => {
       setIsLoading(true);
-      const cacheKey = `@show_detail_v2_${traktIdNum}`;
+      const cacheKey = `@show_detail_v3_${traktIdNum}`;
       
       let cachedContent = await cacheManager.get<any>(cacheKey);
       let summary = null, seasons = null, cast = null, related = null;
@@ -43,17 +44,26 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         const results = await Promise.allSettled([
           getShowSummary(traktIdNum),
           getShowSeasons(traktIdNum),
-          getShowCast(traktIdNum),
           getRelatedShows(traktIdNum),
           getMediaComments(traktIdNum, 'show')
         ]);
         
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         seasons = results[1].status === 'fulfilled' ? results[1].value : [];
-        cast = results[2].status === 'fulfilled' ? results[2].value?.cast || [] : [];
-        related = results[3].status === 'fulfilled' ? results[3].value : [];
+        related = results[2].status === 'fulfilled' ? results[2].value : [];
+        const comments = results[3].status === 'fulfilled' ? results[3].value?.data || [] : [];
         
-        const comments = results[4].status === 'fulfilled' ? results[4].value?.data || [] : [];
+        // TMDB Cast Fetching Logic (Fallback to summary.ids.tmdb)
+        const finalTmdbId = tmdbId ? Number(tmdbId) : summary?.ids?.tmdb;
+        if (finalTmdbId) {
+          try {
+            cast = await getTmdbCast(finalTmdbId, 'tv');
+          } catch (e) {
+            cast = [];
+          }
+        } else {
+          cast = [];
+        }
         
         const slimSeasons = seasons
           .filter((s: any) => s.number >= 0 && s.episodes && s.episodes.length > 0)
@@ -68,13 +78,8 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
           }))
         }));
         
-        const slimCast = cast.map((c: any) => ({
-          characters: c.characters,
-          person: {
-            name: c.person?.name,
-            ids: { trakt: c.person?.ids?.trakt }
-          }
-        }));
+        // getTmdbCast already formats the cast into a slim version with profile pictures
+        const slimCast = cast;
         
         const slimRelated = related.map((r: any) => ({
           title: r.title,

@@ -13,7 +13,7 @@ interface HorizontalShowListProps {
   titleIcon?: React.ReactNode;
   data: any[];
   onShowAll?: () => void;
-  type?: 'show' | 'movie';
+  type?: 'show' | 'movie' | 'list';
 }
 
 export default function HorizontalShowList({ title, titleIcon, data, onShowAll, type = 'show' }: HorizontalShowListProps) {
@@ -30,17 +30,26 @@ export default function HorizontalShowList({ title, titleIcon, data, onShowAll, 
       onPress={() => {
         const traktId = item.rawTraktId || item.id || item.show?.ids?.trakt || item.movie?.ids?.trakt;
         const tmdbId = item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
-        if (traktId) {
+        
+        if (type === 'list') {
+          router.push(`/list/${traktId}?name=${encodeURIComponent(item.title)}`);
+        } else if (traktId) {
           router.push(`/${type}/${traktId}?tmdbId=${tmdbId}`);
         }
       }}
     >
-      <MediaPoster 
-        tmdbId={item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb} 
-        type={type} 
-        title={item.title || item.show?.title || item.movie?.title} 
-        style={styles.poster} 
-      />
+      {type === 'list' ? (
+        <View style={[styles.poster, styles.listPosterFallback]}>
+          <Text style={styles.listPosterText}>{item.title}</Text>
+        </View>
+      ) : (
+        <MediaPoster 
+          tmdbId={item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb} 
+          type={type as 'show' | 'movie'} 
+          title={item.title || item.show?.title || item.movie?.title} 
+          style={styles.poster} 
+        />
+      )}
     </TouchableOpacity>
   );
 
@@ -133,4 +142,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
+  listPosterFallback: {
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  listPosterText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  }
 });

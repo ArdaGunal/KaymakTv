@@ -57,6 +57,28 @@ export default function Settings() {
     }
   }, [response]);
 
+  // Web için Özel Yönlendirme Yakalayıcı (COOP hatalarını kesin çözmek için Pop-up yerine Top-Level yönlendirme)
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      if (code) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        handleTokenExchange(code);
+      }
+    }
+  }, []);
+
+  const handleTraktLogin = () => {
+    if (Platform.OS === 'web' && request?.url) {
+      // Pop-up açmak yerine sekmenin tamamını Trakt'a yönlendir (COOP bypass)
+      window.location.href = request.url;
+    } else {
+      // Mobilde normal çalışmaya devam et
+      promptAsync();
+    }
+  };
+
   // Kodu alıp Netlify Proxy üzerinden Access Token'a çevir
   const handleTokenExchange = async (code: string) => {
     setIsGenerating(true);
@@ -144,7 +166,7 @@ export default function Settings() {
             <TouchableOpacity 
               style={[styles.button, (!request || !isChecked) ? styles.buttonDisabled : null]} 
               activeOpacity={0.8} 
-              onPress={() => promptAsync()} 
+              onPress={handleTraktLogin} 
               disabled={!request || isGenerating || !isChecked}
             >
               {isGenerating ? (

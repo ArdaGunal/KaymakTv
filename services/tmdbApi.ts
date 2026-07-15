@@ -282,3 +282,72 @@ export const getMovieTrailer = async (tmdbId: number): Promise<string | null> =>
     return null;
   }
 };
+
+export const getTmdbCast = async (tmdbId: number, type: 'tv' | 'movie'): Promise<any[]> => {
+  if (!isWeb && !API_KEY) return [];
+  
+  const cacheKey = `@tmdb_cast_cache_${type}_${tmdbId}`;
+  
+  if (memoryCache.has(cacheKey)) {
+    return memoryCache.get(cacheKey) || [];
+  }
+  
+  try {
+    const response = await fetchFromTmdb(`/${type}/${tmdbId}/credits`, {
+      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+    });
+    
+    // Convert TMDB format to the expected Trakt-like format for MediaCast
+    const cast = response.data.cast?.map((c: any) => ({
+      characters: [c.character],
+      person: {
+        name: c.name,
+        ids: { tmdb: c.id },
+        images: {
+          profiles: [{ file_path: c.profile_path }]
+        }
+      }
+    })) || [];
+    
+    memoryCache.set(cacheKey, cast);
+    return cast;
+  } catch (error) {
+    return [];
+  }
+};
+
+export const getEpisodeTmdbCast = async (tmdbId: number, season: number, episode: number): Promise<any[]> => {
+  if (!isWeb && !API_KEY) return [];
+  
+  const cacheKey = `@tmdb_cast_cache_ep_${tmdbId}_${season}_${episode}`;
+  
+  if (memoryCache.has(cacheKey)) {
+    return memoryCache.get(cacheKey) || [];
+  }
+  
+  try {
+    const response = await fetchFromTmdb(`/tv/${tmdbId}/season/${season}/episode/${episode}/credits`, {
+      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+    });
+    
+    // Convert TMDB format to the expected Trakt-like format for MediaCast
+    const cast = (response.data.cast || []).concat(response.data.guest_stars || []).map((c: any) => ({
+      characters: [c.character],
+      person: {
+        name: c.name,
+        ids: { tmdb: c.id },
+        images: {
+          profiles: [{ file_path: c.profile_path }]
+        }
+      }
+    }));
+    
+    // Remove duplicates if guest_stars and cast overlap
+    const uniqueCast = Array.from(new Map(cast.map(item => [item.person.ids.tmdb, item])).values());
+    
+    memoryCache.set(cacheKey, uniqueCast);
+    return uniqueCast;
+  } catch (error) {
+    return [];
+  }
+};

@@ -6,8 +6,8 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Check, CheckCheck } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getMovieSummary, getMovieCast, getRelatedMovies, addRating, removeRating, getMediaComments } from '../../services/traktApi';
-import { getMovieBackdrop, getMovieTrailer, getMoviePoster } from '../../services/tmdbApi';
+import { getMovieSummary, getRelatedMovies, addRating, removeRating, getMediaComments } from '../../services/traktApi';
+import { getMovieBackdrop, getMovieTrailer, getMoviePoster, getTmdbCast } from '../../services/tmdbApi';
 import { useLibrary } from '../../context/LibraryContext';
 import MediaHero from '../../components/MediaHero';
 import MediaCast from '../../components/MediaCast';
@@ -42,11 +42,14 @@ export default function MovieDetailScreen() {
   
   const { 
     userRatingsMovies, 
-    refreshLibrary, 
+    setLocalRating,
+    removeLocalRating,
     markMovieAsWatched, 
     watchedMovies,
     watchlistMovies,
     toggleWatchlistStatus,
+    favMovies,
+    toggleFavoriteStatus,
     deleteMediaFromHistory 
   } = useLibrary();
   const { isGuest } = useAuth();
@@ -62,15 +65,17 @@ export default function MovieDetailScreen() {
   // Kullanıcı filmi izlemiş mi?
   const isWatched = watchedMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isWatchlisted = watchlistMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
+  const isFavorited = favMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
 
   useEffect(() => {
     if (!id) return;
+    let isMounted = true;
 
     const fetchDetails = async () => {
       try {
-        setIsLoading(true);
+        if (isMounted) setIsLoading(true);
 
-        const cacheKey = `@movie_detail_cache_${id}`;
+        const cacheKey = `@movie_detail_v3_cache_${id}`;
         const cached = await AsyncStorage.getItem(cacheKey);
         
         let summary, cast, related;
@@ -87,24 +92,28 @@ export default function MovieDetailScreen() {
         if (!summary) {
           const results = await Promise.allSettled([
             getMovieSummary(traktIdNum),
-            getMovieCast(traktIdNum),
             getRelatedMovies(traktIdNum),
             getMediaComments(traktIdNum, 'movie')
           ]);
           
           summary = results[0].status === 'fulfilled' ? results[0].value : null;
-          cast = results[1].status === 'fulfilled' ? results[1].value?.cast || [] : [];
-          related = results[2].status === 'fulfilled' ? results[2].value : [];
-          const comments = results[3].status === 'fulfilled' ? results[3].value?.data || [] : [];
-          setCommentsData(comments);
-          
-          const slimCast = cast.map((c: any) => ({
-            characters: c.characters,
-            person: {
-              name: c.person?.name,
-              ids: { trakt: c.person?.ids?.trakt }
+          related = results[1].status === 'fulfilled' ? results[1].value : [];
+          const comments = results[2].status === 'fulfilled' ? results[2].value?.data || [] : [];
+          if (isMounted) setCommentsData(comments);
+
+          // TMDB Cast Fetching Logic (Fallback to summary.ids.tmdb)
+          const finalTmdbId = tmdbIdNum ? tmdbIdNum : summary?.ids?.tmdb;
+          if (finalTmdbId) {
+            try {
+              cast = await getTmdbCast(finalTmdbId, 'movie');
+            } catch (e) {
+              cast = [];
             }
-          }));
+          } else {
+            cast = [];
+          }
+          
+          const slimCast = cast;
           
           const slimRelated = related.map((r: any) => ({
             title: r.title,
@@ -141,20 +150,22 @@ export default function MovieDetailScreen() {
           }
         }
 
-        setMovieData(summary);
-        setCastData(cast || []);
-        
-        const mappedRelated = (related || []).map((item: any) => {
-           return {
-              id: item.ids.trakt,
-              rawTraktId: item.ids.trakt,
-              tmdbId: item.ids?.tmdb,
-              title: item.title
-           };
-        });
-        setRelatedMovies(mappedRelated);
+        if (isMounted) {
+          setMovieData(summary);
+          setCastData(cast || []);
+          
+          const mappedRelated = (related || []).map((item: any) => {
+             return {
+                id: item.ids.trakt,
+                rawTraktId: item.ids.trakt,
+                tmdbId: item.ids?.tmdb,
+                title: item.title
+             };
+          });
+          setRelatedMovies(mappedRelated);
+        }
 
-        if (tmdbIdNum) {
+        if (tmdbIdNum && isMounted) {
           const [bd, tr, pst] = await Promise.all([
             getMovieBackdrop(tmdbIdNum),
             getMovieTrailer(tmdbIdNum),
@@ -164,36 +175,44 @@ export default function MovieDetailScreen() {
           setTrailerId(tr);
           setPoster(pst);
         }
-        if (summary && !commentsData.length) { // In case it was loaded from cache but comments weren't
+        if (summary && !commentsData.length && isMounted) { // In case it was loaded from cache but comments weren't
            try {
              const commRes = await getMediaComments(traktIdNum, 'movie');
-             setCommentsData(commRes.data || []);
+             if (isMounted) setCommentsData(commRes.data || []);
            } catch(e) {}
         }
-      } catch (e) {
-        console.error(e);
+      } catch (error) {
+        console.error('Hata:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchDetails();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [id, tmdbId]);
 
   const handleRate = async (rating: number) => {
     try {
+      setLocalRating(traktIdNum, 'movie', rating * 2); // Internal scale is 1-10
       await addRating(traktIdNum, 'movie', rating);
-      await refreshLibrary(); // Arka planda tüm library'i sessizce yenile (Optimistic için context'i güncelle)
     } catch (e) {
+      removeLocalRating(traktIdNum, 'movie');
+      Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
   };
 
   const handleRemoveRating = async () => {
     try {
+      removeLocalRating(traktIdNum, 'movie');
       await removeRating(traktIdNum, 'movie');
-      await refreshLibrary();
     } catch (e) {
+      // Optimistic revert requires knowing the old rating, but for remove we might just fetch
+      Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
       console.error(e);
     }
   };
@@ -248,11 +267,13 @@ export default function MovieDetailScreen() {
           poster={poster}
           trailerId={trailerId}
           userRating={userRating}
-          isWatchlisted={isWatchlisted}
           isWatched={isWatched}
+          isWatchlisted={isWatchlisted}
+          isFavorited={isFavorited}
           onRate={handleRate}
           onRemoveRating={handleRemoveRating}
           onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
+          onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
           onRewatch={() => markMovieAsWatched(traktIdNum)}
         />

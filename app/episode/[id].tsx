@@ -16,7 +16,9 @@ import StarSlider from '../../components/StarSlider';
 import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
+import MediaCast from '../../components/MediaCast';
 import { useLibrary } from '../../context/LibraryContext';
+import { useEpisodeCast } from '../../hooks/useEpisodeCast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -25,14 +27,25 @@ export default function EpisodeDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id, showId, showTmdbId, showSlug, season, episode, showName } = useLocalSearchParams();
-  const { userRatingsEpisodes, refreshLibrary, showProgressMap, unwatchEpisode } = useLibrary();
+  const { 
+    userRatingsEpisodes, 
+    setLocalRating,
+    removeLocalRating,
+    showProgressMap, 
+    unwatchEpisode 
+  } = useLibrary();
   const { isGuest } = useAuth();
   const { t } = useTranslation('media');
   const { mediaData, isLoading, refreshData } = useEpisodeDetail(showId, showTmdbId, season, episode);
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
-  const castData = mediaData.cast;
   const stillUrl = mediaData.stillUrl;
+
+  const { cast: epCast, voteActor } = useEpisodeCast(
+    showTmdbId ? parseInt(showTmdbId as string, 10) : null,
+    parseInt(season as string, 10),
+    parseInt(episode as string, 10)
+  );
 
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
@@ -60,18 +73,25 @@ export default function EpisodeDetailScreen() {
 
   const handleRate = async (val: number) => {
     try {
+      setLocalRating(epTraktId, 'episode', val * 2);
       await addRating(epTraktId, 'episode', val);
       setRatingModalVisible(false);
-      refreshLibrary();
-    } catch(e) { console.error(e) }
+    } catch(e) { 
+      removeLocalRating(epTraktId, 'episode');
+      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
+      console.error(e);
+    }
   };
 
   const handleRemoveRating = async () => {
     try {
+      removeLocalRating(epTraktId, 'episode');
       await removeRating(epTraktId, 'episode');
       setRatingModalVisible(false);
-      refreshLibrary();
-    } catch(e) { console.error(e) }
+    } catch(e) { 
+      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
+      console.error(e);
+    }
   };
 
   const handleShare = async () => {
@@ -98,7 +118,7 @@ export default function EpisodeDetailScreen() {
   const title = episodeData?.title || t('episodeNum', { number: episode });
   const overview = episodeData?.overview || t('noOverviewYet');
   const firstAired = episodeData?.first_aired ? new Date(episodeData.first_aired).toLocaleDateString('tr-TR') : t('noDate');
-  const rating = episodeData?.rating ? episodeData.rating.toFixed(1) : '-';
+  const rating = episodeData?.rating ? (episodeData.rating / 2).toFixed(1) : '-';
   const votes = episodeData?.votes ? episodeData.votes.toLocaleString('tr-TR') : '0';
 
   return (
@@ -219,40 +239,9 @@ export default function EpisodeDetailScreen() {
             <Text style={styles.overviewText}>{overview}</Text>
           </View>
 
-          {/* Cast */}
-          {castData && castData.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{t('mainCast')}</Text>
-                <TouchableOpacity onPress={() => {
-                  if (Platform.OS === 'web') {
-                    window.open(`https://trakt.tv/shows/${showSlug}/people`, '_blank');
-                  } else {
-                    setIsWebViewVisible(true);
-                  }
-                }}>
-                  <Text style={styles.seeAllText}>{t('seeAll')}</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
-                {castData.map((castItem: any, idx: number) => {
-                  const person = castItem.person;
-                  // GÜVENLİK KONTROLLERİ:
-                  const personName = person?.name || t('unnamed');
-                  const personId = person?.ids?.trakt || `fallback-${idx}`;
-
-                  return (
-                    <View key={personId} style={styles.castItem}>
-                      <View style={styles.castPhotoPlaceholder}>
-                        <Text style={{color: '#a3a3a3'}}>{personName.charAt(0)}</Text>
-                      </View>
-                      <Text style={styles.castName} numberOfLines={1}>{personName}</Text>
-                      <Text style={styles.castCharacter} numberOfLines={1}>{castItem.characters?.[0] || t('unknown')}</Text>
-                    </View>
-                  )
-                })}
-              </ScrollView>
-            </View>
+          {/* Cast (Modular implementation using TMDB Episode Credits) */}
+          {epCast && epCast.length > 0 && (
+            <MediaCast cast={epCast} onActorPress={voteActor} />
           )}
 
           {/* Comments */}
