@@ -11,9 +11,10 @@ import { useRouter } from 'expo-router';
 import { getShowPoster, getMoviePoster } from '../services/tmdbApi';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useTranslation } from 'react-i18next';
+import LoginPaywall from '../components/LoginPaywall';
 
 export default function ProfileScreen() {
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const { watchedShows, watchedMovies, customLists, favShows, favMovies, isLoading: isLibraryLoading } = useLibrary();
   const router = useRouter();
   const { t, i18n } = useTranslation('media');
@@ -109,12 +110,10 @@ export default function ProfileScreen() {
     }
   };
 
-  if (!accessToken) {
+  if (!accessToken || isGuest) {
     return (
       <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <View style={styles.centered}>
-          <Text style={styles.loginText}>{t('profileLoginReq')}</Text>
-        </View>
+        <LoginPaywall message={t('profileLoginReq', 'Profilinizi görüntülemek ve istatistiklerinize ulaşmak için giriş yapın.')} />
       </View>
     );
   }

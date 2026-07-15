@@ -5,6 +5,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import { ChevronDown, ChevronUp, PlayCircle, Bookmark, Clock, Play } from 'lucide-react-native';
 import EpisodeCard from '../components/EpisodeCard';
 import SkeletonLoader from '../components/SkeletonLoader';
+import LoginPaywall from '../components/LoginPaywall';
 import InlineRater from '../components/InlineRater';
 import { addRating } from '../services/traktApi';
 import { getTrendingShows } from '../services/traktApi';
@@ -46,7 +47,7 @@ export default function DizilerScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedShow, setFinishedShow] = useState<{name: string, id: number} | null>(null);
   
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, isLoading: isLibraryLoading, markEpisodeAsWatched, refreshLibrary } = useLibrary();
 
@@ -81,10 +82,10 @@ export default function DizilerScreen() {
           processData();
         });
       }
-    } else {
+    } else if (!isGuest) {
       fetchTrendingFallback();
     }
-  }, [accessToken, isLibraryLoading, watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, i18n.language]);
+  }, [accessToken, isLibraryLoading, watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, i18n.language, isGuest]);
 
   const loadCollapsedState = async () => {
     try {
@@ -538,6 +539,14 @@ export default function DizilerScreen() {
     return sections;
   }, [upNextShows, watchlistShowsList, inactiveShows, collapsed, i18n.language]);
 
+
+  if (isGuest) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan dizilerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

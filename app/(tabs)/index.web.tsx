@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useResponsive } from '../../hooks/useResponsive';
 import IndexMobile from '../../screens/IndexMobile';
 import { viewAllStore } from '../../utils/viewAllStore';
+import LoginPaywall from '../../components/LoginPaywall';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +40,7 @@ export default function DizilerScreenWeb() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedShow, setFinishedShow] = useState<{name: string, id: number} | null>(null);
   
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, isLoading: isLibraryLoading, markEpisodeAsWatched, refreshLibrary } = useLibrary();
 
@@ -70,10 +71,10 @@ export default function DizilerScreenWeb() {
           processData();
         });
       }
-    } else {
+    } else if (!isGuest) {
       fetchTrendingFallback();
     }
-  }, [accessToken, isLibraryLoading, watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, i18n.language]);
+  }, [accessToken, isLibraryLoading, watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, i18n.language, isGuest]);
 
   const onRefresh = React.useCallback(async () => {
     if (!accessToken) return;
@@ -451,6 +452,16 @@ export default function DizilerScreenWeb() {
 
   if (!isDesktop) {
     return <IndexMobile />;
+  }
+
+  if (isGuest) {
+    return (
+      <View style={styles.pageBackground}>
+        <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
+          <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan dizilerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+        </View>
+      </View>
+    );
   }
 
   return (

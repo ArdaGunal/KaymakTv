@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { useLibrary } from '../context/LibraryContext';
+import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
 interface EpisodeCheckButtonProps {
@@ -25,6 +26,7 @@ export default function EpisodeCheckButton({
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [isFinishedLocal, setIsFinishedLocal] = useState(false);
   const { markEpisodeAsWatched, markEpisodesUpToAsWatched, showProgressMap } = useLibrary();
+  const { isGuest } = useAuth();
   const { t } = useTranslation(['media', 'common']);
 
   const performCheckIn = async (isBulk: boolean, episodesToMark: number[] = []) => {
@@ -68,6 +70,11 @@ export default function EpisodeCheckButton({
   };
 
   const handleCheckIn = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+    
     if (isLocalLoading || isSuccess || isFinishedLocal) return;
     
     const progress = showProgressMap[traktId];

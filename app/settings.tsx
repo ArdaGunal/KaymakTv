@@ -14,7 +14,7 @@ import * as AuthSession from 'expo-auth-session';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function Settings() {
-  const { accessToken, saveTokens, removeKeys } = useAuth();
+  const { accessToken, saveTokens, removeKeys, loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
@@ -170,6 +170,23 @@ export default function Settings() {
             </TouchableOpacity>
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>VEYA</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.button, styles.guestButton]} 
+              activeOpacity={0.8} 
+              onPress={async () => {
+                await loginAsGuest();
+                router.replace('/explore');
+              }}
+            >
+              <Text style={styles.guestButtonText}>Misafir Olarak Devam Et</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <View style={styles.loggedInContainer}>
@@ -272,6 +289,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  guestButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginTop: 8,
+  },
+  guestButtonText: {
+    color: '#cbd5e1',
+    fontWeight: '500',
+    fontSize: 15,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    paddingHorizontal: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    color: '#64748b',
+    paddingHorizontal: 16,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   checkboxContainer: {
     flexDirection: 'row',

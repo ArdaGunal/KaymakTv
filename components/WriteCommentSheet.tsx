@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ActivityInd
 import { X, Send, AlertTriangle, Edit2, Trash2, Check } from 'lucide-react-native';
 import { addComment, getUserComments, updateComment, deleteComment } from '../services/traktApi';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 
 interface WriteCommentSheetProps {
   visible: boolean;
@@ -22,6 +23,7 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
   const [existingCommentId, setExistingCommentId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState(false);
   const { t } = useTranslation(['media', 'common']);
+  const { isGuest } = useAuth();
 
   useEffect(() => {
     if (visible && mediaId) {
@@ -30,6 +32,10 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
   }, [visible, mediaId]);
 
   const loadMyComment = async () => {
+    if (isGuest) {
+      setLoadingInitial(false);
+      return;
+    }
     setLoadingInitial(true);
     try {
       const userRes = await getUserComments();

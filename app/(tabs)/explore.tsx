@@ -31,12 +31,12 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const router = useRouter();
   const activeSearchRef = React.useRef<string>('');
 
   const fetchTrending = async (reset = true) => {
-    if (!accessToken) {
+    if (!accessToken && !isGuest) {
       setLoading(false);
       setRefreshing(false);
       return;
@@ -94,7 +94,7 @@ export default function ExploreScreen() {
   };
 
   const fetchSearch = async (query: string) => {
-    if (!accessToken) return;
+    if (!accessToken && !isGuest) return;
 
     activeSearchRef.current = query;
     const currentSearch = query;
@@ -123,7 +123,7 @@ export default function ExploreScreen() {
   };
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken && !isGuest) return;
 
     if (searchQuery.trim().length > 2) {
       const delayDebounceFn = setTimeout(() => {
@@ -138,11 +138,11 @@ export default function ExploreScreen() {
         fetchTrending();
       }
     }
-  }, [searchQuery, accessToken]);
+  }, [searchQuery, accessToken, isGuest]);
 
   // Dil değiştiğinde trend olan içeriklerin çevirilerini güncelle
   useEffect(() => {
-    if (accessToken && (trendingShows.length > 0 || trendingMovies.length > 0)) {
+    if ((accessToken || isGuest) && (trendingShows.length > 0 || trendingMovies.length > 0)) {
       if (searchQuery.trim().length > 2) {
         fetchSearch(searchQuery);
       } else {
@@ -160,7 +160,7 @@ export default function ExploreScreen() {
     }
   };
 
-  if (!accessToken) {
+  if (!accessToken && !isGuest) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{t('exploreLoginReq')}</Text>

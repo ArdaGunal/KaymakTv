@@ -16,10 +16,11 @@ import MovieCard from '../../components/movies/MovieCard';
 import ListCard from '../../components/ListCard.web';
 import LoadingIndicator from '../../components/LoadingIndicator';
 import MediaPoster from '../../components/MediaPoster';
+import LoginPaywall from '../../components/LoginPaywall';
 
 export default function ProfileScreenWeb() {
   const { isDesktop } = useResponsive();
-  const { accessToken } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const { watchedShows, watchedMovies, customLists, favShows, favMovies, isLoading: isLibraryLoading } = useLibrary();
   const router = useRouter();
   const { t, i18n } = useTranslation('media');
@@ -135,12 +136,10 @@ export default function ProfileScreenWeb() {
     );
   };
 
-  if (!accessToken) {
+  if (!accessToken || isGuest) {
     return (
       <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <View style={styles.centered}>
-          <Text style={styles.loginText}>{t('profileLoginReq')}</Text>
-        </View>
+        <LoginPaywall message={t('profileLoginReq', 'Profilinizi görüntülemek ve istatistiklerinize ulaşmak için giriş yapın.')} />
       </View>
     );
   }

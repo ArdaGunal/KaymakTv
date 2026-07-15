@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import StarSlider from './StarSlider';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -45,6 +46,7 @@ export default function MediaHero({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['media', 'common']);
+  const { isGuest } = useAuth();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
@@ -78,11 +80,21 @@ export default function MediaHero({
   };
 
   const handleToggleWatchlist = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      setOptionsModalVisible(false);
+      return;
+    }
     onToggleWatchlist();
     setOptionsModalVisible(false);
   };
 
   const handleHideProgress = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      setOptionsModalVisible(false);
+      return;
+    }
     if (onHideFromProgress) {
       onHideFromProgress();
     }
@@ -90,6 +102,11 @@ export default function MediaHero({
   };
 
   const handleDeleteHistory = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      setOptionsModalVisible(false);
+      return;
+    }
     if (!onDeleteFromHistory) return;
     Alert.alert(
       t('areYouSure'),
@@ -168,7 +185,13 @@ export default function MediaHero({
             <TouchableOpacity 
               style={[styles.userRatingBadge, userRating ? styles.userRatingActive : null]} 
               activeOpacity={0.7}
-              onPress={() => setRatingModalVisible(true)}
+              onPress={() => {
+                if (isGuest) {
+                  Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+                  return;
+                }
+                setRatingModalVisible(true);
+              }}
             >
               <Star size={14} color={userRating ? "#3b82f6" : "#a3a3a3"} fill={userRating ? "#3b82f6" : "transparent"} />
               <Text style={[styles.userRatingText, userRating ? styles.userRatingTextActive : null]}>
@@ -254,6 +277,11 @@ export default function MediaHero({
 
             {type === 'movie' && isWatched && onRewatch && (
               <TouchableOpacity style={styles.optionRow} onPress={() => {
+                if (isGuest) {
+                  Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+                  setOptionsModalVisible(false);
+                  return;
+                }
                 onRewatch();
                 setOptionsModalVisible(false);
               }}>

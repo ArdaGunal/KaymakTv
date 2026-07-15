@@ -41,11 +41,14 @@ const setCachedData = async (key: string, value: string | null) => {
  * On Production Web: Routes through Netlify proxy to hide API_KEY
  */
 const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
-  if (isWeb) {
+  // Misafirlerde ve normal kullanıcılarda ortak sorunu çözmek için
+  // Proxy yerine doğrudan TMDB'ye bağlanıyoruz (eğer API anahtarı varsa)
+  if (API_KEY) {
+    return axios.get(`${TMDB_API_URL}${endpoint}`, { params: { ...params, api_key: API_KEY } });
+  } else if (isWeb) {
     return axios.get(TMDB_PROXY_URL, { params: { ...params, endpoint } });
   } else {
-    if (!API_KEY) throw new Error('TMDB API Key missing');
-    return axios.get(`${TMDB_API_URL}${endpoint}`, { params: { ...params, api_key: API_KEY } });
+    throw new Error('TMDB API Key missing');
   }
 };
 
@@ -75,7 +78,8 @@ export const getShowPoster = async (tmdbId: number): Promise<string | null> => {
 
     await setCachedData(cacheKey, null);
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    console.warn(`TMDB API Hatası (show tmdbId: ${tmdbId}):`, error.message);
     await setCachedData(cacheKey, null);
     return null;
   }

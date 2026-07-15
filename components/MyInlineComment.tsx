@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-na
 import { Edit2, Trash2 } from 'lucide-react-native';
 import { getUserComments, deleteComment } from '../services/traktApi';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 
 interface MyInlineCommentProps {
   mediaId: number;
@@ -18,6 +19,7 @@ export default function MyInlineComment({ mediaId, mediaType, episodeTraktId, on
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const { t } = useTranslation(['media', 'common']);
+  const { isGuest } = useAuth();
 
   useEffect(() => {
     if (mediaId) {
@@ -26,6 +28,10 @@ export default function MyInlineComment({ mediaId, mediaType, episodeTraktId, on
   }, [mediaId, refreshTrigger]);
 
   const loadMyComment = async () => {
+    if (isGuest) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const userRes = await getUserComments();
@@ -96,7 +102,13 @@ export default function MyInlineComment({ mediaId, mediaType, episodeTraktId, on
   return (
     <TouchableOpacity 
       style={{ backgroundColor: '#172033', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
-      onPress={onPressWrite}
+      onPress={() => {
+        if (isGuest) {
+          Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+          return;
+        }
+        onPressWrite();
+      }}
     >
       <Text style={{ color: '#a3a3a3', flex: 1, fontStyle: 'italic' }}>{placeholderText}</Text>
       <View style={{ backgroundColor: '#3b82f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
