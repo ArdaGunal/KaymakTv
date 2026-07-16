@@ -17,6 +17,7 @@ import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
 import MediaCast from '../../components/MediaCast';
+import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +33,9 @@ export default function EpisodeDetailScreen() {
     setLocalRating,
     removeLocalRating,
     showProgressMap, 
-    unwatchEpisode 
+    unwatchEpisode,
+    markEpisodeAsWatched,
+    markEpisodesUpToAsWatched
   } = useLibrary();
   const { isGuest } = useAuth();
   const { t } = useTranslation('media');
@@ -70,6 +73,11 @@ export default function EpisodeDetailScreen() {
 
   const epTraktId = parseInt(id as string, 10);
   const myRating = userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === epTraktId)?.rating;
+  const traktIdNum = parseInt(showId as string, 10);
+
+  const showProgress = showProgressMap[traktIdNum];
+  const hasShowProgress = showProgress && showProgress.aired > 0 && showProgress.completed > 0;
+  const showProgressPercentage = hasShowProgress ? (showProgress.completed / showProgress.aired) * 100 : 0;
 
   const handleRate = async (val: number) => {
     try {
@@ -91,6 +99,84 @@ export default function EpisodeDetailScreen() {
     } catch(e) { 
       Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
       console.error(e);
+    }
+  };
+
+  const handleWatchPress = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+
+    const sNum = parseInt(season as string, 10);
+    const eNum = parseInt(episode as string, 10);
+    const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
+
+    setIsCheckLoading(true);
+    try {
+      if (isWatchedLocal) {
+        await unwatchEpisode(traktIdNum, sNum, eNum);
+        return;
+      }
+
+      const progress = showProgressMap[traktIdNum];
+      let skippedEpisodes: number[] = [];
+      if (progress && progress.seasons) {
+        const currentSeasonProgress = progress.seasons.find((s: any) => s.number === sNum);
+        if (currentSeasonProgress && currentSeasonProgress.episodes) {
+          for (let i = 1; i < eNum; i++) {
+            const ep = currentSeasonProgress.episodes.find((e: any) => e.number === i);
+            if (!ep || !ep.completed) {
+              skippedEpisodes.push(i);
+            }
+          }
+        } else {
+          for (let i = 1; i < eNum; i++) {
+            skippedEpisodes.push(i);
+          }
+        }
+      } else {
+        for (let i = 1; i < eNum; i++) {
+          skippedEpisodes.push(i);
+        }
+      }
+
+      const performCheckIn = async (isBulk: boolean, eps: number[]) => {
+        try {
+          if (isBulk) {
+            await markEpisodesUpToAsWatched(traktIdNum, sNum, eps);
+          } else {
+            await markEpisodeAsWatched(traktIdNum, sNum, eNum);
+          }
+        } catch(e) {
+          console.error(e);
+          Alert.alert(t('common:error'), 'Bölüm işaretlenirken bir hata oluştu.');
+        }
+      };
+
+      if (skippedEpisodes.length > 0) {
+        Alert.alert(
+          t('skippedEpisodesTitle', { defaultValue: 'Atlanan Bölümler Var' }),
+          t('skippedEpisodesMsg', { defaultValue: 'Önceki izlemediğiniz bölümleri de izlendi olarak işaretlemek ister misiniz?' }),
+          [
+            {
+              text: t('common:markOnlyThis', { defaultValue: 'Yalnızca Bu Bölüm' }),
+              onPress: () => performCheckIn(false, []),
+              style: 'cancel'
+            },
+            {
+              text: t('common:markPreviousToo', { defaultValue: 'Öncekileri de İşaretle' }),
+              onPress: () => performCheckIn(true, [...skippedEpisodes, eNum])
+            }
+          ]
+        );
+      } else {
+        await performCheckIn(false, []);
+      }
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setIsCheckLoading(false);
     }
   };
 
@@ -149,86 +235,85 @@ export default function EpisodeDetailScreen() {
             <Text style={styles.showName} numberOfLines={1}>{showName}</Text>
             <Text style={styles.episodeIdentifier}>{t('seasonEpisodeIdentifier', { season: season, episode: episode })}</Text>
             <Text style={styles.episodeTitle}>{title}</Text>
-            
-            <View style={styles.metaRow}>
-              <Text style={styles.metaText}>{firstAired}</Text>
+            <Text style={styles.metaText}>{firstAired}</Text>
+
+            <View style={styles.ratingsRow}>
+              {/* Global Trakt Rating */}
               <View style={styles.ratingBadge}>
-                <Star color="#facc15" size={14} fill="#facc15" />
-                <Text style={styles.ratingText}>{rating}</Text>
-                <Text style={styles.votesText}>({votes})</Text>
+                <Star size={14} color="#facc15" fill="#facc15" />
+                <Text style={styles.ratingText}>
+                  {rating}
+                </Text>
               </View>
-              <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity 
-                  onPress={() => setRatingModalVisible(true)}
-                  style={{ marginRight: 12, alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 22, backgroundColor: myRating ? '#3b82f6' : 'rgba(255,255,255,0.1)' }}
-                >
-                  <Star color={myRating ? "#fff" : "#a3a3a3"} size={20} fill={myRating ? "#fff" : "transparent"} />
-                </TouchableOpacity>
-                {(() => {
-                  const sNum = parseInt(season as string, 10);
-                  const eNum = parseInt(episode as string, 10);
-                  const traktIdNum = parseInt(showId as string, 10);
-                  const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
 
-                  const handleUnwatch = async () => {
-                    if (isGuest) {
-                      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-                      return;
-                    }
-                    setIsCheckLoading(true);
-                    try {
-                      await unwatchEpisode(traktIdNum, sNum, eNum);
-                    } catch(e) {
-                      console.error(e);
-                    } finally {
-                      setIsCheckLoading(false);
-                    }
-                  };
-
-                  if (isWatchedLocal) {
-                    return (
-                      <TouchableOpacity 
-                        style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 2 }}
-                        onPress={() => {
-                          Alert.alert(t('unwatch'), t('unwatchConfirm'), [
-                            { text: t('cancel'), style: 'cancel' },
-                            { text: t('remove'), onPress: handleUnwatch }
-                          ]);
-                        }}
-                        disabled={isCheckLoading}
-                      >
-                        {isCheckLoading ? (
-                          <LoadingIndicator size="small" color="#fff" />
-                        ) : (
-                          <Check size={20} color="#fff" strokeWidth={3} />
-                        )}
-                      </TouchableOpacity>
-                    );
+              {/* User Rating Badge (Puanla) */}
+              <TouchableOpacity 
+                style={[styles.userRatingBadge, (myRating !== undefined && myRating !== null) ? styles.userRatingActive : null]} 
+                onPress={() => {
+                  if (isGuest) {
+                    Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+                    return;
                   }
+                  setRatingModalVisible(true)
+                }}
+                activeOpacity={0.7}
+              >
+                <Star size={14} color={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "transparent"} />
+                <Text style={[styles.userRatingText, (myRating !== undefined && myRating !== null) ? styles.userRatingTextActive : null]}>
+                  {(myRating !== undefined && myRating !== null) ? `${(myRating / 2).toFixed(1)}/5` : t('rate', { defaultValue: 'Puanla' })}
+                </Text>
+              </TouchableOpacity>
 
-                  // Bölüm yayın tarihi yoksa veya gelecekteyse butonu GÖSTERME (Sadece TBA/Tarih yazsın)
-                  const isFutureOrTBA = !episodeData?.first_aired || new Date(episodeData.first_aired) > new Date();
-                  if (isFutureOrTBA) {
-                    return (
-                      <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}>
-                        <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 12 }}>
-                          {!episodeData?.first_aired ? 'TBA' : t('notAiredYet', { defaultValue: 'Yayınlanmadı' })}
-                        </Text>
-                      </View>
-                    );
-                  }
-
+              {/* Check (Watched/Unwatched) Badge */}
+              {(() => {
+                const sNum = parseInt(season as string, 10);
+                const eNum = parseInt(episode as string, 10);
+                const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
+                const isFutureOrTBA = !episodeData?.first_aired || new Date(episodeData.first_aired) > new Date();
+                
+                if (isFutureOrTBA) {
                   return (
-                    <EpisodeCheckButton 
-                      traktId={traktIdNum}
-                      season={sNum}
-                      episode={eNum}
-                      showName={showName as string}
-                    />
+                    <View style={[styles.userRatingBadge, { backgroundColor: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                      <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13 }}>
+                        {!episodeData?.first_aired ? 'TBA' : t('notAiredYet', { defaultValue: 'Yayınlanmadı' })}
+                      </Text>
+                    </View>
                   );
-                })()}
-              </View>
+                }
+
+                return (
+                  <TouchableOpacity 
+                    style={[
+                      styles.userRatingBadge, 
+                      isWatchedLocal ? { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' } : null
+                    ]} 
+                    activeOpacity={0.7}
+                    onPress={handleWatchPress}
+                    disabled={isCheckLoading}
+                  >
+                    {isCheckLoading ? (
+                      <LoadingIndicator size="small" color={isWatchedLocal ? "#10b981" : "#a3a3a3"} />
+                    ) : (
+                      <>
+                        <Check size={14} color={isWatchedLocal ? "#10b981" : "#a3a3a3"} strokeWidth={3} />
+                        <Text style={[styles.userRatingText, isWatchedLocal ? { color: '#10b981' } : null]}>
+                          {isWatchedLocal ? t('watched', { defaultValue: 'İzlendi' }) : t('markAsWatched', { defaultValue: 'İzlendi İşaretle' })}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
+
+            {hasShowProgress && (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBarWrapper}>
+                  <ProgressBar percentage={showProgressPercentage} />
+                </View>
+                <Text style={styles.progressText}>%{Math.round(showProgressPercentage)}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -387,11 +472,56 @@ const styles = StyleSheet.create({
   showName: { fontSize: 14, color: '#3b82f6', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
   episodeIdentifier: { fontSize: 13, color: '#a3a3a3', marginBottom: 6 },
   episodeTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 },
   metaText: { color: '#d4d4d4', fontSize: 13, fontWeight: '600' },
-  ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0B1120', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 },
-  ratingText: { color: '#facc15', fontSize: 13, fontWeight: 'bold' },
-  votesText: { color: '#737373', fontSize: 11 },
+  ratingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(250, 204, 21, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(250, 204, 21, 0.2)',
+  },
+  ratingText: {
+    color: '#facc15',
+    fontWeight: 'bold',
+    fontSize: 13,
+    marginLeft: 4,
+  },
+  userRatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  userRatingActive: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+  userRatingText: {
+    color: '#a3a3a3',
+    fontWeight: 'bold',
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  userRatingTextActive: {
+    color: '#3b82f6',
+  },
+  progressContainer: { marginTop: 8, width: '100%', maxWidth: 240, flexDirection: 'row', alignItems: 'center' },
+  progressBarWrapper: { flex: 1 },
+  progressText: { color: '#a3a3a3', fontSize: 12, fontWeight: '600', marginLeft: 8 },
   contentArea: { padding: 16 },
   section: { marginBottom: 32 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },

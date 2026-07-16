@@ -10,6 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { useResponsive } from '../hooks/useResponsive';
 import { BlurView } from 'expo-blur';
 import AddToListModal from './AddToListModal';
+import ProgressBar from './ProgressBar';
+import { useLibrary } from '../context/LibraryContext';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -54,10 +56,15 @@ export default function MediaHero({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
+  const { showProgressMap } = useLibrary();
   const { isDesktop } = useResponsive();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [listModalVisible, setListModalVisible] = useState(false);
+
+  const progress = type === 'show' && data?.ids?.trakt ? showProgressMap[data.ids.trakt] : null;
+  const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
+  const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
 
   const formatRuntime = (minutes: number) => {
     if (!minutes) return null;
@@ -272,6 +279,15 @@ export default function MediaHero({
               <ListPlus size={16} color={(!isDesktop && isWatchlisted) ? "#3b82f6" : "#a3a3a3"} />
             </TouchableOpacity>
           </View>
+          
+          {hasProgress && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBarWrapper}>
+                <ProgressBar percentage={progressPercentage} />
+              </View>
+              <Text style={styles.progressText}>%{Math.round(progressPercentage)}</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -448,6 +464,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: -80,
     zIndex: 5,
+  },
+  progressContainer: {
+    marginTop: 16,
+    width: '100%',
+    maxWidth: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressBarWrapper: {
+    flex: 1,
+  },
+  progressText: {
+    color: '#a3a3a3',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   posterImage: {
     width: 110,

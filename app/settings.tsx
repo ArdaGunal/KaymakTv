@@ -79,7 +79,7 @@ export default function Settings() {
     }
   };
 
-  // Kodu alıp Netlify Proxy üzerinden Access Token'a çevir
+  // Kodu alıp Trakt API üzerinden Access Token'a çevir
   const handleTokenExchange = async (code: string) => {
     setIsGenerating(true);
     try {

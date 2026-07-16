@@ -252,6 +252,7 @@ export default function MoviesScreenWeb() {
   return (
     <View style={styles.pageBackground}>
       <ScrollView 
+        showsVerticalScrollIndicator={false}
         style={styles.container} 
         contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100 }]}
         refreshControl={

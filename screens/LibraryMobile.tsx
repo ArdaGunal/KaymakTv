@@ -9,8 +9,8 @@ import {
   getWatchedShows, 
   getWatchedMovies, 
   getCustomLists, 
-  getFavoriteShows, 
-  getFavoriteMovies 
+  getLikedShows, 
+  getLikedMovies 
 } from '../services/traktApi';
 import MediaPoster from '../components/MediaPoster';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -83,12 +83,12 @@ export default function LibraryScreen() {
         setHasMore(false);
       }
       else if (type === 'favShows') {
-        const res = await getFavoriteShows();
+        const res = await getLikedShows();
         newItems = mapData(res, 'show');
         setHasMore(false);
       }
       else if (type === 'favMovies') {
-        const res = await getFavoriteMovies();
+        const res = await getLikedMovies();
         newItems = mapData(res, 'movie');
         setHasMore(false);
       }

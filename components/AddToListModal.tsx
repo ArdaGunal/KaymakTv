@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { X, Plus, Check } from 'lucide-react-native';
 import { useLibrary } from '../context/LibraryContext';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface AddToListModalProps {
   visible: boolean;
@@ -15,6 +16,7 @@ interface AddToListModalProps {
 export default function AddToListModal({ visible, onClose, mediaId, mediaType }: AddToListModalProps) {
   const { customLists, createNewList, toggleMediaInList } = useLibrary();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   
   const [selectedListIds, setSelectedListIds] = useState<Set<number>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
@@ -88,14 +90,12 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, Platform.OS === 'web' && { maxWidth: 400, margin: 'auto', borderRadius: 16 }]}>
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} 
+        style={styles.modalOverlay}
+      >
+        <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }, Platform.OS === 'web' && { maxWidth: 400, margin: 'auto', borderRadius: 16 }]}>
           <View style={styles.header}>
             <Text style={styles.title}>Listeye Ekle</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -103,7 +103,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.listContainer}>
+          <ScrollView style={styles.listContainer} keyboardShouldPersistTaps="handled">
             {customLists.map(list => {
               const isSelected = selectedListIds.has(list.ids.trakt);
               return (
@@ -160,7 +160,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

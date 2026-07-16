@@ -125,7 +125,7 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>{existingCommentId ? (viewMode ? t('yourComment') : t('editComment')) : t('writeComment')}</Text>

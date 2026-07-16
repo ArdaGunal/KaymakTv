@@ -207,6 +207,7 @@ export default function ExploreScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <FlatList
+        showsVerticalScrollIndicator={false}
         data={currentData}
         keyExtractor={(item, index) => {
           const media = item.show || item.movie;

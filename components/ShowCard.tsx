@@ -3,13 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } fr
 import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
+import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
 import { useTranslation } from 'react-i18next';
 
 const ShowCard = memo(({ data }: { data: any }) => {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
-  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, toggleWatchlistStatus } = useLibrary();
+  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, toggleWatchlistStatus, showProgressMap } = useLibrary();
   const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
 
   const media = data?.show || data?.movie;
@@ -33,6 +34,10 @@ const ShowCard = memo(({ data }: { data: any }) => {
     : watchedShows.some(s => s.show?.ids?.trakt === traktId);
 
   const isAdded = isWatchlisted || isWatched;
+
+  const progress = type === 'show' && traktId ? showProgressMap[traktId] : null;
+  const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
+  const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
 
   const handleToggleWatchlist = async (e: any) => {
     e.stopPropagation();
@@ -108,6 +113,12 @@ const ShowCard = memo(({ data }: { data: any }) => {
           <Text style={styles.noOverviewText}>{t('noOverview')}</Text>
         )}
       </View>
+      {hasProgress && (
+        <ProgressBar 
+          percentage={progressPercentage} 
+          style={styles.progressBar} 
+        />
+      )}
     </TouchableOpacity>
   );
 });
@@ -124,6 +135,13 @@ const styles = StyleSheet.create({
     height: 144,
     borderWidth: 1,
     borderColor: '#172033',
+    position: 'relative',
+  },
+  progressBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   posterContainer: {
     width: 96,
