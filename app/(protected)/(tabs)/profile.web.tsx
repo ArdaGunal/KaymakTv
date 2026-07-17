@@ -8,14 +8,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { useLibrary } from '../../../context/LibraryContext';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useProfileLists } from '../../../hooks/useProfileLists';
 import ProfileMobile from '../../../screens/ProfileMobile';
 import WebCarousel from '../../../components/web/WebCarousel';
 import { viewAllStore } from '../../../utils/viewAllStore';
 import EpisodeCard from '../../../components/EpisodeCard';
 import MovieCard from '../../../components/movies/MovieCard';
-import ListCard from '../../../components/ListCard.web';
+import ListCard from '../../../components/profile/ListCard';
+import ListCardSkeleton from '../../../components/profile/ListCardSkeleton';
 import LoadingIndicator from '../../../components/LoadingIndicator';
-import MediaPoster from '../../../components/MediaPoster';
 import LoginPaywall from '../../../components/LoginPaywall';
 
 export default function ProfileScreenWeb() {
@@ -28,11 +29,13 @@ export default function ProfileScreenWeb() {
   
   const [isLoading, setIsLoading] = useState(true);
 
-  const [lists, setLists] = useState<any[]>([]);
   const [shows, setShows] = useState<any[]>([]);
   const [movies, setMovies] = useState<any[]>([]);
   const [favShowsState, setFavShowsState] = useState<any[]>([]);
   const [favMoviesState, setFavMoviesState] = useState<any[]>([]);
+
+  // Lists with dynamic cover images — parallel fetch
+  const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
 
   useEffect(() => {
     if (isDesktop && accessToken) {
@@ -89,16 +92,7 @@ export default function ProfileScreenWeb() {
         setMovies([]);
       }
 
-      if (customLists && customLists.length > 0) {
-        const formattedLists = customLists.map((item: any) => ({
-          id: item.ids?.trakt,
-          title: item.name,
-          image: null, 
-        }));
-        setLists(formattedLists);
-      } else {
-        setLists([]);
-      }
+      // lists handled by useProfileLists hook
 
       if (favShows && favShows.length > 0) {
         setFavShowsState(mapData([...favShows].slice(0, 100), 'show'));
@@ -167,7 +161,24 @@ export default function ProfileScreenWeb() {
           </View>
         ) : (
           <View style={styles.carouselsContainer}>
-            {renderCarousel(t('lists'), lists, 'lists', ListCard)}
+            {/* Lists with skeleton */}
+            {isListsLoading ? (
+              <View>
+                <Text style={styles.carouselTitle}>{t('lists')}</Text>
+                <ListCardSkeleton />
+              </View>
+            ) : lists.length > 0 ? (
+              <WebCarousel
+                title={t('lists')}
+                data={lists}
+                renderItem={({ item }) => <ListCard data={item} />}
+                onViewAll={() => {
+                  viewAllStore.data = lists;
+                  viewAllStore.title = t('lists');
+                  router.push(`/(protected)/library/view-all?type=lists` as any);
+                }}
+              />
+            ) : null}
             {renderCarousel(t('shows'), shows, 'shows', EpisodeCard)}
             {renderCarousel(t('favShows'), favShowsState, 'shows', EpisodeCard)}
             {renderCarousel(t('movies'), movies, 'movies', MovieCard)}
@@ -220,5 +231,12 @@ const styles = StyleSheet.create({
   },
   carouselsContainer: {
     gap: 16,
-  }
+  },
+  carouselTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    paddingLeft: 4,
+  },
 });

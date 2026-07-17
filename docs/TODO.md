@@ -4,6 +4,14 @@
 - [x] **Performans İyileştirmesi:** Web platformunda yaşanan 1 dakikalık donma sorunu InteractionManager kilidinin (`isInteraction: false`) kaldırılması ve TMDB afişlerinin `SecureStore` (localStorage) ile önbelleğe alınmasıyla çözüldü. Artık Web sürümü anında yükleniyor.
 - [ ] **Tüm Bölümleri Önbellekleme (Gelecek Diziler Sorunu):** Trakt API'nin 33 günlük limitini aşmak için uygulanan "Sıradaki Bölüm" sisteminin bir yan etkisi olarak, bir dizinin gelecekte çıkacak 2. veya 3. bölümü ekranda görünmüyor. Bu durum, dizilerin tüm bölüm listeleri arka planda telefon hafızasına kaydedildiğinde çözülecek.
 
+[ ] [TODO - Sosyal]: Arkadaşlık isteklerini kapatma/açma gizlilik ayarı.
+
+[ ] [TODO - Sosyal]: Sohbet odalarında "Spoiler İçeren Mesajları Otomatik Gizle" açma/kapatma anahtarı (toggle).
+
+[ ] [TODO - Performans]: Mobil APK için "Uygulama Önbelleğini (Cache) Temizle" butonu (Görsellerin telefonda kapladığı yeri sıfırlamak için).
+
+[ ] [TODO - Bildirim]: İleride eklenecek yeni bölüm/film hatırlatmaları için "Bildirim İzinleri" yönetimi.
+
 ## Tamamlanan Özellikler ve Sistem Kuralları (Mimarisi Oturanlar)
 - [x] **Kullanıcı Girişi:** Trakt Device Authentication ile başarılı giriş.
 - [x] **Profil ve Veri Çekme:** İzleme geçmişi (History) üzerinden dizilerin çekilmesi. Kütüphane (View All) yapısı sonsuz kaydırma ile tamamlandı.
@@ -19,7 +27,7 @@
 - [x] **Merkezi Beyin (LibraryContext):** Sayfa geçişlerinde API sınırlarına (429 Rate Limit) takılmamak ve hızlı yükleme sağlamak için ilerleme verisi (showProgress) ve detaylar cache'lendi.
 ## Geliştirilecek Ana Özellikler (Beklemede)
 - [ ] **Profil Sayfası Yeni Sekmeler:** Profil sayfasına 'Devam Edenler', 'Bırakılanlar' ve 'Bitenler' olarak 3 yeni sekme/kategori eklenecek. Ana sayfadan filtrelenen tüm arşiv dizileri buraya taşınacak.
-- [ ] **Arama (Keşfet) Ekranı:** Alt menüden ulaşılacak olan, Trakt arama servisi ile uygulamaya yeni diziler ekleyebilme özelliği.
+- [x] **Arama (Keşfet) Ekranı:** Alt menüden ulaşılacak olan, Trakt arama servisi ile uygulamaya yeni diziler ekleyebilme özelliği.
 
 ## Geliştirmeler (İyileştirmeler)
 - [ ] **Sezon ve Bölüm Cache (Önbellek):** Her açılışta `getShowProgress`'i yüzlerce kez tetiklememek için cihaz hafızasında `SecureStore` veya `AsyncStorage` ile bölüm bilgilerinin tutulması (Daha sonra optimize edilecek).

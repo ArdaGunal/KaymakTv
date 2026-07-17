@@ -8,8 +8,10 @@ import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
 import { useLibrary } from '../context/LibraryContext';
 import { useRouter } from 'expo-router';
-import { getShowPoster, getMoviePoster } from '../services/tmdbApi';
 import SkeletonLoader from '../components/SkeletonLoader';
+import ListCard from '../components/profile/ListCard';
+import ListCardSkeleton from '../components/profile/ListCardSkeleton';
+import { useProfileLists } from '../hooks/useProfileLists';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
 
@@ -26,11 +28,13 @@ export default function ProfileScreen() {
   
   const [isLoading, setIsLoading] = useState(true);
 
-  const [lists, setLists] = useState<any[]>([]);
   const [shows, setShows] = useState<any[]>([]);
   const [movies, setMovies] = useState<any[]>([]);
   const [favShowsState, setFavShowsState] = useState<any[]>([]);
   const [favMoviesState, setFavMoviesState] = useState<any[]>([]);
+
+  // Lists with cover images — parallel fetch via useProfileLists
+  const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
 
   useEffect(() => {
     if (accessToken) {
@@ -80,16 +84,7 @@ export default function ProfileScreen() {
         setMovies([]);
       }
 
-      if (customLists && customLists.length > 0) {
-        const formattedLists = customLists.map((item: any) => ({
-          id: item.ids?.trakt,
-          title: item.name,
-          image: null, 
-        }));
-        setLists(formattedLists);
-      } else {
-        setLists([]);
-      }
+      // lists are handled by useProfileLists hook — no-op here
 
       if (favShows && favShows.length > 0) {
         setFavShowsState(mapData([...favShows].slice(0, 100), 'show'));
@@ -152,12 +147,31 @@ export default function ProfileScreen() {
         <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
           <View style={styles.headerSpacer} />
           
-          <HorizontalShowList 
-            title={t('lists')} 
-            data={lists} 
-            onShowAll={() => router.push('/(protected)/library/lists')}
-            type="list"
-          />
+          {/* Lists section with skeleton */}
+          {isListsLoading ? (
+            <View style={styles.listsSectionHeader}>
+              <Text style={styles.sectionTitle}>{t('lists')}</Text>
+              <ListCardSkeleton />
+            </View>
+          ) : lists.length > 0 ? (
+            <View style={styles.listsSectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>{t('lists')}</Text>
+                <TouchableOpacity onPress={() => router.push('/(protected)/library/lists')}>
+                  <Text style={styles.seeAllText}>{t('seeAll', 'Tümü')}</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.listsScrollContent}
+              >
+                {lists.map((item) => (
+                  <ListCard key={String(item.id)} data={item} />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
 
           <HorizontalShowList 
             title={t('shows')} 
@@ -222,4 +236,10 @@ const styles = StyleSheet.create({
   emptyFavCard: { height: 120, backgroundColor: '#172033', borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2A364F', borderStyle: 'dashed' },
   plusIcon: { color: '#ffffff', fontSize: 32, fontWeight: '300', marginBottom: 4 },
   emptyFavText: { color: '#a3a3a3', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+  // Lists section
+  listsSectionHeader: { marginBottom: 24 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold', paddingHorizontal: 16, marginBottom: 12 },
+  seeAllText: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
+  listsScrollContent: { paddingHorizontal: 16, paddingBottom: 8 },
 });
