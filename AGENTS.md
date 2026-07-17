@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # KaymakTV Geliştirici Ajan Kuralları
 
 Hoş geldin! Bu projede çalışırken uyman gereken zorunlu standartlar bulunmaktadır. Lütfen işe başlamadan önce aşağıdaki kılavuzları dikkatle oku:
@@ -10,3 +11,11 @@ Hoş geldin! Bu projede çalışırken uyman gereken zorunlu standartlar bulunma
 - **Spagetti kod yazmak kesinlikle yasaktır.** Kodlar her zaman modüler, UI ve Logic ayrılmış şekilde yazılmalıdır.
 - Güvenlik açıklarına sebep olabilecek try-catch eksikliği, guest (misafir) kontrollerinin atlanması gibi hatalardan kaçınılmalıdır.
 - Tamamlanan her görev/özellik sonrası yukarıda belirtilen `.md` dökümanları mutlaka güncellenmelidir.
+=======
+# Expo HAS CHANGED
+
+Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
+
+# Proje AI Kuralları (Takım Çalışması İçin)
+Lütfen kod yazmadan önce proje kurallarını okuyun: `docs/AI_RULES.md`
+>>>>>>> de7e192ccf00c397f9213158998806b92479dfc5
