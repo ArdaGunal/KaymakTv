@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Pressable, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { ChevronLeft, Play, Star, ChevronDown, Home, MoreVertical, Bookmark, Heart, EyeOff, Trash2, Share2, CheckCheck, ListPlus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,10 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useResponsive } from '../hooks/useResponsive';
 import { BlurView } from 'expo-blur';
+import RatingModal from './modals/RatingModal';
+import OptionsModal from './modals/OptionsModal';
+import { formatRuntime } from '../utils/formatters';
+
 import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
@@ -66,12 +70,6 @@ export default function MediaHero({
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
 
-  const formatRuntime = (minutes: number) => {
-    if (!minutes) return null;
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  };
 
   const handleRate = (r: number) => {
     onRate(r);
@@ -91,30 +89,7 @@ export default function MediaHero({
     setRatingModalVisible(false);
   };
 
-  const handleShare = async () => {
-    try {
-      const { generateMediaSlug } = require('../utils/slugHelper');
-      const slug = generateMediaSlug(data.ids.trakt, data.ids.slug, data.title);
-      const url = `https://kaymaktv.com/${type}/${slug}`;
-        
-      await Share.share({
-        message: `${data.title} ${type === 'show' ? t('shareShowMsg') : t('shareMovieMsg')}\n${url}`,
-      });
-      setOptionsModalVisible(false);
-    } catch (error) {
-      console.log(error);
-    }
-  };
 
-  const handleToggleWatchlist = () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      setOptionsModalVisible(false);
-      return;
-    }
-    onToggleWatchlist();
-    setOptionsModalVisible(false);
-  };
 
   const handleToggleFavorite = () => {
     if (isGuest) {
@@ -128,42 +103,7 @@ export default function MediaHero({
     setOptionsModalVisible(false);
   };
 
-  const handleHideProgress = () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      setOptionsModalVisible(false);
-      return;
-    }
-    if (onHideFromProgress) {
-      onHideFromProgress();
-    }
-    setOptionsModalVisible(false);
-  };
 
-  const handleDeleteHistory = () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      setOptionsModalVisible(false);
-      return;
-    }
-    if (!onDeleteFromHistory) return;
-    Alert.alert(
-      t('areYouSure'),
-      t('historyDeleteConfirm'),
-      [
-        { text: t('common:cancel'), style: "cancel" },
-        { 
-          text: t('yesDelete'), 
-          style: "destructive", 
-          onPress: () => {
-            onDeleteFromHistory();
-            setOptionsModalVisible(false);
-            router.back();
-          } 
-        }
-      ]
-    );
-  };
 
   return (
     <View style={styles.container}>
@@ -321,75 +261,27 @@ export default function MediaHero({
       )}
 
       {/* RATING MODAL */}
-      <Modal visible={ratingModalVisible} transparent animationType="fade">
-        <Pressable style={[styles.modalOverlay, styles.centeredOverlay]} onPress={() => setRatingModalVisible(false)}>
-          <Pressable style={styles.modalContentWrapper} onPress={(e) => e.stopPropagation()}>
-            <BlurView intensity={90} tint="dark" style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{t('giveRating')}</Text>
-              <StarSlider 
-                initialRating={(userRating !== undefined && userRating !== null) ? userRating : 0} 
-                onRate={(val) => { 
-                  handleRate(val); 
-                }}
-                onRemove={(userRating !== undefined && userRating !== null) ? () => { 
-                  handleRemove();
-                } : undefined}
-              />
-            </BlurView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <RatingModal
+        visible={ratingModalVisible}
+        onClose={() => setRatingModalVisible(false)}
+        userRating={userRating}
+        onRate={handleRate}
+        onRemoveRating={handleRemove}
+      />
 
       {/* OPTIONS MODAL */}
-      <Modal visible={optionsModalVisible} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => setOptionsModalVisible(false)}>
-          <View style={styles.modalContent}>
-            
-            <TouchableOpacity style={styles.optionRow} onPress={handleToggleWatchlist}>
-              <Bookmark color={isWatchlisted ? "#3b82f6" : "#fff"} size={24} fill={isWatchlisted ? "#3b82f6" : "transparent"} />
-              <Text style={styles.optionText}>
-                {isWatchlisted ? t('removeFromWatchlist') : t('addToWatchlist')}
-              </Text>
-            </TouchableOpacity>
-
-            {type === 'show' && onHideFromProgress && (
-              <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
-                <EyeOff color="#fff" size={24} />
-                <Text style={styles.optionText}>{t('hideProgress')}</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity style={styles.optionRow} onPress={handleShare}>
-              <Share2 color="#fff" size={24} />
-              <Text style={styles.optionText}>{t('share')}</Text>
-            </TouchableOpacity>
-
-            {type === 'movie' && isWatched && onRewatch && (
-              <TouchableOpacity style={styles.optionRow} onPress={() => {
-                if (isGuest) {
-                  Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-                  setOptionsModalVisible(false);
-                  return;
-                }
-                onRewatch();
-                setOptionsModalVisible(false);
-              }}>
-                <CheckCheck color="#10b981" size={24} />
-                <Text style={[styles.optionText, {color: '#10b981'}]}>{t('rewatch')}</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity style={[styles.optionRow, styles.destructiveRow]} onPress={handleDeleteHistory}>
-              <Trash2 color="#ef4444" size={24} />
-              <View>
-                <Text style={styles.destructiveText}>{t('removeHistory')}</Text>
-                <Text style={{color: '#737373', fontSize: 11, marginTop: 2}}>{t('removeHistorySub')}</Text>
-              </View>
-            </TouchableOpacity>
-
-          </View>
-        </Pressable>
-      </Modal>
+      <OptionsModal
+        visible={optionsModalVisible}
+        onClose={() => setOptionsModalVisible(false)}
+        type={type}
+        data={data}
+        isWatchlisted={isWatchlisted}
+        isWatched={isWatched}
+        onToggleWatchlist={onToggleWatchlist}
+        onHideFromProgress={onHideFromProgress}
+        onDeleteFromHistory={onDeleteFromHistory}
+        onRewatch={onRewatch}
+      />
 
       <AddToListModal
         visible={listModalVisible}
@@ -600,80 +492,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  centeredOverlay: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalContentWrapper: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    width: '100%',
-    maxWidth: 360,
-  },
-  modalContent: {
-    backgroundColor: 'rgba(23, 32, 51, 0.7)',
-    padding: 24,
-  },
-  modalTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  starButton: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  starNumber: {
-    color: '#a3a3a3',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  removeRatingButton: {
-    padding: 12,
-    alignItems: 'center',
-  },
-  removeRatingText: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A364F',
-  },
-  optionText: {
-    color: '#ffffff',
-    fontSize: 16,
-    marginLeft: 16,
-    fontWeight: '500',
-  },
-  destructiveRow: {
-    borderBottomWidth: 0,
-    marginTop: 8,
-  },
-  destructiveText: {
-    color: '#ef4444',
-    fontSize: 16,
-    marginLeft: 16,
-    fontWeight: 'bold',
   },
 });

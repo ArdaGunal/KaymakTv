@@ -13,6 +13,7 @@ interface SeasonAccordionProps {
   showTraktId: number;
   showSlug: string;
   showTitle: string;
+  showTmdbId?: number | string | null;
   onSelectEpisode: (ep: any, seasonNumber: number) => void;
   isExpanded: boolean;
   onToggle: () => void;
@@ -24,6 +25,7 @@ export default function SeasonAccordion({
   showTraktId, 
   showSlug, 
   showTitle, 
+  showTmdbId,
   onSelectEpisode, 
   isExpanded, 
   onToggle,
@@ -92,7 +94,7 @@ export default function SeasonAccordion({
                      const epId = ep?.ids?.trakt;
                      if (!epId) return;
                      const slug = generateEpisodeSlug(showTraktId, showSlug, showTitle, season.number, ep.number, epId);
-                     router.push(`/episode/${slug}`);
+                     router.push(`/episode/${slug}${showTmdbId ? `?showTmdbId=${showTmdbId}` : ''}`);
                    }}
                  >
                    <Text style={styles.episodeNumber}>{t('episodeNum', { number: ep.number })}</Text>

@@ -4,10 +4,10 @@ import LoadingIndicator from '../../components/LoadingIndicator';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Check, CheckCheck } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getMovieSummary, getRelatedMovies, addRating, removeRating, getMediaComments } from '../../services/traktApi';
-import { getMovieBackdrop, getMovieTrailer, getMoviePoster, getTmdbCast } from '../../services/tmdbApi';
+import { addRating, removeRating } from '../../services/traktApi';
+import { useMovieDetail } from '../../hooks/useMovieDetail';
+
 import { useLibrary } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
@@ -26,20 +26,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function MovieDetailScreen() {
   const router = useRouter();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
-  const [isLoading, setIsLoading] = useState(true);
-  const { t } = useTranslation('media');
+    const { t } = useTranslation('media');
   
-  const [movieData, setMovieData] = useState<any>(null);
-  const [castData, setCastData] = useState<any[]>([]);
-  const [relatedMovies, setRelatedMovies] = useState<any[]>([]);
-  const [commentsData, setCommentsData] = useState<any[]>([]);
+  
+  const [actionLoading, setActionLoading] = useState(false);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   const [writeCommentVisible, setWriteCommentVisible] = useState(false);
-  const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
-  
-  const [backdrop, setBackdrop] = useState<string | null>(null);
-  const [poster, setPoster] = useState<string | null>(null);
-  const [trailerId, setTrailerId] = useState<string | null>(null);
   
   const { 
     userRatingsMovies, 
@@ -54,11 +46,19 @@ export default function MovieDetailScreen() {
     deleteMediaFromHistory 
   } = useLibrary();
   const { isGuest } = useAuth();
-  const [actionLoading, setActionLoading] = useState(false);
-
+  
   const idStr = Array.isArray(id) ? id[0] : id;
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
-  const tmdbIdNum = tmdbId ? parseInt(tmdbId as string, 10) : null;
+
+  const { mediaData, images, isLoading, refreshData, refreshComments } = useMovieDetail(traktIdNum, tmdbId as string);
+  const movieData = mediaData.summary;
+  const castData = mediaData.cast;
+  const relatedMovies = mediaData.related;
+  const commentsData = mediaData.comments;
+  
+  const backdrop = images.backdrop;
+  const poster = images.poster;
+  const trailerId = images.trailerId;
 
   // Kullanıcının puanını bul
   const userRatingObj = userRatingsMovies?.find((r: any) => r.movie?.ids?.trakt === traktIdNum);
@@ -68,134 +68,6 @@ export default function MovieDetailScreen() {
   const isWatched = watchedMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isWatchlisted = watchlistMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isFavorited = favMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
-
-  useEffect(() => {
-    if (!id) return;
-    let isMounted = true;
-
-    const fetchDetails = async () => {
-      try {
-        if (isMounted) setIsLoading(true);
-
-        const cacheKey = `@movie_detail_v3_cache_${id}`;
-        const cached = await AsyncStorage.getItem(cacheKey);
-        
-        let summary, cast, related;
-
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Date.now() - parsed.timestamp < 1000 * 60 * 60 * 24) { // 24 saat cache
-            summary = parsed.data.summary;
-            cast = parsed.data.cast;
-            related = parsed.data.related;
-          }
-        }
-
-        if (!summary) {
-          const results = await Promise.allSettled([
-            getMovieSummary(traktIdNum),
-            getRelatedMovies(traktIdNum),
-            getMediaComments(traktIdNum, 'movie')
-          ]);
-          
-          summary = results[0].status === 'fulfilled' ? results[0].value : null;
-          related = results[1].status === 'fulfilled' ? results[1].value : [];
-          const comments = results[2].status === 'fulfilled' ? results[2].value?.data || [] : [];
-          if (isMounted) setCommentsData(comments);
-
-          // TMDB Cast Fetching Logic (Fallback to summary.ids.tmdb)
-          const finalTmdbId = tmdbIdNum ? tmdbIdNum : summary?.ids?.tmdb;
-          if (finalTmdbId) {
-            try {
-              cast = await getTmdbCast(finalTmdbId, 'movie');
-            } catch (e) {
-              cast = [];
-            }
-          } else {
-            cast = [];
-          }
-          
-          const slimCast = cast;
-          
-          const slimRelated = related.map((r: any) => ({
-            title: r.title,
-            ids: { trakt: r.ids?.trakt, tmdb: r.ids?.tmdb, slug: r.ids?.slug }
-          }));
-
-          try {
-            await AsyncStorage.setItem(cacheKey, JSON.stringify({
-              timestamp: Date.now(),
-              data: { summary, cast: slimCast, related: slimRelated }
-            }));
-          } catch(cacheErr) {
-            console.warn('[Cache Kaydetme Hatası] Kota doldu. Eski cacheler temizleniyor...');
-            try {
-              const allKeys = await AsyncStorage.getAllKeys();
-              const cacheKeys = allKeys.filter(k => 
-                k.startsWith('@show_detail_') || 
-                k.startsWith('@episode_detail_') || 
-                k.startsWith('@movie_detail_')
-              );
-              
-              if (cacheKeys.length > 0) {
-                await AsyncStorage.multiRemove(cacheKeys);
-                console.log(`${cacheKeys.length} adet eski önbellek başarıyla temizlendi.`);
-                
-                await AsyncStorage.setItem(cacheKey, JSON.stringify({
-                  timestamp: Date.now(),
-                  data: { summary, cast: slimCast, related: slimRelated }
-                }));
-              }
-            } catch(e) {
-              console.error('Önbellek temizlenirken hata:', e);
-            }
-          }
-        }
-
-        if (isMounted) {
-          setMovieData(summary);
-          setCastData(cast || []);
-          
-          const mappedRelated = (related || []).map((item: any) => {
-             return {
-                id: item.ids.trakt,
-                rawTraktId: item.ids.trakt,
-                tmdbId: item.ids?.tmdb,
-                title: item.title
-             };
-          });
-          setRelatedMovies(mappedRelated);
-        }
-
-        if (tmdbIdNum && isMounted) {
-          const [bd, tr, pst] = await Promise.all([
-            getMovieBackdrop(tmdbIdNum),
-            getMovieTrailer(tmdbIdNum),
-            getMoviePoster(tmdbIdNum)
-          ]);
-          setBackdrop(bd);
-          setTrailerId(tr);
-          setPoster(pst);
-        }
-        if (summary && !commentsData.length && isMounted) { // In case it was loaded from cache but comments weren't
-           try {
-             const commRes = await getMediaComments(traktIdNum, 'movie');
-             if (isMounted) setCommentsData(commRes.data || []);
-           } catch(e) {}
-        }
-      } catch (error) {
-        console.error('Hata:', error);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    fetchDetails();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [id, tmdbId]);
 
   const handleRate = async (rating: number) => {
     try {
@@ -325,10 +197,10 @@ export default function MovieDetailScreen() {
                   mediaId={traktIdNum}
                   mediaType="movie"
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={commentRefreshTrigger}
+                  refreshTrigger={0}
                   onDeleteSuccess={() => {
                     import('../../services/traktApi').then(({ getMediaComments }) => {
-                      getMediaComments(traktIdNum, 'movie').then(res => setCommentsData(res.data || []));
+                      getMediaComments(traktIdNum, 'movie').then(res => refreshComments());
                     });
                   }}
                 />
@@ -373,10 +245,10 @@ export default function MovieDetailScreen() {
                   mediaId={traktIdNum}
                   mediaType="movie"
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={commentRefreshTrigger}
+                  refreshTrigger={0}
                   onDeleteSuccess={() => {
                     import('../../services/traktApi').then(({ getMediaComments }) => {
-                      getMediaComments(traktIdNum, 'movie').then(res => setCommentsData(res.data || []));
+                      getMediaComments(traktIdNum, 'movie').then(res => refreshComments());
                     });
                   }}
                 />
@@ -411,9 +283,9 @@ export default function MovieDetailScreen() {
         mediaId={traktIdNum}
         mediaType="movie"
         onSuccess={() => {
-          setCommentRefreshTrigger(prev => prev + 1);
+          refreshData();
           import('../../services/traktApi').then(({ getMediaComments }) => {
-            getMediaComments(traktIdNum, 'movie').then(res => setCommentsData(res.data || []));
+            getMediaComments(traktIdNum, 'movie').then(res => refreshComments());
           });
         }}
       />

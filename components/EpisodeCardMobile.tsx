@@ -38,7 +38,7 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
     
     const slug = generateEpisodeSlug(showTraktId || epTraktId, data?.slug, data?.showName, data?.season || 1, data?.episode || 1, epTraktId);
     
-    router.push(`/episode/${slug}`);
+    router.push(`/episode/${slug}${data?.tmdbId ? `?showTmdbId=${data.tmdbId}` : ''}`);
   };
 
   return (

@@ -37,7 +37,7 @@ export const useEpisodeDetail = (
       setIsLoading(true);
       try {
         const traktIdNum = parseInt(showId as string, 10);
-        const tmdbIdNum = parseInt(showTmdbId as string, 10);
+        const tmdbIdNum = showTmdbId ? parseInt(showTmdbId as string, 10) : NaN;
         const sNum = parseInt(season as string, 10);
         const eNum = parseInt(episode as string, 10);
 
@@ -60,7 +60,7 @@ export const useEpisodeDetail = (
         const results = await Promise.allSettled([
           getEpisodeDetail(traktIdNum, sNum, eNum),
           getEpisodeComments(traktIdNum, sNum, eNum),
-          getEpisodeStill(tmdbIdNum, sNum, eNum)
+          !isNaN(tmdbIdNum) ? getEpisodeStill(tmdbIdNum, sNum, eNum) : Promise.resolve(null)
         ]);
 
         const detailRes = results[0].status === 'fulfilled' ? results[0].value : null;

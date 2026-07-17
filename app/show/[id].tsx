@@ -25,6 +25,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { generateEpisodeSlug } from '../../utils/slugHelper';
 import SeasonAccordion from '../../components/SeasonAccordion';
+import EpisodeRatingModal from '../../components/modals/EpisodeRatingModal';
+import EpisodeOptionsModal from '../../components/modals/EpisodeOptionsModal';
+
 
 const { width } = Dimensions.get('window');
 
@@ -361,6 +364,7 @@ const {
                   showTraktId={traktIdNum}
                   showSlug={showData?.ids?.slug}
                   showTitle={showData?.title}
+                  showTmdbId={tmdbId as string}
                   onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
                   isExpanded={expandedSeasons[season.number]}
                   onToggle={() => toggleSeason(season.number)}
@@ -383,84 +387,24 @@ const {
       </ScrollView>
 
       {/* Bölüm Seçenekleri (Bottom Sheet Modal) */}
-      <Modal
+      <EpisodeOptionsModal
         visible={!!selectedEpisode}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setSelectedEpisode(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSelectedEpisode(null)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>S{selectedEpisode?.season} E{selectedEpisode?.episode}: {selectedEpisode?.title}</Text>
-                  <Text style={styles.modalSubtitle}>{t('episodeOptions')}</Text>
-                </View>
-                
-                <TouchableOpacity 
-                  style={styles.modalButton} 
-                  onPress={() => setEpisodeRatingModalVisible(true)}
-                >
-                  <Star size={20} color="#f59e0b" fill="#f59e0b" />
-                  <Text style={[styles.modalButtonText, {color: '#f59e0b'}]}>{t('rateOrEdit')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.modalButton} 
-                  onPress={handleRewatchEpisode}
-                  disabled={!!localLoadingOption}
-                >
-                  {localLoadingOption === 'rewatch' ? (
-                    <LoadingIndicator size="small" color="#3b82f6" />
-                  ) : (
-                    <>
-                      <CheckCheck size={20} color="#10b981" />
-                      <Text style={[styles.modalButtonText, {color: '#10b981'}]}>{t('rewatch')}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[styles.modalButton, {borderBottomWidth: 0}]} 
-                  onPress={handleUnwatchEpisode}
-                  disabled={!!localLoadingOption}
-                >
-                  {localLoadingOption === 'remove' ? (
-                    <LoadingIndicator size="small" color="#ef4444" />
-                  ) : (
-                    <>
-                      <Text style={[styles.modalButtonText, {color: '#ef4444', marginLeft: 0}]}>{t('unwatch')}</Text>
-                      <Text style={{color: '#737373', fontSize: 11, marginTop: 4}}>{t('allRecordsDeleted')}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        onClose={() => setSelectedEpisode(null)}
+        episode={selectedEpisode}
+        loadingOption={localLoadingOption}
+        onRatePress={() => setEpisodeRatingModalVisible(true)}
+        onRewatch={handleRewatchEpisode}
+        onUnwatch={handleUnwatchEpisode}
+      />
 
       {/* Episode Rating Modal */}
-      <Modal visible={episodeRatingModalVisible} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setEpisodeRatingModalVisible(false)}>
-          <View style={[styles.modalOverlay, styles.centeredOverlay]}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalContentWrapper}>
-                <BlurView intensity={90} tint="dark" style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>{t('rateEpisode')}</Text>
-                  <StarSlider 
-                    initialRating={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId)?.rating} 
-                    onRate={handleRateEpisode} 
-                    onRemove={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId) ? handleRemoveEpisodeRating : undefined}
-                  />
-                </BlurView>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+      <EpisodeRatingModal
+        visible={episodeRatingModalVisible}
+        onClose={() => setEpisodeRatingModalVisible(false)}
+        initialRating={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId)?.rating}
+        onRate={handleRateEpisode}
+        onRemove={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId) ? handleRemoveEpisodeRating : undefined}
+      />
 
       {/* Yorumlar Modal */}
       <CommentSheet 
@@ -511,15 +455,6 @@ const styles = StyleSheet.create({
   episodeName: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 2 },
   episodeDate: { color: '#737373', fontSize: 11 },
   watchedIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  centeredOverlay: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  modalContentWrapper: { borderRadius: 24, overflow: 'hidden', width: '100%', maxWidth: 360 },
-  modalContent: { backgroundColor: 'rgba(23, 32, 51, 0.7)', padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
-  modalHeader: { marginBottom: 20 },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-  modalSubtitle: { color: '#a3a3a3', fontSize: 13 },
-  modalButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#172033', flexWrap: 'wrap' },
-  modalButtonText: { fontSize: 16, fontWeight: '600', marginLeft: 12 },
   commentBox: {
     backgroundColor: '#172033',
     padding: 12,

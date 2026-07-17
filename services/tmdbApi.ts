@@ -217,6 +217,7 @@ export const getPersonPhoto = (profilePath: string | null): string | null => {
 
 export const getEpisodeStill = async (tmdbId: number, season: number, episode: number): Promise<string | null> => {
   if (!isWeb && !API_KEY) return null;
+  if (!tmdbId || isNaN(tmdbId)) return null;
 
   const cacheKey = `@tmdb_still_cache_${tmdbId}_${season}_${episode}`;
 
@@ -348,6 +349,7 @@ export const getTmdbCast = async (tmdbId: number, type: 'tv' | 'movie'): Promise
 
 export const getEpisodeTmdbCast = async (tmdbId: number, season: number, episode: number): Promise<any[]> => {
   if (!isWeb && !API_KEY) return [];
+  if (!tmdbId || isNaN(tmdbId)) return [];
   
   const cacheKey = `@tmdb_cast_cache_ep_${tmdbId}_${season}_${episode}`;
   
@@ -373,7 +375,7 @@ export const getEpisodeTmdbCast = async (tmdbId: number, season: number, episode
     }));
     
     // Remove duplicates if guest_stars and cast overlap
-    const uniqueCast = Array.from(new Map(cast.map(item => [item.person.ids.tmdb, item])).values());
+    const uniqueCast = Array.from(new Map(cast.map((item: any) => [item.person.ids.tmdb, item])).values());
     
     memoryCache.set(cacheKey, uniqueCast);
     return uniqueCast;
