@@ -8,6 +8,7 @@ import InlineRater from './InlineRater';
 import { addRating } from '../services/traktApi';
 import { useAirCountdown } from '../hooks/useAirCountdown';
 import { useTranslation } from 'react-i18next';
+import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
 
 interface EpisodeCardProps {
   data: any;
@@ -28,15 +29,16 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   }
 
   const handleCardPress = () => {
-    const sId = data?.rawTraktId || data?.id;
-    if (!sId) {
+    const showTraktId = data?.showId || data?.rawTraktId || data?.id; // If showId is not provided, this might be flawed. Let's see. Wait, in episode card, showId is the show.
+    const epTraktId = data?.rawTraktId || data?.id;
+    if (!epTraktId) {
       console.error('[UI ÇÖKME ÖNLENDİ] EpisodeCard tıklanamaz, sId bulunamadı!');
       return;
     }
     
-    const safeShowName = encodeURIComponent(data?.showName || '');
+    const slug = generateEpisodeSlug(showTraktId || epTraktId, data?.slug, data?.showName, data?.season || 1, data?.episode || 1, epTraktId);
     
-    router.push(`/episode/${sId}?showId=${sId}&showTmdbId=${data?.tmdbId || ''}&showSlug=${data?.slug || ''}&season=${data?.season || 1}&episode=${data?.episode || 1}&showName=${safeShowName}`);
+    router.push(`/episode/${slug}`);
   };
 
   return (
@@ -61,8 +63,11 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
         <TouchableOpacity 
           style={styles.showNamePill}
           onPress={() => {
-            const sId = data?.rawTraktId || data?.id;
-            if (sId) router.push(`/show/${sId}?tmdbId=${data?.tmdbId || ''}`);
+            const showTraktId = data?.showId || data?.rawTraktId || data?.id;
+            if (showTraktId) {
+              const showSlug = generateMediaSlug(showTraktId, data?.slug, data?.showName);
+              router.push(`/show/${showSlug}?tmdbId=${data?.tmdbId || ''}`);
+            }
           }}
         >
           <Text style={styles.showNameText}>{data.showName}</Text>

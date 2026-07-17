@@ -24,7 +24,7 @@ export default function LoginPaywall({ message }: LoginPaywallProps) {
         <TouchableOpacity 
           style={styles.button} 
           activeOpacity={0.8}
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/(public)/settings')}
         >
           <Text style={styles.buttonText}>Kayıt Ol / Giriş Yap</Text>
         </TouchableOpacity>

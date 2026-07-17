@@ -93,9 +93,9 @@ export default function MediaHero({
 
   const handleShare = async () => {
     try {
-      const url = type === 'show' 
-        ? `https://kaymaktv.com/show/${data.ids.trakt}?tmdbId=${data.ids.tmdb}` 
-        : `https://kaymaktv.com/movie/${data.ids.trakt}?tmdbId=${data.ids.tmdb}`;
+      const { generateMediaSlug } = require('../utils/slugHelper');
+      const slug = generateMediaSlug(data.ids.trakt, data.ids.slug, data.title);
+      const url = `https://kaymaktv.com/${type}/${slug}`;
         
       await Share.share({
         message: `${data.title} ${type === 'show' ? t('shareShowMsg') : t('shareMovieMsg')}\n${url}`,

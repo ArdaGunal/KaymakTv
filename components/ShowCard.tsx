@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
+import { generateMediaSlug } from '../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
 
 const ShowCard = memo(({ data }: { data: any }) => {
@@ -59,7 +60,8 @@ const ShowCard = memo(({ data }: { data: any }) => {
       activeOpacity={0.8}
       onPress={() => {
         if (traktId) {
-          router.push(`/${type}/${traktId}?tmdbId=${tmdbId}`);
+          const slug = generateMediaSlug(traktId, media?.ids?.slug, media?.title);
+          router.push(`/${type}/${slug}?tmdbId=${tmdbId}`);
         }
       }}
     >

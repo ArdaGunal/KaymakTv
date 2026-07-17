@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useAirCountdown } from '../../hooks/useAirCountdown';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../MediaPoster';
+import { generateMediaSlug } from '../../utils/slugHelper';
 
 const MovieCard = memo(({ data, onMovieFinished }: { data: any, onMovieFinished?: (title: string) => void }) => {
   const { t } = useTranslation(['media', 'common']);
@@ -43,7 +44,10 @@ const MovieCard = memo(({ data, onMovieFinished }: { data: any, onMovieFinished?
       style={[styles.card, isSuccess && styles.cardSuccess]} 
       activeOpacity={0.8}
       onPress={() => {
-        router.push(`/movie/${data.id}?tmdbId=${data.tmdbId || ''}`);
+        if (data?.id) {
+          const slug = generateMediaSlug(data.id, data.slug, data.title);
+          router.push(`/movie/${slug}?tmdbId=${data.tmdbId || ''}`);
+        }
       }}
     >
       {/* Poster */}

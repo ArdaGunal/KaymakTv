@@ -5,18 +5,19 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import { 
   getWatchedShows, 
   getWatchedMovies, 
   getCustomLists, 
   getFavoriteShows, 
   getFavoriteMovies 
-} from '../../services/traktApi';
-import MediaPoster from '../../components/MediaPoster';
-import LoadingIndicator from '../../components/LoadingIndicator';
-import { useResponsive } from '../../hooks/useResponsive';
-import LibraryMobile from '../../screens/LibraryMobile';
+} from '../../../services/traktApi';
+import MediaPoster from '../../../components/MediaPoster';
+import { generateMediaSlug } from '../../../utils/slugHelper';
+import LoadingIndicator from '../../../components/LoadingIndicator';
+import { useResponsive } from '../../../hooks/useResponsive';
+import LibraryMobile from '../../../screens/LibraryMobile';
 
 const SPACING = 16;
 const NUM_COLUMNS = 6;
@@ -107,7 +108,8 @@ export default function LibraryScreenWeb() {
       onPress={() => {
         if (item.id) {
           const routeType = type === 'shows' || type === 'favShows' ? 'show' : 'movie';
-          router.push(`/${routeType}/${item.id}?tmdbId=${item.tmdbId || ''}`);
+          const slug = generateMediaSlug(item.id, item.slug, item.title);
+          router.push(`/${routeType}/${slug}?tmdbId=${item.tmdbId || ''}`);
         }
       }}
     >

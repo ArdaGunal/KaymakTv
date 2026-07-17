@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
-import LoadingIndicator from '../../components/LoadingIndicator';
+import LoadingIndicator from '../../../components/LoadingIndicator';
 
-import { getTrendingShows, getTrendingMovies, searchTrakt } from '../../services/traktApi';
-import ShowCard from '../../components/ShowCard';
-import SearchBar from '../../components/SearchBar';
-import SearchTabs, { SearchTabType } from '../../components/SearchTabs';
-import { useAuth } from '../../context/AuthContext';
+import { getTrendingShows, getTrendingMovies, searchTrakt } from '../../../services/traktApi';
+import ShowCard from '../../../components/ShowCard';
+import SearchBar from '../../../components/SearchBar';
+import SearchTabs, { SearchTabType } from '../../../components/SearchTabs';
+import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -166,7 +166,7 @@ export default function ExploreScreen() {
         <Text style={styles.errorText}>{t('exploreLoginReq')}</Text>
         <TouchableOpacity 
           style={styles.settingsButton}
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/(protected)/account')}
         >
           <Text style={styles.settingsButtonText}>{t('common:goToSettings')}</Text>
         </TouchableOpacity>

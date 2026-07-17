@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Trash2, List as ListIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { getCustomListItems, deleteCustomList } from '../../services/traktApi';
-import { useLibrary } from '../../context/LibraryContext';
-import ShowCard from '../../components/ShowCard';
+import { getCustomListItems, deleteCustomList } from '../../../services/traktApi';
+import { useLibrary } from '../../../context/LibraryContext';
+import ShowCard from '../../../components/ShowCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';

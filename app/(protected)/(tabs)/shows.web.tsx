@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, RefreshControl, Dimensions, InteractionManager, Platform } from 'react-native';
 
-import EpisodeCard from '../../components/EpisodeCard';
-import SkeletonLoader from '../../components/SkeletonLoader';
-import InlineRater from '../../components/InlineRater';
-import { addRating } from '../../services/traktApi';
-import { getTrendingShows } from '../../services/traktApi';
-import { getDateGroup, isFutureDate, getEpisodeKey } from '../../utils/dateHelper';
-import { useAuth } from '../../context/AuthContext';
-import { useLibrary } from '../../context/LibraryContext';
+import EpisodeCard from '../../../components/EpisodeCard';
+import SkeletonLoader from '../../../components/SkeletonLoader';
+import InlineRater from '../../../components/InlineRater';
+import { addRating } from '../../../services/traktApi';
+import { getTrendingShows } from '../../../services/traktApi';
+import { getDateGroup, isFutureDate, getEpisodeKey } from '../../../utils/dateHelper';
+import { useAuth } from '../../../context/AuthContext';
+import { useLibrary } from '../../../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTranslation } from 'react-i18next';
-import WebCarousel from '../../components/web/WebCarousel';
+import WebCarousel from '../../../components/web/WebCarousel';
 import { useRouter } from 'expo-router';
-import { useResponsive } from '../../hooks/useResponsive';
-import IndexMobile from '../../screens/IndexMobile';
-import { viewAllStore } from '../../utils/viewAllStore';
-import LoginPaywall from '../../components/LoginPaywall';
+import { useResponsive } from '../../../hooks/useResponsive';
+import IndexMobile from '../../../screens/IndexMobile';
+import { viewAllStore } from '../../../utils/viewAllStore';
+import LoginPaywall from '../../../components/LoginPaywall';
 
 const { width } = Dimensions.get('window');
 
@@ -444,7 +444,7 @@ export default function DizilerScreenWeb() {
         onViewAll={() => {
           viewAllStore.data = data;
           viewAllStore.title = title;
-          router.push(`/library/view-all?type=${routeType}` as any);
+          router.push(`/(protected)/library/view-all?type=${routeType}` as any);
         }}
       />
     );

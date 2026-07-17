@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { LogOut, ChevronLeft, Globe, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +19,7 @@ export default function UserSettingsScreen() {
 
   const handleLogout = async () => {
     await removeKeys();
-    router.replace('/(tabs)');
+    router.replace('/(protected)/(tabs)/explore');
   };
 
   return (

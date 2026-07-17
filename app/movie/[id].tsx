@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMovieSummary, getRelatedMovies, addRating, removeRating, getMediaComments } from '../../services/traktApi';
 import { getMovieBackdrop, getMovieTrailer, getMoviePoster, getTmdbCast } from '../../services/tmdbApi';
 import { useLibrary } from '../../context/LibraryContext';
+import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
@@ -55,7 +56,8 @@ export default function MovieDetailScreen() {
   const { isGuest } = useAuth();
   const [actionLoading, setActionLoading] = useState(false);
 
-  const traktIdNum = parseInt(id as string, 10);
+  const idStr = Array.isArray(id) ? id[0] : id;
+  const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
   const tmdbIdNum = tmdbId ? parseInt(tmdbId as string, 10) : null;
 
   // Kullanıcının puanını bul

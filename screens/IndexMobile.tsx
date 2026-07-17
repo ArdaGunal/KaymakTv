@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as SecureStore from '../utils/secureStorage';
 import { useTranslation } from 'react-i18next';
+import { useDashboardData } from '../hooks/useDashboardData';
 
 const { width } = Dimensions.get('window');
 
@@ -31,10 +32,7 @@ export default function DizilerScreen() {
   const [renderedTab, setRenderedTab] = useState('izleme');
   const { t, i18n } = useTranslation('media');
   
-  const [upNextShows, setUpNextShows] = useState<any[]>([]);
-  const [inactiveShows, setInactiveShows] = useState<any[]>([]);
-  const [watchlistShowsList, setWatchlistShowsList] = useState<any[]>([]);
-  const [upcomingShows, setUpcomingShows] = useState<any[]>([]);
+  const [trendingFallback, setTrendingFallback] = useState<any[]>([]);
   
   const [collapsed, setCollapsed] = useState({
     upNext: false,
@@ -50,6 +48,20 @@ export default function DizilerScreen() {
   const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, isLoading: isLibraryLoading, markEpisodeAsWatched, refreshLibrary } = useLibrary();
+
+  const {
+    upNextShows,
+    inactiveShows,
+    watchlistShowsList,
+    upcomingShows
+  } = useDashboardData(
+    watchedShows,
+    watchlistShows,
+    calendarShows,
+    showProgressMap,
+    calendarSeasonsMap,
+    i18n.language
+  );
 
   const groupedUpcomingShows = useMemo(() => {
     const groups: { title: string, data: any[] }[] = [];
@@ -78,14 +90,14 @@ export default function DizilerScreen() {
   useEffect(() => {
     if (accessToken) {
       if (!isLibraryLoading) {
-        InteractionManager.runAfterInteractions(() => {
-          processData();
-        });
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
       }
     } else if (!isGuest) {
       fetchTrendingFallback();
     }
-  }, [accessToken, isLibraryLoading, watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, i18n.language, isGuest]);
+  }, [accessToken, isLibraryLoading, isGuest]);
 
   const loadCollapsedState = async () => {
     try {
@@ -121,9 +133,6 @@ export default function DizilerScreen() {
     try {
       const data = await getTrendingShows();
       const formattedData = await Promise.all(data.map(async (item: any, index: number) => {
-        const tmdbId = item.show.ids.tmdb;
-        let imageUrl = null;
-        
         return {
           id: item.show.ids.trakt,
           showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
@@ -131,377 +140,16 @@ export default function DizilerScreen() {
           episode: 1,
           title: `${item.show.year || ''} - ${item.watchers} ${t('watching')}`,
           tags: index < 3 ? ['TRENDING'] : [],
-          image: imageUrl,
+          image: null,
         };
       }));
-      setUpNextShows(formattedData);
+      setTrendingFallback(formattedData);
     } catch (error) {
       console.log('Trendler çekilemedi', error);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const processData = async () => {
-    setIsLoading(true);
-    try {
-      // ============================================
-      // 1. WATCHED SHOWS (Sıradakiler & Bırakılanlar)
-      // ============================================
-      const uniqueHistoryShows: any[] = [];
-      const showIds = new Set();
-      
-      for (const item of watchedShows) {
-        if (!item?.show?.ids?.trakt) continue; // Bozuk veriyi atla
-        if (!showIds.has(item.show.ids.trakt)) {
-          uniqueHistoryShows.push(item);
-          showIds.add(item.show.ids.trakt);
-        }
-      }
-
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const upNextTemp: any[] = [];
-      const inactiveTemp: any[] = [];
-      const farFutureTemp: any[] = [];
-
-      // Yükü dağıtmak için yield fonksiyonu
-      const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
-
-      for (let i = 0; i < uniqueHistoryShows.length; i++) {
-        if (i > 0 && i % 30 === 0) await yieldToMain(); // Her 30 öğede bir UI thread'e nefes aldır
-        const item = uniqueHistoryShows[i];
-        const traktId = item?.show?.ids?.trakt;
-        if (!traktId) continue;
-        const tmdbId = item?.show?.ids?.tmdb;
-        let imageUrl = null;
-
-        let season = 1;
-        let episodeNumber = 1;
-
-        if (item.seasons && item.seasons.length > 0) {
-          const validSeasons = [...item.seasons].filter((s: any) => s.number > 0).sort((a: any, b: any) => b.number - a.number);
-          if (validSeasons.length > 0) {
-            const maxSeason = validSeasons[0];
-            season = maxSeason.number;
-            if (maxSeason.episodes && maxSeason.episodes.length > 0) {
-              const maxEpisode = [...maxSeason.episodes].sort((a: any, b: any) => b.number - a.number)[0];
-              episodeNumber = maxEpisode.number;
-            }
-          }
-        }
-
-        let episodeTitle = item.episode?.title || `${t('lastWatched')} ${new Date(item.last_watched_at).toLocaleDateString('tr-TR')}`;
-
-        let hasNextEpisode = false;
-        let isCalculating = false;
-        let nextAiredDate: Date | null = null;
-        const progress = showProgressMap[traktId];
-
-        let isInactive = new Date(item.last_watched_at) < thirtyDaysAgo;
-
-        if (progress === undefined) {
-          hasNextEpisode = true;
-          isCalculating = true;
-        } else if (progress && progress.next_episode) {
-          const nextAired = progress.next_episode.first_aired;
-          if (nextAired) {
-            nextAiredDate = new Date(nextAired);
-          }
-          const isFuture = isFutureDate(nextAired);
-          
-          if (!isFuture) {
-            season = progress.next_episode.season;
-            episodeNumber = progress.next_episode.number;
-            episodeTitle = progress.next_episode.title;
-            hasNextEpisode = true;
-          }
-
-          if (nextAiredDate && nextAiredDate >= thirtyDaysAgo) {
-            isInactive = false;
-          }
-
-          if (isFuture && !isInactive) {
-            farFutureTemp.push({
-              traktId,
-              showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
-              season: progress.next_episode.season,
-              episode: progress.next_episode.number,
-              title: progress.next_episode.title,
-              image: imageUrl,
-              tmdbId: tmdbId,
-              slug: item.show.ids.slug,
-              first_aired: nextAired,
-              completedCount: progress.completed
-            });
-          }
-        }
-
-        // Eğer dizi bittiyse (progress var ama next_episode yoksa)
-        if (progress && !progress.next_episode) {
-          continue; // Ana sayfada göstermiyoruz, doğrudan yutuyoruz.
-        }
-
-        if (!hasNextEpisode) continue;
-
-        // isInactive is already calculated and refined above
-
-
-        const formattedObj = {
-          id: traktId,
-          showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
-          season,
-          episode: episodeNumber,
-          title: episodeTitle,
-          tags: isInactive ? ['ESKİ'] : ['EN SON'],
-          image: imageUrl,
-          tmdbId: tmdbId,
-          slug: item.show.ids.slug,
-          completedCount: progress ? progress.completed : null,
-          isCalculating
-        };
-
-        if (isInactive) inactiveTemp.push(formattedObj);
-        else upNextTemp.push(formattedObj);
-      }
-
-      // ============================================
-      // 2. WATCHLIST (Henüz Başlanmadı)
-      // ============================================
-      const watchlistFinal: any[] = [];
-      
-      for (let i = 0; i < watchlistShows.length; i++) {
-        if (i > 0 && i % 30 === 0) await yieldToMain();
-        const item = watchlistShows[i];
-        const traktId = item?.show?.ids?.trakt;
-        if (!traktId) continue;
-        const tmdbId = item?.show?.ids?.tmdb;
-        let imageUrl = null;
-
-        let season = 1;
-        let episodeNumber = 1;
-        let episodeTitle = t('notStarted');
-        let hasProgress = false;
-        let isCompleted = false;
-
-        const progress = showProgressMap[traktId];
-
-        if (progress) {
-          if (progress.next_episode) {
-            const nextAired = progress.next_episode.first_aired;
-            const isFuture = isFutureDate(nextAired);
-            
-            if (!isFuture) {
-              season = progress.next_episode.season;
-              episodeNumber = progress.next_episode.number;
-              episodeTitle = progress.next_episode.title;
-              hasProgress = progress.completed > 0; // SADECE en az 1 bölüm izlendiyse Sıradakiler'e at
-            } else {
-              if (nextAired) {
-                farFutureTemp.push({
-                  traktId,
-                  showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
-                  season: progress.next_episode.season,
-                  episode: progress.next_episode.number,
-                  title: progress.next_episode.title,
-                  image: imageUrl,
-                  tmdbId: tmdbId,
-                  slug: item.show.ids.slug,
-                  first_aired: nextAired,
-                  completedCount: progress.completed
-                });
-              }
-              isCompleted = true;
-            }
-          } else if (progress.completed > 0 && progress.aired === progress.completed) {
-            isCompleted = true;
-          }
-        } else {
-          // Progress yok (hiç izlenmemiş). Belki de henüz çıkmamış yepyeni bir dizidir?
-          if (item.show?.first_aired) {
-            const isFuture = isFutureDate(item.show.first_aired);
-            if (isFuture) {
-              farFutureTemp.push({
-                traktId,
-                showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
-                season: 1,
-                episode: 1,
-                title: t('showPremiere'),
-                image: imageUrl,
-                tmdbId: tmdbId,
-                slug: item.show.ids.slug,
-                first_aired: item.show.first_aired,
-                completedCount: 0
-              });
-              isCompleted = true; // Watchlist listesinde gösterme, takvimde göster
-            }
-          }
-        }
-
-        if (isCompleted) {
-          continue; // Ana sayfada göstermiyoruz
-        }
-
-        const formattedObj = {
-          id: traktId,
-          showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
-          season,
-          episode: episodeNumber,
-          title: episodeTitle,
-          tags: hasProgress ? ['EN SON'] : ['WATCHLIST'],
-          image: imageUrl,
-          tmdbId: tmdbId,
-          slug: item.show.ids.slug,
-          completedCount: progress ? progress.completed : null,
-          isCalculating: false
-        };
-
-        const alreadyInUpNext = upNextTemp.some(s => s.id === traktId);
-        const alreadyInInactive = inactiveTemp.some(s => s.id === traktId);
-
-        if (!alreadyInUpNext && !alreadyInInactive) {
-          if (hasProgress) upNextTemp.push(formattedObj);
-          else watchlistFinal.push(formattedObj);
-        }
-      }
-
-      // ============================================
-      // 3. CALENDAR (Yaklaşanlar)
-      // ============================================
-      const upcomingTemp: any[] = [];
-      const seenEpisodes = new Set();
-
-      for (let i = 0; i < calendarShows.length; i++) {
-        if (i > 0 && i % 30 === 0) await yieldToMain();
-        const item = calendarShows[i];
-        const traktId = item?.show?.ids?.trakt;
-        if (!traktId || !item?.episode) continue;
-        const uniqueId = getEpisodeKey(traktId, item.episode.season, item.episode.number);
-        if (seenEpisodes.has(uniqueId)) continue;
-        seenEpisodes.add(uniqueId);
-        
-        const tmdbId = item.show.ids.tmdb;
-        let imageUrl = null;
-        
-        const dateObj = new Date(item.first_aired);
-        
-        // Eğer bölüm geçmişte kaldıysa (yayınlandıysa) Yaklaşanlar listesinde gösterme. 
-        if (!isFutureDate(item.first_aired)) continue;
-
-        const dateGroup = getDateGroup(dateObj, t);
-        
-        upcomingTemp.push({
-          id: uniqueId,
-          rawTraktId: traktId,
-          showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
-          season: item.episode.season,
-          episode: item.episode.number,
-          title: item.episode.title || `${item.episode.season}. ${t('season')} ${item.episode.number}. ${t('episode')}`,
-          tags: [], 
-          image: imageUrl,
-          tmdbId: tmdbId,
-          slug: item.show.ids.slug,
-          rawDate: dateObj.getTime(),
-          dateGroup,
-        });
-      }
-      
-      // FAZ 4.5: Calendar Seasons'dan (Genişletilmiş Takvim) gelen uzak gelecek bölümlerini ekle
-      Object.entries(calendarSeasonsMap).forEach(([idStr, seasonData]) => {
-        const traktId = parseInt(idStr, 10);
-        if (!traktId || !seasonData || !seasonData.data) return;
-
-        // İlgili dizinin temel bilgilerini watchedShows veya watchlistShows'tan bul
-        let showMeta = watchedShows.find((w: any) => w.show?.ids?.trakt === traktId)?.show;
-        
-        if (!showMeta) {
-            showMeta = watchlistShows.find((w: any) => w.show?.ids?.trakt === traktId)?.show;
-        }
-        
-        // Eğer hiçbir yerde bulamazsak calendarShows'a bakalım (yedek)
-        if (!showMeta) {
-           const calItem = calendarShows.find((c: any) => c.show?.ids?.trakt === traktId);
-           if (calItem) showMeta = calItem.show;
-        }
-
-        const tmdbId = showMeta?.ids?.tmdb;
-        const showName = (showMeta?.title || t('unnamedShow')).toUpperCase();
-        const slug = showMeta?.ids?.slug;
-
-        // Tüm sezonları ve bölümleri tara
-        seasonData.data.forEach((currentSeason: any) => {
-            if (currentSeason && currentSeason.episodes) {
-                currentSeason.episodes.forEach((ep: any) => {
-                    if (ep.first_aired) {
-                        const uniqueId = getEpisodeKey(traktId, ep.season, ep.number);
-                        if (!seenEpisodes.has(uniqueId) && isFutureDate(ep.first_aired)) {
-                            seenEpisodes.add(uniqueId);
-                            const dateObj = new Date(ep.first_aired);
-                            upcomingTemp.push({
-                                id: uniqueId,
-                                rawTraktId: traktId,
-                                showName: showName,
-                                season: ep.season,
-                                episode: ep.number,
-                                title: ep.title || `${ep.season}. ${t('season')} ${ep.number}. ${t('episode')}`,
-                                tags: [],
-                                image: null,
-                                tmdbId: tmdbId,
-                                slug: slug,
-                                rawDate: dateObj.getTime(),
-                                dateGroup: getDateGroup(dateObj, t),
-                            });
-                        }
-                    }
-                });
-            }
-        });
-      });
-      
-      // Far Future Ekle
-      farFutureTemp.forEach((item: any) => {
-        const uniqueId = getEpisodeKey(item.traktId, item.season, item.episode);
-        if (seenEpisodes.has(uniqueId)) return;
-        seenEpisodes.add(uniqueId);
-        
-        const dateObj = new Date(item.first_aired);
-        
-        // Eğer yayınlandıysa Yaklaşanlar listesinden çıkar
-        if (!isFutureDate(item.first_aired)) return;
-        
-        upcomingTemp.push({
-          id: uniqueId,
-          rawTraktId: item.traktId,
-          showName: item.showName,
-          season: item.season,
-          episode: item.episode,
-          title: item.title || `${item.season}. ${t('season')} ${item.episode}. ${t('episode')}`,
-          tags: [],
-          image: item.image,
-          tmdbId: item.tmdbId,
-          rawDate: dateObj.getTime(),
-          dateGroup: getDateGroup(dateObj, t),
-          completedCount: item.completedCount
-        });
-      });
-      
-      upcomingTemp.sort((a, b) => a.rawDate - b.rawDate);
-
-      // Stateleri Topluca Set Et
-      setUpNextShows(upNextTemp);
-      setInactiveShows(inactiveTemp);
-      setWatchlistShowsList(watchlistFinal);
-      setUpcomingShows(upcomingTemp);
-
-      // Ana verileri render ettik, yükleniyor ekranını kapat
-      setIsLoading(false);
-    } catch (e) {
-      console.log('Index.tsx veri formatlama hatası:', e);
-      setIsLoading(false);
-    }
-  };
-
 
   const handleShowFinished = useCallback((showName: string, showId: number) => {
     setFinishedShow({name: showName, id: showId});
@@ -512,12 +160,13 @@ export default function DizilerScreen() {
 
   const izlemeSections = useMemo(() => {
     const sections = [];
-    if (upNextShows.length > 0) {
+    const effectiveUpNext = upNextShows.length > 0 ? upNextShows : trendingFallback;
+    if (effectiveUpNext.length > 0) {
       sections.push({
         title: t('upNext'),
         key: 'upNext',
-        data: collapsed.upNext ? [] : upNextShows,
-        count: upNextShows.length,
+        data: collapsed.upNext ? [] : effectiveUpNext,
+        count: effectiveUpNext.length,
       });
     }
     if (watchlistShowsList.length > 0) {
@@ -537,7 +186,7 @@ export default function DizilerScreen() {
       });
     }
     return sections;
-  }, [upNextShows, watchlistShowsList, inactiveShows, collapsed, i18n.language]);
+  }, [upNextShows, watchlistShowsList, inactiveShows, collapsed, i18n.language, trendingFallback]);
 
 
   if (isGuest) {

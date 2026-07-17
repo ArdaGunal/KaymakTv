@@ -123,7 +123,7 @@ export default function ProfileScreen() {
       <StatusBar barStyle="light-content" />
       
       <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/user-settings')}>
+        <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/user-settings')}>
           <Settings size={24} color="#a3a3a3" />
         </TouchableOpacity>
       </View>
@@ -155,27 +155,27 @@ export default function ProfileScreen() {
           <HorizontalShowList 
             title={t('lists')} 
             data={lists} 
-            onShowAll={() => router.push('/library/lists')}
+            onShowAll={() => router.push('/(protected)/library/lists')}
             type="list"
           />
 
           <HorizontalShowList 
             title={t('shows')} 
             data={shows} 
-            onShowAll={() => router.push('/library/shows')}
+            onShowAll={() => router.push('/(protected)/library/shows')}
           />
 
           <HorizontalShowList 
             title={t('favShows')} 
             titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
             data={favShowsState} 
-            onShowAll={() => router.push('/library/favShows')}
+            onShowAll={() => router.push('/(protected)/library/favShows')}
           />
 
           <HorizontalShowList 
             title={t('movies')} 
             data={movies} 
-            onShowAll={() => router.push('/library/movies')}
+            onShowAll={() => router.push('/(protected)/library/movies')}
             type="movie"
           />
 
@@ -184,7 +184,7 @@ export default function ProfileScreen() {
               title={t('favMovies')} 
               titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
               data={favMoviesState} 
-              onShowAll={() => router.push('/library/favMovies')}
+              onShowAll={() => router.push('/(protected)/library/favMovies')}
               type="movie"
             />
           ) : (

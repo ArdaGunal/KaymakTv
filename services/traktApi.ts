@@ -127,6 +127,17 @@ const getTraktClient = async () => {
         }
       }
       
+      // 429 Too Many Requests (Rate Limit) Koruması
+      if (error.response?.status === 429) {
+        const retryAfter = error.response.headers['retry-after'];
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2500;
+        console.warn(`[Trakt API] 429 Rate Limit aşıldı. ${delay}ms sonra tekrar denenecek...`);
+        
+        return new Promise(resolve => setTimeout(resolve, delay)).then(() => {
+          return instance(originalRequest);
+        });
+      }
+
       return Promise.reject(error);
     }
   );

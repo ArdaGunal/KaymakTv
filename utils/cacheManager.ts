@@ -4,7 +4,8 @@ const CACHE_PREFIXES = [
   '@show_detail_',
   '@show_detail_v2_',
   '@episode_detail_',
-  '@movie_detail_'
+  '@movie_detail_',
+  '@tmdb_'
 ];
 
 const CACHE_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 hours

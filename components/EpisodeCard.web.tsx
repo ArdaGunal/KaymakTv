@@ -9,6 +9,7 @@ import { useAirCountdown } from '../hooks/useAirCountdown';
 import { useResponsive } from '../hooks/useResponsive';
 import EpisodeCardMobile from './EpisodeCardMobile';
 import EpisodeCheckButton from './EpisodeCheckButton';
+import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
 
 interface EpisodeCardProps {
   data: any;
@@ -40,22 +41,24 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   }
 
   const handleCardPress = () => {
-    const sId = data?.rawTraktId || data?.id;
-    if (!sId) {
+    const showTraktId = data?.showId || data?.rawTraktId || data?.id; 
+    const epTraktId = data?.rawTraktId || data?.id;
+    if (!epTraktId) {
       console.error('[UI ÇÖKME ÖNLENDİ] EpisodeCard tıklanamaz, sId bulunamadı!');
       return;
     }
     
-    const safeShowName = encodeURIComponent(data?.showName || '');
+    const slug = generateEpisodeSlug(showTraktId || epTraktId, data?.slug, data?.showName, data?.season || 1, data?.episode || 1, epTraktId);
     
-    router.push(`/episode/${sId}?showId=${sId}&showTmdbId=${data?.tmdbId || ''}&showSlug=${data?.slug || ''}&season=${data?.season || 1}&episode=${data?.episode || 1}&showName=${safeShowName}`);
+    router.push(`/episode/${slug}`);
   };
 
   const handleShowInfoPress = (e: any) => {
     e.stopPropagation();
-    const sId = data?.rawTraktId || data?.id;
-    if (sId) {
-      router.push(`/show/${sId}?tmdbId=${data?.tmdbId || ''}`);
+    const showTraktId = data?.showId || data?.rawTraktId || data?.id;
+    if (showTraktId) {
+      const showSlug = generateMediaSlug(showTraktId, data?.slug, data?.showName);
+      router.push(`/show/${showSlug}?tmdbId=${data?.tmdbId || ''}`);
     }
   };
 

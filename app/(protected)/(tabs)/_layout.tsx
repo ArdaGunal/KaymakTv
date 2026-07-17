@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Tv, Compass, User, Film } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useWindowDimensions, View } from 'react-native';
-import Sidebar from '../../components/Sidebar';
+import Sidebar from '../../../components/Sidebar';
 
 export default function TabsLayout() {
   const { t } = useTranslation('navigation');
@@ -30,7 +30,7 @@ export default function TabsLayout() {
             tabBarShowLabel: false,
           }}>
           <Tabs.Screen
-            name="index"
+            name="shows"
             options={{
               title: t('shows'),
               tabBarIcon: ({ color }) => <Tv size={28} color={color} />,

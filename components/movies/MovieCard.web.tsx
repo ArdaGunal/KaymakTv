@@ -10,6 +10,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import MovieCardMobile from './MovieCardMobile';
 import { useLibrary } from '../../context/LibraryContext';
 import { Check } from 'lucide-react-native';
+import { generateMediaSlug } from '../../utils/slugHelper';
 
 interface MovieCardProps {
   data: any;
@@ -43,7 +44,10 @@ const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
   }, [isHovered]);
 
   const handleCardPress = () => {
-    router.push(`/movie/${data.id}?tmdbId=${data.tmdbId || ''}`);
+    if (data?.id) {
+      const slug = generateMediaSlug(data.id, data.slug, data.title);
+      router.push(`/movie/${slug}?tmdbId=${data.tmdbId || ''}`);
+    }
   };
 
   const handleCheckIn = async () => {

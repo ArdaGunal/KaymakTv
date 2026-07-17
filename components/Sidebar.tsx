@@ -10,9 +10,9 @@ export default function Sidebar() {
   const { t } = useTranslation('navigation');
 
   const menuItems = [
-    { name: t('shows'), icon: Tv, path: '/' },
+    { name: t('shows'), icon: Tv, path: '/shows' },
     { name: t('movies'), icon: Film, path: '/movies' },
-    { name: t('explore'), icon: Compass, path: '/explore' },
+    { name: t('explore'), icon: Compass, path: '/(protected)/(tabs)/explore' },
     { name: t('profile'), icon: User, path: '/profile' },
   ];
 
@@ -41,7 +41,7 @@ export default function Sidebar() {
       </View>
 
       <View style={styles.footerContainer}>
-        <Link href="/settings" asChild>
+        <Link href="/(protected)/account" asChild>
           <TouchableOpacity style={styles.menuItem}>
             <Settings size={24} color="#94A3B8" />
             <Text style={styles.menuText}>{t('settings', { defaultValue: 'Ayarlar' })}</Text>

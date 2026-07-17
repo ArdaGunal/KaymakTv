@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Platform, useWindowDimensions } from 'react-native';
-import LoadingIndicator from '../components/LoadingIndicator';
+import LoadingIndicator from '../../components/LoadingIndicator';
 
 import { useRouter } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
 import { Globe, CheckSquare, Square } from 'lucide-react-native';
-import { useAuth } from '../context/AuthContext';
-import { exchangeAuthCode } from '../services/traktApi';
+import { useAuth } from '../../context/AuthContext';
+import { exchangeAuthCode } from '../../services/traktApi';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 
 // Auth session için web browser desteğini kur
 WebBrowser.maybeCompleteAuthSession();
 
-export default function Settings() {
+export default function Login() {
   const { accessToken, saveTokens, removeKeys, loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
@@ -88,11 +88,7 @@ export default function Settings() {
       if (tokenData && tokenData.access_token) {
         await saveTokens(tokenData.access_token, tokenData.refresh_token);
         Alert.alert(t('common:success'), t('loginSuccessText'));
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace('/(tabs)');
-        }
+        router.replace('/(protected)/(tabs)/explore');
       }
     } catch (error) {
       console.error('Token Exchange Hatası:', error);
@@ -156,12 +152,10 @@ export default function Settings() {
         </View>
 
       <View style={styles.formContainer}>
-        {!accessToken ? (
           <>
             <Text style={styles.description}>
               {t('traktDescription')}
             </Text>
-            
 
             <TouchableOpacity 
               style={[styles.button, (!request || !isChecked) ? styles.buttonDisabled : null]} 
@@ -207,37 +201,20 @@ export default function Settings() {
               activeOpacity={0.8} 
               onPress={async () => {
                 await loginAsGuest();
-                router.replace('/explore');
+                router.replace('/(protected)/(tabs)/explore');
               }}
             >
               <Text style={styles.guestButtonText}>Misafir Olarak Devam Et</Text>
             </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.button, styles.backButton]} 
+              activeOpacity={0.8} 
+              onPress={() => router.replace('/')}
+            >
+              <Text style={styles.guestButtonText}>Vitrini Görüntüle</Text>
+            </TouchableOpacity>
           </>
-        ) : (
-          <View style={styles.loggedInContainer}>
-            <Text style={styles.loggedInText}>{t('loggedInText')}</Text>
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: '#10b981', marginBottom: 12 }]} 
-              activeOpacity={0.8} 
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/(tabs)');
-                }
-              }}
-            >
-              <Text style={styles.buttonText}>{t('goToApp')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: '#dc2626' }]} 
-              activeOpacity={0.8} 
-              onPress={handleLogout}
-            >
-              <Text style={styles.buttonText}>{t('logoutReset')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
         </View>
       </View>
       <Modal
@@ -294,6 +271,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 30,
     elevation: 15,
+    ...(Platform.OS === 'web' && {
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+    } as any),
   },
   headerContainer: {
     marginBottom: 32,
@@ -485,5 +466,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  backButton: {
+    backgroundColor: 'transparent',
+    marginTop: 8,
   },
 });

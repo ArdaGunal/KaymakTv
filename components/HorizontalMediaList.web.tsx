@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
+import { generateMediaSlug } from '../utils/slugHelper';
 
 interface HorizontalMediaListProps {
   title: string;
@@ -37,6 +38,8 @@ export default function HorizontalMediaListWeb({ title, titleIcon, data, onShowA
         {data.map((item, index) => {
           const traktId = item.rawTraktId || item.id || item.ids?.trakt || item.show?.ids?.trakt || item.movie?.ids?.trakt;
           const tmdbId = item.tmdbId || item.ids?.tmdb || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
+          const title = item.title || item.show?.title || item.movie?.title;
+          const itemSlug = item.ids?.slug || item.show?.ids?.slug || item.movie?.ids?.slug;
           
           return (
             <div 
@@ -44,7 +47,8 @@ export default function HorizontalMediaListWeb({ title, titleIcon, data, onShowA
               className="media-card-hover"
               onClick={() => {
                 if (traktId) {
-                  router.push(`/${type}/${traktId}?tmdbId=${tmdbId}`);
+                  const slug = generateMediaSlug(traktId, itemSlug, title);
+                  router.push(`/${type}/${slug}?tmdbId=${tmdbId}`);
                 }
               }}
             >

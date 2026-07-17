@@ -11,6 +11,7 @@ import { addRating, removeRating } from '../../services/traktApi';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
 import { useLibrary } from '../../context/LibraryContext';
+import { parseMediaSlug } from '../../utils/slugHelper';
 import EpisodeCheckButton from '../../components/EpisodeCheckButton';
 import MediaHero from '../../components/MediaHero';
 import MediaCast from '../../components/MediaCast';
@@ -22,6 +23,8 @@ import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { generateEpisodeSlug } from '../../utils/slugHelper';
+import SeasonAccordion from '../../components/SeasonAccordion';
 
 const { width } = Dimensions.get('window');
 
@@ -52,7 +55,10 @@ const {
     rewatchEpisode
   } = useLibrary();
   const { isGuest } = useAuth();
-  const traktIdNum = parseInt(id as string, 10);
+  
+  const idStr = Array.isArray(id) ? id[0] : id;
+  const { traktId: traktIdNum, slugText: showSlug } = parseMediaSlug(idStr as string);
+
   const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgressMap);
   const showData = mediaData.summary;
   const castData = mediaData.cast;
@@ -348,101 +354,19 @@ const {
           {computedSeasons && computedSeasons.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t('seasons')}</Text>
-              {computedSeasons.map((season) => {
-                const isExpanded = expandedSeasons[season.number];
-                return (
-                  <View key={season.number} style={styles.seasonContainer}>
-                    <TouchableOpacity 
-                      style={styles.seasonHeader} 
-                      onPress={() => toggleSeason(season.number)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.seasonTitle}>
-                        {season.number === 0 ? t('specials', 'Özel Bölümler') : t('seasonNum', { number: season.number })}
-                      </Text>
-                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                         {(() => {
-                           const seasonProgress = showProgressMap[id as string]?.seasons?.find((s:any) => s.number === season.number);
-                           const isSeasonWatched = seasonProgress && seasonProgress.completed > 0;
-                           
-                           return (
-                             <TouchableOpacity 
-                                onPress={() => handleMarkSeason(season.number, isSeasonWatched)} 
-                                style={{marginRight: 16, padding: 4, backgroundColor: isSeasonWatched ? '#10b981' : 'rgba(255, 255, 255, 0.1)', borderRadius: 6}}
-                                disabled={seasonLoading[season.number]}
-                             >
-                                {seasonLoading[season.number] ? (
-                                  <LoadingIndicator size="small" color="#ffffff" />
-                                ) : (
-                                  <CheckCheck color="#ffffff" size={20} />
-                                )}
-                             </TouchableOpacity>
-                           );
-                         })()}
-                         {isExpanded ? <ChevronUp color="#a3a3a3" /> : <ChevronDown color="#a3a3a3" />}
-                      </View>
-                    </TouchableOpacity>
-
-                    {isExpanded && season.episodes && (
-                      <View style={styles.episodesList}>
-                        {season.episodes.map((ep: any) => {
-                           const isWatchedLocal = ep.isWatchedLocal;
-                           const isAired = ep.first_aired 
-                             ? new Date(ep.first_aired) <= new Date() 
-                             : ep.number <= (season.aired_episodes || 0);
-                           
-                           return (
-                             <View key={ep.number} style={styles.episodeRow}>
-                               <TouchableOpacity 
-                                 style={styles.episodeInfo}
-                                 activeOpacity={0.7}
-                                 onPress={() => {
-                                   const epId = ep?.ids?.trakt;
-                                   if (!epId) return; // ID yoksa çökmeyi engelle
-                                   const safeTitle = encodeURIComponent(showData?.title || '');
-                                   router.push(`/episode/${epId}?showId=${showData?.ids?.trakt || ''}&showTmdbId=${tmdbId}&showSlug=${showData?.ids?.slug || ''}&season=${season.number}&episode=${ep.number}&showName=${safeTitle}`);
-                                 }}
-                               >
-                                 <Text style={styles.episodeNumber}>{t('episodeNum', { number: ep.number })}</Text>
-                                 <Text style={styles.episodeName} numberOfLines={1}>{ep.title}</Text>
-                                 {ep.first_aired && <Text style={styles.episodeDate}>{new Date(ep.first_aired).toLocaleDateString('tr-TR')}</Text>}
-                               </TouchableOpacity>
-                               <View>
-                                 {isWatchedLocal ? (
-                                    <TouchableOpacity 
-                                      style={styles.watchedIcon}
-                                      activeOpacity={0.7}
-                                      onPress={() => setSelectedEpisode({season: season.number, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
-                                    >
-                                      <Check size={20} color="#fff" strokeWidth={3} />
-                                    </TouchableOpacity>
-                                 ) : !isAired ? (
-                                    <View style={styles.unairedBadge}>
-                                      <Text style={styles.unairedText}>
-                                        {!ep.first_aired ? 'TBA' : (() => {
-                                          const diff = new Date(ep.first_aired).getTime() - new Date().getTime();
-                                          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                                          return days <= 0 ? t('today') : t('daysLeft', { days: days });
-                                        })()}
-                                      </Text>
-                                    </View>
-                                 ) : (
-                                    <EpisodeCheckButton 
-                                      traktId={showData.ids.trakt}
-                                      season={season.number}
-                                      episode={ep.number}
-                                      showName={showData.title}
-                                    />
-                                 )}
-                               </View>
-                             </View>
-                           )
-                        })}
-                      </View>
-                    )}
-                  </View>
-                )
-              })}
+              {computedSeasons.map((season) => (
+                <SeasonAccordion
+                  key={season.number}
+                  season={season}
+                  showTraktId={traktIdNum}
+                  showSlug={showData?.ids?.slug}
+                  showTitle={showData?.title}
+                  onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
+                  isExpanded={expandedSeasons[season.number]}
+                  onToggle={() => toggleSeason(season.number)}
+                  seasonProgress={showProgressMap[id as string]?.seasons?.find((s:any) => s.number === season.number)}
+                />
+              ))}
             </View>
           )}
 

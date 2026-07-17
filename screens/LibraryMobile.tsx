@@ -15,6 +15,7 @@ import {
 import MediaPoster from '../components/MediaPoster';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { generateMediaSlug } from '../utils/slugHelper';
 
 const { width } = Dimensions.get('window');
 const SPACING = 8;
@@ -125,7 +126,8 @@ export default function LibraryScreen() {
           router.push(`/list/${item.id}?name=${encodeURIComponent(item.title)}`);
         } else {
           const routeType = type === 'shows' || type === 'favShows' ? 'show' : 'movie';
-          router.push(`/${routeType}/${item.id}?tmdbId=${item.tmdbId || ''}`);
+          const slug = generateMediaSlug(item.id, item.slug, item.title);
+          router.push(`/${routeType}/${slug}?tmdbId=${item.tmdbId || ''}`);
         }
       }
     }}>

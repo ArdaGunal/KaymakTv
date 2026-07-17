@@ -4,10 +4,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import EpisodeCard from '../../components/EpisodeCard';
-import MovieCard from '../../components/movies/MovieCard';
-import ListCard from '../../components/ListCard.web';
-import { viewAllStore } from '../../utils/viewAllStore';
+import EpisodeCard from '../../../components/EpisodeCard';
+import MovieCard from '../../../components/movies/MovieCard';
+import ListCard from '../../../components/ListCard.web';
+import { viewAllStore } from '../../../utils/viewAllStore';
 
 const SPACING = 16;
 const NUM_COLUMNS = 6;

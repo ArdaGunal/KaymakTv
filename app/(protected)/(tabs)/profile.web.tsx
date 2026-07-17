@@ -5,18 +5,18 @@ import { Settings, Heart, List as ListIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth } from '../../context/AuthContext';
-import { useLibrary } from '../../context/LibraryContext';
-import { useResponsive } from '../../hooks/useResponsive';
-import ProfileMobile from '../../screens/ProfileMobile';
-import WebCarousel from '../../components/web/WebCarousel';
-import { viewAllStore } from '../../utils/viewAllStore';
-import EpisodeCard from '../../components/EpisodeCard';
-import MovieCard from '../../components/movies/MovieCard';
-import ListCard from '../../components/ListCard.web';
-import LoadingIndicator from '../../components/LoadingIndicator';
-import MediaPoster from '../../components/MediaPoster';
-import LoginPaywall from '../../components/LoginPaywall';
+import { useAuth } from '../../../context/AuthContext';
+import { useLibrary } from '../../../context/LibraryContext';
+import { useResponsive } from '../../../hooks/useResponsive';
+import ProfileMobile from '../../../screens/ProfileMobile';
+import WebCarousel from '../../../components/web/WebCarousel';
+import { viewAllStore } from '../../../utils/viewAllStore';
+import EpisodeCard from '../../../components/EpisodeCard';
+import MovieCard from '../../../components/movies/MovieCard';
+import ListCard from '../../../components/ListCard.web';
+import LoadingIndicator from '../../../components/LoadingIndicator';
+import MediaPoster from '../../../components/MediaPoster';
+import LoginPaywall from '../../../components/LoginPaywall';
 
 export default function ProfileScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -130,7 +130,7 @@ export default function ProfileScreenWeb() {
         onViewAll={() => {
           viewAllStore.data = data;
           viewAllStore.title = title;
-          router.push(`/library/view-all?type=${routeType}` as any);
+          router.push(`/(protected)/library/view-all?type=${routeType}` as any);
         }}
       />
     );
@@ -156,7 +156,7 @@ export default function ProfileScreenWeb() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topHeader}>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/user-settings')}>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/user-settings')}>
             <Settings size={28} color="#ffffff" />
           </TouchableOpacity>
         </View>

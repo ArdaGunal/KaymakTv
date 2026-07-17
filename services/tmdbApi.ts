@@ -1,7 +1,7 @@
 import axios from 'axios';
 import i18n from '../locales/index';
 import { Platform } from 'react-native';
-import * as SecureStore from '../utils/secureStorage';
+import { cacheManager } from '../utils/cacheManager';
 
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 
@@ -10,14 +10,44 @@ const API_KEY = process.env.EXPO_PUBLIC_TMDB_API_KEY;
 const isWeb = Platform.OS === 'web';
 const TMDB_PROXY_URL = process.env.EXPO_PUBLIC_TMDB_PROXY_URL || '/api/tmdb';
 
-// In-Memory Cache (Disk I/O ve SQLite dolumunu önler)
-const memoryCache = new Map<string, string | null>();
+// LRU Cache Sınıfı (Memory Leak Çözümü)
+class LRUCache {
+  private cache = new Map<string, any>();
+  private limit: number;
+
+  constructor(limit = 150) {
+    this.limit = limit;
+  }
+
+  get(key: string) {
+    if (!this.cache.has(key)) return undefined;
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key: string, value: any) {
+    if (this.cache.has(key)) this.cache.delete(key);
+    this.cache.set(key, value);
+    if (this.cache.size > this.limit) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) this.cache.delete(firstKey);
+    }
+  }
+
+  has(key: string) {
+    return this.cache.has(key);
+  }
+}
+
+const memoryCache = new LRUCache(150);
 
 // Yardımcı Cache fonksiyonları
 const getCachedData = async (key: string): Promise<string | null> => {
   if (memoryCache.has(key)) return memoryCache.get(key) || null;
   try {
-    const diskValue = await SecureStore.getItemAsync(key);
+    const diskValue = await cacheManager.get<string>(key);
     if (diskValue) {
       memoryCache.set(key, diskValue);
       return diskValue;
@@ -30,7 +60,7 @@ const setCachedData = async (key: string, value: string | null) => {
   memoryCache.set(key, value);
   if (value) {
     try {
-      await SecureStore.setItemAsync(key, value);
+      await cacheManager.set(key, value);
     } catch(e) {}
   }
 };

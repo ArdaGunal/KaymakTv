@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, Dimensions } from '
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
+import { generateMediaSlug } from '../utils/slugHelper';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.28;
@@ -30,11 +31,14 @@ export default function HorizontalShowList({ title, titleIcon, data, onShowAll, 
       onPress={() => {
         const traktId = item.rawTraktId || item.id || item.show?.ids?.trakt || item.movie?.ids?.trakt;
         const tmdbId = item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
+        const title = item.title || item.show?.title || item.movie?.title;
+        const itemSlug = item.slug || item.show?.ids?.slug || item.movie?.ids?.slug;
         
         if (type === 'list') {
           router.push(`/list/${traktId}?name=${encodeURIComponent(item.title)}`);
         } else if (traktId) {
-          router.push(`/${type}/${traktId}?tmdbId=${tmdbId}`);
+          const slug = generateMediaSlug(traktId, itemSlug, title);
+          router.push(`/${type}/${slug}?tmdbId=${tmdbId}`);
         }
       }}
     >

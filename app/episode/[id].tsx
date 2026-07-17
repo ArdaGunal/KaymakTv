@@ -13,6 +13,7 @@ import { useEpisodeDetail } from '../../hooks/useEpisodeDetail';
 import { getEpisodeStill } from '../../services/tmdbApi';
 import EpisodeCheckButton from '../../components/EpisodeCheckButton';
 import StarSlider from '../../components/StarSlider';
+import RatingModal from '../../components/RatingModal';
 import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
@@ -20,6 +21,7 @@ import MediaCast from '../../components/MediaCast';
 import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
+import { parseEpisodeSlug, formatSlugToTitle } from '../../utils/slugHelper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -27,7 +29,13 @@ import { useAuth } from '../../context/AuthContext';
 export default function EpisodeDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id, showId, showTmdbId, showSlug, season, episode, showName } = useLocalSearchParams();
+  const { id, showTmdbId } = useLocalSearchParams();
+  
+  const idStr = Array.isArray(id) ? id[0] : id;
+  const { showTraktId: parsedShowId, showSlug, season, episode, epTraktId } = parseEpisodeSlug(idStr as string);
+  const showName = formatSlugToTitle(showSlug);
+  const showId = parsedShowId;
+  const traktIdNum = parsedShowId;
   const { 
     userRatingsEpisodes, 
     setLocalRating,
@@ -39,15 +47,15 @@ export default function EpisodeDetailScreen() {
   } = useLibrary();
   const { isGuest } = useAuth();
   const { t } = useTranslation('media');
-  const { mediaData, isLoading, refreshData } = useEpisodeDetail(showId, showTmdbId, season, episode);
+  const { mediaData, isLoading, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
   const stillUrl = mediaData.stillUrl;
 
   const { cast: epCast, voteActor } = useEpisodeCast(
     showTmdbId ? parseInt(showTmdbId as string, 10) : null,
-    parseInt(season as string, 10),
-    parseInt(episode as string, 10)
+    season,
+    episode
   );
 
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
@@ -71,9 +79,7 @@ export default function EpisodeDetailScreen() {
     }
   };
 
-  const epTraktId = parseInt(id as string, 10);
   const myRating = userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === epTraktId)?.rating;
-  const traktIdNum = parseInt(showId as string, 10);
 
   const showProgress = showProgressMap[traktIdNum];
   const hasShowProgress = showProgress && showProgress.aired > 0 && showProgress.completed > 0;
@@ -108,8 +114,8 @@ export default function EpisodeDetailScreen() {
       return;
     }
 
-    const sNum = parseInt(season as string, 10);
-    const eNum = parseInt(episode as string, 10);
+    const sNum = season;
+    const eNum = episode;
     const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
 
     setIsCheckLoading(true);
@@ -183,7 +189,7 @@ export default function EpisodeDetailScreen() {
   const handleShare = async () => {
     try {
       const safeTitle = encodeURIComponent(showName as string || '');
-      const url = `https://kaymaktv.com/episode/${epTraktId}?showId=${showId}&showTmdbId=${showTmdbId}&season=${season}&episode=${episode}&showName=${safeTitle}`;
+      const url = `https://kaymaktv.com/episode/${idStr}`;
       
       await Share.share({
         message: `${showName} S${season} E${episode} ${t('shareEpisodeMsg', 'bölümüne göz at!')}\n${url}`,
@@ -266,8 +272,8 @@ export default function EpisodeDetailScreen() {
 
               {/* Check (Watched/Unwatched) Badge */}
               {(() => {
-                const sNum = parseInt(season as string, 10);
-                const eNum = parseInt(episode as string, 10);
+                const sNum = season;
+                const eNum = episode;
                 const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
                 const isFutureOrTBA = !episodeData?.first_aired || new Date(episodeData.first_aired) > new Date();
                 
@@ -280,14 +286,12 @@ export default function EpisodeDetailScreen() {
                     </View>
                   );
                 }
+                const isAired = episodeData?.first_aired ? new Date(episodeData.first_aired) <= new Date() : true;
+                if (!isAired) return null;
 
                 return (
                   <TouchableOpacity 
-                    style={[
-                      styles.userRatingBadge, 
-                      isWatchedLocal ? { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' } : null
-                    ]} 
-                    activeOpacity={0.7}
+                    style={[styles.userRatingBadge, isWatchedLocal && { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }]} 
                     onPress={handleWatchPress}
                     disabled={isCheckLoading}
                   >
@@ -297,7 +301,7 @@ export default function EpisodeDetailScreen() {
                       <>
                         <Check size={14} color={isWatchedLocal ? "#10b981" : "#a3a3a3"} strokeWidth={3} />
                         <Text style={[styles.userRatingText, isWatchedLocal ? { color: '#10b981' } : null]}>
-                          {isWatchedLocal ? t('watched', { defaultValue: 'İzlendi' }) : t('markAsWatched', { defaultValue: 'İzlendi İşaretle' })}
+                          {isWatchedLocal ? t('watched') : t('markAsWatched')}
                         </Text>
                       </>
                     )}
@@ -318,27 +322,23 @@ export default function EpisodeDetailScreen() {
         </View>
 
         <View style={styles.contentArea}>
-          {/* Overview */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('overview')}</Text>
             <Text style={styles.overviewText}>{overview}</Text>
           </View>
 
-          {/* Cast (Modular implementation using TMDB Episode Credits) */}
           {epCast && epCast.length > 0 && (
             <MediaCast cast={epCast} onActorPress={voteActor} />
           )}
 
-          {/* Comments */}
           {commentsData && commentsData.length > 0 && (() => {
-            const nonSpoilerComments = commentsData.filter(c => !c.spoiler);
+            const nonSpoilerComments = commentsData.filter((c: any) => !c.spoiler);
             const teaserComments = nonSpoilerComments.slice(0, 2);
 
             return (
               <View style={styles.section}>
-                {/* Write Comment Button */}
                 <MyInlineComment 
-                  mediaId={parseInt(showId as string, 10)}
+                  mediaId={showId as number}
                   mediaType="episode"
                   episodeTraktId={episodeData?.ids?.trakt}
                   onPressWrite={() => setWriteCommentVisible(true)}
@@ -382,71 +382,28 @@ export default function EpisodeDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* RATING MODAL */}
-      <Modal visible={ratingModalVisible} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setRatingModalVisible(false)}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 }}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={{ backgroundColor: '#0B1120', borderRadius: 20, padding: 24, alignItems: 'center' }}>
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20 }}>{t('rateEpisode')}</Text>
-                <StarSlider 
-                  initialRating={myRating} 
-                  onRate={handleRate} 
-                  onRemove={myRating ? handleRemoveRating : undefined}
-                />
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* WEBVIEW MODAL */}
-      {Platform.OS !== 'web' && (
-        <Modal
-          visible={isWebViewVisible}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setIsWebViewVisible(false)}
-        >
-          <View style={[styles.modalContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setIsWebViewVisible(false)} style={styles.modalCloseButton}>
-                <X color="#fff" size={24} />
-                <Text style={styles.modalCloseText}>{t('close')}</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.webViewContainer}>
-              {isWebViewLoading && (
-                <View style={styles.webViewLoader}>
-                  <LoadingIndicator size="large" color="#3b82f6" />
-                </View>
-              )}
-              <WebView 
-                source={{ uri: `https://trakt.tv/shows/${showSlug}/people` }} 
-                style={styles.webView}
-                onLoadStart={() => setIsWebViewLoading(true)}
-                onLoadEnd={() => setIsWebViewLoading(false)}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
+      <RatingModal
+        visible={ratingModalVisible}
+        onClose={() => setRatingModalVisible(false)}
+        title={t('rateEpisode')}
+        myRating={myRating}
+        onRate={handleRate}
+        onRemoveRating={handleRemoveRating}
+      />
 
       <CommentSheet 
         visible={commentSheetVisible} 
         onClose={() => setCommentSheetVisible(false)} 
-        mediaId={parseInt(showId as string, 10)}
+        mediaId={showId as number}
         mediaType="episode"
-        season={parseInt(season as string, 10)}
-        episode={parseInt(episode as string, 10)}
+        season={season}
+        episode={episode}
       />
 
-      {/* Yorum Yazma Modal */}
       <WriteCommentSheet
         visible={writeCommentVisible}
         onClose={() => setWriteCommentVisible(false)}
-        mediaId={parseInt(showId as string, 10)}
+        mediaId={showId as number}
         mediaType="episode"
         episodeTraktId={episodeData?.ids?.trakt}
         onSuccess={() => {
