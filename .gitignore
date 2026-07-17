@@ -49,7 +49,6 @@ example
 
 # Scripts and Documentation
 *.bat
-*.md
 
 # Netlify and deployment configs
 netlify.toml
