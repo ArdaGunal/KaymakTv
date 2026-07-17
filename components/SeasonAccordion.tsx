@@ -61,10 +61,10 @@ export default function SeasonAccordion({
         <Text style={styles.seasonTitle}>
           {season.number === 0 ? t('specials', 'Özel Bölümler') : t('seasonNum', { number: season.number })}
         </Text>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+        <View style={styles.seasonHeaderRight}>
            <TouchableOpacity 
               onPress={handleMarkSeason} 
-              style={{marginRight: 16, padding: 4, backgroundColor: isSeasonWatched ? '#10b981' : 'rgba(255, 255, 255, 0.1)', borderRadius: 6}}
+              style={[styles.markSeasonBtn, isSeasonWatched && styles.markSeasonBtnWatched]}
               disabled={seasonLoading}
            >
               {seasonLoading ? (
@@ -207,5 +207,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     fontWeight: 'bold',
+  },
+  seasonHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  markSeasonBtn: {
+    marginRight: 16,
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 6,
+  },
+  markSeasonBtnWatched: {
+    backgroundColor: '#10b981',
   },
 });

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Switch, Alert } from 'react-native';
 import { X, Send, AlertTriangle, Edit2, Trash2, Check } from 'lucide-react-native';
 import { addComment, getUserComments, updateComment, deleteComment } from '../services/traktApi';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import LoadingIndicator from './LoadingIndicator';
 
 interface WriteCommentSheetProps {
   visible: boolean;
@@ -135,7 +136,7 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
           </View>
 
           {loadingInitial ? (
-            <ActivityIndicator style={{marginTop: 20}} color="#3b82f6" />
+          <LoadingIndicator size="small" style={{marginTop: 20}} />
           ) : viewMode ? (
             <View style={styles.viewModeContainer}>
               <Text style={styles.viewModeText}>{inputText}</Text>
@@ -144,7 +145,7 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
                   <Edit2 size={20} color="#F97316" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={handleDelete} disabled={sending}>
-                  {sending ? <ActivityIndicator size="small" color="#ef4444" /> : <Trash2 size={20} color="#ef4444" />}
+                  {sending ? <LoadingIndicator size="small" /> : <Trash2 size={20} color="#ef4444" />}
                 </TouchableOpacity>
               </View>
             </View>
@@ -174,7 +175,7 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
                 />
                 <TouchableOpacity style={styles.sendBtn} onPress={handleSend} disabled={sending}>
                   {sending ? (
-                    <ActivityIndicator size="small" color="#3b82f6" />
+                    <LoadingIndicator size="small" />
                   ) : existingCommentId ? (
                     <Check size={20} color="#3b82f6" />
                   ) : (

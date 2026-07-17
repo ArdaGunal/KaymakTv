@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, ActivityIndicator, Platform } from 'react-native';
-import { X, AlertCircle } from 'lucide-react-native';
-import { getMediaComments } from '../services/traktApi';
+import React, { useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  FlatList,
+  Platform,
+} from 'react-native';
+import { X, MessageSquare } from 'lucide-react-native';
+import CommentItem from './comments/CommentItem';
+import LoadingIndicator from './LoadingIndicator';
+import { useComments } from '../hooks/useComments';
 
 interface CommentSheetProps {
   visible: boolean;
@@ -12,78 +22,90 @@ interface CommentSheetProps {
   episode?: number;
 }
 
-export default function CommentSheet({ visible, onClose, mediaId, mediaType, season, episode }: CommentSheetProps) {
-  const [comments, setComments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function CommentSheet({
+  visible,
+  onClose,
+  mediaId,
+  mediaType,
+  season,
+  episode,
+}: CommentSheetProps) {
+  const { comments, loading, loadingMore, error, totalCount, loadComments, loadMore } =
+    useComments({ mediaId, mediaType, season, episode, sort: 'likes' });
 
   useEffect(() => {
     if (visible && mediaId) {
-      fetchComments();
+      loadComments();
     }
   }, [visible, mediaId]);
 
-  const fetchComments = async () => {
-    setLoading(true);
-    try {
-      const res = await getMediaComments(mediaId, mediaType, 'likes', 1, 20, season, episode);
-      setComments(res.data || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderItem = ({ item }: { item: any }) => {
-    const isSpoiler = item.spoiler;
-    const username = item.user?.username || 'Kullanıcı';
-    const likes = item.likes || 0;
-    const commentText = item.comment || '';
-
-    return (
-      <View style={styles.commentCard}>
-        <View style={styles.commentHeader}>
-          <Text style={styles.username}>{username}</Text>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-            {isSpoiler && <Text style={styles.spoilerBadge}>SPOILER</Text>}
-            <Text style={styles.likes}>♥ {likes}</Text>
-          </View>
-        </View>
-        {isSpoiler ? (
-          <View style={styles.spoilerBox}>
-            <AlertCircle size={14} color="#facc15" />
-            <Text style={styles.spoilerText}>Bu yorum spoiler içeriyor.</Text>
-          </View>
-        ) : (
-          <Text style={styles.commentText}>{commentText}</Text>
-        )}
-      </View>
-    );
-  };
-
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.sheetContainer}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Yorumlar ({comments.length})</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X color="#fff" size={24} />
+            <View style={styles.headerLeft}>
+              <MessageSquare size={20} color="#60a5fa" />
+              <Text style={styles.title}>
+                Yorumlar
+                {totalCount > 0 && (
+                  <Text style={styles.count}> ({totalCount})</Text>
+                )}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X color="#94a3b8" size={22} />
             </TouchableOpacity>
           </View>
 
+          {/* Content */}
           {loading ? (
-             <ActivityIndicator style={{marginTop: 40}} color="#3b82f6" />
+            <View style={styles.centerState}>
+              <LoadingIndicator size="large" />
+              <Text style={styles.stateText}>Yorumlar yükleniyor...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.centerState}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity onPress={loadComments} style={styles.retryBtn}>
+                <Text style={styles.retryBtnText}>Tekrar Dene</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <FlatList 
+            <FlatList
               data={comments}
-              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-              renderItem={renderItem}
-              contentContainerStyle={{ padding: 16 }}
-              ListEmptyComponent={<Text style={styles.emptyText}>Bu bölüm için henüz yorum yok.</Text>}
+              keyExtractor={(item, index) =>
+                item.id ? item.id.toString() : index.toString()
+              }
+              renderItem={({ item }) => <CommentItem item={item} />}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              onEndReached={loadMore}
+              onEndReachedThreshold={0.4}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.footerLoader}>
+                    <LoadingIndicator size="small" />
+                  </View>
+                ) : null
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <MessageSquare size={40} color="#1e293b" />
+                  <Text style={styles.emptyTitle}>Henüz yorum yok</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Bu içerik için ilk yorumu sen yapabilirsin.
+                  </Text>
+                </View>
+              }
             />
           )}
-
         </View>
       </View>
     </Modal>
@@ -91,82 +113,108 @@ export default function CommentSheet({ visible, onClose, mediaId, mediaType, sea
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
-  sheetContainer: {
+  sheet: {
     backgroundColor: '#0B1120',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    height: '85%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '88%',
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    ...(Platform.OS === 'web' && {
+      maxWidth: 680,
+      alignSelf: 'center',
+      width: '100%',
+      borderRadius: 20,
+      marginBottom: 40,
+    } as any),
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#172033',
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   title: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  count: {
+    color: '#475569',
+    fontWeight: '500',
   },
   closeBtn: {
     padding: 4,
   },
-  commentCard: {
-    backgroundColor: '#172033',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  commentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  centerState: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'center',
+    gap: 16,
+    paddingBottom: 60,
   },
-  username: {
-    color: '#3b82f6',
-    fontWeight: 'bold',
+  stateText: {
+    color: '#475569',
+    fontSize: 14,
   },
-  likes: {
-    color: '#a3a3a3',
-    fontSize: 12,
-  },
-  spoilerBadge: {
-    backgroundColor: '#ef4444',
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  spoilerBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1c1c1c',
-    padding: 8,
-    borderRadius: 6,
-  },
-  spoilerText: {
-    color: '#a3a3a3',
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  commentText: {
-    color: '#e5e5e5',
-    lineHeight: 20,
-  },
-  emptyText: {
-    color: '#a3a3a3',
+  errorText: {
+    color: '#f87171',
+    fontSize: 15,
     textAlign: 'center',
-    marginTop: 20,
+    paddingHorizontal: 32,
+    lineHeight: 22,
+  },
+  retryBtn: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  retryBtnText: {
+    color: '#94a3b8',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    color: '#475569',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    color: '#334155',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 40,
   },
 });

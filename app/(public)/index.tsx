@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import HeroSection from '../../components/landing/HeroSection';
 import BentoGrid from '../../components/landing/BentoGrid';
 import CallToAction from '../../components/landing/CallToAction';
@@ -16,9 +17,10 @@ export default function LandingPage() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
-      <ScrollView 
+      <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -27,14 +29,17 @@ export default function LandingPage() {
         <CallToAction />
         <Footer />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#0B1120',
+  },
+  scroll: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,

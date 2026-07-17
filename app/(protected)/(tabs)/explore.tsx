@@ -1,170 +1,58 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  useWindowDimensions,
+} from 'react-native';
 import LoadingIndicator from '../../../components/LoadingIndicator';
-
-import { getTrendingShows, getTrendingMovies, searchTrakt } from '../../../services/traktApi';
 import ShowCard from '../../../components/ShowCard';
 import SearchBar from '../../../components/SearchBar';
-import SearchTabs, { SearchTabType } from '../../../components/SearchTabs';
+import SearchTabs from '../../../components/SearchTabs';
+import ExploreWebGrid from '../../../components/explore/ExploreWebGrid';
+import { useExplore } from '../../../hooks/useExplore';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
+const DESKTOP_BREAKPOINT = 768;
+
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<SearchTabType>('show');
-  const { t, i18n } = useTranslation(['media', 'navigation', 'common']);
-
-  const [trendingShows, setTrendingShows] = useState<any[]>([]);
-  const [trendingMovies, setTrendingMovies] = useState<any[]>([]);
-  
-  const [showPage, setShowPage] = useState(1);
-  const [moviePage, setMoviePage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
-  
-  const [searchShows, setSearchShows] = useState<any[]>([]);
-  const [searchMovies, setSearchMovies] = useState<any[]>([]);
-
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= DESKTOP_BREAKPOINT;
+  const { t } = useTranslation(['media', 'navigation', 'common']);
   const { accessToken, isGuest } = useAuth();
   const router = useRouter();
-  const activeSearchRef = React.useRef<string>('');
 
-  const fetchTrending = async (reset = true) => {
-    if (!accessToken && !isGuest) {
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
+  const {
+    loading,
+    loadingMore,
+    refreshing,
+    error,
+    searchQuery,
+    activeTab,
+    isSearching,
+    currentData,
+    setSearchQuery,
+    setActiveTab,
+    onRefresh,
+    fetchMore,
+  } = useExplore();
 
-    try {
-      if (reset) {
-        setError(null);
-        setLoading(true);
-        setShowPage(1);
-        setMoviePage(1);
-      }
-      
-      const [shows, movies] = await Promise.all([
-        getTrendingShows(1, 7),
-        getTrendingMovies(1, 7)
-      ]);
-      setTrendingShows(shows);
-      setTrendingMovies(movies);
-    } catch (err: any) {
-      console.error('Error fetching trending data:', err);
-      setError(t('trendLoadError'));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchMore = async () => {
-    // Arama modundayken veya zaten yükleniyorken iptal et
-    if (searchQuery.trim().length > 2 || loadingMore || loading) return;
-
-    setLoadingMore(true);
-    try {
-      if (activeTab === 'show') {
-        const nextPage = showPage + 1;
-        const newShows = await getTrendingShows(nextPage, 7);
-        if (newShows.length > 0) {
-          setTrendingShows(prev => [...prev, ...newShows]);
-          setShowPage(nextPage);
-        }
-      } else {
-        const nextPage = moviePage + 1;
-        const newMovies = await getTrendingMovies(nextPage, 7);
-        if (newMovies.length > 0) {
-          setTrendingMovies(prev => [...prev, ...newMovies]);
-          setMoviePage(nextPage);
-        }
-      }
-    } catch (err) {
-      console.error(t('fetchMoreError'), err);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const fetchSearch = async (query: string) => {
-    if (!accessToken && !isGuest) return;
-
-    activeSearchRef.current = query;
-    const currentSearch = query;
-
-    try {
-      setError(null);
-      setLoading(true);
-      const [shows, movies] = await Promise.all([
-        searchTrakt(query, 'show'),
-        searchTrakt(query, 'movie')
-      ]);
-      
-      if (activeSearchRef.current !== currentSearch) return;
-
-      setSearchShows(shows);
-      setSearchMovies(movies);
-    } catch (err: any) {
-      if (activeSearchRef.current !== currentSearch) return;
-      console.error('Error searching:', err);
-      setError(t('searchError'));
-    } finally {
-      if (activeSearchRef.current === currentSearch) {
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!accessToken && !isGuest) return;
-
-    if (searchQuery.trim().length > 2) {
-      const delayDebounceFn = setTimeout(() => {
-        fetchSearch(searchQuery);
-      }, 500);
-
-      return () => clearTimeout(delayDebounceFn);
-    } else if (searchQuery.trim().length === 0) {
-      setSearchShows([]);
-      setSearchMovies([]);
-      if (trendingShows.length === 0 || trendingMovies.length === 0) {
-        fetchTrending();
-      }
-    }
-  }, [searchQuery, accessToken, isGuest]);
-
-  // Dil değiştiğinde trend olan içeriklerin çevirilerini güncelle
-  useEffect(() => {
-    if ((accessToken || isGuest) && (trendingShows.length > 0 || trendingMovies.length > 0)) {
-      if (searchQuery.trim().length > 2) {
-        fetchSearch(searchQuery);
-      } else {
-        fetchTrending(true);
-      }
-    }
-  }, [i18n.language]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    if (searchQuery.trim().length > 2) {
-      fetchSearch(searchQuery);
-    } else {
-      fetchTrending();
-    }
-  };
-
+  // Auth guard
   if (!accessToken && !isGuest) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{t('exploreLoginReq')}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => router.push('/(protected)/account')}
         >
@@ -174,36 +62,56 @@ export default function ExploreScreen() {
     );
   }
 
-  const isSearching = searchQuery.trim().length > 2;
-  const currentData = isSearching
-    ? (activeTab === 'show' ? searchShows : searchMovies)
-    : (activeTab === 'show' ? trendingShows : trendingMovies);
-
+  // Shared header — used by both list and grid
   const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>{t('navigation:explore')}</Text>
-      <SearchBar 
-        value={searchQuery} 
-        onChangeText={setSearchQuery} 
-        placeholder={t('exploreSearchPH')} 
+    <View style={isDesktop ? styles.headerContainerWeb : styles.headerContainer}>
+      <Text style={[styles.headerTitle, isDesktop && styles.headerTitleWeb]}>
+        {t('navigation:explore')}
+      </Text>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t('exploreSearchPH')}
       />
       <SearchTabs activeTab={activeTab} onTabChange={setActiveTab} />
-      
+
       {!isSearching && (
         <Text style={styles.sectionTitle}>
           {activeTab === 'show' ? t('trendShows') : t('trendMovies')}
         </Text>
       )}
-      
       {isSearching && !loading && currentData.length === 0 && (
         <Text style={styles.emptyText}>{t('common:noResults')}</Text>
       )}
     </View>
   );
 
+  const refreshControl = (
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />
+  );
+
+  // ── Desktop: poster grid ─────────────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ExploreWebGrid
+          data={currentData}
+          loading={loading}
+          loadingMore={loadingMore}
+          error={error}
+          onEndReached={fetchMore}
+          header={renderHeader()}
+          refreshControl={refreshControl}
+          screenWidth={width}
+        />
+      </View>
+    );
+  }
+
+  // ── Mobile: original row list ────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { paddingTop: insets.top }]} 
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <FlatList
@@ -222,18 +130,16 @@ export default function ExploreScreen() {
         onEndReachedThreshold={0.5}
         ListFooterComponent={
           loadingMore ? (
-            <View style={{ paddingVertical: 20 }}>
-              <LoadingIndicator size="small" color="#3b82f6" />
+            <View style={styles.footerLoader}>
+              <LoadingIndicator size="small" />
             </View>
           ) : null
         }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />
-        }
+        refreshControl={refreshControl}
         ListEmptyComponent={
           loading ? (
             <View style={styles.loadingContainer}>
-              <LoadingIndicator size="large" color="#3b82f6" />
+              <LoadingIndicator size="large" />
               <Text style={styles.loadingText}>{t('common:loading')}</Text>
             </View>
           ) : error ? (
@@ -265,11 +171,23 @@ const styles = StyleSheet.create({
   headerContainer: {
     paddingBottom: 8,
   },
+  headerContainerWeb: {
+    paddingBottom: 16,
+    maxWidth: 1280,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 32,
+  },
   headerTitle: {
     color: '#ffffff',
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  headerTitleWeb: {
+    fontSize: 34,
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
   sectionTitle: {
     color: '#ffffff',
@@ -285,10 +203,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 40,
+    gap: 16,
   },
   loadingText: {
     color: '#a3a3a3',
-    marginTop: 16,
     fontSize: 16,
   },
   errorContainer: {
@@ -331,5 +249,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
 });

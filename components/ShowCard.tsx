@@ -1,5 +1,6 @@
 import React, { useState, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import LoadingIndicator from './LoadingIndicator';
 import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
@@ -83,7 +84,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
             disabled={isWatchlistLoading || isWatched}
           >
             {isWatchlistLoading ? (
-              <ActivityIndicator size="small" color="#10b981" />
+            <LoadingIndicator size="small" />
             ) : isAdded ? (
               <Check size={18} color="#10b981" strokeWidth={3} />
             ) : (

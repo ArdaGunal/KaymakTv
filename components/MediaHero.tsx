@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronLeft, Play, Star, ChevronDown, Home, MoreVertical, Bookmark, Heart, EyeOff, Trash2, Share2, CheckCheck, ListPlus } from 'lucide-react-native';
+import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import StarSlider from './StarSlider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useResponsive } from '../hooks/useResponsive';
@@ -12,7 +12,7 @@ import { BlurView } from 'expo-blur';
 import RatingModal from './modals/RatingModal';
 import OptionsModal from './modals/OptionsModal';
 import { formatRuntime } from '../utils/formatters';
-
+import { generateMediaSlug } from '../utils/slugHelper';
 import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
@@ -35,8 +35,6 @@ interface MediaHeroProps {
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
 }
-
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MediaHero({
   type,
@@ -89,8 +87,6 @@ export default function MediaHero({
     setRatingModalVisible(false);
   };
 
-
-
   const handleToggleFavorite = () => {
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
@@ -102,8 +98,6 @@ export default function MediaHero({
     }
     setOptionsModalVisible(false);
   };
-
-
 
   return (
     <View style={styles.container}>

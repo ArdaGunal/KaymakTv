@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { X, Plus, Check } from 'lucide-react-native';
 import { useLibrary } from '../context/LibraryContext';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LoadingIndicator from './LoadingIndicator';
 
 interface AddToListModalProps {
   visible: boolean;
@@ -141,7 +142,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
                   <Text style={styles.cancelText}>{t('common:cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleCreateList} style={styles.saveBtn} disabled={isLoading || !newListName.trim()}>
-                  {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Oluştur</Text>}
+                  {isLoading ? <LoadingIndicator size="small" /> : <Text style={styles.saveBtnText}>Oluştur</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -154,7 +155,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
 
           <TouchableOpacity style={styles.applyBtn} onPress={handleSave} disabled={isLoading || isCreating}>
             {isLoading && !isCreating ? (
-              <ActivityIndicator color="#fff" />
+              <LoadingIndicator />
             ) : (
               <Text style={styles.applyBtnText}>Kaydet</Text>
             )}

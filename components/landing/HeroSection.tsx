@@ -1,29 +1,31 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, Platform, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Play, Compass } from 'lucide-react-native';
 
+const MOBILE_BREAKPOINT = 768;
+
 export default function HeroSection() {
   const router = useRouter();
   const { loginAsGuest } = useAuth();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const isDesktop = width >= MOBILE_BREAKPOINT;
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 900,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 1000,
+        duration: 900,
         useNativeDriver: true,
       }),
     ]).start();
@@ -37,13 +39,12 @@ export default function HeroSection() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['rgba(225, 29, 72, 0.15)', 'transparent']}
-        colors={['rgba(59, 130, 246, 0.15)', 'transparent']}
+        colors={['rgba(59, 130, 246, 0.18)', 'transparent']}
         style={styles.glowEffect}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       />
-      
+
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>🎉 Yeni Sürüm 2.0 Yayında</Text>
@@ -53,34 +54,34 @@ export default function HeroSection() {
           Medyalarınızı Yönetmenin {'\n'}
           <Text style={styles.highlight}>En Şık</Text> Yolu
         </Text>
-        
+
         <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
           Dizilerinizi takip edin, filmlerinizi keşfedin ve izleme alışkanlıklarınızı kusursuz bir arayüzle analiz edin. Tamamen ücretsiz.
         </Text>
 
         <View style={[styles.buttonContainer, isDesktop && styles.buttonContainerDesktop]}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.primaryButton}
-            activeOpacity={0.8}
+            activeOpacity={0.82}
             onPress={() => router.push('/(public)/settings')}
           >
             <LinearGradient
-              colors={['#2563eb', '#1e3a8a']}
+              colors={['#2563eb', '#1d4ed8']}
               style={styles.primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Play color="#fff" size={20} fill="#fff" style={styles.btnIcon} />
+              <Play color="#fff" size={18} fill="#fff" style={styles.btnIcon} />
               <Text style={styles.primaryButtonText}>Ücretsiz Başla</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.ghostButton}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
             onPress={handleGuestLogin}
           >
-            <Compass color="#2563eb" size={20} style={styles.btnIcon} />
+            <Compass color="#60a5fa" size={18} style={styles.btnIcon} />
             <Text style={styles.ghostButtonText}>Misafir Olarak İncele</Text>
           </TouchableOpacity>
         </View>
@@ -91,7 +92,8 @@ export default function HeroSection() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: Platform.OS === 'web' ? 120 : 80,
+    paddingTop: Platform.OS === 'web' ? 140 : 72,
+    paddingBottom: Platform.OS === 'web' ? 100 : 56,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -100,42 +102,46 @@ const styles = StyleSheet.create({
   },
   glowEffect: {
     position: 'absolute',
-    top: -100,
+    top: -80,
+    left: '-50%',
+    right: '-50%',
     width: '200%',
     height: 400,
-    borderRadius: 500,
   },
   content: {
     alignItems: 'center',
+    width: '100%',
     maxWidth: 900,
     zIndex: 1,
   },
   badge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 100,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: 'rgba(59, 130, 246, 0.25)',
     marginBottom: 24,
   },
   badgeText: {
     color: '#60a5fa',
-    fontWeight: '600',
-    fontSize: 14,
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.3,
   },
   title: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#f8fafc',
     textAlign: 'center',
-    lineHeight: 50,
+    lineHeight: 48,
     marginBottom: 20,
-    fontFamily: Platform.OS === 'web' ? 'system-ui, -apple-system, sans-serif' : undefined,
+    letterSpacing: -0.5,
   },
   titleDesktop: {
     fontSize: 72,
     lineHeight: 85,
+    letterSpacing: -1.5,
   },
   highlight: {
     color: '#3B82F6',
@@ -144,33 +150,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#94a3b8',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 26,
     marginBottom: 40,
-    maxWidth: 600,
+    maxWidth: 560,
   },
   subtitleDesktop: {
-    fontSize: 20,
+    fontSize: 19,
     lineHeight: 30,
   },
   buttonContainer: {
     flexDirection: 'column',
-    gap: 16,
+    gap: 14,
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
   },
   buttonContainerDesktop: {
     flexDirection: 'row',
     maxWidth: '100%',
     justifyContent: 'center',
+    gap: 16,
   },
   primaryButton: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 10,
   },
   primaryGradient: {
     flexDirection: 'row',
@@ -178,6 +185,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 32,
+    minHeight: 54,
   },
   btnIcon: {
     marginRight: 8,
@@ -185,7 +193,8 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   ghostButton: {
     flexDirection: 'row',
@@ -193,14 +202,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+    backgroundColor: 'rgba(59, 130, 246, 0.07)',
+    minHeight: 54,
   },
   ghostButtonText: {
-    color: '#3B82F6',
+    color: '#60a5fa',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });
