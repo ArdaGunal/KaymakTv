@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from '../../utils/secureStorage';
 import i18n from '../../locales/index';
+import { refreshTraktToken } from './auth';
 
 export const applyTranslation = (item: any, lang: string) => {
   if (item && item.translations && Array.isArray(item.translations)) {
@@ -85,19 +86,12 @@ export const getTraktClient = async () => {
         isRefreshing = true;
 
         const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
-        const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
-        const clientSecret = process.env.EXPO_PUBLIC_TRAKT_CLIENT_SECRET;
 
-        if (refreshToken && clientId && clientSecret) {
+        if (refreshToken) {
           try {
             console.log('Trakt API 401 hatası. Refresh Token ile yeni token alınıyor...');
-            const { data } = await axios.post('https://api.trakt.tv/oauth/token', { 
-              refresh_token: refreshToken,
-              client_id: clientId,
-              client_secret: clientSecret,
-              grant_type: 'refresh_token',
-              redirect_uri: 'urn:ietf:wg:oauth:2.0:oob'
-            });
+            // Client Secret burada değil, server.js'teki /api/trakt proxy'sinde kullanılır.
+            const data = await refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob');
             const newAccessToken = data.access_token;
             const newRefreshToken = data.refresh_token;
 

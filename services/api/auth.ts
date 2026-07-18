@@ -1,25 +1,31 @@
 import axios from 'axios';
-import { getTraktClient } from './traktClient';
+
+// Trakt Client Secret istemciye ASLA gömülmez. Bunun yerine server.js'teki
+// /api/trakt proxy'sine gidilir; secret orada sunucu-taraflı (TRAKT_CLIENT_SECRET,
+// EXPO_PUBLIC_ önekSİZ) env değişkeninden okunur. EXPO_PUBLIC_API_URL tanımlıysa
+// (native derlemeler için gerekli) mutlak adres kullanılır, yoksa (Web, aynı origin)
+// göreli yol yeterlidir — tıpkı services/tmdbApi.ts'deki TMDB_PROXY_URL deseni gibi.
+const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt`
+  : '/api/trakt';
 
 export const exchangeAuthCode = async (code: string, redirectUri: string) => {
   try {
-    const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
-    const clientSecret = process.env.EXPO_PUBLIC_TRAKT_CLIENT_SECRET;
-    
-    if (!clientId || !clientSecret) {
-      throw new Error('Trakt Client ID veya Secret bulunamadı. Lütfen .env dosyasını kontrol edin.');
-    }
-
-    const response = await axios.post('https://api.trakt.tv/oauth/token', {
+    const response = await axios.post(TRAKT_PROXY_URL, {
       code,
-      client_id: clientId,
-      client_secret: clientSecret,
       redirect_uri: redirectUri,
-      grant_type: 'authorization_code'
     });
     return response.data; // { access_token, refresh_token, ... }
   } catch (error: any) {
     console.error('exchangeAuthCode Hatası:', error?.response?.data || error);
     throw error;
   }
+};
+
+export const refreshTraktToken = async (refreshToken: string, redirectUri: string) => {
+  const response = await axios.post(TRAKT_PROXY_URL, {
+    refresh_token: refreshToken,
+    redirect_uri: redirectUri,
+  });
+  return response.data; // { access_token, refresh_token, ... }
 };

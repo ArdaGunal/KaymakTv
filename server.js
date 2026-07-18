@@ -61,8 +61,11 @@ app.post('/api/trakt', async (req, res) => {
       return res.status(400).json({ error: 'Authorization code or refresh token is required' });
     }
 
+    // client_id gizli değildir (OAuth'ta genelde public), bu yüzden EXPO_PUBLIC_ fallback'i güvenlidir.
     const clientId = process.env.TRAKT_CLIENT_ID || process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
-    const clientSecret = process.env.TRAKT_CLIENT_SECRET || process.env.EXPO_PUBLIC_TRAKT_CLIENT_SECRET;
+    // client_secret GİZLİDİR. EXPO_PUBLIC_ önekli bir değişkene ASLA fallback yapılmaz —
+    // aksi halde bu değer client bundle'ına gömülür ve bu endpoint'in tüm amacı boşa çıkar.
+    const clientSecret = process.env.TRAKT_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       return res.status(500).json({ error: 'Server configuration error (missing Trakt credentials)' });
