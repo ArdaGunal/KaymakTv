@@ -11,6 +11,21 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
+// BAŞLANGIÇ ORTAM DEĞİŞKENİ KONTROLÜ
+// Eksik/yanlış .env sessizce 500'e düşmesin, terminalde hemen görünsün.
+// ==========================================
+const REQUIRED_ENV_VARS = ['TRAKT_CLIENT_SECRET', 'EXPO_PUBLIC_TRAKT_CLIENT_ID'];
+const missingEnvVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+if (missingEnvVars.length > 0) {
+  console.warn('==========================================');
+  console.warn('⚠️  UYARI: Eksik ortam değişkenleri tespit edildi:');
+  missingEnvVars.forEach((key) => console.warn(`   - ${key}`));
+  console.warn(`   .env dosyası bu makinede (${__dirname}) mevcut mu ve doğru mu kontrol edin.`);
+  console.warn('   /api/trakt istekleri bu değişkenler ayarlanana kadar 500 dönecektir.');
+  console.warn('==========================================');
+}
+
+// ==========================================
 // TMDB PROXY ENDPOINT
 // ==========================================
 app.get('/api/tmdb', async (req, res) => {
