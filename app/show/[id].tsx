@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { addRating, removeRating } from '../../services/traktApi';
 import { useShowDetail } from '../../hooks/useShowDetail';
+import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
 import { useLibrary } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
@@ -39,11 +40,9 @@ export default function ShowDetailScreen() {
   const router = useRouter();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
   const { t } = useTranslation('media');
-const { 
-    showProgressMap, 
-    markSeasonAsWatched, 
-    unwatchSeason,
-    userRatingsShows, 
+const {
+    showProgressMap,
+    userRatingsShows,
     userRatingsEpisodes,
     watchlistShows,
     toggleWatchlistStatus,
@@ -51,11 +50,6 @@ const {
     toggleFavoriteStatus,
     hideMediaFromProgress,
     deleteMediaFromHistory,
-    setLocalRating,
-    removeLocalRating,
-    refreshLibrary,
-    unwatchEpisode,
-    rewatchEpisode
   } = useLibrary();
   const { isGuest } = useAuth();
   
@@ -72,116 +66,53 @@ const {
   const [backdrop, setBackdrop] = useState<string | null>(null);
   const [poster, setPoster] = useState<string | null>(null);
   const [trailerId, setTrailerId] = useState<string | null>(null);
-  
+
   const [expandedSeasons, setExpandedSeasons] = useState<any>({});
-  
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   const [writeCommentVisible, setWriteCommentVisible] = useState(false);
-  
-  
-  const [seasonLoading, setSeasonLoading] = useState<Record<number, boolean>>({});
-
-  // Bölüm Seçenekleri (Modal) State'leri
+  const [commentVersion, setCommentVersion] = useState(0);
   const [selectedEpisode, setSelectedEpisode] = useState<{season: number, episode: number, title: string, traktId?: number} | null>(null);
   const [episodeRatingModalVisible, setEpisodeRatingModalVisible] = useState(false);
-  const [localLoadingOption, setLocalLoadingOption] = useState<'remove' | 'rewatch' | null>(null);
-
-  // Snackbar State'leri
   const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarData, setSnackbarData] = useState<{showId: number, season: number, episode: number} | null>(null);
 
-  
-  // Kullanıcının puanını bul
-  const userRatingObj = userRatingsShows?.find((r: any) => r.show?.ids?.trakt === traktIdNum);
-  const userRating = userRatingObj ? userRatingObj.rating : null;
+  // Handler hook'u
+  const {
+    userRating,
+    seasonLoading,
+    localLoadingOption,
+    snackbarData,
+    setSnackbarData,
+    handleRate,
+    handleRemoveRating,
+    handleMarkSeason,
+    handleUnwatchEpisode: hookHandleUnwatchEpisode,
+    handleRewatchEpisode: hookHandleRewatchEpisode,
+    handleUndoUnwatch,
+  } = useShowDetailHandlers({ traktIdNum, id, t });
 
   const isWatchlisted = watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
   const isFavorited = favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
 
-  const handleRate = async (rating: number) => {
-    try {
-      setLocalRating(traktIdNum, 'show', rating * 2);
-      await addRating(traktIdNum, 'show', rating);
-    } catch (e) {
-      removeLocalRating(traktIdNum, 'show');
-      Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
-      console.error(e);
-    }
-  };
-
-  const handleRemoveRating = async () => {
-    try {
-      removeLocalRating(traktIdNum, 'show');
-      await removeRating(traktIdNum, 'show');
-    } catch (e) {
-      Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
-      console.error(e);
-    }
-  };
-
-  const handleMarkSeason = async (seasonNum: number, isWatched: boolean) => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-    try {
-      setSeasonLoading(prev => ({ ...prev, [seasonNum]: true }));
-      if (isWatched) {
-        await unwatchSeason(parseInt(id as string, 10), seasonNum);
-      } else {
-        await markSeasonAsWatched(parseInt(id as string, 10), seasonNum);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSeasonLoading(prev => ({ ...prev, [seasonNum]: false }));
-    }
-  };
-
   const handleUnwatchEpisode = async () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-    if (!selectedEpisode) return;
-    setLocalLoadingOption('remove');
-    try {
-      await unwatchEpisode(traktIdNum, selectedEpisode.season, selectedEpisode.episode);
-      setSnackbarData({ showId: traktIdNum, season: selectedEpisode.season, episode: selectedEpisode.episode });
+    const success = await hookHandleUnwatchEpisode(selectedEpisode);
+    if (success) {
+      setSnackbarData({ showId: traktIdNum, season: selectedEpisode!.season, episode: selectedEpisode!.episode });
       setSnackbarVisible(true);
       setSelectedEpisode(null);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLocalLoadingOption(null);
     }
   };
 
   const handleRewatchEpisode = async () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-    if (!selectedEpisode) return;
-    setLocalLoadingOption('rewatch');
-    try {
-      await rewatchEpisode(traktIdNum, selectedEpisode.season, selectedEpisode.episode);
+    const success = await hookHandleRewatchEpisode(selectedEpisode);
+    if (success) {
       setSelectedEpisode(null);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLocalLoadingOption(null);
     }
   };
 
-  const handleUndoUnwatch = async () => {
-    if (!snackbarData) return;
-    try {
-      await rewatchEpisode(snackbarData.showId, snackbarData.season, snackbarData.episode);
+  const handleUndoUnwatchClick = async () => {
+    const success = await handleUndoUnwatch();
+    if (success) {
       setSnackbarVisible(false);
-      setSnackbarData(null);
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -201,7 +132,9 @@ const {
             setTrailerId(tr);
             setPoster(pst);
           }
-        } catch(e){}
+        } catch (error) {
+          console.error('TMDB veri çekme hatası (show detail):', error);
+        }
       }
     };
     fetchTmdb();
@@ -300,12 +233,12 @@ const {
             return (
               <View style={styles.section}>
                 {/* Write Comment Button */}
-                <MyInlineComment 
+                <MyInlineComment
                   mediaId={traktIdNum}
                   mediaType="show"
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={0}
-                  onDeleteSuccess={() => refreshData()}
+                  refreshTrigger={commentVersion}
+                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshData(); }}
                 />
 
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
@@ -344,12 +277,12 @@ const {
 
           {(!commentsData || commentsData.length === 0) && (
              <View style={[styles.section, { paddingBottom: 20 }]}>
-                <MyInlineComment 
+                <MyInlineComment
                   mediaId={traktIdNum}
                   mediaType="show"
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={0}
-                  onDeleteSuccess={() => refreshData()}
+                  refreshTrigger={commentVersion}
+                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshData(); }}
                 />
              </View>
           )}
@@ -421,16 +354,17 @@ const {
         mediaId={traktIdNum}
         mediaType="show"
         onSuccess={() => {
+          setCommentVersion(v => v + 1);
           refreshComments();
           refreshData();
         }}
       />
 
-      <Snackbar 
+      <Snackbar
         visible={snackbarVisible}
         message={t('episodeUnwatched')}
         actionText={t('undo')}
-        onAction={handleUndoUnwatch}
+        onAction={handleUndoUnwatchClick}
         onDismiss={() => setSnackbarVisible(false)}
         duration={4000}
       />
