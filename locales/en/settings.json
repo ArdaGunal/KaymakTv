@@ -15,5 +15,16 @@
   "loginCanceled": "Login process was canceled.",
   "loginSuccessText": "Successfully logged into your Trakt account!",
   "communicationError": "An error occurred while communicating with Trakt.",
-  "termsAcceptance": "I have read and agree to the <1>Terms of Use</1>."
+  "termsAcceptance": "I have read and agree to the <1>Terms of Use</1>.",
+  "traktConnected": "Trakt account connected",
+  "traktNotConnectedTitle": "Trakt Account Not Connected",
+  "traktNotConnectedSub": "Connect your Trakt account to sync your watch history and lists.",
+  "connectWithTrakt": "Connect with Trakt",
+  "accountOptions": "⚙️ Account Options",
+  "deleteAccount": "Delete Account",
+  "deleteAllDataPrompt": "Delete All Data?",
+  "deleteDataWarning": "This action will delete your KaymakTV data (watchlist, caches) from this device.",
+  "traktSafeWarning": "Your Trakt account will not be affected.",
+  "cancel": "Cancel",
+  "yesDelete": "Yes, Delete"
 }

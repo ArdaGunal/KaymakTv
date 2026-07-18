@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import EpisodeCheckButton from './EpisodeCheckButton';
 import MediaPoster from './MediaPoster';
 import InlineRater from './InlineRater';
+import ProgressBar from './ProgressBar';
 import { addRating } from '../services/traktApi';
 import { useAirCountdown } from '../hooks/useAirCountdown';
 import { useTranslation } from 'react-i18next';
@@ -15,12 +16,24 @@ interface EpisodeCardProps {
   onShowFinished?: (showName: string, showId: number) => void;
 }
 
+// Progress percentage — pure calculation, no side effects
+function getProgressPct(data: any): number | null {
+  if (
+    data?.completedCount !== null &&
+    data?.completedCount !== undefined &&
+    data?.totalCount &&
+    data.totalCount > 0
+  ) {
+    return Math.min(100, (data.completedCount / data.totalCount) * 100);
+  }
+  return null;
+}
+
 const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
   const { t } = useTranslation('media');
-  
-  // Eğer rawDate (yayın tarihi) varsa dinamik sayacı başlat
+
   const airStatus = useAirCountdown(data?.rawDate);
 
   if (!data) {
@@ -29,38 +42,57 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   }
 
   const handleCardPress = () => {
-    const showTraktId = data?.showId || data?.rawTraktId || data?.id; // If showId is not provided, this might be flawed. Let's see. Wait, in episode card, showId is the show.
+    const showTraktId = data?.showId || data?.rawTraktId || data?.id;
     const epTraktId = data?.rawTraktId || data?.id;
-    if (!epTraktId) {
-      console.error('[UI ÇÖKME ÖNLENDİ] EpisodeCard tıklanamaz, sId bulunamadı!');
-      return;
-    }
-    
-    const slug = generateEpisodeSlug(showTraktId || epTraktId, data?.slug, data?.showName, data?.season || 1, data?.episode || 1, epTraktId);
-    
+    if (!epTraktId) return;
+    const slug = generateEpisodeSlug(
+      showTraktId || epTraktId,
+      data?.slug,
+      data?.showName,
+      data?.season || 1,
+      data?.episode || 1,
+      epTraktId
+    );
     router.push(`/episode/${slug}${data?.tmdbId ? `?showTmdbId=${data.tmdbId}` : ''}`);
   };
 
+  const progressPct = getProgressPct(data);
+
+  const episodeCode = !isSuccess && !data.isCalculating && data.season !== undefined
+    ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`
+    : null;
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.card, isSuccess && styles.cardSuccess]}
       activeOpacity={0.8}
       onPress={handleCardPress}
     >
       {/* Poster */}
       <View style={styles.posterContainer}>
-        <MediaPoster 
-          tmdbId={data.tmdbId} 
-          type="show" 
-          title={data.showName} 
-          style={styles.posterImage} 
+        <MediaPoster
+          tmdbId={data.tmdbId}
+          type="show"
+          title={data.showName}
+          style={styles.posterImage}
         />
+
+        {/* Progress bar pinned to bottom of poster */}
+        {progressPct !== null && !isSuccess && (
+          <ProgressBar
+            percentage={progressPct}
+            height={3}
+            fillColor="#10b981"
+            trackColor="rgba(255,255,255,0.12)"
+            style={styles.progressBar}
+          />
+        )}
       </View>
-      
-      {/* Content */}
+
+      {/* Content — always visible on mobile */}
       <View style={styles.contentContainer}>
-        {/* Show Name Pill */}
-        <TouchableOpacity 
+        {/* Show Name */}
+        <TouchableOpacity
           style={styles.showNamePill}
           onPress={() => {
             const showTraktId = data?.showId || data?.rawTraktId || data?.id;
@@ -70,30 +102,40 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
             }
           }}
         >
-          <Text style={styles.showNameText}>{data.showName}</Text>
-          <ChevronRight size={12} color="#fff" style={{ marginLeft: 2 }} />
-        </TouchableOpacity>
-        
-        {/* Episode Number */}
-        <View style={styles.episodeNumberContainer}>
-          <Text style={styles.episodeNumberText}>
-            {isSuccess ? t('episodeWatched') : `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`}
+          <Text style={styles.showNameText} numberOfLines={1}>
+            {data.showName}
           </Text>
-          {data.remaining && !isSuccess && !data.isCalculating && (
-            <Text style={styles.remainingText}>+{data.remaining}</Text>
-          )}
-        </View>
-        
-        {/* Episode Title */}
-        <Text style={styles.episodeTitleText} numberOfLines={1}>
-          {isSuccess ? t('addedToHistory') : (data.isCalculating ? t('lastWatchedSearching') : data.title)}
+          <ChevronRight size={10} color="#94a3b8" style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
+
+        {/* Episode Code — always visible */}
+        {episodeCode ? (
+          <View style={styles.episodeNumberContainer}>
+            <Text style={styles.episodeNumberText}>{episodeCode}</Text>
+            {data.remaining && !isSuccess && !data.isCalculating && (
+              <Text style={styles.remainingText}>+{data.remaining}</Text>
+            )}
+          </View>
+        ) : isSuccess ? (
+          <Text style={styles.episodeNumberText}>{t('episodeWatched')}</Text>
+        ) : null}
+
+        {/* Episode Title — always visible */}
+        <Text style={styles.episodeTitleText} numberOfLines={2}>
+          {isSuccess
+            ? t('addedToHistory')
+            : data.isCalculating
+            ? t('lastWatchedSearching')
+            : data.title}
         </Text>
-        
-        {/* İzlenen Toplam Bölüm Sayısı */}
-        {!isSuccess && !data.isCalculating && data.completedCount !== null && data.completedCount !== undefined && (
-          <Text style={styles.completedCountText}>{data.completedCount} {t('episodesWatched')}</Text>
+
+        {/* Progress text */}
+        {!isSuccess && !data.isCalculating && progressPct !== null && (
+          <Text style={styles.progressText}>
+            {Math.round(progressPct)}% izlendi
+          </Text>
         )}
-        
+
         {/* Tags */}
         {data.tags && data.tags.length > 0 && !isSuccess && (
           <View style={styles.tagsContainer}>
@@ -125,14 +167,16 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
           </View>
         )}
       </View>
-      
-      {/* Check Button or Countdown */}
+
+      {/* Right: Check Button or Countdown */}
       <View style={styles.checkButtonContainer}>
         {data.rawDate !== undefined && !airStatus.isAired ? (
           <View style={styles.countdownContainer}>
             {airStatus.text.includes(t('day')) ? (
               <>
-                <Text style={styles.countdownNumber}>{airStatus.text.replace(` ${t('day')}`, '')}</Text>
+                <Text style={styles.countdownNumber}>
+                  {airStatus.text.replace(` ${t('day')}`, '')}
+                </Text>
                 <Text style={styles.countdownText}>{t('day')}</Text>
               </>
             ) : (
@@ -145,7 +189,7 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
           <ActivityIndicator size="small" color="#a3a3a3" />
         ) : (
           <>
-            <EpisodeCheckButton 
+            <EpisodeCheckButton
               traktId={data.rawTraktId || data.id}
               season={data.season}
               episode={data.episode}
@@ -154,10 +198,10 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
               onSuccessStateChange={setIsSuccess}
             />
             {isSuccess && (
-              <InlineRater 
+              <InlineRater
                 onRate={async (val) => {
                   await addRating(data.rawTraktId || data.id, 'episode', val, data.season, data.episode);
-                }} 
+                }}
               />
             )}
           </>
@@ -172,14 +216,18 @@ export default EpisodeCard;
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: '#172033', // Midnight Slate uyumlu ton
-    borderRadius: 8,
+    backgroundColor: '#172033',
+    borderRadius: 10,
     overflow: 'hidden',
     marginBottom: 12,
-    height: 144,
+    minHeight: 120,
   },
+  cardSuccess: {
+    backgroundColor: '#064e3b',
+  },
+  // Poster
   posterContainer: {
-    width: 112,
+    width: 84,
     backgroundColor: '#172033',
     position: 'relative',
   },
@@ -188,97 +236,103 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  posterPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#172033',
+  progressBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
+  // Content
   contentContainer: {
     flex: 1,
-    padding: 12,
-    paddingLeft: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     justifyContent: 'center',
+    gap: 3,
   },
   showNamePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#a3a3a3',
-    borderRadius: 9999,
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginBottom: 8,
+    paddingVertical: 3,
+    marginBottom: 4,
   },
   showNameText: {
-    color: '#ffffff',
+    color: '#94a3b8',
     fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    maxWidth: 140,
   },
   episodeNumberContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 4,
+    gap: 4,
   },
   episodeNumberText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 18,
-    letterSpacing: 1,
+    color: '#f1f5f9',
+    fontWeight: '800',
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
   remainingText: {
-    color: '#a3a3a3',
+    color: '#64748b',
     fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
+    fontWeight: '600',
   },
   episodeTitleText: {
-    color: '#d4d4d4',
-    fontSize: 14,
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: '500',
   },
+  progressText: {
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    marginTop: 1,
+  },
+  // Tags
   tagsContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 4,
   },
   tag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
   },
-  tagWhite: {
-    backgroundColor: '#ffffff',
-  },
-  tagYellow: {
-    backgroundColor: '#facc15',
-  },
+  tagWhite: { backgroundColor: '#ffffff' },
+  tagYellow: { backgroundColor: '#facc15' },
   tagTextBlack: {
     color: '#0B1120',
-    fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   tagGhost: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    elevation: 0,
-    shadowOpacity: 0,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   tagTextGhost: {
-    color: '#9CA3AF',
-    fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    color: '#94a3b8',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
+  // Right panel
   checkButtonContainer: {
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    minWidth: 56,
   },
   countdownContainer: {
     alignItems: 'center',
@@ -287,33 +341,12 @@ const styles = StyleSheet.create({
   countdownNumber: {
     color: '#10b981',
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
   countdownText: {
-    color: '#a3a3a3',
+    color: '#64748b',
     fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  checkButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardSuccess: {
-    backgroundColor: '#064e3b',
-  },
-  checkButtonSuccess: {
-    backgroundColor: '#10b981',
-  },
-  completedCountText: {
-    color: '#10b981',
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginTop: 4,
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
 });

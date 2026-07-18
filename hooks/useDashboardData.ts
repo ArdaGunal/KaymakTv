@@ -117,6 +117,7 @@ export const useDashboardData = (
         tmdbId: tmdbId,
         slug: item.show.ids.slug,
         completedCount: progress ? progress.completed : null,
+        totalCount: progress ? (progress.aired ?? null) : null,
         isCalculating
       };
 
@@ -208,6 +209,7 @@ export const useDashboardData = (
         tmdbId: tmdbId,
         slug: item.show.ids.slug,
         completedCount: progress ? progress.completed : null,
+        totalCount: progress ? (progress.aired ?? null) : null,
         isCalculating: false
       };
 

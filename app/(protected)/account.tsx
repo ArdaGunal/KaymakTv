@@ -157,7 +157,7 @@ export default function SettingsScreen() {
                 {/* Connected status */}
                 <View style={styles.connectedBanner}>
                   <View style={styles.connectedDot} />
-                  <Text style={styles.connectedText}>Trakt hesabı bağlı</Text>
+                  <Text style={styles.connectedText}>{t('settings:traktConnected')}</Text>
                   <CheckCircle2 size={18} color="#4ade80" />
                 </View>
 
@@ -177,10 +177,8 @@ export default function SettingsScreen() {
             ) : (
               <>
                 <View style={styles.notConnectedBanner}>
-                  <Text style={styles.notConnectedTitle}>Trakt Hesabı Bağlı Değil</Text>
-                  <Text style={styles.notConnectedSub}>
-                    Trakt hesabınızı bağlayarak izleme geçmişinizi ve listelerinizi senkronize edin.
-                  </Text>
+                  <Text style={styles.notConnectedTitle}>{t('settings:traktNotConnectedTitle')}</Text>
+                  <Text style={styles.notConnectedSub}>{t('settings:traktNotConnectedSub')}</Text>
                 </View>
 
                 <SectionDivider />
@@ -196,7 +194,7 @@ export default function SettingsScreen() {
                   ) : (
                     <>
                       <UserCheck size={18} color="#fff" />
-                      <Text style={styles.connectBtnText}>Trakt ile Bağlan</Text>
+                      <Text style={styles.connectBtnText}>{t('settings:connectWithTrakt')}</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -233,7 +231,7 @@ export default function SettingsScreen() {
 
             <SettingsRow
               icon={<Trash2 size={20} color="#f87171" />}
-              label="Hesabı Sil"
+              label={t('settings:deleteAccount')}
               tintColor="#f87171"
               onPress={() => setDeleteModalVisible(true)}
               disabled={isDeletingAccount}

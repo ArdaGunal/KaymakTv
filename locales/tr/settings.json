@@ -15,5 +15,16 @@
   "loginCanceled": "Giriş işlemi iptal edildi.",
   "loginSuccessText": "Trakt hesabınıza başarıyla giriş yaptınız!",
   "communicationError": "Trakt ile iletişim kurarken bir hata oluştu.",
-  "termsAcceptance": "<1>Kullanım Koşulları'nı</1> okudum, onaylıyorum."
+  "termsAcceptance": "<1>Kullanım Koşulları'nı</1> okudum, onaylıyorum.",
+  "traktConnected": "Trakt hesabı bağlı",
+  "traktNotConnectedTitle": "Trakt Hesabı Bağlı Değil",
+  "traktNotConnectedSub": "Trakt hesabınızı bağlayarak izleme geçmişinizi ve listelerinizi senkronize edin.",
+  "connectWithTrakt": "Trakt ile Bağlan",
+  "accountOptions": "⚙️ Hesap Seçenekleri",
+  "deleteAccount": "Hesabı Sil",
+  "deleteAllDataPrompt": "Tüm Veriler Silinsin mi?",
+  "deleteDataWarning": "Bu işlem KaymakTV verilerinizi (izleme listesi, önbellekler) cihazdan siler.",
+  "traktSafeWarning": "Trakt hesabınız bu işlemden etkilenmez.",
+  "cancel": "Vazgeç",
+  "yesDelete": "Evet, Sil"
 }

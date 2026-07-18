@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, Platform, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -8,6 +9,7 @@ import { Play, Compass } from 'lucide-react-native';
 const MOBILE_BREAKPOINT = 768;
 
 export default function HeroSection() {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { loginAsGuest } = useAuth();
   const { width } = useWindowDimensions();
@@ -51,13 +53,11 @@ export default function HeroSection() {
         </View>
 
         <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-          Medyalarınızı Yönetmenin {'\n'}
-          <Text style={styles.highlight}>En Şık</Text> Yolu
+          {t('landingTitle1')} {'\n'}
+          <Text style={styles.highlight}>{t('landingTitle2')}</Text> {t('landingTitle3')}
         </Text>
 
-        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
-          Dizilerinizi takip edin, filmlerinizi keşfedin ve izleme alışkanlıklarınızı kusursuz bir arayüzle analiz edin. Tamamen ücretsiz.
-        </Text>
+        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>{t('landingSubtitle')}</Text>
 
         <View style={[styles.buttonContainer, isDesktop && styles.buttonContainerDesktop]}>
           <TouchableOpacity
@@ -72,7 +72,7 @@ export default function HeroSection() {
               end={{ x: 1, y: 1 }}
             >
               <Play color="#fff" size={18} fill="#fff" style={styles.btnIcon} />
-              <Text style={styles.primaryButtonText}>Ücretsiz Başla</Text>
+              <Text style={styles.primaryButtonText}>{t('landingStartFree')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -82,7 +82,7 @@ export default function HeroSection() {
             onPress={handleGuestLogin}
           >
             <Compass color="#60a5fa" size={18} style={styles.btnIcon} />
-            <Text style={styles.ghostButtonText}>Misafir Olarak İncele</Text>
+            <Text style={styles.ghostButtonText}>{t('landingGuest')}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>

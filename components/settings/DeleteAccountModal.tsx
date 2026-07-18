@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -24,6 +25,7 @@ export default function DeleteAccountModal({
   onConfirm,
   onCancel,
 }: DeleteAccountModalProps) {
+  const { t } = useTranslation('settings');
   return (
     <Modal
       visible={visible}
@@ -42,13 +44,13 @@ export default function DeleteAccountModal({
               </View>
 
               {/* Title */}
-              <Text style={styles.title}>Tüm Veriler Silinsin mi?</Text>
+              <Text style={styles.title}>{t('deleteAllDataPrompt')}</Text>
 
               {/* Body */}
               <Text style={styles.body}>
-                Bu işlem KaymakTV verilerinizi (izleme listesi, önbellekler) cihazdan siler.
+                {t('deleteDataWarning')}
                 {'\n\n'}
-                <Text style={styles.safe}>Trakt hesabınız bu işlemden etkilenmez.</Text>
+                <Text style={styles.safe}>{t('traktSafeWarning')}</Text>
               </Text>
 
               {/* Actions */}
@@ -58,7 +60,7 @@ export default function DeleteAccountModal({
                   onPress={onCancel}
                   disabled={loading}
                 >
-                  <Text style={styles.cancelText}>Vazgeç</Text>
+                  <Text style={styles.cancelText}>{t('cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -69,7 +71,7 @@ export default function DeleteAccountModal({
                   {loading ? (
                     <LoadingIndicator size="small" />
                   ) : (
-                    <Text style={styles.confirmText}>Evet, Sil</Text>
+                    <Text style={styles.confirmText}>{t('yesDelete')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Platform, Animated, useWindowDimensions, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, BarChart2, ListVideo, Film, CheckCircle2 } from 'lucide-react-native';
@@ -8,40 +9,40 @@ const ICON_COLORS = ['#fbbf24', '#34d399', '#60a5fa', '#e879f9', '#f87171'] as c
 
 const features = [
   {
-    title: 'Kapsamlı İstatistikler',
-    description: 'Ne kadar süre dizi/film izlediğinizi detaylı grafiklerle analiz edin.',
+    title: 'featureStats',
+    description: 'featureStatsDesc',
     iconColor: ICON_COLORS[0],
     Icon: BarChart2,
     accent: 'rgba(251,191,36,0.15)',
     size: 'large',
   },
   {
-    title: 'Özel Listeler',
-    description: 'Kendi koleksiyonlarınızı yaratın ve arkadaşlarınızla paylaşın.',
+    title: 'featureLists',
+    description: 'featureListsDesc',
     iconColor: ICON_COLORS[1],
     Icon: ListVideo,
     accent: 'rgba(52,211,153,0.12)',
     size: 'medium',
   },
   {
-    title: 'Yayın Takvimi',
-    description: 'Favori dizilerinizin yeni bölümlerini asla kaçırmayın.',
+    title: 'featureCalendar',
+    description: 'featureCalendarDesc',
     iconColor: ICON_COLORS[2],
     Icon: Calendar,
     accent: 'rgba(96,165,250,0.12)',
     size: 'small',
   },
   {
-    title: 'Film & Dizi Keşfi',
-    description: 'Size özel öneriler ve trend olan yapımlarla yeni içerikler bulun.',
+    title: 'featureDiscover',
+    description: 'featureDiscoverDesc',
     iconColor: ICON_COLORS[3],
     Icon: Film,
     accent: 'rgba(232,121,249,0.12)',
     size: 'small',
   },
   {
-    title: 'İlerleme Takibi',
-    description: 'Hangi bölümde kaldığınızı anında görün.',
+    title: 'featureProgress',
+    description: 'featureProgressDesc',
     iconColor: ICON_COLORS[4],
     Icon: CheckCircle2,
     accent: 'rgba(248,113,113,0.12)',
@@ -54,7 +55,7 @@ interface BentoCardProps {
   isDesktop: boolean;
 }
 
-const BentoCard = ({ feature, isDesktop }: BentoCardProps) => {
+const BentoCard = ({ feature, isDesktop, t }: BentoCardProps & {t: any}) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -103,8 +104,8 @@ const BentoCard = ({ feature, isDesktop }: BentoCardProps) => {
             <feature.Icon size={28} color={feature.iconColor} />
           </View>
           <View style={styles.cardTextBlock}>
-            <Text style={styles.cardTitle}>{feature.title}</Text>
-            <Text style={styles.cardDesc}>{feature.description}</Text>
+            <Text style={styles.cardTitle}>{t(feature.title)}</Text>
+            <Text style={styles.cardDesc}>{t(feature.description)}</Text>
           </View>
         </LinearGradient>
       </Animated.View>
@@ -113,6 +114,7 @@ const BentoCard = ({ feature, isDesktop }: BentoCardProps) => {
 };
 
 export default function BentoGrid() {
+  const { t } = useTranslation('common');
   const { width } = useWindowDimensions();
   const isDesktop = width >= MOBILE_BREAKPOINT;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -129,12 +131,8 @@ export default function BentoGrid() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-          Neden <Text style={styles.highlight}>KaymakTV?</Text>
-        </Text>
-        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
-          İzleme deneyiminizi bir üst seviyeye taşıyacak tüm araçlar elinizin altında.
-        </Text>
+        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>{t('landingWhy')}<Text style={styles.highlight}>KaymakTV?</Text></Text>
+        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>{t('landingWhySub')}</Text>
       </View>
 
       <Animated.View
@@ -145,7 +143,7 @@ export default function BentoGrid() {
         ]}
       >
         {features.map((feature, index) => (
-          <BentoCard key={index} feature={feature} isDesktop={isDesktop} />
+          <BentoCard key={index} feature={feature} isDesktop={isDesktop} t={t} />
         ))}
       </Animated.View>
     </View>

@@ -1,15 +1,15 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet } from 'react-native';
 
 export default function Footer() {
+  const { t } = useTranslation('common');
   return (
     <View style={styles.container}>
       <View style={styles.divider} />
       <Text style={styles.brand}>KaymakTV</Text>
-      <Text style={styles.text}>© 2026 KaymakTV. Tüm hakları saklıdır.</Text>
-      <Text style={styles.subText}>
-        Film ve diziler Trakt.tv ve TMDB aracılığıyla sağlanmaktadır.
-      </Text>
+      <Text style={styles.text}>{t('footerRights')}</Text>
+      <Text style={styles.subText}>{t('footerData')}</Text>
     </View>
   );
 }

@@ -4,7 +4,7 @@ import LoadingIndicator from '../../components/LoadingIndicator';
 
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Star, X, Info, Heart, Check, Share2 } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Star, X, Info, Heart, Check, Share2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WebView } from 'react-native-webview';
 
@@ -21,7 +21,7 @@ import MediaCast from '../../components/MediaCast';
 import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
-import { parseEpisodeSlug, formatSlugToTitle } from '../../utils/slugHelper';
+import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug } from '../../utils/slugHelper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -77,6 +77,13 @@ export default function EpisodeDetailScreen() {
     } else {
       router.replace('/');
     }
+  };
+
+  const handleShowPress = () => {
+    if (!showId) return;
+    const slug = generateMediaSlug(showId, showSlug, showName as string);
+    const tmdbParam = showTmdbId ? `?tmdbId=${showTmdbId}` : '';
+    router.push(`/show/${slug}${tmdbParam}`);
   };
 
   const myRating = userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === epTraktId)?.rating;
@@ -238,7 +245,15 @@ export default function EpisodeDetailScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerContent}>
-            <Text style={styles.showName} numberOfLines={1}>{showName}</Text>
+            {/* Tıklanabilir dizi adı → dizi ana sayfasına gider */}
+            <TouchableOpacity
+              style={styles.showNameRow}
+              onPress={handleShowPress}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.showName} numberOfLines={1}>{showName}</Text>
+              <ChevronRight size={14} color="#3b82f6" strokeWidth={2.5} />
+            </TouchableOpacity>
             <Text style={styles.episodeIdentifier}>{t('seasonEpisodeIdentifier', { season: season, episode: episode })}</Text>
             <Text style={styles.episodeTitle}>{title}</Text>
             <Text style={styles.metaText}>{firstAired}</Text>
@@ -426,7 +441,20 @@ const styles = StyleSheet.create({
   backButton: { position: 'absolute', top: 50, left: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   shareButton: { position: 'absolute', top: 50, right: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   headerContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, zIndex: 5 },
-  showName: { fontSize: 14, color: '#3b82f6', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+  showNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: 'rgba(59,130,246,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.28)',
+  },
+  showName: { fontSize: 12, color: '#60a5fa', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
   episodeIdentifier: { fontSize: 13, color: '#a3a3a3', marginBottom: 6 },
   episodeTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 },

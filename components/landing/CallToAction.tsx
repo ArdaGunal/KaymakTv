@@ -1,10 +1,12 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
 
 export default function CallToAction() {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -26,14 +28,9 @@ export default function CallToAction() {
           <Sparkles size={22} color="#fbbf24" />
         </View>
 
-        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-          İzleme Alışkanlıklarınızı {'\n'}Baştan Yaratın
-        </Text>
+        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>{t('ctaTitle').split('\\n').map((line, i) => <React.Fragment key={i}>{line}{i === 0 && <>{'\n'}</>}</React.Fragment>)}</Text>
 
-        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
-          Hemen KaymakTV'ye katılın, binlerce içerik arasından{'\n'}
-          size özel dünyayı yaratmaya başlayın.
-        </Text>
+        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>{t('ctaSubtitle').split('\\n').map((line, i) => <React.Fragment key={i}>{line}{i === 0 && <>{'\n'}</>}</React.Fragment>)}</Text>
 
         <TouchableOpacity
           style={styles.button}
