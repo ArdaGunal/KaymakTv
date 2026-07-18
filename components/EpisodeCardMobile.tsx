@@ -1,13 +1,10 @@
 import React, { useState, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import EpisodeCheckButton from './EpisodeCheckButton';
 import MediaPoster from './MediaPoster';
-import InlineRater from './InlineRater';
 import ProgressBar from './ProgressBar';
-import { addRating } from '../services/traktApi';
-import { useAirCountdown } from '../hooks/useAirCountdown';
+import EpisodeCardActions from './EpisodeCardActions';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
 
@@ -33,8 +30,6 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
   const { t } = useTranslation('media');
-
-  const airStatus = useAirCountdown(data?.rawDate);
 
   if (!data) {
     console.error('[UI ÇÖKME ÖNLENDİ] EpisodeCard eksik data aldı.');
@@ -168,45 +163,13 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
         )}
       </View>
 
-      {/* Right: Check Button or Countdown */}
-      <View style={styles.checkButtonContainer}>
-        {data.rawDate !== undefined && !airStatus.isAired ? (
-          <View style={styles.countdownContainer}>
-            {airStatus.text.includes(t('day')) ? (
-              <>
-                <Text style={styles.countdownNumber}>
-                  {airStatus.text.replace(` ${t('day')}`, '')}
-                </Text>
-                <Text style={styles.countdownText}>{t('day')}</Text>
-              </>
-            ) : (
-              <Text style={[styles.countdownText, { color: '#10b981', fontSize: 11, textAlign: 'center' }]}>
-                {airStatus.text}
-              </Text>
-            )}
-          </View>
-        ) : data.isCalculating ? (
-          <ActivityIndicator size="small" color="#a3a3a3" />
-        ) : (
-          <>
-            <EpisodeCheckButton
-              traktId={data.rawTraktId || data.id}
-              season={data.season}
-              episode={data.episode}
-              showName={data.showName}
-              onShowFinished={onShowFinished}
-              onSuccessStateChange={setIsSuccess}
-            />
-            {isSuccess && (
-              <InlineRater
-                onRate={async (val) => {
-                  await addRating(data.rawTraktId || data.id, 'episode', val, data.season, data.episode);
-                }}
-              />
-            )}
-          </>
-        )}
-      </View>
+      {/* Right: Check Button or Countdown — timer bu izole bileşenin içinde yaşar */}
+      <EpisodeCardActions
+        data={data}
+        isSuccess={isSuccess}
+        onSuccessStateChange={setIsSuccess}
+        onShowFinished={onShowFinished}
+      />
     </TouchableOpacity>
   );
 });
@@ -326,27 +289,5 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
-  },
-  // Right panel
-  checkButtonContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    minWidth: 56,
-  },
-  countdownContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countdownNumber: {
-    color: '#10b981',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  countdownText: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
   },
 });

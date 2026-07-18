@@ -5,7 +5,7 @@ import LoginPaywall from '../components/LoginPaywall';
 import { addRating } from '../services/traktApi';
 import { getTrendingShows } from '../services/traktApi';
 import { useAuth } from '../context/AuthContext';
-import { useLibrary } from '../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from '../utils/secureStorage';
 import { useTranslation } from 'react-i18next';
@@ -43,7 +43,17 @@ export default function DizilerScreen() {
 
   const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, isLoading: isLibraryLoading, refreshLibrary } = useLibrary();
+
+  // Katı seçici: yalnızca dizi dilimleri okunur; film dilimleri değiştiğinde bu ekran render olmaz.
+  const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, isLibraryLoading } = useLibrarySelector(s => ({
+    watchedShows: s.watchedShows,
+    watchlistShows: s.watchlistShows,
+    calendarShows: s.calendarShows,
+    showProgressMap: s.showProgressMap,
+    calendarSeasonsMap: s.calendarSeasonsMap,
+    isLibraryLoading: s.isLoading,
+  }));
+  const { refreshLibrary } = useLibraryActions();
 
   const {
     upNextShows,
