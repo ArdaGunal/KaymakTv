@@ -1,31 +1,5 @@
 # Proje Geçmişi ve Alınan Kararlar
 
-<<<<<<< HEAD
-*Not: Eski geçmiş kayıtları git sıfırlaması sırasında temizlenmiştir. Buradan itibaren yeni mimari güncellemeleri tutulacaktır.*
-
-## 20. "God Context"in Parçalanması ve Zustand'a Geçiş
-**Sorun:** `context/LibraryContext.tsx` dosyası zamanla 1100 satıra ulaşarak bir "God Context" (her işi yapan devasa yapı) haline gelmişti. 
-**Çözüm:** Veriler Zustand (`store/slices`) içerisine, API istekleri ise `services/libraryService.ts` dosyasına taşındı. `LibraryContext` ise geriye uyumluluk sağlayan bir Proxy Hook'a çevrildi.
-
-## 21. "God Object" TraktApi'nin Modüler Servislere Bölünmesi
-**Sorun:** `services/traktApi.ts` dosyası 953 satıra ulaşarak `axios` bağlantı ayarları, token yenileme mantığı ve onlarca farklı endpoint'i (Shows, Movies, Users, vb.) aynı anda barındıran devasa bir dosyaya dönüşmüştü.
-**Çözüm:**
-1. **API Klasörlemesi:** `services/api/` dizini oluşturuldu.
-2. **Bağlantı İzolasyonu:** Axios nesnesi ve token tazeleyen (queue) interceptor yapıları tamamen `traktClient.ts` dosyasına taşındı.
-3. **Endpoint Modülerizasyonu:** API istekleri özelliklerine göre klasörlendi: `auth.ts`, `shows.ts`, `movies.ts`, `users.ts`, `comments.ts`, `search.ts`.
-4. **Sıfır Risk Yönlendirici (Barrel File):** Uygulamadaki onlarca sayfanın importlarını değiştirmemek için eski `services/traktApi.ts` dosyası silinmedi, bir yönlendirici (Barrel File) haline getirildi (`export * from './api/shows'` vb.). TypeScript derleyicisi ile (tsc) 0 hata alınarak modülerizasyon başarıyla tamamlandı.
-
-## 22. UI ve İş Mantığı İzolasyonu: `MediaHero.tsx` Sadeleştirilmesi
-**Sorun:** Dizi/Film detay ekranlarındaki üst barı (hero) oluşturan `MediaHero.tsx` dosyası 680 satıra ulaşmıştı. Sadece arayüz çizmesi gereken bu bileşen, içerisine Puanlama Modalı, Seçenekler Modalı ve Paylaşma gibi onlarca iş mantığı eklenince okunmaz hale gelmişti.
-**Çözüm:** UI ile Logic ayrıldı. Modallar (`RatingModal` ve `OptionsModal`) bağımsız bileşenler olarak `components/modals/` içerisine taşındı. `formatRuntime` gibi yardımcı fonksiyonlar `utils/formatters.ts` dosyasına ayrıldı. `MediaHero.tsx` 680 satırdan 469 satıra düşürülerek temiz bir arayüz bileşenine dönüştürüldü.
-
-## 23. Ekran Bileşenlerinin (Screens) Modülerleştirilmesi
-**Sorun:** `app/show/[id].tsx` ve `app/movie/[id].tsx` gibi ana ekran bileşenleri 500-600 satırlara ulaşarak veriyi çekme, state yönetme ve tüm modalları içlerinde render etme sorumluluğunu üstlenmişlerdi (Spagetti).
-**Çözüm:**
-1. **Veri Çekme (Data Fetching):** `app/movie/[id].tsx` içerisindeki tüm Trakt/TMDB çağrıları sökülerek `hooks/useMovieDetail.ts` içerisine taşındı. Böylece UI ile Veri ayrılmış oldu.
-2. **Modalların Çıkarılması:** `app/show/[id].tsx` sayfasındaki devasa satır içi modallar, `components/modals/EpisodeOptionsModal.tsx` ve `EpisodeRatingModal.tsx` olarak izole edildi.
-3. Sonuç olarak sayfaların satır sayıları %30-40 oranında küçüldü. Artık ekran dosyaları sadece veri bağlama ve ana bileşenleri çizme işlevine odaklı.
-=======
 Bu dosya, projenin geliştirme sürecinde denenen, yanılan ve başarıyla uygulanan önemli dönüm noktalarını listeler. Hata alındığında nedenini anlamak için başvurulacak ilk kaynaktır.
 
 ## 1. Expo SDK ve DOMException Krizi
@@ -68,8 +42,8 @@ Bu dosya, projenin geliştirme sürecinde denenen, yanılan ve başarıyla uygul
 **Çözüm 2:** `settings.tsx` içinde "Trakt'a Giriş Yap" butonuna otomatik `saveKeys` entegrasyonu yapıldı.
 
 ## 10. Ayarlar Sayfası Yardım Ekranı ve Uygulama İkonu Düzeltmesi
-**Aksiyon 1 (Yardım Modalı):** Kullanıcıların API Client ID ve Secret almalarını kolaylaştırmak için `settings.tsx` içerisine "Anahtarlarımı nereden alabilirim?" isimli detaylı bir Modal (Açılır Pencere) eklendi. `expo-clipboard` ile "TvTaym" ve "tvtaym://auth" metinlerini kopyalama özelliği sağlandı.
-**Aksiyon 2 (Uygulama İkonu):** Eski projelerden kalan icon kalıntıları (ES101) düzeltilerek ana dizindeki doğru `logo.png`, `assets/icon.png` olarak kopyalandı ve `app.json` dosyasına işlendi. Proje daha kararlı derlenmesi adına `C:\Yapay_Zeka_Uygulamalar\TvTaym` kök dizinine taşındı.
+**Aksiyon 1 (Yardım Modalı):** Kullanıcıların API Client ID ve Secret almalarını kolaylaştırmak için `settings.tsx` içerisine "Anahtarlarımı nereden alabilirim?" isimli detaylı bir Modal (Açılır Pencere) eklendi. `expo-clipboard` ile eski proje adı ve `tvtaym://auth` scheme metnini kopyalama özelliği sağlandı *(not: proje daha sonra KaymakTV olarak yeniden adlandırıldı, bkz. Madde 21)*.
+**Aksiyon 2 (Uygulama İkonu):** Eski projelerden kalan icon kalıntıları (ES101) düzeltilerek ana dizindeki doğru `logo.png`, `assets/icon.png` olarak kopyalandı ve `app.json` dosyasına işlendi.
 
 ## 11. Merkezi Beyin (LibraryContext) ve Önbellek Mimarisi
 **Sorun:** Her sayfa geçişinde Trakt ve TMDB API'lerine tekrar tekrar istek atılması, uygulamanın yavaşlamasına ve API Limitlerine takılmasına neden oluyordu.
@@ -93,6 +67,7 @@ Bu dosya, projenin geliştirme sürecinde denenen, yanılan ve başarıyla uygul
 5. **Hata 2 (invalid_redirect_uri):** Expo Go, Trakt'a `exp://` ile başlayan rastgele bir test adresi yolladığı için Trakt bunu reddediyordu. Çözüm olarak ekrana "Geliştirici Notu" eklendi ve anlık `exp://` adresinin alınıp Trakt paneline eklenmesi sağlandı.
 6. **Hata 3 (Unmatched route):** `expo-auth-session` geriye döndüğünde Expo Router `/auth` diye bir sayfa bulamadığı için "Page could not be found" diyerek siyah ekrana düşüyordu. Geri dönüş adresi (path) `auth` yerine zaten var olan `settings` olarak değiştirildi.
 7. **Hata 4 (Missing code_verifier / PKCE):** `expo-auth-session` varsayılan olarak ekstra güvenlik (PKCE) isteği yolluyordu ancak Netlify proxy'miz Trakt'a Token sorarken bu kodu göndermediği için Trakt 400 Bad Request veriyordu. `useAuthRequest` içerisine `usePKCE: false` ayarı eklenerek bu uyumsuzluk tamamen yok edildi.
+8. **⚠️ Regresyon (2026-07-18 denetiminde tespit edildi):** Bu maddede kurulan Netlify Functions proxy'si repodan kaybolmuş; `services/api/auth.ts` şu anda `Client Secret`'ı tekrar `EXPO_PUBLIC_TRAKT_CLIENT_SECRET` ile doğrudan istemciye gömüyor. Yani madde 14'ün çözmeye çalıştığı güvenlik açığı şu anda **tekrar aktif**. Detay ve önerilen çözüm için bkz. `docs/ARCHITECTURE.md` Bölüm 4.
 
 ## 15. Web Platformu 1 Dakikalık Yüklenme (Donma) Krizinin Çözümü
 **Sorun:** Uygulama mobil platformlarda anında açılırken, Web tarayıcısında (PWA/Desktop) beyaz bir "Skeleton (İskelet)" ekranında ortalama 1 dakika boyunca takılı kalıyordu.
@@ -109,24 +84,23 @@ Bu dosya, projenin geliştirme sürecinde denenen, yanılan ve başarıyla uygul
 - Afişlere modern hover animasyonları (Scale %105, Drop Shadow ve Gradient bilgi kutusu) eklendi.
 - Mobil UI (Kodları) %100 oranında güvenle korundu.
 
-
 ## 17. TBA (Yayınlanmayan Bölüm) Düzeltmesi ve Performans Artışı (Refactoring)
 **Sorun:** Yayınlanmayan bölümler için TBA gösterimi sırasında, Trakt veritabanında eski bölümlerin tarihlerinin null gelmesi sebebiyle yayınlanmış eski bölümler de TBA (Kilitli) olarak kalıyordu. Ayrıca `show/[id].tsx` içindeki render döngüsünde `Array.find` kullanımı nedeniyle performans darboğazı yaşanıyordu.
 **Çözüm:**
 1. TBA sorunu, Trakt'tan gelen `season.aired_episodes` verisinin saklanıp, bölüm sırasına göre hesaplama yapılmasıyla çözüldü. Tarih eksiği olsa bile `aired_episodes` sayısından küçük/eşit olanlar yayınlanmış kabul edildi.
 2. Yaklaşanlar sekmesindeki ve bölüm içi TBA/Sayaç mantığı için DateHelper içindeki `getDateGroup` güncellenerek çoklu dil desteği (i18n `t` fonksiyonu) eklendi.
-3. Performans krizini çözmek için uygulamanın en karmaşık sayfaları (`show/[id].tsx` ve `episode/[id].tsx`) tamamen modüler hale getirildi. 
+3. Performans krizini çözmek için uygulamanın en karmaşık sayfaları (`show/[id].tsx` ve `episode/[id].tsx`) tamamen modüler hale getirildi.
 4. Veri çekme ve state yönetimleri `hooks/useShowDetail.ts` ve `hooks/useEpisodeDetail.ts` içerisine soyutlandı. Render anındaki ağır işlemler `useMemo` içine alınarak sızmalar önlendi.
 5. `utils/cacheManager.ts` oluşturularak AsyncStorage kotaları ve Garbage Collection işlemleri merkezileştirildi. Kodlardaki tüm spagetti (IIFE) yapıları temizlenerek sistem stabilitesi sağlandı.
+
 ## 18. Gelişmiş Özel Listeler (Custom Lists) ve Çoklu Platform UX
 **Sorun:** Kullanıcılar standart İzleme Listesi dışında kişisel listeler (örn. "Hafta Sonu Filmleri") oluşturmak istiyordu. Ancak Trakt'taki karışık liste (hem film hem dizi) yapısı mobil arayüzümüzde çöküyor veya çirkin görünüyordu. Ayrıca "Listeler" carouseli web'de bozuk (sıkışık) görünüyordu.
-**Çözüm:** 
+**Çözüm:**
 1. **Trakt Liste Senkronizasyonu:** Kullanıcıların kendi oluşturduğu tüm listeler (`getCustomLists` ve `getCustomListItems`) sisteme entegre edildi. İçerisinde hem dizi hem film barındıran listeler için (Mixed Media) arayüzde polimorfik (çok biçimli) render mantığı kuruldu (Örn: type'a göre Film veya Dizi kartı gösterimi).
 2. **"Beğenilenler" Özel Mantığı:** Trakt'ta listeler tamamen silinebilirken, "Beğenilen Diziler" (Favorites) gibi kök listelerin kaza sonucu silinmemesi için detay sayfasında (ListDetailsScreen) özel koruma/gizleme kuralı yazıldı.
 3. **Responsive Liste Detay Ekranı:** Mobil sürümde tam ekran (Edge-to-Edge) harika görünen dikey liste ekranı, geniş ekranlı (Web) platformlarda devasa çirkin bir boyuta ulaşmasın diye, Twitter/Reddit feed benzeri **Merkezlenmiş Kolon (max-width: 800px)** tasarımı ile sarmalandı. Böylece tek kod iki platformda lüks ve kusursuz görünüme ulaştı.
 4. **ListCard.web.tsx Düzenlemesi:** Yatay (Horizontal) Scroll içinde `%100` genişlik verilmesi sonucu ezilen kartlar, `width: 180` kare (Spotify vari) boyutlarla sabitlenerek carousel sorunu kökünden çözüldü.
 5. **Akıllı "ListPlus" Butonu:** Dizi afişlerindeki liste butonuna dinamik görevler atandı. Masaüstünde sadece menü açarken; Mobilde **kısa basıldığında direkt "İzleme Listesi"ne (Watchlist)** atıyor, **uzun (400ms) basıldığında Özel Listeler Modalı** açılıyor. Tam bir power-user (gelişmiş kullanıcı) deneyimi sağlandı.
-
 
 ## 19. Yeni "Premium" Karşılama Ekranı (Landing Page) ve Dinamik Yönlendirme (Routing) Revizyonu
 **Sorun:** Uygulamanın açılış sayfası sadece basit bir Giriş/Kayıt butonundan oluşuyordu ve kullanıcılara uygulamanın özelliklerini (İstatistikler, Topluluk vb.) anlatan "Premium" hissiyatlı bir vitrin (Landing Page) eksikti. Ayrıca web tarafında (PWA) kullanılmak istenen HTML/CSS tabanlı şık bir tasarım, Expo Router'ın mobil yönlendirme mantığı ile çakışıyordu.
@@ -142,4 +116,26 @@ Bu dosya, projenin geliştirme sürecinde denenen, yanılan ve başarıyla uygul
 1. **Veri Katmanının Ayrılması (Zustand):** Projeye yüksek performanslı global state yönetim kütüphanesi olan Zustand dahil edildi. Tek parça olan veriler `store/slices/` altında mantıksal dilimlere (History, Watchlist, Favorites, Lists, Calendar, Ratings) bölündü.
 2. **Mantık Katmanının Ayrılması (Services):** Context içindeki tüm API çağırma ve önbellek (AsyncStorage) kaydetme operasyonları `services/libraryService.ts` adında bağımsız bir servis dosyasına taşındı.
 3. **Sıfır Riskli Entegrasyon (Proxy Hook):** 17 farklı ekran dosyasında aynı anda değişiklik yapıp sözdizimi (syntax) hatalarına veya Expo çökmelerine yol açmamak için akıllı bir yöntem kullanıldı. Eski `LibraryContext.tsx` dosyası silinmedi; bunun yerine sadece Zustand ve Servisleri birbirine bağlayıp geriye döndüren "hafif bir Proxy (Köprü) Hook"a dönüştürüldü. Böylece uygulamadaki tek bir sayfa bile değiştirilmeden yeni kusursuz mimariye geçiş sıfır hata ile tamamlandı. İlave performans istendiğinde sayfalar özelinde seçici aboneliğe (selective subscription) geçme altyapısı hazırlandı.
->>>>>>> de7e192ccf00c397f9213158998806b92479dfc5
+
+## 21. "God Object" TraktApi'nin Modüler Servislere Bölünmesi
+**Sorun:** `services/traktApi.ts` dosyası 953 satıra ulaşarak `axios` bağlantı ayarları, token yenileme mantığı ve onlarca farklı endpoint'i (Shows, Movies, Users, vb.) aynı anda barındıran devasa bir dosyaya dönüşmüştü.
+**Çözüm:**
+1. **API Klasörlemesi:** `services/api/` dizini oluşturuldu.
+2. **Bağlantı İzolasyonu:** Axios nesnesi ve token tazeleyen (queue) interceptor yapıları tamamen `traktClient.ts` dosyasına taşındı.
+3. **Endpoint Modülerizasyonu:** API istekleri özelliklerine göre klasörlendi: `auth.ts`, `shows.ts`, `movies.ts`, `users.ts`, `comments.ts`, `search.ts`.
+4. **Sıfır Risk Yönlendirici (Barrel File):** Uygulamadaki onlarca sayfanın importlarını değiştirmemek için eski `services/traktApi.ts` dosyası silinmedi, bir yönlendirici (Barrel File) haline getirildi (`export * from './api/shows'` vb.). TypeScript derleyicisi ile (tsc) 0 hata alınarak modülerizasyon başarıyla tamamlandı.
+
+## 22. UI ve İş Mantığı İzolasyonu: `MediaHero.tsx` Sadeleştirilmesi
+**Sorun:** Dizi/Film detay ekranlarındaki üst barı (hero) oluşturan `MediaHero.tsx` dosyası 680 satıra ulaşmıştı. Sadece arayüz çizmesi gereken bu bileşen, içerisine Puanlama Modalı, Seçenekler Modalı ve Paylaşma gibi onlarca iş mantığı eklenince okunmaz hale gelmişti.
+**Çözüm:** UI ile Logic ayrıldı. Modallar (`RatingModal` ve `OptionsModal`) bağımsız bileşenler olarak `components/modals/` içerisine taşındı. `formatRuntime` gibi yardımcı fonksiyonlar `utils/formatters.ts` dosyasına ayrıldı. `MediaHero.tsx` 680 satırdan 469 satıra düşürülerek temiz bir arayüz bileşenine dönüştürüldü.
+
+## 23. Ekran Bileşenlerinin (Screens) Modülerleştirilmesi
+**Sorun:** `app/show/[id].tsx` ve `app/movie/[id].tsx` gibi ana ekran bileşenleri 500-600 satırlara ulaşarak veriyi çekme, state yönetme ve tüm modalları içlerinde render etme sorumluluğunu üstlenmişlerdi (Spagetti).
+**Çözüm:**
+1. **Veri Çekme (Data Fetching):** `app/movie/[id].tsx` içerisindeki tüm Trakt/TMDB çağrıları sökülerek `hooks/useMovieDetail.ts` içerisine taşındı. Böylece UI ile Veri ayrılmış oldu.
+2. **Modalların Çıkarılması:** `app/show/[id].tsx` sayfasındaki devasa satır içi modallar, `components/modals/EpisodeOptionsModal.tsx` ve `EpisodeRatingModal.tsx` olarak izole edildi.
+3. Sonuç olarak sayfaların satır sayıları %30-40 oranında küçüldü. Artık ekran dosyaları sadece veri bağlama ve ana bileşenleri çizme işlevine odaklı.
+
+## 24. Doküman Temizliği ve Çakışma (Conflict) Kayıtlarının Giderilmesi (2026-07-18)
+**Sorun:** `AGENTS.md`, `docs/AI_RULES.md`, `docs/ARCHITECTURE.md` ve bu dosya (`docs/HISTORY.md`), PR #1 (`de7e192`, "sertay" dalından) çözülmeden merge edildiği için içlerinde çözülmemiş Git conflict işaretleri (`<<<<<<< HEAD` / `=======` / `>>>>>>>`) barındırıyordu. Ayrıca eski proje adı "TvTaym" birçok yerde "KaymakTV" ile karışık geçiyordu.
+**Çözüm:** Dört dosyadaki conflict blokları elle birleştirildi; iki tarafın da içerdiği benzersiz bilgi korunarak tek, tutarlı bir metin oluşturuldu (bu dosyada iki tarafın madde numaraları da birleştirildi: eski taraf 1-19, HEAD tarafı 20-23 olarak devam ettirildi). Aktif kod/dokümanlardaki "TvTaym" referansları "KaymakTV" olarak güncellendi; bu dosyadaki geçmişe ait "TvTaym" anıları (o zamanki gerçek isim olduğu için) olduğu gibi bırakıldı. Bu denetim sırasında ayrıca madde 14'te kurulan Netlify OAuth proxy'sinin repodan kaybolduğu ve `Client Secret`'ın tekrar istemciye gömüldüğü tespit edildi (bkz. madde 14.8 ve `docs/ARCHITECTURE.md` Bölüm 4) — bu bir dokümantasyon değişikliği değil, ayrı ele alınması gereken aktif bir güvenlik regresyonudur.

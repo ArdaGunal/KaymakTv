@@ -1,4 +1,4 @@
-# TvTaym Proje Vizyonu ve Çıkış Noktası
+# KaymakTV Proje Vizyonu ve Çıkış Noktası
 
 Bu dosya, uygulamanın ruhunu, tasarım felsefesini ve neden geliştirildiğini hatırlatmak amacıyla yapay zeka (Antigravity) tarafından oluşturulmuştur. Geliştirme sürecindeki tüm kararlar bu vizyona sadık kalınarak alınacaktır.
 
@@ -11,7 +11,7 @@ Bu dosya, uygulamanın ruhunu, tasarım felsefesini ve neden geliştirildiğini 
 Trakt'ın o devasa ve güvenilir veritabanı (API) altyapısını kullanarak, **TV Time'ın kusursuz, karanlık ve akıcı arayüzünü (UI/UX) yeniden yaratmak.** Uygulama sadece geliştirici için değil, aynı durumdaki arkadaş çevresi için de bir "kaçış noktası" olacaktır.
 
 ## Temel Tasarım ve Mimari Felsefesi
-1. **Merkezi Kimlik Doğrulama (OAuth 2.0 & Netlify Proxy):** Google Play standartlarında kullanıcı deneyimi sunabilmek için eski sistem terk edilmiştir. Uygulama In-App Browser üzerinden "Tek Tıkla Giriş" yapmayı sağlayan sektör standardı bir yetkilendirme (Authorization Code) mimarisi kullanır. Sunucu tarafı gizli anahtarlar Netlify (Serverless) üzerinde güvenle saklanır.
+1. **Merkezi Kimlik Doğrulama (OAuth 2.0 & Sunucu Taraflı Proxy):** Google Play standartlarında kullanıcı deneyimi sunabilmek için eski sistem terk edilmiştir. Uygulama In-App Browser üzerinden "Tek Tıkla Giriş" yapmayı sağlayan sektör standardı bir yetkilendirme (Authorization Code) mimarisi kullanır. Sunucu tarafı gizli anahtarlar bir proxy (örn. Netlify Functions) üzerinde saklanmalıdır — *(2026-07-18 denetim notu: bu proxy şu anki kod tabanında mevcut değil, Client Secret geçici olarak istemciye gömülü durumda; bkz. `docs/ARCHITECTURE.md` Bölüm 4)*.
 2. **TV Time Nostaljisi:** Siyah ağırlıklı tema, dizilerin yatay kaydırmalı (Horizontal) olarak sunulması, izlendi (Check) butonunun hissiyatı, profil sayfasının akıllı kategorizasyonu gibi UI detayları doğrudan TV Time deneyimini yansıtmalıdır.
 3. **Modülerlik:** Yapılan her değişiklik adım adım, test edilerek ve temiz (modüler) bileşenler halinde projeye entegre edilir.
 4. **Offline ve Hızlı:** API istekleri önbelleklenerek (cache) ve chunking (gruplama) yöntemleriyle API sınırlarını zorlamayacak/boğmayacak şekilde tasarlanır.
