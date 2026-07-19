@@ -5,14 +5,23 @@ import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
-import { useLibrary } from '../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
 
 const ShowCard = memo(({ data }: { data: any }) => {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
-  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, toggleWatchlistStatus, showProgressMap } = useLibrary();
+  // Katı seçici: tam context aboneliği listedeki HER kartı her store
+  // değişiminde yeniden çiziyordu — keşfet kaydırmasındaki takılmanın kaynağı.
+  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, showProgressMap } = useLibrarySelector(s => ({
+    watchlistShows: s.watchlistShows,
+    watchlistMovies: s.watchlistMovies,
+    watchedShows: s.watchedShows,
+    watchedMovies: s.watchedMovies,
+    showProgressMap: s.showProgressMap,
+  }));
+  const { toggleWatchlistStatus } = useLibraryActions();
   const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
 
   const media = data?.show || data?.movie;
@@ -129,15 +138,16 @@ const ShowCard = memo(({ data }: { data: any }) => {
 export default ShowCard;
 
 const styles = StyleSheet.create({
+  // Dizi/film kartlarıyla aynı tasarım dili: slate yüzey + ince kenarlık + yumuşak köşe
   card: {
     flexDirection: 'row',
-    backgroundColor: '#0B1120',
-    borderRadius: 8,
+    backgroundColor: '#172033',
+    borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 12,
     height: 144,
     borderWidth: 1,
-    borderColor: '#172033',
+    borderColor: '#22304A',
     position: 'relative',
   },
   progressBar: {
@@ -148,7 +158,7 @@ const styles = StyleSheet.create({
   },
   posterContainer: {
     width: 96,
-    backgroundColor: '#0B1120',
+    backgroundColor: '#1e293b',
   },
   posterImage: {
     width: '100%',
@@ -181,13 +191,16 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
   },
   watchlistButtonActive: {
-    backgroundColor: '#064e3b',
+    backgroundColor: 'rgba(6, 78, 59, 0.6)',
+    borderColor: 'rgba(16, 185, 129, 0.45)',
   },
   infoRow: {
     flexDirection: 'row',

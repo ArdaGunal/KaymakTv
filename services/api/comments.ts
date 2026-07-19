@@ -81,10 +81,35 @@ export const getMediaComments = async (id: number, type: 'show' | 'movie' | 'epi
 export const getUserComments = async () => {
   try {
     const client = await getTraktClient();
-    const response = await client.get('/users/me/comments/all/newest?include_replies=false&extended=full');
+    // limit şart: Trakt varsayılanı 10 kayıttır — limitsiz istekte 10'dan fazla
+    // yorumu olan kullanıcının eski yorumları bulunamıyor ve "zaten yorum var"
+    // tespiti kaçtığı için tekrar gönderimde 409 (duplicate) hatası oluşuyordu.
+    const response = await client.get('/users/me/comments/all/newest?include_replies=false&extended=full&limit=200');
     return response.data;
   } catch (error) {
     console.error('Trakt API Hatası (getUserComments):', error);
+    throw error;
+  }
+};
+
+export const getCommentReplies = async (commentId: number, page: number = 1, limit: number = 25) => {
+  try {
+    const client = await getTraktClient();
+    const response = await client.get(`/comments/${commentId}/replies?page=${page}&limit=${limit}&extended=full`);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (getCommentReplies):', error);
+    throw error;
+  }
+};
+
+export const addCommentReply = async (commentId: number, comment: string, spoiler: boolean = false) => {
+  try {
+    const client = await getTraktClient();
+    const response = await client.post(`/comments/${commentId}/replies`, { comment, spoiler });
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (addCommentReply):', error);
     throw error;
   }
 };

@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { View, PanResponder, StyleSheet, Text, TouchableOpacity, Platform } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, Animated, PanResponder, Platform } from 'react-native';
 import { Star } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
@@ -10,133 +10,163 @@ interface StarSliderProps {
   onRemove?: () => void;
 }
 
+const STAR_SIZE = 40;
+const STAR_COLOR = '#facc15';
+const STAR_EMPTY_COLOR = '#3f3f46';
+
+const STAR_SHADOW = {
+  textShadowColor: 'rgba(250, 204, 21, 0.5)',
+  textShadowOffset: { width: 0, height: 0 },
+  textShadowRadius: 8,
+};
+
+// Statik bir yıldız sırası: sürükleme sırasında YENİDEN RENDER OLMAZ.
+// Dolgu efekti bunun üstüne bindirilen, genişliği Animated.Value ile
+// sürülen ayrı bir katmandan gelir (bkz. FillLayer).
+const StarsRow = React.memo(({ color, filled }: { color: string; filled: boolean }) => (
+  <View style={styles.starsRow} pointerEvents="none">
+    {[1, 2, 3, 4, 5].map((i) => (
+      <View key={i} style={styles.starWrapper}>
+        <Star
+          size={STAR_SIZE}
+          color={color}
+          fill={filled ? color : 'transparent'}
+          style={filled ? (STAR_SHADOW as any) : undefined}
+        />
+      </View>
+    ))}
+  </View>
+));
+
 export default function StarSlider({ initialRating, onRate, onRemove }: StarSliderProps) {
-  const [rating, setRating] = useState<number>(initialRating || 5);
-  const containerWidthRef = useRef<number>(0);
-  const panState = useRef({ isPanning: false, currentX: 0 });
   const { t } = useTranslation(['common']);
+  const [rating, setRating] = useState<number>(initialRating || 5); // 0..10, kaydedilen ayrık değer
+  const [containerWidth, setContainerWidth] = useState(0);
+  const widthRef = useRef(0);
+  // 0..1 arası sürekli değer — sürükleme sırasında dolgu genişliğini
+  // React state'ine hiç dokunmadan (native prop güncellemesiyle) sürer.
+  const fill = useRef(new Animated.Value((initialRating || 5) / 10)).current;
+  const lastDiscreteRef = useRef(initialRating || 5);
+  const isPanningRef = useRef(false);
 
   React.useEffect(() => {
     if (initialRating) {
       setRating(initialRating);
+      lastDiscreteRef.current = initialRating;
+      fill.setValue(initialRating / 10);
     }
-  }, [initialRating]);
+  }, [initialRating, fill]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        panState.current = { isPanning: false, currentX: evt.nativeEvent.locationX };
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10) {
-          panState.current.isPanning = true;
-        }
-        panState.current.currentX = evt.nativeEvent.locationX;
-        if (panState.current.isPanning) {
-          handleTouch(panState.current.currentX, false);
-        }
-      },
-      onPanResponderRelease: () => {
-        if (!panState.current.isPanning) {
-          handleTouch(panState.current.currentX, true); // Tap -> Full Star
-        }
-      }
-    })
-  ).current;
-
-  const handleTouch = (x: number, isTap: boolean) => {
-    const width = containerWidthRef.current;
+  const commitFromX = useCallback((x: number, snapToFullStar: boolean) => {
+    const width = widthRef.current;
     if (width === 0) return;
     const clampedX = Math.max(0, Math.min(x, width));
+
+    // Görsel dolgu: her zaman parmağı 1:1 takip eder, pürüzsüz.
+    fill.setValue(clampedX / width);
+
+    // Kaydedilecek ayrık değer (yarım yıldız hassasiyeti, 1-10 skala).
     const stepWidth = width / 10;
-    let newRating = Math.ceil(clampedX / stepWidth);
-    
-    if (newRating < 1) newRating = 1;
-    if (newRating > 10) newRating = 10;
+    let discrete = Math.ceil(clampedX / stepWidth);
+    if (discrete < 1) discrete = 1;
+    if (discrete > 10) discrete = 10;
+    if (snapToFullStar) discrete = Math.ceil(discrete / 2) * 2;
 
-    if (isTap) {
-      newRating = Math.ceil(newRating / 2) * 2; // snap to full star
+    if (discrete !== lastDiscreteRef.current) {
+      Haptics.selectionAsync();
+      lastDiscreteRef.current = discrete;
+      setRating(discrete);
     }
-    
-    setRating(prev => {
-      if (prev !== newRating) {
-        Haptics.selectionAsync();
-      }
-      return newRating;
-    });
-  };
+  }, [fill]);
 
-  const getSentimentText = (val: number) => {
-    if (val <= 2) return t('sentimentWaste', 'Zaman Kaybı');
-    if (val <= 4) return t('sentimentBad', 'Pek İyi Değil');
-    if (val <= 6) return t('sentimentAverage', 'Ortalama');
-    if (val <= 8) return t('sentimentGood', 'Gerçekten İyi');
+  const settleFillToDiscrete = useCallback(() => {
+    Animated.spring(fill, {
+      toValue: lastDiscreteRef.current / 10,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 90,
+    }).start();
+  }, [fill]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => {
+          isPanningRef.current = false;
+          commitFromX(evt.nativeEvent.locationX, false);
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          if (Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4) {
+            isPanningRef.current = true;
+          }
+          commitFromX(evt.nativeEvent.locationX, false);
+        },
+        onPanResponderRelease: (evt) => {
+          // Sürüklemeden bırakma: yarım yıldız hassasiyetinde kalır.
+          // Sade dokunma (sürüklenmedi): en yakın tam yıldıza yaslanır.
+          commitFromX(evt.nativeEvent.locationX, !isPanningRef.current);
+          settleFillToDiscrete();
+        },
+        onPanResponderTerminate: () => {
+          settleFillToDiscrete();
+        },
+      }),
+    [commitFromX, settleFillToDiscrete]
+  );
+
+  const sentimentText = useMemo(() => {
+    if (rating <= 2) return t('sentimentWaste', 'Zaman Kaybı');
+    if (rating <= 4) return t('sentimentBad', 'Pek İyi Değil');
+    if (rating <= 6) return t('sentimentAverage', 'Ortalama');
+    if (rating <= 8) return t('sentimentGood', 'Gerçekten İyi');
     return t('sentimentMasterpiece', 'Başyapıt!');
-  };
+  }, [rating, t]);
 
-  const renderStars = () => {
-    const stars = [];
-    const starColor = "#facc15"; // Yellow
-    const shadowStyle = {
-      textShadowColor: 'rgba(250, 204, 21, 0.5)',
-      textShadowOffset: { width: 0, height: 0 },
-      textShadowRadius: 8,
-    };
-    const starSize = 36;
-
-    for (let i = 1; i <= 5; i++) {
-      const isFull = rating >= i * 2;
-      const isHalf = rating === i * 2 - 1;
-      
-      stars.push(
-        <View key={i} style={styles.starWrapper} pointerEvents="none">
-          {isFull ? (
-             <Star size={starSize} color={starColor} fill={starColor} style={shadowStyle as any} />
-          ) : isHalf ? (
-             <View style={{position: 'relative'}}>
-                <Star size={starSize} color="#404040" fill="transparent" />
-                <View style={{position: 'absolute', left: 0, top: 0, width: '50%', overflow: 'hidden'}}>
-                  <Star size={starSize} color={starColor} fill={starColor} style={shadowStyle as any} />
-                </View>
-             </View>
-          ) : (
-             <Star size={starSize} color="#404040" fill="transparent" />
-          )}
-        </View>
-      );
-    }
-    return stars;
-  };
+  const fillWidth = fill.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={styles.container}>
       <Text style={styles.ratingText}>{(rating / 2).toFixed(1)} / 5.0</Text>
-      <Text style={styles.sentimentText}>{getSentimentText(rating)}</Text>
-      
-      <View 
+      <Text style={styles.sentimentText}>{sentimentText}</Text>
+
+      <View
         style={[
-          styles.starsContainer, 
-          Platform.OS === 'web' && { touchAction: 'none', userSelect: 'none' } as any
+          styles.starsSlot,
+          Platform.OS === 'web' && ({ touchAction: 'none', userSelect: 'none' } as any),
         ]}
         onLayout={(e) => {
-          containerWidthRef.current = e.nativeEvent.layout.width;
+          const w = e.nativeEvent.layout.width;
+          widthRef.current = w;
+          setContainerWidth(w);
         }}
         {...panResponder.panHandlers}
       >
-        {renderStars()}
+        <StarsRow color={STAR_EMPTY_COLOR} filled={false} />
+        <Animated.View style={[styles.fillClip, { width: fillWidth }]}>
+          {/* Sabit piksel genişlik (konteynerin tam genişliği) — dıştaki
+              Animated genişlik küçüldükçe bu satırı SIKIŞTIRMAZ, sadece
+              maskeler. Böylece yıldızlar orantısız küçülmeden düzgün açığa çıkar. */}
+          <View style={[styles.fillInner, { width: containerWidth }]}>
+            <StarsRow color={STAR_COLOR} filled />
+          </View>
+        </Animated.View>
       </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={() => onRate(rating)}>
+      <TouchableOpacity style={styles.saveButton} activeOpacity={0.85} onPress={() => onRate(rating)}>
         <Text style={styles.saveButtonText}>{t('saveRating', 'Puanı Kaydet')}</Text>
       </TouchableOpacity>
-      
-      {initialRating && onRemove && (
+
+      {initialRating && onRemove ? (
         <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
           <Text style={styles.removeButtonText}>{t('removeRating', 'Puanı Kaldır')}</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -159,16 +189,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: 0.5,
   },
-  starsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  starsSlot: {
+    position: 'relative',
+    width: '100%',
     paddingVertical: 10,
     marginBottom: 20,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
     width: '100%',
   },
   starWrapper: {
-    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  fillClip: {
+    position: 'absolute',
+    left: 0,
+    top: 10,
+    bottom: 10,
+    overflow: 'hidden',
+  },
+  fillInner: {
+    flexDirection: 'row',
   },
   saveButton: {
     backgroundColor: '#3b82f6',
@@ -177,6 +221,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
+    ...(Platform.OS === 'web' && ({ cursor: 'pointer' } as any)),
   },
   saveButtonText: {
     color: '#ffffff',
@@ -189,5 +234,5 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: '#ef4444',
     fontSize: 14,
-  }
+  },
 });

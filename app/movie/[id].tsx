@@ -32,6 +32,8 @@ export default function MovieDetailScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   const [writeCommentVisible, setWriteCommentVisible] = useState(false);
+  // Yorum yazma/silme sonrası MyInlineComment'in kendini tazelemesi için sayaç
+  const [commentVersion, setCommentVersion] = useState(0);
   
   const { 
     userRatingsMovies, 
@@ -70,8 +72,9 @@ export default function MovieDetailScreen() {
   const isFavorited = favMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
 
   const handleRate = async (rating: number) => {
+    // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
-      setLocalRating(traktIdNum, 'movie', rating * 2); // Internal scale is 1-10
+      setLocalRating(traktIdNum, 'movie', rating);
       await addRating(traktIdNum, 'movie', rating);
     } catch (e) {
       removeLocalRating(traktIdNum, 'movie');
@@ -193,16 +196,12 @@ export default function MovieDetailScreen() {
             return (
               <View style={styles.section}>
                 {/* Write Comment Button */}
-                <MyInlineComment 
+                <MyInlineComment
                   mediaId={traktIdNum}
                   mediaType="movie"
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={0}
-                  onDeleteSuccess={() => {
-                    import('../../services/traktApi').then(({ getMediaComments }) => {
-                      getMediaComments(traktIdNum, 'movie').then(res => refreshComments());
-                    });
-                  }}
+                  refreshTrigger={commentVersion}
+                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshComments(); }}
                 />
 
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
@@ -241,16 +240,12 @@ export default function MovieDetailScreen() {
 
           {(!commentsData || commentsData.length === 0) && (
              <View style={[styles.section, { paddingBottom: 20 }]}>
-                <MyInlineComment 
+                <MyInlineComment
                   mediaId={traktIdNum}
                   mediaType="movie"
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={0}
-                  onDeleteSuccess={() => {
-                    import('../../services/traktApi').then(({ getMediaComments }) => {
-                      getMediaComments(traktIdNum, 'movie').then(res => refreshComments());
-                    });
-                  }}
+                  refreshTrigger={commentVersion}
+                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshComments(); }}
                 />
              </View>
           )}
@@ -283,10 +278,9 @@ export default function MovieDetailScreen() {
         mediaId={traktIdNum}
         mediaType="movie"
         onSuccess={() => {
+          setCommentVersion(v => v + 1);
           refreshData();
-          import('../../services/traktApi').then(({ getMediaComments }) => {
-            getMediaComments(traktIdNum, 'movie').then(res => refreshComments());
-          });
+          refreshComments();
         }}
       />
     </View>

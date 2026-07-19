@@ -8,7 +8,7 @@ import { useAirCountdown } from '../../hooks/useAirCountdown';
 import MediaPoster from '../MediaPoster';
 import { useResponsive } from '../../hooks/useResponsive';
 import MovieCardMobile from './MovieCardMobile';
-import { useLibrary } from '../../context/LibraryContext';
+import { useLibraryActions } from '../../context/LibraryContext';
 import { Check } from 'lucide-react-native';
 import { generateMediaSlug } from '../../utils/slugHelper';
 
@@ -18,23 +18,21 @@ interface MovieCardProps {
 }
 
 const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
+  // KRİTİK: Tüm hook'lar koşullu return'lerden ÖNCE çağrılmalı (Rules of Hooks).
+  // Eskiden `if (!isDesktop) return <MovieCardMobile/>` hook'ların üstündeydi;
+  // pencere 768px eşiğini geçince hook sayısı değişiyor ve ekran çöküyordu.
   const { isDesktop } = useResponsive();
-  if (!data) return null;
-
-  if (!isDesktop) {
-    return <MovieCardMobile data={data} onMovieFinished={onMovieFinished} />;
-  }
-
   const router = useRouter();
   const { t } = useTranslation(['media', 'common']);
-  const airStatus = useAirCountdown(data.rawDate);
-  const { markMovieAsWatched } = useLibrary();
-  
+  const airStatus = useAirCountdown(data?.rawDate);
+  // Abonesiz aksiyon hook'u: store değişimleri carousel kartlarını yeniden çizmez.
+  const { markMovieAsWatched } = useLibraryActions();
+
   const [isHovered, setIsHovered] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  
+
   useEffect(() => {
     Animated.timing(scaleAnim, {
       toValue: isHovered ? 1.05 : 1,
@@ -43,6 +41,12 @@ const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
     }).start();
   }, [isHovered]);
 
+  if (!data) return null;
+
+  if (!isDesktop) {
+    return <MovieCardMobile data={data} onMovieFinished={onMovieFinished} />;
+  }
+
   const handleCardPress = () => {
     if (data?.id) {
       const slug = generateMediaSlug(data.id, data.slug, data.title);
@@ -50,26 +54,26 @@ const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
     }
   };
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = () => {
     if (isLoading || isSuccess) return;
-    
+
+    // Mobil karttaki akışla aynı: önce başarı görünür, store güncellemesi
+    // (kartı listeden kaldıran optimistic update) SONRA yapılır.
+    setIsSuccess(true);
     setIsLoading(true);
-    try {
-      await markMovieAsWatched(data.id);
-      setIsSuccess(true);
-      
-      setTimeout(() => {
+
+    setTimeout(async () => {
+      try {
+        await markMovieAsWatched(data.id);
         if (onMovieFinished) {
           onMovieFinished(data.title);
         }
+      } catch (error) {
         setIsSuccess(false);
-      }, 1000);
-      
-    } catch (error) {
-      setIsSuccess(false);
-    } finally {
-      setIsLoading(false);
-    }
+      } finally {
+        setIsLoading(false);
+      }
+    }, 1200);
   };
 
   const isFuture = data.rawDate !== undefined && !airStatus.isAired;

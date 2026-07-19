@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { generateEpisodeSlug } from '../utils/slugHelper';
 import EpisodeCheckButton from './EpisodeCheckButton';
 import LoadingIndicator from './LoadingIndicator';
-import { useLibrary } from '../context/LibraryContext';
+import { useLibraryActions } from '../context/LibraryContext';
+import { useAuth } from '../context/AuthContext';
+
+// Bir bölümün yayınlanıp yayınlanmadığını belirler (satırlardaki rozetle aynı mantık).
+const isEpisodeAired = (ep: any, airedEpisodesCount: number) =>
+  ep.first_aired ? new Date(ep.first_aired) <= new Date() : ep.number <= airedEpisodesCount;
 
 interface SeasonAccordionProps {
   season: any;
@@ -31,24 +36,92 @@ export default function SeasonAccordion({
   onToggle,
   seasonProgress 
 }: SeasonAccordionProps) {
-  const { t } = useTranslation('media');
+  const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
   const [seasonLoading, setSeasonLoading] = useState(false);
-  const { markSeasonAsWatched, unwatchSeason } = useLibrary();
+  // Abonesiz aksiyon hook'u — store değişimleri bu bileşeni yeniden render etmez.
+  const { markSeasonAsWatched, markEpisodesUpToAsWatched, unwatchSeason } = useLibraryActions();
+  const { isGuest } = useAuth();
 
   const isSeasonWatched = seasonProgress && seasonProgress.completed > 0;
 
-  const handleMarkSeason = async () => {
+  const runSeasonAction = async (action: () => Promise<any>) => {
     setSeasonLoading(true);
     try {
-      if (isSeasonWatched) {
-        await unwatchSeason(showTraktId, season.number);
-      } else {
-        await markSeasonAsWatched(showTraktId, season.number);
-      }
+      await action();
+    } catch (e) {
+      console.error(e);
+      Alert.alert(t('common:error'), t('seasonMarkError', 'Sezon işaretlenirken bir hata oluştu.'));
     } finally {
       setSeasonLoading(false);
     }
+  };
+
+  // Yanlışlıkla basmaya çok müsait bir buton: her iki yön de (işaretle / geri al)
+  // artık onay istiyor ve yayınlanmamış bölümler asla işaretlenmiyor.
+  const handleMarkSeason = () => {
+    if (seasonLoading) return;
+
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+
+    const seasonLabel = season.number === 0
+      ? t('specials', 'Özel Bölümler')
+      : t('seasonNum', { number: season.number });
+
+    // İzlenmişse: geçmişi silme onayı (yıkıcı işlem)
+    if (isSeasonWatched) {
+      Alert.alert(
+        t('unwatchSeasonTitle', 'Sezonu Geri Al'),
+        t('unwatchSeasonMsg', { defaultValue: `${seasonLabel} için tüm izleme geçmişi silinecek. Emin misiniz?` }),
+        [
+          { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
+          {
+            text: t('common:delete', 'Geri Al'),
+            style: 'destructive',
+            onPress: () => runSeasonAction(() => unwatchSeason(showTraktId, season.number)),
+          },
+        ]
+      );
+      return;
+    }
+
+    // İşaretleme: sadece yayınlanmış bölümler hesaba katılır
+    const episodes: any[] = season.episodes || [];
+    const airedCount = season.aired_episodes || 0;
+    const airedEps = episodes.filter((ep) => isEpisodeAired(ep, airedCount));
+    const unairedCount = episodes.length - airedEps.length;
+
+    if (airedEps.length === 0) {
+      Alert.alert(
+        t('seasonNotAiredTitle', 'Henüz Yayınlanmadı'),
+        t('seasonNotAiredMsg', { defaultValue: `${seasonLabel} bölümleri henüz yayınlanmadığı için işaretlenemez.` })
+      );
+      return;
+    }
+
+    const message = unairedCount > 0
+      ? t('markSeasonPartialMsg', { defaultValue: `Yayınlanmış ${airedEps.length} bölüm izlendi olarak işaretlenecek (henüz çıkmamış ${unairedCount} bölüm atlanacak). Devam edilsin mi?` })
+      : t('markSeasonMsg', { defaultValue: `${seasonLabel} içindeki ${airedEps.length} bölümün tamamı izlendi olarak işaretlensin mi?` });
+
+    Alert.alert(
+      t('markSeasonTitle', 'Sezonu İşaretle'),
+      message,
+      [
+        { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
+        {
+          text: t('markAsWatched', 'İşaretle'),
+          onPress: () => runSeasonAction(() =>
+            unairedCount > 0
+              // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
+              ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number))
+              : markSeasonAsWatched(showTraktId, season.number)
+          ),
+        },
+      ]
+    );
   };
 
   return (
@@ -62,10 +135,11 @@ export default function SeasonAccordion({
           {season.number === 0 ? t('specials', 'Özel Bölümler') : t('seasonNum', { number: season.number })}
         </Text>
         <View style={styles.seasonHeaderRight}>
-           <TouchableOpacity 
-              onPress={handleMarkSeason} 
+           <TouchableOpacity
+              onPress={handleMarkSeason}
               style={[styles.markSeasonBtn, isSeasonWatched && styles.markSeasonBtnWatched]}
               disabled={seasonLoading}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
            >
               {seasonLoading ? (
                 <LoadingIndicator size="small" color="#ffffff" />
@@ -81,9 +155,7 @@ export default function SeasonAccordion({
         <View style={styles.episodesList}>
           {season.episodes.map((ep: any) => {
              const isWatchedLocal = ep.isWatchedLocal;
-             const isAired = ep.first_aired 
-               ? new Date(ep.first_aired) <= new Date() 
-               : ep.number <= (season.aired_episodes || 0);
+             const isAired = isEpisodeAired(ep, season.aired_episodes || 0);
              
              return (
                <View key={ep.number} style={styles.episodeRow}>

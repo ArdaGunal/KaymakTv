@@ -7,7 +7,6 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { ChevronLeft, Play, ChevronDown, ChevronUp, Check, CheckCheck, Star } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { addRating, removeRating } from '../../services/traktApi';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
@@ -84,6 +83,8 @@ const {
     setSnackbarData,
     handleRate,
     handleRemoveRating,
+    handleRateEpisode: hookHandleRateEpisode,
+    handleRemoveEpisodeRating: hookHandleRemoveEpisodeRating,
     handleMarkSeason,
     handleUnwatchEpisode: hookHandleUnwatchEpisode,
     handleRewatchEpisode: hookHandleRewatchEpisode,
@@ -150,28 +151,19 @@ const {
   
   const handleRateEpisode = async (rating: number) => {
     if (!selectedEpisode?.traktId) return;
-    try {
-      setLocalRating(selectedEpisode.traktId, 'episode', rating * 2);
-      await addRating(selectedEpisode.traktId, 'episode', rating);
+    const success = await hookHandleRateEpisode(selectedEpisode.traktId, rating);
+    if (success) {
       setEpisodeRatingModalVisible(false);
       setSelectedEpisode(null);
-    } catch (e) {
-      removeLocalRating(selectedEpisode.traktId, 'episode');
-      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
-      console.error(e);
     }
   };
 
   const handleRemoveEpisodeRating = async () => {
     if (!selectedEpisode?.traktId) return;
-    try {
-      removeLocalRating(selectedEpisode.traktId, 'episode');
-      await removeRating(selectedEpisode.traktId, 'episode');
+    const success = await hookHandleRemoveEpisodeRating(selectedEpisode.traktId);
+    if (success) {
       setEpisodeRatingModalVisible(false);
       setSelectedEpisode(null);
-    } catch (e) {
-      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
-      console.error(e);
     }
   };
 

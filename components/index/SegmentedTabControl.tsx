@@ -30,9 +30,12 @@ export default function SegmentedTabControl({ activeTab, onTabChange, watchlistL
 }
 
 const styles = StyleSheet.create({
+  // Modern segmented control: koyu cam yüzey + ince kenarlık, aktif sekme dolu mavi hap
   segmentedControlContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     marginHorizontal: 16,
     marginTop: 8,
@@ -46,16 +49,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   segmentedTabActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)', // Soft Glass Effect
+    backgroundColor: '#2563EB',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   segmentedTabText: {
     fontWeight: '600',
-    color: '#a3a3a3',
+    color: '#94a3b8',
     fontSize: 13,
     letterSpacing: 0.5,
   },
   segmentedTabTextActive: {
-    color: '#3B82F6',
+    color: '#ffffff',
     fontWeight: 'bold',
   },
 });

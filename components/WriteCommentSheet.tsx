@@ -126,7 +126,9 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={styles.modalOverlay}>
+      {/* iOS: padding; Android: height — RN Modal içinde Android'de 'padding' çoğu
+          cihazda çalışmayıp input'un klavye altında kalmasına sebep oluyordu. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>{existingCommentId ? (viewMode ? t('yourComment') : t('editComment')) : t('writeComment')}</Text>
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     maxHeight: 150,
     minHeight: 80,
-    width: '90%',
+    flex: 1, // '%90' sabit genişlik dar ekranlarda gönder butonunu taşırıyordu
   },
   sendBtn: {
     marginLeft: 12,

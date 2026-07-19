@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Check } from 'lucide-react-native';
-import { useLibrary } from '../context/LibraryContext';
+import { useLibraryActions } from '../context/LibraryContext';
+import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -11,8 +12,14 @@ interface EpisodeCheckButtonProps {
   episode: number;
   showName?: string;
   onShowFinished?: (showName: string, showId: number) => void;
-  onSuccessStateChange?: (isSuccess: boolean) => void;
+  // info: basılma ANINDAKİ bölüm bilgisi. Store güncellenince data sıradaki
+  // bölüme kaydığı için, "hangi bölüm izlendi" mesajı bu snapshot'tan yazılır.
+  onSuccessStateChange?: (isSuccess: boolean, info?: { season: number; episode: number }) => void;
 }
+
+// Başarı durumunun ekranda kalma süresi: kartın yumuşak geçişiyle birlikte
+// kullanıcıyı bekletmeyecek ama mesajı okutacak bir tatlı nokta.
+const SUCCESS_HOLD_MS = 1600;
 
 export default function EpisodeCheckButton({ 
   traktId, 
@@ -25,11 +32,17 @@ export default function EpisodeCheckButton({
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [isFinishedLocal, setIsFinishedLocal] = useState(false);
-  const { markEpisodeAsWatched, markEpisodesUpToAsWatched, showProgressMap } = useLibrary();
+  // Store aboneliği YOK: bu buton listedeki her kartta var; abone olsaydı her
+  // store değişimi yüzlerce butonu yeniden çizerdi. Aksiyonlar abonesiz hook'tan,
+  // progress ise yalnızca basılma ANINDA getState() ile okunur.
+  const { markEpisodeAsWatched, markEpisodesUpToAsWatched } = useLibraryActions();
   const { isGuest } = useAuth();
   const { t } = useTranslation(['media', 'common']);
 
   const performCheckIn = async (isBulk: boolean, episodesToMark: number[] = []) => {
+    // Basılma anındaki bölümü sabitle: await sırasında store güncellenip
+    // props sıradaki bölüme kaysa bile başarı mesajı doğru bölümü gösterir.
+    const watchedInfo = { season, episode };
     setIsLocalLoading(true);
     try {
       let newProgress;
@@ -38,26 +51,26 @@ export default function EpisodeCheckButton({
       } else {
         newProgress = await markEpisodeAsWatched(traktId, season, episode);
       }
-      
+
       setIsSuccess(true);
       if (onSuccessStateChange) {
-        onSuccessStateChange(true);
+        onSuccessStateChange(true, watchedInfo);
       }
-      
+
       setTimeout(() => {
         setIsSuccess(false);
         if (onSuccessStateChange) {
           onSuccessStateChange(false);
         }
-        
+
         if (!newProgress.next_episode) {
           setIsFinishedLocal(true);
           if (onShowFinished && showName) {
             onShowFinished(showName, traktId);
           }
         }
-      }, 1000);
-      
+      }, SUCCESS_HOLD_MS);
+
     } catch (error) {
       Alert.alert(t('common:error'), t('episodeMarkError'));
       setIsSuccess(false);
@@ -76,8 +89,8 @@ export default function EpisodeCheckButton({
     }
     
     if (isLocalLoading || isSuccess || isFinishedLocal) return;
-    
-    const progress = showProgressMap[traktId];
+
+    const progress = useLibraryStore.getState().showProgressMap[traktId];
     let skippedEpisodes: number[] = [];
     
     if (progress && progress.seasons) {

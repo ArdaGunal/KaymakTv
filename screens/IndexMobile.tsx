@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import SkeletonLoader from '../components/SkeletonLoader';
 import LoginPaywall from '../components/LoginPaywall';
@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from '../utils/secureStorage';
 import { useTranslation } from 'react-i18next';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { groupByDateGroup } from '../utils/groupByDateGroup';
 import SegmentedTabControl from '../components/index/SegmentedTabControl';
 import UpcomingSectionList from '../components/index/UpcomingSectionList';
 import TrendingFallbackList from '../components/index/TrendingFallbackList';
@@ -21,6 +22,16 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type CollapsedState = { upNext: boolean; inactive: boolean; dropped: boolean; watchlist: boolean };
+
+// Kategori aç/kapa animasyonu. Hazır preset'ler (özellikle scale içerenler)
+// Android'de SectionList ile takılma/kayma yapabiliyor; yalnızca opacity +
+// easeInEaseOut kullanan bu kısa config her iki platformda da stabil.
+const COLLAPSE_ANIMATION = {
+  duration: 240,
+  create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+  update: { type: LayoutAnimation.Types.easeInEaseOut },
+  delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+};
 
 export default function DizilerScreen() {
   const insets = useSafeAreaInsets();
@@ -69,18 +80,7 @@ export default function DizilerScreen() {
     i18n.language
   );
 
-  const groupedUpcomingShows = useMemo(() => {
-    const groups: { title: string, data: any[] }[] = [];
-    upcomingShows.forEach(show => {
-      const existing = groups.find(g => g.title === show.dateGroup);
-      if (existing) {
-        existing.data.push(show);
-      } else {
-        groups.push({ title: show.dateGroup, data: [show] });
-      }
-    });
-    return groups;
-  }, [upcomingShows]);
+  const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 
   const loadCollapsedState = async () => {
     try {
@@ -135,8 +135,17 @@ export default function DizilerScreen() {
     }
   }, [accessToken, isLibraryLoading, isGuest, fetchTrendingFallback]);
 
+  // Bir önceki aç/kapa animasyonu bitmeden gelen dokunuş, Android'de
+  // LayoutAnimation'ı yarıda kesip listeyi "takılı" bırakabiliyor — animasyon
+  // süresi boyunca yeni dokunuşları yut.
+  const toggleLockRef = useRef(0);
+
   const toggleCategory = async (category: keyof CollapsedState) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const now = Date.now();
+    if (now - toggleLockRef.current < COLLAPSE_ANIMATION.duration + 40) return;
+    toggleLockRef.current = now;
+
+    LayoutAnimation.configureNext(COLLAPSE_ANIMATION);
     const newState = { ...collapsed, [category]: !collapsed[category] };
     setCollapsed(newState);
     try {

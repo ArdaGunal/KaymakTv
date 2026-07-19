@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
@@ -8,6 +8,7 @@ import { generateMediaSlug } from '../utils/slugHelper';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.28;
 const CARD_HEIGHT = CARD_WIDTH * 1.5; // 2:3 aspect ratio (poster)
+const GAP = 12;
 
 interface HorizontalShowListProps {
   title: string;
@@ -17,45 +18,56 @@ interface HorizontalShowListProps {
   type?: 'show' | 'movie' | 'list';
 }
 
-export default function HorizontalShowList({ title, titleIcon, data, onShowAll, type = 'show' }: HorizontalShowListProps) {
+const keyExtractor = (item: any, index: number) => `${item.id}-${index}`;
+
+// Sabit kart boyutu bilindiği için FlatList ölçüm yapmadan direkt konumlandırır.
+const getItemLayout = (_data: any, index: number) => ({
+  length: CARD_WIDTH + GAP,
+  offset: (CARD_WIDTH + GAP) * index,
+  index,
+});
+
+const HorizontalShowList = memo(({ title, titleIcon, data, onShowAll, type = 'show' }: HorizontalShowListProps) => {
   const router = useRouter();
 
-  if (!data || data.length === 0) {
-    return null; // Eğer veri yoksa kategoriyi hiç gösterme
-  }
+  const handleCardPress = useCallback((item: any) => {
+    const traktId = item.rawTraktId || item.id || item.show?.ids?.trakt || item.movie?.ids?.trakt;
+    const tmdbId = item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
+    const itemTitle = item.title || item.show?.title || item.movie?.title;
+    const itemSlug = item.slug || item.show?.ids?.slug || item.movie?.ids?.slug;
 
-  const renderCard = ({ item, index }: { item: any; index: number }) => (
-    <TouchableOpacity 
-      style={styles.card} 
+    if (type === 'list') {
+      router.push(`/list/${traktId}?name=${encodeURIComponent(item.title)}`);
+    } else if (traktId) {
+      const slug = generateMediaSlug(traktId, itemSlug, itemTitle);
+      router.push(`/${type}/${slug}?tmdbId=${tmdbId}`);
+    }
+  }, [type, router]);
+
+  const renderCard = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={styles.card}
       activeOpacity={0.7}
-      onPress={() => {
-        const traktId = item.rawTraktId || item.id || item.show?.ids?.trakt || item.movie?.ids?.trakt;
-        const tmdbId = item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb || '';
-        const title = item.title || item.show?.title || item.movie?.title;
-        const itemSlug = item.slug || item.show?.ids?.slug || item.movie?.ids?.slug;
-        
-        if (type === 'list') {
-          router.push(`/list/${traktId}?name=${encodeURIComponent(item.title)}`);
-        } else if (traktId) {
-          const slug = generateMediaSlug(traktId, itemSlug, title);
-          router.push(`/${type}/${slug}?tmdbId=${tmdbId}`);
-        }
-      }}
+      onPress={() => handleCardPress(item)}
     >
       {type === 'list' ? (
         <View style={[styles.poster, styles.listPosterFallback]}>
           <Text style={styles.listPosterText}>{item.title}</Text>
         </View>
       ) : (
-        <MediaPoster 
-          tmdbId={item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb} 
-          type={type as 'show' | 'movie'} 
-          title={item.title || item.show?.title || item.movie?.title} 
-          style={styles.poster} 
+        <MediaPoster
+          tmdbId={item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb}
+          type={type as 'show' | 'movie'}
+          title={item.title || item.show?.title || item.movie?.title}
+          style={styles.poster}
         />
       )}
     </TouchableOpacity>
-  );
+  ), [type, handleCardPress]);
+
+  if (!data || data.length === 0) {
+    return null; // Eğer veri yoksa kategoriyi hiç gösterme
+  }
 
   return (
     <View style={styles.container}>
@@ -71,20 +83,24 @@ export default function HorizontalShowList({ title, titleIcon, data, onShowAll, 
       </View>
 
       {/* Yatay Liste (FlatList ile optimize edildi, yüzlerce resimde kasmaması için) */}
-      <FlatList 
+      <FlatList
         data={data}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        horizontal 
+        keyExtractor={keyExtractor}
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         renderItem={renderCard}
+        getItemLayout={getItemLayout}
         initialNumToRender={5}
         maxToRenderPerBatch={5}
         windowSize={3}
+        removeClippedSubviews={Platform.OS !== 'web'}
       />
     </View>
   );
-}
+});
+
+export default HorizontalShowList;
 
 const styles = StyleSheet.create({
   container: {
@@ -114,7 +130,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    gap: 12, // FlatList 'gap' destekler (React Native >= 0.71)
+    gap: GAP, // FlatList 'gap' destekler (React Native >= 0.71) — getItemLayout ile senkron
   },
   card: {
     width: CARD_WIDTH,

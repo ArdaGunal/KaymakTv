@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 interface EpisodeCardActionsProps {
   data: any;
   isSuccess: boolean;
-  onSuccessStateChange: (val: boolean) => void;
+  onSuccessStateChange: (val: boolean, info?: { season: number; episode: number }) => void;
   onShowFinished?: (showName: string, showId: number) => void;
 }
 

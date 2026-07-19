@@ -1,6 +1,6 @@
-import React, { useState, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import React, { useState, memo, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
+import { ChevronRight, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
@@ -28,8 +28,40 @@ function getProgressPct(data: any): number | null {
 
 const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
+  // Başarı ekranında gösterilecek bölüm kodu — basılma anında yakalanır,
+  // çünkü store güncellenince `data` çoktan sıradaki bölüme kaymış olur.
+  const [successInfo, setSuccessInfo] = useState<{ code: string | null } | null>(null);
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
   const router = useRouter();
   const { t } = useTranslation('media');
+
+  // Akış: içerik kısa bir fade-out ile kaybolur → "SxxEyy izlendi" fade-in →
+  // (buton ~1.6 sn bekletir) → tekrar fade-out → sıradaki bölüm fade-in.
+  // Böylece kartta hiçbir şey "pat" diye değişmez.
+  const handleSuccessChange = useCallback((val: boolean, info?: { season: number; episode: number }) => {
+    setIsSuccess(val);
+    if (val) {
+      const code = info
+        ? `S${String(info.season).padStart(2, '0')} | E${String(info.episode).padStart(2, '0')}`
+        : null;
+      Animated.parallel([
+        Animated.timing(contentOpacity, { toValue: 0, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 350, useNativeDriver: Platform.OS !== 'web' }),
+      ]).start(() => {
+        setSuccessInfo({ code });
+        Animated.timing(contentOpacity, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
+      });
+    } else {
+      Animated.parallel([
+        Animated.timing(contentOpacity, { toValue: 0, duration: 160, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 450, useNativeDriver: Platform.OS !== 'web' }),
+      ]).start(() => {
+        setSuccessInfo(null);
+        Animated.timing(contentOpacity, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }).start();
+      });
+    }
+  }, [contentOpacity, overlayOpacity]);
 
   if (!data) {
     console.error('[UI ÇÖKME ÖNLENDİ] EpisodeCard eksik data aldı.');
@@ -53,16 +85,22 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
 
   const progressPct = getProgressPct(data);
 
-  const episodeCode = !isSuccess && !data.isCalculating && data.season !== undefined
+  const episodeCode = !data.isCalculating && data.season !== undefined
     ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`
     : null;
 
   return (
     <TouchableOpacity
-      style={[styles.card, isSuccess && styles.cardSuccess]}
+      style={styles.card}
       activeOpacity={0.8}
       onPress={handleCardPress}
     >
+      {/* Başarı arka planı: yeşile ani sıçramak yerine yumuşakça belirir/söner */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.successOverlay, { opacity: overlayOpacity }]}
+      />
+
       {/* Poster */}
       <View style={styles.posterContainer}>
         <MediaPoster
@@ -84,8 +122,8 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
         )}
       </View>
 
-      {/* Content — always visible on mobile */}
-      <View style={styles.contentContainer}>
+      {/* Content — crossfade: normal içerik ↔ "bölüm izlendi" mesajı */}
+      <Animated.View style={[styles.contentContainer, { opacity: contentOpacity }]}>
         {/* Show Name */}
         <TouchableOpacity
           style={styles.showNamePill}
@@ -103,71 +141,87 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
           <ChevronRight size={10} color="#94a3b8" style={{ marginLeft: 2 }} />
         </TouchableOpacity>
 
-        {/* Episode Code — always visible */}
-        {episodeCode ? (
-          <View style={styles.episodeNumberContainer}>
-            <Text style={styles.episodeNumberText}>{episodeCode}</Text>
-            {data.remaining && !isSuccess && !data.isCalculating && (
-              <Text style={styles.remainingText}>+{data.remaining}</Text>
+        {successInfo ? (
+          <>
+            {/* Başarı görünümü: hangi bölümün izlendiği net yazar */}
+            <View style={styles.successRow}>
+              <View style={styles.successCheckBadge}>
+                <Check size={12} color="#10b981" strokeWidth={3.5} />
+              </View>
+              <Text style={styles.episodeNumberText}>
+                {successInfo.code ?? t('episodeWatched')}
+              </Text>
+            </View>
+            <Text style={styles.successTitleText}>
+              {successInfo.code ? t('episodeWatched') : t('addedToHistory')}
+            </Text>
+            {successInfo.code ? (
+              <Text style={styles.successSubText}>{t('addedToHistory')}</Text>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {/* Episode Code */}
+            {episodeCode ? (
+              <View style={styles.episodeNumberContainer}>
+                <Text style={styles.episodeNumberText}>{episodeCode}</Text>
+                {data.remaining && !data.isCalculating && (
+                  <Text style={styles.remainingText}>+{data.remaining}</Text>
+                )}
+              </View>
+            ) : null}
+
+            {/* Episode Title */}
+            <Text style={styles.episodeTitleText} numberOfLines={2}>
+              {data.isCalculating ? t('lastWatchedSearching') : data.title}
+            </Text>
+
+            {/* Progress text */}
+            {!data.isCalculating && progressPct !== null && (
+              <Text style={styles.progressText}>
+                {Math.round(progressPct)}% izlendi
+              </Text>
             )}
-          </View>
-        ) : isSuccess ? (
-          <Text style={styles.episodeNumberText}>{t('episodeWatched')}</Text>
-        ) : null}
 
-        {/* Episode Title — always visible */}
-        <Text style={styles.episodeTitleText} numberOfLines={2}>
-          {isSuccess
-            ? t('addedToHistory')
-            : data.isCalculating
-            ? t('lastWatchedSearching')
-            : data.title}
-        </Text>
-
-        {/* Progress text */}
-        {!isSuccess && !data.isCalculating && progressPct !== null && (
-          <Text style={styles.progressText}>
-            {Math.round(progressPct)}% izlendi
-          </Text>
+            {/* Tags */}
+            {data.tags && data.tags.length > 0 && (
+              <View style={styles.tagsContainer}>
+                {data.tags.includes('PREMIERE') && (
+                  <View style={[styles.tag, styles.tagWhite]}>
+                    <Text style={styles.tagTextBlack}>{t('premiere')}</Text>
+                  </View>
+                )}
+                {data.tags.includes('BIRAKILDI') && (
+                  <View style={[styles.tag, styles.tagYellow]}>
+                    <Text style={styles.tagTextBlack}>{t('dropped')}</Text>
+                  </View>
+                )}
+                {data.tags.includes('YENİ') && (
+                  <View style={[styles.tag, styles.tagYellow]}>
+                    <Text style={styles.tagTextBlack}>{t('new')}</Text>
+                  </View>
+                )}
+                {data.tags.includes('EN SON') && (
+                  <View style={[styles.tag, styles.tagGhost]}>
+                    <Text style={styles.tagTextGhost}>{t('last')}</Text>
+                  </View>
+                )}
+                {data.tags.includes('TAMAMLANDI') && (
+                  <View style={[styles.tag, styles.tagWhite]}>
+                    <Text style={styles.tagTextBlack}>{t('completed')}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </>
         )}
-
-        {/* Tags */}
-        {data.tags && data.tags.length > 0 && !isSuccess && (
-          <View style={styles.tagsContainer}>
-            {data.tags.includes('PREMIERE') && (
-              <View style={[styles.tag, styles.tagWhite]}>
-                <Text style={styles.tagTextBlack}>{t('premiere')}</Text>
-              </View>
-            )}
-            {data.tags.includes('BIRAKILDI') && (
-              <View style={[styles.tag, styles.tagYellow]}>
-                <Text style={styles.tagTextBlack}>{t('dropped')}</Text>
-              </View>
-            )}
-            {data.tags.includes('YENİ') && (
-              <View style={[styles.tag, styles.tagYellow]}>
-                <Text style={styles.tagTextBlack}>{t('new')}</Text>
-              </View>
-            )}
-            {data.tags.includes('EN SON') && (
-              <View style={[styles.tag, styles.tagGhost]}>
-                <Text style={styles.tagTextGhost}>{t('last')}</Text>
-              </View>
-            )}
-            {data.tags.includes('TAMAMLANDI') && (
-              <View style={[styles.tag, styles.tagWhite]}>
-                <Text style={styles.tagTextBlack}>{t('completed')}</Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+      </Animated.View>
 
       {/* Right: Check Button or Countdown — timer bu izole bileşenin içinde yaşar */}
       <EpisodeCardActions
         data={data}
         isSuccess={isSuccess}
-        onSuccessStateChange={setIsSuccess}
+        onSuccessStateChange={handleSuccessChange}
         onShowFinished={onShowFinished}
       />
     </TouchableOpacity>
@@ -180,13 +234,42 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#172033',
-    borderRadius: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#22304A',
     overflow: 'hidden',
     marginBottom: 12,
     minHeight: 120,
   },
-  cardSuccess: {
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#064e3b',
+  },
+  successRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  successCheckBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitleText: {
+    color: '#6ee7b7',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  successSubText: {
+    color: 'rgba(209, 250, 229, 0.65)',
+    fontSize: 11,
+    fontWeight: '500',
   },
   // Poster
   posterContainer: {

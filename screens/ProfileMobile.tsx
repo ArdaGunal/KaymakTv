@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, Platform, Dimensions } from 'react-native';
-import LoadingIndicator from '../components/LoadingIndicator';
+import React, { useMemo } from 'react';
+import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, Dimensions } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Settings } from 'lucide-react-native';
 import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
-import { useLibrary } from '../context/LibraryContext';
+import { useLibrarySelector } from '../context/LibraryContext';
 import { useRouter } from 'expo-router';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ListCard from '../components/profile/ListCard';
@@ -15,95 +14,57 @@ import { useProfileLists } from '../hooks/useProfileLists';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
 
+const { width } = Dimensions.get('window');
+const SKELETON_W = width * 0.28;
+const SKELETON_H = SKELETON_W * 1.5;
+
+const mapMedia = (items: any[], type: 'show' | 'movie') =>
+  items.map((item: any) => ({
+    id: type === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
+    title: type === 'show' ? item.show?.title : item.movie?.title,
+    tmdbId: type === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
+  }));
+
+const sortRecent = (items: any[]) =>
+  [...items].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
+
+// Bölüm iskeleti: yalnızca o bölümün verisi henüz yokken gösterilir.
+const SectionSkeleton = () => (
+  <View style={{ marginBottom: 24, marginLeft: 16 }}>
+    <SkeletonLoader width={120} height={24} style={{ marginBottom: 12 }} />
+    <View style={{ flexDirection: 'row', gap: 12 }}>
+      <SkeletonLoader width={SKELETON_W} height={SKELETON_H} borderRadius={8} />
+      <SkeletonLoader width={SKELETON_W} height={SKELETON_H} borderRadius={8} />
+      <SkeletonLoader width={SKELETON_W} height={SKELETON_H} borderRadius={8} />
+    </View>
+  </View>
+);
+
 export default function ProfileScreen() {
   const { accessToken, isGuest } = useAuth();
-  const { watchedShows, watchedMovies, customLists, favShows, favMovies, isLoading: isLibraryLoading } = useLibrary();
   const router = useRouter();
-  const { t, i18n } = useTranslation('media');
+  const { t } = useTranslation('media');
   const insets = useSafeAreaInsets();
-  
-  const { width } = Dimensions.get('window');
-  const skeletonWidth = width * 0.28;
-  const skeletonHeight = skeletonWidth * 1.5;
-  
-  const [isLoading, setIsLoading] = useState(true);
 
-  const [shows, setShows] = useState<any[]>([]);
-  const [movies, setMovies] = useState<any[]>([]);
-  const [favShowsState, setFavShowsState] = useState<any[]>([]);
-  const [favMoviesState, setFavMoviesState] = useState<any[]>([]);
+  // Katı seçici: yalnızca profilin ihtiyacı olan dilimler.
+  const { watchedShows, watchedMovies, customLists, favShows, favMovies, isLibraryLoading, isMoviesLoading } = useLibrarySelector(s => ({
+    watchedShows: s.watchedShows,
+    watchedMovies: s.watchedMovies,
+    customLists: s.customLists,
+    favShows: s.favShows,
+    favMovies: s.favMovies,
+    isLibraryLoading: s.isLoading,
+    isMoviesLoading: s.isMoviesLoading,
+  }));
 
-  // Lists with cover images — parallel fetch via useProfileLists
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
 
-  useEffect(() => {
-    if (accessToken) {
-      if (!isLibraryLoading) {
-        processData();
-      }
-    } else {
-      setIsLoading(false);
-    }
-  }, [
-    accessToken, 
-    isLibraryLoading, 
-    watchedShows?.length, 
-    watchedMovies?.length, 
-    customLists?.length, 
-    favShows?.length, 
-    favMovies?.length,
-    i18n.language
-  ]);
-
-  const mapData = (items: any[], type: 'show' | 'movie') => {
-    return items.map((item: any) => ({
-      id: type === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
-      title: type === 'show' ? item.show?.title : item.movie?.title,
-      tmdbId: type === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
-    }));
-  };
-
-  const processData = async () => {
-    setIsLoading(true);
-    try {
-      if (watchedShows && watchedShows.length > 0) {
-        const recentShows = [...watchedShows]
-          .sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime())
-          .slice(0, 100); 
-        setShows(mapData(recentShows, 'show'));
-      } else {
-        setShows([]);
-      }
-
-      if (watchedMovies && watchedMovies.length > 0) {
-        const recentMovies = [...watchedMovies]
-          .sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime())
-          .slice(0, 100);
-        setMovies(mapData(recentMovies, 'movie'));
-      } else {
-        setMovies([]);
-      }
-
-      // lists are handled by useProfileLists hook — no-op here
-
-      if (favShows && favShows.length > 0) {
-        setFavShowsState(mapData([...favShows].slice(0, 100), 'show'));
-      } else {
-        setFavShowsState([]);
-      }
-
-      if (favMovies && favMovies.length > 0) {
-        setFavMoviesState(mapData([...favMovies].slice(0, 100), 'movie'));
-      } else {
-        setFavMoviesState([]);
-      }
-
-    } catch (error) {
-      console.log('Profil verileri formatlama hatası:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Kopya state yok: her bölüm doğrudan store'dan memoize türetilir,
+  // veri dilimi geldiği AN ekranda belirir (kademeli yükleme).
+  const shows = useMemo(() => mapMedia(sortRecent(watchedShows || []).slice(0, 100), 'show'), [watchedShows]);
+  const movies = useMemo(() => mapMedia(sortRecent(watchedMovies || []).slice(0, 100), 'movie'), [watchedMovies]);
+  const favShowsList = useMemo(() => mapMedia((favShows || []).slice(0, 100), 'show'), [favShows]);
+  const favMoviesList = useMemo(() => mapMedia((favMovies || []).slice(0, 100), 'movie'), [favMovies]);
 
   if (!accessToken || isGuest) {
     return (
@@ -116,106 +77,99 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
-      
+
       <View style={styles.topHeader}>
         <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/user-settings')}>
           <Settings size={24} color="#a3a3a3" />
         </TouchableOpacity>
       </View>
 
-      {isLoading || isLibraryLoading ? (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-          <View style={styles.headerSpacer} />
-          <View style={{ marginBottom: 24, marginLeft: 16 }}>
-            <SkeletonLoader width={120} height={24} style={{ marginBottom: 12 }} />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <SkeletonLoader width={skeletonWidth} height={skeletonHeight} borderRadius={8} />
-              <SkeletonLoader width={skeletonWidth} height={skeletonHeight} borderRadius={8} />
-              <SkeletonLoader width={skeletonWidth} height={skeletonHeight} borderRadius={8} />
-            </View>
-          </View>
-          <View style={{ marginBottom: 24, marginLeft: 16 }}>
-            <SkeletonLoader width={120} height={24} style={{ marginBottom: 12 }} />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <SkeletonLoader width={skeletonWidth} height={skeletonHeight} borderRadius={8} />
-              <SkeletonLoader width={skeletonWidth} height={skeletonHeight} borderRadius={8} />
-              <SkeletonLoader width={skeletonWidth} height={skeletonHeight} borderRadius={8} />
-            </View>
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
-          <View style={styles.headerSpacer} />
-          
-          {/* Lists section with skeleton */}
-          {isListsLoading ? (
-            <View style={styles.listsSectionHeader}>
-              <Text style={styles.sectionTitle}>{t('lists')}</Text>
-              <ListCardSkeleton />
-            </View>
-          ) : lists.length > 0 ? (
-            <View style={styles.listsSectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{t('lists')}</Text>
-                <TouchableOpacity onPress={() => router.push('/(protected)/library/lists')}>
-                  <Text style={styles.seeAllText}>{t('seeAll', 'Tümü')}</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.listsScrollContent}
-              >
-                {lists.map((item) => (
-                  <ListCard key={String(item.id)} data={item} />
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
+      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
+        <View style={styles.headerSpacer} />
 
-          <HorizontalShowList 
-            title={t('shows')} 
-            data={shows} 
+        {/* Listeler — metadata anında gelir, kapaklar arka planda dolar */}
+        {lists.length > 0 ? (
+          <View style={styles.listsSectionHeader}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{t('lists')}</Text>
+              <TouchableOpacity onPress={() => router.push('/(protected)/library/lists')}>
+                <Text style={styles.seeAllText}>{t('seeAll', 'Tümü')}</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.listsScrollContent}
+            >
+              {lists.map((item) => (
+                <ListCard key={String(item.id)} data={item} />
+              ))}
+            </ScrollView>
+          </View>
+        ) : isListsLoading ? (
+          <View style={styles.listsSectionHeader}>
+            <Text style={styles.sectionTitle}>{t('lists')}</Text>
+            <ListCardSkeleton />
+          </View>
+        ) : null}
+
+        {/* Diziler — Tier 1 verisi, ilk gelen bölüm */}
+        {shows.length > 0 ? (
+          <HorizontalShowList
+            title={t('shows')}
+            data={shows}
             onShowAll={() => router.push('/(protected)/library/shows')}
           />
+        ) : isLibraryLoading ? (
+          <SectionSkeleton />
+        ) : null}
 
-          <HorizontalShowList 
-            title={t('favShows')} 
+        {favShowsList.length > 0 && (
+          <HorizontalShowList
+            title={t('favShows')}
             titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
-            data={favShowsState} 
+            data={favShowsList}
             onShowAll={() => router.push('/(protected)/library/favShows')}
           />
+        )}
 
-          <HorizontalShowList 
-            title={t('movies')} 
-            data={movies} 
+        {/* Filmler — Tier 2/3 verisi, kendi iskeletiyle gelir */}
+        {movies.length > 0 ? (
+          <HorizontalShowList
+            title={t('movies')}
+            data={movies}
             onShowAll={() => router.push('/(protected)/library/movies')}
             type="movie"
           />
+        ) : isMoviesLoading ? (
+          <SectionSkeleton />
+        ) : null}
 
-          {favMoviesState.length > 0 ? (
-            <HorizontalShowList 
-              title={t('favMovies')} 
-              titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
-              data={favMoviesState} 
-              onShowAll={() => router.push('/(protected)/library/favMovies')}
-              type="movie"
-            />
-          ) : (
-            <View style={styles.emptyFavContainer}>
-              <View style={styles.emptyFavHeader}>
-                <Heart size={20} color="#ef4444" fill="#ef4444" style={{marginRight: 8}} />
-                <Text style={styles.emptyFavTitle}>{t('favMovies')}</Text>
-              </View>
-              <View style={styles.emptyFavCard}>
-                <Text style={styles.plusIcon}>+</Text>
-                <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
-              </View>
+        {favMoviesList.length > 0 ? (
+          <HorizontalShowList
+            title={t('favMovies')}
+            titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
+            data={favMoviesList}
+            onShowAll={() => router.push('/(protected)/library/favMovies')}
+            type="movie"
+          />
+        ) : !isLibraryLoading && !isMoviesLoading ? (
+          <View style={styles.emptyFavContainer}>
+            <View style={styles.emptyFavHeader}>
+              <Heart size={20} color="#ef4444" fill="#ef4444" style={{marginRight: 8}} />
+              <Text style={styles.emptyFavTitle}>{t('favMovies')}</Text>
             </View>
-          )}
-
-        </ScrollView>
-      )}
+            <TouchableOpacity
+              style={styles.emptyFavCard}
+              activeOpacity={0.7}
+              onPress={() => router.push('/(protected)/(tabs)/explore')}
+            >
+              <Text style={styles.plusIcon}>+</Text>
+              <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
@@ -227,9 +181,6 @@ const styles = StyleSheet.create({
   settingsButton: { padding: 4 },
   content: { paddingTop: 8, paddingBottom: 40 },
   headerSpacer: { height: 8 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#a3a3a3', marginTop: 12 },
-  loginText: { color: '#ffffff', fontSize: 16 },
   emptyFavContainer: { paddingHorizontal: 16, marginBottom: 24 },
   emptyFavHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   emptyFavTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },

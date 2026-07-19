@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { X, MessageSquare } from 'lucide-react-native';
 import CommentItem from './comments/CommentItem';
@@ -46,7 +47,11 @@ export default function CommentSheet({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      {/* Cevap yazma kutusu liste içinde olduğundan klavye yönetimi burada da şart */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
         <View style={styles.sheet}>
           {/* Header */}
           <View style={styles.header}>
@@ -107,7 +112,7 @@ export default function CommentSheet({
             />
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

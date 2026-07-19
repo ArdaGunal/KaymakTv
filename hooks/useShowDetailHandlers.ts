@@ -6,8 +6,8 @@ import { addRating, removeRating } from '../services/traktApi';
 
 interface UseShowDetailHandlersProps {
   traktIdNum: number;
-  id: string;
-  t: (key: string, defaultValue?: string, options?: any) => string;
+  id: string | string[];
+  t: any;
 }
 
 export function useShowDetailHandlers({
@@ -35,8 +35,9 @@ export function useShowDetailHandlers({
   const userRating = userRatingObj ? userRatingObj.rating : null;
 
   const handleRate = useCallback(async (rating: number) => {
+    // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
-      setLocalRating(traktIdNum, 'show', rating * 2);
+      setLocalRating(traktIdNum, 'show', rating);
       await addRating(traktIdNum, 'show', rating);
     } catch (e) {
       removeLocalRating(traktIdNum, 'show');
@@ -44,6 +45,31 @@ export function useShowDetailHandlers({
       console.error(e);
     }
   }, [traktIdNum, setLocalRating, removeLocalRating, t]);
+
+  const handleRateEpisode = useCallback(async (episodeTraktId: number, rating: number) => {
+    try {
+      setLocalRating(episodeTraktId, 'episode', rating);
+      await addRating(episodeTraktId, 'episode', rating);
+      return true;
+    } catch (e) {
+      removeLocalRating(episodeTraktId, 'episode');
+      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
+      console.error(e);
+      return false;
+    }
+  }, [setLocalRating, removeLocalRating, t]);
+
+  const handleRemoveEpisodeRating = useCallback(async (episodeTraktId: number) => {
+    try {
+      removeLocalRating(episodeTraktId, 'episode');
+      await removeRating(episodeTraktId, 'episode');
+      return true;
+    } catch (e) {
+      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
+      console.error(e);
+      return false;
+    }
+  }, [removeLocalRating, t]);
 
   const handleRemoveRating = useCallback(async () => {
     try {
@@ -131,6 +157,8 @@ export function useShowDetailHandlers({
     setSnackbarData,
     handleRate,
     handleRemoveRating,
+    handleRateEpisode,
+    handleRemoveEpisodeRating,
     handleMarkSeason,
     handleUnwatchEpisode,
     handleRewatchEpisode,

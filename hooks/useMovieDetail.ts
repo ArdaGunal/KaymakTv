@@ -10,7 +10,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
     related: any[];
     comments: any[];
   }>({ summary: null, cast: [], related: [], comments: [] });
-  
+
   const [images, setImages] = useState<{
     backdrop: string | null;
     poster: string | null;
@@ -22,14 +22,35 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
   const tmdbIdNum = tmdbIdStr ? parseInt(tmdbIdStr as string, 10) : null;
   const safeTmdbId = tmdbIdNum && !isNaN(tmdbIdNum) ? tmdbIdNum : null;
 
-  const fetchDetails = useCallback(async () => {
+  const fetchDetails = useCallback(async (isMountedRef?: { current: boolean }) => {
     if (!traktIdNum) return;
+    const alive = () => !isMountedRef || isMountedRef.current;
+
+    // Görseller ekranı BLOKLAMAZ: dizi detayındaki desenle aynı — arka planda
+    // çekilir, geldiğinde belirir. (Eskiden spinner 3 TMDB isteğini bekliyordu.)
+    const fetchImagesInBackground = (finalTmdbId: number) => {
+      Promise.all([
+        getMovieBackdrop(finalTmdbId),
+        getMovieTrailer(finalTmdbId),
+        getMoviePoster(finalTmdbId),
+      ]).then(([bd, tr, pst]) => {
+        if (alive()) setImages({ backdrop: bd, trailerId: tr, poster: pst });
+      }).catch(() => {});
+    };
+
+    // Yorumlar da bloklamaz (önbelleğe alınmadıkları için her açılışta tazelenir).
+    const fetchCommentsInBackground = () => {
+      getMediaComments(traktIdNum, 'movie').then((commRes) => {
+        if (alive()) setMediaData(prev => ({ ...prev, comments: commRes.data || [] }));
+      }).catch(() => {});
+    };
+
     try {
       setIsLoading(true);
 
       const cacheKey = `@movie_detail_v4_cache_${traktIdNum}`;
       const cached = await AsyncStorage.getItem(cacheKey);
-      
+
       let summary: any, cast: any[] = [], related: any[] = [];
 
       if (cached) {
@@ -41,18 +62,22 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         }
       }
 
-      if (!summary) {
+      if (summary) {
+        // CACHE HIT: sayfa anında açılır; yorumlar arka planda gelir.
+        fetchCommentsInBackground();
+      } else {
+        // CACHE MISS: kritik veriler paralel çekilir (yorumlar dahil — tek sefer).
         const results = await Promise.allSettled([
           getMovieSummary(traktIdNum),
           getRelatedMovies(traktIdNum),
           getMediaComments(traktIdNum, 'movie')
         ]);
-        
+
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         related = results[1].status === 'fulfilled' ? results[1].value : [];
         const comments = results[2].status === 'fulfilled' ? results[2].value?.data || [] : [];
-        
-        setMediaData(prev => ({ ...prev, comments }));
+
+        if (alive()) setMediaData(prev => ({ ...prev, comments }));
 
         // TMDB Cast Fetching Logic
         const finalTmdbId = safeTmdbId ? safeTmdbId : summary?.ids?.tmdb;
@@ -65,7 +90,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         } else {
           cast = [];
         }
-        
+
         const slimRelated = related.map((r: any) => ({
           title: r.title,
           ids: { trakt: r.ids?.trakt, tmdb: r.ids?.tmdb, slug: r.ids?.slug }
@@ -80,12 +105,12 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
           console.warn('[Cache Kaydetme Hatası] Kota doldu. Eski cacheler temizleniyor...');
           try {
             const allKeys = await AsyncStorage.getAllKeys();
-            const cacheKeys = allKeys.filter(k => 
-              k.startsWith('@show_detail_') || 
-              k.startsWith('@episode_detail_') || 
+            const cacheKeys = allKeys.filter(k =>
+              k.startsWith('@show_detail_') ||
+              k.startsWith('@episode_detail_') ||
               k.startsWith('@movie_detail_')
             );
-            
+
             if (cacheKeys.length > 0) {
               await AsyncStorage.multiRemove(cacheKeys);
               await AsyncStorage.setItem(cacheKey, JSON.stringify({
@@ -106,33 +131,25 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         title: item.title
       }));
 
-      setMediaData(prev => ({ ...prev, summary, cast: cast || [], related: mappedRelated }));
-
-      if (safeTmdbId || summary?.ids?.tmdb) {
-        const finalTmdbId = safeTmdbId || summary.ids.tmdb;
-        const [bd, tr, pst] = await Promise.all([
-          getMovieBackdrop(finalTmdbId),
-          getMovieTrailer(finalTmdbId),
-          getMoviePoster(finalTmdbId)
-        ]);
-        setImages({ backdrop: bd, trailerId: tr, poster: pst });
+      if (alive()) {
+        setMediaData(prev => ({ ...prev, summary, cast: cast || [], related: mappedRelated }));
       }
 
-      if (summary && !mediaData.comments.length) {
-         try {
-           const commRes = await getMediaComments(traktIdNum, 'movie');
-           setMediaData(prev => ({ ...prev, comments: commRes.data || [] }));
-         } catch(e) {}
+      const finalTmdbId = safeTmdbId || summary?.ids?.tmdb;
+      if (finalTmdbId) {
+        fetchImagesInBackground(finalTmdbId);
       }
     } catch (error) {
       console.error('Hata:', error);
     } finally {
-      setIsLoading(false);
+      if (alive()) setIsLoading(false);
     }
   }, [traktIdNum, safeTmdbId]);
 
   useEffect(() => {
-    fetchDetails();
+    const isMountedRef = { current: true };
+    fetchDetails(isMountedRef);
+    return () => { isMountedRef.current = false; };
   }, [fetchDetails]);
 
   const refreshData = () => {

@@ -14,6 +14,7 @@ import MoviesMobile from '../../../screens/MoviesMobile';
 import { viewAllStore } from '../../../utils/viewAllStore';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useMoviesDashboardData } from '../../../hooks/useMoviesDashboardData';
+import { groupByDateGroup } from '../../../utils/groupByDateGroup';
 
 export default function MoviesScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -44,15 +45,7 @@ export default function MoviesScreenWeb() {
     i18n.language
   );
 
-  const groupedUpcomingMovies = useMemo(() => {
-    const groups: { title: string, data: any[] }[] = [];
-    upcomingMovies.forEach((movie: any) => {
-      const existing = groups.find(g => g.title === movie.dateGroup);
-      if (existing) existing.data.push(movie);
-      else groups.push({ title: movie.dateGroup, data: [movie] });
-    });
-    return groups;
-  }, [upcomingMovies]);
+  const groupedUpcomingMovies = useMemo(() => groupByDateGroup(upcomingMovies), [upcomingMovies]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
@@ -192,9 +185,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
 
+  // Mobildeki SegmentedTabControl ile aynı modern dil: cam yüzey + dolu mavi hap
   segmentedControlContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     padding: 4,
     marginBottom: 32,
@@ -204,20 +200,26 @@ const styles = StyleSheet.create({
   segmentedTab: {
     flex: 1,
     paddingVertical: 10,
+    paddingHorizontal: 18,
     alignItems: 'center',
     borderRadius: 20,
   },
   segmentedTabActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: '#2563EB',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   segmentedTabText: {
     fontWeight: '600',
-    color: '#a3a3a3',
+    color: '#94a3b8',
     fontSize: 13,
     letterSpacing: 0.5,
   },
   segmentedTabTextActive: {
-    color: '#3B82F6',
+    color: '#ffffff',
     fontWeight: 'bold',
   },
 

@@ -16,6 +16,7 @@ import IndexMobile from '../../../screens/IndexMobile';
 import { viewAllStore } from '../../../utils/viewAllStore';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useDashboardData } from '../../../hooks/useDashboardData';
+import { groupByDateGroup } from '../../../utils/groupByDateGroup';
 
 export default function DizilerScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -55,15 +56,7 @@ export default function DizilerScreenWeb() {
     i18n.language
   );
 
-  const groupedUpcomingShows = useMemo(() => {
-    const groups: { title: string, data: any[] }[] = [];
-    upcomingShows.forEach((show: any) => {
-      const existing = groups.find(g => g.title === show.dateGroup);
-      if (existing) existing.data.push(show);
-      else groups.push({ title: show.dateGroup, data: [show] });
-    });
-    return groups;
-  }, [upcomingShows]);
+  const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);

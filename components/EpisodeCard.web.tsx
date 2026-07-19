@@ -48,14 +48,14 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: isHovered ? 1.05 : 1,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
         friction: 6,
         tension: 200,
       }),
       Animated.timing(overlayAnim, {
         toValue: isHovered ? 1 : 0,
         duration: 180,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, [isHovered]);

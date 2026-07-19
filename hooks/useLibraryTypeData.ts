@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getWatchedShows,
   getWatchedMovies,
@@ -6,6 +6,7 @@ import {
   getLikedShows,
   getLikedMovies,
 } from '../services/traktApi';
+import { useLibrarySelector } from '../context/LibraryContext';
 
 export type LibraryType = 'shows' | 'movies' | 'favShows' | 'favMovies' | 'lists';
 
@@ -20,6 +21,17 @@ function mapMediaItems(items: any[], itemType: 'show' | 'movie'): LibraryItem[] 
     id: itemType === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
     title: itemType === 'show' ? item.show?.title : item.movie?.title,
     tmdbId: itemType === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
+  }));
+}
+
+const sortByWatchedAt = (items: any[]) =>
+  [...items].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
+
+function mapListItems(items: any[]): LibraryItem[] {
+  return items.map((item: any) => ({
+    id: item.ids?.trakt,
+    title: item.name,
+    tmdbId: undefined,
   }));
 }
 
@@ -38,53 +50,72 @@ export function getLibraryTitleKey(type: string | string[] | undefined): string 
   return 'library';
 }
 
-// Shared by app/(protected)/library/[type].web.tsx and screens/LibraryMobile.tsx so
-// both platforms fetch the exact same Trakt data through the exact same functions.
+// Fallback: store boşsa (soğuk başlangıçta doğrudan bu ekrana gelinmişse) ağdan çek.
+const FALLBACK_FETCHERS: Record<LibraryType, () => Promise<any[]>> = {
+  shows: getWatchedShows,
+  movies: getWatchedMovies,
+  favShows: getLikedShows,
+  favMovies: getLikedMovies,
+  lists: getCustomLists,
+};
+
+/**
+ * Kütüphane detay ekranlarının (mobil + web) ortak veri hook'u.
+ *
+ * Performans sözleşmesi: veri ÖNCE Zustand store'undan senkron okunur — ekran
+ * anında açılır (eskiden her açılışta 600-700 öğe Trakt'tan yeniden indiriliyordu).
+ * Ağ isteği yalnızca ilgili store dilimi tamamen boşken (fallback) atılır;
+ * store dolduğunda seçici abonelik sayesinde liste kendiliğinden güncellenir.
+ */
 export function useLibraryTypeData(type: string | string[] | undefined, accessToken: string | null | undefined) {
-  const [data, setData] = useState<LibraryItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const slices = useLibrarySelector(s => ({
+    watchedShows: s.watchedShows,
+    watchedMovies: s.watchedMovies,
+    favShows: s.favShows,
+    favMovies: s.favMovies,
+    customLists: s.customLists,
+    isLoading: s.isLoading,
+  }));
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      let newItems: LibraryItem[] = [];
+  const [fallbackData, setFallbackData] = useState<LibraryItem[] | null>(null);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
 
-      if (type === 'shows') {
-        const res = await getWatchedShows();
-        const sorted = [...res].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
-        newItems = mapMediaItems(sorted, 'show');
-      } else if (type === 'movies') {
-        const res = await getWatchedMovies();
-        const sorted = [...res].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
-        newItems = mapMediaItems(sorted, 'movie');
-      } else if (type === 'favShows') {
-        const res = await getLikedShows();
-        newItems = mapMediaItems(res, 'show');
-      } else if (type === 'favMovies') {
-        const res = await getLikedMovies();
-        newItems = mapMediaItems(res, 'movie');
-      } else if (type === 'lists') {
-        const res = await getCustomLists();
-        newItems = res.map((item: any) => ({
-          id: item.ids?.trakt,
-          title: item.name,
-          tmdbId: undefined,
-        }));
-      }
-
-      setData(newItems);
-    } catch (error) {
-      console.log('Kütüphane verisi çekme hatası:', error);
-    } finally {
-      setLoading(false);
+  const storeData = useMemo<LibraryItem[]>(() => {
+    switch (type) {
+      case 'shows': return mapMediaItems(sortByWatchedAt(slices.watchedShows || []), 'show');
+      case 'movies': return mapMediaItems(sortByWatchedAt(slices.watchedMovies || []), 'movie');
+      case 'favShows': return mapMediaItems(slices.favShows || [], 'show');
+      case 'favMovies': return mapMediaItems(slices.favMovies || [], 'movie');
+      case 'lists': return mapListItems(slices.customLists || []);
+      default: return [];
     }
-  }, [type]);
+  }, [type, slices.watchedShows, slices.watchedMovies, slices.favShows, slices.favMovies, slices.customLists]);
 
   useEffect(() => {
-    if (accessToken) {
-      fetchData();
-    }
-  }, [accessToken, type, fetchData]);
+    // Store bu dilim için doluysa fallback'e hiç gerek yok.
+    if (!accessToken || storeData.length > 0 || slices.isLoading) return;
+    if (typeof type !== 'string' || !(type in FALLBACK_FETCHERS)) return;
+
+    let cancelled = false;
+    setFallbackLoading(true);
+    FALLBACK_FETCHERS[type as LibraryType]()
+      .then((res) => {
+        if (cancelled) return;
+        if (type === 'lists') setFallbackData(mapListItems(res));
+        else if (type === 'shows' || type === 'movies') {
+          setFallbackData(mapMediaItems(sortByWatchedAt(res), type === 'shows' ? 'show' : 'movie'));
+        } else {
+          setFallbackData(mapMediaItems(res, type === 'favShows' ? 'show' : 'movie'));
+        }
+      })
+      .catch((error) => console.log('Kütüphane fallback veri hatası:', error))
+      .finally(() => { if (!cancelled) setFallbackLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [type, accessToken, storeData.length, slices.isLoading]);
+
+  const data = storeData.length > 0 ? storeData : (fallbackData ?? []);
+  const loading = data.length === 0 && (slices.isLoading || fallbackLoading);
 
   return { data, loading };
 }

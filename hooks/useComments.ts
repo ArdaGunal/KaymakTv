@@ -84,8 +84,12 @@ export function useComments({
       if (items.length > 0) {
         setComments(prev => [...prev, ...items]);
         pageRef.current = nextPage;
+        setHasMore(res.pagination ? nextPage < res.pagination.pageCount : false);
+      } else {
+        // Boş sayfa geldiyse devam etmeye çalışma — aksi halde onEndReached
+        // her tetiklendiğinde aynı boş sayfa için sonsuz istek atılıyordu.
+        setHasMore(false);
       }
-      setHasMore(res.pagination ? nextPage < res.pagination.pageCount : false);
     } catch (err: any) {
       console.error('[useComments] loadMore error:', err);
     } finally {

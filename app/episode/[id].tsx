@@ -61,6 +61,8 @@ export default function EpisodeDetailScreen() {
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   const [writeCommentVisible, setWriteCommentVisible] = useState(false);
+  // Yorum yazma/silme sonrası MyInlineComment'in kendini tazelemesi için sayaç
+  const [commentVersion, setCommentVersion] = useState(0);
   const [isCheckLoading, setIsCheckLoading] = useState(false);
 
   const [isWebViewVisible, setIsWebViewVisible] = useState(false);
@@ -93,8 +95,9 @@ export default function EpisodeDetailScreen() {
   const showProgressPercentage = hasShowProgress ? (showProgress.completed / showProgress.aired) * 100 : 0;
 
   const handleRate = async (val: number) => {
+    // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
-      setLocalRating(epTraktId, 'episode', val * 2);
+      setLocalRating(epTraktId, 'episode', val);
       await addRating(epTraktId, 'episode', val);
       setRatingModalVisible(false);
     } catch(e) { 
@@ -245,18 +248,21 @@ export default function EpisodeDetailScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerContent}>
-            {/* Tıklanabilir dizi adı → dizi ana sayfasına gider */}
+            {/* Dizi adı: küçük, sade bir üst başlık (breadcrumb) — göze batmadan tıklanabilir */}
             <TouchableOpacity
-              style={styles.showNameRow}
               onPress={handleShowPress}
-              activeOpacity={0.75}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, bottom: 8, left: 0, right: 8 }}
+              style={styles.showNameRow}
             >
               <Text style={styles.showName} numberOfLines={1}>{showName}</Text>
-              <ChevronRight size={14} color="#3b82f6" strokeWidth={2.5} />
+              <ChevronRight size={11} color="rgba(148,163,184,0.7)" strokeWidth={2.5} />
             </TouchableOpacity>
-            <Text style={styles.episodeIdentifier}>{t('seasonEpisodeIdentifier', { season: season, episode: episode })}</Text>
+
             <Text style={styles.episodeTitle}>{title}</Text>
-            <Text style={styles.metaText}>{firstAired}</Text>
+            <Text style={styles.episodeIdentifier}>
+              {t('seasonEpisodeIdentifier', { season: season, episode: episode })} • {firstAired}
+            </Text>
 
             <View style={styles.ratingsRow}>
               {/* Global Trakt Rating */}
@@ -352,13 +358,13 @@ export default function EpisodeDetailScreen() {
 
             return (
               <View style={styles.section}>
-                <MyInlineComment 
+                <MyInlineComment
                   mediaId={showId as number}
                   mediaType="episode"
                   episodeTraktId={episodeData?.ids?.trakt}
                   onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={0}
-                  onDeleteSuccess={() => refreshData()}
+                  refreshTrigger={commentVersion}
+                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshData(); }}
                 />
 
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
@@ -422,7 +428,7 @@ export default function EpisodeDetailScreen() {
         mediaType="episode"
         episodeTraktId={episodeData?.ids?.trakt}
         onSuccess={() => {
-          refreshData();
+          setCommentVersion(v => v + 1);
           refreshData();
         }}
       />
@@ -441,24 +447,17 @@ const styles = StyleSheet.create({
   backButton: { position: 'absolute', top: 50, left: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   shareButton: { position: 'absolute', top: 50, right: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   headerContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, zIndex: 5 },
+  // Sade breadcrumb: arka plan/kenarlık yok, sadece küçük soluk metin + ok — göze batmaz, isteyen fark edip kullanır.
   showNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
-    backgroundColor: 'rgba(59,130,246,0.12)',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.28)',
+    gap: 3,
+    marginBottom: 5,
   },
-  showName: { fontSize: 12, color: '#60a5fa', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
-  episodeIdentifier: { fontSize: 13, color: '#a3a3a3', marginBottom: 6 },
-  episodeTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 },
-  metaText: { color: '#d4d4d4', fontSize: 13, fontWeight: '600' },
+  showName: { fontSize: 11, color: 'rgba(148,163,184,0.85)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 },
+  episodeTitle: { fontSize: 26, fontWeight: 'bold', color: '#fff', marginBottom: 6 },
+  episodeIdentifier: { fontSize: 13, color: '#94a3b8', fontWeight: '500', marginBottom: 12 },
   ratingsRow: {
     flexDirection: 'row',
     alignItems: 'center',

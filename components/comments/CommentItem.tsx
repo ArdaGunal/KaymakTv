@@ -6,8 +6,9 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { Heart, EyeOff, Eye, MessageCircle } from 'lucide-react-native';
+import { Heart, EyeOff, Eye } from 'lucide-react-native';
 import type { CommentData } from '../../hooks/useComments';
+import CommentReplies from './CommentReplies';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -140,12 +141,6 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
               <Text style={styles.statText}>{item.likes}</Text>
             </View>
           )}
-          {item.replies > 0 && (
-            <View style={styles.stat}>
-              <MessageCircle size={12} color="#60a5fa" />
-              <Text style={styles.statText}>{item.replies}</Text>
-            </View>
-          )}
         </View>
       </View>
 
@@ -156,6 +151,11 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
         ) : (
           <Text style={styles.commentText}>{item.comment}</Text>
         )}
+
+        {/* Cevaplar: sayıya tıklayınca yüklenir, her yoruma cevap yazılabilir */}
+        {item.id ? (
+          <CommentReplies commentId={item.id} initialCount={item.replies || 0} />
+        ) : null}
       </View>
     </View>
   );

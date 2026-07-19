@@ -12,7 +12,7 @@ import {
 import MediaPoster from '../MediaPoster';
 import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useLibrary } from '../../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
 import LoadingIndicator from '../LoadingIndicator';
@@ -28,8 +28,15 @@ interface GridCardProps {
 const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
-  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, toggleWatchlistStatus } =
-    useLibrary();
+  // Katı seçici: ilgisiz store dilimleri (progress, ratings vb.) değiştiğinde
+  // grid'deki kartlar yeniden çizilmesin.
+  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies } = useLibrarySelector(s => ({
+    watchlistShows: s.watchlistShows,
+    watchlistMovies: s.watchlistMovies,
+    watchedShows: s.watchedShows,
+    watchedMovies: s.watchedMovies,
+  }));
+  const { toggleWatchlistStatus } = useLibraryActions();
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shadowAnim = useRef(new Animated.Value(0)).current;
@@ -55,14 +62,14 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
 
   const handleHoverIn = () => {
     Animated.parallel([
-      Animated.spring(scaleAnim, { toValue: 1.04, useNativeDriver: true, friction: 7, tension: 200 }),
+      Animated.spring(scaleAnim, { toValue: 1.04, useNativeDriver: Platform.OS !== 'web', friction: 7, tension: 200 }),
       Animated.timing(shadowAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
     ]).start();
   };
 
   const handleHoverOut = () => {
     Animated.parallel([
-      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 7, tension: 200 }),
+      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 7, tension: 200 }),
       Animated.timing(shadowAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start();
   };
@@ -143,7 +150,7 @@ interface ExploreWebGridProps {
   error: string | null;
   onEndReached: () => void;
   header: React.ReactElement;
-  refreshControl: React.ReactElement;
+  refreshControl: React.ReactElement<any>;
   screenWidth: number;
 }
 

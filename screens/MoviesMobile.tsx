@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SectionList, FlatList, Dimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, Dimensions, Platform } from 'react-native';
 
 import ConfettiCannon from 'react-native-confetti-cannon';
 import MovieCard from '../components/movies/MovieCard';
@@ -10,6 +10,8 @@ import { useLibrarySelector } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useMoviesDashboardData } from '../hooks/useMoviesDashboardData';
+import { groupByDateGroup } from '../utils/groupByDateGroup';
+import SegmentedTabControl from '../components/index/SegmentedTabControl';
 
 const { width } = Dimensions.get('window');
 
@@ -37,15 +39,7 @@ export default function MoviesScreen() {
     i18n.language
   );
 
-  const groupedUpcomingMovies = useMemo(() => {
-    const groups: { title: string, data: any[] }[] = [];
-    upcomingMovies.forEach((movie: any) => {
-      const existing = groups.find(g => g.title === movie.dateGroup);
-      if (existing) existing.data.push(movie);
-      else groups.push({ title: movie.dateGroup, data: [movie] });
-    });
-    return groups;
-  }, [upcomingMovies]);
+  const groupedUpcomingMovies = useMemo(() => groupByDateGroup(upcomingMovies), [upcomingMovies]);
 
   const handleMovieFinished = useCallback((movieName: string) => {
     setFinishedMovieName(movieName);
@@ -74,22 +68,12 @@ export default function MoviesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.segmentedControlContainer}>
-        <TouchableOpacity
-          style={[styles.segmentedTab, activeTab === 'izleme' && styles.segmentedTabActive]}
-          onPress={() => handleTabChange('izleme')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.segmentedTabText, activeTab === 'izleme' && styles.segmentedTabTextActive]}>{t('watchlistTab')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.segmentedTab, activeTab === 'yaklasan' && styles.segmentedTabActive]}
-          onPress={() => handleTabChange('yaklasan')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.segmentedTabText, activeTab === 'yaklasan' && styles.segmentedTabTextActive]}>{t('upcomingTab')}</Text>
-        </TouchableOpacity>
-      </View>
+      <SegmentedTabControl
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        watchlistLabel={t('watchlistTab')}
+        upcomingLabel={t('upcomingTab')}
+      />
 
       {isMoviesLoading && accessToken ? (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -154,36 +138,6 @@ export default function MoviesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B1120' },
-
-  // Segmented Control
-  segmentedControlContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 24,
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 16,
-    padding: 4,
-  },
-  segmentedTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  segmentedTabActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)', // Soft Glass Effect
-  },
-  segmentedTabText: {
-    fontWeight: '600',
-    color: '#a3a3a3',
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  segmentedTabTextActive: {
-    color: '#3B82F6',
-    fontWeight: 'bold',
-  },
 
   scrollView: { flex: 1, paddingHorizontal: 12 },
   scrollContent: { paddingTop: 12 },
