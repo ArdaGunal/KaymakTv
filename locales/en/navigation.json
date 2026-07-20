@@ -7,5 +7,7 @@
   "favMovies": "Favorite Movies",
   "lists": "Lists",
   "library": "Library",
-  "totalCount": "Total: {{count}} {{title}}"
+  "totalCount": "Total: {{count}} {{title}}",
+  "libraryEmptyTitle": "Nothing here yet",
+  "libraryEmptyText": "Items you add will show up here."
 }

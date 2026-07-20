@@ -83,14 +83,19 @@ export default function OptionsModal({
       t('historyDeleteConfirm'),
       [
         { text: t('common:cancel'), style: "cancel" },
-        { 
-          text: t('yesDelete'), 
-          style: "destructive", 
+        {
+          text: t('yesDelete'),
+          style: "destructive",
           onPress: () => {
             onDeleteFromHistory();
             onClose();
-            router.back();
-          } 
+            // Diziler: tüm izleme geçmişi/ilerlemesi silindiği için gösterilecek
+            // bir şey kalmaz, geri dönmek mantıklı. Filmler: tek film söz konusu,
+            // sayfada kalıp "İzledim" butonunun eski haline dönmesi görülebilsin.
+            if (type === 'show') {
+              router.back();
+            }
+          }
         }
       ]
     );

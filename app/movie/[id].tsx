@@ -8,7 +8,7 @@ import { Check, CheckCheck } from 'lucide-react-native';
 import { addRating, removeRating } from '../../services/traktApi';
 import { useMovieDetail } from '../../hooks/useMovieDetail';
 
-import { useLibrary } from '../../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
 import MediaCast from '../../components/MediaCast';
@@ -35,18 +35,22 @@ export default function MovieDetailScreen() {
   // Yorum yazma/silme sonrası MyInlineComment'in kendini tazelemesi için sayaç
   const [commentVersion, setCommentVersion] = useState(0);
   
-  const { 
-    userRatingsMovies, 
+  // Katı seçici: yalnızca film dilimleri okunur; dizi ilerlemesi gibi ilgisiz
+  // store değişimlerinde bu ekran artık yeniden render olmaz.
+  const { userRatingsMovies, watchedMovies, watchlistMovies, favMovies } = useLibrarySelector(s => ({
+    userRatingsMovies: s.userRatingsMovies,
+    watchedMovies: s.watchedMovies,
+    watchlistMovies: s.watchlistMovies,
+    favMovies: s.favMovies,
+  }));
+  const {
     setLocalRating,
     removeLocalRating,
-    markMovieAsWatched, 
-    watchedMovies,
-    watchlistMovies,
+    markMovieAsWatched,
     toggleWatchlistStatus,
-    favMovies,
     toggleFavoriteStatus,
-    deleteMediaFromHistory 
-  } = useLibrary();
+    deleteMediaFromHistory,
+  } = useLibraryActions();
   const { isGuest } = useAuth();
   
   const idStr = Array.isArray(id) ? id[0] : id;
@@ -94,15 +98,23 @@ export default function MovieDetailScreen() {
     }
   };
 
-  const handleMarkAsWatched = async () => {
+  // Dizilerdeki bölüm izlemeyi geri alma ile aynı davranış: tek dokunuş,
+  // onay istemeden, sayfadan çıkmadan. Eskiden bu buton izlendikten sonra
+  // tamamen kilitleniyordu — geri almanın tek yolu "..." menüsündeki, onay
+  // isteyen ve sayfadan dışarı atan "Kaydı Sil" seçeneğiydi.
+  const handleToggleWatched = async () => {
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
-    if (isWatched || actionLoading) return;
+    if (actionLoading) return;
     try {
       setActionLoading(true);
-      await markMovieAsWatched(traktIdNum);
+      if (isWatched) {
+        await deleteMediaFromHistory(traktIdNum, 'movie');
+      } else {
+        await markMovieAsWatched(traktIdNum);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -159,10 +171,10 @@ export default function MovieDetailScreen() {
           {/* ACTION BUTTONS */}
           <View style={styles.actionRow}>
             {isReleased ? (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.actionButton, isWatched && styles.actionButtonActive]}
-                onPress={handleMarkAsWatched}
-                disabled={isWatched || actionLoading}
+                onPress={handleToggleWatched}
+                disabled={actionLoading}
                 activeOpacity={0.8}
               >
                 {actionLoading ? (

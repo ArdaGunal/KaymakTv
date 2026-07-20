@@ -66,7 +66,14 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         // CACHE HIT: sayfa anında açılır; yorumlar arka planda gelir.
         fetchCommentsInBackground();
       } else {
-        // CACHE MISS: kritik veriler paralel çekilir (yorumlar dahil — tek sefer).
+        // CACHE MISS: tmdbId genelde URL'den (liste kartından) zaten biliniyor —
+        // eskiden cast isteği Trakt verisi bittikten SONRA atılıyordu (fazladan
+        // bir round-trip = filmlerin dizilere göre yavaş hissettirmesinin
+        // sebebiydi). Artık tmdbId hazırsa cast isteği Trakt batch'iyle PARALEL başlar.
+        const eagerCastPromise = safeTmdbId
+          ? getTmdbCast(safeTmdbId, 'movie').catch(() => [])
+          : null;
+
         const results = await Promise.allSettled([
           getMovieSummary(traktIdNum),
           getRelatedMovies(traktIdNum),
@@ -79,16 +86,20 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
 
         if (alive()) setMediaData(prev => ({ ...prev, comments }));
 
-        // TMDB Cast Fetching Logic
-        const finalTmdbId = safeTmdbId ? safeTmdbId : summary?.ids?.tmdb;
-        if (finalTmdbId) {
-          try {
-            cast = await getTmdbCast(finalTmdbId, 'movie');
-          } catch (e) {
+        if (eagerCastPromise) {
+          cast = await eagerCastPromise;
+        } else {
+          // tmdbId URL'de yoktu — ancak şimdi Trakt özetinden öğrenildi.
+          const finalTmdbId = summary?.ids?.tmdb;
+          if (finalTmdbId) {
+            try {
+              cast = await getTmdbCast(finalTmdbId, 'movie');
+            } catch (e) {
+              cast = [];
+            }
+          } else {
             cast = [];
           }
-        } else {
-          cast = [];
         }
 
         const slimRelated = related.map((r: any) => ({
@@ -96,12 +107,11 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
           ids: { trakt: r.ids?.trakt, tmdb: r.ids?.tmdb, slug: r.ids?.slug }
         }));
 
-        try {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({
-            timestamp: Date.now(),
-            data: { summary, cast, related: slimRelated }
-          }));
-        } catch(cacheErr) {
+        // Önbelleğe yazma artık ekranın açılmasını BEKLETMİYOR (fire-and-forget).
+        AsyncStorage.setItem(cacheKey, JSON.stringify({
+          timestamp: Date.now(),
+          data: { summary, cast, related: slimRelated }
+        })).catch(async () => {
           console.warn('[Cache Kaydetme Hatası] Kota doldu. Eski cacheler temizleniyor...');
           try {
             const allKeys = await AsyncStorage.getAllKeys();
@@ -121,7 +131,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
           } catch(e) {
             console.error('Önbellek temizlenirken hata:', e);
           }
-        }
+        });
       }
 
       const mappedRelated = (related || []).map((item: any) => ({

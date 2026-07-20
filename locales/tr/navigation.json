@@ -7,5 +7,7 @@
   "favMovies": "Favori filmler",
   "lists": "Listeler",
   "library": "Kütüphane",
-  "totalCount": "Toplam: {{count}} {{title}}"
+  "totalCount": "Toplam: {{count}} {{title}}",
+  "libraryEmptyTitle": "Burada henüz bir şey yok",
+  "libraryEmptyText": "İçerik ekledikçe burada görünecek."
 }

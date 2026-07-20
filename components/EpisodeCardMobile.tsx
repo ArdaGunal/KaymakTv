@@ -37,8 +37,9 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   const { t } = useTranslation('media');
 
   // Akış: içerik kısa bir fade-out ile kaybolur → "SxxEyy izlendi" fade-in →
-  // (buton ~1.6 sn bekletir) → tekrar fade-out → sıradaki bölüm fade-in.
-  // Böylece kartta hiçbir şey "pat" diye değişmez.
+  // (buton ~0.5 sn bekletir, ağ isteği artık bunu bloklamıyor) → tekrar
+  // fade-out → sıradaki bölüm fade-in. Kartta hiçbir şey "pat" diye değişmez
+  // ama toplam geçiş de art arda bölüm işaretlerken oyalamayacak kadar hızlı.
   const handleSuccessChange = useCallback((val: boolean, info?: { season: number; episode: number }) => {
     setIsSuccess(val);
     if (val) {
@@ -46,19 +47,19 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
         ? `S${String(info.season).padStart(2, '0')} | E${String(info.episode).padStart(2, '0')}`
         : null;
       Animated.parallel([
-        Animated.timing(contentOpacity, { toValue: 0, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(overlayOpacity, { toValue: 1, duration: 350, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(contentOpacity, { toValue: 0, duration: 90, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
       ]).start(() => {
         setSuccessInfo({ code });
-        Animated.timing(contentOpacity, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
+        Animated.timing(contentOpacity, { toValue: 1, duration: 140, useNativeDriver: Platform.OS !== 'web' }).start();
       });
     } else {
       Animated.parallel([
-        Animated.timing(contentOpacity, { toValue: 0, duration: 160, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(overlayOpacity, { toValue: 0, duration: 450, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(contentOpacity, { toValue: 0, duration: 100, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 240, useNativeDriver: Platform.OS !== 'web' }),
       ]).start(() => {
         setSuccessInfo(null);
-        Animated.timing(contentOpacity, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }).start();
+        Animated.timing(contentOpacity, { toValue: 1, duration: 150, useNativeDriver: Platform.OS !== 'web' }).start();
       });
     }
   }, [contentOpacity, overlayOpacity]);
@@ -220,7 +221,6 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
       {/* Right: Check Button or Countdown — timer bu izole bileşenin içinde yaşar */}
       <EpisodeCardActions
         data={data}
-        isSuccess={isSuccess}
         onSuccessStateChange={handleSuccessChange}
         onShowFinished={onShowFinished}
       />

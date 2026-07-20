@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { filterUserLists } from '../../utils/listHelpers';
 
 export const safeStorageSet = async (key: string, value: string) => {
   try {
@@ -61,7 +62,10 @@ export const setWatchedMovies = (val: any) => {
 export const setCustomLists = (val: any) => {
   const state = useLibraryStore.getState();
   const nextVal = typeof val === 'function' ? val(state.customLists) : val;
-  state.setCustomLists(nextVal);
+  // TEK SÜZME NOKTASI: favori (liked) listesi kullanıcı listelerinden her yazımda
+  // ayıklanır. Böylece profil, "listeye ekle", kütüphane vb. tüm tüketiciler
+  // otomatik olarak temiz kalır ve "ikinci favoriler" karışıklığı ortadan kalkar.
+  state.setCustomLists(filterUserLists(Array.isArray(nextVal) ? nextVal : []));
 };
 export const setFavShows = (val: any) => {
   const state = useLibraryStore.getState();

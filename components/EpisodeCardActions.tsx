@@ -1,14 +1,11 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import EpisodeCheckButton from './EpisodeCheckButton';
-import InlineRater from './InlineRater';
-import { addRating } from '../services/traktApi';
 import { useAirCountdown } from '../hooks/useAirCountdown';
 import { useTranslation } from 'react-i18next';
 
 interface EpisodeCardActionsProps {
   data: any;
-  isSuccess: boolean;
   onSuccessStateChange: (val: boolean, info?: { season: number; episode: number }) => void;
   onShowFinished?: (showName: string, showId: number) => void;
 }
@@ -16,7 +13,7 @@ interface EpisodeCardActionsProps {
 // Kartın sağ paneli: geri sayım / spinner / işaretleme butonu.
 // useAirCountdown timer'ı BURADA yaşar — her tick'te yalnızca bu küçük panel
 // yeniden render olur; poster, başlık ve etiketleri taşıyan kart gövdesi etkilenmez.
-const EpisodeCardActions = memo(({ data, isSuccess, onSuccessStateChange, onShowFinished }: EpisodeCardActionsProps) => {
+const EpisodeCardActions = memo(({ data, onSuccessStateChange, onShowFinished }: EpisodeCardActionsProps) => {
   const { t } = useTranslation('media');
   const airStatus = useAirCountdown(data?.rawDate);
 
@@ -40,23 +37,17 @@ const EpisodeCardActions = memo(({ data, isSuccess, onSuccessStateChange, onShow
       ) : data.isCalculating ? (
         <ActivityIndicator size="small" color="#a3a3a3" />
       ) : (
-        <>
-          <EpisodeCheckButton
-            traktId={data.rawTraktId || data.id}
-            season={data.season}
-            episode={data.episode}
-            showName={data.showName}
-            onShowFinished={onShowFinished}
-            onSuccessStateChange={onSuccessStateChange}
-          />
-          {isSuccess && (
-            <InlineRater
-              onRate={async (val) => {
-                await addRating(data.rawTraktId || data.id, 'episode', val, data.season, data.episode);
-              }}
-            />
-          )}
-        </>
+        // Puanlama burada bilinçli olarak yok: bu, hızlıca art arda bölüm
+        // işaretlemek için tasarlanmış bir liste — puanlama dizi/bölüm detay
+        // sayfasında zaten bir dokunuşla erişilebilir.
+        <EpisodeCheckButton
+          traktId={data.rawTraktId || data.id}
+          season={data.season}
+          episode={data.episode}
+          showName={data.showName}
+          onShowFinished={onShowFinished}
+          onSuccessStateChange={onSuccessStateChange}
+        />
       )}
     </View>
   );

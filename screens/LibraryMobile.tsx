@@ -1,6 +1,7 @@
 import React, { useCallback, memo } from 'react';
 import { View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity, Dimensions } from 'react-native';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { Inbox } from 'lucide-react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -92,6 +93,14 @@ export default function LibraryScreen() {
         <View style={styles.centered}>
           <LoadingIndicator size="large" color="#ffffff" />
         </View>
+      ) : data.length === 0 ? (
+        <View style={styles.centered}>
+          <View style={styles.emptyIconWrap}>
+            <Inbox size={36} color="#334155" />
+          </View>
+          <Text style={styles.emptyTitle}>{t('libraryEmptyTitle', 'Burada henüz bir şey yok')}</Text>
+          <Text style={styles.emptyText}>{t('libraryEmptyText', 'İçerik ekledikçe burada görünecek.')}</Text>
+        </View>
       ) : (
         <FlatList
           data={data}
@@ -100,7 +109,12 @@ export default function LibraryScreen() {
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.gridContainer}
           getItemLayout={getItemLayout}
-          removeClippedSubviews
+          // NOT: removeClippedSubviews BİLEREK kullanılmıyor — numColumns (grid)
+          // ile birlikte React Native'de bilinen bir kırpma/render hatasına yol
+          // açıyor: listenin sonunda biraz daha kaydırınca (overscroll/elastik
+          // geri sekme) hücreler hızla clip/unclip olup boş/karışık render
+          // oluşuyordu ("habire yükleniyor, garip şeyler oluyor" hissi buradan
+          // geliyordu). windowSize zaten yeterli sanal listeleme sağlıyor.
           initialNumToRender={12}
           maxToRenderPerBatch={12}
           windowSize={7}
@@ -151,6 +165,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyIconWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  emptyTitle: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   gridContainer: {
     padding: SPACING,
@@ -160,28 +199,26 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     margin: SPACING / 2,
-    backgroundColor: '#262626',
-    borderRadius: 6,
+    backgroundColor: '#172033',
+    borderRadius: 10,
     overflow: 'hidden',
-    borderBottomWidth: 4,
-    borderBottomColor: '#8b5cf6', // TV Time mor çizgisi (Vurgu)
+    borderWidth: 1,
+    borderColor: '#22304A',
   },
   poster: {
     width: '100%',
     height: '100%',
   },
   listPlaceholder: {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
   },
   listPlaceholderText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '700',
     textAlign: 'center',
   },
 });

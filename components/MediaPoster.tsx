@@ -1,7 +1,7 @@
 import React, { useEffect, useState, memo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ViewStyle, StyleProp } from 'react-native';
 import { Image, ImageStyle } from 'expo-image';
-import { getShowPoster, getMoviePoster } from '../services/tmdbApi';
+import { getShowPoster, getMoviePoster, peekPosterCache } from '../services/tmdbApi';
 
 interface MediaPosterProps {
   tmdbId?: number;
@@ -11,30 +11,48 @@ interface MediaPosterProps {
   placeholderTextLines?: number;
 }
 
+// Izgara/liste ekranlarında hücreler kaydırma sırasında sürekli mount/unmount
+// olur (virtualization). Önbellekte olan bir posteri senkron kontrol etmeden
+// önce isLoading'i true yapmak, her yeniden mount'ta bir "spinner flaşı"na
+// sebep oluyordu — özellikle listenin sonunda hızlı geri-sekmede (overscroll)
+// onlarca hücre birden yeniden mount olunca "habire yükleniyor" hissi veriyordu.
+const initialStateFor = (tmdbId: number | undefined, type: 'show' | 'movie') => {
+  if (!tmdbId) return { imageUrl: null, isLoading: false };
+  const cached = peekPosterCache(type, tmdbId);
+  if (cached.hit) return { imageUrl: cached.url, isLoading: false };
+  return { imageUrl: null, isLoading: true };
+};
+
 const MediaPoster = memo(({ tmdbId, type = 'show', title = 'İsimsiz', style, placeholderTextLines = 2 }: MediaPosterProps) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [{ imageUrl, isLoading }, setState] = useState(() => initialStateFor(tmdbId, type));
 
   useEffect(() => {
     let isMounted = true;
-    
+
+    // Önbellekte zaten varsa (senkron isabet), ağa hiç gitmeden anında göster.
+    const cached = peekPosterCache(type, tmdbId as number);
+    if (tmdbId && cached.hit) {
+      setState({ imageUrl: cached.url, isLoading: false });
+      return;
+    }
+
     const fetchImage = async () => {
-      if (!tmdbId) return;
-      
-      // Hızlı geçişler için bekleme durumunu hemen göster
-      setIsLoading(true);
-      setImageUrl(null); // tmdbId değiştiğinde eski resmi temizle
-      
+      if (!tmdbId) {
+        setState({ imageUrl: null, isLoading: false });
+        return;
+      }
+
+      setState({ imageUrl: null, isLoading: true });
+
       try {
         const url = type === 'show' ? await getShowPoster(tmdbId) : await getMoviePoster(tmdbId);
-        
+
         if (isMounted) {
-          setImageUrl(url);
+          setState({ imageUrl: url, isLoading: false });
         }
       } catch (err) {
         // Hata sessizce yutulabilir, yedek UI (placeholder) gösterilecek
-      } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) setState({ imageUrl: null, isLoading: false });
       }
     };
 

@@ -1,7 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Inbox } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -86,6 +86,14 @@ export default function LibraryScreenWeb() {
         {loading ? (
           <View style={styles.loadingContainer}>
             <LoadingIndicator />
+          </View>
+        ) : data.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <View style={styles.emptyIconWrap}>
+              <Inbox size={40} color="#334155" />
+            </View>
+            <Text style={styles.emptyTitle}>{t('libraryEmptyTitle', 'Burada henüz bir şey yok')}</Text>
+            <Text style={styles.emptyText}>{t('libraryEmptyText', 'İçerik ekledikçe burada görünecek.')}</Text>
           </View>
         ) : (
           <FlatList
@@ -182,5 +190,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center'
-  }
+  },
+  emptyIconWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  emptyTitle: {
+    color: '#f1f5f9',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  emptyText: {
+    color: '#94a3b8',
+    fontSize: 14,
+  },
 });

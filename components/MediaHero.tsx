@@ -112,19 +112,31 @@ export default function MediaHero({
           colors={['transparent', 'rgba(11,17,32,0.8)', '#0B1120']}
           style={styles.gradientOverlay}
         />
-        <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBack}>
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 10, left: insets.left + 20 }]}
+          onPress={handleBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <ChevronLeft color="#fff" size={32} />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.homeButton, { top: insets.top + 10 }]} onPress={() => router.dismissAll()}>
+        <TouchableOpacity
+          style={[styles.homeButton, { top: insets.top + 10, right: insets.right + 64 }]}
+          onPress={() => router.dismissAll()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Home color="#fff" size={24} />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.optionsButton, { top: insets.top + 10 }]} onPress={() => setOptionsModalVisible(true)}>
+        <TouchableOpacity
+          style={[styles.optionsButton, { top: insets.top + 10, right: insets.right + 16 }]}
+          onPress={() => setOptionsModalVisible(true)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <MoreVertical color="#fff" size={24} />
         </TouchableOpacity>
       </View>
 
       {/* FOREGROUND CONTENT */}
-      <View style={styles.contentContainer}>
+      <View style={[styles.contentContainer, { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right }]}>
         {poster ? (
           <Image source={{ uri: poster }} style={styles.posterImage} contentFit="cover" transition={300} />
         ) : (
@@ -155,8 +167,8 @@ export default function MediaHero({
             </View>
 
             {/* User Rating (Delicate Button) */}
-            <TouchableOpacity 
-              style={[styles.userRatingBadge, (userRating !== undefined && userRating !== null) ? styles.userRatingActive : null]} 
+            <TouchableOpacity
+              style={[styles.userRatingBadge, (userRating !== undefined && userRating !== null) ? styles.userRatingActive : null]}
               onPress={() => {
                 if (isGuest) {
                   Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
@@ -165,6 +177,7 @@ export default function MediaHero({
                 setRatingModalVisible(true)
               }}
               activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
               <Star size={14} color={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "transparent"} />
               <Text style={[styles.userRatingText, (userRating !== undefined && userRating !== null) ? styles.userRatingTextActive : null]}>
@@ -173,44 +186,36 @@ export default function MediaHero({
             </TouchableOpacity>
 
             {/* Quick Favorite Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.userRatingBadge, 
+                styles.userRatingBadge,
+                styles.iconOnlyBadge,
                 isFavorited ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' } : null
-              ]} 
+              ]}
               activeOpacity={0.7}
               onPress={handleToggleFavorite}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Heart size={16} color={isFavorited ? "#ef4444" : "#a3a3a3"} fill={isFavorited ? "#ef4444" : "transparent"} />
             </TouchableOpacity>
 
-            {/* Quick Add to List Button */}
-            <TouchableOpacity 
-              style={[
-                styles.userRatingBadge, 
-                (!isDesktop && isWatchlisted) ? { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' } : null
-              ]} 
+            {/* Add to List Button — hem mobil hem web'de TEK dokunuşla liste
+                modalını açar. (Eskiden mobilde dokunmak izleme listesine ekliyor,
+                liste için basılı tutmak gerekiyordu — kafa karıştırıcıydı.
+                İzleme listesi hâlâ "..." menüsünden erişilebilir.) */}
+            <TouchableOpacity
+              style={[styles.userRatingBadge, styles.iconOnlyBadge]}
               activeOpacity={0.7}
               onPress={() => {
                 if (isGuest) {
                   Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
                   return;
                 }
-                if (!isDesktop) {
-                  onToggleWatchlist();
-                } else {
-                  setListModalVisible(true);
-                }
+                setListModalVisible(true);
               }}
-              onLongPress={() => {
-                if (isGuest) return;
-                if (!isDesktop) {
-                  setListModalVisible(true);
-                }
-              }}
-              delayLongPress={400}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <ListPlus size={16} color={(!isDesktop && isWatchlisted) ? "#3b82f6" : "#a3a3a3"} />
+              <ListPlus size={16} color="#a3a3a3" />
             </TouchableOpacity>
           </View>
           
@@ -347,7 +352,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     marginTop: -80,
     zIndex: 5,
   },
@@ -405,7 +409,9 @@ const styles = StyleSheet.create({
   ratingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    flexWrap: 'wrap',
+    rowGap: 8,
+    columnGap: 10,
   },
   ratingBadge: {
     flexDirection: 'row',
@@ -429,9 +435,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(163, 163, 163, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
+    minHeight: 28,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(163, 163, 163, 0.2)',
+  },
+  // Sadece ikon barındıran rozetler: metin olmadığı için dokunma alanı
+  // önerilen 44pt'nin çok altında kalıyordu — biraz genişletildi.
+  iconOnlyBadge: {
+    minWidth: 32,
+    justifyContent: 'center',
   },
   userRatingActive: {
     backgroundColor: 'rgba(59, 130, 246, 0.1)',

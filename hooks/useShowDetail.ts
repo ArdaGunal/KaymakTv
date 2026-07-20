@@ -41,30 +41,42 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
       }
 
       if (!summary) {
+        // tmdbId genelde URL'den (liste kartından) zaten biliniyor — eskiden cast
+        // isteği Trakt verisi bittikten SONRA atılıyordu (fazladan bir round-trip).
+        // Artık tmdbId hazırsa cast isteği Trakt batch'iyle PARALEL başlar.
+        const knownTmdbId = tmdbId ? Number(tmdbId) : null;
+        const eagerCastPromise = knownTmdbId
+          ? getTmdbCast(knownTmdbId, 'tv').catch(() => [])
+          : null;
+
         const results = await Promise.allSettled([
           getShowSummary(traktIdNum),
           getShowSeasons(traktIdNum),
           getRelatedShows(traktIdNum),
           getMediaComments(traktIdNum, 'show')
         ]);
-        
+
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         seasons = results[1].status === 'fulfilled' ? results[1].value : [];
         related = results[2].status === 'fulfilled' ? results[2].value : [];
         const comments = results[3].status === 'fulfilled' ? results[3].value?.data || [] : [];
-        
-        // TMDB Cast Fetching Logic (Fallback to summary.ids.tmdb)
-        const finalTmdbId = tmdbId ? Number(tmdbId) : summary?.ids?.tmdb;
-        if (finalTmdbId) {
-          try {
-            cast = await getTmdbCast(finalTmdbId, 'tv');
-          } catch (e) {
+
+        if (eagerCastPromise) {
+          cast = await eagerCastPromise;
+        } else {
+          // tmdbId URL'de yoktu — ancak şimdi Trakt özetinden öğrenildi.
+          const finalTmdbId = summary?.ids?.tmdb;
+          if (finalTmdbId) {
+            try {
+              cast = await getTmdbCast(finalTmdbId, 'tv');
+            } catch (e) {
+              cast = [];
+            }
+          } else {
             cast = [];
           }
-        } else {
-          cast = [];
         }
-        
+
         const slimSeasons = seasons
           .filter((s: any) => s.number >= 0 && s.episodes && s.episodes.length > 0)
           .map((s: any) => ({
@@ -86,25 +98,26 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
           ids: { trakt: r.ids?.trakt, tmdb: r.ids?.tmdb, slug: r.ids?.slug }
         }));
 
-        await cacheManager.set(cacheKey, { summary, seasons: slimSeasons, cast: slimCast, related: slimRelated });
-        
+        // Önbelleğe yazma artık ekranın açılmasını BEKLETMİYOR (fire-and-forget).
+        cacheManager.set(cacheKey, { summary, seasons: slimSeasons, cast: slimCast, related: slimRelated });
+
         if (isMounted) {
           setMediaData({ summary, seasons: slimSeasons, cast: slimCast, related: slimRelated, comments });
         }
       } else {
-        // Cached verileri set et
+        // CACHE HIT: sayfa anında açılır. Yorumlar önbelleğe alınmadığı için
+        // her zaman tazelenir ama artık ekranı BEKLETMİYOR (fire-and-forget) —
+        // eskiden isLoading, yorumlar bitene kadar true kalıyordu.
         if (isMounted) {
           setMediaData(prev => ({ ...prev, summary, seasons, cast, related }));
         }
-        // Comments önbelleğe alınmadığı için her zaman fetch edilir.
-        try {
-          const commRes = await getMediaComments(traktIdNum, 'show');
+        getMediaComments(traktIdNum, 'show').then((commRes) => {
           if (isMounted && commRes?.data) {
             setMediaData(prev => ({ ...prev, comments: commRes.data }));
           }
-        } catch (e) {}
+        }).catch(() => {});
       }
-      
+
       if (isMounted) setIsLoading(false);
     };
 

@@ -41,8 +41,9 @@ export const useEpisodeDetail = (
         const sNum = parseInt(season as string, 10);
         const eNum = parseInt(episode as string, 10);
 
-        // Fetch cast and backdrop from Show Cache (v2)
-        const cacheKey = `@show_detail_v2_${traktIdNum}`;
+        // Fetch cast and backdrop from Show Cache — useShowDetail'in yazdığı
+        // güncel anahtarla aynı olmalı, aksi halde burası hep boş döner.
+        const cacheKey = `@show_detail_v3_${traktIdNum}`;
         const cachedShowContent = await cacheManager.get<any>(cacheKey);
         
         let castData: any[] = [];

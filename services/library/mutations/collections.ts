@@ -5,6 +5,7 @@ import {
   removeFromHistoryTrakt,
   toggleLikedMedia,
   createCustomList,
+  deleteCustomList,
   addMediaToCustomList,
   removeMediaFromCustomList
 } from '../../traktApi';
@@ -21,6 +22,13 @@ import {
   setWatchlistMovies,
   setShowProgressMap,
 } from '../utils';
+import { useLibraryStore } from '../../../store/useLibraryStore';
+import {
+  DEFAULT_LIST_NAME,
+  MAX_USER_LISTS,
+  MAX_LIST_ITEMS,
+  ListLimitError,
+} from '../../../utils/listHelpers';
 
 export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', isCurrentlyWatchlisted: boolean, mediaData: any) => {
   let previousWatchlistShows: any[] | null = null;
@@ -144,6 +152,14 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
 };
 
 export const createNewList = async (name: string, description?: string) => {
+  // Trakt limiti: kullanıcıya en fazla MAX_USER_LISTS izin verilir (1 slot favori
+  // listesine rezerve). Kontrol store'daki (favori zaten süzülmüş) sayı üzerinden
+  // yapılır — ekstra ağ isteği gerektirmez.
+  const currentUserLists = useLibraryStore.getState().customLists || [];
+  if (currentUserLists.length >= MAX_USER_LISTS) {
+    throw new ListLimitError('maxLists');
+  }
+
   try {
     const newList = await createCustomList(name, description);
     setCustomLists((prev: any) => {
@@ -158,28 +174,75 @@ export const createNewList = async (name: string, description?: string) => {
   }
 };
 
+// "Listeye ekle" akışının varsayılan hedefi. Varsa mevcut "Koleksiyonum"u döndürür,
+// yoksa oluşturur (limit createNewList içinde uygulanır).
+export const getOrCreateDefaultList = async () => {
+  const lists = useLibraryStore.getState().customLists || [];
+  const existing = lists.find((l: any) => l.name === DEFAULT_LIST_NAME);
+  if (existing) return existing;
+  return await createNewList(DEFAULT_LIST_NAME, 'Kaydettiğim içerikler.');
+};
+
 export const toggleMediaInList = async (listId: number, mediaId: number, type: 'show' | 'movie', isAdding: boolean) => {
+  // Ekleme öncesi 250 öğe limitini uygula (Trakt liste başına sınır).
+  if (isAdding) {
+    const list = (useLibraryStore.getState().customLists || []).find((l: any) => l.ids?.trakt === listId);
+    if (list && (list.item_count || 0) >= MAX_LIST_ITEMS) {
+      throw new ListLimitError('maxItems');
+    }
+  }
+
+  // İyimser güncelleme: item_count'u ANINDA değiştir, hata olursa geri al.
+  let previousLists: any[] | null = null;
+  setCustomLists((prev: any) => {
+    previousLists = prev;
+    const updated = prev.map((list: any) => {
+      if (list.ids?.trakt === listId) {
+        return {
+          ...list,
+          item_count: isAdding ? (list.item_count || 0) + 1 : Math.max(0, (list.item_count || 0) - 1)
+        };
+      }
+      return list;
+    });
+    safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(updated));
+    return updated;
+  });
+
   try {
     if (isAdding) {
       await addMediaToCustomList(listId, mediaId, type);
     } else {
       await removeMediaFromCustomList(listId, mediaId, type);
     }
-
-    setCustomLists((prev: any) => {
-      const updated = prev.map((list: any) => {
-        if (list.ids.trakt === listId) {
-          return {
-            ...list,
-            item_count: isAdding ? (list.item_count || 0) + 1 : Math.max(0, (list.item_count || 0) - 1)
-          };
-        }
-        return list;
-      });
-      safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(updated));
-      return updated;
-    });
   } catch (err) {
-    console.error('Liste medyası ekle/çıkar hatası:', err);
+    console.error('Liste medyası ekle/çıkar hatası, geri alınıyor:', err);
+    if (previousLists !== null) {
+      setCustomLists(previousLists);
+      safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(previousLists));
+    }
+    throw err;
+  }
+};
+
+// Listeyi Trakt'tan siler ve store'dan iyimser olarak kaldırır.
+export const deleteListById = async (listId: number | string) => {
+  let previousLists: any[] | null = null;
+  setCustomLists((prev: any) => {
+    previousLists = prev;
+    const updated = prev.filter((l: any) => String(l.ids?.trakt) !== String(listId));
+    safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(updated));
+    return updated;
+  });
+
+  try {
+    await deleteCustomList(listId);
+  } catch (err) {
+    console.error('Liste silme hatası, geri alınıyor:', err);
+    if (previousLists !== null) {
+      setCustomLists(previousLists);
+      safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(previousLists));
+    }
+    throw err;
   }
 };

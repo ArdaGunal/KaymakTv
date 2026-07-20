@@ -7,6 +7,7 @@ import {
   getLikedMovies,
 } from '../services/traktApi';
 import { useLibrarySelector } from '../context/LibraryContext';
+import { filterUserLists } from '../utils/listHelpers';
 
 export type LibraryType = 'shows' | 'movies' | 'favShows' | 'favMovies' | 'lists';
 
@@ -101,7 +102,8 @@ export function useLibraryTypeData(type: string | string[] | undefined, accessTo
     FALLBACK_FETCHERS[type as LibraryType]()
       .then((res) => {
         if (cancelled) return;
-        if (type === 'lists') setFallbackData(mapListItems(res));
+        // Fallback ağdan geldiği için favori (liked) listesini burada da ayıkla.
+        if (type === 'lists') setFallbackData(mapListItems(filterUserLists(res)));
         else if (type === 'shows' || type === 'movies') {
           setFallbackData(mapMediaItems(sortByWatchedAt(res), type === 'shows' ? 'show' : 'movie'));
         } else {

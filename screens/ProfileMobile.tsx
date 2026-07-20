@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, Dimensions } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Settings } from 'lucide-react-native';
+import { Heart, Settings, List as ListIcon } from 'lucide-react-native';
 import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector } from '../context/LibraryContext';
@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ListCard from '../components/profile/ListCard';
 import ListCardSkeleton from '../components/profile/ListCardSkeleton';
+import ListsEmptyCard from '../components/profile/ListsEmptyCard';
 import { useProfileLists } from '../hooks/useProfileLists';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
@@ -87,15 +88,27 @@ export default function ProfileScreen() {
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
         <View style={styles.headerSpacer} />
 
-        {/* Listeler — metadata anında gelir, kapaklar arka planda dolar */}
-        {lists.length > 0 ? (
-          <View style={styles.listsSectionHeader}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{t('lists')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(protected)/library/lists')}>
+        {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
+            bilgilendirici kart, veri gelmemişse iskelet. */}
+        <View style={styles.listsSectionHeader}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionTitleRow}>
+              <ListIcon size={18} color="#e2e8f0" style={{ marginRight: 8 }} />
+              <Text style={styles.sectionTitleInline}>{t('myLists', 'Listelerim')}</Text>
+              {lists.length > 0 && (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{lists.length}</Text>
+                </View>
+              )}
+            </View>
+            {lists.length > 0 && (
+              <TouchableOpacity onPress={() => router.push('/(protected)/library/lists')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={styles.seeAllText}>{t('seeAll', 'Tümü')}</Text>
               </TouchableOpacity>
-            </View>
+            )}
+          </View>
+
+          {lists.length > 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -105,13 +118,14 @@ export default function ProfileScreen() {
                 <ListCard key={String(item.id)} data={item} />
               ))}
             </ScrollView>
-          </View>
-        ) : isListsLoading ? (
-          <View style={styles.listsSectionHeader}>
-            <Text style={styles.sectionTitle}>{t('lists')}</Text>
+          ) : isListsLoading ? (
             <ListCardSkeleton />
-          </View>
-        ) : null}
+          ) : (
+            <View style={{ paddingHorizontal: 16 }}>
+              <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
+            </View>
+          )}
+        </View>
 
         {/* Diziler — Tier 1 verisi, ilk gelen bölüm */}
         {shows.length > 0 ? (
@@ -191,6 +205,19 @@ const styles = StyleSheet.create({
   listsSectionHeader: { marginBottom: 24 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
   sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold', paddingHorizontal: 16, marginBottom: 12 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  sectionTitleInline: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
+  countBadge: {
+    marginLeft: 8,
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countBadgeText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
   seeAllText: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
   listsScrollContent: { paddingHorizontal: 16, paddingBottom: 8 },
 });

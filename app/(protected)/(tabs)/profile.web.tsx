@@ -16,6 +16,7 @@ import EpisodeCard from '../../../components/EpisodeCard';
 import MovieCard from '../../../components/movies/MovieCard';
 import ListCard from '../../../components/profile/ListCard';
 import ListCardSkeleton from '../../../components/profile/ListCardSkeleton';
+import ListsEmptyCard from '../../../components/profile/ListsEmptyCard';
 import LoginPaywall from '../../../components/LoginPaywall';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
@@ -102,20 +103,26 @@ export default function ProfileScreenWeb() {
         </View>
 
         <View style={styles.carouselsContainer}>
-          {/* Listeler — metadata anında, kapaklar arka planda */}
+          {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}
           {lists.length > 0 ? (
             <WebCarousel
-              title={t('lists')}
+              title={t('myLists', 'Listelerim')}
               data={lists}
               renderItem={renderListItem}
-              onViewAll={() => openViewAll(t('lists'), lists, 'lists')}
+              onViewAll={() => openViewAll(t('myLists', 'Listelerim'), lists, 'lists')}
             />
-          ) : isListsLoading ? (
-            <View>
-              <Text style={styles.carouselTitle}>{t('lists')}</Text>
-              <ListCardSkeleton />
+          ) : (
+            <View style={styles.listsSection}>
+              <Text style={styles.carouselTitle}>{t('myLists', 'Listelerim')}</Text>
+              {isListsLoading ? (
+                <ListCardSkeleton />
+              ) : (
+                <View style={styles.listsEmptyWrap}>
+                  <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
+                </View>
+              )}
             </View>
-          ) : null}
+          )}
 
           {renderCarousel(t('shows'), shows, 'shows', renderShowItem)}
           {renderCarousel(t('favShows'), favShowsList, 'shows', renderShowItem)}
@@ -165,5 +172,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
     paddingLeft: 4,
+  },
+  listsSection: {
+    marginBottom: 8,
+  },
+  listsEmptyWrap: {
+    maxWidth: 560,
   },
 });

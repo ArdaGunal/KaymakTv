@@ -65,6 +65,21 @@ const setCachedData = async (key: string, value: string | null) => {
   }
 };
 
+// Senkron bellek-içi önbellek kontrolü. Poster/afiş getirenler (getShowPoster,
+// getMoviePoster) her çağrıldığında — önbellekte olsa bile — önce bir async
+// fonksiyon içine girip state'i "yükleniyor" yapıyordu. Grid/liste ekranlarında
+// hücreler kaydırma sırasında sürekli mount/unmount olduğundan (virtualization),
+// bu her seferinde bir spinner "flaş"ına yol açıyordu. Bu fonksiyon, tüketicinin
+// (MediaPoster) isLoading'e hiç geçmeden senkron olarak önbellek isabetini
+// kullanabilmesini sağlar.
+export const peekPosterCache = (type: 'show' | 'movie', tmdbId: number): { hit: boolean; url: string | null } => {
+  const cacheKey = `@tmdb_poster_cache_${type}_${tmdbId}`;
+  if (memoryCache.has(cacheKey)) {
+    return { hit: true, url: memoryCache.get(cacheKey) || null };
+  }
+  return { hit: false, url: null };
+};
+
 /**
  * Helper to fetch data from TMDB. 
  * On Mobile & Local Web: Uses direct TMDB API with API_KEY
