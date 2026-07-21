@@ -192,27 +192,27 @@ export default function Login() {
 
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>VEYA</Text>
+              <Text style={styles.dividerText}>{t('common:orDivider')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            <TouchableOpacity 
-              style={[styles.button, styles.guestButton]} 
-              activeOpacity={0.8} 
+            <TouchableOpacity
+              style={[styles.button, styles.guestButton]}
+              activeOpacity={0.8}
               onPress={async () => {
                 await loginAsGuest();
                 router.replace('/(protected)/(tabs)/explore');
               }}
             >
-              <Text style={styles.guestButtonText}>Misafir Olarak Devam Et</Text>
+              <Text style={styles.guestButtonText}>{t('common:landingGuest')}</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.button, styles.backButton]} 
-              activeOpacity={0.8} 
+
+            <TouchableOpacity
+              style={[styles.button, styles.backButton]}
+              activeOpacity={0.8}
               onPress={() => router.replace('/')}
             >
-              <Text style={styles.guestButtonText}>Vitrini Görüntüle</Text>
+              <Text style={styles.guestButtonText}>{t('common:viewShowcase')}</Text>
             </TouchableOpacity>
           </>
         </View>

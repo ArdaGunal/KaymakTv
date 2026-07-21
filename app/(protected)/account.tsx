@@ -1,14 +1,7 @@
 import * as AuthSession from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import {
-  CheckCircle2,
-  Compass,
-  Globe,
-  LogOut,
-  Trash2,
-  UserCheck
-} from 'lucide-react-native';
+import { Globe, LogOut, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,16 +9,16 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import LoadingIndicator from '../../components/LoadingIndicator';
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
 import SettingsRow from '../../components/settings/SettingsRow';
+import { SettingsHeader } from '../../components/settings/SettingsHeader';
+import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
+import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { exchangeAuthCode } from '../../services/traktApi';
@@ -34,28 +27,6 @@ import { exchangeAuthCode } from '../../services/traktApi';
 WebBrowser.maybeCompleteAuthSession();
 
 const DESKTOP_BREAKPOINT = 768;
-
-// ─── Section Wrapper ─────────────────────────────────────────────────────────
-
-interface SectionProps {
-  title: string;
-  children: React.ReactNode;
-}
-
-function Section({ title, children }: SectionProps) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionCard}>{children}</View>
-    </View>
-  );
-}
-
-function SectionDivider() {
-  return <View style={styles.rowDivider} />;
-}
-
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
   const { accessToken, saveTokens } = useAuth();
@@ -68,6 +39,11 @@ export default function SettingsScreen() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  const navigateBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(protected)/(tabs)/explore');
+  };
 
   // ── Trakt OAuth ─────────────────────────────────────────────────────────
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'kaymak', path: 'settings' });
@@ -124,13 +100,11 @@ export default function SettingsScreen() {
     }
   };
 
-  // ── Delete confirm ───────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
     await handleDeleteAccount();
     setDeleteModalVisible(false);
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
   const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English';
 
   return (
@@ -143,67 +117,18 @@ export default function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Page Header */}
-        <View style={[styles.pageHeader, isDesktop && styles.pageHeaderDesktop]}>
-          <Text style={styles.pageTitle}>{t('settings', 'Ayarlar')}</Text>
-        </View>
+        <SettingsHeader title={t('settings', 'Ayarlar')} isDesktop={isDesktop} onBack={navigateBack} />
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+          <TraktAccountSection
+            isConnected={!!accessToken}
+            isConnecting={isConnecting}
+            canConnect={!!request}
+            onConnect={handleTraktLogin}
+            onGoToApp={navigateBack}
+          />
 
-          {/* ── Hesap Ayarları ── */}
-          <Section title={t('accountSettings', 'Hesap Ayarları')}>
-            {accessToken ? (
-              <>
-                {/* Connected status */}
-                <View style={styles.connectedBanner}>
-                  <View style={styles.connectedDot} />
-                  <Text style={styles.connectedText}>{t('settings:traktConnected')}</Text>
-                  <CheckCircle2 size={18} color="#4ade80" />
-                </View>
-
-                <SectionDivider />
-
-                <SettingsRow
-                  icon={<Compass size={20} color="#60a5fa" />}
-                  label={t('goToApp', 'Uygulamaya Git')}
-                  tintColor="#60a5fa"
-                  showChevron
-                  onPress={() => {
-                    if (router.canGoBack()) router.back();
-                    else router.replace('/(protected)/(tabs)/explore');
-                  }}
-                />
-              </>
-            ) : (
-              <>
-                <View style={styles.notConnectedBanner}>
-                  <Text style={styles.notConnectedTitle}>{t('settings:traktNotConnectedTitle')}</Text>
-                  <Text style={styles.notConnectedSub}>{t('settings:traktNotConnectedSub')}</Text>
-                </View>
-
-                <SectionDivider />
-
-                <TouchableOpacity
-                  style={[styles.connectBtn, isConnecting && styles.btnDisabled]}
-                  activeOpacity={0.82}
-                  onPress={handleTraktLogin}
-                  disabled={isConnecting || !request}
-                >
-                  {isConnecting ? (
-                    <LoadingIndicator size="small" />
-                  ) : (
-                    <>
-                      <UserCheck size={18} color="#fff" />
-                      <Text style={styles.connectBtnText}>{t('settings:connectWithTrakt')}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-          </Section>
-
-          {/* ── Uygulama Tercihleri ── */}
-          <Section title={t('appPreferences', 'Uygulama Tercihleri')}>
+          <SettingsSection title={t('appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
               icon={<Globe size={20} color="#a78bfa" />}
               label={t('language', 'Dil')}
@@ -215,10 +140,9 @@ export default function SettingsScreen() {
                 handleChangeLanguage(next);
               }}
             />
-          </Section>
+          </SettingsSection>
 
-          {/* ── Hesap seçenekleri ── */}
-          <Section title="⚠️ Hesap Seçenekleri">
+          <SettingsSection title="⚠️ Hesap Seçenekleri">
             <SettingsRow
               icon={<LogOut size={20} color="#fb923c" />}
               label={t('logoutReset', 'Çıkış Yap')}
@@ -227,7 +151,7 @@ export default function SettingsScreen() {
               disabled={isLoggingOut}
             />
 
-            <SectionDivider />
+            <SettingsSectionDivider />
 
             <SettingsRow
               icon={<Trash2 size={20} color="#f87171" />}
@@ -236,12 +160,10 @@ export default function SettingsScreen() {
               onPress={() => setDeleteModalVisible(true)}
               disabled={isDeletingAccount}
             />
-          </Section>
-
+          </SettingsSection>
         </View>
       </ScrollView>
 
-      {/* Delete Confirmation Modal */}
       <DeleteAccountModal
         visible={deleteModalVisible}
         loading={isDeletingAccount}
@@ -251,8 +173,6 @@ export default function SettingsScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -269,23 +189,6 @@ const styles = StyleSheet.create({
   scrollContentDesktop: {
     alignItems: 'center',
   },
-  pageHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
-  },
-  pageHeaderDesktop: {
-    width: '100%',
-    maxWidth: 680,
-    alignSelf: 'center',
-    paddingHorizontal: 0,
-  },
-  pageTitle: {
-    color: '#f1f5f9',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
   content: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -296,86 +199,5 @@ const styles = StyleSheet.create({
     maxWidth: 680,
     alignSelf: 'center',
     paddingHorizontal: 0,
-  },
-  // Section
-  section: {
-    gap: 6,
-  },
-  sectionTitle: {
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    paddingHorizontal: 4,
-    marginBottom: 2,
-  },
-  sectionCard: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginHorizontal: 16,
-  },
-  // Connected state
-  connectedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  connectedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4ade80',
-  },
-  connectedText: {
-    flex: 1,
-    color: '#4ade80',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  // Not connected state
-  notConnectedBanner: {
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    gap: 6,
-  },
-  notConnectedTitle: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  notConnectedSub: {
-    color: '#64748b',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  // Connect button
-  connectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#2563eb',
-    margin: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    minHeight: 54,
-  },
-  connectBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  btnDisabled: {
-    opacity: 0.5,
   },
 });

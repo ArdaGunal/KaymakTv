@@ -258,6 +258,14 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
   }
 };
 
+// Trakt'ın /sync/history uç noktası her POST'ta yeni bir "izlenme" (play) ekler
+// — aynı sezonu ikinci kez göndermek, önce geçmişi silmeden doğrudan "tekrar
+// izlendi" anlamına gelir. Bu yüzden markSeasonAsWatched'ın aynısı, sadece
+// niyeti (ve ayrı optimistic UI mesajını) netleştirmek için ayrı isimle.
+export const rewatchSeason = async (showId: number, season: number) => {
+  return markSeasonAsWatched(showId, season);
+};
+
 export const markEpisodesUpToAsWatched = async (showId: number, season: number, episodes: number[]) => {
   let previousState: any = null;
   console.log(`[OPTIMISTIC UI] Bölümler toplu UI'da işaretleniyor: Show ${showId}, S${season}`);

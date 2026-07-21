@@ -81,7 +81,7 @@ export default function ProfileScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/user-settings')}>
+        <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/account')}>
           <Settings size={24} color="#a3a3a3" />
         </TouchableOpacity>
       </View>

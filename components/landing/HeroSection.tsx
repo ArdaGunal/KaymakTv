@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { Play, Compass } from 'lucide-react-native';
+import { LogIn, Compass } from 'lucide-react-native';
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -49,7 +49,7 @@ export default function HeroSection() {
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>🎉 Yeni Sürüm 2.0 Yayında</Text>
+          <Text style={styles.badgeText}>{t('landingVersion')}</Text>
         </View>
 
         <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
@@ -71,8 +71,8 @@ export default function HeroSection() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Play color="#fff" size={18} fill="#fff" style={styles.btnIcon} />
-              <Text style={styles.primaryButtonText}>{t('landingStartFree')}</Text>
+              <LogIn color="#fff" size={18} style={styles.btnIcon} />
+              <Text style={styles.primaryButtonText}>{t('login')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 

@@ -65,10 +65,25 @@ export default function OptionsModal({
       onClose();
       return;
     }
-    if (onHideFromProgress) {
-      onHideFromProgress();
-    }
-    onClose();
+    if (!onHideFromProgress) return;
+    // Trakt'ta gizlenen ilerleme uygulama içinden geri alınamıyor (görünür bir
+    // "geri getir" akışımız yok) — bu yüzden diğer geri döndürülemez işlemler
+    // gibi onay istiyoruz.
+    Alert.alert(
+      t('areYouSure'),
+      t('hideProgressConfirmMsg'),
+      [
+        { text: t('common:cancel'), style: "cancel" },
+        {
+          text: t('yesHide'),
+          style: "destructive",
+          onPress: () => {
+            onHideFromProgress();
+            onClose();
+          }
+        }
+      ]
+    );
   };
 
   const handleDeleteHistory = () => {
@@ -142,9 +157,9 @@ export default function OptionsModal({
 
           <TouchableOpacity style={[styles.optionRow, styles.destructiveRow]} onPress={handleDeleteHistory}>
             <Trash2 color="#ef4444" size={24} />
-            <View>
+            <View style={styles.destructiveTextWrap}>
               <Text style={styles.destructiveText}>{t('removeHistory')}</Text>
-              <Text style={{color: '#737373', fontSize: 11, marginTop: 2}}>{t('removeHistorySub')}</Text>
+              <Text style={styles.destructiveSubtext}>{t('removeHistorySub')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -175,6 +190,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2A364F',
   },
   optionText: {
+    flex: 1,
     color: '#ffffff',
     fontSize: 16,
     marginLeft: 16,
@@ -184,10 +200,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     marginTop: 8,
   },
+  // Başlık + alt satır aynı sarmalayıcı View'da hizalanır — eskiden alt metin
+  // kendi marginLeft'ine sahip olmadığından ikonun altına kayıyor, başlıkla
+  // hizasız görünüyordu.
+  destructiveTextWrap: {
+    flex: 1,
+    marginLeft: 16,
+  },
   destructiveText: {
     color: '#ef4444',
     fontSize: 16,
-    marginLeft: 16,
     fontWeight: 'bold',
+  },
+  destructiveSubtext: {
+    color: '#737373',
+    fontSize: 11,
+    marginTop: 2,
   },
 });

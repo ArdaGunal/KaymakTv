@@ -73,6 +73,11 @@ const {
   const [selectedEpisode, setSelectedEpisode] = useState<{season: number, episode: number, title: string, traktId?: number} | null>(null);
   const [episodeRatingModalVisible, setEpisodeRatingModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  // "Tekrar İzle" isteği aslında Trakt'a doğru gidiyordu ama kullanıcıya HİÇBİR
+  // görsel geri bildirim yoktu (modal kapanıp bitiyordu) — bu yüzden "çalışmıyor
+  // gibi" hissettiriyordu. Diğer aksiyonlarla (izlemeyi geri al) aynı Snackbar
+  // deseniyle kısa bir onay mesajı eklendi.
+  const [rewatchSnackbarVisible, setRewatchSnackbarVisible] = useState(false);
 
   // Handler hook'u
   const {
@@ -107,6 +112,7 @@ const {
     const success = await hookHandleRewatchEpisode(selectedEpisode);
     if (success) {
       setSelectedEpisode(null);
+      setRewatchSnackbarVisible(true);
     }
   };
 
@@ -293,7 +299,7 @@ const {
                   onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
                   isExpanded={expandedSeasons[season.number]}
                   onToggle={() => toggleSeason(season.number)}
-                  seasonProgress={showProgressMap[id as string]?.seasons?.find((s:any) => s.number === season.number)}
+                  seasonProgress={showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === season.number)}
                 />
               ))}
             </View>
@@ -359,6 +365,13 @@ const {
         onAction={handleUndoUnwatchClick}
         onDismiss={() => setSnackbarVisible(false)}
         duration={4000}
+      />
+
+      <Snackbar
+        visible={rewatchSnackbarVisible}
+        message={t('rewatchConfirmation')}
+        onDismiss={() => setRewatchSnackbarVisible(false)}
+        duration={2500}
       />
     </View>
   );

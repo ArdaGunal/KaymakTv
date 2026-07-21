@@ -16,6 +16,7 @@ import HorizontalMediaList from '../../components/HorizontalMediaList';
 import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
+import Snackbar from '../../components/Snackbar';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
@@ -34,6 +35,10 @@ export default function MovieDetailScreen() {
   const [writeCommentVisible, setWriteCommentVisible] = useState(false);
   // Yorum yazma/silme sonrası MyInlineComment'in kendini tazelemesi için sayaç
   const [commentVersion, setCommentVersion] = useState(0);
+  // "..." menüsündeki "Tekrar İzle": film zaten izlenmiş olduğundan ana
+  // "İzledim" butonunun görünümü değişmiyor — görsel geri bildirim olmadan
+  // işlem "çalışmıyor gibi" hissettiriyordu, bu yüzden kısa bir onay eklendi.
+  const [rewatchSnackbarVisible, setRewatchSnackbarVisible] = useState(false);
   
   // Katı seçici: yalnızca film dilimleri okunur; dizi ilerlemesi gibi ilgisiz
   // store değişimlerinde bu ekran artık yeniden render olmaz.
@@ -122,6 +127,15 @@ export default function MovieDetailScreen() {
     }
   };
 
+  const handleRewatch = async () => {
+    try {
+      await markMovieAsWatched(traktIdNum);
+      setRewatchSnackbarVisible(true);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const isReleased = movieData?.released ? new Date(movieData.released) <= new Date() : true;
 
   if (isLoading) {
@@ -164,7 +178,7 @@ export default function MovieDetailScreen() {
           onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
           onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
-          onRewatch={() => markMovieAsWatched(traktIdNum)}
+          onRewatch={handleRewatch}
         />
 
         <View style={styles.contentArea}>
@@ -294,6 +308,13 @@ export default function MovieDetailScreen() {
           refreshData();
           refreshComments();
         }}
+      />
+
+      <Snackbar
+        visible={rewatchSnackbarVisible}
+        message={t('rewatchConfirmation')}
+        onDismiss={() => setRewatchSnackbarVisible(false)}
+        duration={2500}
       />
     </View>
   );

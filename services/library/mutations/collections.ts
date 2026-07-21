@@ -12,6 +12,7 @@ import {
 import { fetchFreshData } from '../fetchers';
 import {
   CACHE_KEYS,
+  currentAccessToken,
   safeStorageSet,
   setWatchedShows,
   setWatchedMovies,
@@ -116,7 +117,12 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
 export const hideMediaFromProgress = async (id: number, type: 'show' | 'movie') => {
   try {
     await hideItemTrakt(id, type);
-    fetchFreshData(null, true);
+    // NOT: burada eskiden accessToken yerine `null` geçiliyordu; fetchFreshData
+    // token'ı `null` gördüğünde hiçbir şey yapmadan sessizce çıkıyor (bkz.
+    // fetchers.ts). Sonuç: "Gizle" API isteği başarıyla gidiyordu ama arayüz
+    // hiç yenilenmediği için öğe ilerleme/devam et listesinde görünmeye devam
+    // ediyordu — sonraki doğal senkrona kadar.
+    fetchFreshData(currentAccessToken, true);
   } catch (err) {
     console.error('Hide media hatası:', err);
   }

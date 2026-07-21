@@ -43,7 +43,7 @@ export default function CallToAction() {
             end={{ x: 1, y: 1 }}
             style={styles.buttonGradient}
           >
-            <Text style={styles.buttonText}>Hemen Ücretsiz Katıl →</Text>
+            <Text style={styles.buttonText}>{t('login')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>

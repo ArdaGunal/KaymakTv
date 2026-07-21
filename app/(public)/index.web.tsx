@@ -318,6 +318,14 @@ const LandingCSS = `
     .stats-panel{ padding:30px 22px; }
     .cta-band{ padding:110px 0; }
   }
+  /* .hero, min-height:100vh olduğundan içeriği dikeyde ortalıyor; kısa
+     viewport'larda (örn. küçük dizüstü pencereleri, açılır tarayıcı panelleri)
+     ortalanmış içeriğin alt kenarı, kutunun dibine sabit (bottom:36px)
+     duran "Kaydır" ipucuyla çakışabiliyordu — buton üstüne biniyordu.
+     Bu yükseklik aralığında ipucu tamamen gizlenir. */
+  @media (max-height:820px){
+    .scroll-cue{ display:none; }
+  }
 `;
 
 export default function WebLandingPage() {
@@ -410,7 +418,11 @@ export default function WebLandingPage() {
     };
   }, []);
 
-  const handleAuthRedirect = (mode: 'login' | 'register') => {
+  // "Ücretsiz Başla" (register) ve "Giriş Yap" (login) eskiden AYRI butonlardı
+  // ama ikisi de aynı yere (Trakt OAuth ekranı) gidiyordu — `mode` parametresi
+  // hiç kullanılmıyordu. Uygulamanın tek giriş yöntemi zaten Trakt olduğundan
+  // "ücretsiz kayıt" diye ayrı bir akış yok; tek, dürüst bir "Giriş Yap" yeterli.
+  const handleLogin = () => {
     router.push('/settings');
   };
 
@@ -480,9 +492,8 @@ export default function WebLandingPage() {
           </ul>
           <div className="nav-actions">
             <a onClick={handleGuest} className="link-ghost desktop-only">{t('exploreAsGuest')}</a>
-            <a onClick={() => handleAuthRedirect('login')} className="link-ghost desktop-only">Giriş Yap</a>
-            <a onClick={() => handleAuthRedirect('register')} className="btn btn-primary desktop-only">Ücretsiz Başla</a>
-            <button 
+            <a onClick={handleLogin} className="btn btn-primary desktop-only">{t('login')}</a>
+            <button
               className={`burger ${isMenuOpen ? 'open' : ''}`}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
@@ -492,12 +503,15 @@ export default function WebLandingPage() {
         </div>
       </nav>
 
+      {/* Eskiden mobil menüde misafir seçeneği hiç yoktu (yalnızca masaüstü
+          nav-actions'ta "desktop-only" sınıfıyla vardı) — dar ekran web
+          kullanıcıları giriş yapmadan uygulamayı deneyemiyordu. */}
       <div className={`mobile-menu ${isMenuOpen ? 'open' : ''}`}>
         <a href="#ozellikler" onClick={() => setIsMenuOpen(false)}>{t('features')}</a>
         <a href="#istatistik" onClick={() => setIsMenuOpen(false)}>{t('statistics')}</a>
         <a href="#kesfet" onClick={() => setIsMenuOpen(false)}>Trendler</a>
-        <a onClick={() => { setIsMenuOpen(false); handleAuthRedirect('login'); }}>Giriş Yap</a>
-        <a onClick={() => { setIsMenuOpen(false); handleAuthRedirect('register'); }} className="btn btn-primary">Ücretsiz Başla</a>
+        <a onClick={() => { setIsMenuOpen(false); handleGuest(); }}>{t('exploreAsGuest')}</a>
+        <a onClick={() => { setIsMenuOpen(false); handleLogin(); }} className="btn btn-primary">{t('login')}</a>
       </div>
 
       <header className="hero">
@@ -516,8 +530,8 @@ export default function WebLandingPage() {
           <h1>{t('heroTitle1')}<br/><em>{t('heroTitle2')}</em>{t('heroTitle3')}</h1>
           <p className="lead">{t('heroSubtitle')}</p>
           <div className="hero-ctas">
-            <a onClick={() => handleAuthRedirect('register')} className="btn btn-primary">Ücretsiz Başla</a>
-            <a href="#ozellikler" className="btn btn-outline">Nasıl çalışır?</a>
+            <a onClick={handleLogin} className="btn btn-primary">{t('login')}</a>
+            <a onClick={handleGuest} className="btn btn-outline">{t('exploreAsGuest')}</a>
           </div>
         </div>
         <div className="scroll-cue"><span>Kaydır</span><span className="line"></span></div>
@@ -649,8 +663,8 @@ export default function WebLandingPage() {
         <div className="kaymak-container reveal">
           <svg className="ribbon-cta" viewBox="0 0 1000 220"><use href="#ribbon-shape"/></svg>
           <h2>{t('startToday1')}<br/>{t('startToday2')}</h2>
-          <p>Kurulum yok, kredi kartı yok. Sadece izle ve kaydet.</p>
-          <a onClick={() => handleAuthRedirect('register')} className="btn btn-primary">Hemen Kaydol</a>
+          <p>{t('ctaBandSubtitle')}</p>
+          <a onClick={handleLogin} className="btn btn-primary">{t('login')}</a>
         </div>
       </section>
 
@@ -666,7 +680,7 @@ export default function WebLandingPage() {
                 <h5>{t('product')}</h5>
                 <a href="#ozellikler">{t('features')}</a>
                 <a href="#istatistik">{t('statistics')}</a>
-                <a onClick={() => handleAuthRedirect('login')}>Giriş Yap</a>
+                <a onClick={handleLogin}>{t('login')}</a>
               </div>
               <div className="foot-col">
                 <h5>{t('company')}</h5>

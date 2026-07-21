@@ -98,7 +98,7 @@ export default function ProfileScreenWeb() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topHeader}>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/user-settings')}>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/account')}>
             <Settings size={28} color="#ffffff" />
           </TouchableOpacity>
         </View>

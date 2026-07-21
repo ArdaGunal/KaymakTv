@@ -40,10 +40,16 @@ export default function SeasonAccordion({
   const router = useRouter();
   const [seasonLoading, setSeasonLoading] = useState(false);
   // Abonesiz aksiyon hook'u — store değişimleri bu bileşeni yeniden render etmez.
-  const { markSeasonAsWatched, markEpisodesUpToAsWatched, unwatchSeason } = useLibraryActions();
+  const { markSeasonAsWatched, markEpisodesUpToAsWatched, unwatchSeason, rewatchSeason } = useLibraryActions();
   const { isGuest } = useAuth();
 
-  const isSeasonWatched = seasonProgress && seasonProgress.completed > 0;
+  // "completed > 0" yalnızca TEK bölüm izlenmişken bile sezonu "izlendi" (yeşil
+  // tik) gösteriyordu — bu hem yanıltıcıydı hem de o durumda tek seçenek olarak
+  // "tüm sezonu geri al"ı sunuyordu. Artık yeşil tik (ve geri al/tekrar izle
+  // seçenekleri) yalnızca yayınlanmış TÜM bölümler tamamlanmışken gösteriliyor;
+  // kısmen izlenmiş sezonlarda buton normal "kalanları işaretle" akışına düşer.
+  const airedInSeason = seasonProgress?.aired || 0;
+  const isSeasonWatched = !!seasonProgress && airedInSeason > 0 && seasonProgress.completed >= airedInSeason;
 
   const runSeasonAction = async (action: () => Promise<any>) => {
     setSeasonLoading(true);
@@ -71,17 +77,33 @@ export default function SeasonAccordion({
       ? t('specials', 'Özel Bölümler')
       : t('seasonNum', { number: season.number });
 
-    // İzlenmişse: geçmişi silme onayı (yıkıcı işlem)
+    // Sezon tamamen izlenmişse: tekrar izle (Trakt'a yeni bir "play" ekler) ya
+    // da geçmişi tamamen sil (yıkıcı). Her iki seçenek de kendi onayını alır.
     if (isSeasonWatched) {
       Alert.alert(
-        t('unwatchSeasonTitle', 'Sezonu Geri Al'),
-        t('unwatchSeasonMsg', { defaultValue: `${seasonLabel} için tüm izleme geçmişi silinecek. Emin misiniz?` }),
+        t('seasonOptionsTitle'),
+        t('seasonOptionsMsg', { season: seasonLabel }),
         [
           { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
           {
-            text: t('common:delete', 'Geri Al'),
+            text: t('rewatch'),
+            onPress: () => runSeasonAction(() => rewatchSeason(showTraktId, season.number)),
+          },
+          {
+            text: t('unwatchSeasonTitle'),
             style: 'destructive',
-            onPress: () => runSeasonAction(() => unwatchSeason(showTraktId, season.number)),
+            onPress: () => Alert.alert(
+              t('unwatchSeasonTitle'),
+              t('unwatchSeasonMsg', { season: seasonLabel }),
+              [
+                { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
+                {
+                  text: t('common:delete', 'Geri Al'),
+                  style: 'destructive',
+                  onPress: () => runSeasonAction(() => unwatchSeason(showTraktId, season.number)),
+                },
+              ]
+            ),
           },
         ]
       );
@@ -96,23 +118,23 @@ export default function SeasonAccordion({
 
     if (airedEps.length === 0) {
       Alert.alert(
-        t('seasonNotAiredTitle', 'Henüz Yayınlanmadı'),
-        t('seasonNotAiredMsg', { defaultValue: `${seasonLabel} bölümleri henüz yayınlanmadığı için işaretlenemez.` })
+        t('seasonNotAiredTitle'),
+        t('seasonNotAiredMsg', { season: seasonLabel })
       );
       return;
     }
 
     const message = unairedCount > 0
-      ? t('markSeasonPartialMsg', { defaultValue: `Yayınlanmış ${airedEps.length} bölüm izlendi olarak işaretlenecek (henüz çıkmamış ${unairedCount} bölüm atlanacak). Devam edilsin mi?` })
-      : t('markSeasonMsg', { defaultValue: `${seasonLabel} içindeki ${airedEps.length} bölümün tamamı izlendi olarak işaretlensin mi?` });
+      ? t('markSeasonPartialMsg', { count: airedEps.length, unaired: unairedCount })
+      : t('markSeasonMsg', { season: seasonLabel, count: airedEps.length });
 
     Alert.alert(
-      t('markSeasonTitle', 'Sezonu İşaretle'),
+      t('markSeasonTitle'),
       message,
       [
         { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
         {
-          text: t('markAsWatched', 'İşaretle'),
+          text: t('markAsWatched'),
           onPress: () => runSeasonAction(() =>
             unairedCount > 0
               // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
@@ -212,26 +234,28 @@ export default function SeasonAccordion({
 
 const styles = StyleSheet.create({
   seasonContainer: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 16,
     marginBottom: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
   seasonHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#263346',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   seasonTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#f8fafc',
+    letterSpacing: -0.2,
   },
   episodesList: {
     padding: 12,
-    backgroundColor: '#1e293b',
   },
   episodeRow: {
     flexDirection: 'row',
@@ -270,10 +294,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   unairedBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   unairedText: {
     fontSize: 12,
@@ -283,12 +307,12 @@ const styles = StyleSheet.create({
   seasonHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   markSeasonBtn: {
-    marginRight: 16,
-    padding: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 6,
+    padding: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
   },
   markSeasonBtnWatched: {
     backgroundColor: '#10b981',
