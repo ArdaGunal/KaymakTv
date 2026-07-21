@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -8,9 +8,10 @@ interface SearchBarProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   debounceMs?: number;
+  style?: StyleProp<ViewStyle>;
 }
 
-export default function SearchBar({ value, onChangeText, placeholder, debounceMs = 500 }: SearchBarProps) {
+export default function SearchBar({ value, onChangeText, placeholder, debounceMs = 500, style }: SearchBarProps) {
   const { t } = useTranslation('common');
   const [localValue, setLocalValue] = useState(value);
   const actualPlaceholder = placeholder || t('searchPlaceholder');
@@ -37,7 +38,7 @@ export default function SearchBar({ value, onChangeText, placeholder, debounceMs
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <Search color="#9ca3af" size={20} style={styles.icon} />
       <TextInput
         style={styles.input}

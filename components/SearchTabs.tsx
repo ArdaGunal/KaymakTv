@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 export type SearchTabType = 'show' | 'movie';
@@ -7,12 +7,13 @@ export type SearchTabType = 'show' | 'movie';
 interface SearchTabsProps {
   activeTab: SearchTabType;
   onTabChange: (tab: SearchTabType) => void;
+  style?: StyleProp<ViewStyle>;
 }
 
-export default function SearchTabs({ activeTab, onTabChange }: SearchTabsProps) {
+export default function SearchTabs({ activeTab, onTabChange, style }: SearchTabsProps) {
   const { t } = useTranslation('navigation');
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'show' && styles.activeTab]}
         onPress={() => onTabChange('show')}

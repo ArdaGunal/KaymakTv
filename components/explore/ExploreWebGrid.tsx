@@ -152,12 +152,16 @@ interface ExploreWebGridProps {
   header: React.ReactElement;
   refreshControl: React.ReactElement<any>;
   screenWidth: number;
+  onScroll?: (offsetY: number) => void;
 }
 
 const COLUMN_COUNT = 5;
 const CARD_GAP = 16;
 
-export default function ExploreWebGrid({
+// "Yukarı Çık" butonunun tetiklenebilmesi için üst bileşenin (explore.tsx)
+// alttaki FlatList'e `scrollToOffset` çağırabilmesi gerekiyor — bu yüzden
+// forwardRef ile FlatList referansı dışarı açılıyor.
+const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(function ExploreWebGrid({
   data,
   loading,
   loadingMore,
@@ -166,7 +170,8 @@ export default function ExploreWebGrid({
   header,
   refreshControl,
   screenWidth,
-}: ExploreWebGridProps) {
+  onScroll,
+}, ref) {
   const { t } = useTranslation('common');
 
   const containerPadding = 32;
@@ -176,6 +181,7 @@ export default function ExploreWebGrid({
 
   return (
     <FlatList
+      ref={ref}
       data={data}
       numColumns={COLUMN_COUNT}
       key={`grid-${COLUMN_COUNT}`}
@@ -188,6 +194,8 @@ export default function ExploreWebGrid({
       columnWrapperStyle={styles.columnWrapper}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={header}
+      onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined}
+      scrollEventThrottle={16}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
       refreshControl={refreshControl}
@@ -212,7 +220,9 @@ export default function ExploreWebGrid({
       }
     />
   );
-}
+});
+
+export default ExploreWebGrid;
 
 const styles = StyleSheet.create({
   // Grid card
