@@ -108,14 +108,42 @@ export default function ExploreScreen() {
     </View>
   );
 
-  // Web: UX geri bildirimi üzerine yeniden düzenlendi. Diziler/Filmler sekmesi
-  // artık tam genişlikte kendi satırında, SABİT DEĞİL — sayfayla birlikte
-  // kayıp gözden kaybolur. Onun hemen altındaki arama çubuğu ise `position:
-  // sticky` ile ekranın tepesine yapışır; sekmeler kaybolduktan sonra ekranda
-  // yalnızca yarı saydam + bulanık (glassmorphism) arama satırı kalır, afişler
-  // arkasından kayarak geçer. Arama çubuğunun yanındaki "Yukarı Çık" butonu
-  // yalnızca yeterince aşağı kaydırılınca belirir.
-  const renderDesktopHeader = () => (
+  // Web: arama çubuğu artık `position: sticky` ile DEĞİL, mobildeki
+  // `renderPinnedBar()` ile AYNI güvenilir desende — listenin/grid'in
+  // TAMAMEN DIŞINDA, gerçek bir kardeş eleman olarak — her zaman görünür
+  // kalıyor. Önceki `position: sticky` + yarı saydam siyah/blur yaklaşımı,
+  // FlatList'in (react-native-web'de sanallaştırılmış/kaydırılan bir alt
+  // ağaç) `ListHeaderComponent`'i içinde güvenilir çalışmıyordu: kaydırma
+  // sırasında takılıp kalıyor, tepede "yapışık" görünüyor ve arkasındaki
+  // koyu/siyah yarı saydam katman içerikle beklenmedik şekilde çakışıyordu.
+  // Diziler/Filmler sekmesi ise SABİT DEĞİL — grid'in `ListHeaderComponent`'i
+  // (aşağıdaki `renderDesktopScrollHeader`) içinde, sayfayla birlikte kayar.
+  const renderDesktopSearchBar = () => (
+    <View style={styles.desktopSearchBarWeb}>
+      <View style={styles.desktopSearchInnerWeb}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('exploreSearchPH')}
+          style={styles.searchBarFlexWeb}
+        />
+        {showScrollTop && (
+          <TouchableOpacity
+            style={styles.scrollTopBtnWeb}
+            onPress={scrollToTop}
+            activeOpacity={0.75}
+          >
+            <ArrowUp size={18} color="#e2e8f0" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  // Kaydırılabilir kısım: başlık + Diziler/Filmler sekmesi + bölüm etiketi —
+  // bunlar sabitlenmez, `ExploreWebGrid`'in `ListHeaderComponent`'i olarak
+  // içerikle birlikte kayar.
+  const renderDesktopScrollHeader = () => (
     <>
       <View style={styles.desktopTopSectionWeb}>
         <Text style={[styles.headerTitle, styles.headerTitleWeb]}>
@@ -126,26 +154,6 @@ export default function ExploreScreen() {
           onTabChange={setActiveTab}
           style={styles.searchTabsFullWeb}
         />
-      </View>
-
-      <View style={styles.stickySearchBarWeb}>
-        <View style={styles.stickySearchInnerWeb}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('exploreSearchPH')}
-            style={styles.searchBarFlexWeb}
-          />
-          {showScrollTop && (
-            <TouchableOpacity
-              style={styles.scrollTopBtnWeb}
-              onPress={scrollToTop}
-              activeOpacity={0.75}
-            >
-              <ArrowUp size={18} color="#e2e8f0" />
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
 
       <View style={styles.headerContainerWeb}>
@@ -169,6 +177,7 @@ export default function ExploreScreen() {
   if (isDesktop) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
+        {renderDesktopSearchBar()}
         <ExploreWebGrid
           ref={desktopGridRef}
           data={currentData}
@@ -176,7 +185,7 @@ export default function ExploreScreen() {
           loadingMore={loadingMore}
           error={error}
           onEndReached={fetchMore}
-          header={renderDesktopHeader()}
+          header={renderDesktopScrollHeader()}
           refreshControl={refreshControl}
           screenWidth={width}
           onScroll={handleDesktopScroll}
@@ -270,24 +279,18 @@ const styles = StyleSheet.create({
   searchTabsFullWeb: {
     marginBottom: 16,
   },
-  // Yapışkan arama satırı: ListHeaderComponent içinde `position: sticky` ile
-  // sekmeler kaybolduktan sonra ekranın tepesinde kalır. Katı bir renk yerine
-  // yarı saydam siyah + blur (glassmorphism) — afişler arkasından kayar.
-  stickySearchBarWeb: {
-    position: 'sticky' as any,
-    top: 0,
-    zIndex: 20,
+  // Arama çubuğu: mobildeki `pinnedBar` ile AYNI güvenilir desen — grid'in
+  // TAMAMEN DIŞINDA, gerçek (`position: sticky` OLMAYAN) bir kardeş eleman.
+  // Sayfanın kendi koyu-lacivert arka planıyla aynı, opak renk — önceki yarı
+  // saydam siyah/blur katmanın içerikle çakışma sorunu artık mümkün değil.
+  desktopSearchBarWeb: {
     width: '100%',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: '#0B1120',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
-    ...(Platform.OS === 'web' && {
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-    } as any),
   },
-  stickySearchInnerWeb: {
+  desktopSearchInnerWeb: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

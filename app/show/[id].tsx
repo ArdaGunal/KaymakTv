@@ -11,6 +11,7 @@ import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
 import { useLibrary } from '../../context/LibraryContext';
+import { useTrackingStore } from '../../store/tracking/useTrackingStore';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import EpisodeCheckButton from '../../components/EpisodeCheckButton';
 import MediaHero from '../../components/MediaHero';
@@ -51,7 +52,10 @@ const {
     deleteMediaFromHistory,
   } = useLibrary();
   const { isGuest } = useAuth();
-  
+  const droppedIds = useTrackingStore((s) => s.droppedIds);
+  const toggleDroppedStatus = useTrackingStore((s) => s.toggleDroppedStatus);
+  const hydrateTracking = useTrackingStore((s) => s.hydrate);
+
   const idStr = Array.isArray(id) ? id[0] : id;
   const { traktId: traktIdNum, slugText: showSlug } = parseMediaSlug(idStr as string);
 
@@ -98,6 +102,11 @@ const {
 
   const isWatchlisted = watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
   const isFavorited = favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
+  const isDropped = droppedIds.includes(traktIdNum);
+
+  useEffect(() => {
+    hydrateTracking();
+  }, [hydrateTracking]);
 
   const handleUnwatchEpisode = async () => {
     const success = await hookHandleUnwatchEpisode(selectedEpisode);
@@ -218,6 +227,8 @@ const {
           onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
           onHideFromProgress={() => hideMediaFromProgress(traktIdNum, 'show')}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
+          isDropped={isDropped}
+          onToggleDropped={() => toggleDroppedStatus(traktIdNum)}
         />
 
         <View style={styles.contentArea}>

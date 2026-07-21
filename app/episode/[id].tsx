@@ -20,6 +20,8 @@ import MyInlineComment from '../../components/MyInlineComment';
 import MediaCast from '../../components/MediaCast';
 import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
+import { useTrackingStore } from '../../store/tracking/useTrackingStore';
+import { getProgressBarColor } from '../../utils/progressBarColor';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
 import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug } from '../../utils/slugHelper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,6 +95,18 @@ export default function EpisodeDetailScreen() {
   const showProgress = showProgressMap[traktIdNum];
   const hasShowProgress = showProgress && showProgress.aired > 0 && showProgress.completed > 0;
   const showProgressPercentage = hasShowProgress ? (showProgress.completed / showProgress.aired) * 100 : 0;
+  const droppedIds = useTrackingStore((s) => s.droppedIds);
+  const hydrateTracking = useTrackingStore((s) => s.hydrate);
+  const isShowDropped = droppedIds.includes(traktIdNum);
+  const isShowFinished = !!hasShowProgress && showProgress.completed >= showProgress.aired;
+  const showProgressColor = getProgressBarColor(isShowDropped, isShowFinished);
+
+  // Bu sayfaya İzleme sekmesine hiç uğramadan (örn. bir bildirimden/paylaşılan
+  // linkten) doğrudan gelinmiş olabilir — `droppedIds` o durumda boş kalır ve
+  // daha önce bırakılmış bir dizi burada yanlışlıkla "aktif" (mavi) görünür.
+  useEffect(() => {
+    hydrateTracking();
+  }, [hydrateTracking]);
 
   const handleRate = async (val: number) => {
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
@@ -334,7 +348,7 @@ export default function EpisodeDetailScreen() {
             {hasShowProgress && (
               <View style={styles.progressContainer}>
                 <View style={styles.progressBarWrapper}>
-                  <ProgressBar percentage={showProgressPercentage} />
+                  <ProgressBar percentage={showProgressPercentage} fillColor={showProgressColor} />
                 </View>
                 <Text style={styles.progressText}>%{Math.round(showProgressPercentage)}</Text>
               </View>

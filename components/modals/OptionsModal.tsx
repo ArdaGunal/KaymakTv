@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
-import { Bookmark, EyeOff, Share2, CheckCheck, Trash2 } from 'lucide-react-native';
+import { Bookmark, EyeOff, Share2, CheckCheck, Trash2, PauseCircle } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,9 @@ interface OptionsModalProps {
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
+  /** Yalnızca dizilerde: takip modülündeki manuel "Bırakıldı" işaretlemesi. */
+  isDropped?: boolean;
+  onToggleDropped?: () => void;
 }
 
 export default function OptionsModal({
@@ -29,7 +32,9 @@ export default function OptionsModal({
   onToggleWatchlist,
   onHideFromProgress,
   onDeleteFromHistory,
-  onRewatch
+  onRewatch,
+  isDropped,
+  onToggleDropped,
 }: OptionsModalProps) {
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
@@ -86,6 +91,17 @@ export default function OptionsModal({
     );
   };
 
+  const handleToggleDropped = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      onClose();
+      return;
+    }
+    if (!onToggleDropped) return;
+    onToggleDropped();
+    onClose();
+  };
+
   const handleDeleteHistory = () => {
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
@@ -132,6 +148,15 @@ export default function OptionsModal({
             <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
               <EyeOff color="#fff" size={24} />
               <Text style={styles.optionText}>{t('hideProgress')}</Text>
+            </TouchableOpacity>
+          )}
+
+          {type === 'show' && onToggleDropped && (
+            <TouchableOpacity style={styles.optionRow} onPress={handleToggleDropped}>
+              <PauseCircle color={isDropped ? '#fbbf24' : '#fff'} size={24} />
+              <Text style={styles.optionText}>
+                {isDropped ? t('removeFromDropped') : t('addToDropped')}
+              </Text>
             </TouchableOpacity>
           )}
 

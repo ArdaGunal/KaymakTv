@@ -16,6 +16,7 @@ import { generateMediaSlug } from '../utils/slugHelper';
 import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
+import { getProgressBarColor } from '../utils/progressBarColor';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -34,6 +35,9 @@ interface MediaHeroProps {
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
+  /** Yalnızca dizilerde: takip modülündeki manuel "Bırakıldı" işaretlemesi. */
+  isDropped?: boolean;
+  onToggleDropped?: () => void;
 }
 
 export default function MediaHero({
@@ -53,6 +57,8 @@ export default function MediaHero({
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
+  isDropped,
+  onToggleDropped,
 }: MediaHeroProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -67,6 +73,8 @@ export default function MediaHero({
   const progress = type === 'show' && data?.ids?.trakt ? showProgressMap[data.ids.trakt] : null;
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
+  const isFinished = !!hasProgress && progress.completed >= progress.aired;
+  const progressColor = getProgressBarColor(!!isDropped, isFinished);
 
 
   const handleRate = (r: number) => {
@@ -222,7 +230,7 @@ export default function MediaHero({
           {hasProgress && (
             <View style={styles.progressContainer}>
               <View style={styles.progressBarWrapper}>
-                <ProgressBar percentage={progressPercentage} />
+                <ProgressBar percentage={progressPercentage} fillColor={progressColor} />
               </View>
               <Text style={styles.progressText}>%{Math.round(progressPercentage)}</Text>
             </View>
@@ -280,6 +288,8 @@ export default function MediaHero({
         onHideFromProgress={onHideFromProgress}
         onDeleteFromHistory={onDeleteFromHistory}
         onRewatch={onRewatch}
+        isDropped={isDropped}
+        onToggleDropped={onToggleDropped}
       />
 
       <AddToListModal

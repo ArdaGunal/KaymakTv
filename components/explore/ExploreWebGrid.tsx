@@ -16,7 +16,6 @@ import { useLibrarySelector, useLibraryActions } from '../../context/LibraryCont
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
 import LoadingIndicator from '../LoadingIndicator';
-import ProgressBar from '../ProgressBar';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
 

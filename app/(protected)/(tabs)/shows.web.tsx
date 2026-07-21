@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 
 import EpisodeCard from '../../../components/EpisodeCard';
+import ShowTrackCardWeb from '../../../components/tracking/ShowTrackCardWeb';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import InlineRater from '../../../components/InlineRater';
 import { addRating, getTrendingShows } from '../../../services/traktApi';
@@ -16,6 +17,7 @@ import IndexMobile from '../../../screens/IndexMobile';
 import { viewAllStore } from '../../../utils/viewAllStore';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useDashboardData } from '../../../hooks/useDashboardData';
+import { useTrackingShows } from '../../../hooks/useTrackingShows';
 import { groupByDateGroup } from '../../../utils/groupByDateGroup';
 
 export default function DizilerScreenWeb() {
@@ -30,24 +32,25 @@ export default function DizilerScreenWeb() {
   const [trendingFallback, setTrendingFallback] = useState<any[]>([]);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [finishedShow, setFinishedShow] = useState<{name: string, id: number} | null>(null);
+  const [finishedShow, setFinishedShow] = useState<{ name: string; id: number } | null>(null);
 
   const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Katı seçici: yalnızca dizi dilimleri okunur; film dilimleri değiştiğinde bu ekran render olmaz.
-  const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, isLibraryLoading } = useLibrarySelector(s => ({
+  // ── Yeni izole takip modülü (İzleme sekmesi kategorileri).
+  const { categories, isLoading: trackingLoading, isEmpty, toggleDroppedStatus } = useTrackingShows();
+
+  // ── Yaklaşan (takvim) sekmesi eski, sağlam hattı kullanmaya devam eder.
+  const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
     calendarShows: s.calendarShows,
     showProgressMap: s.showProgressMap,
     calendarSeasonsMap: s.calendarSeasonsMap,
-    isLibraryLoading: s.isLoading,
   }));
   const { refreshLibrary } = useLibraryActions();
 
-  // Ağır veri harmanlama işi mobil ile ORTAK hook'ta ve memoize edilmiş durumda.
-  const { upNextShows, inactiveShows, watchlistShowsList, upcomingShows } = useDashboardData(
+  const { upcomingShows } = useDashboardData(
     watchedShows,
     watchlistShows,
     calendarShows,
@@ -55,12 +58,10 @@ export default function DizilerScreenWeb() {
     calendarSeasonsMap,
     i18n.language
   );
-
   const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
-    // Geçiş animasyonu takılmasın diye ağır liste render'ı bir tık ertelenir.
     setTimeout(() => setRenderedTab(tab), 50);
   }, []);
 
@@ -103,8 +104,14 @@ export default function DizilerScreenWeb() {
     setShowConfetti(true);
   }, []);
 
-  // Tek stable renderItem: her carousel'e aynı referans gider,
-  // WebCarousel'in React.memo'su böylece gereksiz render'ları eleyebilir.
+  // Takip kartı (poster) — Netflix tarzı; carousel içinde yan yana sıkı dizilir.
+  const renderTrackItem = useCallback(
+    ({ item }: { item: any }) => (
+      <ShowTrackCardWeb data={item} onShowFinished={handleShowFinished} onToggleDropped={toggleDroppedStatus} />
+    ),
+    [handleShowFinished, toggleDroppedStatus]
+  );
+  // Trend/yaklaşan için eski yatay EpisodeCard hâlâ kullanılır.
   const renderEpisodeItem = useCallback(
     ({ item }: { item: any }) => <EpisodeCard data={item} onShowFinished={handleShowFinished} />,
     [handleShowFinished]
@@ -116,13 +123,13 @@ export default function DizilerScreenWeb() {
     router.push(`/(protected)/library/view-all?type=${routeType}` as any);
   }, [router]);
 
-  const renderCarousel = (title: string, data: any[], routeType: string = 'shows') => (
-    <WebCarousel
-      title={title}
-      data={data}
-      renderItem={renderEpisodeItem}
-      onViewAll={() => openViewAll(title, data, routeType)}
-    />
+  const renderTrackCarousel = (title: string, data: any[]) =>
+    data.length > 0 ? (
+      <WebCarousel title={title} data={data} renderItem={renderTrackItem} onViewAll={() => openViewAll(title, data, 'shows')} />
+    ) : null;
+
+  const renderCarousel = (title: string, data: any[]) => (
+    <WebCarousel title={title} data={data} renderItem={renderEpisodeItem} onViewAll={() => openViewAll(title, data, 'shows')} />
   );
 
   if (!isDesktop) {
@@ -139,8 +146,7 @@ export default function DizilerScreenWeb() {
     );
   }
 
-  const effectiveUpNext = accessToken ? upNextShows : trendingFallback;
-  const isLoading = accessToken ? isLibraryLoading : isTrendingLoading;
+  const trackingSkeleton = accessToken && renderedTab === 'izleme' && trackingLoading && isEmpty;
 
   return (
     <View style={styles.pageBackground}>
@@ -149,13 +155,7 @@ export default function DizilerScreenWeb() {
         style={styles.container}
         contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100 }]}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#ffffff"
-            colors={['#ffffff']}
-            progressBackgroundColor="#262626"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" colors={['#ffffff']} progressBackgroundColor="#262626" />
         }
       >
         <View style={styles.segmentedControlContainer}>
@@ -175,29 +175,25 @@ export default function DizilerScreenWeb() {
           </TouchableOpacity>
         </View>
 
-        {isLoading ? (
-          <View style={{ marginTop: 24 }}>
-             <Text style={styles.categoryTitle}>{t('upNext')}</Text>
-             <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
-                <SkeletonLoader width={180} height={270} borderRadius={8} />
-                <SkeletonLoader width={180} height={270} borderRadius={8} />
-                <SkeletonLoader width={180} height={270} borderRadius={8} />
-                <SkeletonLoader width={180} height={270} borderRadius={8} />
-             </View>
-
-             <Text style={styles.categoryTitle}>{t('notStarted')}</Text>
-             <View style={{ flexDirection: 'row', gap: 16 }}>
-                <SkeletonLoader width={180} height={270} borderRadius={8} />
-                <SkeletonLoader width={180} height={270} borderRadius={8} />
-             </View>
+        {trackingSkeleton ? (
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.categoryTitle}>{t('upNext')}</Text>
+            <View style={styles.skeletonRow}>
+              <SkeletonLoader width={180} height={270} borderRadius={8} />
+              <SkeletonLoader width={180} height={270} borderRadius={8} />
+              <SkeletonLoader width={180} height={270} borderRadius={8} />
+              <SkeletonLoader width={180} height={270} borderRadius={8} />
+            </View>
+          </View>
+        ) : isTrendingLoading && !accessToken ? (
+          <View style={styles.skeletonRow}>
+            <SkeletonLoader width={180} height={270} borderRadius={8} />
+            <SkeletonLoader width={180} height={270} borderRadius={8} />
+            <SkeletonLoader width={180} height={270} borderRadius={8} />
           </View>
         ) : renderedTab === 'yaklasan' && accessToken ? (
           groupedUpcomingShows.length > 0 ? (
-            groupedUpcomingShows.map(group => (
-              <React.Fragment key={group.title}>
-                {renderCarousel(group.title, group.data)}
-              </React.Fragment>
-            ))
+            groupedUpcomingShows.map((group) => <React.Fragment key={group.title}>{renderCarousel(group.title, group.data)}</React.Fragment>)
           ) : (
             <Text style={styles.emptyText}>{t('noUpcomingShows')}</Text>
           )
@@ -208,17 +204,16 @@ export default function DizilerScreenWeb() {
                 <Text style={styles.filterPillText}>{t('trendShowsApi')}</Text>
               </View>
             </View>
-            {renderCarousel(t('trendShowsApi'), effectiveUpNext)}
+            {renderCarousel(t('trendShowsApi'), trendingFallback)}
           </>
         ) : (
           <>
-            {renderCarousel(t('upNext'), upNextShows)}
-            {renderCarousel(t('notStarted'), watchlistShowsList)}
-            {renderCarousel(t('inactive'), inactiveShows)}
+            {renderTrackCarousel(t('upNext'), categories.upNext)}
+            {renderTrackCarousel(t('paused'), categories.paused)}
+            {renderTrackCarousel(t('notStarted'), categories.notStarted)}
+            {renderTrackCarousel(t('inactive'), categories.dropped)}
 
-            {upNextShows.length === 0 && watchlistShowsList.length === 0 && inactiveShows.length === 0 && (
-              <Text style={styles.emptyText}>{t('noShowsInCategory')}</Text>
-            )}
+            {isEmpty && <Text style={styles.emptyText}>{t('noShowsInCategory')}</Text>}
           </>
         )}
 
@@ -227,22 +222,17 @@ export default function DizilerScreenWeb() {
             <View style={styles.congratsContainer}>
               <Text style={styles.congratsTitle}>{t('congrats')}</Text>
               <Text style={styles.congratsText}>{finishedShow.name} {t('showFinished')}</Text>
-
               <View style={{ marginTop: 24, padding: 16, backgroundColor: '#262626', borderRadius: 8, alignItems: 'center' }}>
-                 <Text style={{color: '#fff', fontWeight: 'bold', marginBottom: 8}}>{t('howWasShow')}</Text>
-                 <InlineRater
-                   onRate={async (val) => {
-                     await addRating(finishedShow.id, 'show', val);
-                     setTimeout(() => setShowConfetti(false), 800);
-                   }}
-                 />
+                <Text style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>{t('howWasShow')}</Text>
+                <InlineRater
+                  onRate={async (val) => {
+                    await addRating(finishedShow.id, 'show', val);
+                    setTimeout(() => setShowConfetti(false), 800);
+                  }}
+                />
               </View>
-
-              <TouchableOpacity
-                style={{ marginTop: 16, padding: 8 }}
-                onPress={() => setShowConfetti(false)}
-              >
-                 <Text style={{color: '#a3a3a3'}}>{t('close')}</Text>
+              <TouchableOpacity style={{ marginTop: 16, padding: 8 }} onPress={() => setShowConfetti(false)}>
+                <Text style={{ color: '#a3a3a3' }}>{t('close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -261,48 +251,33 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 32,
   },
-
   segmentedControlContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
     padding: 4,
     marginBottom: 32,
-    alignSelf: 'flex-start', // Left align
+    alignSelf: 'flex-start',
     minWidth: 300,
   },
-  segmentedTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 20,
-  },
+  segmentedTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center', borderRadius: 20 },
   segmentedTabActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: '#2563EB',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  segmentedTabText: {
-    fontWeight: '600',
-    color: '#a3a3a3',
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  segmentedTabTextActive: {
-    color: '#3B82F6',
-    fontWeight: 'bold',
-  },
-
+  segmentedTabText: { fontWeight: '600', color: '#94a3b8', fontSize: 13, letterSpacing: 0.5 },
+  segmentedTabTextActive: { color: '#ffffff', fontWeight: 'bold' },
   filterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   filterPill: { backgroundColor: 'rgba(82, 82, 82, 0.5)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 9999 },
   filterPillText: { color: '#ffffff', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
-
-  categoryTitle: {
-    color: '#f8fafc',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-
+  categoryTitle: { color: '#f8fafc', fontSize: 24, fontWeight: 'bold', marginBottom: 16, letterSpacing: 0.5 },
+  skeletonRow: { flexDirection: 'row', gap: 16, marginBottom: 32, flexWrap: 'wrap' },
   emptyText: { color: '#64748b', paddingVertical: 40, fontStyle: 'italic', fontSize: 16 },
   confettiOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 999 },
   congratsContainer: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 32, borderRadius: 16, alignItems: 'center' },

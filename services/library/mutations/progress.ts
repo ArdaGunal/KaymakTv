@@ -13,14 +13,43 @@ import {
   CACHE_KEYS,
   safeStorageSet,
   setWatchedMovies,
+  setWatchedShows,
   setWatchlistMovies,
   setShowProgressMap,
 } from '../utils';
+import { useTrackingStore } from '../../../store/tracking/useTrackingStore';
+
+// Kullanıcı bir dizinin yeni bir bölümünü/sezonunu izlediğinde (tek bölüm,
+// toplu bölüm veya sezon işaretleme — geri alma DEĞİL), o dizi artık "aktif
+// izleniyor" sayılmalı: Diziler > İzleme sekmesindeki normal bir dizi gibi
+// davranmalı.
+//   1. Manuel "Bırakıldı" işareti varsa kaldırılır (Bırakıldı, tarihten/
+//      ilerlemeden tamamen bağımsız, en yüksek öncelikli bir kova olduğu için
+//      progress güncellemesi tek başına bunu geçersiz kılamaz — açıkça temizlemek gerekir).
+//   2. `watchedShows`'taki `last_watched_at` "şimdi"ye çekilir — aksi halde
+//      "Ara Verilenler" (45 günden eski) kovasındaki bir dizi, eski tarih
+//      hâlâ orada dururken bölüm işaretlese bile pasif görünmeye devam ederdi.
+//      (Henüz `watchedShows`'ta hiç yoksa — örn. yalnızca watchlist'ten gelen
+//      bir dizi — dokunmuyoruz: trackingLogic zaten "son izleme bilinmiyor"
+//      durumunu güvenli varsayılan olarak aktif sayıyor.)
+const reactivateShowTracking = (showId: number) => {
+  useTrackingStore.getState().clearDroppedStatus(showId);
+
+  setWatchedShows((prev: any[]) => {
+    const idx = (prev || []).findIndex((item: any) => item?.show?.ids?.trakt === showId);
+    if (idx === -1) return prev;
+    const updated = [...prev];
+    updated[idx] = { ...updated[idx], last_watched_at: new Date().toISOString() };
+    safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(updated));
+    return updated;
+  });
+};
 
 export const markEpisodeAsWatched = async (showId: number, season: number, episode: number) => {
   let previousState: any = null;
 
   console.log(`[OPTIMISTIC UI] Bölüm UI'da işaretleniyor: Show ${showId}, S${season}E${episode}`);
+  reactivateShowTracking(showId);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
@@ -217,6 +246,7 @@ export const rewatchEpisode = async (showId: number, season: number, episode: nu
 export const markSeasonAsWatched = async (showId: number, season: number) => {
   let previousState: any = null;
   console.log(`[OPTIMISTIC UI] Sezon UI'da işaretleniyor: Show ${showId}, S${season}`);
+  reactivateShowTracking(showId);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
@@ -269,6 +299,7 @@ export const rewatchSeason = async (showId: number, season: number) => {
 export const markEpisodesUpToAsWatched = async (showId: number, season: number, episodes: number[]) => {
   let previousState: any = null;
   console.log(`[OPTIMISTIC UI] Bölümler toplu UI'da işaretleniyor: Show ${showId}, S${season}`);
+  reactivateShowTracking(showId);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];

@@ -10,11 +10,31 @@ import { useAirCountdown } from '../hooks/useAirCountdown';
 import { useResponsive } from '../hooks/useResponsive';
 import EpisodeCardMobile from './EpisodeCardMobile';
 import EpisodeCheckButton from './EpisodeCheckButton';
+import TrackingCardMenu from './tracking/TrackingCardMenu';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
+import { getProgressBarColor } from '../utils/progressBarColor';
 
 interface EpisodeCardProps {
   data: any;
   onShowFinished?: (showName: string, showId: number) => void;
+  /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
+  onToggleDropped?: (id: number) => void;
+}
+
+// Ham etiket kodları (BIRAKILDI, EN SON, ...) her zaman Türkçe üretiliyordu ve
+// burada çevrilmeden doğrudan basılıyordu — İngilizce arayüzde de Türkçe metin
+// görünüyordu. Bilinen kodlar artık i18n üzerinden çevriliyor.
+function getTagLabel(tag: string, t: (key: string) => string): string {
+  switch (tag) {
+    case 'WATCHLIST':
+      return t('watchlistTab');
+    case 'BIRAKILDI':
+      return t('dropped');
+    case 'EN SON':
+      return t('last');
+    default:
+      return tag;
+  }
 }
 
 // Progress percentage is computed here, ready-to-use for ProgressBar
@@ -33,7 +53,7 @@ function getProgressPct(data: any): number | null {
 const CARD_WIDTH = 180;
 const CARD_HEIGHT = 270;
 
-const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
+const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCardProps) => {
   const { isDesktop } = useResponsive();
   const router = useRouter();
   const { t } = useTranslation(['media', 'common']);
@@ -63,7 +83,7 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   if (!data) return null;
 
   if (!isDesktop) {
-    return <EpisodeCardMobile data={data} onShowFinished={onShowFinished} />;
+    return <EpisodeCardMobile data={data} onShowFinished={onShowFinished} onToggleDropped={onToggleDropped} />;
   }
 
   const handleCardPress = () => {
@@ -92,6 +112,8 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
 
   const isFuture = data.rawDate !== undefined && !airStatus.isAired;
   const progressPct = getProgressPct(data);
+  const isDropped = !!data.tags?.includes('BIRAKILDI');
+  const progressColor = getProgressBarColor(isDropped, !!data.tags?.includes('TAMAMLANDI'));
 
   const episodeCode =
     data.season !== undefined && data.episode !== undefined
@@ -130,9 +152,7 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
             <View style={styles.tagsContainer}>
               {data.tags.map((tag: string) => (
                 <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>
-                    {tag === 'WATCHLIST' ? t('watchlistTab') : tag}
-                  </Text>
+                  <Text style={styles.tagText}>{getTagLabel(tag, t)}</Text>
                 </View>
               ))}
             </View>
@@ -150,7 +170,7 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
             <ProgressBar
               percentage={progressPct}
               height={3}
-              fillColor="#10b981"
+              fillColor={progressColor}
               trackColor="rgba(255,255,255,0.12)"
               style={styles.progressBar}
             />
@@ -172,6 +192,13 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
               <Pressable style={styles.infoButton} onPress={handleShowInfoPress}>
                 <Info size={16} color="#fff" strokeWidth={2} />
               </Pressable>
+              {onToggleDropped && (
+                <TrackingCardMenu
+                  title={data.showName}
+                  isDropped={!!data.tags?.includes('BIRAKILDI')}
+                  onToggleDropped={() => onToggleDropped(data.id)}
+                />
+              )}
             </View>
 
             {/* Center play icon */}
@@ -295,6 +322,8 @@ const styles = StyleSheet.create({
   overlayTop: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
   },
   infoButton: {
     width: 30,

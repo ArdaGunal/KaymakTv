@@ -5,12 +5,16 @@ import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
 import EpisodeCardActions from './EpisodeCardActions';
+import TrackingCardMenu from './tracking/TrackingCardMenu';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
+import { getProgressBarColor } from '../utils/progressBarColor';
 
 interface EpisodeCardProps {
   data: any;
   onShowFinished?: (showName: string, showId: number) => void;
+  /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
+  onToggleDropped?: (id: number) => void;
 }
 
 // Progress percentage — pure calculation, no side effects
@@ -26,7 +30,7 @@ function getProgressPct(data: any): number | null {
   return null;
 }
 
-const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
+const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCardProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
   // Başarı ekranında gösterilecek bölüm kodu — basılma anında yakalanır,
   // çünkü store güncellenince `data` çoktan sıradaki bölüme kaymış olur.
@@ -85,6 +89,8 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
   };
 
   const progressPct = getProgressPct(data);
+  const isDropped = !!data.tags?.includes('BIRAKILDI');
+  const progressColor = getProgressBarColor(isDropped, !!data.tags?.includes('TAMAMLANDI'));
 
   const episodeCode = !data.isCalculating && data.season !== undefined
     ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`
@@ -116,9 +122,18 @@ const EpisodeCard = memo(({ data, onShowFinished }: EpisodeCardProps) => {
           <ProgressBar
             percentage={progressPct}
             height={3}
-            fillColor="#10b981"
+            fillColor={progressColor}
             trackColor="rgba(255,255,255,0.12)"
             style={styles.progressBar}
+          />
+        )}
+
+        {onToggleDropped && (
+          <TrackingCardMenu
+            style={styles.menuOverlay}
+            title={data.showName}
+            isDropped={!!data.tags?.includes('BIRAKILDI')}
+            onToggleDropped={() => onToggleDropped(data.id)}
           />
         )}
       </View>
@@ -287,6 +302,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
   },
   // Content
   contentContainer: {
