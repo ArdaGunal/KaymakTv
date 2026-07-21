@@ -13,6 +13,7 @@ import {
   getShowSeasons,
   getLikedShows,
   getLikedMovies,
+  getUserStats,
 } from '../traktApi';
 import {
   CACHE_KEYS,
@@ -31,38 +32,56 @@ import {
   setUserRatingsEpisodes,
   setShowProgressMap,
   setCalendarSeasonsMap,
+  setUserStats,
   setIsLoading,
   setIsMoviesLoading,
 } from './utils';
 
 let lastFetchTimeRef = { current: 0 };
 
+// Android'de tek bir aşırı büyük satır (SQLite CursorWindow limiti) TÜM multiGet
+// batch'ini patlatabilir. Bu durumda anahtarları tek tek okuyarak yalnızca bozuk
+// dilimin kaybolmasını sağlarız — cihazlar arası "bende çalışıyor, onda çalışmıyor"
+// farklarının tipik bir kaynağı budur.
+const safeMultiGet = async (keys: string[]): Promise<Record<string, string | null>> => {
+  try {
+    const results = await AsyncStorage.multiGet(keys);
+    return Object.fromEntries(results);
+  } catch (batchErr) {
+    console.log('multiGet başarısız, anahtarlar tek tek okunuyor:', batchErr);
+    const map: Record<string, string | null> = {};
+    for (const key of keys) {
+      try {
+        map[key] = await AsyncStorage.getItem(key);
+      } catch {
+        map[key] = null;
+      }
+    }
+    return map;
+  }
+};
+
 export const loadCache = async () => {
   try {
-    // Bütün cache anahtarlarını paralel olarak oku
     const keys = Object.values(CACHE_KEYS);
-    const results = await AsyncStorage.multiGet(keys);
-    const cacheMap = Object.fromEntries(results);
+    const cacheMap = await safeMultiGet(keys);
 
+    // Her dilim BAĞIMSIZ parse edilir: biri bozuksa yalnızca o dilim atlanır.
+    // ESKİ DAVRANIŞ: progress boş/bozuksa TÜM önbellek (takvim sezon haritası
+    // dahil) yok sayılıyordu → o cihaz her açılışta sıfırdan tam senkrona
+    // giriyor, kartlar dakikalarca "hesaplanıyor" spinner'ında kalıyordu.
     const getParsed = (key: string) => {
-      const data = cacheMap[key];
-      return data && data !== 'null' ? JSON.parse(data) : null;
+      try {
+        const data = cacheMap[key];
+        return data && data !== 'null' ? JSON.parse(data) : null;
+      } catch {
+        return null;
+      }
     };
 
-    const parsedProgress = getParsed(CACHE_KEYS.showProgressMap);
-    const parsedWatchedShows = getParsed(CACHE_KEYS.watchedShows);
+    const parsedProgress = getParsed(CACHE_KEYS.showProgressMap) || {};
 
-    // Şema Doğrulaması (Eski formattaki bozuk/eksik cache'leri engellemek için)
-    const hasProgressMap = parsedProgress && Object.keys(parsedProgress).length > 0;
-    const hasSeasons = parsedWatchedShows && parsedWatchedShows.length > 0 && parsedWatchedShows[0].seasons !== undefined;
-
-    if (!hasProgressMap || !hasSeasons) {
-      console.log('Cache eksik veya eski formatta, yoksayılıyor...');
-      setIsLoading(false); // MUST set false even if cache is invalid!
-      return;
-    }
-
-    setWatchedShows(parsedWatchedShows || []);
+    setWatchedShows(getParsed(CACHE_KEYS.watchedShows) || []);
     setWatchedMovies(getParsed(CACHE_KEYS.watchedMovies) || []);
     setCustomLists(getParsed(CACHE_KEYS.customLists) || []);
     setFavShows(getParsed(CACHE_KEYS.favShows) || []);
@@ -74,13 +93,19 @@ export const loadCache = async () => {
     setUserRatingsShows(getParsed(CACHE_KEYS.userRatingsShows) || []);
     setUserRatingsMovies(getParsed(CACHE_KEYS.userRatingsMovies) || []);
     setUserRatingsEpisodes(getParsed(CACHE_KEYS.userRatingsEpisodes) || []);
-    setShowProgressMap(parsedProgress || {});
+    setShowProgressMap(parsedProgress);
     setCalendarSeasonsMap(getParsed(CACHE_KEYS.calendarSeasonsMap) || {});
-    lastFetchTimeRef.current = getParsed(CACHE_KEYS.lastFetchTime) || 0;
-    setIsLoading(false);
+    setUserStats(getParsed(CACHE_KEYS.userStats) || null);
 
+    // Progress haritası boşsa TTL'yi sıfırla: fetchFreshData kesin çalışsın.
+    // Aksi halde 10 dakikalık TTL yüzünden kartlar spinner'da asılı kalırdı.
+    const hasProgress = Object.keys(parsedProgress).length > 0;
+    lastFetchTimeRef.current = hasProgress ? (getParsed(CACHE_KEYS.lastFetchTime) || 0) : 0;
   } catch (error) {
     console.log('Cache okuma hatası:', error);
+  } finally {
+    // Hata yolunda bile UI kilidi açılmalı (eskiden catch'te unutulmuştu).
+    setIsLoading(false);
   }
 };
 
@@ -112,7 +137,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
 
     const [showsData, wlistShows, calShows] = await Promise.all([pShowsData, pWlistShows, pCalShows]);
 
-    const [cachedShowsStr, cachedProgressStr, cachedSeasonsStr] = await AsyncStorage.multiGet([
+    const deltaCache = await safeMultiGet([
       CACHE_KEYS.watchedShows,
       CACHE_KEYS.showProgressMap,
       CACHE_KEYS.calendarSeasonsMap
@@ -122,9 +147,9 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     let oldProgressMap: Record<string, any> = {};
     let oldSeasonsMap: Record<string, any> = {};
 
-    if (cachedShowsStr[1]) {
+    if (deltaCache[CACHE_KEYS.watchedShows]) {
       try {
-        const arr = JSON.parse(cachedShowsStr[1]);
+        const arr = JSON.parse(deltaCache[CACHE_KEYS.watchedShows] as string);
         arr.forEach((item: any) => {
           if (item.show?.ids?.trakt) {
             oldWatchedShowsMap.set(item.show.ids.trakt, item.last_watched_at);
@@ -133,12 +158,12 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       } catch (e) {}
     }
 
-    if (cachedProgressStr[1]) {
-      try { oldProgressMap = JSON.parse(cachedProgressStr[1]); } catch (e) {}
+    if (deltaCache[CACHE_KEYS.showProgressMap]) {
+      try { oldProgressMap = JSON.parse(deltaCache[CACHE_KEYS.showProgressMap] as string); } catch (e) {}
     }
 
-    if (cachedSeasonsStr[1]) {
-      try { oldSeasonsMap = JSON.parse(cachedSeasonsStr[1]); } catch (e) {}
+    if (deltaCache[CACHE_KEYS.calendarSeasonsMap]) {
+      try { oldSeasonsMap = JSON.parse(deltaCache[CACHE_KEYS.calendarSeasonsMap] as string); } catch (e) {}
     }
 
     const showIds = new Set<number>();
@@ -170,22 +195,27 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // UI KİLİDİNİ AÇ! Ana sayfa için gerekenler geldi.
     setIsLoading(false);
 
-    // TIER 2: FİLMLER SEKME İHTİYAÇLARI (Acil)
+    // TIER 2: FİLMLER SEKME İHTİYAÇLARI (Acil) — profil istatistik kartı da
+    // hafif tek bir istek olduğundan (network limitini zorlamaz) bu tur'a eklendi.
     Promise.all([
       getWatchlistMovies().catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
-      getMyCalendarMovies(33).catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; })
-    ]).then(([wlistMovies, calMovies]) => {
+      getMyCalendarMovies(33).catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; }),
+      getUserStats().catch((e) => { console.error('getUserStats failed', e.message); return null; })
+    ]).then(([wlistMovies, calMovies, stats]) => {
       if (wlistMovies !== null) setWatchlistMovies(wlistMovies);
       if (calMovies !== null) setCalendarMovies(calMovies);
+      if (stats !== null) setUserStats(stats);
 
       setIsMoviesLoading(false); // Filmler kalkanı kalktı!
 
       const multiSetDataMovies: [string, string][] = [];
       const prevWatchlistMovies = wlistMovies !== null ? wlistMovies : useLibraryStore.getState().watchlistMovies;
       const prevCalendarMovies = calMovies !== null ? calMovies : useLibraryStore.getState().calendarMovies;
+      const prevStats = stats !== null ? stats : useLibraryStore.getState().userStats;
 
       multiSetDataMovies.push([CACHE_KEYS.watchlistMovies, JSON.stringify(prevWatchlistMovies)]);
       multiSetDataMovies.push([CACHE_KEYS.calendarMovies, JSON.stringify(prevCalendarMovies)]);
+      if (prevStats) multiSetDataMovies.push([CACHE_KEYS.userStats, JSON.stringify(prevStats)]);
       AsyncStorage.multiSet(multiSetDataMovies).catch(err => console.log(err));
     });
 
@@ -232,25 +262,50 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     (async () => {
       const uniqueIds = Array.from(showIds);
       const CHUNK_SIZE = 6;
-
-      let newProgressMap: Record<string, any> = {};
+      // Diske her chunk'ta değil, birkaç chunk'ta bir yaz (büyük haritayı
+      // sürekli serileştirmemek için).
+      const PERSIST_EVERY_CHUNKS = 4;
+      let completedChunks = 0;
 
       for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
         const chunk = uniqueIds.slice(i, i + CHUNK_SIZE);
+        const chunkResults: Record<string, any> = {};
         await Promise.all(chunk.map(async (id) => {
           try {
-            const progress = await getShowProgress(id as number);
-            newProgressMap[id as number] = progress;
+            chunkResults[id as number] = await getShowProgress(id as number);
           } catch(e) {
             console.log('Progress çekilemedi: ', id);
           }
         }));
+
+        // KADEMELİ YAYIN: her chunk store'a ANINDA işlenir — kartlardaki
+        // "hesaplanıyor" spinner'ları 6'şarlı gruplar halinde söner. Eskiden
+        // TÜM döngü bitmeden store'a hiçbir şey yazılmadığından, yavaş ağ +
+        // büyük kütüphanede spinner'lar dakikalarca dönüyordu.
+        if (Object.keys(chunkResults).length > 0) {
+          setShowProgressMap((prev: any) => ({ ...prev, ...chunkResults }));
+        }
+
+        // KADEMELİ KALICILIK: senkron yarıda kesilirse (kullanıcı uygulamayı
+        // kapatırsa) o ana kadarki ilerleme diskte kalır; sonraki açılış delta
+        // sayesinde yalnızca eksikleri çeker. Eskiden hiçbir şey kaydedilmediği
+        // için her açılış sıfırdan başlıyordu — "hiç bitmeyen senkron" döngüsü.
+        completedChunks++;
+        if (completedChunks % PERSIST_EVERY_CHUNKS === 0) {
+          AsyncStorage.setItem(
+            CACHE_KEYS.showProgressMap,
+            JSON.stringify(useLibraryStore.getState().showProgressMap)
+          ).catch(() => {});
+        }
+
         if (i + CHUNK_SIZE < uniqueIds.length) {
           await new Promise(resolve => setTimeout(resolve, 150));
         }
       }
 
-      const mergedProgress = { ...oldProgressMap, ...newProgressMap };
+      // Son birleşim: eski harita + store'daki güncel hali (senkron sırasında
+      // kullanıcının yaptığı işaretlemeler dahil).
+      const mergedProgress = { ...oldProgressMap, ...useLibraryStore.getState().showProgressMap };
       setShowProgressMap(mergedProgress);
 
       const updatedTime = Date.now();
@@ -302,8 +357,10 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
           const TTL_48_HOURS = 48 * 60 * 60 * 1000;
           const nowMillis = Date.now();
 
+          let seasonsChunksSincePersist = 0;
           for (let i = 0; i < calUniqueIds.length; i += CHUNK_SIZE) {
             const chunk = calUniqueIds.slice(i, i + CHUNK_SIZE);
+            const chunkEntries: Record<string, any> = {};
             await Promise.all(chunk.map(async (id) => {
               const cachedData = updatedSeasonsMap[id];
               if (!cachedData || !cachedData.fetchedAt || (nowMillis - cachedData.fetchedAt > TTL_48_HOURS)) {
@@ -326,22 +383,41 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
                     })) || []
                   })).filter((s: any) => s.episodes.length > 0);
 
-                  updatedSeasonsMap[id] = {
+                  const entry = {
                     fetchedAt: nowMillis,
                     data: minimalSeasons
                   };
+                  updatedSeasonsMap[id] = entry;
+                  chunkEntries[id] = entry;
                   fetchedAny = true;
                 } catch(e) {
                   console.log('Seasons çekilemedi: ', id);
                 }
               }
             }));
+
+            // KADEMELİ YAYIN + KALICILIK: "Yaklaşanlar", 33 günlük takvimin
+            // ötesindeki bölümleri BU haritadan görür. Eskiden harita yalnızca
+            // tüm döngü bitince yazıldığından, senkronu hiç tamamlanamayan
+            // cihazlarda 33 günden ötesi asla görünmüyordu — "bende 100 gün
+            // sonrası var, onda yok" farkının sebebi buydu.
+            if (Object.keys(chunkEntries).length > 0) {
+              setCalendarSeasonsMap((prev: any) => ({ ...prev, ...chunkEntries }));
+              seasonsChunksSincePersist++;
+              if (seasonsChunksSincePersist % 3 === 0) {
+                AsyncStorage.setItem(
+                  CACHE_KEYS.calendarSeasonsMap,
+                  JSON.stringify(updatedSeasonsMap)
+                ).catch(() => {});
+              }
+            }
+
             if (i + CHUNK_SIZE < calUniqueIds.length) {
               await new Promise(resolve => setTimeout(resolve, 150));
             }
           }
 
-          setCalendarSeasonsMap(updatedSeasonsMap);
+          setCalendarSeasonsMap((prev: any) => ({ ...prev, ...updatedSeasonsMap }));
 
           if (fetchedAny) {
             safeStorageSet(CACHE_KEYS.calendarSeasonsMap, JSON.stringify(updatedSeasonsMap));

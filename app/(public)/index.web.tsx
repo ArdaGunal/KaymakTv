@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Head from 'expo-router/head';
@@ -320,6 +321,7 @@ const LandingCSS = `
 `;
 
 export default function WebLandingPage() {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { loginAsGuest } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -420,10 +422,10 @@ export default function WebLandingPage() {
   return (
     <>
       <Head>
-        <title>Kaymak — İzlediklerinin kaymağını çıkar</title>
-        <meta name="description" content="Kaymak, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur." />
-        <meta property="og:title" content="Kaymak — İzlediklerinin kaymağını çıkar" />
-        <meta property="og:description" content="Kaymak, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur." />
+        <title>{t('webTitle')}</title>
+        <meta name="description" content={t('webDesc')} />
+        <meta property="og:title" content={t('webTitle')} />
+        <meta property="og:description" content={t('webDesc')} />
         <meta property="og:type" content="website" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -472,12 +474,12 @@ export default function WebLandingPage() {
             <span className="dot"></span>Kaymak
           </a>
           <ul className="nav-links">
-            <li><a href="#ozellikler">Özellikler</a></li>
-            <li><a href="#istatistik">İstatistikler</a></li>
+            <li><a href="#ozellikler">{t('features')}</a></li>
+            <li><a href="#istatistik">{t('statistics')}</a></li>
             <li><a href="#kesfet">Trendler</a></li>
           </ul>
           <div className="nav-actions">
-            <a onClick={handleGuest} className="link-ghost desktop-only">Misafir Olarak İncele</a>
+            <a onClick={handleGuest} className="link-ghost desktop-only">{t('exploreAsGuest')}</a>
             <a onClick={() => handleAuthRedirect('login')} className="link-ghost desktop-only">Giriş Yap</a>
             <a onClick={() => handleAuthRedirect('register')} className="btn btn-primary desktop-only">Ücretsiz Başla</a>
             <button 
@@ -491,8 +493,8 @@ export default function WebLandingPage() {
       </nav>
 
       <div className={`mobile-menu ${isMenuOpen ? 'open' : ''}`}>
-        <a href="#ozellikler" onClick={() => setIsMenuOpen(false)}>Özellikler</a>
-        <a href="#istatistik" onClick={() => setIsMenuOpen(false)}>İstatistikler</a>
+        <a href="#ozellikler" onClick={() => setIsMenuOpen(false)}>{t('features')}</a>
+        <a href="#istatistik" onClick={() => setIsMenuOpen(false)}>{t('statistics')}</a>
         <a href="#kesfet" onClick={() => setIsMenuOpen(false)}>Trendler</a>
         <a onClick={() => { setIsMenuOpen(false); handleAuthRedirect('login'); }}>Giriş Yap</a>
         <a onClick={() => { setIsMenuOpen(false); handleAuthRedirect('register'); }} className="btn btn-primary">Ücretsiz Başla</a>
@@ -507,12 +509,12 @@ export default function WebLandingPage() {
         </div>
         <div className="hero-fade"></div>
         <div className="hero-inner">
-          <span className="eyebrow">Sinema & dizi günlüğün</span>
+          <span className="eyebrow">{t('diaryEyebrow')}</span>
           <div className="hero-ribbon-wrap">
             <svg viewBox="0 0 1000 220" style={{ width: '100%' }}><use href="#ribbon-shape"/></svg>
           </div>
-          <h1>İzlediklerinin<br/><em>kaymağını</em> çıkar.</h1>
-          <p className="lead">Her filmi, her diziyi kaydet. Puanla, yorumla, tartış. Kaymak; dağınık izleme alışkanlığını tek bir yerde toplayan, sana ait bir sinema günlüğü.</p>
+          <h1>{t('heroTitle1')}<br/><em>{t('heroTitle2')}</em>{t('heroTitle3')}</h1>
+          <p className="lead">{t('heroSubtitle')}</p>
           <div className="hero-ctas">
             <a onClick={() => handleAuthRedirect('register')} className="btn btn-primary">Ücretsiz Başla</a>
             <a href="#ozellikler" className="btn btn-outline">Nasıl çalışır?</a>
@@ -525,46 +527,46 @@ export default function WebLandingPage() {
         <div className="kaymak-container">
           <div className="section-head reveal">
             <span className="eyebrow">Neler yapabilirsin</span>
-            <h2>Bir uygulama, bütün izleme hayatın.</h2>
+            <h2>{t('oneApp')}</h2>
             <p>Hangi platformda izlersen izle — Kaymak hepsini tek profilde toplar.</p>
           </div>
 
           <div className="bento">
             <div className="bento-card c-log reveal">
               <div className="card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div>
-              <h3>İzleme Günlüğü</h3>
-              <p>Bir filmi bitirir bitirmez kaydet. Hangi tarihte, hangi platformda izlediğin — hepsi profilinde, kronolojik bir arşivde birikir.</p>
+              <h3>{t('viewingDiary')}</h3>
+              <p>{t('viewingDiaryDesc')}</p>
               <div className="mini-timeline"><span className="on"></span><span className="on"></span><span></span><span className="on"></span><span></span><span className="on"></span><span className="on"></span></div>
             </div>
 
             <div className="bento-card c-search reveal">
               <div className="card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
               <h3>Kapsamlı Arama</h3>
-              <p>Film, dizi, bölüm, oyuncu, yönetmen — aradığın her şey saniyeler içinde karşında.</p>
-              <div className="search-tags"><span>Yönetmen</span><span>Oyuncu</span><span>Bölüm</span><span>Tür</span></div>
+              <p>{t('fastSearch')}</p>
+              <div className="search-tags"><span>{t('director')}</span><span>{t('actor')}</span><span>{t('episode')}</span><span>{t('genre')}</span></div>
             </div>
 
             <div className="bento-card c-stats reveal">
               <div className="card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 20V10M12 20V4M20 20v-7"/></svg></div>
-              <h3>İstatistik Paneli</h3>
-              <p>Toplam izleme süren, favori türün, en çok izlediğin yönetmen — sayılarla önünde.</p>
+              <h3>{t('statsPanel')}</h3>
+              <p>{t('statsPanelDesc')}</p>
               <div className="mini-bars"><i style={{ height: '40%' }}></i><i style={{ height: '70%' }}></i><i style={{ height: '55%' }}></i><i style={{ height: '90%' }}></i><i style={{ height: '35%' }}></i></div>
             </div>
 
             <div className="bento-card c-rate reveal">
               <div className="card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2l3.1 6.6 7.2.8-5.4 5 1.5 7.1L12 18l-6.4 3.5 1.5-7.1-5.4-5 7.2-.8z"/></svg></div>
-              <h3>Puanlama & İnceleme</h3>
-              <p>Puanla, düşüncelerini yaz. Spoiler'lı ya da spoiler'sız — seçim tamamen sana ait.</p>
+              <h3>{t('ratingReview')}</h3>
+              <p>{t('ratingReviewDesc')}</p>
               <div className="mini-stars">★★★★☆</div>
             </div>
 
             <div className="bento-card c-lists reveal">
               <div className="card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
-              <h3>Kişisel Listeler</h3>
-              <p>Kendi koleksiyonlarını oluştur, diğer kullanıcılarla paylaş.</p>
+              <h3>{t('personalLists')}</h3>
+              <p>{t('personalListsDesc')}</p>
               <div className="lists-stack">
                 <div>Favori Bilim Kurgu Filmlerim</div>
-                <div>Hafta Sonu İzleyeceklerim</div>
+                <div>{t('weekendWatchlist')}</div>
               </div>
             </div>
 
@@ -577,7 +579,7 @@ export default function WebLandingPage() {
               </div>
               <div className="txt">
                 <h3>Sosyal Takip Sistemi</h3>
-                <p>Zevkine güvendiğin kişileri takip et, onların neler izlediğini akışında gör — bir sonraki filmine karar vermek hiç bu kadar kolay olmamıştı.</p>
+                <p>{t('socialFeed')}</p>
               </div>
             </div>
           </div>
@@ -587,28 +589,28 @@ export default function WebLandingPage() {
       <section id="istatistik" className="kaymak-section" style={{ background: 'var(--bg-alt)' }}>
         <div className="kaymak-container">
           <div className="section-head reveal">
-            <span className="eyebrow">Kişisel veri görselleştirme</span>
-            <h2>Yıl sonunda seni sayılar şaşırtsın.</h2>
-            <p>Ekranda geçirdiğin zamanı görünce gülümseyeceksin — ya da biraz şaşıracaksın.</p>
+            <span className="eyebrow">{t('dataVis')}</span>
+            <h2>{t('endOfYear')}</h2>
+            <p>{t('screenTime')}</p>
           </div>
 
           <div className="stats-panel reveal">
             <div className="stats-panel-head">
-              <h4>2026 İzleme Özeti</h4>
-              <span>Örnek profil · Deniz K.</span>
+              <h4>{t('summary2026')}</h4>
+              <span>{t('sampleProfile')}</span>
             </div>
             <div className="stat-grid">
               <div className="stat-box"><div className="stat-num" data-count="482">0</div><div className="stat-label">Saat izlendi</div></div>
               <div className="stat-box"><div className="stat-num" data-count="127">0</div><div className="stat-label">Film</div></div>
               <div className="stat-box"><div className="stat-num" data-count="34">0</div><div className="stat-label">Dizi</div></div>
-              <div className="stat-box"><div className="stat-num" data-count="310">0</div><div className="stat-label">Bölüm</div></div>
+              <div className="stat-box"><div className="stat-num" data-count="310">0</div><div className="stat-label">{t('episode')}</div></div>
             </div>
             <div className="genre-bars">
               <div className="genre-row"><span className="name">Bilim Kurgu</span><div className="bar-track"><div className="bar-fill" data-pct="34"></div></div><span className="pct">34%</span></div>
               <div className="genre-row"><span className="name">Dram</span><div className="bar-track"><div className="bar-fill" data-pct="22"></div></div><span className="pct">22%</span></div>
               <div className="genre-row"><span className="name">Komedi</span><div className="bar-track"><div className="bar-fill" data-pct="18"></div></div><span className="pct">18%</span></div>
               <div className="genre-row"><span className="name">Korku</span><div className="bar-track"><div className="bar-fill" data-pct="14"></div></div><span className="pct">14%</span></div>
-              <div className="genre-row"><span className="name">Diğer</span><div className="bar-track"><div className="bar-fill" data-pct="12"></div></div><span className="pct">12%</span></div>
+              <div className="genre-row"><span className="name">{t('other')}</span><div className="bar-track"><div className="bar-fill" data-pct="12"></div></div><span className="pct">12%</span></div>
             </div>
           </div>
         </div>
@@ -618,8 +620,8 @@ export default function WebLandingPage() {
         <div className="kaymak-container">
           <div className="section-head reveal">
             <span className="eyebrow">Haftanın Trendleri</span>
-            <h2>Neler İzleniyor?</h2>
-            <p>Şu an tüm dünyada en çok izlenen popüler dizi ve filmleri keşfet.</p>
+            <h2>{t('trendingNow')}</h2>
+            <p>{t('trendingNowDesc')}</p>
           </div>
         </div>
 
@@ -646,7 +648,7 @@ export default function WebLandingPage() {
       <section className="cta-band">
         <div className="kaymak-container reveal">
           <svg className="ribbon-cta" viewBox="0 0 1000 220"><use href="#ribbon-shape"/></svg>
-          <h2>Bugün başla,<br/>ilk filmini kaydet.</h2>
+          <h2>{t('startToday1')}<br/>{t('startToday2')}</h2>
           <p>Kurulum yok, kredi kartı yok. Sadece izle ve kaydet.</p>
           <a onClick={() => handleAuthRedirect('register')} className="btn btn-primary">Hemen Kaydol</a>
         </div>
@@ -657,17 +659,17 @@ export default function WebLandingPage() {
           <div className="foot-top">
             <div className="foot-brand">
               <a onClick={() => window.scrollTo(0, 0)} className="logo"><span className="dot"></span>Kaymak</a>
-              <p>Sinema ve dizi tutkunları için dijital izleme günlüğü. İzlediklerinin kaymağını çıkar.</p>
+              <p>{t('digitalDiary')}</p>
             </div>
             <div className="foot-cols">
               <div className="foot-col">
-                <h5>Ürün</h5>
-                <a href="#ozellikler">Özellikler</a>
-                <a href="#istatistik">İstatistikler</a>
+                <h5>{t('product')}</h5>
+                <a href="#ozellikler">{t('features')}</a>
+                <a href="#istatistik">{t('statistics')}</a>
                 <a onClick={() => handleAuthRedirect('login')}>Giriş Yap</a>
               </div>
               <div className="foot-col">
-                <h5>Şirket</h5>
+                <h5>{t('company')}</h5>
                 <a href="#">Hakkımızda</a>
                 <a href="#">İletişim</a>
                 <a href="#">Kariyer</a>

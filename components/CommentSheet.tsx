@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -31,6 +32,7 @@ export default function CommentSheet({
   season,
   episode,
 }: CommentSheetProps) {
+  const { t } = useTranslation('common');
   const { comments, loading, loadingMore, error, totalCount, loadComments, loadMore } =
     useComments({ mediaId, mediaType, season, episode, sort: 'likes' });
 
@@ -73,7 +75,7 @@ export default function CommentSheet({
           {loading ? (
             <View style={styles.centerState}>
               <LoadingIndicator size="large" />
-              <Text style={styles.stateText}>Yorumlar yükleniyor...</Text>
+              <Text style={styles.stateText}>{t('loadingComments')}</Text>
             </View>
           ) : error ? (
             <View style={styles.centerState}>
@@ -103,10 +105,8 @@ export default function CommentSheet({
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <MessageSquare size={40} color="#1e293b" />
-                  <Text style={styles.emptyTitle}>Henüz yorum yok</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Bu içerik için ilk yorumu sen yapabilirsin.
-                  </Text>
+                  <Text style={styles.emptyTitle}>{t('noCommentsYet')}</Text>
+                  <Text style={styles.emptySubtitle}>{t('firstCommentPrompt')}</Text>
                 </View>
               }
             />

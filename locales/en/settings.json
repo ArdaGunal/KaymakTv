@@ -26,5 +26,7 @@
   "deleteDataWarning": "This action will delete your KaymakTV data (watchlist, caches) from this device.",
   "traktSafeWarning": "Your Trakt account will not be affected.",
   "cancel": "Cancel",
-  "yesDelete": "Yes, Delete"
+  "yesDelete": "Yes, Delete",
+  "settings": "Settings",
+  "accountSettings": "Account Settings"
 }

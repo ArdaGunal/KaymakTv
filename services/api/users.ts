@@ -201,6 +201,17 @@ export const getWatchedMovies = async () => {
   }
 };
 
+export const getUserStats = async () => {
+  try {
+    const client = await getTraktClient();
+    const response = await client.get(`/users/me/stats`);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (getUserStats):', error);
+    throw error;
+  }
+};
+
 export const getCustomLists = async (page = 1, limit = 20) => {
   try {
     const client = await getTraktClient();

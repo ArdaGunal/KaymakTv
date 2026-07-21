@@ -9,6 +9,7 @@ import { useLibrarySelector } from '../context/LibraryContext';
 import { useRouter } from 'expo-router';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ListCard from '../components/profile/ListCard';
+import ProfileStats from '../components/profile/ProfileStats';
 import ListCardSkeleton from '../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../components/profile/ListsEmptyCard';
 import { useProfileLists } from '../hooks/useProfileLists';
@@ -87,6 +88,8 @@ export default function ProfileScreen() {
 
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
         <View style={styles.headerSpacer} />
+
+        <ProfileStats />
 
         {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
             bilgilendirici kart, veri gelmemişse iskelet. */}

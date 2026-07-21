@@ -96,7 +96,7 @@ export default function MyInlineComment({
     return (
       <View style={styles.guestBox}>
         <LogIn size={16} color="#475569" />
-        <Text style={styles.guestText}>Yorum yapmak için giriş yapın</Text>
+        <Text style={styles.guestText}>{t('loginToComment')}</Text>
       </View>
     );
   }

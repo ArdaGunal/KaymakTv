@@ -1,4 +1,5 @@
 import React, { useState, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -12,7 +13,7 @@ import CommentReplies from './CommentReplies';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function formatRelativeDate(dateStr?: string): string {
+function formatRelativeDate(dateStr: string | undefined, t: any): string {
   if (!dateStr) return '';
   const now = new Date();
   const date = new Date(dateStr);
@@ -23,14 +24,14 @@ function formatRelativeDate(dateStr?: string): string {
     const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHrs === 0) {
       const diffMin = Math.floor(diffMs / (1000 * 60));
-      return diffMin <= 1 ? 'şimdi' : `${diffMin} dakika önce`;
+      return diffMin <= 1 ? t('justNow') : `${diffMin} ${t('minutesAgo')}`;
     }
-    return `${diffHrs} saat önce`;
+    return `${diffHrs} ${t('hoursAgo')}`;
   }
-  if (diffDays < 7) return `${diffDays} gün önce`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} hafta önce`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} ay önce`;
-  return `${Math.floor(diffDays / 365)} yıl önce`;
+  if (diffDays < 7) return `${diffDays} ${t('daysAgo')}`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} ${t('weeksAgo')}`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} ${t('monthsAgo')}`;
+  return `${Math.floor(diffDays / 365)} ${t('yearsAgo')}`;
 }
 
 function getInitials(username?: string): string {
@@ -92,8 +93,8 @@ const SpoilerOverlay = memo(({ text }: SpoilerOverlayProps) => {
         <View style={styles.spoilerIconBadge}>
           <Eye size={18} color="#facc15" />
         </View>
-        <Text style={styles.spoilerLabel}>Spoiler İçeriyor</Text>
-        <Text style={styles.spoilerCta}>Görmek için dokun</Text>
+        <Text style={styles.spoilerLabel}>{t('containsSpoilers')}</Text>
+        <Text style={styles.spoilerCta}>{t('tapToView')}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -106,10 +107,11 @@ interface CommentItemProps {
 }
 
 const CommentItem = memo(({ item }: CommentItemProps) => {
+  const { t } = useTranslation('common');
   const username = item.user?.username || item.user?.name || 'Anonim';
   const initials = getInitials(username);
   const color = avatarColor(username);
-  const relDate = formatRelativeDate(item.created_at);
+  const relDate = formatRelativeDate(item.created_at, t);
 
   return (
     <View style={styles.card}>

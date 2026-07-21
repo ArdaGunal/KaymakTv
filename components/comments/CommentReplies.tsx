@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -23,6 +24,7 @@ interface CommentRepliesProps {
  * "Cevapla" ile açılabilir. Trakt kuralı gereği cevaplar da en az 5 kelime.
  */
 export default function CommentReplies({ commentId, initialCount }: CommentRepliesProps) {
+  const { t } = useTranslation('common');
   const { isGuest } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [replies, setReplies] = useState<any[] | null>(null);
@@ -73,7 +75,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
     } catch (e: any) {
       const msg = e?.response?.status === 422
         ? 'Cevap Trakt kurallarına uymuyor (en az 5 kelime).'
-        : 'Cevap gönderilirken bir hata oluştu.';
+        : t('replyError');
       Alert.alert('Hata', msg);
     } finally {
       setSending(false);
@@ -97,7 +99,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
           {expanded
             ? 'Cevapları gizle'
             : localCount > 0
-              ? `${localCount} cevabı gör · Cevapla`
+              ? t('viewReplies', { count: localCount, defaultValue: `${localCount} cevabı gör · Cevapla` })
               : 'Cevapla'}
         </Text>
       </TouchableOpacity>
@@ -141,7 +143,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
               </TouchableOpacity>
             </View>
           ) : (
-            <Text style={styles.guestNote}>Cevap yazmak için giriş yapın.</Text>
+            <Text style={styles.guestNote}>{t('loginToReply')}</Text>
           )}
         </View>
       )}

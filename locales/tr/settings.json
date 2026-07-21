@@ -26,5 +26,7 @@
   "deleteDataWarning": "Bu işlem KaymakTV verilerinizi (izleme listesi, önbellekler) cihazdan siler.",
   "traktSafeWarning": "Trakt hesabınız bu işlemden etkilenmez.",
   "cancel": "Vazgeç",
-  "yesDelete": "Evet, Sil"
+  "yesDelete": "Evet, Sil",
+  "settings": "Ayarlar",
+  "accountSettings": "Hesap Ayarları"
 }

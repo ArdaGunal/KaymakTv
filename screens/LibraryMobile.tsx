@@ -15,8 +15,17 @@ import { useLibraryTypeData, getLibraryTitleKey, LibraryItem } from '../hooks/us
 const { width } = Dimensions.get('window');
 const SPACING = 8;
 const NUM_COLUMNS = 3;
-const CARD_WIDTH = (width - (SPACING * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
-const CARD_HEIGHT = CARD_WIDTH * 1.5;
+// Tam piksele yuvarlanmıyorsa, getItemLayout'un hesapladığı offset ile RN'in
+// gerçekte render ettiği (piksele yuvarlanmış) hücre boyutu arasında satır
+// başına küçük bir fark birikir. ~30+ satırlık uzun listelerde (Diziler/
+// Filmler) bu birikim, tam listenin sonuna gelindiğinde FlatList'in tahmini
+// içerik yüksekliğiyle gerçek ölçülen yükseklik arasında belirgin bir sapmaya
+// dönüşüyor — kullanıcı en alta indiğinde biraz daha kaydırınca ekranın 1-2
+// saniyeliğine "yukarı sıçrayıp geri gelmesi" (scroll offset düzeltmesi) bu
+// yüzdendi. Değerleri tam piksele yuvarlamak tahmini ve gerçek yüksekliği
+// eşitleyip bu düzeltmeyi ortadan kaldırıyor.
+const CARD_WIDTH = Math.round((width - (SPACING * (NUM_COLUMNS + 1))) / NUM_COLUMNS);
+const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.5);
 const ROW_HEIGHT = CARD_HEIGHT + SPACING;
 
 interface GridItemProps {

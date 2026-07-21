@@ -18,6 +18,7 @@ import ListCard from '../../../components/profile/ListCard';
 import ListCardSkeleton from '../../../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../../../components/profile/ListsEmptyCard';
 import LoginPaywall from '../../../components/LoginPaywall';
+import ProfileStats from '../../../components/profile/ProfileStats';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
   items.map((item: any) => ({
@@ -101,6 +102,8 @@ export default function ProfileScreenWeb() {
             <Settings size={28} color="#ffffff" />
           </TouchableOpacity>
         </View>
+
+        <ProfileStats />
 
         <View style={styles.carouselsContainer}>
           {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}

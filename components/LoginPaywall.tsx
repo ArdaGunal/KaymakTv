@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Lock } from 'lucide-react-native';
@@ -8,6 +9,7 @@ interface LoginPaywallProps {
 }
 
 export default function LoginPaywall({ message }: LoginPaywallProps) {
+  const { t } = useTranslation('common');
   const router = useRouter();
 
   return (
@@ -17,16 +19,16 @@ export default function LoginPaywall({ message }: LoginPaywallProps) {
         <View style={styles.iconContainer}>
           <Lock size={32} color="#3b82f6" />
         </View>
-        <Text style={styles.title}>Misafir Erişimi</Text>
+        <Text style={styles.title}>{t('guestAccess')}</Text>
         <Text style={styles.message}>
-          {message || 'Kendi listenizi oluşturmak, dizileri takip etmek ve kişisel takviminize erişmek için aramıza katılın!'}
+          {message || t('guestAccessDesc')}
         </Text>
         <TouchableOpacity 
           style={styles.button} 
           activeOpacity={0.8}
           onPress={() => router.push('/(public)/settings')}
         >
-          <Text style={styles.buttonText}>Kayıt Ol / Giriş Yap</Text>
+          <Text style={styles.buttonText}>{t('signupLogin')}</Text>
         </TouchableOpacity>
       </View>
     </View>

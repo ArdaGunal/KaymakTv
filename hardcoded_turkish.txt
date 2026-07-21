@@ -1,0 +1,119 @@
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\(tabs)\profile.web.tsx:106 {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\(tabs)\shows.web.tsx:82 console.log('Trendler çekilemedi', error);
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\library\view-all.web.tsx:21 const title = viewAllStore.title || 'Tümü';
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\list\[id].tsx:83 console.error('Liste detayları çekilemedi:', error);
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\list\[id].tsx:123 console.error('Listeden çıkarılamadı:', error);
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\list\[id].tsx:227 {/* İçerik ekleme kısayolu (liste boş değilken) */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\account.tsx:134 const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English';
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\account.tsx:220 {/* ── Hesap seçenekleri ── */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(protected)\account.tsx:221 <Section title="⚠️ Hesap Seçenekleri">
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:423 <title>Kaymak — İzlediklerinin kaymağını çıkar</title>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:424 <meta name="description" content="Kaymak, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur." />
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:425 <meta property="og:title" content="Kaymak — İzlediklerinin kaymağını çıkar" />
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:426 <meta property="og:description" content="Kaymak, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur." />
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:475 <li><a href="#ozellikler">Özellikler</a></li>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:476 <li><a href="#istatistik">İstatistikler</a></li>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:480 <a onClick={handleGuest} className="link-ghost desktop-only">Misafir Olarak İncele</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:494 <a href="#ozellikler" onClick={() => setIsMenuOpen(false)}>Özellikler</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:495 <a href="#istatistik" onClick={() => setIsMenuOpen(false)}>İstatistikler</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:510 <span className="eyebrow">Sinema & dizi günlüğün</span>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:514 <h1>İzlediklerinin<br/><em>kaymağını</em> çıkar.</h1>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:515 <p className="lead">Her filmi, her diziyi kaydet. Puanla, yorumla, tartış. Kaymak; dağınık izleme alışkanlığını tek bir yerde toplayan, sana ait bir sinema günlüğü.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:518 <a href="#ozellikler" className="btn btn-outline">Nasıl çalışır?</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:528 <h2>Bir uygulama, bütün izleme hayatın.</h2>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:535 <h3>İzleme Günlüğü</h3>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:536 <p>Bir filmi bitirir bitirmez kaydet. Hangi tarihte, hangi platformda izlediğin — hepsi profilinde, kronolojik bir arşivde birikir.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:543 <p>Film, dizi, bölüm, oyuncu, yönetmen — aradığın her şey saniyeler içinde karşında.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:544 <div className="search-tags"><span>Yönetmen</span><span>Oyuncu</span><span>Bölüm</span><span>Tür</span></div>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:549 <h3>İstatistik Paneli</h3>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:550 <p>Toplam izleme süren, favori türün, en çok izlediğin yönetmen — sayılarla önünde.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:556 <h3>Puanlama & İnceleme</h3>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:557 <p>Puanla, düşüncelerini yaz. Spoiler'lı ya da spoiler'sız — seçim tamamen sana ait.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:563 <h3>Kişisel Listeler</h3>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:564 <p>Kendi koleksiyonlarını oluştur, diğer kullanıcılarla paylaş.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:567 <div>Hafta Sonu İzleyeceklerim</div>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:580 <p>Zevkine güvendiğin kişileri takip et, onların neler izlediğini akışında gör — bir sonraki filmine karar vermek hiç bu kadar kolay olmamıştı.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:590 <span className="eyebrow">Kişisel veri görselleştirme</span>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:591 <h2>Yıl sonunda seni sayılar şaşırtsın.</h2>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:592 <p>Ekranda geçirdiğin zamanı görünce gülümseyeceksin — ya da biraz şaşıracaksın.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:597 <h4>2026 İzleme Özeti</h4>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:598 <span>Örnek profil · Deniz K.</span>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:604 <div className="stat-box"><div className="stat-num" data-count="310">0</div><div className="stat-label">Bölüm</div></div>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:611 <div className="genre-row"><span className="name">Diğer</span><div className="bar-track"><div className="bar-fill" data-pct="12"></div></div><span className="pct">12%</span></div>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:621 <h2>Neler İzleniyor?</h2>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:622 <p>Şu an tüm dünyada en çok izlenen popüler dizi ve filmleri keşfet.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:649 <h2>Bugün başla,<br/>ilk filmini kaydet.</h2>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:660 <p>Sinema ve dizi tutkunları için dijital izleme günlüğü. İzlediklerinin kaymağını çıkar.</p>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:664 <h5>Ürün</h5>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:665 <a href="#ozellikler">Özellikler</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:666 <a href="#istatistik">İstatistikler</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:670 <h5>Şirket</h5>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:672 <a href="#">İletişim</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:678 <a href="#">Kullanım Şartları</a>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\index.web.tsx:683 <span>© 2026 Kaymak. Tüm hakları saklıdır.</span>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\(public)\settings.tsx:215 <Text style={styles.guestButtonText}>Vitrini Görüntüle</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\episode\[id].tsx:251 {/* Dizi adı: küçük, sade bir üst başlık (breadcrumb) — göze batmadan tıklanabilir */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\movie\[id].tsx:200 {/* İleride Seçenekler menüsü buraya gelecek */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\show\[id].tsx:137 console.error('TMDB veri çekme hatası (show detail):', error);
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\show\[id].tsx:314 {/* Bölüm Seçenekleri (Bottom Sheet Modal) */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\+html.tsx:9 {/* Safari'de Native App gibi tam ekran açılması için: */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\+html.tsx:11 {/* Safari Status Bar'ı siyah ve transparan yapmak için: */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\+html.tsx:13 {/* Pinch-to-zoom'u kapatmak için (Native hissiyat): */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\+html.tsx:22 {/* Native hissiyat için Web'de yazıları seçmeyi ve resimlere basılı tutunca menü çıkmasını engelle */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\app\+html.tsx:31 /* Giriş alanlarında klavye açılmasına izin ver */
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:26 return diffMin <= 1 ? 'şimdi' : `${diffMin} dakika önce`;
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:28 return `${diffHrs} saat önce`;
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:30 if (diffDays < 7) return `${diffDays} gün önce`;
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:31 if (diffDays < 30) return `${Math.floor(diffDays / 7)} hafta önce`;
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:32 if (diffDays < 365) return `${Math.floor(diffDays / 30)} ay önce`;
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:33 return `${Math.floor(diffDays / 365)} yıl önce`;
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:95 <Text style={styles.spoilerLabel}>Spoiler İçeriyor</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:96 <Text style={styles.spoilerCta}>Görmek için dokun</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentItem.tsx:155 {/* Cevaplar: sayıya tıklayınca yüklenir, her yoruma cevap yazılabilir */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentReplies.tsx:21 * Bir yorumun altındaki cevaplar bölümü: tıklayınca cevapları yükler,
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentReplies.tsx:23 * "Cevapla" ile açılabilir. Trakt kuralı gereği cevaplar da en az 5 kelime.
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentReplies.tsx:76 : 'Cevap gönderilirken bir hata oluştu.';
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentReplies.tsx:85 {/* Aç/kapa satırı */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentReplies.tsx:100 ? `${localCount} cevabı gör · Cevapla`
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\comments\CommentReplies.tsx:144 <Text style={styles.guestNote}>Cevap yazmak için giriş yapın.</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\landing\CallToAction.tsx:46 <Text style={styles.buttonText}>Hemen Ücretsiz Katıl →</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\landing\HeroSection.tsx:52 <Text style={styles.badgeText}>🎉 Yeni Sürüm 2.0 Yayında</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\movies\MovieCard.web.tsx:154 paddingVertical: 16, // Hover esnasında büyüme için margin
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\movies\MovieCardMobile.tsx:144 {/* Başarı arka planı: ani yeşil yerine yumuşak geçiş */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\movies\MovieCardMobile.tsx:160 {/* Content — crossfade: normal içerik ↔ başarı mesajı */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\profile\ListCard.tsx:89 <Text style={styles.count}>{data.itemCount} öğe</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\profile\ListCardSkeleton.tsx:10 * Listelerin yüklenmesi sırasında gösterilen shimmer skeleton.
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\profile\ListCardSkeleton.tsx:11 * Kart boyutları ListCard ile birebir eşleşir → layout shift olmaz.
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\CommentSheet.tsx:50 {/* Cevap yazma kutusu liste içinde olduğundan klavye yönetimi burada da şart */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\CommentSheet.tsx:76 <Text style={styles.stateText}>Yorumlar yükleniyor...</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\CommentSheet.tsx:106 <Text style={styles.emptyTitle}>Henüz yorum yok</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\CommentSheet.tsx:108 Bu içerik için ilk yorumu sen yapabilirsin.
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\EpisodeCardMobile.tsx:68 console.error('[UI ÇÖKME ÖNLENDİ] EpisodeCard eksik data aldı.');
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\EpisodeCardMobile.tsx:99 {/* Başarı arka planı: yeşile ani sıçramak yerine yumuşakça belirir/söner */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\EpisodeCardMobile.tsx:126 {/* Content — crossfade: normal içerik ↔ "bölüm izlendi" mesajı */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\EpisodeCardMobile.tsx:147 {/* Başarı görünümü: hangi bölümün izlendiği net yazar */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\EpisodeCardMobile.tsx:200 {data.tags.includes('YENİ') && (
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\EpisodeCardMobile.tsx:221 {/* Right: Check Button or Countdown — timer bu izole bileşenin içinde yaşar */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\HorizontalMediaList.tsx:17 type?: 'show' | 'movie'; // Media tipini belirlemek için
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\HorizontalMediaList.web.tsx:13 type?: 'show' | 'movie'; // Media tipini belirlemek için
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\HorizontalShowList.tsx:69 return null; // Eğer veri yoksa kategoriyi hiç gösterme
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\HorizontalShowList.tsx:74 {/* Başlık ve İkon Satırı */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\HorizontalShowList.tsx:85 {/* Yatay Liste (FlatList ile optimize edildi, yüzlerce resimde kasmaması için) */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\LoginPaywall.tsx:20 <Text style={styles.title}>Misafir Erişimi</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\LoginPaywall.tsx:22 {message || 'Kendi listenizi oluşturmak, dizileri takip etmek ve kişisel takviminize erişmek için aramıza katılın!'}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\LoginPaywall.tsx:29 <Text style={styles.buttonText}>Kayıt Ol / Giriş Yap</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\MediaHero.tsx:202 {/* Add to List Button — hem mobil hem web'de TEK dokunuşla liste
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\MediaHero.tsx:203 modalını açar. (Eskiden mobilde dokunmak izleme listesine ekliyor,
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\MediaHero.tsx:204 liste için basılı tutmak gerekiyordu — kafa karıştırıcıydı.
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\MediaHero.tsx:205 İzleme listesi hâlâ "..." menüsünden erişilebilir.) */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\MediaPoster.tsx:26 const MediaPoster = memo(({ tmdbId, type = 'show', title = 'İsimsiz', style, placeholderTextLines = 2 }: MediaPosterProps) => {
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\MyInlineComment.tsx:99 <Text style={styles.guestText}>Yorum yapmak için giriş yapın</Text>
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\ProgressBar.tsx:24 const webProps = Platform.OS === 'web' ? { title: `%${roundedPercentage} İzlendi` } : {};
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\ShowCard.tsx:31 console.error('[UI ÇÖKME ÖNLENDİ] ShowCard eksik data aldı:', data);
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\StarSlider.tsx:43 const [rating, setRating] = useState<number>(initialRating || 5); // 0..10, kaydedilen ayrık değer
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\StarSlider.tsx:152 {/* Sabit piksel genişlik (konteynerin tam genişliği) — dıştaki
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\StarSlider.tsx:153 Animated genişlik küçüldükçe bu satırı SIKIŞTIRMAZ, sadece
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\StarSlider.tsx:154 maskeler. Böylece yıldızlar orantısız küçülmeden düzgün açığa çıkar. */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\WriteCommentSheet.tsx:129 {/* iOS: padding; Android: height — RN Modal içinde Android'de 'padding' çoğu
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\WriteCommentSheet.tsx:130 cihazda çalışmayıp input'un klavye altında kalmasına sebep oluyordu. */}
+C:\Yapay_Zeka_Uygulamalar\Kaymak\components\WriteCommentSheet.tsx:265 flex: 1, // '%90' sabit genişlik dar ekranlarda gönder butonunu taşırıyordu

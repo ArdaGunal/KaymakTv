@@ -3,6 +3,8 @@
  * Bu dosya, Saat hesaplamalarının farklı dosyalarda çakışmasını önler.
  */
 
+import i18n from '../locales';
+
 /**
  * Verilen tarihi "BUGÜN - 5 KASIM ÇARŞAMBA", "YARIN - ..." 
  * veya normal "5 KASIM ÇARŞAMBA" formatına çevirir.
@@ -12,16 +14,18 @@ export const getDateGroup = (dateObj: Date, t?: any): string => {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   
-  const fullDateStr = dateObj.toLocaleDateString('tr-TR', { 
+  const locale = i18n?.language === 'en' ? 'en-US' : 'tr-TR';
+  
+  const fullDateStr = dateObj.toLocaleDateString(locale, { 
     day: 'numeric', 
     month: 'long', 
     weekday: 'long' 
   }).toUpperCase();
 
   if (dateObj.toDateString() === today.toDateString()) {
-    return 'BUGÜN - ' + fullDateStr;
+    return (t ? t('today') : 'BUGÜN') + ' - ' + fullDateStr;
   } else if (dateObj.toDateString() === tomorrow.toDateString()) {
-    return 'YARIN - ' + fullDateStr;
+    return (t ? t('tomorrow') : 'YARIN') + ' - ' + fullDateStr;
   }
   
   // Eğer t fonksiyonu verilmişse ve günden fazlaysa yanına sayacı ekle

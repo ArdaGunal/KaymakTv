@@ -1,4 +1,5 @@
 import React, { useRef, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -22,6 +23,7 @@ interface ListCardProps {
 }
 
 const ListCard = memo(({ data }: ListCardProps) => {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -86,7 +88,7 @@ const ListCard = memo(({ data }: ListCardProps) => {
             {data.title}
           </Text>
           {data.itemCount > 0 && (
-            <Text style={styles.count}>{data.itemCount} öğe</Text>
+            <Text style={styles.count}>{data.itemCount} {t('items')}</Text>
           )}
         </View>
       </Animated.View>
