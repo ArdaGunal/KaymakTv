@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Settings, List as ListIcon } from 'lucide-react-native';
+import { Heart, Settings, List as ListIcon, Tv, Film, Plus } from 'lucide-react-native';
 import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector } from '../context/LibraryContext';
@@ -12,13 +12,17 @@ import ListCard from '../components/profile/ListCard';
 import ProfileStats from '../components/profile/ProfileStats';
 import ListCardSkeleton from '../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../components/profile/ListsEmptyCard';
+import SectionHeader from '../components/profile/SectionHeader';
+import {
+  POSTER_CARD_WIDTH,
+  POSTER_CARD_HEIGHT,
+  CARD_GAP,
+  SECTION_PADDING_H,
+  SECTION_SPACING,
+} from '../components/profile/profileMetrics';
 import { useProfileLists } from '../hooks/useProfileLists';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
-
-const { width } = Dimensions.get('window');
-const SKELETON_W = width * 0.28;
-const SKELETON_H = SKELETON_W * 1.5;
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
   items.map((item: any) => ({
@@ -31,13 +35,14 @@ const sortRecent = (items: any[]) =>
   [...items].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
 
 // Bölüm iskeleti: yalnızca o bölümün verisi henüz yokken gösterilir.
+// Ölçüler gerçek şeritlerle aynı kaynaktan gelir → veri gelince layout kaymaz.
 const SectionSkeleton = () => (
-  <View style={{ marginBottom: 24, marginLeft: 16 }}>
-    <SkeletonLoader width={120} height={24} style={{ marginBottom: 12 }} />
-    <View style={{ flexDirection: 'row', gap: 12 }}>
-      <SkeletonLoader width={SKELETON_W} height={SKELETON_H} borderRadius={8} />
-      <SkeletonLoader width={SKELETON_W} height={SKELETON_H} borderRadius={8} />
-      <SkeletonLoader width={SKELETON_W} height={SKELETON_H} borderRadius={8} />
+  <View style={{ marginBottom: SECTION_SPACING, marginLeft: SECTION_PADDING_H }}>
+    <SkeletonLoader width={120} height={20} borderRadius={6} style={{ marginBottom: 12 }} />
+    <View style={{ flexDirection: 'row', gap: CARD_GAP }}>
+      <SkeletonLoader width={POSTER_CARD_WIDTH} height={POSTER_CARD_HEIGHT} borderRadius={8} />
+      <SkeletonLoader width={POSTER_CARD_WIDTH} height={POSTER_CARD_HEIGHT} borderRadius={8} />
+      <SkeletonLoader width={POSTER_CARD_WIDTH} height={POSTER_CARD_HEIGHT} borderRadius={8} />
     </View>
   </View>
 );
@@ -60,6 +65,8 @@ export default function ProfileScreen() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
+
+  const seeAllLabel = t('seeAll', 'Tümü');
 
   // Kopya state yok: her bölüm doğrudan store'dan memoize türetilir,
   // veri dilimi geldiği AN ekranda belirir (kademeli yükleme).
@@ -88,36 +95,19 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
-        <View style={styles.headerSpacer} />
-
         <ProfileStats />
 
         {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
             bilgilendirici kart, veri gelmemişse iskelet. */}
-        <View style={styles.listsSectionHeader}>
-          <TouchableOpacity 
-            style={styles.sectionHeaderRow}
-            activeOpacity={0.7}
-            onPress={() => router.push('/(protected)/library/lists')}
-            disabled={lists.length === 0}
-          >
-            <View style={styles.sectionTitleRow}>
-              <View style={styles.listIconBadge}>
-                <ListIcon size={16} color="#60a5fa" />
-              </View>
-              <Text style={styles.sectionTitleInline}>{t('myLists', 'Listelerim')}</Text>
-              {lists.length > 0 && (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{lists.length}</Text>
-                </View>
-              )}
-            </View>
-            {lists.length > 0 && (
-              <View style={{ padding: 4 }}>
-                <Text style={styles.seeAllText}>{t('seeAll', 'Tümü')}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        <View style={styles.listsSection}>
+          <SectionHeader
+            title={t('myLists', 'Listelerim')}
+            icon={<ListIcon size={14} color="#60a5fa" />}
+            iconTint="#60a5fa"
+            count={lists.length}
+            seeAllLabel={seeAllLabel}
+            onSeeAll={lists.length > 0 ? () => router.push('/(protected)/library/lists') : undefined}
+          />
 
           {lists.length > 0 ? (
             <ScrollView
@@ -132,7 +122,7 @@ export default function ProfileScreen() {
           ) : isListsLoading ? (
             <ListCardSkeleton />
           ) : (
-            <View style={{ paddingHorizontal: 16 }}>
+            <View style={styles.sectionInset}>
               <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
             </View>
           )}
@@ -142,7 +132,10 @@ export default function ProfileScreen() {
         {shows.length > 0 ? (
           <HorizontalShowList
             title={t('shows')}
+            titleIcon={<Tv size={14} color="#60a5fa" />}
+            titleTint="#60a5fa"
             data={shows}
+            seeAllLabel={seeAllLabel}
             onShowAll={() => router.push('/(protected)/library/shows')}
           />
         ) : isLibraryLoading ? (
@@ -152,8 +145,10 @@ export default function ProfileScreen() {
         {favShowsList.length > 0 && (
           <HorizontalShowList
             title={t('favShows')}
-            titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
+            titleIcon={<Heart size={13} color="#f87171" fill="#f87171" />}
+            titleTint="#f87171"
             data={favShowsList}
+            seeAllLabel={seeAllLabel}
             onShowAll={() => router.push('/(protected)/library/favShows')}
           />
         )}
@@ -162,7 +157,10 @@ export default function ProfileScreen() {
         {movies.length > 0 ? (
           <HorizontalShowList
             title={t('movies')}
+            titleIcon={<Film size={14} color="#60a5fa" />}
+            titleTint="#60a5fa"
             data={movies}
+            seeAllLabel={seeAllLabel}
             onShowAll={() => router.push('/(protected)/library/movies')}
             type="movie"
           />
@@ -173,25 +171,33 @@ export default function ProfileScreen() {
         {favMoviesList.length > 0 ? (
           <HorizontalShowList
             title={t('favMovies')}
-            titleIcon={<Heart size={20} color="#ef4444" fill="#ef4444" />}
+            titleIcon={<Heart size={13} color="#f87171" fill="#f87171" />}
+            titleTint="#f87171"
             data={favMoviesList}
+            seeAllLabel={seeAllLabel}
             onShowAll={() => router.push('/(protected)/library/favMovies')}
             type="movie"
           />
         ) : !isLibraryLoading && !isMoviesLoading ? (
-          <View style={styles.emptyFavContainer}>
-            <View style={styles.emptyFavHeader}>
-              <Heart size={20} color="#ef4444" fill="#ef4444" style={{marginRight: 8}} />
-              <Text style={styles.emptyFavTitle}>{t('favMovies')}</Text>
+          <View style={styles.emptyFavSection}>
+            <SectionHeader
+              title={t('favMovies')}
+              icon={<Heart size={13} color="#f87171" fill="#f87171" />}
+              iconTint="#f87171"
+              seeAllLabel={seeAllLabel}
+            />
+            <View style={styles.sectionInset}>
+              <TouchableOpacity
+                style={styles.emptyFavCard}
+                activeOpacity={0.75}
+                onPress={() => router.push('/(protected)/(tabs)/explore')}
+              >
+                <View style={styles.emptyFavPlusChip}>
+                  <Plus size={18} color="#93c5fd" />
+                </View>
+                <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.emptyFavCard}
-              activeOpacity={0.7}
-              onPress={() => router.push('/(protected)/(tabs)/explore')}
-            >
-              <Text style={styles.plusIcon}>+</Text>
-              <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
-            </TouchableOpacity>
           </View>
         ) : null}
       </ScrollView>
@@ -202,58 +208,53 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0B1120' },
   container: { flex: 1 },
-  topHeader: { 
-    paddingHorizontal: 20, 
-    paddingTop: 12, 
-    paddingBottom: 16, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
+  // Başlık şeridi de içerikle AYNI ızgaraya (16px) hizalandı — eskiden 20px'ti
+  // ve altındaki kartlarla hizasız duruyordu.
+  topHeader: {
+    paddingHorizontal: SECTION_PADDING_H,
+    paddingTop: 8,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
-  settingsButton: { 
-    padding: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  settingsButton: {
+    padding: 9,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   content: { paddingBottom: 40 },
-  headerSpacer: { height: 4 },
-  emptyFavContainer: { paddingHorizontal: 16, marginBottom: 24 },
-  emptyFavHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  emptyFavTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
-  emptyFavCard: { height: 120, backgroundColor: 'rgba(15,23,42,0.4)', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed' },
-  plusIcon: { color: '#ffffff', fontSize: 32, fontWeight: '300', marginBottom: 4 },
-  emptyFavText: { color: '#a3a3a3', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
-  // Lists section
-  listsSectionHeader: { marginBottom: 28 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  listIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(59,130,246,0.15)',
+  sectionInset: { paddingHorizontal: SECTION_PADDING_H },
+  listsSection: { marginBottom: SECTION_SPACING },
+  listsScrollContent: { paddingHorizontal: SECTION_PADDING_H, paddingBottom: 4 },
+  emptyFavSection: { marginBottom: SECTION_SPACING },
+  emptyFavCard: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    gap: 12,
+    height: 88,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.18)',
+    borderStyle: 'dashed',
   },
-  sectionTitleInline: { color: '#ffffff', fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
-  countBadge: {
-    marginLeft: 10,
-    minWidth: 24,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  emptyFavPlusChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(59,130,246,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  countBadgeText: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' },
-  seeAllText: { color: '#60a5fa', fontSize: 14, fontWeight: '600' },
-  listsScrollContent: { paddingHorizontal: 20, paddingBottom: 8 },
+  emptyFavText: { color: '#94a3b8', fontSize: 12.5, fontWeight: '600', letterSpacing: 0.3 },
 });

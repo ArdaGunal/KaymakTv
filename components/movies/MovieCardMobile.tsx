@@ -7,6 +7,7 @@ import { useAirCountdown } from '../../hooks/useAirCountdown';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../MediaPoster';
 import { generateMediaSlug } from '../../utils/slugHelper';
+import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -183,9 +184,9 @@ const MovieCard = memo(({ data, onMovieFinished }: { data: any, onMovieFinished?
 
             {data.tags && data.tags.length > 0 && (
               <View style={styles.tagsContainer}>
-                {data.tags.map((tag: string, index: number) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
+                {data.tags.map((tag: string) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text style={styles.tagText}>{getMediaTagLabel(tag, t)}</Text>
                   </View>
                 ))}
               </View>

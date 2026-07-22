@@ -1,7 +1,7 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Inbox } from 'lucide-react-native';
+import { ChevronLeft, Inbox, SearchX } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,8 +12,14 @@ import LoadingIndicator from '../../../components/LoadingIndicator';
 import { useResponsive } from '../../../hooks/useResponsive';
 import LibraryMobile from '../../../screens/LibraryMobile';
 import { useLibraryTypeData, getLibraryTitleKey, LibraryItem } from '../../../hooks/useLibraryTypeData';
+import { useLibraryFilters } from '../../../hooks/useLibraryFilters';
+import LibraryFilterBar from '../../../components/library/LibraryFilterBar';
+import LibraryFilterModal from '../../../components/library/LibraryFilterModal';
 
 const SPACING = 16;
+// Sabit sütun sayısı: FlatList'te numColumns çalışma anında değişirse React
+// Native hata fırlatıyor. Genişlik yüzdeyle (calc) ayarlandığı için pencere
+// boyutu değişse de sütun sayısı sabit kalabiliyor.
 const NUM_COLUMNS = 6;
 
 interface GridItemProps {
@@ -52,6 +58,24 @@ export default function LibraryScreenWeb() {
 
   const { data, loading } = useLibraryTypeData(isDesktop ? type : undefined, accessToken);
 
+  // Süzme "Diziler" ve "Filmler" ekranlarında açık; favoriler ve listeler
+  // bilerek eski davranışlarında bırakıldı. Dar ekranda bu dosya zaten
+  // `LibraryMobile`'a devrediyor, bu yüzden tip de `isDesktop` ile kapatılıyor.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const {
+    enabled: filtersEnabled,
+    filteredData,
+    searchInput,
+    setSearchInput,
+    clearSearch,
+    activeStatuses,
+    applyStatuses,
+    isFiltering,
+    options: filterOptions,
+    filterTitle,
+  } = useLibraryFilters(data, isDesktop ? type : undefined);
+  const supportsFilters = isDesktop && filtersEnabled;
+
   const handleItemPress = useCallback((item: LibraryItem) => {
     if (!item.id) return;
     const routeType = type === 'shows' || type === 'favShows' ? 'show' : 'movie';
@@ -63,11 +87,18 @@ export default function LibraryScreenWeb() {
     <LibraryGridItemWeb item={item} type={type} onPress={handleItemPress} />
   ), [type, handleItemPress]);
 
+  const keyExtractor = useCallback((item: LibraryItem) => item.key, []);
+
   if (!isDesktop) {
     return <LibraryMobile />;
   }
 
   const title = t(getLibraryTitleKey(type));
+  const hasData = data.length > 0;
+  const noMatches = hasData && filteredData.length === 0;
+  const caption = isFiltering
+    ? t('filteredCount', { shown: filteredData.length, total: data.length })
+    : t('totalCount', { count: data.length, title });
 
   return (
     <View style={styles.safeArea}>
@@ -83,11 +114,31 @@ export default function LibraryScreenWeb() {
           <Text style={styles.headerTitle}>{title}</Text>
         </View>
 
+        {!loading && hasData ? (
+          supportsFilters ? (
+            <LibraryFilterBar
+              wide
+              value={searchInput}
+              onChangeText={setSearchInput}
+              onClear={clearSearch}
+              onOpenFilters={() => setFilterOpen(true)}
+              activeFilterCount={activeStatuses.length}
+              placeholder={t('searchInList', 'Bu listede ara')}
+              filterLabel={t('filterAction', 'Filtrele')}
+              caption={caption}
+            />
+          ) : (
+            <View style={styles.statsContainer}>
+              <Text style={styles.statsText}>{caption}</Text>
+            </View>
+          )
+        ) : null}
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <LoadingIndicator />
           </View>
-        ) : data.length === 0 ? (
+        ) : !hasData ? (
           <View style={styles.loadingContainer}>
             <View style={styles.emptyIconWrap}>
               <Inbox size={40} color="#334155" />
@@ -95,21 +146,43 @@ export default function LibraryScreenWeb() {
             <Text style={styles.emptyTitle}>{t('libraryEmptyTitle', 'Burada henüz bir şey yok')}</Text>
             <Text style={styles.emptyText}>{t('libraryEmptyText', 'İçerik ekledikçe burada görünecek.')}</Text>
           </View>
+        ) : noMatches ? (
+          <View style={styles.loadingContainer}>
+            <View style={styles.emptyIconWrap}>
+              <SearchX size={40} color="#334155" />
+            </View>
+            <Text style={styles.emptyTitle}>{t('noMatchTitle', 'Sonuç bulunamadı')}</Text>
+            <Text style={styles.emptyText}>{t('noMatchText', 'Aramayı veya seçtiğin filtreleri değiştirmeyi dene.')}</Text>
+          </View>
         ) : (
           <FlatList
-            data={data}
-            keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+            key={`library-grid-${NUM_COLUMNS}`}
+            data={filteredData}
+            keyExtractor={keyExtractor}
             renderItem={renderItem}
             numColumns={NUM_COLUMNS}
             contentContainerStyle={styles.listContent}
             columnWrapperStyle={styles.row}
             showsVerticalScrollIndicator={false}
             initialNumToRender={18}
-            maxToRenderPerBatch={18}
+            maxToRenderPerBatch={12}
             windowSize={9}
+            updateCellsBatchingPeriod={50}
           />
         )}
       </View>
+
+      {supportsFilters ? (
+        <LibraryFilterModal
+          wide
+          visible={filterOpen}
+          options={filterOptions}
+          selected={activeStatuses}
+          title={filterTitle}
+          onApply={applyStatuses}
+          onClose={() => setFilterOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -143,6 +216,16 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#ffffff'
+  },
+  statsContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  statsText: {
+    color: '#8b93a1',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   listContent: {
     paddingHorizontal: 20,

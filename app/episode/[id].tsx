@@ -96,14 +96,14 @@ export default function EpisodeDetailScreen() {
   const showProgress = showProgressMap[traktIdNum];
   const hasShowProgress = showProgress && showProgress.aired > 0 && showProgress.completed > 0;
   const showProgressPercentage = hasShowProgress ? (showProgress.completed / showProgress.aired) * 100 : 0;
-  const droppedIds = useTrackingStore((s) => s.droppedIds);
+  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
   const hydrateTracking = useTrackingStore((s) => s.hydrate);
-  const isShowDropped = droppedIds.includes(traktIdNum);
+  const isShowDropped = droppedShowIds.includes(traktIdNum);
   const isShowFinished = !!hasShowProgress && showProgress.completed >= showProgress.aired;
   const showProgressColor = getProgressBarColor(isShowDropped, isShowFinished);
 
   // Bu sayfaya İzleme sekmesine hiç uğramadan (örn. bir bildirimden/paylaşılan
-  // linkten) doğrudan gelinmiş olabilir — `droppedIds` o durumda boş kalır ve
+  // linkten) doğrudan gelinmiş olabilir — `droppedShowIds` o durumda boş kalır ve
   // daha önce bırakılmış bir dizi burada yanlışlıkla "aktif" (mavi) görünür.
   useEffect(() => {
     hydrateTracking();

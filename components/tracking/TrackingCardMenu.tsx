@@ -124,7 +124,7 @@ const TrackingCardMenu = memo(
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleToggleDropped}>
                 <Bookmark size={18} color={isDropped ? '#fbbf24' : '#f1f5f9'} />
                 <Text style={styles.menuItemText}>
-                  {isDropped ? t('removeFromDropped') : t('addToDropped')}
+                  {isDropped ? t('resumeWatching') : t('stopWatching')}
                 </Text>
               </TouchableOpacity>
 

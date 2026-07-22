@@ -1,20 +1,25 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.28;
-const CARD_HEIGHT = CARD_WIDTH * 1.5; // 2:3 aspect ratio (poster)
-const GAP = 12;
+import SectionHeader from './profile/SectionHeader';
+import {
+  POSTER_CARD_WIDTH as CARD_WIDTH,
+  POSTER_CARD_HEIGHT as CARD_HEIGHT,
+  CARD_GAP as GAP,
+  SECTION_PADDING_H,
+  SECTION_SPACING,
+} from './profile/profileMetrics';
 
 interface HorizontalShowListProps {
   title: string;
   titleIcon?: React.ReactNode;
+  /** Başlık rozetinin rengi — `titleIcon` verildiğinde onunla uyumlu olmalı. */
+  titleTint?: string;
   data: any[];
   onShowAll?: () => void;
+  seeAllLabel?: string;
   type?: 'show' | 'movie' | 'list';
 }
 
@@ -27,7 +32,15 @@ const getItemLayout = (_data: any, index: number) => ({
   index,
 });
 
-const HorizontalShowList = memo(({ title, titleIcon, data, onShowAll, type = 'show' }: HorizontalShowListProps) => {
+const HorizontalShowList = memo(({
+  title,
+  titleIcon,
+  titleTint,
+  data,
+  onShowAll,
+  seeAllLabel = 'Tümü',
+  type = 'show',
+}: HorizontalShowListProps) => {
   const router = useRouter();
 
   const handleCardPress = useCallback((item: any) => {
@@ -71,23 +84,13 @@ const HorizontalShowList = memo(({ title, titleIcon, data, onShowAll, type = 'sh
 
   return (
     <View style={styles.container}>
-      {/* Başlık ve İkon Satırı */}
-      <TouchableOpacity 
-        style={styles.header}
-        activeOpacity={0.7}
-        onPress={onShowAll}
-        disabled={!onShowAll}
-      >
-        <View style={styles.titleContainer}>
-          {titleIcon && <View style={styles.iconContainer}>{titleIcon}</View>}
-          <Text style={styles.title}>{title}</Text>
-        </View>
-        {onShowAll && (
-          <View style={styles.seeAllButton}>
-            <ChevronRight size={20} color="#a3a3a3" />
-          </View>
-        )}
-      </TouchableOpacity>
+      <SectionHeader
+        title={title}
+        icon={titleIcon}
+        iconTint={titleTint}
+        onSeeAll={onShowAll}
+        seeAllLabel={seeAllLabel}
+      />
 
       {/* Yatay Liste (FlatList ile optimize edildi, yüzlerce resimde kasmaması için) */}
       <FlatList
@@ -111,32 +114,10 @@ export default HorizontalShowList;
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    marginRight: 8,
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  seeAllButton: {
-    padding: 4,
+    marginBottom: SECTION_SPACING,
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: SECTION_PADDING_H,
     gap: GAP, // FlatList 'gap' destekler (React Native >= 0.71) — getItemLayout ile senkron
   },
   card: {

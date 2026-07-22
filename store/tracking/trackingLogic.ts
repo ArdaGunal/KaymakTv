@@ -69,7 +69,7 @@ export interface CategorizeOptions {
   showProgressMap: Record<string, any>;
   labels: TrackingLabels;
   /** Kullanıcının manuel olarak "Bırakıldı" işaretlediği dizilerin trakt id'leri. */
-  droppedIds?: number[] | Set<number>;
+  droppedShowIds?: number[] | Set<number>;
   now?: number;
   /** Son izlemenin üzerinden kaç gün geçince "Ara Verilenler"e düşeceği. */
   pauseThresholdDays?: number;
@@ -95,11 +95,11 @@ export function categorizeShows({
   watchlistShows,
   showProgressMap,
   labels,
-  droppedIds = [],
+  droppedShowIds = [],
   now = Date.now(),
   pauseThresholdDays = DEFAULT_PAUSE_THRESHOLD_DAYS,
 }: CategorizeOptions): ShowCategories {
-  const droppedSet = droppedIds instanceof Set ? droppedIds : new Set(droppedIds);
+  const droppedSet = droppedShowIds instanceof Set ? droppedShowIds : new Set(droppedShowIds);
   const pauseThreshold = now - pauseThresholdDays * 24 * 60 * 60 * 1000;
 
   // 1) Kimliğe göre birleşik havuz: her dizi tek kayıt. watched kaydı önceliklidir

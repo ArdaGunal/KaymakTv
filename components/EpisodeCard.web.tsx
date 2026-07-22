@@ -13,28 +13,13 @@ import EpisodeCheckButton from './EpisodeCheckButton';
 import TrackingCardMenu from './tracking/TrackingCardMenu';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
 import { getProgressBarColor } from '../utils/progressBarColor';
+import { getMediaTagLabel } from '../utils/mediaTagLabel';
 
 interface EpisodeCardProps {
   data: any;
   onShowFinished?: (showName: string, showId: number) => void;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
-}
-
-// Ham etiket kodları (BIRAKILDI, EN SON, ...) her zaman Türkçe üretiliyordu ve
-// burada çevrilmeden doğrudan basılıyordu — İngilizce arayüzde de Türkçe metin
-// görünüyordu. Bilinen kodlar artık i18n üzerinden çevriliyor.
-function getTagLabel(tag: string, t: (key: string) => string): string {
-  switch (tag) {
-    case 'WATCHLIST':
-      return t('watchlistTab');
-    case 'BIRAKILDI':
-      return t('dropped');
-    case 'EN SON':
-      return t('last');
-    default:
-      return tag;
-  }
 }
 
 // Progress percentage is computed here, ready-to-use for ProgressBar
@@ -152,7 +137,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
             <View style={styles.tagsContainer}>
               {data.tags.map((tag: string) => (
                 <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{getTagLabel(tag, t)}</Text>
+                  <Text style={styles.tagText}>{getMediaTagLabel(tag, t)}</Text>
                 </View>
               ))}
             </View>

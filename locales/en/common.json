@@ -90,6 +90,7 @@
   "yearsAgo": "years ago",
   "containsSpoilers": "Contains Spoilers",
   "tapToView": "Tap to view",
+  "hideSpoiler": "Hide",
   "replyError": "An error occurred while posting the reply.",
   "loginToReply": "Log in to post a reply.",
   "loadingComments": "Loading comments...",

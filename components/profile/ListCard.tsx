@@ -1,44 +1,40 @@
 import React, { useRef, memo } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Animated,
   Pressable,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { List as ListIcon } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import type { EnrichedList } from '../../hooks/useProfileLists';
-
-const CARD_WIDTH = 160;
-const CARD_HEIGHT = 220;
+import { POSTER_CARD_WIDTH, POSTER_CARD_HEIGHT, CARD_GAP } from './profileMetrics';
 
 interface ListCardProps {
   data: EnrichedList;
 }
 
+/**
+ * "Listelerim" şeridinin kartı.
+ *
+ * Boyut artık sabit 160×220 DEĞİL, diğer şeritlerdeki poster kartlarıyla
+ * birebir aynı (`profileMetrics`) — eskiden liste kartları belirgin şekilde
+ * daha iriydi ve profil ekranı dengesiz görünüyordu.
+ *
+ * Başlık poster ÜZERİNE değil ALTINA yazılıyor: küçülen kartta iki satırlık bir
+ * bindirme kapak görselinin neredeyse tamamını örtüyordu. (İskelet bileşeni
+ * `ListCardSkeleton` zaten bu düzene göre yazılmıştı; kart ondan sapmıştı.)
+ */
 const ListCard = memo(({ data }: ListCardProps) => {
-  const { t } = useTranslation('common');
   const router = useRouter();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const handleHoverIn = () => {
+  const animateTo = (toValue: number) => {
     Animated.spring(scaleAnim, {
-      toValue: 1.05,
-      useNativeDriver: true,
-      friction: 6,
-      tension: 200,
-    }).start();
-  };
-
-  const handleHoverOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
+      toValue,
       useNativeDriver: true,
       friction: 6,
       tension: 200,
@@ -52,45 +48,39 @@ const ListCard = memo(({ data }: ListCardProps) => {
   return (
     <Pressable
       // @ts-ignore web hover
-      onHoverIn={handleHoverIn}
-      onHoverOut={handleHoverOut}
-      onPressIn={handleHoverIn}
-      onPressOut={handleHoverOut}
+      onHoverIn={() => animateTo(1.05)}
+      onHoverOut={() => animateTo(1)}
+      onPressIn={() => animateTo(0.97)}
+      onPressOut={() => animateTo(1)}
       onPress={handlePress}
       style={styles.pressable}
     >
-      <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
-        {/* Poster / Placeholder */}
-        {data.coverImageUrl ? (
-          <Image
-            source={{ uri: data.coverImageUrl }}
-            style={styles.poster}
-            contentFit="cover"
-            transition={300}
-            cachePolicy="disk"
-          />
-        ) : (
-          <View style={styles.posterFallback}>
-            <ListIcon size={36} color="#334155" />
-          </View>
-        )}
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <View style={styles.card}>
+          {data.coverImageUrl ? (
+            <Image
+              source={{ uri: data.coverImageUrl }}
+              style={styles.poster}
+              contentFit="cover"
+              transition={300}
+              cachePolicy="disk"
+            />
+          ) : (
+            <View style={styles.posterFallback}>
+              <ListIcon size={24} color="#475569" />
+            </View>
+          )}
 
-        {/* Bottom gradient overlay */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.92)']}
-          locations={[0.3, 0.6, 1]}
-          style={styles.gradient}
-        />
-
-        {/* Title & count */}
-        <View style={styles.meta}>
-          <Text style={styles.title} numberOfLines={2}>
-            {data.title}
-          </Text>
           {data.itemCount > 0 && (
-            <Text style={styles.count}>{data.itemCount} {t('items')}</Text>
+            <View style={styles.countChip}>
+              <Text style={styles.countChipText}>{data.itemCount}</Text>
+            </View>
           )}
         </View>
+
+        {/* Sabit iki satırlık yükseklik: başlıklar 1 veya 2 satır olabildiği için
+            aksi halde kartların alt kenarları tırtıklı hizalanıyordu. */}
+        <Text style={styles.title} numberOfLines={2}>{data.title}</Text>
       </Animated.View>
     </Pressable>
   );
@@ -100,20 +90,23 @@ export default ListCard;
 
 const styles = StyleSheet.create({
   pressable: {
-    marginRight: 14,
+    width: POSTER_CARD_WIDTH,
+    marginRight: CARD_GAP,
   },
   card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    borderRadius: 14,
+    width: POSTER_CARD_WIDTH,
+    height: POSTER_CARD_HEIGHT,
+    borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#111827',
+    backgroundColor: '#172033',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
-    } as any),
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   poster: {
     ...StyleSheet.absoluteFillObject,
@@ -124,30 +117,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gradient: {
+  // Küçük kartta öğe sayısını posterin üstünde de göstermek, başlık alta
+  // taşındığında kartın "sadece görsel" kalmasını engelliyor.
+  countChip: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: CARD_HEIGHT * 0.65,
+    top: 6,
+    right: 6,
+    minWidth: 20,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 7,
+    backgroundColor: 'rgba(2,6,23,0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  meta: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 12,
+  countChipText: {
+    color: '#e2e8f0',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   title: {
-    color: '#f1f5f9',
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
-    letterSpacing: -0.2,
-    marginBottom: 3,
-  },
-  count: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11,
+    color: '#e2e8f0',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+    height: 32, // 2 × lineHeight
+    letterSpacing: -0.1,
+    marginTop: 7,
   },
 });

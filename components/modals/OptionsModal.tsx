@@ -17,7 +17,7 @@ interface OptionsModalProps {
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
-  /** Yalnızca dizilerde: takip modülündeki manuel "Bırakıldı" işaretlemesi. */
+  /** Takip modülündeki manuel "Bırakıldı" işaretlemesi (dizi + film). */
   isDropped?: boolean;
   onToggleDropped?: () => void;
 }
@@ -151,11 +151,14 @@ export default function OptionsModal({
             </TouchableOpacity>
           )}
 
-          {type === 'show' && onToggleDropped && (
+          {/* Hem dizilerde hem filmlerde: takip modülündeki manuel "Bırakıldı"
+              işaretlemesi. Eskiden bu satır `type === 'show'` ile kapalıydı, bu
+              yüzden bir filmi bırakılmış işaretlemenin HİÇBİR yolu yoktu. */}
+          {onToggleDropped && (
             <TouchableOpacity style={styles.optionRow} onPress={handleToggleDropped}>
               <PauseCircle color={isDropped ? '#fbbf24' : '#fff'} size={24} />
               <Text style={styles.optionText}>
-                {isDropped ? t('removeFromDropped') : t('addToDropped')}
+                {isDropped ? t('resumeWatching') : t('stopWatching')}
               </Text>
             </TouchableOpacity>
           )}

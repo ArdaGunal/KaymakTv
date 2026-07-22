@@ -7,7 +7,17 @@
   "favMovies": "Favori filmler",
   "lists": "Listeler",
   "library": "Kütüphane",
+  "settings": "Ayarlar",
   "totalCount": "Toplam: {{count}} {{title}}",
   "libraryEmptyTitle": "Burada henüz bir şey yok",
-  "libraryEmptyText": "İçerik ekledikçe burada görünecek."
+  "libraryEmptyText": "İçerik ekledikçe burada görünecek.",
+  "searchInList": "Bu listede ara",
+  "filterAction": "Filtrele",
+  "filterTitleShows": "Dizileri Filtrele",
+  "filterTitleMovies": "Filmleri Filtrele",
+  "applyFilters": "Göster",
+  "clearFilters": "Temizle",
+  "filteredCount": "{{shown}} sonuç · toplam {{total}}",
+  "noMatchTitle": "Sonuç bulunamadı",
+  "noMatchText": "Aramayı veya seçtiğin filtreleri değiştirmeyi dene."
 }

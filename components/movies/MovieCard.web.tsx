@@ -11,6 +11,7 @@ import MovieCardMobile from './MovieCardMobile';
 import { useLibraryActions } from '../../context/LibraryContext';
 import { Check } from 'lucide-react-native';
 import { generateMediaSlug } from '../../utils/slugHelper';
+import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 
 interface MovieCardProps {
   data: any;
@@ -106,7 +107,7 @@ const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
           <View style={styles.tagsContainer}>
             {data.tags.map((tag: string) => (
               <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag === 'WATCHLIST' ? t('watchlistTab') : tag}</Text>
+                <Text style={styles.tagText}>{getMediaTagLabel(tag, t)}</Text>
               </View>
             ))}
           </View>

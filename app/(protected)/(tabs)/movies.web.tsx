@@ -134,7 +134,9 @@ export default function MoviesScreenWeb() {
 
         {isMoviesLoading && accessToken ? (
           <View style={{ marginTop: 24 }}>
-             <Text style={styles.categoryTitle}>{t('notStarted')}</Text>
+             {/* İskelet başlığı da gerçek karusel başlığıyla aynı olmalı ki
+                 yükleme bitince metin zıplamasın. */}
+             <Text style={styles.categoryTitle}>{t('filterWatchlist')}</Text>
              <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
                 <SkeletonLoader width={180} height={270} borderRadius={8} />
                 <SkeletonLoader width={180} height={270} borderRadius={8} />
@@ -154,7 +156,11 @@ export default function MoviesScreenWeb() {
           )
         ) : (
           <>
-            {renderCarousel(t('notStarted'), watchlistMoviesList)}
+            {/* ESKİ KALINTI: burada `t('notStarted')` — yani "Henüz Başlanmadı" —
+                kullanılıyordu. O bir DİZİ terimi (takip modülünün 4 kategorisinden
+                biri) ve filmlerde hiçbir karşılığı yok; filmler kopyalanırken
+                dizilerden sızmış. Doğru terim "İzlenecekler". */}
+            {renderCarousel(t('filterWatchlist'), watchlistMoviesList)}
 
             {watchlistMoviesList.length === 0 && (
               <Text style={styles.emptyText}>{t('noWatchlistMovies')}</Text>

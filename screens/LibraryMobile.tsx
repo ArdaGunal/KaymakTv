@@ -1,7 +1,18 @@
-import React, { useCallback, memo } from 'react';
-import { View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useCallback, useMemo, useState, memo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  StatusBar,
+  FlatList,
+  TouchableOpacity,
+  Platform,
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { Inbox } from 'lucide-react-native';
+import { Inbox, SearchX } from 'lucide-react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -11,31 +22,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { useLibraryTypeData, getLibraryTitleKey, LibraryItem } from '../hooks/useLibraryTypeData';
+import { useLibraryFilters } from '../hooks/useLibraryFilters';
+import LibraryFilterBar from '../components/library/LibraryFilterBar';
+import LibraryFilterModal from '../components/library/LibraryFilterModal';
 
-const { width } = Dimensions.get('window');
 const SPACING = 8;
+// Sütun sayısı SABİT: FlatList'te numColumns çalışma anında değişirse React
+// Native "Changing numColumns on the fly is not supported" ile patlıyor. Bu
+// yüzden sütun sayısı asla türetilmez, hücre GENİŞLİĞİ ekran genişliğine göre
+// hesaplanır.
 const NUM_COLUMNS = 3;
-// Tam piksele yuvarlanmıyorsa, getItemLayout'un hesapladığı offset ile RN'in
-// gerçekte render ettiği (piksele yuvarlanmış) hücre boyutu arasında satır
-// başına küçük bir fark birikir. ~30+ satırlık uzun listelerde (Diziler/
-// Filmler) bu birikim, tam listenin sonuna gelindiğinde FlatList'in tahmini
-// içerik yüksekliğiyle gerçek ölçülen yükseklik arasında belirgin bir sapmaya
-// dönüşüyor — kullanıcı en alta indiğinde biraz daha kaydırınca ekranın 1-2
-// saniyeliğine "yukarı sıçrayıp geri gelmesi" (scroll offset düzeltmesi) bu
-// yüzdendi. Değerleri tam piksele yuvarlamak tahmini ve gerçek yüksekliği
-// eşitleyip bu düzeltmeyi ortadan kaldırıyor.
-const CARD_WIDTH = Math.round((width - (SPACING * (NUM_COLUMNS + 1))) / NUM_COLUMNS);
-const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.5);
-const ROW_HEIGHT = CARD_HEIGHT + SPACING;
 
 interface GridItemProps {
   item: LibraryItem;
   type: string | string[] | undefined;
+  cardStyle: StyleProp<ViewStyle>;
   onPress: (item: LibraryItem) => void;
 }
 
-const LibraryGridItem = memo(({ item, type, onPress }: GridItemProps) => (
-  <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => onPress(item)}>
+const LibraryGridItem = memo(({ item, type, cardStyle, onPress }: GridItemProps) => (
+  <TouchableOpacity style={cardStyle} activeOpacity={0.7} onPress={() => onPress(item)}>
     {type === 'lists' ? (
       <View style={[styles.poster, styles.listPlaceholder]}>
         <Text style={styles.listPlaceholderText}>{item.title}</Text>
@@ -58,7 +64,44 @@ export default function LibraryScreen() {
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
 
+  // Modül seviyesinde `Dimensions.get('window')` okumak ekran döndüğünde /
+  // katlanabilir cihaz açıldığında ESKİ genişlikte kalıyordu: kartlar taşıyor,
+  // getItemLayout gerçek satır yüksekliğinden sapıp kaydırma sıçratıyordu.
+  const { width } = useWindowDimensions();
+
   const { data, loading } = useLibraryTypeData(type, accessToken);
+
+  // Süzme "Diziler" ve "Filmler" ekranlarında açık; favoriler ve listeler
+  // bilerek dokunulmadan eski davranışlarını sürdürüyor.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const {
+    enabled: supportsFilters,
+    filteredData,
+    searchInput,
+    setSearchInput,
+    clearSearch,
+    activeStatuses,
+    applyStatuses,
+    isFiltering,
+    options: filterOptions,
+    filterTitle,
+  } = useLibraryFilters(data, type);
+
+  // Hücre boyutları tam piksele yuvarlanır: yuvarlanmazsa getItemLayout'un
+  // bildirdiği yükseklik ile RN'in gerçekte render ettiği (piksele yuvarlanmış)
+  // hücre arasında satır başına küsurat farkı birikir.
+  const metrics = useMemo(() => {
+    const cardWidth = Math.round((width - SPACING * (NUM_COLUMNS + 1)) / NUM_COLUMNS);
+    const cardHeight = Math.round(cardWidth * 1.5);
+    return { cardWidth, cardHeight, rowHeight: cardHeight + SPACING };
+  }, [width]);
+
+  // Nesne referansı yalnızca genişlik değişince yenilenir — `memo`'lu hücreler
+  // her render'da boşuna yeniden çizilmez.
+  const cardStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [styles.card, { width: metrics.cardWidth, height: metrics.cardHeight }],
+    [metrics.cardWidth, metrics.cardHeight]
+  );
 
   const handleItemPress = useCallback((item: LibraryItem) => {
     if (!item.id) return;
@@ -72,13 +115,42 @@ export default function LibraryScreen() {
   }, [type, router]);
 
   const renderItem = useCallback(({ item }: { item: LibraryItem }) => (
-    <LibraryGridItem item={item} type={type} onPress={handleItemPress} />
-  ), [type, handleItemPress]);
+    <LibraryGridItem item={item} type={type} cardStyle={cardStyle} onPress={handleItemPress} />
+  ), [type, cardStyle, handleItemPress]);
 
-  const getItemLayout = useCallback((_data: any, index: number) => {
-    const row = Math.floor(index / NUM_COLUMNS);
-    return { length: ROW_HEIGHT, offset: SPACING + (ROW_HEIGHT * row), index };
-  }, []);
+  const keyExtractor = useCallback((item: LibraryItem) => item.key, []);
+
+  // DİKKAT — buraya gelen `index` ZATEN SATIR İNDEKSİDİR, öğe indeksi DEĞİL.
+  // `numColumns > 1` iken FlatList, VirtualizedList'e listeyi satır satır verir:
+  // `getItemCount` = Math.ceil(data.length / numColumns) ve `getItem` bir satırın
+  // `numColumns` kadar öğesini tek bir dizi olarak döndürür
+  // (node_modules/react-native/Libraries/Lists/FlatList.js — `_getItem`,
+  // `_getItemCount`, `_keyExtractor` hepsi `index * numColumns + kk` kullanır).
+  // Buna karşılık `getItemLayout` VirtualizedList'e HİÇ DOKUNULMADAN aktarılır.
+  //
+  // ESKİ HATA: burada `Math.floor(index / NUM_COLUMNS)` ile bir kez DAHA bölünüyordu.
+  // Sonuç: ardışık üç satır aynı offset'i alıyor ve offset gerçeğin 1/3'ü hızında
+  // büyüyordu. VirtualizedList'in kare (frame) verilerinden hesapladığı toplam
+  // içerik yüksekliği, gerçekte ölçülen yüksekliğin ~1/3'ü çıkıyordu; kullanıcı
+  // listenin gerçek sonuna inip biraz daha kaydırdığında bu iki değer
+  // çeliştiği için VirtualizedList bir scroll-offset düzeltmesi uyguluyor,
+  // ekran 1-2 saniyeliğine "yenileniyormuş gibi" sıçrayıp geri geliyordu.
+  // (Daha önce bu semptom küsurat birikmesi sanılıp piksele yuvarlamayla
+  // çözülmeye çalışılmıştı; gerçek sapma küsurat değil 3 KATLIK bir çarpandı,
+  // bu yüzden çözülmemişti.)
+  const getItemLayout = useCallback((_data: any, rowIndex: number) => ({
+    length: metrics.rowHeight,
+    offset: SPACING + metrics.rowHeight * rowIndex,
+    index: rowIndex,
+  }), [metrics.rowHeight]);
+
+  const title = t(getLibraryTitleKey(type));
+  const caption = isFiltering
+    ? t('filteredCount', { shown: filteredData.length, total: data.length })
+    : t('totalCount', { count: data.length, title });
+
+  const hasData = data.length > 0;
+  const noMatches = hasData && filteredData.length === 0;
 
   return (
     <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -88,21 +160,34 @@ export default function LibraryScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ChevronLeft size={28} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t(getLibraryTitleKey(type))}</Text>
+        <Text style={styles.headerTitle}>{title}</Text>
         <View style={{ width: 28 }} />
       </View>
 
-      {!loading && data.length > 0 ? (
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>{t('totalCount', { count: data.length, title: t(getLibraryTitleKey(type)) })}</Text>
-        </View>
+      {!loading && hasData ? (
+        supportsFilters ? (
+          <LibraryFilterBar
+            value={searchInput}
+            onChangeText={setSearchInput}
+            onClear={clearSearch}
+            onOpenFilters={() => setFilterOpen(true)}
+            activeFilterCount={activeStatuses.length}
+            placeholder={t('searchInList', 'Bu listede ara')}
+            filterLabel={t('filterAction', 'Filtrele')}
+            caption={caption}
+          />
+        ) : (
+          <View style={styles.statsContainer}>
+            <Text style={styles.statsText}>{caption}</Text>
+          </View>
+        )
       ) : null}
 
       {loading ? (
         <View style={styles.centered}>
           <LoadingIndicator size="large" color="#ffffff" />
         </View>
-      ) : data.length === 0 ? (
+      ) : !hasData ? (
         <View style={styles.centered}>
           <View style={styles.emptyIconWrap}>
             <Inbox size={36} color="#334155" />
@@ -110,27 +195,51 @@ export default function LibraryScreen() {
           <Text style={styles.emptyTitle}>{t('libraryEmptyTitle', 'Burada henüz bir şey yok')}</Text>
           <Text style={styles.emptyText}>{t('libraryEmptyText', 'İçerik ekledikçe burada görünecek.')}</Text>
         </View>
+      ) : noMatches ? (
+        <View style={styles.centered}>
+          <View style={styles.emptyIconWrap}>
+            <SearchX size={36} color="#334155" />
+          </View>
+          <Text style={styles.emptyTitle}>{t('noMatchTitle', 'Sonuç bulunamadı')}</Text>
+          <Text style={styles.emptyText}>{t('noMatchText', 'Aramayı veya seçtiğin filtreleri değiştirmeyi dene.')}</Text>
+        </View>
       ) : (
         <FlatList
-          data={data}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
+          // Sütun sayısı sabit olsa da anahtara bağlamak, ileride NUM_COLUMNS
+          // değiştirilirse RN'i çökerten "on the fly" değişimi yerine güvenli
+          // bir yeniden mount'a çevirir.
+          key={`library-grid-${NUM_COLUMNS}`}
+          data={filteredData}
+          keyExtractor={keyExtractor}
           renderItem={renderItem}
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.gridContainer}
           getItemLayout={getItemLayout}
           ListFooterComponent={<View style={{ height: 40 }} />}
-          // NOT: removeClippedSubviews BİLEREK kullanılmıyor — numColumns (grid)
-          // ile birlikte React Native'de bilinen bir kırpma/render hatasına yol
-          // açıyor: listenin sonunda biraz daha kaydırınca (overscroll/elastik
-          // geri sekme) hücreler hızla clip/unclip olup boş/karışık render
-          // oluşuyordu ("habire yükleniyor, garip şeyler oluyor" hissi buradan
-          // geliyordu). windowSize zaten yeterli sanal listeleme sağlıyor.
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          // Android'de ekran dışına çıkan hücrelerin native görünümlerini
+          // söktürerek bellek baskısını düşürür. iOS'ta bilerek KAPALI: orada
+          // grid ile birlikte listenin sonundaki elastik geri sekmede hücreler
+          // hızla clip/unclip olup boş/karışık render üretiyordu.
+          removeClippedSubviews={Platform.OS === 'android'}
           initialNumToRender={12}
-          maxToRenderPerBatch={12}
+          maxToRenderPerBatch={9}
           windowSize={7}
           updateCellsBatchingPeriod={50}
         />
       )}
+
+      {supportsFilters ? (
+        <LibraryFilterModal
+          visible={filterOpen}
+          options={filterOptions}
+          selected={activeStatuses}
+          title={filterTitle}
+          onApply={applyStatuses}
+          onClose={() => setFilterOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -205,8 +314,6 @@ const styles = StyleSheet.create({
     padding: SPACING,
   },
   card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
     margin: SPACING / 2,
     backgroundColor: '#172033',
     borderRadius: 10,

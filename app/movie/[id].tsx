@@ -19,6 +19,7 @@ import MyInlineComment from '../../components/MyInlineComment';
 import Snackbar from '../../components/Snackbar';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { useTrackingStore } from '../../store/tracking/useTrackingStore';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -57,7 +58,11 @@ export default function MovieDetailScreen() {
     deleteMediaFromHistory,
   } = useLibraryActions();
   const { isGuest } = useAuth();
-  
+
+  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
+  const toggleDroppedMovieStatus = useTrackingStore((s) => s.toggleDroppedMovieStatus);
+  const hydrateTracking = useTrackingStore((s) => s.hydrate);
+
   const idStr = Array.isArray(id) ? id[0] : id;
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
 
@@ -79,6 +84,16 @@ export default function MovieDetailScreen() {
   const isWatched = watchedMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isWatchlisted = watchlistMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isFavorited = favMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
+
+  // Filmler sekmesine hiç uğramadan (bildirimden/paylaşılan linkten) doğrudan
+  // buraya gelinmiş olabilir — o durumda `droppedMovieIds` boş kalır ve daha
+  // önce bırakılmış bir film menüde "İzlemeyi Bırak" gösterirdi. `hydrate()`
+  // idempotent olduğu için buradan çağrılması güvenli (ilk çağrıdan sonra no-op).
+  const isDropped = droppedMovieIds.includes(traktIdNum);
+
+  useEffect(() => {
+    hydrateTracking();
+  }, [hydrateTracking]);
 
   const handleRate = async (rating: number) => {
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
@@ -179,6 +194,8 @@ export default function MovieDetailScreen() {
           onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
           onRewatch={handleRewatch}
+          isDropped={isDropped}
+          onToggleDropped={() => toggleDroppedMovieStatus(traktIdNum)}
         />
 
         <View style={styles.contentArea}>

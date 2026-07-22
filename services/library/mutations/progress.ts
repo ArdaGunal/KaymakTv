@@ -36,7 +36,7 @@ import { recordMutationResult } from '../../../utils/metrics';
 //      bir dizi — dokunmuyoruz: trackingLogic zaten "son izleme bilinmiyor"
 //      durumunu güvenli varsayılan olarak aktif sayıyor.)
 const reactivateShowTracking = (showId: number) => {
-  useTrackingStore.getState().clearDroppedStatus(showId);
+  useTrackingStore.getState().clearDroppedShowStatus(showId);
 
   setWatchedShows((prev: any[]) => {
     const idx = (prev || []).findIndex((item: any) => item?.show?.ids?.trakt === showId);
@@ -365,6 +365,13 @@ export const markMovieAsWatched = async (movieId: number) => {
   let movieItemToMove: any = null;
 
   console.log(`[OPTIMISTIC UI] Film UI'da anında işaretleniyor: Movie ${movieId}`);
+
+  // Kullanıcı bıraktığı bir filmi sonradan izlediyse artık "Bırakılanlar"da
+  // görünmemeli. "Bırakıldı" en yüksek öncelikli kova olduğu için (bkz.
+  // movieTrackingLogic), geçmişe eklenmesi tek başına bunu geçersiz kılmaz —
+  // işareti açıkça temizlemek gerekir. Dizilerdeki `reactivateShowTracking`
+  // kuralının film karşılığı.
+  useTrackingStore.getState().clearDroppedMovieStatus(movieId);
 
   setWatchlistMovies((prev: any) => {
     previousWatchlist = prev;

@@ -26,11 +26,11 @@ const ShowCard = memo(({ data }: { data: any }) => {
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
   const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
-  const droppedIds = useTrackingStore((s) => s.droppedIds);
+  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
   const hydrateTracking = useTrackingStore((s) => s.hydrate);
 
   // İzleme sekmesine hiç uğramadan doğrudan Keşfet'e gelinmiş olabilir — bu
-  // durumda `droppedIds` boş kalır ve daha önce bırakılmış bir dizi burada
+  // durumda `droppedShowIds` boş kalır ve daha önce bırakılmış bir dizi burada
   // yanlışlıkla "aktif" (mavi) görünürdü. `hydrate()` idempotent olduğu için
   // her kart örneğinden çağrılması güvenli (ilk çağrıdan sonra no-op).
   useEffect(() => {
@@ -62,7 +62,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const progress = type === 'show' && traktId ? showProgressMap[traktId] : null;
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
-  const isDropped = type === 'show' && droppedIds.includes(traktId);
+  const isDropped = type === 'show' && droppedShowIds.includes(traktId);
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
   const progressColor = getProgressBarColor(isDropped, isFinished);
 

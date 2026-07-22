@@ -63,8 +63,8 @@ export default function ShowDetailScreen() {
   const { toggleWatchlistStatus, toggleFavoriteStatus, hideMediaFromProgress, deleteMediaFromHistory } = useLibraryActions();
 
   const { isGuest } = useAuth();
-  const droppedIds = useTrackingStore((s) => s.droppedIds);
-  const toggleDroppedStatus = useTrackingStore((s) => s.toggleDroppedStatus);
+  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
+  const toggleDroppedShowStatus = useTrackingStore((s) => s.toggleDroppedShowStatus);
   const hydrateTracking = useTrackingStore((s) => s.hydrate);
 
   const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgress);
@@ -108,7 +108,7 @@ export default function ShowDetailScreen() {
     handleUndoUnwatch,
   } = useShowDetailHandlers({ traktIdNum, id, t });
 
-  const isDropped = droppedIds.includes(traktIdNum);
+  const isDropped = droppedShowIds.includes(traktIdNum);
 
   useEffect(() => {
     hydrateTracking();
@@ -234,7 +234,7 @@ export default function ShowDetailScreen() {
           onHideFromProgress={() => hideMediaFromProgress(traktIdNum, 'show')}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
           isDropped={isDropped}
-          onToggleDropped={() => toggleDroppedStatus(traktIdNum)}
+          onToggleDropped={() => toggleDroppedShowStatus(traktIdNum)}
         />
 
         <View style={styles.contentArea}>

@@ -7,7 +7,17 @@
   "favMovies": "Favorite Movies",
   "lists": "Lists",
   "library": "Library",
+  "settings": "Settings",
   "totalCount": "Total: {{count}} {{title}}",
   "libraryEmptyTitle": "Nothing here yet",
-  "libraryEmptyText": "Items you add will show up here."
+  "libraryEmptyText": "Items you add will show up here.",
+  "searchInList": "Search this list",
+  "filterAction": "Filter",
+  "filterTitleShows": "Filter Shows",
+  "filterTitleMovies": "Filter Movies",
+  "applyFilters": "Show",
+  "clearFilters": "Clear",
+  "filteredCount": "{{shown}} results · {{total}} total",
+  "noMatchTitle": "No results found",
+  "noMatchText": "Try changing your search or the selected filters."
 }

@@ -36,7 +36,11 @@ interface MediaHeroProps {
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
-  /** Yalnızca dizilerde: takip modülündeki manuel "Bırakıldı" işaretlemesi. */
+  /**
+   * Takip modülündeki manuel "Bırakıldı" işaretlemesi. Diziler için
+   * `droppedShowIds`, filmler için `droppedMovieIds` üzerinden gelir —
+   * ilgili ekran hangisini besleyeceğini bilir.
+   */
   isDropped?: boolean;
   onToggleDropped?: () => void;
 }

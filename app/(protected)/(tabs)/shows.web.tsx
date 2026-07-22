@@ -38,7 +38,7 @@ export default function DizilerScreenWeb() {
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Yeni izole takip modülü (İzleme sekmesi kategorileri).
-  const { categories, isLoading: trackingLoading, isEmpty, toggleDroppedStatus } = useTrackingShows();
+  const { categories, isLoading: trackingLoading, isEmpty, toggleDroppedShowStatus } = useTrackingShows();
 
   // ── Yaklaşan (takvim) sekmesi eski, sağlam hattı kullanmaya devam eder.
   const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap } = useLibrarySelector((s) => ({
@@ -107,9 +107,9 @@ export default function DizilerScreenWeb() {
   // Takip kartı (poster) — Netflix tarzı; carousel içinde yan yana sıkı dizilir.
   const renderTrackItem = useCallback(
     ({ item }: { item: any }) => (
-      <ShowTrackCardWeb data={item} onShowFinished={handleShowFinished} onToggleDropped={toggleDroppedStatus} />
+      <ShowTrackCardWeb data={item} onShowFinished={handleShowFinished} onToggleDropped={toggleDroppedShowStatus} />
     ),
-    [handleShowFinished, toggleDroppedStatus]
+    [handleShowFinished, toggleDroppedShowStatus]
   );
   // Trend/yaklaşan için eski yatay EpisodeCard hâlâ kullanılır.
   const renderEpisodeItem = useCallback(

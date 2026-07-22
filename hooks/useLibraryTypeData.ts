@@ -12,28 +12,63 @@ import { filterUserLists } from '../utils/listHelpers';
 export type LibraryType = 'shows' | 'movies' | 'favShows' | 'favMovies' | 'lists';
 
 export interface LibraryItem {
+  /**
+   * FlatList `keyExtractor`'ı için GARANTİLİ eşsiz anahtar. Eskiden anahtar
+   * `${id}-${index}` ile üretiliyordu; index anahtara girdiği için liste
+   * süzüldüğünde/sıralandığında aynı dizi her seferinde YENİ bir kimlik alıyor,
+   * FlatList hücreleri geri dönüştüremeyip hepsini baştan monte ediyordu
+   * (posterler yeniden yükleniyor, kaydırma takılıyordu). Anahtar artık
+   * yalnızca kalıcı kimlikten türetiliyor.
+   */
+  key: string;
   id: number | undefined;
   title: string | undefined;
   tmdbId: number | undefined;
 }
 
+/**
+ * Kimliğe göre tekilleştirir ve her öğeye kalıcı bir `key` yazar. Trakt aynı
+ * diziyi/filmi bazı durumlarda (ör. birden fazla izleme kaydı) tekrar
+ * döndürebiliyor; yinelenen anahtar React'te "aynı kart iki kez" ve bozuk
+ * hücre geri dönüşümüne yol açıyordu.
+ */
+function withUniqueKeys(items: Omit<LibraryItem, 'key'>[], prefix: string): LibraryItem[] {
+  const seen = new Set<string>();
+  const result: LibraryItem[] = [];
+
+  items.forEach((item, index) => {
+    const key = item.id != null ? `${prefix}-${item.id}` : `${prefix}-idx${index}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push({ ...item, key });
+  });
+
+  return result;
+}
+
 function mapMediaItems(items: any[], itemType: 'show' | 'movie'): LibraryItem[] {
-  return items.map((item: any) => ({
-    id: itemType === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
-    title: itemType === 'show' ? item.show?.title : item.movie?.title,
-    tmdbId: itemType === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
-  }));
+  return withUniqueKeys(
+    items.map((item: any) => ({
+      id: itemType === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
+      title: itemType === 'show' ? item.show?.title : item.movie?.title,
+      tmdbId: itemType === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
+    })),
+    itemType
+  );
 }
 
 const sortByWatchedAt = (items: any[]) =>
   [...items].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
 
 function mapListItems(items: any[]): LibraryItem[] {
-  return items.map((item: any) => ({
-    id: item.ids?.trakt,
-    title: item.name,
-    tmdbId: undefined,
-  }));
+  return withUniqueKeys(
+    items.map((item: any) => ({
+      id: item.ids?.trakt,
+      title: item.name,
+      tmdbId: undefined,
+    })),
+    'list'
+  );
 }
 
 const TITLE_KEYS: Record<LibraryType, string> = {

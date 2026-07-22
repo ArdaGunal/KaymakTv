@@ -12,7 +12,7 @@ export interface UseTrackingShowsResult {
   isEmpty: boolean;
   totalCount: number;
   /** Bir diziyi manuel olarak "Bırakıldı" yap / geri al. */
-  toggleDroppedStatus: (id: number) => void;
+  toggleDroppedShowStatus: (id: number) => void;
 }
 
 /**
@@ -33,8 +33,8 @@ export function useTrackingShows(): UseTrackingShowsResult {
     isLibraryLoading: s.isLoading,
   }));
 
-  const droppedIds = useTrackingStore((s) => s.droppedIds);
-  const toggleDroppedStatus = useTrackingStore((s) => s.toggleDroppedStatus);
+  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
+  const toggleDroppedShowStatus = useTrackingStore((s) => s.toggleDroppedShowStatus);
   const hydrate = useTrackingStore((s) => s.hydrate);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         watchedShows: watchedShows || [],
         watchlistShows: watchlistShows || [],
         showProgressMap: showProgressMap || {},
-        droppedIds,
+        droppedShowIds,
         labels: {
           unnamedShow: t('unnamedShow', 'İsimsiz Dizi'),
           notStarted: t('notStarted', 'Henüz Başlanmadı'),
@@ -55,7 +55,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, droppedIds, t]
+    [watchedShows, watchlistShows, showProgressMap, droppedShowIds, t]
   );
 
   const totalCount =
@@ -63,5 +63,5 @@ export function useTrackingShows(): UseTrackingShowsResult {
   const isEmpty = totalCount === 0;
   const isLoading = isEmpty && isLibraryLoading;
 
-  return { categories, isLoading, isEmpty, totalCount, toggleDroppedStatus };
+  return { categories, isLoading, isEmpty, totalCount, toggleDroppedShowStatus };
 }

@@ -60,6 +60,10 @@ interface SpoilerOverlayProps {
 
 const SpoilerOverlay = memo(({ text }: SpoilerOverlayProps) => {
   const [revealed, setRevealed] = useState(false);
+  // `t` daha önce hiç tanımlanmamıştı (dıştaki CommentItem'ın hook'u bu ayrı
+  // bileşenin kapsamında değil) — spoiler içeren bir yorum render edilir
+  // edilmez "t is not defined" ile çöküyordu.
+  const { t } = useTranslation('common');
 
   if (revealed) {
     return (
@@ -71,7 +75,7 @@ const SpoilerOverlay = memo(({ text }: SpoilerOverlayProps) => {
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <EyeOff size={12} color="#64748b" />
-          <Text style={styles.hideSpoilerText}>Gizle</Text>
+          <Text style={styles.hideSpoilerText}>{t('hideSpoiler', 'Gizle')}</Text>
         </TouchableOpacity>
       </View>
     );

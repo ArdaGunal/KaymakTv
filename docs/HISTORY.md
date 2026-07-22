@@ -529,3 +529,317 @@ Counter/Histogram/Gauge birincilleri, SAAT BAŞINA bir kova (`HourBucket`) halin
 **Çözüm:** İki sorun da TEK bir kök düzeltmeyle çözüldü (`store/tracking/trackingLogic.ts`). Eski `isComplete` değişkeni (`!!progress && !next && aired>0 && completed>=aired` — yalnızca "next===null" durumunu kapsıyordu) tamamen kaldırılıp yerine daha geniş bir kural kondu: `if (!!progress && hasStarted && !nextReady) continue;` — kullanıcı izlemeye başlamış VE (hesaplanmakta olmayan, gerçek) ilerleme verisine göre şu an izlenmeye hazır bir bölüm yoksa, dizi hiçbir takip kategorisine (upNext/paused/notStarted/dropped) girmeden döngüden çıkarılır. Eski `isComplete` mantıksal olarak bu yeni kuralın bir ALT KÜMESİYDİ (next===null her zaman nextReady=false anlamına gelir), yani hiçbir davranış kaybı yok, yalnızca genişletme. `!!progress` şartı bilinçli korundu: arka planda ilerlemesi henüz hesaplanmakta olan (isCalculating) diziler bu filtreden MUAF — "hesaplanıyor" spinner kartı göstermeye devam ederler. Bu filtre en üste (season/episode hesaplamasından ÖNCE) taşındığı için, aşağıya sızan HER `hasStarted` dizi artık garanti `nextReady=true` olur — "S1E1" bug'ı ayrı bir yama gerektirmeden kendiliğinden ortadan kalktı (kod yolu artık hiç `: 1` dalına düşmüyor). Dosyanın en üstündeki kural özeti (JSDoc) de yeni mantıkla eşleşecek şekilde güncellendi.
 **Platform notu:** Saf TS, platforma özel dallanma yok — Android ve Web'de birebir aynı davranış. `useDashboardData.ts` (ayrı, eski bir modül) da kontrol edildi — yalnızca "Yaklaşanlar" (takvim) sekmesini besliyor, Aktif/Ara Verilenler/Henüz Başlanmadı ile hiçbir ilgisi yok; bu düzeltmenin kapsamı dışında bırakılması doğruydu.
 **Doğrulama:** `tsc --noEmit` hata kümesi değişmedi; `isComplete` adının dosyada başka hiçbir yerde kalmadığı `grep` ile doğrulandı. Web derlemesi temiz, açılış ekranı hatasız render edildi. Trakt girişi bu ortamda engelli olduğu için "S1 izle → S2 duyurulsun (yayınlanmadan) → dizi hiçbir listede görünmesin" senaryosu canlı test edilemedi; kod incelemesiyle (yeni filtrenin tüm alt dallardan ÖNCE çalıştığı, eski `isComplete`'in matematiksel olarak alt kümesi olduğu, `isCalculating` durumunun korunduğu) doğrulandı.
+
+## 57. Diziler > İzleme Sekmesi (Mobil): Accordion+FlatList → Yapışkan Başlıklı `SectionList`
+**Bağlam:** Kullanıcı, kategori başlıklarının (Aktif İzlenenler, Ara Verilenler vb.) kaydırma sırasında ekranın üstüne yapışmasını istedi (`components/tracking/TrackingAccordionList.tsx` — yalnızca mobil; `.web.tsx` sürümüne dokunulmadı, kullanıcının açık isteği).
+**Kapsam dışı bırakılan madde (kullanıcıya bildirildi):** İstenen "grid chunking" (afişleri 3'lü/4'lü satırlara bölme) algoritması UYGULANMADI — bu ekranın kartı (`EpisodeCardMobile.tsx`) `LibraryMobile.tsx`'teki poster ızgarasından FARKLI: tek sütunlu, tam genişlikte bir satır kartı (afiş + başlık + ilerleme çubuğu + aksiyon butonu yan yana, `flexDirection: row` kartın İÇ düzeni için, kartlar arası değil). Bu ekranda zaten bir grid yok; chunking algoritması zorla uygulansaydı kartların metin/aksiyon içeriğini kırpıp anlamsız bir 3-4 sütunlu afiş ızgarasına dönüştürecek, gerçek bir görsel regresyon olacaktı.
+**Değişiklikler:**
+1. `FlatList` + elle düzleştirilmiş `rows` (header/card satırları tek dizide) → native `SectionList`, her kategori kendi `section`'ı (`{key, title, count, collapsed, data}`). Kapalı (collapsed) bölümler `data: []` ile temsil ediliyor — eski "kapalı bölümün kartları hiç eklenmez" davranışı birebir korundu, başlık kategori boş olmadığı sürece HER ZAMAN görünür durumda.
+2. `stickySectionHeadersEnabled` eklendi. Başlık sarmalayıcısına KATI (opak, `#0B1120` — ekranın kendi arka plan rengi) zemin verildi; Blur/glassmorphism BİLİNÇLİ OLARAK tercih edilmedi (Android'de LayoutAnimation + BlurView + sticky header kombinasyonu ekstra bir render riski katardı, katı renk hem daha ucuz hem garanti hatasız). `marginHorizontal: -12` + `paddingHorizontal: 12` ile zemin, listenin kendi yatay padding'ini iptal edip ekranın tam genişliğine yayılıyor (aksi halde yapışan başlığın kenarlarında altındaki kartın sızabileceği ince bir boşluk kalırdı).
+3. `keyExtractor` sadeleşti: `${key}-${card.id}` (eski, header+card'ı TEK düz dizide ayırt etmek için gerekliydi) → `item.id.toString()` (trackingLogic.ts'in "bir dizi = bir kova" garantisi sayesinde zaten global olarak benzersiz).
+4. `initialNumToRender`/`maxToRenderPerBatch`/`windowSize`/`removeClippedSubviews` korundu. `getItemLayout` BİLİNÇLİ OLARAK eklenmedi — `EpisodeCardMobile`'ın yüksekliği sabit değil (başlık 1-2 satır, etiket satırı olup olmamasına göre değişir); sahte bir sabit yükseklik varsayımı yanlış scroll konumu tahminine yol açardı.
+**Kullanıcıya bildirilen potansiyel riskler (test edilmesi önerilir):**
+- **Android `removeClippedSubviews` + sticky header:** RN'in eski sürümlerinde bu ikisinin birlikte kullanımı sticky header'da titreme/yanlış kırpma bugına yol açabiliyordu. Modern RN sürümlerinde büyük ölçüde çözülmüş olsa da, gerçek bir Android cihazda hızlı kaydırma sırasında görsel olarak doğrulanması önerilir.
+- **Kaydırılmış durumda bölüm kapatma:** Kullanıcı bir bölümün ortasına kadar kaydırmışken o bölümü (sticky haldeki başlığından) kapatırsa, `data` aniden boşalacağından ekran içeriği anlık olarak sıçrayabilir — bu, eski düz-FlatList mimarisinde de zaten var olan bir karakteristikti (satır kaldırma her zaman altındaki içeriği kaydırır), sticky header ile biraz daha belirgin hissedilebilir. Yeni bir regresyon değil, mevcut bir sınırlamanın devamı.
+**Platform notu:** Yalnızca `TrackingAccordionList.tsx` (mobil) değiştirildi. `.web.tsx` sürümü kullanıcının isteği üzerine dokunulmadan bırakıldı. Not: masaüstü olmayan (dar) web tarayıcı pencerelerinde `shows.web.tsx` zaten `IndexMobile`'a (dolayısıyla bu bileşene) düşüyor — yani bu değişiklik hem Android/iOS'ta hem de dar web pencerelerinde aynı şekilde geçerli olacak.
+**Doğrulama:** `tsc --noEmit` hata kümesi değişmedi. Web bundle'ı mobil genişlikte (375px) hatasız derlendi ve açılış ekranı sorunsuz render edildi. Trakt girişi bu ortamda engelli olduğu için (misafir modu bile bu sekmede `LoginPaywall`'a düşüyor) gerçek kategorili verilerle sticky-scroll/collapse davranışı canlı test edilemedi; gerçek cihazda (özellikle Android'de hızlı kaydırma + bölüm kapatma) doğrulama önerilir.
+
+## 58. Madde 57'nin Kırılganlığı: `LayoutAnimation` + Sanallaştırılmış `SectionList` Çakışması
+**Bulan:** Kullanıcı gerçek cihazda test ederken üç semptom bildirdi: (1) "Ara Verilenler" gibi ortadaki bir bölüm bazen anlık kayboluyor, sonra kendiliğinden düzeliyor, (2) bir bölüm açık diğeri kapalıyken toggle bazen tepki vermiyor, (3) 100 dizilik bir listenin 20.sindeyken görünen (sticky) başlığa basıp bölümü kapatınca ekran beklenmedik şekilde en üste sıçrayabiliyor.
+**Kök neden:** Madde 57'de bölüm aç/kapa geçişini yumuşatmak için korunan `LayoutAnimation.configureNext()` çağrısı, NATİF görünüm ağacının TAMAMI üzerinde çalışan global bir mekanizmadır. `SectionList`'in kendi sanallaştırma/hücre-geri-dönüşüm sistemiyle (`windowSize`, `removeClippedSubviews`) React Native'de BİLİNEN, kırılgan bir çakışma içindedir: kullanıcı listenin ortasına kadar kaydırmışken (ekran dışındaki hücreler zaten native ağaçtan kırpılmış/geri dönüştürülmüşken) bir bölümü kapatınca, LayoutAnimation'ın "öncesi" native layout referansı o hücreler için ya hiç yok ya da yanlış; içerik boyutu değiştikçe VirtualizedList'in kendi windowing yeniden hesaplaması da bu native geçişle aynı anda yarışıyor. Bu üçü (anlık kaybolma, ardışık dokunuşlara tepkisizlik, kaydırma sıçraması) tam olarak bu çakışmanın tipik belirtileridir — spesifik bir mantık hatası değil, iki mekanizmanın birbirine müdahale etmesi.
+**Çözüm (`components/tracking/TrackingAccordionList.tsx`):**
+1. `LayoutAnimation.configureNext()` çağrısı VE onu koruyan `UIManager.setLayoutAnimationEnabledExperimental` bootstrap'ı tamamen kaldırıldı — bölüm aç/kapa artık native layout animasyonu OLMADAN, SectionList'in kendi güvenilir re-render'ına bırakılıyor. Şevron ikonunun dönüş animasyonu (`rotateAnim`, izole bir `Animated.Value`, tek bir küçük view'i etkiliyor) bu çakışmadan muaf olduğu için korundu.
+2. LayoutAnimation'ın "yarıda kesilmesini" önlemek için var olan paylaşımlı `toggleLockRef` debounce'u (TEK bir zaman damgasına göre çalıştığından farklı iki bölüme hızlı ardışık dokunuşları da yanlışlıkla engelliyordu — "biri açık diğeri kapalıyken çalışmıyor" şikayetinin doğrudan kaynağı) kaldırıldı. LayoutAnimation olmadan artık gerek yok; her dokunuş anında, bağımsız işleniyor.
+3. `maintainVisibleContentPosition={{ minIndexForVisible: 0 }}` eklendi — içerik yukarıda/görünür alanda boyut değiştirdiğinde (bir bölüm kapanıp `data`sı sıfırlandığında) React Native'e kullanıcının o an gördüğü konumu SABİT TUTMASI (scroll offset'i otomatik telafi etmesi) söylenir. Bu, "20.deyken kapat, en üste sıçramasın" isteğinin doğrudan çözümü.
+4. `removeClippedSubviews={Platform.OS === 'android'}` kaldırıldı — Android'de bu prop'un sticky section header'larla birlikte kullanımı, Madde 57'de zaten "test edilmesi önerilir" olarak işaretlenmiş bilinen bir glitch kaynağıydı; kullanıcının "her türlü çalışır olmalı" önceliği gereği uzun listelerdeki marjinal bellek kazancından feragat edilip risk tamamen ortadan kaldırıldı.
+**Platform notu:** Değişiklik yalnızca `TrackingAccordionList.tsx`'te (mobil + dar web pencereleri, Madde 57'deki gibi) — Android/iOS ve web'de birebir aynı davranış.
+**Doğrulama:** `tsc --noEmit` hata kümesi değişmedi. Web bundle'ı mobil genişlikte hatasız derlendi. Trakt girişi bu ortamda engelli olduğu için üç semptomun de düzeldiğini gerçek kategorili verilerle canlı doğrulayamadım; kök neden analizi (LayoutAnimation + VirtualizedList'in React Native'de belgeli çakışması) ve önerilen düzeltmelerin (animasyonu kaldırma, debounce'u kaldırma, `maintainVisibleContentPosition` ekleme) her üç semptomu da doğrudan hedeflediği kod incelemesiyle doğrulandı — gerçek cihazda (özellikle Android, uzun bir "Ara Verilenler" listesinde) doğrulama önerilir. **[DÜZELTME — bkz. Madde 59: bu maddedeki "gerçek cihazda test edilemedi" notu ve Madde 57'nin "dar web pencerelerinde de bu bileşen kullanılıyor" iddiası YANLIŞTI; asıl kanıtlanmış doğrulama Madde 59'dadır.]**
+
+## 59. Madde 58 "Düzelmedi" Dedi — Gerçek Kök Neden: Test Hiç Doğru Dosyayı Çalıştırmıyordu
+**Bağlam:** Kullanıcı Madde 58'in düzeltmesini test etti ve "düzelmedi" dedi. Trakt girişi bu sandbox'ta Cloudflare bot-koruması tarafından engellendiği için (kullanıcının kendi tarayıcısıyla dener denemez `trakt.tv` "Attention Required" sayfası döndü — bypass edilmeye ÇALIŞILMADI, kurallara aykırı), gerçek veriyle canlı test imkânsızdı. Bunun yerine kullanıcının onayıyla **sahte (mock) veri enjekte eden geçici bir test rotası** (`app/dev-tracking-test.tsx` — 100 "Aktif İzlenenler", 15 "Ara Verilenler", 5 "Henüz Başlanmadı", 3 "Bırakılanlar" kartı, `TrackingAccordionList`'i gerçek Zustand store'a hiç dokunmadan doğrudan besleyen) yaratılıp tarayıcıda GERÇEKTEN etkileşimli test edildi.
+**Keşif 1 — sticky header web'de HİÇ çalışmıyordu:** Mock veriyle test edilince `stickySectionHeadersEnabled` prop'unun react-native-web'de hiçbir etkisi olmadığı, başlığın kaydırınca içerikle birlikte tamamen kaybolduğu (yapışmadığı) DOM incelemesiyle (`getComputedStyle().position` hiçbir ecerçevede `'sticky'` dönmüyordu) doğrulandı.
+**Keşif 2 — GERÇEK kök neden: Metro yanlış dosyayı derliyordu:** `position: 'sticky'` CSS'ini elle eklemek de İLK BAŞTA işe yaramadı. DOM'da `categoryHeaderWrapper`'a ait HİÇBİR iz bulunamayınca kaynak koda geri dönüldü: **Metro/Expo Router, `platform=web` için bir modülü import ederken, aynı isimde bir `.web.tsx` kardeş dosya varsa viewport genişliğinden TAMAMEN BAĞIMSIZ olarak HER ZAMAN onu tercih ediyor.** `components/tracking/TrackingAccordionList.web.tsx` zaten var olduğundan, bu sandbox'taki HER web testi (dar/mobil pencere dahil) sessizce `TrackingAccordionListWeb`'i (Madde 57'den ÖNCEKİ, sticky header'sız, grid tabanlı `FlatList` mimarisi — hiç dokunulmayan, ayrı bir dosya) render ediyordu. Madde 57'deki "masaüstü olmayan web pencerelerinde de bu bileşen [mobil TrackingAccordionList.tsx] kullanılıyor" iddiası bu yüzden YANLIŞTI — `IndexMobile.tsx` render ediliyor olsa bile, onun İÇİNDEKİ `TrackingAccordionList` import'u web derlemesinde HER ZAMAN `.web.tsx`'e çözümleniyor. Madde 58'deki tüm düzeltmeler (`LayoutAnimation` kaldırma, `maintainVisibleContentPosition` ekleme vb.) bu yüzden bu sandbox'ta ASLA test edilememişti — kod doğruydu ama hiç çalıştırılmamıştı.
+**Doğrulama yöntemi:** `TrackingAccordionList.web.tsx` GEÇİCİ olarak `.disabled-for-testing` uzantısıyla yeniden adlandırılıp Metro'nun `.tsx` (mobil) dosyaya düşmesi sağlandı, sunucu yeniden başlatıldı, mock test rotası tarayıcıda uçtan uca denendi, ardından dosya BİREBİR eski adına geri döndürüldü (`git status` ile içerik değişikliği olmadığı doğrulandı).
+**Sonuçlar (üçü de tarayıcıda gerçekten gözlemlendi):**
+1. `position: 'sticky'` (artık `StyleSheet.create()`'in DIŞINDA, düz bir JS objesi — `StyleSheet.create` React Native'in resmi tipinde olmayan `'sticky'` değerini SESSİZCE siliyordu, bu da ayrıca düzeltildi) ile başlık gerçekten ekranın üstüne yapıştı, 40+ kart kaydırılırken sabit kaldı.
+2. Kalabalık (100 kart) "Aktif İzlenenler"in ortasındayken (item ~24) sticky başlığa basılıp bölüm kapatıldığında ekran en üste SIÇRAMADI — doğrudan bir sonraki bölüme ("Ara Verilenler", TAM ve KAYBOLMADAN görünür) indi.
+3. Farklı iki bölüme (biri "Bırakılanlar" açılırken diğeri "Aktif İzlenenler" açılırken) art arda hızlı dokunulduğunda İKİSİ DE doğru işlendi, hiçbiri yutulmadı.
+**Ek düzeltme (`components/tracking/TrackingAccordionList.tsx`):** `WEB_STICKY_STYLE` sabiti artık `StyleSheet.create()`'in dışında tanımlanıp `style` array'ine ayrı bir eleman olarak geçiriliyor (`<View style={[styles.categoryHeaderWrapper, WEB_STICKY_STYLE]}>`) — `StyleSheet.create()`'e gömülü bir spread olarak denendiğinde `position: 'sticky'` sessizce kayboluyordu.
+**Temizlik:** Test rotası (`app/dev-tracking-test.tsx`) ve geçici yeniden adlandırma tamamen geri alındı; `git status` ile `.web.tsx`'in içerik olarak DOKUNULMAMIŞ olduğu doğrulandı.
+**Doğrulama:** `tsc --noEmit` hata kümesi değişmedi. Bu kez — Madde 58'in aksine — üç semptomun de gerçekten düzeldiği CANLI, gerçek etkileşimli testle (mock veri üzerinden) doğrulandı; tek eksik, Trakt'ın gerçek verisiyle Android/iOS'ta native bir son doğrulamadır (bu sandbox'ın ulaşamadığı tek katman `stickySectionHeadersEnabled`'ın native tarafta doğru çalıştığını doğrulamaktır — bu, React Native'in kendi standart, iyi test edilmiş mekanizmasıdır, web'deki gibi ayrı bir CSS hack'i gerektirmez).
+
+## 60. APK'da Sticky Header: "Hayalet Başlık" (Tıklanmayan Buton) ve Kaydırırken Başlığın Kaybolması
+**Bağlam:** Madde 59'daki doğrulama yalnızca web'de (mock veriyle, `.web.tsx` geçici olarak devre dışı bırakılarak) yapılabilmişti. Kullanıcı gerçek APK çıktısında iki YENİ semptom bildirdi: (1) yapışkan başlık ekranın üstünde asılı kaldığında içindeki butona basılamıyor, dokunuş alttaki karta gidiyor; (2) uzun bir bölümde birkaç kart kaydırıldıktan sonra yapışkan başlık aniden kayboluyor, listenin sonuna gelince veya kaydırma yönü değişince geri geliyor. Her ikisi de sadece native (Android) tarafta — web'de bu davranış zaten `position: 'sticky'` ile çözülmüştü.
+**Kök neden 1 (kaybolan başlık) — yorum yazılmış ama PROP HİÇ EKLENMEMİŞ:** Madde 58'de `removeClippedSubviews` "kaldırıldı" denmiş ve `TrackingAccordionList.tsx` içine bunu açıklayan uzun bir yorum bloğu yazılmıştı — ancak prop'un KENDİSİ (`removeClippedSubviews={false}`) JSX'e hiç eklenmemişti. `VirtualizedList`'te bu prop'un Android varsayılanı `true` olduğu için liste fiilen kırpma yapmaya devam ediyordu: ekran dışına çıkan hücreler native ağaçtan tamamen sökülünce, sticky header'ın pinlenme/ölçüm mantığı bozuluyor ve başlık kayboluyordu. Yorum ile gerçek kod arasındaki bu sessiz uyuşmazlık, semptomun tam olarak Madde 58'den sonra da sürmesini açıklıyor.
+**Kök neden 2 (hayalet başlık):** Android'de görünüm sıralaması `zIndex`'ten çok `elevation` ile belirlenir. Sticky header sarmalayıcısında ikisi de tanımlı olmadığı için, başlık ÇİZİM olarak üstte görünse bile hit-test sırasında altından kayan hücreler önüne geçebiliyor ve `TouchableOpacity` dokunuşu hiç almıyordu.
+**Çözüm (`components/tracking/TrackingAccordionList.tsx`):**
+1. `removeClippedSubviews={false}` prop'u SectionList'e GERÇEKTEN eklendi (mevcut yorum, prop'un daha önce unutulduğunu açıkça belirtecek şekilde güncellendi).
+2. `categoryHeaderWrapper` stiline `zIndex: 999` (iOS/web) + `elevation: 10` (Android) eklendi. Arka plan zaten KATI (`#0B1120`) olduğu için touch event'lerin yakalanması garanti — transparan bırakılmadı.
+3. Mevcut tasarımın görünümünü BİREBİR korumak için `shadowColor: 'transparent'` + `shadowOpacity: 0` eklendi: `elevation` Android'de normalde bir gölge de çizer, burada yalnızca z-sıralama etkisi isteniyor.
+**Uygulanmayan öneri — `getItemLayout` (BİLİNÇLİ):** Kullanıcının önerdiği üç yamadan biri olan `getItemLayout` eklenmedi, çünkü ön koşulu ("satır yükseklikleri sabitse") bu listede sağlanmıyor: `EpisodeCardMobile.tsx`'te bölüm başlığı `numberOfLines={2}` ile render ediliyor ve kart yüksekliği 1-2 satıra göre değişiyor. Sabit bir yükseklik varsayımı, kaybolan başlık sorununu çözmek yerine yanlış scroll konumu tahminine ve daha kötü bir glitch'e yol açardı.
+**Zaten uygulanmış olan öneri:** "`chunkArray`'i `useMemo` ile sarmala" maddesi bu dosyada karşılıksız — `chunkArray` burada hiç kullanılmıyor ve `sections` dizisi zaten `useMemo(..., [categories, collapsed, labels])` ile referans olarak stabil.
+**Doğrulama:** `tsc --noEmit` hata kümesi değişmedi (dosyada hata yok; mevcut hatalar `CommentItem.tsx`, `useShowDetail.ts`, `locales/` içindeki önceden var olan hatalardır). Semptomlar yalnızca native (APK) tarafta göründüğü ve bu ortamda Android build/cihaz erişimi olmadığı için canlı doğrulama YAPILAMADI — gerçek APK'da (uzun bir "Aktif İzlenenler" listesinde hızlı kaydırma + yapışık başlığa dokunma) test edilmesi gerekir.
+
+## 61. Kesin Çözüm: Yapışkan Başlık `SectionList`'ten Çıkarıldı, Kendi Overlay'imize Taşındı
+**Bağlam:** Madde 60'ın yamaları (`removeClippedSubviews={false}` + `zIndex`/`elevation`) APK'da yetmedi. Kullanıcının bildirdiği kesin desen: 1. bölüm ("Aktif İzlenenler") sorunsuz yapışıyor; 50 elemanlı 2. bölümün ("Ara Verilenler") başlığı ilk 3-4 karttan sonra kayboluyor, listenin en altına inince son 3-4 dizide geri geliyor; ayrıca yukarı-aşağı-yukarı kaydırınca sistem büsbütün bozuluyor.
+**Kök neden (RN kaynak kodu okunarak doğrulandı, tahmin değil):**
+1. `React Native`'in yapışkan başlığı NATİF bir özellik DEĞİL. `ScrollView`, `stickyHeaderIndices`teki çocukları `ScrollViewStickyHeader` ile sarmalar ve `translateY`yi bir `Animated` interpolasyonuyla sürer (`node_modules/react-native/Libraries/Components/ScrollView/ScrollViewStickyHeader.js:212-223`). Bu interpolasyonun aralığı İKİ ÖLÇÜME bağlıdır: başlığın kendi `layoutY`si ve bir SONRAKİ başlığın `nextHeaderLayoutY`si.
+2. `VirtualizedSectionList` her bölüm için düz listeye 1 header + 1 footer item ekler (`VirtualizedSectionList.js:189-199`) — yani **bölüm başlıkları da sanallaştırmaya tabi normal item'lardır**, kaydırdıkça render penceresinden çıkıp girerler.
+3. Başlık pencereden çıkıp girdikçe `layoutY`/`nextHeaderLayoutY` ölçümleri eskir, interpolasyon aralığı yanlış hesaplanır ve başlık "yapışmayı" bırakır. 1. bölümün her zaman çalışmasının sebebi ise `VirtualizedList`in `initialNumToRender` bölgesini KALICI olarak render'da tutmasıdır (`VirtualizedList.js:529-534`) — index 0'daki başlık hiç unmount olmaz, diğerleri olur. Semptomun neden tam olarak 1. bölümü ayrıcalıklı kıldığı bu şekilde açıklanmış oldu.
+**Çözüm — mimari değişiklik (`components/tracking/TrackingAccordionList.tsx`):** RN'in yapışkan mekanizması tamamen terk edildi (`stickySectionHeadersEnabled={false}`). Yerine:
+1. `SectionList` artık normal (yapışkansız) akıyor, `flex: 1` bir `container` içine alındı.
+2. Başlık, listenin KARDEŞİ olarak `position: 'absolute'; top: 0` bir OVERLAY olarak render ediliyor. Overlay asla unmount olmaz, sanallaştırmayla hiçbir alışverişi yoktur.
+3. Overlay'de hangi bölümün gösterileceğini `onViewableItemsChanged` belirliyor: ekranda görünen EN ÜSTTEKİ satırın bölümü. Bu, yapışkanlığın matematiksel tanımıdır ve ölçüm eskimesine bağışıklıdır. Görünürlük eşiği `itemVisiblePercentThreshold: 1` (KASITLI olarak 0 değil — `ViewabilityHelper` `percent >= threshold` karşılaştırması yaptığı için 0 verilirse ekran dışındaki render edilmiş satırlar da "görünür" sayılır ve mantık bozulurdu).
+4. Overlay yalnızca `scrollY >= 12` (içeriğin `paddingTop`u) iken gösteriliyor: tam bu eşikte overlay'in üst kenarı ile listedeki gerçek başlığın üst kenarı BİREBİR çakışır, böylece tepede çift başlık görünmez.
+5. Başlık bileşeni tekil kaldı; liste içi ve overlay kullanımı yalnızca dış sarmalayıcı stiliyle (`wrapperStyle`) ayrışıyor — ikisinin birebir aynı görünmesinin garantisi bu.
+6. **Hayalet başlık sorunu kökten çözüldü:** overlay listenin kardeşi ve ondan sonra render edildiği için dokunuşları doğal olarak yakalar; ayrıca `zIndex: 999` + `elevation: 10` korundu, `shadowColor: 'transparent'` ile Android gölgesi bastırılarak tasarım birebir korundu.
+7. **Kritik çökme önlendi:** `onViewableItemsChanged` açıkken `VirtualizedSectionList._convertViewable`, görünürlük token'ını dönüştürürken kullanıcının `keyExtractor`ını BÖLÜM BAŞLIĞI/ALTLIĞI satırları için de çağırır — o satırlarda `item` bir `TrackingCard` değil `Section` objesidir ve `id` alanı yoktur. Eski `item.id.toString()` orada anında çökerdi; `keyExtractor` defansif hale getirildi.
+**Bilinçli olarak uygulanmayanlar:** `getItemLayout` (kartların yüksekliği `numberOfLines={2}` yüzünden değişken, sahte sabit yükseklik daha kötü bir glitch üretirdi). `removeClippedSubviews={false}` ve `maintainVisibleContentPosition` korundu.
+**Doğrulama — bu kez GERÇEK, etkileşimli test yapıldı:** Madde 59'daki yöntemle geçici bir mock rota (`app/dev-tracking-test.tsx` — 30 Aktif / 50 Ara Verilen / 25 Başlanmadı / 12 Bırakılan) yaratıldı ve `TrackingAccordionList.web.tsx` geçici olarak devre dışı bırakılarak Metro'nun mobil dosyayı derlemesi sağlandı (overlay mantığı saf JS olduğu için web'deki doğrulama Android için de geçerlidir; kaybolmanın kaynağı olan mekanizmanın kendisi zaten platformdan bağımsız JS'ti).
+1. **15.322 px'lik listede 120 px'lik adımlarla aşağı VE yukarı tam tur (256 ölçüm):** başlığın kaybolduğu tek adım scrollTop = 0 (tasarım gereği, liste tepedeyken gerçek başlık zaten görünür). "Ara Verilenler" aşağı inişte 56, yukarı çıkışta 57 ardışık adım boyunca KESİNTİSİZ yapışık kaldı — eski kodun bozulduğu yer tam burasıydı.
+2. **Yukarı-aşağı-yukarı zıplama testi** (6000 → 3000 → 7000 → 2000 → 9000 → 500 → 8000 → 10500 → 4300): her adımda doğru bölüm başlığı.
+3. **Hayalet başlık testi:** bölümün ortasındayken (scrollTop 7000) yapışık başlığın üzerindeki noktada `document.elementFromPoint` GERÇEKTEN overlay'i döndürdü (alttaki kartı değil); gönderilen dokunuş bölümü kapattı, `scrollTop` 7000'de kaldı (en üste sıçrama yok — `maintainVisibleContentPosition` çalışıyor) ve overlay doğru şekilde bir sonraki bölüme güncellendi.
+4. **Ardışık hızlı dokunuş:** 50 ms arayla iki FARKLI bölüm başlığına dokunuldu, ikisi de işlendi.
+**Temizlik:** Test rotası silindi, `.web.tsx` birebir eski adına döndürüldü ve `git diff` ile içerik olarak DOKUNULMAMIŞ olduğu doğrulandı.
+**Kalan tek belirsizlik:** Android'e özgü native katman (dokunma hit-test'i). Overlay listenin kardeşi olduğu ve `elevation: 10` taşıdığı için bu katmanda risk minimaldir, ancak gerçek APK'da son bir doğrulama yine de önerilir. **[Madde 60'a düzeltme: oradaki `zIndex`/`elevation` yaması korunmuştur ama tek başına yeterli değildi; asıl çözüm bu maddedir.]**
+
+## 62. Profil > Diziler: Lokal Arama + Çoklu Seçim Kategori Filtresi ve Grid Bug Temizliği
+**Bağlam:** `/library/shows` ekranı (profildeki "Diziler" > Tümünü Gör) 136 öğelik düz bir grid'ti; içinde tek bir diziyi bulmanın yolu yoktu ve üstteki "Toplam: 136 Diziler" satırı ekran alanını sayaç göstermek dışında bir işe yaramadan harcıyordu.
+
+**Aşama 1-2 — Kompakt üst bar + filtre menüsü (yeni dosyalar):**
+1. `hooks/useLibraryShowFilters.ts` — TÜM süzme mantığı burada, UI'dan tamamen bağımsız. Ağ isteği YOK; yalnızca store'dan gelen dizi bellekte süzülür.
+2. `components/library/LibraryFilterBar.tsx` — tek satırda arama kutusu + filtre butonu (rozetli), altında tek satırlık sayaç. Eski `statsContainer` bloğunun yerini alır, net ekran alanı kazancı sağlar.
+3. `components/library/LibraryFilterModal.tsx` — 4 kategorili çoklu seçim menüsü. `wide` prop'u ile platform ayrımı: mobilde alttan açılan sheet (`animationType="slide"` + grabber), web/masaüstünde ekranın ortasında modal (`animationType="fade"`, Escape ile kapanır).
+4. Seçimler TASLAK olarak tutulur; liste yalnızca "Göster"e basılınca güncellenir — menü açıkken arkadaki grid her dokunuşta yeniden düzenlenip zıplamaz (istenen davranış).
+5. Arama 180 ms debounce'lu ve **locale duyarlı**: karşılaştırma `toLocaleLowerCase('tr-TR')` ile yapılır. Düz `toLowerCase()` kullanılsaydı "Işık Yolu" başlığı "i̇şık"a dönüşüp "ışık" aramasıyla ASLA eşleşmezdi.
+
+**Kategori kaynağı — tek gerçek kaynak korundu:** 4 kategori (`upNext`/`paused`/`dropped`/`notStarted`) yeniden tanımlanmadı, takip modülünün saf fonksiyonu `categorizeShows`'tan türetiliyor. Böylece "Aktif İzlenenler" bu ekranda ve takip ekranında ASLA farklı anlama gelemez. Etiketler de `media` namespace'indeki mevcut anahtarlardan (`upNext`, `paused`, `inactive`, `notStarted`) okunur, yeni metin uydurulmadı.
+
+**Doğrulama sırasında bulunan tasarım boşluğu — "Henüz Başlanmadı" ölü seçenekti:** Bu ekranın veri kaynağı `watchedShows` (İZLENEN diziler). `notStarted` kategorisi ise tanımı gereği yalnızca izleme listesinde olup hiç izlenmemiş dizilerden oluşur — yani bu listede HİÇ bulunmazlar. Dört seçenekten biri hiçbir koşulda sonuç döndüremeyecekti. Çözüm: kategori filtresi AÇIKKEN havuza `watchlistOnly` (izlenenlerde olmayan, yalnızca izleme listesindeki) diziler de eklenir. Bunlar sadece "Henüz Başlanmadı" seçiliyken eşleşebildiği için diğer seçimlerde listeye sızmazlar; filtre kapalıyken ekranın varsayılan içeriği ve "Toplam" sayısı hiç değişmez.
+
+**Aşama 3 — Liste bug'ları ve performans:**
+1. **Eşsiz `keyExtractor` (asıl bug):** Anahtar `${item.id}-${index}` ile üretiliyordu. Index anahtara girdiği için liste her süzüldüğünde aynı dizi YENİ bir kimlik alıyor, FlatList hücreleri geri dönüştüremeyip hepsini baştan monte ediyordu. `useLibraryTypeData` artık her öğeye kalıcı bir `key` yazıyor (`LibraryItem.key`) ve aynı anda **kimliğe göre tekilleştirme** yapıyor — Trakt'ın aynı diziyi tekrar döndürdüğü durumlarda oluşan "aynı kart iki kez" hatası da böylece kapandı. Web tarafındaki `item.id ? ... : index.toString()` fallback'i de aynı nedenle kaldırıldı.
+2. **`numColumns` sabitlendi:** Sütun sayısı hiçbir yerde türetilmiyor; ayrıca FlatList'e sütun sayısından türeyen sabit bir `key` verilerek, ileride değiştirilmesi hâlinde RN'i çökerten "Changing numColumns on the fly is not supported" hatası yerine güvenli bir yeniden mount'a çevrildi.
+3. **Ekran genişliği bug'ı:** `CARD_WIDTH` modül seviyesinde `Dimensions.get('window')` ile bir kez hesaplanıyordu; cihaz döndürüldüğünde/katlanabilir açıldığında ESKİ genişlikte kalıp kartlar taşıyor ve `getItemLayout` gerçek satır yüksekliğinden sapıp kaydırmayı sıçratıyordu. `useWindowDimensions` + `useMemo`'ya taşındı; hücre stili memoize edildiği için `memo`'lu kartlar gereksiz yeniden çizilmiyor.
+4. `initialNumToRender=12`, `maxToRenderPerBatch=9`, `windowSize=7`, `updateCellsBatchingPeriod=50` ayarlandı; ayrıca `keyboardShouldPersistTaps="handled"` + `keyboardDismissMode="on-drag"` ile arama yaparken klavye/dokunuş çakışması giderildi.
+5. **`removeClippedSubviews` — YALNIZCA Android:** İstendiği gibi eklendi ama `Platform.OS === 'android'` ile sınırlandı. Bu prop daha önce bu dosyada BİLEREK kapatılmıştı (kod içindeki eski yorum): grid ile birlikte listenin sonundaki elastik geri sekmede hücreler hızla clip/unclip olup boş/karışık render üretiyordu. Semptom iOS'ta gözlendiği için Android'de açık, iOS'ta kapalı bırakıldı — regresyon görülürse tek satırla geri alınabilir.
+
+**Yan bulgu — ayrı bir çökme hatası düzeltildi (`components/comments/CommentItem.tsx`):** `SpoilerOverlay` bileşeni `t('containsSpoilers')` / `t('tapToView')` çağırıyordu ama `t` o bileşenin kapsamında HİÇ tanımlı değildi (dıştaki `CommentItem`'ın hook'u). Spoiler içeren bir yorum render edilir edilmez "t is not defined" ile çöküyordu. `useTranslation('common')` bileşenin içine alındı; aynı yerdeki hardcoded "Gizle" metni de `hideSpoiler` anahtarına taşındı (tr/en).
+
+**Kapsam dışı bırakılanlar (bilinçli):** Süzme yalnızca `type === 'shows'` iken etkin. Filmler, favoriler ve listeler ekranları — istendiği gibi — davranış olarak hiç değiştirilmedi; onlar eski sayaç satırını görmeye devam ediyor. API/backend'e dokunulmadı.
+
+**Doğrulama (web, gerçek etkileşimli test):** `LibraryContext`'e geçici bir store kancası takılarak 100 izlenen (60 aktif + 40 ara verilmiş) + 36 izleme listesi dizisi enjekte edildi, test sonunda kanca silindi.
+1. Arama: "ışık" → 1 sonuç ("Işık Yolu"), sayaç "1 sonuç · toplam 100" — Türkçe büyük-I katlaması çalışıyor.
+2. Çoklu seçim: "Ara Verilenler" + "Henüz Başlanmadı" işaretlendi, kutucuklar tik aldı ve **liste arkada değişmedi** (sayaç hâlâ "Toplam: 100 Diziler") — taslak mantığı doğrulandı.
+3. "Göster"e basınca: 76 sonuç (40 ara verilmiş + 36 izleme listesi), "Aktif Dizi" eşleşmesi 0 — sızıntı yok.
+4. Yalnızca "Bırakılanlar" (elle işaretlenmiş dizi yok) → 0 sonuç + "Sonuç bulunamadı" boş ekranı, filtre butonunda "1" rozeti.
+5. `tsc --noEmit`: dokunulan dosyalarda hata yok (kalan hatalar `useShowDetail.ts` ve `locales/` içindeki önceden var olanlardır; `CommentItem.tsx` hataları bu maddeyle giderildi).
+**Doğrulanamayan:** Mobil (native) tarafın kendine özgü kısımları — alttan açılan sheet görünümü ve `removeClippedSubviews`/`getItemLayout` davranışı. Bu ortamda Android/iOS cihaz erişimi yok; hook ve bileşenler web ile ortak olduğu için mantık doğrulandı, native render'ın APK'da bir kez gözden geçirilmesi önerilir.
+
+## 63. Film Takip Altyapısı (Adım 1) ve `droppedIds` → `droppedShowIds` Simetrik Yeniden Adlandırma
+**Bağlam:** Filmler tarafı projede baştan beri ihmal edilmişti. Profil > Filmler sayfasına dizilerdekine benzer bir "arama + kategori filtresi" kurulmasına karar verildi; ancak dizilerdeki 4 kategori yerine filmler için çok daha sade bir model seçildi: **İzlenenler / İzlenecekler / Bırakılanlar**. Filmlerde "sıradaki bölüm", "yayınlandı mı", "ara verilmiş mi" kavramları olmadığı için dizilerdeki karmaşıklık bilinçli olarak taklit EDİLMEDİ.
+
+**Ön inceleme — filmler tarafında bulunan eksikler (bu maddede hepsi çözülmedi, tespit amaçlı kayda geçiyor):**
+1. Filmler sekmesinde "İzlenenler" diye bir görünüm HİÇ yok; sekme yalnızca İzleme Listesi + Yaklaşanlar gösteriyor. `watchedMovies` dilimi store'da duruyor ama o ekran onu hiç okumuyor (yalnızca profil, istatistikler ve film detayı kullanıyor).
+2. "Bırakıldı" %100 dizilere özeldi: `OptionsModal` o satırı `type === 'show'` ile kapatıyordu, yani bir filmi bırakılmış işaretlemenin HİÇBİR yolu yoktu (Adım 2'de açılacak).
+3. Kalıntı: `movies.web.tsx`'te filmlerin izleme listesi carousel'inin başlığı `t('notStarted')` — yani "Henüz Başlanmadı", bir DİZİ terimi (Adım 4'te temizlenecek).
+4. Kalıntı: `MovieCardMobile.tsx` ham `'WATCHLIST'` etiketini çevirmeden basıyor; web kartı aynı etiketi çeviriyor (Adım 4).
+
+**Adım 1 — veri modeli (yeni dosya `store/tracking/movieTrackingLogic.ts`):** `categorizeMovies()` saf fonksiyonu, dizi tarafındaki `trackingLogic.ts` ile aynı sözleşmeye sahip: ham Zustand dilimlerini alır, her filmi TAM OLARAK BİR kovaya koyar. Öncelik sırası: (1) elle "Bırakıldı" → dropped, (2) izleme geçmişinde → watched, (3) yalnızca listede → watchlist. Sıralama: izlenenler son izlemeye, izlenecekler listeye eklenme tarihine göre.
+**Bilinçli fark — başlık BÜYÜK HARFE ÇEVRİLMİYOR:** Dizi kartlarındaki `toTitle` başlığı `toUpperCase()` yapıyor. Film kartında aynısını yapmadık çünkü bu başlık lokal aramada da kullanılacak ve Türkçe'de `i → İ` dönüşümü karşılaştırmayı bozardı (Madde 62'de dizilerde bu yüzden `toLocaleLowerCase('tr-TR')` kullanmak zorunda kalmıştık).
+
+**Adım 1 — ayrı "bırakıldı" deposu (`useTrackingStore.ts`):** Filmler için `droppedMovieIds` + ayrı `kaymak_tracking_dropped_movies_v1` anahtarı eklendi.
+**Neden ayrı liste (kritik):** Trakt'ta dizi ve film id'leri AYRI uzaylardadır ama ikisi de düz sayıdır. Tek listede tutulsalardı, id'si 1390 olan bir filmi bırakan kullanıcı id'si 1390 olan bir diziyi de sessizce "bırakılmış" yapardı. Bu, ortaya çıkması aylar sürecek türden bir hatadır.
+Ayrıca dizi/film toggle-clear mantığı dört ayrı kopya olacaktı; `writeIds`/`toggleId`/`clearId` yardımcılarıyla tek yere toplandı — ileride eklenecek bir kuralın yalnızca birine uygulanıp diğerinde unutulması yapısal olarak engellendi. Bozuk/eski kayıtları eleyen `parseIdList` eklendi (dizi olmayan bir JSON tüm store'u çökertmesin, karışık tipli dizi süzülsün).
+
+**Adım 1 — veri bütünlüğü (`services/library/mutations/progress.ts`):** `markMovieAsWatched` artık `clearDroppedMovieStatus` çağırıyor. "Bırakıldı" en yüksek öncelikli kova olduğu için, kullanıcı bıraktığı bir filmi sonradan izlediğinde geçmişe eklenmesi tek başına yetmez — işaretin açıkça temizlenmesi gerekir. Dizilerdeki `reactivateShowTracking` kuralının film karşılığı.
+
+**Yeniden adlandırma — `droppedIds` → `droppedShowIds`:** Film listesi eklenince `droppedIds` (diziler) ile `droppedMovieIds` (filmler) yan yana durunca isimlendirme asimetrik ve tuzaklı hale geldi. Simetri için 10 dosyada mekanik yeniden adlandırma yapıldı. Aynı asimetriye sahip olan komşu isimler de birlikte düzeltildi:
+- `droppedIds` → `droppedShowIds` (state, `categorizeShows` seçeneği, tüm tüketiciler)
+- `toggleDroppedStatus` → `toggleDroppedShowStatus`
+- `clearDroppedStatus` → `clearDroppedShowStatus`
+- `DROPPED_STORAGE_KEY` → `DROPPED_SHOWS_STORAGE_KEY`
+**KRİTİK — kalıcı veri anahtarının DEĞERİ değiştirilmedi:** Sabitin adı değişti ama değeri `'kaymak_tracking_dropped_v1'` olarak AYNEN korundu. Değer değiştirilseydi mevcut tüm kullanıcıların elle işaretlediği "bırakılmış diziler" sessizce kaybolurdu. Bu yüzden veri göçü (migration) gerekmiyor.
+
+**Doğrulama:**
+1. **Saf fonksiyon — 22 test yazılıp çalıştırıldı, 22'si geçti** (`tsc` ile derlenip Node'da koşuldu): temel ayrım, "bırakıldı" önceliğinin izlenmiş filmi de kovadan çıkarması, bir film = tam olarak bir kova (aynı film hem geçmişte hem listede olduğunda tekilleştirme), kaynak içi yinelenen kayıtların elenmesi, iki kovanın sıralaması, bozuk/eksik veri (`null`, `undefined`, `{}`, id'siz kayıt, tarihsiz kayıt), boş/null dilimler, `Set` olarak `droppedMovieIds`, kategori anahtar sırası.
+2. **Store — tarayıcıda gerçek zamanlı çakışma testi:** aynı trakt id'si (1390) hem dizi hem film olarak bırakıldı; iki liste yan yana durdu, film geri alındığında dizi ETKİLENMEDİ. İki ayrı localStorage anahtarı, reload sonrası `hydrate`'in ikisini de geri yüklemesi, bozuk JSON'un (`{"bozuk":true}`) mevcut veriyi SİLMEDEN yok sayılması, karışık dizinin (`[1,"x",null,2]`) `[1,2]`'ye süzülmesi doğrulandı.
+3. **Yeniden adlandırma — eski verinin hâlâ okunduğu UÇTAN UCA kanıtlandı:** Yeniden adlandırmadan önceki sürümün diske yazdığı kayıt (`kaymak_tracking_dropped_v1` = `[1042]`) elle yazılıp sayfa yenilendi; 3 dizilik bir kütüphanede Profil > Diziler ekranından "Bırakılanlar" filtresi uygulandı ve ekran tam olarak 1 sonuç ("BIRAKILAN DIZI") gösterdi. Yani eski kayıt → `droppedShowIds` → `categorizeShows` → filtre zinciri kesintisiz çalışıyor.
+4. `tsc --noEmit`: dokunulan 11 dosyada hata yok (kalan hatalar `useShowDetail.ts` ve `locales/` içindeki önceden var olanlardır). Yazma yolu (`toggleId`/`clearId`) yeniden adlandırmadan ÖNCE 2. maddede doğrulanmıştı; sonrasında yalnızca tanımlayıcı adları değişti, mantık aynı kaldı ve `tsc` tüm çağrı noktalarını doğruladı.
+5. Geçici doğrulama kancaları ve test verisi silindi, `grep` ile teyit edildi.
+
+**Bu maddede BİLİNÇLİ olarak yapılmayanlar:** Ekranlarda hiçbir görsel değişiklik yok — Adım 1 saf altyapıdır. Filmleri bırakılmış işaretleme yolu (Adım 2), Profil > Filmler arama+filtre arayüzü (Adım 3) ve yukarıdaki 3-4 numaralı kalıntılar (Adım 4) ayrı adımlara bırakıldı.
+
+## 64. Adım 2: Filmlerde "Bırakıldı" Yolunun Açılması + "Bırakılanlara Ekle" → "İzlemeyi Bırak"
+**Bağlam:** Madde 63'te film "bırakıldı" altyapısı (`droppedMovieIds` + `categorizeMovies`) kuruldu ama kullanıcıya açılan HİÇBİR giriş noktası yoktu — `OptionsModal`'daki ilgili satır `type === 'show'` ile kapalıydı. Bu adım o kapıyı açtı.
+
+**Metin değişikliği (kullanıcı geri bildirimi):** "Bırakılanlara Ekle" ifadesi, sanki kullanıcının kendi oluşturduğu bir LİSTEYE ekleme yapılıyormuş izlenimi veriyordu. Oysa yapılan şey içeriğin takip durumunu değiştirmek. Etiketler hem dizilerde hem filmlerde eylem odaklı hale getirildi:
+- `addToDropped` → `stopWatching`: "Bırakılanlara Ekle" → **"İzlemeyi Bırak"** (EN: "Stop Watching")
+- `removeFromDropped` → `resumeWatching`: "Bırakılanlardan Çıkar" → **"İzlemeye Devam Et"** (EN: "Resume Watching")
+Çeviri ANAHTARLARI da yeniden adlandırıldı: eski `addToDropped`/`removeFromDropped` adları artık gösterdikleri metni yanlış tarif ediyordu (Madde 63'teki `droppedIds` asimetrisiyle aynı sınıf bir kalıntı — bir sonraki okuyucuyu yanıltmadan temizlendi). İki kullanım yeri de güncellendi: `OptionsModal.tsx` (dizi + film detayı) ve `TrackingCardMenu.tsx` (Diziler > İzleme sekmesindeki kart menüsü).
+
+**Kapının açılması:**
+1. `components/modals/OptionsModal.tsx` — dropped satırındaki `type === 'show'` koşulu KALDIRILDI; artık tek koşul `onToggleDropped` prop'unun verilmiş olması. Böylece hangi medya tipinin bu özelliği desteklediğine ekran karar veriyor, modal değil.
+2. `app/movie/[id].tsx` — `useTrackingStore`'dan `droppedMovieIds` + `toggleDroppedMovieStatus` okunuyor, `isDropped` türetiliyor ve `MediaHero`'ya geçiliyor. Dizi detayındaki desenle birebir aynı; `hydrate()` de aynı gerekçeyle çağrılıyor (kullanıcı bildirimden/paylaşılan linkten doğrudan buraya gelmiş olabilir, o durumda liste boş kalır ve daha önce bırakılmış bir film menüde yanlış etiketi gösterirdi).
+3. `MediaHero.tsx` ve `OptionsModal.tsx`'teki "Yalnızca dizilerde:" prop yorumları güncellendi.
+**Değiştirilmeyen (bilinçli):** `ShowCard.tsx`'teki `isDropped = type === 'show' && ...` satırı olduğu gibi bırakıldı — oradaki tek kullanım ilerleme çubuğunun rengi ve ilerleme çubuğu zaten yalnızca dizilerde var.
+**Misafir kilidi:** `handleToggleDropped` içindeki mevcut `isGuest` koruması aynen geçerli; film tarafı için ayrıca bir şey eklemeye gerek olmadı (doğrulamada bu kilit gerçekten devreye girdi, bkz. aşağıda).
+
+**Doğrulama — gerçek, etkileşimli test (web):**
+Ağ bu ortamda kapalı olduğu için detay ekranları normalde açılmıyordu. Kod değiştirmek yerine hook'ların KENDİ disk önbelleği kullanıldı: `@movie_detail_v4_cache_999999` ve `@show_detail_v3_888888` anahtarlarına sahte özet yazılıp sayfalar cache-hit yolundan açıldı (üretim kodu hiç kirletilmedi).
+1. **Film menüsü:** 3-nokta menüsünde "İzlemeyi Bırak" satırı GÖRÜNDÜ — bu satır daha önce filmlerde hiç yoktu.
+2. **Misafir kilidi çalışıyor:** misafir modunda tıklandığında hiçbir şey yazılmadı (beklenen davranış).
+3. **Yazma yolu (oturum açıkken):** "İzlemeyi Bırak" → `kaymak_tracking_dropped_movies_v1` = `[999999]`, `kaymak_tracking_dropped_v1` = `null`. Film, dizi listesine SIZMADI.
+4. **Etiket tersine dönüyor:** menü yeniden açıldığında satır "İzlemeye Devam Et" oldu.
+5. **Dizi tarafında regresyon yok:** dizi detayında da yeni etiket göründü, tıklandığında `kaymak_tracking_dropped_v1` = `[888888]` yazıldı ve film listesi `[999999]` olarak DEĞİŞMEDEN kaldı. İki yol uçtan uca birbirinden bağımsız.
+6. `tsc --noEmit`: dokunulan dosyalarda hata yok; eski `addToDropped`/`removeFromDropped` anahtarları `grep` ile projede sıfır.
+**Ortam kaynaklı bir gözlem (ürün hatası DEĞİL):** `OptionsModal` `animationType="slide"` kullanıyor ve bu tarayıcı paneli kare üretmediği için RNW'nin slide animasyonu hiç çalışmıyor, modal `translateY(720px)`'de donup ekran dışında kalıyor. Doğrulama sırasında bu transform konsoldan geçici olarak sıfırlandı. Aynı sınıf artefakt Madde 62'de de görülmüştü; gerçek cihazda/normal tarayıcıda animasyon çalıştığı için sorun teşkil etmiyor.
+**Temizlik:** Sahte önbellek kayıtları, sahte token ve test sırasında yazılan "bırakıldı" kayıtları silindi, misafir modu geri alındı; üretim kodunda geçici satır kalmadığı `grep` ile teyit edildi.
+
+**Sırada:** Adım 3 (Profil > Filmler ekranına arama + 3'lü kategori filtresi) ve Adım 4 (`movies.web.tsx`'teki `t('notStarted')` kalıntısı, `MovieCardMobile`'daki çevrilmemiş `WATCHLIST` etiketi).
+
+## 65. Adım 3: Profil > Filmler'e Arama + 3'lü Kategori Filtresi (ve Sheet Butonlarının Gezinme Çubuğu Altında Kalması)
+**Bağlam:** Madde 63-64'te film takip altyapısı (`categorizeMovies`, `droppedMovieIds`) ve "İzlemeyi Bırak" giriş noktası kuruldu. Bu adım, Madde 62'de dizilere yapılan arama+filtre arayüzünü filmlere de getirdi.
+
+**Kullanıcı kararları (bu adımın çerçevesi):** Filtre YALNIZCA Profil > Filmler (`/library/movies`) ekranına kuruldu, Filmler sekmesine (`/movies`) hiç dokunulmadı. Sayfanın varsayılan içeriği (filtre kapalıyken) bugünküyle aynı kaldı: izlenen filmler, "Toplam: N Filmler" sayısı değişmedi.
+
+**Ortak çekirdek çıkarıldı (`hooks/libraryFilterCore.ts` — YENİ):** Arama, debounce, taslak seçim, uygula/temizle ve süzme algoritması dizilerle filmlerde BİREBİR aynıydı. Kopyalamak yerine tek yere alındı: `useMediaFilterState` (durum), `filterLibraryItems` (saf süzme), `useFilterResult` (memoize sonuç), `normalizeForSearch`. Medya tipine özel hook'lar artık yalnızca kendi "durum indeksini" üretiyor:
+- `useLibraryShowFilters` → `categorizeShows` (4 kategori) — mantığı değişmedi, sadece çekirdeğe taşındı.
+- `useLibraryMovieFilters` (YENİ) → `categorizeMovies` (3 kategori).
+- `useLibraryFilters` (YENİ — cephe/facade): `/library/[type]` rotası hem dizileri hem filmleri sunduğu ve hook'lar KOŞULLU çağrılamadığı için iki hook da her zaman çağrılır, yalnızca biri etkin olur. Ekranlar bu ayrımı hiç bilmez; etiketleri çözülmüş `options` ve menü başlığını da bu hook üretir.
+
+**`LibraryFilterModal` medya tipinden bağımsız hale getirildi:** Sabit 4 dizi kategorisi ve `t('media:...')` çağrıları kaldırıldı; bileşen artık `options` (çözülmüş etiketlerle) + `title` prop'u alıyor ve `TKey extends string` üzerinden generic. Yeni bir medya tipi eklendiğinde bu dosya değişmek zorunda kalmayacak.
+
+**Kategori havuzu — filmlerde 3'te 2 kategori varsayılan listede YOK:** Ekranın veri kaynağı `watchedMovies`. "İzlenecekler" ve izleme listesinden gelen "Bırakılanlar" orada hiç bulunmaz. Bu yüzden kategori filtresi AÇIKKEN havuza `extraPool` katılıyor (kategorilere ait olup ekranda olmayan öğeler). Filtre kapalıyken havuza girmedikleri için varsayılan içerik ve "Toplam" sayısı hiç değişmiyor — Madde 62'de dizilerdeki "Henüz Başlanmadı" için kurulan mekanizmanın aynısı, bu kez `MediaStatusIndex.extraPool` adıyla ortak çekirdeğe taşındı.
+
+**Metin anahtarları:** `filterTitle` → `filterTitleShows` + `filterTitleMovies` ("Dizileri/Filmleri Filtrele"). Film kategorileri için `media.json`'a `filterWatched` ("İzlenenler" / "Watched") ve `filterWatchlist` ("İzlenecekler" / "Want to Watch") eklendi; "Bırakılanlar" mevcut `inactive` anahtarından okunuyor (dizilerle ortak).
+
+**BUG DÜZELTMESİ — "Göster/Temizle" gezinme çubuğunun altında kalıyordu:** Alttan açılan sheet'te bu iki buton, Android'in gezinme çubuğunun (ve iOS'un home göstergesinin) ALTINDA kalıyordu. Sebep: modal `statusBarTranslucent` ile sistem çubuklarının altına uzanıyor, panelin sabit `paddingBottom: 32` değeri ise bunu hesaba katmıyordu. Panelin alt boşluğu artık `Math.max(insets.bottom, 16) + 16` ile hesaplanıyor (`useSafeAreaInsets`). Taban 16px, inset'in 0 döndüğü cihazlarda da parmağa pay bırakmak için. Modal tek bileşen olduğu için düzeltme dizi ve film ekranlarının İKİSİNİ birden kapsıyor.
+
+**Doğrulama — gerçek, etkileşimli test (web):** Uygulamanın KENDİ kalıcı önbelleği (`@trakt_lib_*`) doldurularak veri sağlandı; üretim koduna hiçbir geçici satır eklenmedi. Veri seti: 40 izlenen + 25 izlenecek film, elle bırakılmış 3 tanesi (2'si izlenenlerden: 3005/3006, 1'i izleneceklerden: 4010).
+1. **Varsayılan içerik korunuyor:** filtre kapalıyken "Toplam: 40 Filmler" — sayfa bugünkü anlamını aynen sürdürüyor.
+2. **Arama:** "ışık" → 1 sonuç ("Işıklar Sönerken"). Türkçe büyük-I katlaması çalışıyor.
+3. **Menü:** başlık "Filmleri Filtrele", kategoriler tam olarak İzlenenler / İzlenecekler / Bırakılanlar.
+4. **İzlenenler** → 38 sonuç (40 − 2 bırakılan). Bırakılan ikisi (Izlenen Film 5 ve 6) doğru şekilde elendi, izlenecek hiçbir film sızmadı.
+5. **İzlenecekler** → 24 sonuç (25 − 1 bırakılan). Bırakılan "Izlenecek Film 10" listede YOK. Bu kategori tamamen `extraPool`'dan geliyor — mekanizmanın çalıştığının doğrudan kanıtı.
+6. **Bırakılanlar** → tam 3 kayıt: Izlenen Film 5, Izlenen Film 6, Izlenecek Film 10. Yani hem izlenenlerden hem izleneceklerden gelenler birlikte.
+7. **Dizilerde regresyon YOK** (ortak çekirdeğe taşıma sonrası): 30 dizilik veri setinde (20'si 3 gün, 10'u 120 gün önce izlenmiş) "Aktif İzlenenler" → 20 (Dizi 0-19), "Ara Verilenler" → 10 (Dizi 20-29). Toplam 30, çakışma ve sızıntı yok. Menü hâlâ 4 kategorili ve başlığı "Dizileri Filtrele".
+8. **Mobil sheet:** panelin doğal genişliği 768'in altına düştüğünde sheet varyantı doğru render oldu; alt boşluk `useSafeAreaInsets`'ten hesaplandı, "Göster" butonu görünür alanın içinde ve altında 32px boşlukla konumlandı. Modal içinde `useSafeAreaInsets` çağrısının çökmediği de böylece doğrulandı (context sağlayıcıdan miras alınıyor).
+9. `categorizeMovies` saf fonksiyon testi (22 test) yeniden koşuldu, hepsi geçti. `tsc --noEmit`: dokunulan dosyalarda hata yok.
+
+**DOĞRULANAMAYAN — dürüst kayıt:** Gezinme çubuğu düzeltmesinin ASIL etkisi web'de görülemez, çünkü web'de `insets.bottom = 0` ve hesaplanan değer `max(0,16)+16 = 32px`, yani eski sabit 32 ile AYNI. Düzeltme yalnızca `insets.bottom`'ın 24-48px olduğu Android/iOS'ta fark yaratır. Kod yolu ve çökmezlik doğrulandı, görsel sonuç gerçek cihazda teyit edilmeli.
+**Ortam kısıtı (ürün hatası değil):** Tarayıcı paneli `resize_window` ile 375px'e küçültüldüğünde CDP tıklamaları sayfaya hiç ulaşmıyor (arama kutusuna tıklamak bile odak vermiyor). Mobil doğrulama bu yüzden panelin doğal boyutu (523px, yine 768 altı → sheet varyantı) kullanılarak yapıldı. Ayrıca Madde 62/64'te olduğu gibi RNW'nin `slide` animasyonu bu panelde kare üretilmediği için donuyor; ölçüm öncesi transform konsoldan geçici sıfırlandı.
+**Temizlik:** Tüm test verisi (`@trakt_lib_*`, bırakıldı kayıtları, sahte token) silindi, misafir modu geri alındı; üretim kodunda geçici satır kalmadığı `grep` ile teyit edildi.
+
+**Sırada:** Adım 4 — `movies.web.tsx`'teki `t('notStarted')` kalıntısı ve `MovieCardMobile`'daki çevrilmemiş `WATCHLIST` etiketi.
+
+## 66. Adım 4: Filmlerdeki Dizi Kalıntılarının Temizlenmesi ve Etiket Çevirisinin Tek Kaynağa Alınması
+**Bağlam:** Madde 63'ün ön incelemesinde filmler tarafında tespit edilen iki kalıntı bu adımda kapatıldı. İkisinin de kökeni aynı: filmler dizilerden kopyalanırken bazı metinler ya olduğu gibi taşınmış ya da hiç ele alınmamış.
+
+**Kalıntı 1 — filmlerde "Henüz Başlanmadı" (`movies.web.tsx`):** İzleme Listesi sekmesindeki karuselin başlığı `t('notStarted')` idi — yani **"Henüz Başlanmadı"**. Bu, takip modülünün DÖRT DİZİ KATEGORİSİNDEN biri ve filmlerde hiçbir karşılığı yok. Doğru terim olan `t('filterWatchlist')` ("İzlenecekler" / "Want to Watch") ile değiştirildi. Aynı yanlış anahtar yükleme iskeletinin başlığında da kullanılıyordu; o da düzeltildi — aksi halde veri gelince başlık metni değişip zıplardı.
+
+**Kalıntı 2 — etiket (tag) çevirisi üç farklı yerde üç farklı şekilde yapılıyordu:** Veri katmanı etiketleri SEMANTİK KOD olarak üretir (`'WATCHLIST'`, `'BIRAKILDI'`, `'EN SON'`…) ve bu kodlar tarihsel sebeplerle Türkçe yazılmıştır. Bulunan durum:
+- `EpisodeCard.web.tsx` — dosyaya gömülü yerel bir `getTagLabel` yardımcısı vardı (doğru davranış, ama paylaşılmıyordu).
+- `MovieCard.web.tsx` — yalnızca tek bir kodu ele alan kendi ayrı ternary'si: `tag === 'WATCHLIST' ? t('watchlistTab') : tag`.
+- `MovieCardMobile.tsx` — **hiçbir çeviri yok**, etiket HAM haliyle basılıyordu: kullanıcı kartta İngilizce arayüzde bile "WATCHLIST" görüyordu.
+**Çözüm:** `utils/mediaTagLabel.ts` (YENİ) — `getMediaTagLabel(tag, t)` tek kaynak. `EpisodeCard.web`'deki yerel yardımcı silinip buraya taşındı, eksik kodlar (`PREMIERE`, `YENİ`, `TAMAMLANDI`) da eklendi; üç kart bileşeni de artık bunu kullanıyor. Bilinmeyen kod geldiğinde kodun kendisi dönüyor (ekranda boşluk değil, en azından ham kod görünsün).
+**Dokunulmayan (bilinçli):** `EpisodeCardMobile.tsx` her etiketi kendi rengi/stiliyle ayrı ayrı render ediyor (`PREMIERE` beyaz, `BIRAKILDI` sarı…) ve metinleri zaten çeviriyor. Orası tasarım gereği farklı, ortak yardımcıya zorlanmadı.
+
+**Yoldan çıkan üçüncü bulgu — İngilizce menüde "Ayarlar":** Doğrulama sırasında fark edildi. `Sidebar.tsx` `navigation` namespace'ini kullanıyor ama `settings` anahtarı yalnızca `common` ve `settings` namespace'lerinde tanımlıydı. Sonuç: `t('settings', { defaultValue: 'Ayarlar' })` her zaman varsayılana düşüyor ve İngilizce kullanıcı menüde "Ayarlar" görüyordu. Anahtar iki dilin `navigation.json`'una eklendi.
+
+**Doğrulama — her iki dilde gerçek test (web):** Uygulamanın kendi kalıcı önbelleği (`@trakt_lib_*`) doldurularak 6 izleme listesi filmi enjekte edildi; üretim koduna geçici satır eklenmedi.
+1. **Mobil kart (dar görünüm):** etiket artık "İzleme Listesi" — ham `WATCHLIST` metni ekranda YOK.
+2. **Web karuseli (geniş görünüm):** başlık "İzlenecekler"; "Henüz Başlanmadı" ekranda YOK.
+3. **İngilizce (`app_language = en`):** karusel başlığı "Want to Watch", etiket "Watchlist", menüde "Settings". Türkçe sızıntı taraması temiz: "Henüz Başlanmadı", "İzlenecekler", "İzleme Listesi", ham "WATCHLIST" ve "Ayarlar" — hiçbiri yok.
+4. **Türkçeye geri dönüşte regresyon yok:** menü ve başlıklar eski hâlinde ("Diziler / Filmler / Keşfet / Profil / Ayarlar", "İzlenecekler").
+5. `tsc --noEmit`: dokunulan dosyalarda hata yok (kalan hatalar `useShowDetail.ts` ve `locales/` içindeki önceden var olanlardır). `grep`: filmlerde `notStarted` ve ham etiket basımı sıfır.
+
+**Yanlış alarm (kayda geçiyor):** Doğrulama sırasında mobil film kartında ham ISO tarih (`2026-06-22T21:12:21.363Z`) göründü ve bir an biçimlendirme hatası sanıldı. İncelendiğinde web ve mobil kartların AYNI ifadeyi (`data.releaseDate || data.year`) kullandığı, sorunun test verisinde tam ISO damgası enjekte edilmiş olmasından kaynaklandığı görüldü — Trakt gerçekte `YYYY-MM-DD` gönderiyor. Ürün hatası değil, değişiklik yapılmadı.
+
+**Temizlik:** Tüm test verisi ve dil seçimi silindi, misafir modu geri alındı; üretim kodunda geçici satır kalmadığı `grep` ile teyit edildi.
+
+**Filmler dört adımlık planın sonuna geldi:** veri modeli (63) → "İzlemeyi Bırak" giriş noktası (64) → arama + 3'lü filtre (65) → kalıntı temizliği (66).
+
+## 67. KÖK NEDEN BULUNDU: Profil > Diziler/Filmler Listesinin Sonunda "Sayfa Yenileniyormuş Gibi" Sıçrama
+**Semptom (kullanıcı bildirimi):** Profil > Diziler (ör. 140 öğe) veya Profil > Filmler listesinde en son öğeye kadar inip biraz DAHA kaydırınca ekran 1-2 saniyeliğine bozuluyor, sanki sayfa yenileniyormuş gibi sıçrayıp geri geliyor. Tekrar kaydırınca tekrar oluyor. Her iki listede de var.
+
+**Neden daha önce çözülemedi:** Madde 62'de (ve öncesinde) bu semptom "küsurat birikmesi" sanılmıştı — `getItemLayout`'un bildirdiği yükseklik ile piksele yuvarlanmış gerçek hücre arasında satır başına biriken sub-pixel farkı. Bu teoriyle hücre boyutları `Math.round` ile tam piksele çekilmişti. Sorun devam etti, çünkü gerçek sapma küsurat DEĞİL, **3 KATLIK bir çarpandı**.
+
+**Gerçek kök neden (React Native kaynağı okunarak doğrulandı, tahmin değil):**
+`numColumns > 1` iken FlatList, alttaki `VirtualizedList`'e listeyi ÖĞE ÖĞE değil **SATIR SATIR** verir:
+- `_getItemCount` → `Math.ceil(data.length / numColumns)` (yani satır sayısı)
+- `_getItem` → bir satırın `numColumns` kadar öğesini TEK bir dizi olarak döndürür (`index * numColumns + kk`)
+- `_keyExtractor` ve `_onViewableItemsChanged` de aynı `index * numColumns + kk` dönüşümünü yapar
+(`node_modules/react-native/Libraries/Lists/FlatList.js`)
+
+Buna karşılık **`getItemLayout` hiçbir dönüşüme uğramadan** `...restProps` ile VirtualizedList'e aktarılır (aynı dosya, `render()`). Yani `getItemLayout`'a gelen `index` **ZATEN SATIR İNDEKSİDİR**.
+
+`screens/LibraryMobile.tsx` ise bu indeksi bir kez DAHA sütun sayısına bölüyordu:
+```
+const row = Math.floor(index / NUM_COLUMNS);   // ← HATA: index zaten satır indeksi
+return { length: rowHeight, offset: SPACING + rowHeight * row, index };
+```
+Sonuç: ardışık ÜÇ satır aynı `offset` değerini alıyor ve offset gerçeğin 1/3'ü hızında büyüyordu. `length` doğru olduğu için liste normal görünüyor, hata yalnızca VirtualizedList'in kare (frame) verilerinden hesapladığı TOPLAM İÇERİK YÜKSEKLİĞİNDE ortaya çıkıyordu. Kullanıcı listenin gerçek sonuna inip biraz daha kaydırınca, VirtualizedList'in kare modeli ile gerçekte ölçülen içerik boyutu çelişiyor ve bir scroll-offset düzeltmesi tetikleniyordu — ekrandaki "yenileniyormuş gibi sıçrama" tam olarak buydu. Overscroll her tekrarlandığında çelişki yeniden doğduğu için bug da tekrarlıyordu.
+
+**Sayısal kanıt (tarayıcıda, 140 öğelik gerçek listede ölçüldü — genişlik 700px):**
+| | Değer |
+|---|---|
+| Hesaplanan `rowHeight` | 343 px |
+| DOM'da ÖLÇÜLEN satır aralığı | 343 px ✓ (model doğru) |
+| Satır sayısı (`ceil(140/3)`) | 47 |
+| GERÇEK içerik yüksekliği (`scrollHeight`) | 16177 px |
+| Beklenen (`8 + 47×343 + 8 + 40`) | 16177 px ✓ |
+| **ESKİ** formülün son kare sonu | **5496 px** |
+| **YENİ** formülün son kare sonu | **16129 px** ✓ (kalan 48px = alt padding + footer, VirtualizedList onları ayrı takip eder) |
+
+Eski model içeriğin 5496px'te bittiğini söylüyordu, gerçekte 16177px'te bitiyor — **~10.700 px / ~2,94 kat** sapma. Küsurat yuvarlamanın bunu düzeltmesi imkânsızdı.
+
+**Çözüm (`screens/LibraryMobile.tsx`):** Fazladan bölme kaldırıldı, parametre adı da niyeti belgeleyecek şekilde `rowIndex` yapıldı:
+```
+const getItemLayout = useCallback((_data, rowIndex) => ({
+  length: metrics.rowHeight,
+  offset: SPACING + metrics.rowHeight * rowIndex,
+  index: rowIndex,
+}), [metrics.rowHeight]);
+```
+Hücre boyutlarındaki `Math.round` KORUNDU (kendi başına doğru ve zararsız bir önlem), ama onu açıklayan yanıltıcı yorum düzeltildi: artık sıçramanın sebebi olarak küsurat birikmesini göstermiyor.
+
+**Doğrulama:** Düzeltme sonrası 140 öğelik listede en alta kaydırılıp 2,5 saniye boyunca 100ms aralıkla 25 örnek alındı: `scrollTop` **15516'da sabit kaldı, sapma 0 px**; `scrollHeight` de 16177'de değişmedi. Kare modeli ile gerçek içerik artık örtüştüğü için düzeltme tetiklenmiyor.
+
+**Kapsam taraması — başka yerde aynı hata var mı:** Projedeki tüm `getItemLayout` ve `numColumns` kullanımları tarandı.
+- `components/HorizontalShowList.tsx` → `horizontal` (tek satır, `numColumns` yok); `index` doğrudan öğe indeksidir, kodu DOĞRU.
+- `library/view-all.web.tsx`, `library/[type].web.tsx`, `explore/ExploreWebGrid.tsx` → `numColumns` kullanıyor ama `getItemLayout` VERMİYOR, dolayısıyla etkilenmiyorlar.
+- `components/tracking/TrackingAccordionList.tsx` → `getItemLayout` bilinçli olarak eklenmemiş (bkz. Madde 60/61).
+Yani hata yalnızca `LibraryMobile`'daydı ve orası hem Diziler hem Filmler ekranını besleyen TEK dosya olduğu için kullanıcının "ikisinde de var" gözlemiyle birebir örtüşüyor.
+
+**Not:** Semptom native (APK) tarafında bildirildi; buradaki ölçüm ve doğrulama web üzerinde yapıldı. VirtualizedList mantığı saf JS ve iki platformda ortak olduğu için kare/gerçek yükseklik uyumsuzluğu ve düzeltmesi de ortaktır; yine de gerçek cihazda son bir teyit önerilir.
+
+## 68. Profil (Mobil) Tasarım Elden Geçirmesi: Ortak Ölçü/Başlık Dili ve Kompakt Özet Kartı
+**Bağlam:** Profil ekranı zamanla parça parça büyümüş, her bölüm kendi ölçüsünü ve kendi başlık stilini tanımlar hale gelmişti. Kullanıcının bildirdiği iki somut şikâyet — "Listelerim kartları diğerlerinden büyük" ve "en üstteki toplam izleme süresi çok iri" — aynı kök sorunun belirtileriydi: ortak bir tasarım kaynağı yoktu.
+
+**Ortak ölçü kaynağı (`components/profile/profileMetrics.ts` — YENİ):** Poster kart genişliği/yüksekliği, kartlar arası boşluk, şerit kenar boşluğu ve şeritler arası dikey boşluk tek yere alındı. Önceki durum: poster kartları `width * 0.28`, "Listelerim" kartları ise SABİT 160×220 idi; aynı ekranda alt alta duran şeritler belirgin şekilde farklı boyuttaydı. Ayrıca kenar boşlukları da tutarsızdı (poster şeritleri 16px, Listelerim 20px, üst başlık 20px).
+
+**Ortak bölüm başlığı (`components/profile/SectionHeader.tsx` — YENİ):** Ekranda İKİ ayrı başlık dili vardı — poster şeritleri 18px kalın başlık + yalnız chevron; "Listelerim" ise 19px + ikon rozeti + sayı rozeti + "Tümü" metni. Tek bileşende birleştirildi (ikon rozeti + başlık + opsiyonel sayı + "Tümünü Gör ›"). `HorizontalShowList` de bu bileşene geçirildi ve kendi başlık stillerinden arındırıldı. Her şerit artık ikonlu: Diziler/Filmler mavi, favoriler kırmızı.
+
+**Kompakt özet kartı (`ProfileStatsMobile.tsx`):** Süre 44px'lik dev bir rakamla tek başına bir satırda duruyor, altında ayrı bir istatistik satırı daha vardı. Yeni düzende süre (26px) ve izlenen sayısı ince bir dikey ayraçla AYNI satırda; sekmeler de küçültüldü. Kart yüksekliği ölçüldü: **145 px** (öncesi ~255 px — yaklaşık %43 daha alçak), bilgi kaybı yok.
+
+**"Listelerim" kartları:** Artık poster kartlarıyla BİREBİR aynı ölçüde. Başlık poster üzerine bindirme yerine ALTINA taşındı (küçülen kartta iki satırlık bindirme kapağın neredeyse tamamını örtüyordu) ve öğe sayısı posterin köşesinde küçük bir rozete alındı. Başlığa sabit iki satırlık yükseklik verildi — aksi halde 1 ve 2 satırlık başlıklar kartların alt kenarını tırtıklı bırakıyordu.
+
+**Yoldan çıkan düzeltmeler:**
+1. **İskelet ile kart uyuşmuyordu:** `ListCardSkeleton` kartın ALTINDA bir başlık çizgisi çiziyordu (yani başlığın altta olduğu bir düzene göre yazılmıştı), oysa `ListCard` başlığı posterin ÜSTÜNE basıyordu; ayrıca iskelet 160×220 sabitlerini kendi içinde tekrar tanımlıyordu. İkisi de artık `profileMetrics`'ten besleniyor, veri gelince layout kaymıyor.
+2. **Türkçe büyük harf hatası:** Özet kartındaki etiket `textTransform: 'uppercase'` ile büyütülüyordu. Bu dönüşüm locale duyarsızdır ve Türkçe'de "i" harfini "İ" değil "I" yapar — ekranda **"TOPLAM İZLEME SÜRESI"** yazıyordu (ekran görüntüsüyle doğrulandı). `textTransform` kaldırıldı, vurgu harf aralığı ve renkle sağlanıyor. (Madde 62'deki arama normalizasyonuyla aynı sınıf bir hata.)
+3. **Sekmeye dokunmak istatistik sayfasına götürüyordu:** Özet kartının TAMAMI `Pressable` idi ve Diziler/Filmler sekmeleri onun İÇİNDE yer alıyordu; sekmeye dokunuş dışa sızıp `router.push` tetikliyordu (web'de doğrulandı, iç içe Pressable'ın bilinen davranışı). Kart artık düz bir `View`; yalnızca yanında zaten ok işareti bulunan DEĞER SATIRI gezinir. Bu yapı eski koddan devralınmıştı, bu maddede düzeltildi.
+4. Favori Filmler boş durumu da ortak başlık + `ListsEmptyCard` diliyle uyumlu, alçak (88px) kesikli çerçeveli bir karta dönüştürüldü; eskiden 120px'lik ayrı bir stil adasıydı.
+5. Üst başlık şeridi (Profil + ayarlar) 20px'ten 16px'e alınarak altındaki tüm içerikle aynı ızgaraya oturtuldu.
+
+**Doğrulama (web, 420×860 mobil görünüm, gerçekçi veriyle — 24 dizi, 18 film, 6 favori dizi, 4 liste, boş favori filmler):**
+1. **Kart ölçüleri:** ekrandaki 68 kartın tamamı 118×177 px — Listelerim kartları dahil hepsi aynı (beklenen `round(420×0.28)=118`, `round(118×1.5)=177`).
+2. **Hizalama:** dört şeridin de ilk kartı x=16'da; özet kartı da x=16, genişlik 388 (=420−32). Tam ızgara uyumu.
+3. **Özet kartı yüksekliği:** 145 px.
+4. **Etiket:** "Toplam İzleme Süresi" doğru yazılıyor (artık "SÜRESI" değil).
+5. **Sekme davranışı:** "Filmler" sekmesine dokunulduğunda sayfa `/profile`'da KALDI ve değerler doğru şekilde film verisine geçti ("28 Gün, 15 Saat" / "316 İzlenen Film"). Değer satırına dokunulduğunda ise `/profile/statistics` açıldı — iki eylem artık birbirine karışmıyor.
+6. Ekran görüntüsüyle üst ve alt bölümler görsel olarak kontrol edildi; `tsc --noEmit` dokunulan dosyalarda temiz.
+
+**Temizlik:** Test verisi silindi, misafir modu geri alındı.
+
+**Not:** Doğrulama web'in mobil genişliğinde yapıldı. Ölçü ve yerleşim mantığı platformdan bağımsız olduğu için native'de de aynı sonucu vermeli; yine de gerçek cihazda bir kez göz atılması önerilir.
