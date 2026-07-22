@@ -16,6 +16,7 @@ import { useLibrarySelector, useLibraryActions } from '../../context/LibraryCont
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
 import LoadingIndicator from '../LoadingIndicator';
+import { formatRating } from '../../utils/formatRating';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
           {media?.rating ? (
             <View style={styles.ratingChip}>
               <Star size={10} color="#facc15" fill="#facc15" />
-              <Text style={styles.ratingChipText}>{(media.rating / 2).toFixed(1)}</Text>
+              <Text style={styles.ratingChipText}>{formatRating(media.rating)}</Text>
             </View>
           ) : null}
         </View>

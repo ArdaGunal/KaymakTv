@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur';
 import { Star } from 'lucide-react-native';
 import StarSlider from './StarSlider';
 import { useTranslation } from 'react-i18next';
+import { formatRating } from '../utils/formatRating';
 
 interface InlineRaterProps {
   onRate: (rating: number) => Promise<void>;
@@ -69,7 +70,7 @@ export default function InlineRater({ onRate, initialRating = 0, onRemove }: Inl
           >
             <Star size={14} color={selected > 0 ? "#3b82f6" : "#a3a3a3"} fill={selected > 0 ? "#3b82f6" : "transparent"} />
             <Text style={[styles.userRatingText, selected > 0 ? styles.userRatingTextActive : null]}>
-              {selected > 0 ? `${(selected / 2).toFixed(1)}/5` : t('rate', 'Puanla')}
+              {selected > 0 ? `${formatRating(selected)}/5` : t('rate', 'Puanla')}
             </Text>
           </TouchableOpacity>
         )}

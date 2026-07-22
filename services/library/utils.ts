@@ -27,6 +27,95 @@ export const safeStorageMultiSet = async (keyValuePairs: [string, string][]) => 
   }
 };
 
+// --- CHUNKED STORAGE (Android SQLite CursorWindow Koruması) ---
+// showProgressMap gibi kütüphane büyüklüğüyle orantılı büyüyen haritalar (her
+// dizi için TÜM sezon/bölüm completed durumları) TEK bir AsyncStorage satırı
+// olarak saklanırsa, büyük kütüphanelerde (binlerce dizi) bu satır Android'in
+// varsayılan SQLite CursorWindow limitini (~1-2MB) aşıp o anahtarın hem
+// okunmasını hem yazılmasını patlatabilir. Bunun yerine harita sabit boyutlu
+// (STORAGE_CHUNK_SIZE) parçalara bölünüp ayrı anahtarlara yazılır; her parça
+// bağımsız okunduğu için biri bozulsa/aşırı büyürse bile yalnızca o parçadaki
+// diziler kaybolur, tüm harita değil.
+const STORAGE_CHUNK_SIZE = 100;
+
+export const writeChunkedRecord = async (
+  baseKey: string,
+  record: Record<string, any>,
+  options?: { silent?: boolean }
+) => {
+  const entries = Object.entries(record || {});
+  const chunkKeys: string[] = [];
+  const pairs: [string, string][] = [];
+
+  for (let i = 0; i < entries.length; i += STORAGE_CHUNK_SIZE) {
+    const chunkKey = `${baseKey}__c${chunkKeys.length}`;
+    chunkKeys.push(chunkKey);
+    pairs.push([chunkKey, JSON.stringify(Object.fromEntries(entries.slice(i, i + STORAGE_CHUNK_SIZE)))]);
+  }
+  pairs.push([`${baseKey}__meta`, JSON.stringify({ chunkKeys })]);
+
+  // Parça sayısı önceki yazımdan azaldıysa (örn. onlarca dizi silindi) artık
+  // kullanılmayan eski parçalar diskte öksüz kalmasın diye temizlenir.
+  try {
+    const prevMetaRaw = await AsyncStorage.getItem(`${baseKey}__meta`);
+    if (prevMetaRaw) {
+      const prevMeta = JSON.parse(prevMetaRaw);
+      const orphanKeys = (prevMeta.chunkKeys || []).filter((k: string) => !chunkKeys.includes(k));
+      if (orphanKeys.length > 0) await AsyncStorage.multiRemove(orphanKeys).catch(() => {});
+    }
+  } catch {
+    // Eski meta okunamadıysa öksüz temizliği atlanır — bir sonraki başarılı
+    // yazımda tekrar denenir, veri kaybı yok.
+  }
+
+  if (options?.silent) {
+    // Arka planda sık sık tetiklenen ara (checkpoint) yazımlar için: hata
+    // olursa sessizce loglanır, kullanıcıya art arda "Depolama Dolu" uyarısı
+    // spam'lenmez (aşağıdaki final/mutation yazımları zaten uyarıyor).
+    try {
+      await AsyncStorage.multiSet(pairs);
+    } catch (error) {
+      console.error(`[Chunked Storage] Sessiz kayıt hatası (${baseKey}):`, error);
+    }
+  } else {
+    await safeStorageMultiSet(pairs);
+  }
+};
+
+export const readChunkedRecord = async (baseKey: string): Promise<Record<string, any>> => {
+  try {
+    const metaRaw = await AsyncStorage.getItem(`${baseKey}__meta`);
+    if (!metaRaw) {
+      // Geriye dönük uyumluluk: chunk mekanizmasından önce yazılmış eski
+      // tek-parça (chunk'lanmamış) format.
+      const legacyRaw = await AsyncStorage.getItem(baseKey);
+      return legacyRaw && legacyRaw !== 'null' ? JSON.parse(legacyRaw) : {};
+    }
+
+    const { chunkKeys }: { chunkKeys: string[] } = JSON.parse(metaRaw);
+    const merged: Record<string, any> = {};
+
+    // Her parça BAĞIMSIZ okunur: biri bozuksa (parse hatası) yalnızca o parça
+    // (en fazla 100 dizinin ilerlemesi) atlanır, geri kalan harita korunur —
+    // safeMultiGet'teki "tek satır tüm batch'i patlatmasın" prensibiyle aynı.
+    for (const key of chunkKeys) {
+      try {
+        const raw = await AsyncStorage.getItem(key);
+        if (raw) Object.assign(merged, JSON.parse(raw));
+      } catch {
+        // Bozuk parça atlanır.
+      }
+    }
+    return merged;
+  } catch {
+    return {};
+  }
+};
+
+export const persistShowProgressMap = (map: Record<string, any>) => {
+  writeChunkedRecord(CACHE_KEYS.showProgressMap, map).catch(() => {});
+};
+
 export const CACHE_KEYS = {
   watchedShows: '@trakt_lib_watchedShows',
   watchedMovies: '@trakt_lib_watchedMovies',

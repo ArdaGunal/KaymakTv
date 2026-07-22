@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CACHE_TTL } from './cacheTTL';
 
 const CACHE_PREFIXES = [
   '@show_detail_',
@@ -8,15 +9,18 @@ const CACHE_PREFIXES = [
   '@tmdb_'
 ];
 
-const CACHE_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 hours
-
 export const cacheManager = {
-  async get<T>(key: string): Promise<T | null> {
+  // ttlMs opsiyoneldir — verilmezse STANDARD (6 saat) kullanılır, yani mevcut
+  // tüm çağıranların (useShowDetail.ts, useEpisodeDetail.ts) davranışı BİREBİR
+  // korunur. Farklı bir tazelik gereken veriler (örn. services/tmdbApi.ts'teki
+  // nadiren değişen poster URL'leri) artık CACHE_TTL.LONG gibi ayrı bir katman
+  // geçebilir — bkz. utils/cacheTTL.ts.
+  async get<T>(key: string, ttlMs: number = CACHE_TTL.STANDARD): Promise<T | null> {
     try {
       const raw = await AsyncStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Date.now() - parsed.timestamp < CACHE_LIFETIME_MS) {
+        if (Date.now() - parsed.timestamp < ttlMs) {
           return parsed.data as T;
         }
       }

@@ -13,6 +13,7 @@ import RatingModal from './modals/RatingModal';
 import OptionsModal from './modals/OptionsModal';
 import { formatRuntime } from '../utils/formatters';
 import { generateMediaSlug } from '../utils/slugHelper';
+import { formatRating } from '../utils/formatRating';
 import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
@@ -170,7 +171,7 @@ export default function MediaHero({
             <View style={styles.ratingBadge}>
               <Star size={14} color="#facc15" fill="#facc15" />
               <Text style={styles.ratingText}>
-                {data.rating ? (data.rating / 2).toFixed(1) : '-'}
+                {formatRating(data.rating)}
               </Text>
             </View>
 
@@ -189,7 +190,7 @@ export default function MediaHero({
             >
               <Star size={14} color={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "transparent"} />
               <Text style={[styles.userRatingText, (userRating !== undefined && userRating !== null) ? styles.userRatingTextActive : null]}>
-                {(userRating !== undefined && userRating !== null) ? `${(userRating / 2).toFixed(1)}/5` : t('rate')}
+                {(userRating !== undefined && userRating !== null) ? `${formatRating(userRating)}/5` : t('rate')}
               </Text>
             </TouchableOpacity>
 

@@ -1,5 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  useGlobalCountdownStore,
+  subscribeToGlobalCountdown,
+  unsubscribeFromGlobalCountdown,
+} from '../store/useGlobalCountdownStore';
 
 interface CountdownResult {
   text: string;
@@ -8,36 +13,30 @@ interface CountdownResult {
 
 /**
  * Verilen hedef yayın tarihine göre (ms cinsinden) kalan süreyi hesaplayan canlı sayaç hook'u.
- * Component mount olduktan sonra belirli aralıklarla (dakikada bir) kendini günceller.
+ * ESKİ DAVRANIŞ: her çağıran bileşen kendi setInterval(60s)'ını açıyordu — ekranda
+ * onlarca kart varsa aynı sayıda timer RAM'de birikip cihazı yavaşlatıyordu. Artık
+ * TEK bir paylaşılan global tick (useGlobalCountdownStore) kullanılıyor; bu hook
+ * yalnızca abone olup o paylaşılan "şu an" değerinden kendi metnini hesaplıyor.
  */
 export const useAirCountdown = (targetDateMs?: number): CountdownResult => {
   const { t } = useTranslation('media');
-  const [result, setResult] = useState<CountdownResult>(() => calculateTime(targetDateMs, t));
+  const now = useGlobalCountdownStore((s) => s.now);
 
   useEffect(() => {
     if (!targetDateMs) return;
-
-    // İlk hesaplamayı hemen yap
-    setResult(calculateTime(targetDateMs, t));
-
-    // Her 60 saniyede bir sayacı güncelle
-    const interval = setInterval(() => {
-      setResult(calculateTime(targetDateMs, t));
-    }, 60 * 1000);
-
-    return () => clearInterval(interval);
+    subscribeToGlobalCountdown();
+    return () => unsubscribeFromGlobalCountdown();
   }, [targetDateMs]);
 
-  return result;
+  return useMemo(() => calculateTime(targetDateMs, now, t), [targetDateMs, now, t]);
 };
 
 // Saf hesaplama fonksiyonu (hook dışında, performansı korur)
-const calculateTime = (targetDateMs: number | undefined, t: any): CountdownResult => {
+const calculateTime = (targetDateMs: number | undefined, now: number, t: any): CountdownResult => {
   if (!targetDateMs) {
     return { text: '', isAired: false };
   }
 
-  const now = new Date().getTime();
   const diffMs = targetDateMs - now;
 
   if (diffMs <= 0) {
@@ -52,7 +51,7 @@ const calculateTime = (targetDateMs: number | undefined, t: any): CountdownResul
     const targetDateObj = new Date(targetDateMs);
     const timeString = targetDateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const roundedHours = Math.floor(diffHours);
-    
+
     if (roundedHours <= 0) {
         return { text: t('shortly', { time: timeString }), isAired: false };
     }

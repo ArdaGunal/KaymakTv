@@ -11,7 +11,13 @@ interface MediaData {
   comments: any[];
 }
 
-export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | undefined, showProgressMap: any) => {
+// showProgress: TÜM showProgressMap DEĞİL, yalnızca BU dizinin ilerleme
+// nesnesi (çağıran taraf granüler bir Zustand selector'ıyla — örn.
+// useLibrarySelector(s => s.showProgressMap[traktIdNum]) — besler). Bu sayede
+// kütüphanedeki BAŞKA bir dizinin ilerlemesi (örn. arka plan senkronu)
+// değiştiğinde bu nesnenin referansı SABİT kalır ve aşağıdaki useMemo
+// gereksiz yere tekrar çalışmaz.
+export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | undefined, showProgress: any) => {
   const [mediaData, setMediaData] = useState<MediaData>({
     summary: null,
     seasons: [],
@@ -125,26 +131,43 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     return () => { isMounted = false; };
   }, [traktIdNum, tmdbId, refreshTrigger]);
 
-  // Pre-calculate `isWatchedLocal` out of the render loop (Resolves find inside loop)
+  // Pre-calculate `isWatchedLocal` out of the render loop (Resolves find inside loop).
   const computedSeasons = useMemo(() => {
     if (!mediaData.seasons) return [];
-    
+
+    // Sezon numarası → ilerleme nesnesi eşlemesi: eskiden HER sezon için
+    // showProgress.seasons dizisinde .find() ile O(sezon_sayısı) taranıyordu.
+    const seasonProgressByNumber = new Map<number, any>(
+      (showProgress?.seasons || []).map((s: any) => [s.number, s])
+    );
+
     return mediaData.seasons.map((season: any) => {
-      const seasonProgress = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === season.number);
-      
+      const seasonProgress = seasonProgressByNumber.get(season.number);
+
+      // Bölüm numarası → completed eşlemesi: eskiden sezonun HER bölümü için
+      // seasonProgress.episodes dizisinde .find() ile O(bölüm_sayısı) taranıyordu
+      // — büyük sezonlarda (örn. 500+ bölümlü animeler) bu gerçek bir O(n²)
+      // darboğazıydı (bölüm sayısı × bölüm sayısı). Artık sezon başına bir kez
+      // Map kurulup her bölüm O(1) okunuyor.
+      const completedByEpisodeNumber = new Map<number, boolean>(
+        (seasonProgress?.episodes || []).map((e: any) => [e.number, !!e.completed])
+      );
+
       return {
         ...season,
         isSeasonWatchedLocal: seasonProgress ? seasonProgress.completed > 0 : false,
-        episodes: season.episodes?.map((ep: any) => {
-          const isWatchedLocal = seasonProgress?.episodes?.find((e:any) => e.number === ep.number)?.completed;
-          return {
-            ...ep,
-            isWatchedLocal: !!isWatchedLocal
-          };
-        }) || []
+        // Ham ilerleme nesnesi de taşınır: SeasonAccordion'ın ihtiyaç duyduğu
+        // ekstra alanlar (completed/aired sayısı vb.) için çağıran taraf artık
+        // showProgressMap üzerinde AYRI bir .find() daha yapmak zorunda değil
+        // (bkz. app/show/[id].tsx — season.seasonProgress doğrudan kullanılır).
+        seasonProgress: seasonProgress || null,
+        episodes: season.episodes?.map((ep: any) => ({
+          ...ep,
+          isWatchedLocal: completedByEpisodeNumber.get(ep.number) || false
+        })) || []
       };
     });
-  }, [mediaData.seasons, showProgressMap, traktIdNum]);
+  }, [mediaData.seasons, showProgress]);
 
   const refreshComments = async () => {
     try {

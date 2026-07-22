@@ -1,93 +1,164 @@
-import React, { memo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Platform } from 'react-native';
-import { MoreVertical, Bookmark, X } from 'lucide-react-native';
+import React, { memo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Pressable,
+  Platform,
+  Share,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MoreVertical, Bookmark, ListPlus, Heart, Share2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
+import { generateMediaSlug } from '../../utils/slugHelper';
+import AddToListModal from '../AddToListModal';
 
 interface TrackingCardMenuProps {
+  id: number;
+  showName: string;
+  tmdbId?: number;
+  slug?: string;
   isDropped: boolean;
   onToggleDropped: () => void;
-  /** Sheet başlığında gösterilecek dizi adı. */
-  title?: string;
   style?: any;
 }
 
-// Afiş kartlarındaki 3-nokta menüsü: kullanıcı bir diziyi manuel olarak
-// "Bırakılanlar"a ekleyip çıkarabilir. Panel bir RN `Modal` (bottom-sheet) —
-// eski sürüm kartın üzerine mutlak konumlu bir View olarak açılıyordu ve
-// kartın `overflow: 'hidden'` gövdesi tarafından kırpılıp dokunulamaz hâle
-// geliyordu. Modal, üst seviyede (kartın kırpma sınırlarının tamamen
-// dışında) render edildiği için bu sorunu kökten çözer.
-const TrackingCardMenu = memo(({ isDropped, onToggleDropped, title, style }: TrackingCardMenuProps) => {
-  const [open, setOpen] = useState(false);
-  const { t } = useTranslation('media');
+const MENU_WIDTH = 240;
+const EDGE_MARGIN = 12;
+const ROW_HEIGHT = 46;
+const ROW_COUNT = 5; // Bırakılanlara Ekle, Listeye Ekle, Favorilere Ekle, Paylaş, Vazgeç
 
-  return (
-    <>
-      <TouchableOpacity
-        style={[styles.trigger, style]}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        onPress={(e: any) => {
-          e?.stopPropagation?.();
-          setOpen(true);
-        }}
-      >
-        <MoreVertical size={16} color="#f1f5f9" />
-      </TouchableOpacity>
+// Afiş kartlarındaki 3-nokta menüsü. Eskiden tam ekran bir bottom-sheet'ti —
+// uzun bir listede en üstteki bir kart için bile menü hep ekranın en altında
+// açılıyordu ("dizinin hizasında" değil) ve bazı cihazlarda alt navigasyon
+// çubuğunun ARKASINDA kalabiliyordu. Artık dokunulan 3-nokta butonunun hemen
+// yanında açılan, ekran sınırlarına ve safe-area insets'e göre kırpılan
+// mutlak-konumlu bir açılır menü (context menu). `Modal` kullanılmaya devam
+// ediyor — kartların `overflow: 'hidden'` gövdesi tarafından kırpılmaması için.
+const TrackingCardMenu = memo(
+  ({ id, showName, tmdbId, slug, isDropped, onToggleDropped, style }: TrackingCardMenuProps) => {
+    const { t } = useTranslation('media');
+    const insets = useSafeAreaInsets();
+    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+    const triggerRef = useRef<View>(null);
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
-          {/* İç Pressable: sheet'in kendisine dokunmak arka planı kapatmasın. */}
-          <Pressable style={styles.sheet} onPress={(e: any) => e?.stopPropagation?.()}>
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHandle} />
-              {title ? (
-                <View style={styles.sheetTitleRow}>
-                  <Text style={styles.sheetTitle} numberOfLines={1}>
-                    {title}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    onPress={() => setOpen(false)}
-                  >
-                    <X size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-            </View>
+    const [open, setOpen] = useState(false);
+    const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0, height: 0 });
+    const [listModalVisible, setListModalVisible] = useState(false);
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={() => {
-                setOpen(false);
-                onToggleDropped();
-              }}
-            >
-              <View style={[styles.iconBadge, isDropped && styles.iconBadgeActive]}>
+    const favShows = useLibrarySelector((s) => s.favShows);
+    const { toggleFavoriteStatus } = useLibraryActions();
+    const isFavorited = !!favShows?.some((item: any) => item.show?.ids?.trakt === id);
+
+    const openMenu = () => {
+      triggerRef.current?.measureInWindow((x, y, width, height) => {
+        setAnchor({ x, y, width, height });
+        setOpen(true);
+      });
+    };
+
+    const closeMenu = () => setOpen(false);
+
+    const handleToggleDropped = () => {
+      closeMenu();
+      onToggleDropped();
+    };
+
+    const handleToggleFavorite = () => {
+      closeMenu();
+      toggleFavoriteStatus(id, 'show', isFavorited, {
+        ids: { trakt: id, tmdb: tmdbId, slug },
+        title: showName,
+      }).catch((e: unknown) => console.error(e));
+    };
+
+    const handleShare = async () => {
+      closeMenu();
+      try {
+        const mediaSlug = generateMediaSlug(id, slug, showName);
+        const url = `https://kaymaktv.com/show/${mediaSlug}`;
+        await Share.share({ message: `${showName} ${t('shareShowMsg')}\n${url}` });
+      } catch (e) {
+        console.log(e);
+      }
+    };
+
+    const openListModal = () => {
+      closeMenu();
+      setListModalVisible(true);
+    };
+
+    // Tercihen dokunulan butonun hemen altında/sağ hizasında açılır; ekranın
+    // altına/üstüne veya kenarlarına taşacaksa (özellikle alt navigasyon
+    // çubuğunun arkasına düşmemesi için `insets.bottom` hesaba katılarak)
+    // sığacak şekilde kaydırılır.
+    const estimatedMenuHeight = ROW_COUNT * ROW_HEIGHT + 12;
+    const minTop = insets.top + EDGE_MARGIN;
+    const maxTop = Math.max(screenHeight - insets.bottom - estimatedMenuHeight - EDGE_MARGIN, minTop);
+    const top = Math.min(Math.max(anchor.y + anchor.height + 6, minTop), maxTop);
+
+    const maxLeft = Math.max(screenWidth - MENU_WIDTH - EDGE_MARGIN, EDGE_MARGIN);
+    const left = Math.min(Math.max(anchor.x + anchor.width - MENU_WIDTH, EDGE_MARGIN), maxLeft);
+
+    return (
+      <>
+        <TouchableOpacity
+          ref={triggerRef}
+          style={[styles.trigger, style]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            openMenu();
+          }}
+        >
+          <MoreVertical size={16} color="#f1f5f9" />
+        </TouchableOpacity>
+
+        <Modal visible={open} transparent animationType="fade" onRequestClose={closeMenu}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu}>
+            <View style={[styles.menu, { top, left, width: MENU_WIDTH }]}>
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleToggleDropped}>
                 <Bookmark size={18} color={isDropped ? '#fbbf24' : '#f1f5f9'} />
-              </View>
-              <View style={styles.menuItemTextWrap}>
                 <Text style={styles.menuItemText}>
                   {isDropped ? t('removeFromDropped') : t('addToDropped')}
                 </Text>
-                <Text style={styles.menuItemSubtext}>
-                  {isDropped
-                    ? t('undropWatchingSubtext', 'Bu dizi tekrar aktif takibe döner.')
-                    : t('dropWatchingSubtext', 'Bu dizi Bırakılanlar listesine taşınır.')}
-                </Text>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.cancelButton} activeOpacity={0.7} onPress={() => setOpen(false)}>
-              <Text style={styles.cancelText}>{t('cancel')}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={openListModal}>
+                <ListPlus size={18} color="#f1f5f9" />
+                <Text style={styles.menuItemText}>{t('addToList')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleToggleFavorite}>
+                <Heart size={18} color={isFavorited ? '#ef4444' : '#f1f5f9'} fill={isFavorited ? '#ef4444' : 'transparent'} />
+                <Text style={styles.menuItemText}>
+                  {isFavorited ? t('removeFromFavorites') : t('addToFavorites')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleShare}>
+                <Share2 size={18} color="#f1f5f9" />
+                <Text style={styles.menuItemText}>{t('share')}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={closeMenu}>
+                <Text style={styles.dismissText}>{t('dismissAction')}</Text>
+              </TouchableOpacity>
+            </View>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </>
-  );
-});
+        </Modal>
+
+        <AddToListModal visible={listModalVisible} onClose={() => setListModalVisible(false)} mediaId={id} mediaType="show" />
+      </>
+    );
+  }
+);
 
 export default TrackingCardMenu;
 
@@ -103,90 +174,37 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.15)',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
+  menu: {
+    position: 'absolute',
     backgroundColor: '#141b2e',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingTop: 10,
-    paddingBottom: 28,
-    paddingHorizontal: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderBottomWidth: 0,
-  },
-  sheetHeader: {
-    marginBottom: 6,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    marginBottom: 14,
-  },
-  sheetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  sheetTitle: {
-    flex: 1,
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-    marginRight: 12,
-  },
-  closeButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 6,
+    ...(Platform.OS === 'web'
+      ? ({ boxShadow: '0 12px 32px rgba(0,0,0,0.55)' } as any)
+      : {
+          shadowColor: '#000',
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 12,
+        }),
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderRadius: 14,
+    gap: 10,
+    paddingHorizontal: 14,
+    height: ROW_HEIGHT,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
-  iconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  menuItemText: { color: '#f1f5f9', fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 4,
+    marginHorizontal: 10,
   },
-  iconBadgeActive: {
-    backgroundColor: 'rgba(251, 191, 36, 0.12)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-  },
-  menuItemTextWrap: { flex: 1 },
-  menuItemText: { color: '#f1f5f9', fontSize: 15, fontWeight: '700' },
-  menuItemSubtext: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
-  cancelButton: {
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-  },
-  cancelText: { color: '#cbd5e1', fontSize: 14, fontWeight: '600' },
+  dismissText: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
 });

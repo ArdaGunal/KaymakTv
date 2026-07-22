@@ -16,8 +16,10 @@ import {
   setWatchedShows,
   setWatchlistMovies,
   setShowProgressMap,
+  persistShowProgressMap,
 } from '../utils';
 import { useTrackingStore } from '../../../store/tracking/useTrackingStore';
+import { logError } from '../../../utils/errorLog';
 
 // Kullanıcı bir dizinin yeni bir bölümünü/sezonunu izlediğinde (tek bölüm,
 // toplu bölüm veya sezon işaretleme — geri alma DEĞİL), o dizi artık "aktif
@@ -93,13 +95,14 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
 
     setShowProgressMap((prev: any) => {
       const updated = { ...prev, [showId]: newProgress };
-      safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+      persistShowProgressMap(updated);
       return updated;
     });
 
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
+    logError('mutations.progress.markEpisodeAsWatched', error);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
     }
@@ -165,17 +168,18 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
 
     setShowProgressMap((prev: any) => {
       const updated = { ...prev, [showId]: newProgress };
-      safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+      persistShowProgressMap(updated);
       return updated;
     });
 
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
+    logError('mutations.progress.unwatchEpisode', error);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => {
         const updated = { ...prev, [showId]: previousState };
-        safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+        persistShowProgressMap(updated);
         return updated;
       });
     }
@@ -221,17 +225,18 @@ export const unwatchSeason = async (showId: number, season: number) => {
 
     setShowProgressMap((prev: any) => {
       const updated = { ...prev, [showId]: newProgress };
-      safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+      persistShowProgressMap(updated);
       return updated;
     });
 
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
+    logError('mutations.progress.unwatchSeason', error);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => {
         const updated = { ...prev, [showId]: previousState };
-        safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+        persistShowProgressMap(updated);
         return updated;
       });
     }
@@ -274,13 +279,14 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
 
     setShowProgressMap((prev: any) => {
       const updated = { ...prev, [showId]: newProgress };
-      safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+      persistShowProgressMap(updated);
       return updated;
     });
 
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] Sezon işaretleme başarısız, eski haline dönülüyor!`, error);
+    logError('mutations.progress.markSeasonAsWatched', error);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
     }
@@ -327,13 +333,14 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
 
     setShowProgressMap((prev: any) => {
       const updated = { ...prev, [showId]: newProgress };
-      safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(updated));
+      persistShowProgressMap(updated);
       return updated;
     });
 
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] Toplu bölüm işaretleme başarısız, eski haline dönülüyor!`, error);
+    logError('mutations.progress.markEpisodesUpToAsWatched', error);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
     }
@@ -384,6 +391,7 @@ export const markMovieAsWatched = async (movieId: number) => {
     console.log(`[API SUCCESS] Film Trakt ile senkronize edildi.`);
   } catch (error) {
     console.error(`[API ERROR] Film işaretleme başarısız, eski haline dönülüyor!`, error);
+    logError('mutations.progress.markMovieAsWatched', error);
     if (previousWatchlist !== null) {
       setWatchlistMovies(previousWatchlist);
       safeStorageSet(CACHE_KEYS.watchlistMovies, JSON.stringify(previousWatchlist));

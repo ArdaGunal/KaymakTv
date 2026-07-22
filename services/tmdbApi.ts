@@ -2,6 +2,7 @@ import axios from 'axios';
 import i18n from '../locales/index';
 import { Platform } from 'react-native';
 import { cacheManager } from '../utils/cacheManager';
+import { CACHE_TTL } from '../utils/cacheTTL';
 
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 
@@ -44,10 +45,14 @@ class LRUCache {
 const memoryCache = new LRUCache(150);
 
 // Yardımcı Cache fonksiyonları
+// Poster/afiş URL'leri (getShowPoster/getMoviePoster) burayı kullanır. TMDB'de
+// var olan bir yapımın afiş yolu neredeyse hiç değişmediğinden LONG (7 gün)
+// TTL kullanılır — eskiden cacheManager'ın varsayılanı olan 6 saatten sonra
+// aynı posteri gereksiz yere yeniden TMDB'den çekiyorduk.
 const getCachedData = async (key: string): Promise<string | null> => {
   if (memoryCache.has(key)) return memoryCache.get(key) || null;
   try {
-    const diskValue = await cacheManager.get<string>(key);
+    const diskValue = await cacheManager.get<string>(key, CACHE_TTL.LONG);
     if (diskValue) {
       memoryCache.set(key, diskValue);
       return diskValue;

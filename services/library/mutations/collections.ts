@@ -22,8 +22,10 @@ import {
   setWatchlistShows,
   setWatchlistMovies,
   setShowProgressMap,
+  persistShowProgressMap,
 } from '../utils';
 import { useLibraryStore } from '../../../store/useLibraryStore';
+import { logError } from '../../../utils/errorLog';
 import {
   DEFAULT_LIST_NAME,
   MAX_USER_LISTS,
@@ -63,6 +65,7 @@ export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', 
     }
   } catch (err) {
     console.error('Toggle watchlist hatası, rollback yapılıyor:', err);
+    logError('mutations.collections.toggleWatchlistStatus', err);
     if (type === 'show' && previousWatchlistShows !== null) {
       setWatchlistShows(previousWatchlistShows);
       safeStorageSet(CACHE_KEYS.watchlistShows, JSON.stringify(previousWatchlistShows));
@@ -103,6 +106,7 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
     await toggleLikedMedia(id, type, !isCurrentlyFavorited);
   } catch (err) {
     console.error('Toggle favorite hatası, rollback yapılıyor:', err);
+    logError('mutations.collections.toggleFavoriteStatus', err);
     if (type === 'show' && previousFavShows !== null) {
       setFavShows(previousFavShows);
       safeStorageSet(CACHE_KEYS.favShows, JSON.stringify(previousFavShows));
@@ -125,6 +129,7 @@ export const hideMediaFromProgress = async (id: number, type: 'show' | 'movie') 
     fetchFreshData(currentAccessToken, true);
   } catch (err) {
     console.error('Hide media hatası:', err);
+    logError('mutations.collections.hideMediaFromProgress', err);
   }
 };
 
@@ -138,7 +143,7 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
     setShowProgressMap((prev: any) => {
       const newMap = { ...prev };
       delete newMap[id];
-      safeStorageSet(CACHE_KEYS.showProgressMap, JSON.stringify(newMap));
+      persistShowProgressMap(newMap);
       return newMap;
     });
   } else {
@@ -153,6 +158,7 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
     await removeFromHistoryTrakt(id, type);
   } catch (err) {
     console.error('Delete from history hatası:', err);
+    logError('mutations.collections.deleteMediaFromHistory', err);
     fetchFreshData(null, true);
   }
 };
@@ -176,6 +182,7 @@ export const createNewList = async (name: string, description?: string) => {
     return newList;
   } catch (err) {
     console.error('Liste oluşturma hatası:', err);
+    logError('mutations.collections.createNewList', err);
     throw err;
   }
 };
@@ -223,6 +230,7 @@ export const toggleMediaInList = async (listId: number, mediaId: number, type: '
     }
   } catch (err) {
     console.error('Liste medyası ekle/çıkar hatası, geri alınıyor:', err);
+    logError('mutations.collections.toggleMediaInList', err);
     if (previousLists !== null) {
       setCustomLists(previousLists);
       safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(previousLists));
@@ -245,6 +253,7 @@ export const deleteListById = async (listId: number | string) => {
     await deleteCustomList(listId);
   } catch (err) {
     console.error('Liste silme hatası, geri alınıyor:', err);
+    logError('mutations.collections.deleteListById', err);
     if (previousLists !== null) {
       setCustomLists(previousLists);
       safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(previousLists));

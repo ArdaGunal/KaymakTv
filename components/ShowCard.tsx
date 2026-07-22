@@ -10,6 +10,7 @@ import { useTrackingStore } from '../store/tracking/useTrackingStore';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { getProgressBarColor } from '../utils/progressBarColor';
 import { useTranslation } from 'react-i18next';
+import { formatRating } from '../utils/formatRating';
 
 const ShowCard = memo(({ data }: { data: any }) => {
   const { t } = useTranslation(['media', 'common']);
@@ -123,7 +124,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
           <View style={styles.ratingContainer}>
             <Star size={14} color="#facc15" fill="#facc15" />
             <Text style={styles.ratingText}>
-              {media?.rating ? (media.rating / 2).toFixed(1) : '-'}
+              {formatRating(media?.rating)}
             </Text>
           </View>
           {data.watchers !== undefined && (

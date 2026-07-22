@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
-import { useLibrary } from '../../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { useTrackingStore } from '../../store/tracking/useTrackingStore';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import EpisodeCheckButton from '../../components/EpisodeCheckButton';
@@ -40,26 +40,34 @@ export default function ShowDetailScreen() {
   const router = useRouter();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
   const { t } = useTranslation('media');
-const {
-    showProgressMap,
-    userRatingsShows,
-    userRatingsEpisodes,
-    watchlistShows,
-    toggleWatchlistStatus,
-    favShows,
-    toggleFavoriteStatus,
-    hideMediaFromProgress,
-    deleteMediaFromHistory,
-  } = useLibrary();
+
+  const idStr = Array.isArray(id) ? id[0] : id;
+  const { traktId: traktIdNum, slugText: showSlug } = parseMediaSlug(idStr as string);
+
+  // GRANÜLER SELECTOR'lar: eskiden useLibrary() ile TÜM store subscribe
+  // ediliyordu — kütüphanedeki BAŞKA bir dizinin ilerlemesi/puanı/watchlist
+  // durumu (örn. arka plan senkronu) değiştiğinde bile bu ekran ve altındaki
+  // useShowDetail memoizasyonu gereksiz yere yeniden render/hesaplanıyordu.
+  // Her seçici yalnızca kendi dilimini okur; referansı/değeri, o dilim gerçekten
+  // değişmediği sürece sabit kalır (store'daki immutable güncelleme deseni
+  // sayesinde — bkz. services/library/mutations/*.ts).
+  const showProgress = useLibrarySelector((s) => s.showProgressMap[traktIdNum]);
+  const isWatchlisted = useLibrarySelector((s) => s.watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
+  const isFavorited = useLibrarySelector((s) => s.favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
+  const userRatingsEpisodes = useLibrarySelector((s) => s.userRatingsEpisodes);
+
+  // Aksiyon fonksiyonları store'a ABONE OLMAZ (bkz. context/LibraryContext.tsx
+  // — useLibraryActions): servis fonksiyonları modül seviyesinde sabittir, bu
+  // hook yalnızca accessToken değişince yenilenir. Store'daki hiçbir değişiklik
+  // bu satırlar yüzünden ekstra render tetiklemez.
+  const { toggleWatchlistStatus, toggleFavoriteStatus, hideMediaFromProgress, deleteMediaFromHistory } = useLibraryActions();
+
   const { isGuest } = useAuth();
   const droppedIds = useTrackingStore((s) => s.droppedIds);
   const toggleDroppedStatus = useTrackingStore((s) => s.toggleDroppedStatus);
   const hydrateTracking = useTrackingStore((s) => s.hydrate);
 
-  const idStr = Array.isArray(id) ? id[0] : id;
-  const { traktId: traktIdNum, slugText: showSlug } = parseMediaSlug(idStr as string);
-
-  const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgressMap);
+  const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
@@ -100,8 +108,6 @@ const {
     handleUndoUnwatch,
   } = useShowDetailHandlers({ traktIdNum, id, t });
 
-  const isWatchlisted = watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
-  const isFavorited = favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum);
   const isDropped = droppedIds.includes(traktIdNum);
 
   useEffect(() => {
@@ -310,7 +316,7 @@ const {
                   onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
                   isExpanded={expandedSeasons[season.number]}
                   onToggle={() => toggleSeason(season.number)}
-                  seasonProgress={showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === season.number)}
+                  seasonProgress={season.seasonProgress}
                 />
               ))}
             </View>

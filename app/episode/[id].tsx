@@ -11,6 +11,7 @@ import { WebView } from 'react-native-webview';
 import { addRating, removeRating } from '../../services/traktApi';
 import { useEpisodeDetail } from '../../hooks/useEpisodeDetail';
 import { getEpisodeStill } from '../../services/tmdbApi';
+import { formatRating } from '../../utils/formatRating';
 import EpisodeCheckButton from '../../components/EpisodeCheckButton';
 import StarSlider from '../../components/StarSlider';
 import RatingModal from '../../components/RatingModal';
@@ -234,7 +235,7 @@ export default function EpisodeDetailScreen() {
   const title = episodeData?.title || t('episodeNum', { number: episode });
   const overview = episodeData?.overview || t('noOverviewYet');
   const firstAired = episodeData?.first_aired ? new Date(episodeData.first_aired).toLocaleDateString('tr-TR') : t('noDate');
-  const rating = episodeData?.rating ? (episodeData.rating / 2).toFixed(1) : '-';
+  const rating = formatRating(episodeData?.rating);
   const votes = episodeData?.votes ? episodeData.votes.toLocaleString('tr-TR') : '0';
 
   return (
@@ -301,7 +302,7 @@ export default function EpisodeDetailScreen() {
               >
                 <Star size={14} color={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "transparent"} />
                 <Text style={[styles.userRatingText, (myRating !== undefined && myRating !== null) ? styles.userRatingTextActive : null]}>
-                  {(myRating !== undefined && myRating !== null) ? `${(myRating / 2).toFixed(1)}/5` : t('rate', { defaultValue: 'Puanla' })}
+                  {(myRating !== undefined && myRating !== null) ? `${formatRating(myRating)}/5` : t('rate', { defaultValue: 'Puanla' })}
                 </Text>
               </TouchableOpacity>
 

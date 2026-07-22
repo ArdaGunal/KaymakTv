@@ -35,7 +35,11 @@ import {
   setUserStats,
   setIsLoading,
   setIsMoviesLoading,
+  readChunkedRecord,
+  writeChunkedRecord,
 } from './utils';
+import { CACHE_TTL } from '../../utils/cacheTTL';
+import { logError } from '../../utils/errorLog';
 
 let lastFetchTimeRef = { current: 0 };
 
@@ -79,7 +83,9 @@ export const loadCache = async () => {
       }
     };
 
-    const parsedProgress = getParsed(CACHE_KEYS.showProgressMap) || {};
+    // showProgressMap artık chunk'lanmış (100'lük parçalar) halde saklanıyor —
+    // düz getParsed ile değil, parçaları birleştiren readChunkedRecord ile okunur.
+    const parsedProgress = await readChunkedRecord(CACHE_KEYS.showProgressMap);
 
     setWatchedShows(getParsed(CACHE_KEYS.watchedShows) || []);
     setWatchedMovies(getParsed(CACHE_KEYS.watchedMovies) || []);
@@ -117,8 +123,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
   }
 
   const now = Date.now();
-  const tenMinutes = 10 * 60 * 1000;
-  if (!force && (now - lastFetchTimeRef.current < tenMinutes)) {
+  if (!force && (now - lastFetchTimeRef.current < CACHE_TTL.SYNC_INTERVAL)) {
     console.log('TTL geçerli, arka plan fetch işlemi atlanıyor...');
     setIsLoading(false);
     setIsMoviesLoading(false);
@@ -139,12 +144,10 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
 
     const deltaCache = await safeMultiGet([
       CACHE_KEYS.watchedShows,
-      CACHE_KEYS.showProgressMap,
       CACHE_KEYS.calendarSeasonsMap
     ]);
 
     let oldWatchedShowsMap = new Map();
-    let oldProgressMap: Record<string, any> = {};
     let oldSeasonsMap: Record<string, any> = {};
 
     if (deltaCache[CACHE_KEYS.watchedShows]) {
@@ -158,9 +161,17 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       } catch (e) {}
     }
 
-    if (deltaCache[CACHE_KEYS.showProgressMap]) {
-      try { oldProgressMap = JSON.parse(deltaCache[CACHE_KEYS.showProgressMap] as string); } catch (e) {}
-    }
+    // Chunk'lanmış format: artık safeMultiGet'in düz anahtar listesinde değil,
+    // ayrı bir okuma ile (parçaları birleştirerek) alınıyor. Object yerine
+    // gerçek bir Map'e çevrilir: binlerce dizili büyük kütüphanelerde düz
+    // obje üzerinde `obj[id]` erişimi V8'de "dictionary mode"a düşüp
+    // yavaşlayabilir; Map her koşulda garantili O(1) hash erişimi sağlar —
+    // aşağıdaki iki forEach döngüsünde (satır ~178, ~186) tekrar tekrar
+    // sorgulanan bu haritanın performansı doğrudan delta-sync'in hızını belirler.
+    const rawOldProgressMap = await readChunkedRecord(CACHE_KEYS.showProgressMap);
+    const oldProgressMap = new Map<number, any>(
+      Object.entries(rawOldProgressMap).map(([showId, progress]) => [Number(showId), progress])
+    );
 
     if (deltaCache[CACHE_KEYS.calendarSeasonsMap]) {
       try { oldSeasonsMap = JSON.parse(deltaCache[CACHE_KEYS.calendarSeasonsMap] as string); } catch (e) {}
@@ -173,7 +184,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       const traktId = item.show.ids.trakt;
       const oldWatchedAt = oldWatchedShowsMap.get(traktId);
 
-      if (oldWatchedAt !== item.last_watched_at || !oldProgressMap[traktId]) {
+      if (oldWatchedAt !== item.last_watched_at || !oldProgressMap.has(traktId)) {
         showIds.add(traktId);
         fetchCount++;
       }
@@ -181,7 +192,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
 
     wlistShows?.forEach((item: any) => {
       const traktId = item.show.ids.trakt;
-      if (!oldProgressMap[traktId]) {
+      if (!oldProgressMap.has(traktId)) {
         showIds.add(traktId);
       }
     });
@@ -292,9 +303,13 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         // için her açılış sıfırdan başlıyordu — "hiç bitmeyen senkron" döngüsü.
         completedChunks++;
         if (completedChunks % PERSIST_EVERY_CHUNKS === 0) {
-          AsyncStorage.setItem(
+          // silent:true — bu arka plan checkpoint'i her birkaç ağ chunk'ında bir
+          // tetiklenir; hata durumunda kullanıcıya art arda "Depolama Dolu"
+          // uyarısı spam'lenmesin diye sessizce loglanır.
+          writeChunkedRecord(
             CACHE_KEYS.showProgressMap,
-            JSON.stringify(useLibraryStore.getState().showProgressMap)
+            useLibraryStore.getState().showProgressMap,
+            { silent: true }
           ).catch(() => {});
         }
 
@@ -304,20 +319,22 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       }
 
       // Son birleşim: eski harita + store'daki güncel hali (senkron sırasında
-      // kullanıcının yaptığı işaretlemeler dahil).
-      const mergedProgress = { ...oldProgressMap, ...useLibraryStore.getState().showProgressMap };
+      // kullanıcının yaptığı işaretlemeler dahil). oldProgressMap artık bir Map
+      // olduğu için object spread öncesi düz obje haline çevrilir.
+      const mergedProgress = { ...Object.fromEntries(oldProgressMap), ...useLibraryStore.getState().showProgressMap };
       setShowProgressMap(mergedProgress);
 
       const updatedTime = Date.now();
       lastFetchTimeRef.current = updatedTime;
 
-      const progressCacheData: [string, string][] = [
-        [CACHE_KEYS.showProgressMap, JSON.stringify(mergedProgress)],
-        [CACHE_KEYS.lastFetchTime, JSON.stringify(updatedTime)]
-      ];
-
-      AsyncStorage.multiSet(progressCacheData).catch(err => {
+      // showProgressMap artık 100'lük parçalara bölünerek ayrı anahtarlara
+      // yazılıyor (Android SQLite CursorWindow limiti koruması) — lastFetchTime
+      // küçük olduğu için ayrı, düz bir anahtar olarak kalıyor.
+      writeChunkedRecord(CACHE_KEYS.showProgressMap, mergedProgress, { silent: true }).catch((err) => {
         console.error('AsyncStorage progress save error:', err);
+      });
+      AsyncStorage.setItem(CACHE_KEYS.lastFetchTime, JSON.stringify(updatedTime)).catch((err) => {
+        console.error('AsyncStorage lastFetchTime save error:', err);
       });
 
       if (true) { // calShows koşulunu kaldırdık çünkü progressMap ve watchlist de kullanılacak
@@ -354,7 +371,6 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
           let updatedSeasonsMap = { ...oldSeasonsMap };
           let fetchedAny = false;
 
-          const TTL_48_HOURS = 48 * 60 * 60 * 1000;
           const nowMillis = Date.now();
 
           let seasonsChunksSincePersist = 0;
@@ -363,7 +379,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
             const chunkEntries: Record<string, any> = {};
             await Promise.all(chunk.map(async (id) => {
               const cachedData = updatedSeasonsMap[id];
-              if (!cachedData || !cachedData.fetchedAt || (nowMillis - cachedData.fetchedAt > TTL_48_HOURS)) {
+              if (!cachedData || !cachedData.fetchedAt || (nowMillis - cachedData.fetchedAt > CACHE_TTL.CALENDAR_SEASONS)) {
                 try {
                   const seasons = await getShowSeasons(id);
 
@@ -430,6 +446,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     })();
   } catch (error) {
     console.log('Trakt veri çekme hatası:', error);
+    logError('fetchFreshData', error);
     setIsLoading(false);
   }
 };

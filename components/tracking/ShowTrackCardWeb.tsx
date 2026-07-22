@@ -72,7 +72,10 @@ const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTr
           {onToggleDropped && (
             <TrackingCardMenu
               style={styles.menuOverlay}
-              title={data.showName}
+              id={data.id}
+              showName={data.showName}
+              tmdbId={data.tmdbId}
+              slug={data.slug}
               isDropped={isDropped}
               onToggleDropped={() => onToggleDropped(data.id)}
             />

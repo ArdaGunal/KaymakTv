@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, TouchableOpacity, Animated, PanResponder, Platf
 import { Star } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import { formatRating } from '../utils/formatRating';
 
 interface StarSliderProps {
   initialRating?: number | null; // 1 to 10
@@ -132,7 +133,7 @@ export default function StarSlider({ initialRating, onRate, onRemove }: StarSlid
 
   return (
     <View style={styles.container}>
-      <Text style={styles.ratingText}>{(rating / 2).toFixed(1)} / 5.0</Text>
+      <Text style={styles.ratingText}>{formatRating(rating)} / 5</Text>
       <Text style={styles.sentimentText}>{sentimentText}</Text>
 
       <View

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from '../utils/secureStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { onSessionExpired } from '../services/api/traktClient';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -29,6 +30,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     loadKeys();
+  }, []);
+
+  // traktClient.ts'teki 401 interceptor'ı, refresh token da geçersiz/yoksa
+  // SecureStore'daki token'ları sessizce siler — ama bu React state'ini
+  // (accessToken) hiç güncellemez. Bu abonelik olmadan: SecureStore boş ama
+  // accessToken state'i hâlâ eski (dolu) değerde kalır, (protected)/_layout.tsx
+  // kullanıcıyı "giriş yapılmış" sanmaya devam eder, her API isteği yeniden
+  // 401 alır — kullanıcı hiçbir açıklama olmadan donmuş bir uygulamayla kalır.
+  useEffect(() => {
+    return onSessionExpired(() => {
+      console.warn('[Auth] Oturum süresi doldu, kullanıcı çıkışa alınıyor.');
+      setAccessToken(null);
+      setIsGuest(false);
+    });
   }, []);
 
   const loadKeys = async () => {

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
-import { useLibrary } from '../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
 import { addRating, removeRating } from '../services/traktApi';
 
@@ -15,16 +15,18 @@ export function useShowDetailHandlers({
   id,
   t,
 }: UseShowDetailHandlersProps) {
+  // Granüler: yalnızca kullanıcının dizi puanları izlenir — kütüphanedeki
+  // ilerleme/watchlist/yorum gibi ilgisiz dilimler artık bu hook'u tetiklemez.
+  const userRatingsShows = useLibrarySelector((s) => s.userRatingsShows);
+  // Aksiyon fonksiyonları store'a abone olmaz (bkz. useLibraryActions).
   const {
-    userRatingsShows,
-    userRatingsEpisodes,
     markSeasonAsWatched,
     unwatchSeason,
     setLocalRating,
     removeLocalRating,
     unwatchEpisode,
     rewatchEpisode,
-  } = useLibrary();
+  } = useLibraryActions();
   const { isGuest } = useAuth();
 
   const [seasonLoading, setSeasonLoading] = useState<Record<number, boolean>>({});
