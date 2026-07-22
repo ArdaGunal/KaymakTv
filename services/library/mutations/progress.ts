@@ -20,6 +20,7 @@ import {
 } from '../utils';
 import { useTrackingStore } from '../../../store/tracking/useTrackingStore';
 import { logError } from '../../../utils/errorLog';
+import { recordMutationResult } from '../../../utils/metrics';
 
 // Kullanıcı bir dizinin yeni bir bölümünü/sezonunu izlediğinde (tek bölüm,
 // toplu bölüm veya sezon işaretleme — geri alma DEĞİL), o dizi artık "aktif
@@ -99,10 +100,12 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
       return updated;
     });
 
+    recordMutationResult('markEpisodeAsWatched', true);
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
     logError('mutations.progress.markEpisodeAsWatched', error);
+    recordMutationResult('markEpisodeAsWatched', false);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
     }
@@ -172,10 +175,12 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
       return updated;
     });
 
+    recordMutationResult('unwatchEpisode', true);
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
     logError('mutations.progress.unwatchEpisode', error);
+    recordMutationResult('unwatchEpisode', false);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => {
         const updated = { ...prev, [showId]: previousState };
@@ -229,10 +234,12 @@ export const unwatchSeason = async (showId: number, season: number) => {
       return updated;
     });
 
+    recordMutationResult('unwatchSeason', true);
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
     logError('mutations.progress.unwatchSeason', error);
+    recordMutationResult('unwatchSeason', false);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => {
         const updated = { ...prev, [showId]: previousState };
@@ -283,10 +290,12 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
       return updated;
     });
 
+    recordMutationResult('markSeasonAsWatched', true);
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] Sezon işaretleme başarısız, eski haline dönülüyor!`, error);
     logError('mutations.progress.markSeasonAsWatched', error);
+    recordMutationResult('markSeasonAsWatched', false);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
     }
@@ -337,10 +346,12 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
       return updated;
     });
 
+    recordMutationResult('markEpisodesUpToAsWatched', true);
     return newProgress;
   } catch (error) {
     console.error(`[API ERROR] Toplu bölüm işaretleme başarısız, eski haline dönülüyor!`, error);
     logError('mutations.progress.markEpisodesUpToAsWatched', error);
+    recordMutationResult('markEpisodesUpToAsWatched', false);
     if (previousState !== null) {
       setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
     }
@@ -389,9 +400,11 @@ export const markMovieAsWatched = async (movieId: number) => {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Film)...`);
     await addMovieToHistory(movieId);
     console.log(`[API SUCCESS] Film Trakt ile senkronize edildi.`);
+    recordMutationResult('markMovieAsWatched', true);
   } catch (error) {
     console.error(`[API ERROR] Film işaretleme başarısız, eski haline dönülüyor!`, error);
     logError('mutations.progress.markMovieAsWatched', error);
+    recordMutationResult('markMovieAsWatched', false);
     if (previousWatchlist !== null) {
       setWatchlistMovies(previousWatchlist);
       safeStorageSet(CACHE_KEYS.watchlistMovies, JSON.stringify(previousWatchlist));

@@ -8,6 +8,13 @@ export interface LoggedError {
   context: string;
   message: string;
   stack?: string;
+  /** Faz 7 — opsiyonel yapısal etiketler (örn. `{endpoint: '/sync/history'}`).
+   * Geriye dönük uyumluluk için opsiyonel: mevcut ~15 çağrı noktası bu
+   * parametreyi hiç geçmeden `logError(context, error)` şeklinde çalışmaya
+   * devam eder — `context` string'i (örn. 'mutations.progress.X') zaten
+   * "hangi mutation" bilgisini taşıyor, `tags` yalnızca ek yapısal bilgi
+   * (endpoint gibi) gerektiğinde kullanılır. */
+  tags?: Record<string, string>;
 }
 
 const serializeError = (error: unknown): { message: string; stack?: string } => {
@@ -38,9 +45,9 @@ let writeQueue: Promise<void> = Promise.resolve();
  * şikayetlerde), sonradan `getErrorLog()` ile son hataları geri getirebilmek
  * için. Yazma işlemi fire-and-forget'tir — ana akışı asla bloklamaz/bozmaz.
  */
-export const logError = (context: string, error: unknown): void => {
+export const logError = (context: string, error: unknown, tags?: Record<string, string>): void => {
   const { message, stack } = serializeError(error);
-  const entry: LoggedError = { timestamp: Date.now(), context, message, stack };
+  const entry: LoggedError = { timestamp: Date.now(), context, message, stack, ...(tags ? { tags } : {}) };
 
   writeQueue = writeQueue.then(async () => {
     try {

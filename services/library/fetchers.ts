@@ -40,8 +40,29 @@ import {
 } from './utils';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 import { logError } from '../../utils/errorLog';
+import { requestQueue } from '../api/requestQueue';
+import { setMemoryGauge } from '../../utils/metrics';
 
 let lastFetchTimeRef = { current: 0 };
+
+// Üst üste binen senkronlara karşı kilit: kullanıcı bir bölümü işaretleyip
+// mutation sonrası `fetchFreshData(null, true)` tetiklerken, aynı anda başka
+// bir tetikleyici (örn. uygulama arka plandan öne gelmesi) de kendi senkronunu
+// başlatırsa, iki ağır delta-sync döngüsü aynı anda Trakt'a istek yağdırırdı.
+// ESKİ DAVRANIŞ: hiçbir kilit yoktu. Kilidin `finally` yerine `backgroundWork`
+// bittiğinde açılması bilinçlidir — asıl ağır iş (ilerleme/takvim sezonları
+// chunk döngüsü) fonksiyon erken dönüş yaptıktan SONRA arka planda sürüyor.
+let isFetchingFreshData = false;
+let fetchLockTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const FETCH_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // senkron donarsa kilit sonsuza dek açık kalmasın
+
+const releaseFetchLock = () => {
+  isFetchingFreshData = false;
+  if (fetchLockTimeoutId) {
+    clearTimeout(fetchLockTimeoutId);
+    fetchLockTimeoutId = null;
+  }
+};
 
 // Android'de tek bir aşırı büyük satır (SQLite CursorWindow limiti) TÜM multiGet
 // batch'ini patlatabilir. Bu durumda anahtarları tek tek okuyarak yalnızca bozuk
@@ -130,13 +151,23 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     return;
   }
 
+  if (isFetchingFreshData) {
+    console.log('fetchFreshData zaten çalışıyor, üst üste binen çağrı atlanıyor...');
+    return;
+  }
+  isFetchingFreshData = true;
+  fetchLockTimeoutId = setTimeout(releaseFetchLock, FETCH_LOCK_TIMEOUT_MS);
+
   setIsMoviesLoading(true);
   try {
     // ÖNCELİKLİ (KRİTİK) İSTEKLER - Ana ekran (Diziler) için gerekenler
-    // Sadece 3 istek atarak tarayıcının 6 connection limitini aşmıyoruz!
-    const pShowsData = getWatchedShows().catch((e) => { console.error('getWatchedShows failed', e.message); return null; });
-    const pWlistShows = getWatchlistShows().catch((e) => { console.error('getWatchlistShows failed', e.message); return null; });
-    const pCalShows = getMyCalendarShows(33).catch((e) => { console.error('getMyCalendarShows failed', e.message); return null; });
+    // requestQueue üzerinden CRITICAL öncelikle kuyruğa alınır — tarayıcının
+    // 6 connection limitini aşmamak için zaten 3 istekle sınırlıydı, artık
+    // aynı sınır (varsayılan eşzamanlılık: 3) merkezi kuyruk tarafından da
+    // garanti ediliyor ve düşük öncelikli arka plan istekleriyle yarışmıyor.
+    const pShowsData = requestQueue.enqueue(() => getWatchedShows(), 'CRITICAL').catch((e) => { console.error('getWatchedShows failed', e.message); return null; });
+    const pWlistShows = requestQueue.enqueue(() => getWatchlistShows(), 'CRITICAL').catch((e) => { console.error('getWatchlistShows failed', e.message); return null; });
+    const pCalShows = requestQueue.enqueue(() => getMyCalendarShows(33), 'CRITICAL').catch((e) => { console.error('getMyCalendarShows failed', e.message); return null; });
 
     // ARKA PLAN (İKİNCİL) İSTEKLER - Aşağıda ayrı ele alınacak
 
@@ -180,11 +211,34 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     const showIds = new Set<number>();
     let fetchCount = 0;
 
+    // ESKİ DAVRANIŞ: bir dizinin ilerlemesi (getShowProgress) SADECE kullanıcı
+    // o dizide yeni bir şey izlediğinde (last_watched_at değiştiğinde) yeniden
+    // çekiliyordu. Sorun: Trakt'ta yeni bir sezon/bölüm duyurulması kullanıcının
+    // eyleminden TAMAMEN bağımsız bir olaydır — kullanıcı hiçbir şey izlemese
+    // bile olabilir. Bir diziyi bitirip (next_episode: null, tamamlandı) aylarca
+    // dokunmayan kullanıcı için, dizi yeniden onaylansa/yeni sezon duyurulsa
+    // bile uygulama bunu ASLA öğrenmiyordu — dizi ya "tamamlandı" sayılıp tüm
+    // takip listelerinden kayboluyordu ya da (ancak bir tam senkron/cache
+    // temizleme sonrası) yanlış kategoriye düşüyordu.
+    // ÇÖZÜM: dizi hâlâ yayında ise (status 'ended'/'canceled' DEĞİLSE) VE yerel
+    // önbellek onu "tamamlandı" (next_episode yok) olarak biliyorsa, bu tam
+    // olarak "belki yenilendi, kontrol etmemiz lazım" sinyalidir — yeniden
+    // çekme setine eklenir. Zaten bir next_episode'u OLAN diziler bu ek
+    // kontrole ihtiyaç duymaz: onların ilerlemesi zaten kullanıcı o dizide bir
+    // sonraki bölümü izlediğinde mutation'lar tarafından (services/library/
+    // mutations/progress.ts) doğrudan güncelleniyor. Bu, aşağıdaki calShowIds'te
+    // (takvim sezonları için) zaten kullanılan "hâlâ yayında mı" kontrolüyle
+    // AYNI mantık — API maliyetini yalnızca gerçekten riskli diziler için artırır,
+    // her senkronda TÜM aktif dizileri yeniden çekmez.
     showsData?.forEach((item: any) => {
       const traktId = item.show.ids.trakt;
       const oldWatchedAt = oldWatchedShowsMap.get(traktId);
+      const status = item.show?.status;
+      const stillAiring = status !== 'ended' && status !== 'canceled';
+      const cachedProgress = oldProgressMap.get(traktId);
+      const looksComplete = !!cachedProgress && !cachedProgress.next_episode;
 
-      if (oldWatchedAt !== item.last_watched_at || !oldProgressMap.has(traktId)) {
+      if (oldWatchedAt !== item.last_watched_at || !oldProgressMap.has(traktId) || (stillAiring && looksComplete)) {
         showIds.add(traktId);
         fetchCount++;
       }
@@ -209,9 +263,9 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // TIER 2: FİLMLER SEKME İHTİYAÇLARI (Acil) — profil istatistik kartı da
     // hafif tek bir istek olduğundan (network limitini zorlamaz) bu tur'a eklendi.
     Promise.all([
-      getWatchlistMovies().catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
-      getMyCalendarMovies(33).catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; }),
-      getUserStats().catch((e) => { console.error('getUserStats failed', e.message); return null; })
+      requestQueue.enqueue(() => getWatchlistMovies(), 'NORMAL').catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
+      requestQueue.enqueue(() => getMyCalendarMovies(33), 'NORMAL').catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; }),
+      requestQueue.enqueue(() => getUserStats(), 'NORMAL').catch((e) => { console.error('getUserStats failed', e.message); return null; })
     ]).then(([wlistMovies, calMovies, stats]) => {
       if (wlistMovies !== null) setWatchlistMovies(wlistMovies);
       if (calMovies !== null) setCalendarMovies(calMovies);
@@ -231,15 +285,21 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     });
 
     // TIER 3: ARKA PLAN İSTEKLERİ (Ağır Yük - Geçmiş, Puanlar vb.)
+    // ESKİ DAVRANIŞ: bu 7 istek `Promise.all` ile HİÇBİR eşzamanlılık sınırı
+    // olmadan aynı anda ateşleniyordu — tier1'in "sadece 3 istek" disiplinini
+    // görmezden gelip Trakt'ı 429'a zorlayan asıl gizli darboğazlardan biri
+    // buydu. Artık LOW öncelikle requestQueue'ya alınıp merkezi eşzamanlılık
+    // sınırına (3) tabi oluyorlar; ayrıca TIER1/TIER2'nin CRITICAL/NORMAL
+    // istekleriyle aynı kuyrukta yarıştıklarında öncelik her zaman onlarda kalır.
     setTimeout(() => {
       Promise.all([
-        getWatchedMovies().catch((e) => { console.error('getWatchedMovies failed', e.message); return null; }),
-        getCustomLists().catch((e) => { console.error('getCustomLists failed', e.message); return null; }),
-        getLikedShows().catch((e) => { console.error('getLikedShows failed', e.message); return null; }),
-        getLikedMovies().catch((e) => { console.error('getLikedMovies failed', e.message); return null; }),
-        getUserRatings('shows').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
-        getUserRatings('movies').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
-        getUserRatings('episodes').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
+        requestQueue.enqueue(() => getWatchedMovies(), 'LOW').catch((e) => { console.error('getWatchedMovies failed', e.message); return null; }),
+        requestQueue.enqueue(() => getCustomLists(), 'LOW').catch((e) => { console.error('getCustomLists failed', e.message); return null; }),
+        requestQueue.enqueue(() => getLikedShows(), 'LOW').catch((e) => { console.error('getLikedShows failed', e.message); return null; }),
+        requestQueue.enqueue(() => getLikedMovies(), 'LOW').catch((e) => { console.error('getLikedMovies failed', e.message); return null; }),
+        requestQueue.enqueue(() => getUserRatings('shows'), 'LOW').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
+        requestQueue.enqueue(() => getUserRatings('movies'), 'LOW').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
+        requestQueue.enqueue(() => getUserRatings('episodes'), 'LOW').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
       ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData]) => {
         if (moviesData !== null) setWatchedMovies(moviesData);
         if (listsData !== null) setCustomLists(listsData);
@@ -270,7 +330,11 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       });
     }, 500);
 
-    (async () => {
+    // `backgroundWork`in referansı tutuluyor: bu IIFE bitene kadar (ilerleme +
+    // takvim sezonları chunk döngüleri) `isFetchingFreshData` kilidi açık kalır
+    // — asıl "senkronlar birbirine stack oluyor" riskinin kaynağı bu uzun
+    // döngülerdi, üstteki hızlı TIER1/2/3 değil.
+    const backgroundWork = (async () => {
       const uniqueIds = Array.from(showIds);
       const CHUNK_SIZE = 6;
       // Diske her chunk'ta değil, birkaç chunk'ta bir yaz (büyük haritayı
@@ -283,7 +347,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         const chunkResults: Record<string, any> = {};
         await Promise.all(chunk.map(async (id) => {
           try {
-            chunkResults[id as number] = await getShowProgress(id as number);
+            chunkResults[id as number] = await requestQueue.enqueue(() => getShowProgress(id as number), 'LOW');
           } catch(e) {
             console.log('Progress çekilemedi: ', id);
           }
@@ -323,6 +387,10 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       // olduğu için object spread öncesi düz obje haline çevrilir.
       const mergedProgress = { ...Object.fromEntries(oldProgressMap), ...useLibraryStore.getState().showProgressMap };
       setShowProgressMap(mergedProgress);
+      // Faz 7 — bellek/depolama ayak izi gözlemlenebilirliği: tam senkron
+      // başına bir kez (chunk başına değil) kaydedilir, gereksiz gauge churn'ü
+      // önlenir.
+      setMemoryGauge('showProgressMap.entries', Object.keys(mergedProgress).length);
 
       const updatedTime = Date.now();
       lastFetchTimeRef.current = updatedTime;
@@ -381,7 +449,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
               const cachedData = updatedSeasonsMap[id];
               if (!cachedData || !cachedData.fetchedAt || (nowMillis - cachedData.fetchedAt > CACHE_TTL.CALENDAR_SEASONS)) {
                 try {
-                  const seasons = await getShowSeasons(id);
+                  const seasons = await requestQueue.enqueue(() => getShowSeasons(id), 'LOW');
 
                   // VERİ BUDAMA (Data Pruning): Sadece gelecekte olan bölümleri ve minimum veriyi tut.
                   // AsyncStorage (SQLite) boyut limitini (CursorWindow size limit) aşmamak için kritik.
@@ -444,9 +512,12 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       }
 
     })();
+
+    backgroundWork.finally(releaseFetchLock);
   } catch (error) {
     console.log('Trakt veri çekme hatası:', error);
     logError('fetchFreshData', error);
     setIsLoading(false);
+    releaseFetchLock();
   }
 };

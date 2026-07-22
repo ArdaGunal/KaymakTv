@@ -23,9 +23,12 @@ import {
   setWatchlistMovies,
   setShowProgressMap,
   persistShowProgressMap,
+  setCalendarShows,
+  setCalendarSeasonsMap,
 } from '../utils';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { logError } from '../../../utils/errorLog';
+import { recordMutationResult } from '../../../utils/metrics';
 import {
   DEFAULT_LIST_NAME,
   MAX_USER_LISTS,
@@ -63,9 +66,11 @@ export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', 
     } else {
       await addToWatchlistTrakt(id, type);
     }
+    recordMutationResult('toggleWatchlistStatus', true);
   } catch (err) {
     console.error('Toggle watchlist hatası, rollback yapılıyor:', err);
     logError('mutations.collections.toggleWatchlistStatus', err);
+    recordMutationResult('toggleWatchlistStatus', false);
     if (type === 'show' && previousWatchlistShows !== null) {
       setWatchlistShows(previousWatchlistShows);
       safeStorageSet(CACHE_KEYS.watchlistShows, JSON.stringify(previousWatchlistShows));
@@ -104,9 +109,11 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
   try {
     // Trakt API'ye özel listeye ekleme/çıkarma isteğini gönder
     await toggleLikedMedia(id, type, !isCurrentlyFavorited);
+    recordMutationResult('toggleFavoriteStatus', true);
   } catch (err) {
     console.error('Toggle favorite hatası, rollback yapılıyor:', err);
     logError('mutations.collections.toggleFavoriteStatus', err);
+    recordMutationResult('toggleFavoriteStatus', false);
     if (type === 'show' && previousFavShows !== null) {
       setFavShows(previousFavShows);
       safeStorageSet(CACHE_KEYS.favShows, JSON.stringify(previousFavShows));
@@ -127,9 +134,11 @@ export const hideMediaFromProgress = async (id: number, type: 'show' | 'movie') 
     // hiç yenilenmediği için öğe ilerleme/devam et listesinde görünmeye devam
     // ediyordu — sonraki doğal senkrona kadar.
     fetchFreshData(currentAccessToken, true);
+    recordMutationResult('hideMediaFromProgress', true);
   } catch (err) {
     console.error('Hide media hatası:', err);
     logError('mutations.collections.hideMediaFromProgress', err);
+    recordMutationResult('hideMediaFromProgress', false);
   }
 };
 
@@ -146,6 +155,33 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
       persistShowProgressMap(newMap);
       return newMap;
     });
+
+    // "Yaklaşanlar" (calendar) sekmesi, watchedShows/showProgressMap'ten TAMAMEN
+    // AYRI kendi kopyasını (calendarShows/calendarSeasonsMap) tutan bir dilim —
+    // yukarıdaki iki temizlik bu kopyaya hiç dokunmaz. ESKİ DAVRANIŞ: dizi bu
+    // iki dilimden kaldırılsa bile calendarShows'daki kopyası olduğu gibi
+    // kalıyor, kullanıcı "Geçmişten Sil"e bastığı bir dizi bir sonraki doğal
+    // senkrona (10 dk TTL) kadar hâlâ "Yaklaşanlar"da görünmeye devam ediyordu.
+    // Dizi HÂLÂ watchlist'teyse (Trakt'ın takvimi watchlist'i de kapsar) calendar
+    // kopyası KASITLI OLARAK dokunulmadan bırakılır — o dizi hâlâ meşru bir
+    // şekilde takip ediliyor demektir, yalnızca izleme geçmişi silinmiştir.
+    const stillWatchlisted = (useLibraryStore.getState().watchlistShows || [])
+      .some((p: any) => p.show?.ids?.trakt === id);
+
+    if (!stillWatchlisted) {
+      setCalendarShows((prev: any) => {
+        const newCal = prev.filter((p: any) => p.show?.ids?.trakt !== id);
+        safeStorageSet(CACHE_KEYS.calendarShows, JSON.stringify(newCal));
+        return newCal;
+      });
+      setCalendarSeasonsMap((prev: any) => {
+        if (!prev[id]) return prev;
+        const newMap = { ...prev };
+        delete newMap[id];
+        safeStorageSet(CACHE_KEYS.calendarSeasonsMap, JSON.stringify(newMap));
+        return newMap;
+      });
+    }
   } else {
     setWatchedMovies((prev: any) => {
       const newWatched = prev.filter((p: any) => p.movie?.ids?.trakt !== id);
@@ -156,9 +192,11 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
 
   try {
     await removeFromHistoryTrakt(id, type);
+    recordMutationResult('deleteMediaFromHistory', true);
   } catch (err) {
     console.error('Delete from history hatası:', err);
     logError('mutations.collections.deleteMediaFromHistory', err);
+    recordMutationResult('deleteMediaFromHistory', false);
     fetchFreshData(null, true);
   }
 };
@@ -179,10 +217,12 @@ export const createNewList = async (name: string, description?: string) => {
       safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(updated));
       return updated;
     });
+    recordMutationResult('createNewList', true);
     return newList;
   } catch (err) {
     console.error('Liste oluşturma hatası:', err);
     logError('mutations.collections.createNewList', err);
+    recordMutationResult('createNewList', false);
     throw err;
   }
 };
@@ -228,9 +268,11 @@ export const toggleMediaInList = async (listId: number, mediaId: number, type: '
     } else {
       await removeMediaFromCustomList(listId, mediaId, type);
     }
+    recordMutationResult('toggleMediaInList', true);
   } catch (err) {
     console.error('Liste medyası ekle/çıkar hatası, geri alınıyor:', err);
     logError('mutations.collections.toggleMediaInList', err);
+    recordMutationResult('toggleMediaInList', false);
     if (previousLists !== null) {
       setCustomLists(previousLists);
       safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(previousLists));
@@ -251,9 +293,11 @@ export const deleteListById = async (listId: number | string) => {
 
   try {
     await deleteCustomList(listId);
+    recordMutationResult('deleteListById', true);
   } catch (err) {
     console.error('Liste silme hatası, geri alınıyor:', err);
     logError('mutations.collections.deleteListById', err);
+    recordMutationResult('deleteListById', false);
     if (previousLists !== null) {
       setCustomLists(previousLists);
       safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(previousLists));

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { getShowSummary, getShowSeasons, getRelatedShows, getMediaComments } from '../services/traktApi';
 import { getTmdbCast } from '../services/tmdbApi';
 import { cacheManager } from '../utils/cacheManager';
+import { invalidateShowDetailCache } from '../services/library/mutations/invalidation';
 
 interface MediaData {
   summary: any;
@@ -180,7 +181,14 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     mediaData,
     computedSeasons,
     isLoading,
-    refreshData: () => setRefreshTrigger(prev => prev + 1),
+    // ESKİ DAVRANIŞ: yalnızca refreshTrigger'ı artırıyordu — loadData() diskteki
+    // önbelleği (TTL dolmadıysa) hâlâ HIT sayıp aynı bayat veriyi döndürüyordu,
+    // yani bu bir no-op'tu. Artık önce disk önbelleği açıkça temizleniyor,
+    // böylece bir sonraki loadData() gerçek bir ağ isteği atmak zorunda kalıyor.
+    refreshData: async () => {
+      await invalidateShowDetailCache(traktIdNum);
+      setRefreshTrigger(prev => prev + 1);
+    },
     refreshComments
   };
 };

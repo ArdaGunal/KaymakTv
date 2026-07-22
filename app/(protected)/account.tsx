@@ -1,7 +1,7 @@
 import * as AuthSession from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Globe, LogOut, Trash2 } from 'lucide-react-native';
+import { Activity, Globe, LogOut, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,7 +31,7 @@ const DESKTOP_BREAKPOINT = 768;
 export default function SettingsScreen() {
   const { accessToken, saveTokens } = useAuth();
   const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
-    isLoggingOut, isDeletingAccount } = useSettings();
+    isLoggingOut, isDeletingAccount, handleExportMetrics, isExportingMetrics } = useSettings();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
   const { width } = useWindowDimensions();
@@ -139,6 +139,16 @@ export default function SettingsScreen() {
                 const next = currentLanguage === 'tr' ? 'en' : 'tr';
                 handleChangeLanguage(next);
               }}
+            />
+          </SettingsSection>
+
+          <SettingsSection title={t('settings:diagnostics')}>
+            <SettingsRow
+              icon={<Activity size={20} color="#38bdf8" />}
+              label={t('settings:exportPerformanceReport')}
+              tintColor="#38bdf8"
+              onPress={handleExportMetrics}
+              disabled={isExportingMetrics}
             />
           </SettingsSection>
 

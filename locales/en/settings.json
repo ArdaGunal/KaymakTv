@@ -28,5 +28,9 @@
   "cancel": "Cancel",
   "yesDelete": "Yes, Delete",
   "settings": "Settings",
-  "accountSettings": "Account Settings"
+  "accountSettings": "Account Settings",
+  "diagnostics": "🛠️ Diagnostics",
+  "exportPerformanceReport": "Copy Performance Report",
+  "exportPerformanceReportSuccess": "The last 24 hours' performance report was copied to the clipboard.",
+  "exportPerformanceReportError": "An error occurred while generating the report."
 }

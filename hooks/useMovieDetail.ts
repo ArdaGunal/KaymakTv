@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMovieSummary, getRelatedMovies, getMediaComments } from '../services/traktApi';
 import { getMovieBackdrop, getMovieTrailer, getMoviePoster, getTmdbCast } from '../services/tmdbApi';
+import { invalidateMovieDetailCache } from '../services/library/mutations/invalidation';
 
 export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] | undefined) {
   const [mediaData, setMediaData] = useState<{
@@ -162,7 +163,13 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
     return () => { isMountedRef.current = false; };
   }, [fetchDetails]);
 
-  const refreshData = () => {
+  // ESKİ DAVRANIŞ: doğrudan fetchDetails() çağırıyordu — fetchDetails de önce
+  // diskteki önbelleği kontrol ettiğinden (TTL: 24 saat), TTL dolmadıysa bu
+  // bir no-op'tu (aynı bayat veri geri dönüyordu). Artık önce disk önbelleği
+  // açıkça temizleniyor, böylece fetchDetails() gerçek bir ağ isteği atmak
+  // zorunda kalıyor — bkz. hooks/useShowDetail.ts'teki aynı düzeltme.
+  const refreshData = async () => {
+    await invalidateMovieDetailCache(traktIdNum);
     fetchDetails();
   };
 

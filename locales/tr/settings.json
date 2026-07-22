@@ -28,5 +28,9 @@
   "cancel": "Vazgeç",
   "yesDelete": "Evet, Sil",
   "settings": "Ayarlar",
-  "accountSettings": "Hesap Ayarları"
+  "accountSettings": "Hesap Ayarları",
+  "diagnostics": "🛠️ Tanılama",
+  "exportPerformanceReport": "Performans Raporunu Kopyala",
+  "exportPerformanceReportSuccess": "Son 24 saatin performans raporu panoya kopyalandı.",
+  "exportPerformanceReportError": "Rapor oluşturulurken bir hata oluştu."
 }

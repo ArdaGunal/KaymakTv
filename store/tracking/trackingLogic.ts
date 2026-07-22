@@ -9,16 +9,20 @@
  * dağılmış olmasından kaynaklanıyordu. Artık kategorizasyon burada, tek yerde.
  *
  * Kurallar (bir dizi = bir kova, çakışma imkânsız):
- *   1. TAMAMLANDI (aired>0 && completed>=aired && sıradaki bölüm yok) → hiçbir
- *      takip listesinde görünmez (iş bitti).
+ *   1. İzlenmeye başlanmış AMA şu an izlenmeye hazır (yayınlanmış) bir sonraki
+ *      bölüm YOK → hiçbir takip listesinde görünmez. Fark etmez dizi sonsuza
+ *      dek bitmiş olsun ya da gelecekte henüz yayınlanmamış bir sezonu/bölümü
+ *      olsun — "şu an izlenecek bir şey yok" ikisi için de aynı sonucu doğurur.
  *   2. Kullanıcı manuel "Bırakıldı" işaretlemiş                            → dropped
  *      (tarihten TAMAMEN bağımsız — 3-nokta menüsünden elle yapılan tek işlem).
  *   3. Hiç izlenmemiş (completed===0)                                      → notStarted
- *   4. İzlenmeye başlanmış + son izlemenin üzerinden `pauseThresholdDays`
- *      (varsayılan 45) günden FAZLA geçmiş                                 → paused
+ *   4. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
+ *      izlemenin üzerinden `pauseThresholdDays` (varsayılan 45) günden FAZLA
+ *      geçmiş                                                              → paused
  *      (Ara Verilenler / Beklemede — otomatik, ama SADECE bu iki kova
  *      arasındaki ayrımı belirler; "Bırakıldı" ile hiçbir ilişkisi yok).
- *   5. İzlenmeye başlanmış + son izleme `pauseThresholdDays` günden AZ       → upNext
+ *   5. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
+ *      izleme `pauseThresholdDays` günden AZ                               → upNext
  *      (Aktif İzlenenler)
  */
 
@@ -128,12 +132,29 @@ export function categorizeShows({
 
     const isCalculating = progress === undefined && entry.fromWatched;
     const hasStarted = completed > 0 || (isCalculating && entry.fromWatched);
-    const isComplete = !!progress && !next && aired > 0 && completed >= aired;
-
-    // 1. Tamamlanmış diziler hiçbir takip listesinde yer almaz.
-    if (isComplete) continue;
-
     const nextReady = !!next && hasAired(next.first_aired, now);
+
+    // 1. Kullanıcı bu dizide izlemeye başlamış VE elimizde gerçek (hesaplanmakta
+    // OLMAYAN) ilerleme verisi varken şu an izlenmeye hazır (yayınlanmış) bir
+    // sonraki bölüm yoksa, dizi HİÇBİR takip listesinde görünmez — fark etmez
+    // dizi sonsuza dek bitmiş olsun (next yok) ya da gelecekte henüz
+    // yayınlanmamış bir sezonu/bölümü olsun (next var ama tarihi gelmemiş):
+    // "şu an izlenecek bir şey yok" ikisi için de aynı anlama gelir, dizi
+    // "izlenip bitmiş" gibi davranılır (yalnızca profil/istatistiklerde
+    // görünmeye devam eder — bu ekranlar watchedShows'tan bağımsız ayrı bir
+    // kaynaktan besleniyor, bu listeden çıkarmak onları etkilemez).
+    // ESKİ DAVRANIŞ yalnızca "next === null" (sonsuza dek bitmiş) durumunu
+    // buraya alıyordu; "yeni sezon duyuruldu ama henüz yayınlanmadı" durumu bu
+    // kontrolü atlatıp "Aktif İzlenenler"e SIZIYORDU — üstelik aşağıdaki
+    // season/episode hesaplaması `hasStarted && nextReady` şartını
+    // sağlayamadığından `: 1` dalına düşüp kartta hep "S1E1" gösteriyordu,
+    // izlenmiş sezonlar sanki hiç izlenmemiş gibi görünüyordu. Henüz hiç
+    // başlanmamış diziler (hasStarted=false) bu kuraldan MUAF — onlar
+    // "Henüz Başlanmadı"da görünmeye devam eder (bilinçli takip edilen,
+    // ileride izlenecek içerik). `!!progress` şartı, arka planda ilerlemesi
+    // henüz hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor"
+    // spinner kartını göstermeye devam etmesini garanti eder.
+    if (!!progress && hasStarted && !nextReady) continue;
 
     // Ortak görsel alanları
     const base = {
@@ -183,9 +204,17 @@ export function categorizeShows({
     }
 
     // 4/5. Başlanmış: son izleme eşikten eskiyse paused, değilse upNext.
+    // ESKİ DAVRANIŞ: yalnızca "son izlemenin üzerinden ne kadar zaman geçti"ye
+    // bakılıyordu — dizinin şu an izlenebilir (yayınlanmış) bekleyen bir
+    // bölümü olup olmadığı hiç sorulmuyordu. Sonuç: bir diziyi bitirip aylar
+    // sonra yeni bir sezonu duyurulduğunda (henüz YAYINLANMAMIŞ next_episode),
+    // "Ara Verilenler"e düşüyordu — oysa ortada izlenip ihmal edilmiş bir şey
+    // yoktu, kullanıcı sadece yeni bölümü bekliyordu. `nextReady` (yayınlanmış,
+    // izlenebilir bir sıradaki bölüm var mı) şartı eklenerek "paused" artık
+    // yalnızca GERÇEK bir birikmiş-izlenmemiş-bölüm varken anlamlı hale geldi.
     // Son izleme tarihi bilinmiyorsa (yalnızca watchlist'ten gelen, uçtaki bir
     // kayıt) temkinli davranıp aktif sayılır — asla sessizce "eskimiş" varsayılmaz.
-    const isPaused = entry.lastWatchedAt
+    const isPaused = nextReady && entry.lastWatchedAt
       ? new Date(entry.lastWatchedAt).getTime() < pauseThreshold
       : false;
 

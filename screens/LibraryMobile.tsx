@@ -77,7 +77,7 @@ export default function LibraryScreen() {
 
   const getItemLayout = useCallback((_data: any, index: number) => {
     const row = Math.floor(index / NUM_COLUMNS);
-    return { length: ROW_HEIGHT, offset: ROW_HEIGHT * row, index };
+    return { length: ROW_HEIGHT, offset: SPACING + (ROW_HEIGHT * row), index };
   }, []);
 
   return (
@@ -118,6 +118,7 @@ export default function LibraryScreen() {
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.gridContainer}
           getItemLayout={getItemLayout}
+          ListFooterComponent={<View style={{ height: 40 }} />}
           // NOT: removeClippedSubviews BİLEREK kullanılmıyor — numColumns (grid)
           // ile birlikte React Native'de bilinen bir kırpma/render hatasına yol
           // açıyor: listenin sonunda biraz daha kaydırınca (overscroll/elastik
@@ -202,7 +203,6 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     padding: SPACING,
-    paddingBottom: 40,
   },
   card: {
     width: CARD_WIDTH,
