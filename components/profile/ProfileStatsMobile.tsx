@@ -43,7 +43,8 @@ const ProfileStats = () => {
         ]}
       >
         <LinearGradient
-          colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
+          colors={['rgba(37,99,235,0.15)', 'rgba(30,41,59,0.5)', 'rgba(15,23,42,0.8)']}
+          locations={[0, 0.4, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradient}
@@ -54,7 +55,7 @@ const ProfileStats = () => {
               onPress={() => setActiveTab('shows')}
               style={[styles.tab, activeTab === 'shows' && styles.tabActive]}
             >
-              <Tv size={13} color={activeTab === 'shows' ? '#2563EB' : '#94a3b8'} />
+              <Tv size={14} color={activeTab === 'shows' ? '#ffffff' : '#94a3b8'} />
               <Text style={[styles.tabText, activeTab === 'shows' && styles.tabTextActive]}>
                 {t('statsShowsTab', 'Diziler')}
               </Text>
@@ -64,7 +65,7 @@ const ProfileStats = () => {
               onPress={() => setActiveTab('movies')}
               style={[styles.tab, activeTab === 'movies' && styles.tabActive]}
             >
-              <Film size={13} color={activeTab === 'movies' ? '#2563EB' : '#94a3b8'} />
+              <Film size={14} color={activeTab === 'movies' ? '#ffffff' : '#94a3b8'} />
               <Text style={[styles.tabText, activeTab === 'movies' && styles.tabTextActive]}>
                 {t('statsMoviesTab', 'Filmler')}
               </Text>
@@ -131,30 +132,39 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 24,
+    marginBottom: 28,
+    backgroundColor: 'rgba(15,23,42,0.4)',
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
-    gap: 5,
-    paddingVertical: 8,
+    gap: 6,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
   },
   tabActive: {
-    backgroundColor: 'rgba(37,99,235,0.12)',
+    backgroundColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tabText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#94a3b8',
-    letterSpacing: -0.2,
+    letterSpacing: 0.2,
   },
   tabTextActive: {
-    color: '#2563EB',
+    color: '#ffffff',
     fontWeight: '700',
   },
   content: {
@@ -163,34 +173,37 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   iconBadge: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     borderRadius: 8,
-    backgroundColor: 'rgba(96,165,250,0.12)',
+    backgroundColor: 'rgba(96,165,250,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#cbd5e1',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   heroValue: {
-    fontSize: 42,
-    fontWeight: '800',
+    fontSize: 44,
+    fontWeight: '900',
     color: '#ffffff',
     letterSpacing: -1,
+    textShadowColor: 'rgba(255,255,255,0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   statRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingTop: 8,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.06)',
   },

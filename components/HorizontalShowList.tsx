@@ -72,15 +72,22 @@ const HorizontalShowList = memo(({ title, titleIcon, data, onShowAll, type = 'sh
   return (
     <View style={styles.container}>
       {/* Başlık ve İkon Satırı */}
-      <View style={styles.header}>
+      <TouchableOpacity 
+        style={styles.header}
+        activeOpacity={0.7}
+        onPress={onShowAll}
+        disabled={!onShowAll}
+      >
         <View style={styles.titleContainer}>
           {titleIcon && <View style={styles.iconContainer}>{titleIcon}</View>}
           <Text style={styles.title}>{title}</Text>
         </View>
-        <TouchableOpacity style={styles.seeAllButton} onPress={onShowAll}>
-          <ChevronRight size={20} color="#a3a3a3" />
-        </TouchableOpacity>
-      </View>
+        {onShowAll && (
+          <View style={styles.seeAllButton}>
+            <ChevronRight size={20} color="#a3a3a3" />
+          </View>
+        )}
+      </TouchableOpacity>
 
       {/* Yatay Liste (FlatList ile optimize edildi, yüzlerce resimde kasmaması için) */}
       <FlatList

@@ -81,8 +81,9 @@ export default function ProfileScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={styles.topHeader}>
+        <Text style={styles.headerTitle}>{t('profileTitle', 'Profil')}</Text>
         <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/account')}>
-          <Settings size={24} color="#a3a3a3" />
+          <Settings size={22} color="#cbd5e1" />
         </TouchableOpacity>
       </View>
 
@@ -94,9 +95,16 @@ export default function ProfileScreen() {
         {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
             bilgilendirici kart, veri gelmemişse iskelet. */}
         <View style={styles.listsSectionHeader}>
-          <View style={styles.sectionHeaderRow}>
+          <TouchableOpacity 
+            style={styles.sectionHeaderRow}
+            activeOpacity={0.7}
+            onPress={() => router.push('/(protected)/library/lists')}
+            disabled={lists.length === 0}
+          >
             <View style={styles.sectionTitleRow}>
-              <ListIcon size={18} color="#e2e8f0" style={{ marginRight: 8 }} />
+              <View style={styles.listIconBadge}>
+                <ListIcon size={16} color="#60a5fa" />
+              </View>
               <Text style={styles.sectionTitleInline}>{t('myLists', 'Listelerim')}</Text>
               {lists.length > 0 && (
                 <View style={styles.countBadge}>
@@ -105,11 +113,11 @@ export default function ProfileScreen() {
               )}
             </View>
             {lists.length > 0 && (
-              <TouchableOpacity onPress={() => router.push('/(protected)/library/lists')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <View style={{ padding: 4 }}>
                 <Text style={styles.seeAllText}>{t('seeAll', 'Tümü')}</Text>
-              </TouchableOpacity>
+              </View>
             )}
-          </View>
+          </TouchableOpacity>
 
           {lists.length > 0 ? (
             <ScrollView
@@ -194,33 +202,58 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0B1120' },
   container: { flex: 1 },
-  topHeader: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'flex-end' },
-  settingsButton: { padding: 4 },
-  content: { paddingTop: 8, paddingBottom: 40 },
-  headerSpacer: { height: 8 },
+  topHeader: { 
+    paddingHorizontal: 20, 
+    paddingTop: 12, 
+    paddingBottom: 16, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center' 
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.5,
+  },
+  settingsButton: { 
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+  },
+  content: { paddingBottom: 40 },
+  headerSpacer: { height: 4 },
   emptyFavContainer: { paddingHorizontal: 16, marginBottom: 24 },
   emptyFavHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   emptyFavTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
-  emptyFavCard: { height: 120, backgroundColor: '#172033', borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2A364F', borderStyle: 'dashed' },
+  emptyFavCard: { height: 120, backgroundColor: 'rgba(15,23,42,0.4)', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed' },
   plusIcon: { color: '#ffffff', fontSize: 32, fontWeight: '300', marginBottom: 4 },
   emptyFavText: { color: '#a3a3a3', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
   // Lists section
-  listsSectionHeader: { marginBottom: 24 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold', paddingHorizontal: 16, marginBottom: 12 },
+  listsSectionHeader: { marginBottom: 28 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  sectionTitleInline: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
+  listIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(59,130,246,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  sectionTitleInline: { color: '#ffffff', fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
   countBadge: {
-    marginLeft: 8,
-    minWidth: 22,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginLeft: 10,
+    minWidth: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  countBadgeText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
-  seeAllText: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
-  listsScrollContent: { paddingHorizontal: 16, paddingBottom: 8 },
+  countBadgeText: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' },
+  seeAllText: { color: '#60a5fa', fontSize: 14, fontWeight: '600' },
+  listsScrollContent: { paddingHorizontal: 20, paddingBottom: 8 },
 });
