@@ -1,16 +1,5 @@
 import { getTraktClient } from './traktClient';
 
-export const getHistoryEpisodes = async () => {
-  try {
-    const client = await getTraktClient();
-    const response = await client.get(`/sync/history/episodes?extended=full&limit=1000`);
-    return response.data;
-  } catch (error) {
-    console.error('Trakt API HatasÃ„Â± (getHistoryEpisodes):', error);
-    throw error;
-  }
-};
-
 export const getWatchedShows = async () => {
   try {
     const client = await getTraktClient();

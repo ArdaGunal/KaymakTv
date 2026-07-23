@@ -5,10 +5,10 @@ import { ChevronLeft, Tv, Film } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useProfileStatistics, StatsTab } from '../hooks/useProfileStatistics';
-import { getGenreMockData, getMonthlyMockData } from '../components/profile/stats/mockChartData';
 import StatsSummaryRowWide from '../components/profile/stats/StatsSummaryRowWide';
 import GenreDonutChartWide from '../components/profile/stats/GenreDonutChartWide';
 import MonthlyFrequencyChartWide from '../components/profile/stats/MonthlyFrequencyChartWide';
+import RatingDistributionChart from '../components/profile/stats/RatingDistributionChart';
 import CompletionProgressBar from '../components/profile/stats/CompletionProgressBar';
 
 // Masaüstü "Detaylı Analiz" ekranı: sonsuz dikey kaydırma yerine, grafikler
@@ -18,7 +18,8 @@ export default function ProfileStatisticsScreenWeb() {
   const { t } = useTranslation('media');
   const [activeTab, setActiveTab] = useState<StatsTab>('shows');
 
-  const { summary, completion, hasStats } = useProfileStatistics(activeTab);
+  const { summary, completion, genres, monthly, ratings, hasStats, hasContent } =
+    useProfileStatistics(activeTab);
 
   return (
     <View style={styles.pageBackground}>
@@ -59,12 +60,26 @@ export default function ProfileStatisticsScreenWeb() {
 
         {hasStats && <StatsSummaryRowWide summary={summary} />}
 
-        <View style={styles.chartsGrid}>
-          <GenreDonutChartWide data={getGenreMockData(activeTab)} />
-          <MonthlyFrequencyChartWide data={getMonthlyMockData(activeTab)} />
-        </View>
+        {hasContent ? (
+          <>
+            <View style={styles.chartsGrid}>
+              <GenreDonutChartWide data={genres} />
+              <MonthlyFrequencyChartWide data={monthly} activeTab={activeTab} />
+            </View>
 
-        <CompletionProgressBar completion={completion} activeTab={activeTab} />
+            <RatingDistributionChart ratings={ratings} />
+            <CompletionProgressBar completion={completion} activeTab={activeTab} />
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>
+              {t('statsEmptyTitle', 'Henüz analiz edilecek veri yok')}
+            </Text>
+            <Text style={styles.emptyText}>
+              {t('statsEmptyText', 'Dizi ve film izledikçe burada kişisel istatistiklerin oluşacak.')}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -139,5 +154,24 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 16,
     alignItems: 'stretch',
+  },
+  emptyState: {
+    padding: 32,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    color: '#e2e8f0',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  emptyText: {
+    color: '#94a3b8',
+    fontSize: 13.5,
+    textAlign: 'center',
   },
 });

@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useProfileStatistics, StatsTab } from '../hooks/useProfileStatistics';
-import { getGenreMockData, getMonthlyMockData } from '../components/profile/stats/mockChartData';
 import StatsSummaryRow from '../components/profile/stats/StatsSummaryRow';
 import GenreDonutChart from '../components/profile/stats/GenreDonutChart';
 import MonthlyFrequencyChart from '../components/profile/stats/MonthlyFrequencyChart';
+import RatingDistributionChart from '../components/profile/stats/RatingDistributionChart';
 import CompletionProgressBar from '../components/profile/stats/CompletionProgressBar';
 
 export default function ProfileStatisticsScreen() {
@@ -18,7 +18,8 @@ export default function ProfileStatisticsScreen() {
   const { t } = useTranslation('media');
   const [activeTab, setActiveTab] = useState<StatsTab>('shows');
 
-  const { summary, completion, hasStats } = useProfileStatistics(activeTab);
+  const { summary, completion, genres, monthly, ratings, hasStats, hasContent } =
+    useProfileStatistics(activeTab);
 
   return (
     <View style={[styles.safeArea, { paddingTop: insets.top }]}>
@@ -63,9 +64,24 @@ export default function ProfileStatisticsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {hasStats && <StatsSummaryRow summary={summary} />}
-        <GenreDonutChart data={getGenreMockData(activeTab)} />
-        <MonthlyFrequencyChart data={getMonthlyMockData(activeTab)} />
-        <CompletionProgressBar completion={completion} activeTab={activeTab} />
+
+        {hasContent ? (
+          <>
+            <GenreDonutChart data={genres} />
+            <MonthlyFrequencyChart data={monthly} activeTab={activeTab} />
+            <RatingDistributionChart ratings={ratings} />
+            <CompletionProgressBar completion={completion} activeTab={activeTab} />
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>
+              {t('statsEmptyTitle', 'Henüz analiz edilecek veri yok')}
+            </Text>
+            <Text style={styles.emptyText}>
+              {t('statsEmptyText', 'Dizi ve film izledikçe burada kişisel istatistiklerin oluşacak.')}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -131,5 +147,28 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 12,
+  },
+  emptyState: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 24,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    color: '#e2e8f0',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: '#94a3b8',
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

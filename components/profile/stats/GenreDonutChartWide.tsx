@@ -1,19 +1,46 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 import { useTranslation } from 'react-i18next';
-import type { GenreSlice } from './mockChartData';
+import type { GenreSlice } from '../../../hooks/useProfileStatistics';
 
 interface GenreDonutChartWideProps {
   data: GenreSlice[];
 }
 
 // Sol sütun: geniş ekranda kocaman, ortalanmış bir pasta grafik + altında
-// yatay bir lejant. mockChartData.ts'teki aynı veriyi kullanır, yalnızca
-// sunumu masaüstüne göre yeniden düzenler.
+// yatay bir lejant. Mobil sürümle AYNI gerçek veriyi kullanır, yalnızca sunumu
+// masaüstüne göre yeniden düzenler; dilimler ve lejant burada da seçilebilir.
 const GenreDonutChartWide = ({ data }: GenreDonutChartWideProps) => {
   const { t } = useTranslation('media');
-  const topGenre = data.reduce((max, item) => (item.value > max.value ? item : max), data[0]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [data]);
+
+  const chartData = useMemo(
+    () => data.map((slice, index) => ({
+      value: slice.value,
+      color: slice.color,
+      opacity: index === selectedIndex ? 1 : 0.45,
+    })),
+    [data, selectedIndex]
+  );
+
+  // ESKİ HATA: `data.reduce(fn, data[0])` boş dizide `max.value` okurken
+  // çöküyordu. Veri artık sahte değil gerçek olduğundan (ve gerçekten boş
+  // olabildiğinden) boş durum açıkça ele alınıyor.
+  if (data.length === 0) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.title}>{t('favoriteGenres', 'Favori Türler')}</Text>
+        <Text style={styles.emptyText}>{t('genresNoData', 'Tür verisi bulunamadı')}</Text>
+      </View>
+    );
+  }
+
+  const selected = data[Math.min(selectedIndex, data.length - 1)];
 
   return (
     <View style={styles.card}>
@@ -21,28 +48,41 @@ const GenreDonutChartWide = ({ data }: GenreDonutChartWideProps) => {
 
       <View style={styles.chartWrap}>
         <PieChart
-          data={data}
+          data={chartData}
           donut
           radius={100}
           innerRadius={70}
           innerCircleColor="#0f172a"
+          onPress={(_item: unknown, index: number) => setSelectedIndex(index)}
           centerLabelComponent={() => (
             <View style={styles.centerLabel}>
-              <Text style={styles.centerValue}>%{topGenre.value}</Text>
-              <Text style={styles.centerCaption}>{topGenre.label}</Text>
+              <Text style={styles.centerValue}>%{selected.percent}</Text>
+              <Text style={styles.centerCaption}>{selected.label}</Text>
+              <Text style={styles.centerCount}>
+                {t('genreTitleCount', '{{count}} içerikte', { count: selected.value })}
+              </Text>
             </View>
           )}
         />
       </View>
 
       <View style={styles.legend}>
-        {data.map((slice) => (
-          <View key={slice.label} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: slice.color }]} />
-            <Text style={styles.legendLabel}>{slice.label}</Text>
-            <Text style={styles.legendValue}>%{slice.value}</Text>
-          </View>
-        ))}
+        {data.map((slice, index) => {
+          const isSelected = index === selectedIndex;
+          return (
+            <Pressable
+              key={slice.slug ?? '__other'}
+              onPress={() => setSelectedIndex(index)}
+              style={[styles.legendItem, isSelected && styles.legendItemActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+            >
+              <View style={[styles.legendDot, { backgroundColor: slice.color }]} />
+              <Text style={styles.legendLabel}>{slice.label}</Text>
+              <Text style={styles.legendValue}>{slice.value}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -83,6 +123,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  centerCount: {
+    color: '#64748b',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  emptyText: {
+    color: '#64748b',
+    fontSize: 13,
+    paddingVertical: 16,
+  },
+  legendItemActive: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -97,6 +150,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.04)',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   legendDot: {
     width: 8,

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Clock, Tv, Film } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { formatWatchDuration } from '../../../utils/watchTimeHelper';
 import type { ProfileStatsSummary } from '../../../hooks/useProfileStatistics';
 
@@ -9,8 +10,14 @@ interface StatsSummaryRowProps {
   summary: ProfileStatsSummary;
 }
 
+/**
+ * Üstteki üç özet kutusu. Bölüm ve film kutuları artık TIKLANABİLİR: kullanıcı
+ * sayıdan doğrudan ilgili kütüphane listesine gidebiliyor. Süre kutusu bir
+ * listeye karşılık gelmediği için bilinçli olarak tıklanamaz bırakıldı.
+ */
 const StatsSummaryRow = ({ summary }: StatsSummaryRowProps) => {
   const { t } = useTranslation('media');
+  const router = useRouter();
 
   const totalWatchTime = formatWatchDuration(summary.totalMinutes, {
     month: t('unitMonth', 'Ay'),
@@ -28,21 +35,29 @@ const StatsSummaryRow = ({ summary }: StatsSummaryRowProps) => {
         <Text style={styles.label}>{t('totalWatchTime', 'Toplam İzleme Süresi')}</Text>
       </View>
 
-      <View style={styles.card}>
+      <Pressable
+        style={({ pressed }) => [styles.card, styles.cardTappable, pressed && styles.cardPressed]}
+        onPress={() => router.push('/(protected)/library/shows')}
+        accessibilityRole="button"
+      >
         <View style={[styles.iconBadge, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
           <Tv size={14} color="#a78bfa" />
         </View>
         <Text style={styles.value}>{summary.episodesWatched.toLocaleString()}</Text>
         <Text style={styles.label}>{t('episodesWatchedCount', 'İzlenen Bölüm')}</Text>
-      </View>
+      </Pressable>
 
-      <View style={styles.card}>
+      <Pressable
+        style={({ pressed }) => [styles.card, styles.cardTappable, pressed && styles.cardPressed]}
+        onPress={() => router.push('/(protected)/library/movies')}
+        accessibilityRole="button"
+      >
         <View style={[styles.iconBadge, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
           <Film size={14} color="#fbbf24" />
         </View>
         <Text style={styles.value}>{summary.moviesWatched.toLocaleString()}</Text>
         <Text style={styles.label}>{t('moviesWatchedCount', 'İzlenen Film')}</Text>
-      </View>
+      </Pressable>
     </View>
   );
 };
@@ -66,6 +81,12 @@ const styles = StyleSheet.create({
   },
   cardWide: {
     flex: 1.3,
+  },
+  cardTappable: {
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
+  },
+  cardPressed: {
+    opacity: 0.6,
   },
   iconBadge: {
     width: 26,
