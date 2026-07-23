@@ -1,8 +1,9 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert } from 'react-native';
 import { Star, CheckCheck } from 'lucide-react-native';
 import LoadingIndicator from '../LoadingIndicator';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 
 interface EpisodeOptionsModalProps {
   visible: boolean;
@@ -23,7 +24,22 @@ export default function EpisodeOptionsModal({
   onRewatch,
   onUnwatch
 }: EpisodeOptionsModalProps) {
-  const { t } = useTranslation(['media']);
+  const { t } = useTranslation(['media', 'common']);
+  const { isGuest } = useAuth();
+
+  // ESKİ HATA: bu satır misafir kontrolü yapmadan doğrudan puanlama modalını
+  // açıyordu — misafir bir bölümü puanlamaya çalıştığında Trakt'a token'sız
+  // istek gidip genel bir "hata oluştu" mesajıyla karşılaşıyordu. Diğer tüm
+  // aksiyonlar (izlendi/geri al) zaten `useShowDetailHandlers.ts` içinde
+  // korunuyor — bu, aynı korumanın eksik olduğu tek satırdı.
+  const handleRatePress = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      onClose();
+      return;
+    }
+    onRatePress();
+  };
 
   return (
     <Modal
@@ -41,9 +57,9 @@ export default function EpisodeOptionsModal({
                 <Text style={styles.modalSubtitle}>{t('episodeOptions')}</Text>
               </View>
               
-              <TouchableOpacity 
-                style={styles.modalButton} 
-                onPress={onRatePress}
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleRatePress}
               >
                 <Star size={20} color="#f59e0b" fill="#f59e0b" />
                 <Text style={[styles.modalButtonText, {color: '#f59e0b'}]}>{t('rateOrEdit')}</Text>

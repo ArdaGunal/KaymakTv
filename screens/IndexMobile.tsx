@@ -39,12 +39,13 @@ export default function DizilerScreen() {
   }, [hydrateCollapsed]);
 
   // ── Yaklaşan (takvim) sekmesi eski, sağlam hattı kullanmaya devam eder.
-  const { calendarShows, calendarSeasonsMap, watchedShows, watchlistShows, showProgressMap } = useLibrarySelector((s) => ({
+  const { calendarShows, calendarSeasonsMap, watchedShows, watchlistShows, showProgressMap, hiddenShowIds } = useLibrarySelector((s) => ({
     calendarShows: s.calendarShows,
     calendarSeasonsMap: s.calendarSeasonsMap,
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
     showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
   }));
   const { refreshLibrary } = useLibraryActions();
 
@@ -54,7 +55,8 @@ export default function DizilerScreen() {
     calendarShows,
     showProgressMap,
     calendarSeasonsMap,
-    i18n.language
+    i18n.language,
+    hiddenShowIds
   );
   const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 

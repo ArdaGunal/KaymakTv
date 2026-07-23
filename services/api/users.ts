@@ -503,6 +503,36 @@ export const hideItemTrakt = async (id: number, type: 'show' | 'movie') => {
   }
 };
 
+export const unhideItemTrakt = async (id: number, type: 'show' | 'movie') => {
+  try {
+    const client = await getTraktClient();
+    const body = {
+      [type === 'show' ? 'shows' : 'movies']: [{ ids: { trakt: id } }]
+    };
+    const section = type === 'show' ? 'progress_watched' : 'calendar';
+    const response = await client.post(`/users/hidden/${section}/remove`, body);
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (unhideItemTrakt):', error);
+    throw error;
+  }
+};
+
+/** "İlerlemeyi Gizle" ile gizlenmiş dizilerin listesi — senkron sırasında
+ * `hiddenShowIds`'i güncel tutmak ve kütüphanenin "Gizlenenler" filtresini
+ * beslemek için kullanılır. İzleme geçmişine (watched/history) HİÇ dokunmaz,
+ * yalnızca hangi dizilerin "ilerleme/devam et" görünümünden gizlendiğini bildirir. */
+export const getHiddenShows = async () => {
+  try {
+    const client = await getTraktClient();
+    const response = await client.get('/users/hidden/progress_watched?type=show&limit=200');
+    return response.data;
+  } catch (error) {
+    console.error('Trakt API Hatası (getHiddenShows):', error);
+    throw error;
+  }
+};
+
 export const removeFromHistoryTrakt = async (id: number, type: 'show' | 'movie') => {
   try {
     const client = await getTraktClient();

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useAirCountdown } from '../../hooks/useAirCountdown';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../MediaPoster';
+import TrackingCardMenu from '../tracking/TrackingCardMenu';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 
@@ -69,7 +70,15 @@ const MovieCardActions = memo(({ data, isLoading, isSuccess, onCheckIn }: {
   );
 });
 
-const MovieCard = memo(({ data, onMovieFinished }: { data: any, onMovieFinished?: (title: string) => void }) => {
+interface MovieCardMobileProps {
+  data: any;
+  onMovieFinished?: (title: string) => void;
+  /** Verilirse posterin üzerinde 3-nokta menüsü (Bırak/Listeye Ekle/Favorile/Paylaş) gösterilir. */
+  isDropped?: boolean;
+  onToggleDropped?: (id: number) => void;
+}
+
+const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: MovieCardMobileProps) => {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -156,6 +165,19 @@ const MovieCard = memo(({ data, onMovieFinished }: { data: any, onMovieFinished?
           title={data.title}
           style={styles.posterImage}
         />
+
+        {onToggleDropped && (
+          <TrackingCardMenu
+            style={styles.menuOverlay}
+            id={data.id}
+            title={data.title}
+            mediaType="movie"
+            tmdbId={data.tmdbId}
+            slug={data.slug}
+            isDropped={!!isDropped}
+            onToggleDropped={() => onToggleDropped(data.id)}
+          />
+        )}
       </View>
 
       {/* Content — crossfade: normal içerik ↔ başarı mesajı */}
@@ -254,6 +276,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
   },
   contentContainer: {
     flex: 1,

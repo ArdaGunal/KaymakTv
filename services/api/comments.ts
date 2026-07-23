@@ -1,4 +1,5 @@
 import { getTraktClient } from './traktClient';
+import { CACHE_TTL } from '../../utils/cacheTTL';
 
 export const addComment = async (id: number, type: 'show' | 'movie' | 'episode', comment: string, spoiler: boolean = true) => {
   try {
@@ -17,6 +18,7 @@ export const addComment = async (id: number, type: 'show' | 'movie' | 'episode',
     }
 
     const response = await client.post('/comments', body);
+    invalidateUserCommentsCache();
     return response.data;
   } catch (error) {
     console.error('Trakt API Hatası (addComment):', error);
@@ -32,6 +34,7 @@ export const updateComment = async (commentId: number, comment: string, spoiler:
       spoiler
     };
     const response = await client.put(`/comments/${commentId}`, body);
+    invalidateUserCommentsCache();
     return response.data;
   } catch (error) {
     console.error('Trakt API Hatası (updateComment):', error);
@@ -43,6 +46,7 @@ export const deleteComment = async (commentId: number) => {
   try {
     const client = await getTraktClient();
     const response = await client.delete(`/comments/${commentId}`);
+    invalidateUserCommentsCache();
     return response.data;
   } catch (error) {
     console.error('Trakt API Hatası (deleteComment):', error);
@@ -78,18 +82,49 @@ export const getMediaComments = async (id: number, type: 'show' | 'movie' | 'epi
   }
 };
 
-export const getUserComments = async () => {
-  try {
-    const client = await getTraktClient();
-    // limit şart: Trakt varsayılanı 10 kayıttır — limitsiz istekte 10'dan fazla
-    // yorumu olan kullanıcının eski yorumları bulunamıyor ve "zaten yorum var"
-    // tespiti kaçtığı için tekrar gönderimde 409 (duplicate) hatası oluşuyordu.
-    const response = await client.get('/users/me/comments/all/newest?include_replies=false&extended=full&limit=200');
-    return response.data;
-  } catch (error) {
-    console.error('Trakt API Hatası (getUserComments):', error);
-    throw error;
+// `MyInlineComment` (yorum önizleme) ve `WriteCommentSheet` (yazma sheet'i)
+// her dizi/film/bölüm sayfası mount olduğunda BAĞIMSIZ olarak bu 200 kayıtlık
+// listeyi baştan çekip client-side `.find()` yapıyordu — aynı sayfada ikisi
+// birden açıksa aynı veri iki kez, farklı sayfalar gezilince her seferinde
+// yeniden isteniyordu (bkz. performans raporu: `users/me/comments/all/newest`
+// tek oturumda 38 çağrı, en yüksek sayılardan biri). Kısa TTL'li paylaşımlı
+// önbellek + uçuştaki (in-flight) isteği tekilleştirme bunu ortadan kaldırır;
+// yorum ekleme/güncelleme/silme sonrası `invalidateUserCommentsCache` ile
+// bozulur ki kullanıcı kendi yeni yorumunu hemen görsün.
+let userCommentsCache: { data: any[]; fetchedAt: number } | null = null;
+let userCommentsInFlight: Promise<any[]> | null = null;
+
+export const invalidateUserCommentsCache = (): void => {
+  userCommentsCache = null;
+};
+
+export const getUserComments = async (force = false): Promise<any[]> => {
+  if (!force && userCommentsCache && Date.now() - userCommentsCache.fetchedAt < CACHE_TTL.SHORT) {
+    return userCommentsCache.data;
   }
+  if (!force && userCommentsInFlight) {
+    return userCommentsInFlight;
+  }
+
+  const request = (async () => {
+    try {
+      const client = await getTraktClient();
+      // limit şart: Trakt varsayılanı 10 kayıttır — limitsiz istekte 10'dan fazla
+      // yorumu olan kullanıcının eski yorumları bulunamıyor ve "zaten yorum var"
+      // tespiti kaçtığı için tekrar gönderimde 409 (duplicate) hatası oluşuyordu.
+      const response = await client.get('/users/me/comments/all/newest?include_replies=false&extended=full&limit=200');
+      userCommentsCache = { data: response.data, fetchedAt: Date.now() };
+      return response.data;
+    } catch (error) {
+      console.error('Trakt API Hatası (getUserComments):', error);
+      throw error;
+    } finally {
+      userCommentsInFlight = null;
+    }
+  })();
+
+  userCommentsInFlight = request;
+  return request;
 };
 
 export const getCommentReplies = async (commentId: number, page: number = 1, limit: number = 25) => {

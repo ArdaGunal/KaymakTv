@@ -19,10 +19,12 @@ import {
  * modülünün tek gerçek kaynağı `categorizeShows`'tan türetilir, böylece "Aktif
  * İzlenenler" burada ve takip ekranında ASLA farklı anlama gelmez.
  */
-export type ShowStatusKey = 'upNext' | 'paused' | 'dropped' | 'notStarted';
+export type ShowStatusKey = 'upNext' | 'paused' | 'dropped' | 'notStarted' | 'hidden';
 
-/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Bırakılan / Başlanmadı). */
-export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'dropped', 'notStarted'] as const;
+/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Bırakılan / Başlanmadı / Gizlenen).
+ * "Gizlenenler" bilinçli olarak EN SONDA — takip panosunun ana vitrininden çıkarılan
+ * bu diziler, kullanıcı bilinçli olarak arayana kadar göz önünde olmamalı. */
+export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'dropped', 'notStarted', 'hidden'] as const;
 
 // `categorizeShows` etiketleri yalnızca kart ÜZERİNDEKİ metinler için kullanılır;
 // burada sadece kategori üyeliği okunduğundan sabit boş değerler yeterli. Çeviri
@@ -37,10 +39,11 @@ const EMPTY_INDEX = emptyStatusIndex<ShowStatusKey>();
  * kategorizasyon HİÇ çalıştırılmaz — 600+ öğelik kütüphanelerde bedava bir kazanç.
  */
 function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
-  const { watchedShows, watchlistShows, showProgressMap } = useLibrarySelector((s) => ({
+  const { watchedShows, watchlistShows, showProgressMap, hiddenShowIds } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
     showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
   }));
 
   const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
@@ -60,6 +63,7 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
       watchlistShows: watchlistShows || [],
       showProgressMap: showProgressMap || {},
       droppedShowIds,
+      hiddenShowIds,
       labels: STATIC_LABELS,
     });
 
@@ -89,7 +93,7 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
     }
 
     return { statusOf, extraPool };
-  }, [enabled, watchedShows, watchlistShows, showProgressMap, droppedShowIds]);
+  }, [enabled, watchedShows, watchlistShows, showProgressMap, droppedShowIds, hiddenShowIds]);
 }
 
 export type UseLibraryShowFiltersResult = UseLibraryFiltersResult<ShowStatusKey>;

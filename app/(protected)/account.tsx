@@ -2,7 +2,7 @@ import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Activity, Globe, LogOut, Trash2 } from 'lucide-react-native';
+import { Activity, FileWarning, Globe, LogOut, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -40,7 +40,7 @@ WebBrowser.maybeCompleteAuthSession();
 const DESKTOP_BREAKPOINT = 768;
 
 export default function SettingsScreen() {
-  const { accessToken, saveTokens } = useAuth();
+  const { accessToken, saveTokens, isGuest } = useAuth();
   const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
     isLoggingOut, isDeletingAccount, handleExportMetrics, isExportingMetrics } = useSettings();
   const router = useRouter();
@@ -201,27 +201,45 @@ export default function SettingsScreen() {
                 onPress={handleExportMetrics}
                 disabled={isExportingMetrics}
               />
+
+              <SettingsSectionDivider />
+
+              <SettingsRow
+                icon={<FileWarning size={20} color="#f87171" />}
+                label={t('settings:errorLogTitle')}
+                tintColor="#f87171"
+                showChevron
+                onPress={() => router.push('/(protected)/error-log')}
+              />
             </SettingsSection>
           )}
 
           <SettingsSection title="⚠️ Hesap Seçenekleri">
             <SettingsRow
               icon={<LogOut size={20} color="#fb923c" />}
-              label={t('logoutReset', 'Çıkış Yap')}
+              label={isGuest ? t('settings:exitGuestMode', 'Misafir Modundan Çık') : t('logoutReset', 'Çıkış Yap')}
               tintColor="#fb923c"
               onPress={handleLogout}
               disabled={isLoggingOut}
             />
 
-            <SettingsSectionDivider />
+            {/* Misafirin silinecek bir Trakt hesabı yok — bu satır (ve onay
+                modalındaki "Trakt hesabınız etkilenmez" metni) misafir için
+                anlamsız/yanıltıcı olurdu, bu yüzden yalnızca gerçek kullanıcıya
+                gösterilir. Çıkış satırı zaten aynı yerel-veri temizliğini yapıyor. */}
+            {!isGuest && (
+              <>
+                <SettingsSectionDivider />
 
-            <SettingsRow
-              icon={<Trash2 size={20} color="#f87171" />}
-              label={t('settings:deleteAccount')}
-              tintColor="#f87171"
-              onPress={() => setDeleteModalVisible(true)}
-              disabled={isDeletingAccount}
-            />
+                <SettingsRow
+                  icon={<Trash2 size={20} color="#f87171" />}
+                  label={t('settings:deleteAccount')}
+                  tintColor="#f87171"
+                  onPress={() => setDeleteModalVisible(true)}
+                  disabled={isDeletingAccount}
+                />
+              </>
+            )}
           </SettingsSection>
 
           {/* Görünüşte sıradan bir sürüm etiketi — 7 hızlı dokunuşluk gizli

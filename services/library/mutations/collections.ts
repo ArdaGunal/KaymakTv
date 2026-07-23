@@ -2,6 +2,7 @@ import {
   addToWatchlistTrakt,
   removeFromWatchlistTrakt,
   hideItemTrakt,
+  unhideItemTrakt,
   removeFromHistoryTrakt,
   toggleLikedMedia,
   createCustomList,
@@ -12,7 +13,6 @@ import {
 import { fetchFreshData } from '../fetchers';
 import {
   CACHE_KEYS,
-  currentAccessToken,
   safeStorageSet,
   setWatchedShows,
   setWatchedMovies,
@@ -25,6 +25,7 @@ import {
   persistShowProgressMap,
   setCalendarShows,
   setCalendarSeasonsMap,
+  setHiddenShowIds,
 } from '../utils';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { logError } from '../../../utils/errorLog';
@@ -125,20 +126,43 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
   }
 };
 
-export const hideMediaFromProgress = async (id: number, type: 'show' | 'movie') => {
+// "İlerlemeyi Gizle/Göster" — dizinin izleme geçmişine/puanlarına HİÇ dokunmaz,
+// yalnızca Trakt'ın "gizlenen ilerleme" listesine ekler/çıkarır (bkz. hiddenShowIds
+// store dilimi + store/tracking/trackingLogic.ts). ESKİ DAVRANIŞ: yalnızca
+// hide yönü vardı ve arayüzü güncellemek için HER seferinde tam bir
+// `fetchFreshData(force=true)` (13+ endpoint'lik tüm kütüphane resync'i) tetikliyordu
+// — tek bir diziyi gizlemek için orantısız bir maliyetti (bkz. performans raporu).
+// Artık `toggleFavoriteStatus` ile AYNI optimistic desen kullanılıyor: yerel
+// `hiddenShowIds` anında güncellenir, arayüz aynı anda yenilenir, tam resync'e
+// hiç gerek kalmaz.
+export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie', isCurrentlyHidden: boolean) => {
+  let previousHiddenShowIds: number[] | null = null;
+
+  if (type === 'show') {
+    setHiddenShowIds((prev: number[]) => {
+      previousHiddenShowIds = prev;
+      const next = isCurrentlyHidden ? prev.filter((existing) => existing !== id) : [...prev, id];
+      safeStorageSet(CACHE_KEYS.hiddenShowIds, JSON.stringify(next));
+      return next;
+    });
+  }
+
   try {
-    await hideItemTrakt(id, type);
-    // NOT: burada eskiden accessToken yerine `null` geçiliyordu; fetchFreshData
-    // token'ı `null` gördüğünde hiçbir şey yapmadan sessizce çıkıyor (bkz.
-    // fetchers.ts). Sonuç: "Gizle" API isteği başarıyla gidiyordu ama arayüz
-    // hiç yenilenmediği için öğe ilerleme/devam et listesinde görünmeye devam
-    // ediyordu — sonraki doğal senkrona kadar.
-    fetchFreshData(currentAccessToken, true);
-    recordMutationResult('hideMediaFromProgress', true);
+    if (isCurrentlyHidden) {
+      await unhideItemTrakt(id, type);
+    } else {
+      await hideItemTrakt(id, type);
+    }
+    recordMutationResult('toggleHiddenFromProgress', true);
   } catch (err) {
-    console.error('Hide media hatası:', err);
-    logError('mutations.collections.hideMediaFromProgress', err);
-    recordMutationResult('hideMediaFromProgress', false);
+    console.error('Gizle/Göster hatası, rollback yapılıyor:', err);
+    logError('mutations.collections.toggleHiddenFromProgress', err);
+    recordMutationResult('toggleHiddenFromProgress', false);
+    if (type === 'show' && previousHiddenShowIds !== null) {
+      setHiddenShowIds(previousHiddenShowIds);
+      safeStorageSet(CACHE_KEYS.hiddenShowIds, JSON.stringify(previousHiddenShowIds));
+    }
+    throw err;
   }
 };
 

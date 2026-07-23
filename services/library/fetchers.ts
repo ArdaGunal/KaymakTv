@@ -14,6 +14,7 @@ import {
   getLikedShows,
   getLikedMovies,
   getUserStats,
+  getHiddenShows,
 } from '../traktApi';
 import {
   CACHE_KEYS,
@@ -33,6 +34,7 @@ import {
   setShowProgressMap,
   setCalendarSeasonsMap,
   setUserStats,
+  setHiddenShowIds,
   setIsLoading,
   setIsMoviesLoading,
   readChunkedRecord,
@@ -123,6 +125,7 @@ export const loadCache = async () => {
     setShowProgressMap(parsedProgress);
     setCalendarSeasonsMap(getParsed(CACHE_KEYS.calendarSeasonsMap) || {});
     setUserStats(getParsed(CACHE_KEYS.userStats) || null);
+    setHiddenShowIds(getParsed(CACHE_KEYS.hiddenShowIds) || []);
 
     // Progress haritası boşsa TTL'yi sıfırla: fetchFreshData kesin çalışsın.
     // Aksi halde 10 dakikalık TTL yüzünden kartlar spinner'da asılı kalırdı.
@@ -299,8 +302,9 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         requestQueue.enqueue(() => getLikedMovies(), 'LOW').catch((e) => { console.error('getLikedMovies failed', e.message); return null; }),
         requestQueue.enqueue(() => getUserRatings('shows'), 'LOW').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
         requestQueue.enqueue(() => getUserRatings('movies'), 'LOW').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
-        requestQueue.enqueue(() => getUserRatings('episodes'), 'LOW').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
-      ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData]) => {
+        requestQueue.enqueue(() => getUserRatings('episodes'), 'LOW').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; }),
+        requestQueue.enqueue(() => getHiddenShows(), 'LOW').catch((e) => { console.error('getHiddenShows failed', e.message); return null; })
+      ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData, hiddenData]) => {
         if (moviesData !== null) setWatchedMovies(moviesData);
         if (listsData !== null) setCustomLists(listsData);
         if (fShowsData !== null) setFavShows(fShowsData);
@@ -308,6 +312,11 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         if (rShowsData !== null) setUserRatingsShows(rShowsData);
         if (rMoviesData !== null) setUserRatingsMovies(rMoviesData);
         if (rEpisodesData !== null) setUserRatingsEpisodes(rEpisodesData);
+
+        const hiddenShowIds = hiddenData !== null
+          ? (hiddenData as any[]).map((item: any) => item.show?.ids?.trakt).filter((id: any): id is number => typeof id === 'number')
+          : null;
+        if (hiddenShowIds !== null) setHiddenShowIds(hiddenShowIds);
 
         const multiSetDataInitial: [string, string][] = [];
         const setIfValidInitial = (key: string, data: any, prevData: any) => {
@@ -325,6 +334,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         setIfValidInitial(CACHE_KEYS.userRatingsShows, rShowsData, useLibraryStore.getState().userRatingsShows);
         setIfValidInitial(CACHE_KEYS.userRatingsMovies, rMoviesData, useLibraryStore.getState().userRatingsMovies);
         setIfValidInitial(CACHE_KEYS.userRatingsEpisodes, rEpisodesData, useLibraryStore.getState().userRatingsEpisodes);
+        setIfValidInitial(CACHE_KEYS.hiddenShowIds, hiddenShowIds, useLibraryStore.getState().hiddenShowIds);
 
         AsyncStorage.multiSet(multiSetDataInitial).catch(err => console.log('Initial cache save error:', err));
       });

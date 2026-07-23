@@ -8,11 +8,13 @@ export const useDashboardData = (
   calendarShows: any[],
   showProgressMap: any,
   calendarSeasonsMap: any,
-  i18nLanguage: string
+  i18nLanguage: string,
+  hiddenShowIds: number[] = []
 ) => {
   const { t } = useTranslation('media');
 
   return useMemo(() => {
+    const hiddenSet = new Set(hiddenShowIds);
     // ============================================
     // 1. WATCHED SHOWS (Sıradakiler & Bırakılanlar)
     // ============================================
@@ -326,11 +328,19 @@ export const useDashboardData = (
 
     upcomingTemp.sort((a, b) => a.rawDate - b.rawDate);
 
+    // "İlerlemeyi Gizle" ile gizlenmiş diziler Takvim'den de çıkarılır — vitrin
+    // listelerinden (Aktif İzlenenler, Sıradaki Bölümler, Takvim) tamamen
+    // buharlaşmaları gerekiyor, yalnızca Kütüphane'nin "Gizlenenler" filtresinde
+    // görünmeye devam ederler.
+    const visibleUpcoming = hiddenSet.size > 0
+      ? upcomingTemp.filter((item) => !hiddenSet.has(item.rawTraktId))
+      : upcomingTemp;
+
     return {
       upNextShows: upNextTemp,
       inactiveShows: inactiveTemp,
       watchlistShowsList: watchlistFinal,
-      upcomingShows: upcomingTemp
+      upcomingShows: visibleUpcoming
     };
   }, [
     watchedShows,
@@ -338,6 +348,7 @@ export const useDashboardData = (
     calendarShows,
     showProgressMap,
     calendarSeasonsMap,
-    i18nLanguage
+    i18nLanguage,
+    hiddenShowIds
   ]);
 };

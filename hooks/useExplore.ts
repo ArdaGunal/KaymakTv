@@ -50,7 +50,7 @@ export function useExplore(): ExploreState & ExploreActions {
 
   const activeSearchRef = useRef<string>('');
 
-  const fetchTrending = async (reset = true) => {
+  const fetchTrending = async (reset = true, force = false) => {
     if (!accessToken && !isGuest) {
       setLoading(false);
       setRefreshing(false);
@@ -66,8 +66,8 @@ export function useExplore(): ExploreState & ExploreActions {
       }
 
       const [shows, movies] = await Promise.all([
-        getTrendingShows(1, PAGE_SIZE),
-        getTrendingMovies(1, PAGE_SIZE),
+        getTrendingShows(1, PAGE_SIZE, force),
+        getTrendingMovies(1, PAGE_SIZE, force),
       ]);
       setTrendingShows(shows);
       setTrendingMovies(movies);
@@ -140,17 +140,27 @@ export function useExplore(): ExploreState & ExploreActions {
     if (searchQuery.trim().length > 2) {
       fetchSearch(searchQuery);
     } else {
-      fetchTrending();
+      fetchTrending(true, true);
     }
   };
 
-  // Search & debounce
+  // Arama: `searchQuery` zaten `SearchBar`'ın kendi 500ms debounce'ından SONRA
+  // değişiyor (bkz. components/SearchBar.tsx) — burada İKİNCİ bir debounce
+  // eklemek son tuş vuruşundan gerçek isteğin gitmesine kadar 500+500=1000ms'lik
+  // saf (ağ gecikmesi HARİÇ) bir bekleme yaratıyordu, "Keşfet"in trend
+  // listesine kıyasla donuk/yavaş hissettirmesinin asıl sebebi buydu. `loading`
+  // ve eski sonuçların temizlenmesi de artık İSTEK BAŞLAMADAN ÖNCE yapılıyor —
+  // eskiden bunlar yalnızca debounce dolup `fetchSearch` çalışınca tetiklendiği
+  // için o pencerede ekran ya bomboş ya da bir ÖNCEKİ aramanın sonuçlarıyla
+  // donmuş görünüyordu.
   useEffect(() => {
     if (!accessToken && !isGuest) return;
 
     if (searchQuery.trim().length > 2) {
-      const timer = setTimeout(() => fetchSearch(searchQuery), 500);
-      return () => clearTimeout(timer);
+      setLoading(true);
+      setSearchShows([]);
+      setSearchMovies([]);
+      fetchSearch(searchQuery);
     } else if (searchQuery.trim().length === 0) {
       setSearchShows([]);
       setSearchMovies([]);
@@ -166,7 +176,7 @@ export function useExplore(): ExploreState & ExploreActions {
       if (searchQuery.trim().length > 2) {
         fetchSearch(searchQuery);
       } else {
-        fetchTrending(true);
+        fetchTrending(true, true);
       }
     }
   }, [i18n.language]);

@@ -132,7 +132,8 @@ export const CACHE_KEYS = {
   showProgressMap: '@trakt_lib_showProgressMap',
   calendarSeasonsMap: '@trakt_lib_calendarSeasonsMap',
   lastFetchTime: '@trakt_lib_lastFetchTime',
-  userStats: '@trakt_lib_userStats'
+  userStats: '@trakt_lib_userStats',
+  hiddenShowIds: '@trakt_lib_hiddenShowIds'
 };
 
 export let currentAccessToken: string | null = null;
@@ -216,6 +217,11 @@ export const setUserStats = (val: any) => {
   const state = useLibraryStore.getState();
   const nextVal = typeof val === 'function' ? val(state.userStats) : val;
   state.setUserStats(nextVal);
+};
+export const setHiddenShowIds = (val: any) => {
+  const state = useLibraryStore.getState();
+  const nextVal = typeof val === 'function' ? val(state.hiddenShowIds) : val;
+  state.setHiddenShowIds(nextVal);
 };
 export const setIsLoading = (val: any) => {
   const state = useLibraryStore.getState();

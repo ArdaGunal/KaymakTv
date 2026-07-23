@@ -19,7 +19,9 @@ import AddToListModal from '../AddToListModal';
 
 interface TrackingCardMenuProps {
   id: number;
-  showName: string;
+  title: string;
+  /** Dizi/film ayrımı: favori listesi, paylaşım linki ve "Listeye Ekle" hedefi bu alana göre değişir. */
+  mediaType: 'show' | 'movie';
   tmdbId?: number;
   slug?: string;
   isDropped: boolean;
@@ -39,8 +41,14 @@ const ROW_COUNT = 5; // Bırakılanlara Ekle, Listeye Ekle, Favorilere Ekle, Pay
 // yanında açılan, ekran sınırlarına ve safe-area insets'e göre kırpılan
 // mutlak-konumlu bir açılır menü (context menu). `Modal` kullanılmaya devam
 // ediyor — kartların `overflow: 'hidden'` gövdesi tarafından kırpılmaması için.
+//
+// NOT: Başlangıçta dizi diline özeldi (`showName`, `mediaType: 'show'` sabit).
+// Kullanıcı aynı menünün filmler için de olmasını istediğinde `mediaType` prop'u
+// eklenerek genelleştirildi — favori dilimi, paylaşım linki ve "Listeye Ekle"
+// hedefi artık buna göre seçiliyor; menünün geri kalanı (konumlama, "Bırak/Devam
+// Et" metni) dizi/film arasında zaten ortaktı.
 const TrackingCardMenu = memo(
-  ({ id, showName, tmdbId, slug, isDropped, onToggleDropped, style }: TrackingCardMenuProps) => {
+  ({ id, title, mediaType, tmdbId, slug, isDropped, onToggleDropped, style }: TrackingCardMenuProps) => {
     const { t } = useTranslation('media');
     const insets = useSafeAreaInsets();
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -50,9 +58,9 @@ const TrackingCardMenu = memo(
     const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [listModalVisible, setListModalVisible] = useState(false);
 
-    const favShows = useLibrarySelector((s) => s.favShows);
+    const favList = useLibrarySelector((s) => (mediaType === 'show' ? s.favShows : s.favMovies));
     const { toggleFavoriteStatus } = useLibraryActions();
-    const isFavorited = !!favShows?.some((item: any) => item.show?.ids?.trakt === id);
+    const isFavorited = !!favList?.some((item: any) => (mediaType === 'show' ? item.show : item.movie)?.ids?.trakt === id);
 
     const openMenu = () => {
       triggerRef.current?.measureInWindow((x, y, width, height) => {
@@ -70,18 +78,19 @@ const TrackingCardMenu = memo(
 
     const handleToggleFavorite = () => {
       closeMenu();
-      toggleFavoriteStatus(id, 'show', isFavorited, {
+      toggleFavoriteStatus(id, mediaType, isFavorited, {
         ids: { trakt: id, tmdb: tmdbId, slug },
-        title: showName,
+        title,
       }).catch((e: unknown) => console.error(e));
     };
 
     const handleShare = async () => {
       closeMenu();
       try {
-        const mediaSlug = generateMediaSlug(id, slug, showName);
-        const url = `https://kaymaktv.com/show/${mediaSlug}`;
-        await Share.share({ message: `${showName} ${t('shareShowMsg')}\n${url}` });
+        const mediaSlug = generateMediaSlug(id, slug, title);
+        const url = `https://kaymaktv.com/${mediaType}/${mediaSlug}`;
+        const shareMsgKey = mediaType === 'show' ? 'shareShowMsg' : 'shareMovieMsg';
+        await Share.share({ message: `${title} ${t(shareMsgKey)}\n${url}` });
       } catch (e) {
         console.log(e);
       }
@@ -154,7 +163,7 @@ const TrackingCardMenu = memo(
           </Pressable>
         </Modal>
 
-        <AddToListModal visible={listModalVisible} onClose={() => setListModalVisible(false)} mediaId={id} mediaType="show" />
+        <AddToListModal visible={listModalVisible} onClose={() => setListModalVisible(false)} mediaId={id} mediaType={mediaType} />
       </>
     );
   }

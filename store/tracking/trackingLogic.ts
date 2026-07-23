@@ -53,6 +53,11 @@ export interface ShowCategories {
   notStarted: TrackingCard[];
   /** Manuel olarak "Bırakıldı" işaretlenenler. */
   dropped: TrackingCard[];
+  /** "İlerlemeyi Gizle" ile Trakt'ta gizlenmiş diziler — izleme geçmişi/puanları
+   * KORUNUR, sadece ana vitrin listelerinden (Aktif İzlenenler, Takvim, Sıradaki
+   * Bölümler) çıkarılırlar. Yalnızca Kütüphane'nin "Gizlenenler" filtresinde
+   * gösterilir; takip panosu (TrackingAccordionList) bu anahtarı hiç okumaz. */
+  hidden: TrackingCard[];
 }
 
 export interface TrackingLabels {
@@ -70,6 +75,8 @@ export interface CategorizeOptions {
   labels: TrackingLabels;
   /** Kullanıcının manuel olarak "Bırakıldı" işaretlediği dizilerin trakt id'leri. */
   droppedShowIds?: number[] | Set<number>;
+  /** Trakt'ta "İlerlemeyi Gizle" ile gizlenmiş dizilerin trakt id'leri (bkz. `hiddenShowIds` store dilimi). */
+  hiddenShowIds?: number[] | Set<number>;
   now?: number;
   /** Son izlemenin üzerinden kaç gün geçince "Ara Verilenler"e düşeceği. */
   pauseThresholdDays?: number;
@@ -96,10 +103,12 @@ export function categorizeShows({
   showProgressMap,
   labels,
   droppedShowIds = [],
+  hiddenShowIds = [],
   now = Date.now(),
   pauseThresholdDays = DEFAULT_PAUSE_THRESHOLD_DAYS,
 }: CategorizeOptions): ShowCategories {
   const droppedSet = droppedShowIds instanceof Set ? droppedShowIds : new Set(droppedShowIds);
+  const hiddenSet = hiddenShowIds instanceof Set ? hiddenShowIds : new Set(hiddenShowIds);
   const pauseThreshold = now - pauseThresholdDays * 24 * 60 * 60 * 1000;
 
   // 1) Kimliğe göre birleşik havuz: her dizi tek kayıt. watched kaydı önceliklidir
@@ -122,6 +131,7 @@ export function categorizeShows({
   const paused: TrackingCard[] = [];
   const notStarted: TrackingCard[] = [];
   const dropped: TrackingCard[] = [];
+  const hidden: TrackingCard[] = [];
 
   for (const [id, entry] of byId) {
     const show = entry.show;
@@ -133,6 +143,40 @@ export function categorizeShows({
     const isCalculating = progress === undefined && entry.fromWatched;
     const hasStarted = completed > 0 || (isCalculating && entry.fromWatched);
     const nextReady = !!next && hasAired(next.first_aired, now);
+
+    // Ortak görsel alanları — hem "gizli" hem normal kategoriler için gerekli,
+    // bu yüzden aşağıdaki kural 1'in erken `continue`'undan ÖNCE hesaplanır.
+    const base = {
+      id,
+      showName: toTitle(show?.title, labels.unnamedShow),
+      image: null as null,
+      tmdbId: show?.ids?.tmdb,
+      slug: show?.ids?.slug,
+      completedCount: progress ? completed : null,
+      totalCount: progress ? (aired || null) : null,
+      isCalculating,
+      lastWatchedAt: entry.lastWatchedAt,
+    };
+    const season = hasStarted && nextReady ? next.season : 1;
+    const episode = hasStarted && nextReady ? next.number : 1;
+    const title = hasStarted ? (nextReady ? (next.title || labels.caughtUp) : labels.caughtUp) : labels.notStarted;
+
+    // 0. Kullanıcı "İlerlemeyi Gizle" ile gizlemiş → hidden (EN YÜKSEK öncelik,
+    // aşağıdaki kural 1'in "hiçbir listede görünmez" davranışını BİLE atlar —
+    // "hazır bölümü olmayan bitmiş bir dizi" bile Gizlenenler'de bulunabilmeli,
+    // yoksa kullanıcı onu geri getirecek bir yer bulamaz). Bırakıldı ile
+    // TAMAMEN bağımsız: ikisi aynı anda işaretlenmişse gizli olan kazanır.
+    if (hiddenSet.has(id)) {
+      hidden.push({
+        ...base,
+        season,
+        episode,
+        title,
+        tags: ['GİZLİ'],
+        readyToWatch: hasStarted && nextReady,
+      });
+      continue;
+    }
 
     // 1. Kullanıcı bu dizide izlemeye başlamış VE elimizde gerçek (hesaplanmakta
     // OLMAYAN) ilerleme verisi varken şu an izlenmeye hazır (yayınlanmış) bir
@@ -155,23 +199,6 @@ export function categorizeShows({
     // henüz hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor"
     // spinner kartını göstermeye devam etmesini garanti eder.
     if (!!progress && hasStarted && !nextReady) continue;
-
-    // Ortak görsel alanları
-    const base = {
-      id,
-      showName: toTitle(show?.title, labels.unnamedShow),
-      image: null as null,
-      tmdbId: show?.ids?.tmdb,
-      slug: show?.ids?.slug,
-      completedCount: progress ? completed : null,
-      totalCount: progress ? (aired || null) : null,
-      isCalculating,
-      lastWatchedAt: entry.lastWatchedAt,
-    };
-
-    const season = hasStarted && nextReady ? next.season : 1;
-    const episode = hasStarted && nextReady ? next.number : 1;
-    const title = hasStarted ? (nextReady ? (next.title || labels.caughtUp) : labels.caughtUp) : labels.notStarted;
 
     // 2. Kullanıcı manuel "Bırakıldı" işaretlemiş → dropped (tarihten/ilerlemeden bağımsız).
     if (droppedSet.has(id)) {
@@ -245,5 +272,5 @@ export function categorizeShows({
     return bt - at;
   });
 
-  return { upNext, paused, notStarted, dropped };
+  return { upNext, paused, notStarted, dropped, hidden };
 }

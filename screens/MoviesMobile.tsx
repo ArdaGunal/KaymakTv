@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, Dimensions, Platform } from 'react-native';
 
 import ConfettiCannon from 'react-native-confetti-cannon';
@@ -7,6 +7,7 @@ import LoginPaywall from '../components/LoginPaywall';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector } from '../context/LibraryContext';
+import { useTrackingStore } from '../store/tracking/useTrackingStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useMoviesDashboardData } from '../hooks/useMoviesDashboardData';
@@ -33,6 +34,17 @@ export default function MoviesScreen() {
     isMoviesLoading: s.isMoviesLoading,
   }));
 
+  // Dizi kartlarındaki 3-nokta menüsüyle (Bırak/Listeye Ekle/Favorile/Paylaş)
+  // aynı özellik film kartlarında da olsun istendi — "Bırakıldı" durumu dizilerle
+  // aynı izole tracking store'dan (droppedMovieIds) geliyor.
+  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
+  const toggleDroppedMovieStatus = useTrackingStore((s) => s.toggleDroppedMovieStatus);
+  const hydrateTracking = useTrackingStore((s) => s.hydrate);
+
+  useEffect(() => {
+    hydrateTracking();
+  }, [hydrateTracking]);
+
   const { watchlistMoviesList, upcomingMovies } = useMoviesDashboardData(
     accessToken ? watchlistMovies : [],
     accessToken ? calendarMovies : [],
@@ -54,8 +66,15 @@ export default function MoviesScreen() {
   }, []);
 
   const renderMovieItem = useCallback(
-    ({ item }: { item: any }) => <MovieCard data={item} onMovieFinished={handleMovieFinished} />,
-    [handleMovieFinished]
+    ({ item }: { item: any }) => (
+      <MovieCard
+        data={item}
+        onMovieFinished={handleMovieFinished}
+        isDropped={droppedMovieIds.includes(item.id)}
+        onToggleDropped={() => toggleDroppedMovieStatus(item.id)}
+      />
+    ),
+    [handleMovieFinished, droppedMovieIds, toggleDroppedMovieStatus]
   );
 
   if (isGuest) {

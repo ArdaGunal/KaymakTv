@@ -26,10 +26,11 @@ export interface UseTrackingShowsResult {
 export function useTrackingShows(): UseTrackingShowsResult {
   const { t } = useTranslation('media');
 
-  const { watchedShows, watchlistShows, showProgressMap, isLibraryLoading } = useLibrarySelector((s) => ({
+  const { watchedShows, watchlistShows, showProgressMap, hiddenShowIds, isLibraryLoading } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
     showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
     isLibraryLoading: s.isLoading,
   }));
 
@@ -48,6 +49,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         watchlistShows: watchlistShows || [],
         showProgressMap: showProgressMap || {},
         droppedShowIds,
+        hiddenShowIds,
         labels: {
           unnamedShow: t('unnamedShow', 'İsimsiz Dizi'),
           notStarted: t('notStarted', 'Henüz Başlanmadı'),
@@ -55,7 +57,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, droppedShowIds, t]
+    [watchedShows, watchlistShows, showProgressMap, droppedShowIds, hiddenShowIds, t]
   );
 
   const totalCount =

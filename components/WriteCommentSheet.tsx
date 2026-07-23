@@ -64,6 +64,13 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
   };
 
   const handleSend = async () => {
+    // NOT: bu sheet normalde `MyInlineComment`'in misafir korumasının arkasında
+    // açılır (misafirlere yazma butonu yerine giriş daveti gösterilir) — bu
+    // yine de ikinci bir savunma katmanı.
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     const wordCount = inputText.trim().split(/\s+/).filter(w => w.length > 0).length;
     if (wordCount < 5) {
       setWordError(true);

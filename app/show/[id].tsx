@@ -54,13 +54,14 @@ export default function ShowDetailScreen() {
   const showProgress = useLibrarySelector((s) => s.showProgressMap[traktIdNum]);
   const isWatchlisted = useLibrarySelector((s) => s.watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
   const isFavorited = useLibrarySelector((s) => s.favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
+  const isHidden = useLibrarySelector((s) => s.hiddenShowIds?.includes(traktIdNum));
   const userRatingsEpisodes = useLibrarySelector((s) => s.userRatingsEpisodes);
 
   // Aksiyon fonksiyonları store'a ABONE OLMAZ (bkz. context/LibraryContext.tsx
   // — useLibraryActions): servis fonksiyonları modül seviyesinde sabittir, bu
   // hook yalnızca accessToken değişince yenilenir. Store'daki hiçbir değişiklik
   // bu satırlar yüzünden ekstra render tetiklemez.
-  const { toggleWatchlistStatus, toggleFavoriteStatus, hideMediaFromProgress, deleteMediaFromHistory } = useLibraryActions();
+  const { toggleWatchlistStatus, toggleFavoriteStatus, toggleHiddenFromProgress, deleteMediaFromHistory } = useLibraryActions();
 
   const { isGuest } = useAuth();
   const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
@@ -227,11 +228,12 @@ export default function ShowDetailScreen() {
           userRating={userRating}
           isWatchlisted={isWatchlisted}
           isFavorited={isFavorited}
+          isHidden={!!isHidden}
           onRate={handleRate}
           onRemoveRating={handleRemoveRating}
           onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
           onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
-          onHideFromProgress={() => hideMediaFromProgress(traktIdNum, 'show')}
+          onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
           isDropped={isDropped}
           onToggleDropped={() => toggleDroppedShowStatus(traktIdNum)}

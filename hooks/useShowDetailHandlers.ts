@@ -36,7 +36,18 @@ export function useShowDetailHandlers({
   const userRatingObj = userRatingsShows?.find((r: any) => r.show?.ids?.trakt === traktIdNum);
   const userRating = userRatingObj ? userRatingObj.rating : null;
 
+  // NOT: `MediaHero`/`EpisodeOptionsModal` bu aksiyonların tetikleyici
+  // butonlarını zaten `isGuest` ile koruyor — buradaki kontroller bilinçli bir
+  // ikinci savunma katmanı (bu dosyadaki diğer handler'larla — `handleMarkSeason`,
+  // `handleUnwatchEpisode`, `handleRewatchEpisode` — aynı desen). Misafir bir
+  // token olmadan doğrudan buraya ulaşırsa (örn. ileride eklenecek yeni bir
+  // tetikleyici korumayı unutursa) Trakt'a token'sız istek gidip genel bir
+  // hata mesajı göstermek yerine, burada da net bir uyarı verilir.
   const handleRate = useCallback(async (rating: number) => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(traktIdNum, 'show', rating);
@@ -46,9 +57,13 @@ export function useShowDetailHandlers({
       Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
-  }, [traktIdNum, setLocalRating, removeLocalRating, t]);
+  }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, t]);
 
   const handleRateEpisode = useCallback(async (episodeTraktId: number, rating: number) => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return false;
+    }
     try {
       setLocalRating(episodeTraktId, 'episode', rating);
       await addRating(episodeTraktId, 'episode', rating);
@@ -59,9 +74,13 @@ export function useShowDetailHandlers({
       console.error(e);
       return false;
     }
-  }, [setLocalRating, removeLocalRating, t]);
+  }, [isGuest, setLocalRating, removeLocalRating, t]);
 
   const handleRemoveEpisodeRating = useCallback(async (episodeTraktId: number) => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return false;
+    }
     try {
       removeLocalRating(episodeTraktId, 'episode');
       await removeRating(episodeTraktId, 'episode');
@@ -71,9 +90,13 @@ export function useShowDetailHandlers({
       console.error(e);
       return false;
     }
-  }, [removeLocalRating, t]);
+  }, [isGuest, removeLocalRating, t]);
 
   const handleRemoveRating = useCallback(async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     try {
       removeLocalRating(traktIdNum, 'show');
       await removeRating(traktIdNum, 'show');
@@ -81,7 +104,7 @@ export function useShowDetailHandlers({
       Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
       console.error(e);
     }
-  }, [traktIdNum, removeLocalRating, t]);
+  }, [isGuest, traktIdNum, removeLocalRating, t]);
 
   const handleMarkSeason = useCallback(async (seasonNum: number, isWatched: boolean) => {
     if (isGuest) {

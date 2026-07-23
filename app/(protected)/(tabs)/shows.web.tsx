@@ -41,12 +41,13 @@ export default function DizilerScreenWeb() {
   const { categories, isLoading: trackingLoading, isEmpty, toggleDroppedShowStatus } = useTrackingShows();
 
   // ── Yaklaşan (takvim) sekmesi eski, sağlam hattı kullanmaya devam eder.
-  const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap } = useLibrarySelector((s) => ({
+  const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, hiddenShowIds } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
     calendarShows: s.calendarShows,
     showProgressMap: s.showProgressMap,
     calendarSeasonsMap: s.calendarSeasonsMap,
+    hiddenShowIds: s.hiddenShowIds,
   }));
   const { refreshLibrary } = useLibraryActions();
 
@@ -56,7 +57,8 @@ export default function DizilerScreenWeb() {
     calendarShows,
     showProgressMap,
     calendarSeasonsMap,
-    i18n.language
+    i18n.language,
+    hiddenShowIds
   );
   const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 

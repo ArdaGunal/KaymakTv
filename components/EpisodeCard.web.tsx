@@ -180,7 +180,8 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
               {onToggleDropped && (
                 <TrackingCardMenu
                   id={data.id}
-                  showName={data.showName}
+                  title={data.showName}
+                  mediaType="show"
                   tmdbId={data.tmdbId}
                   slug={data.slug}
                   isDropped={!!data.tags?.includes('BIRAKILDI')}

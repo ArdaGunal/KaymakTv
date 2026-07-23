@@ -6,6 +6,7 @@ import { createListsSlice, ListsSlice } from './slices/listsSlice';
 import { createCalendarSlice, CalendarSlice } from './slices/calendarSlice';
 import { createRatingsSlice, RatingsSlice } from './slices/ratingsSlice';
 import { createStatsSlice, StatsSlice } from './slices/statsSlice';
+import { createHiddenShowsSlice, HiddenShowsSlice } from './slices/hiddenShowsSlice';
 
 export interface LibraryState extends
   HistorySlice,
@@ -14,7 +15,8 @@ export interface LibraryState extends
   ListsSlice,
   CalendarSlice,
   RatingsSlice,
-  StatsSlice {
+  StatsSlice,
+  HiddenShowsSlice {
     isLoading: boolean;
     isMoviesLoading: boolean;
     setIsLoading: (val: boolean) => void;
@@ -30,6 +32,7 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
   ...createCalendarSlice(...a),
   ...createRatingsSlice(...a),
   ...createStatsSlice(...a),
+  ...createHiddenShowsSlice(...a),
 
   isLoading: true,
   isMoviesLoading: true,
@@ -52,6 +55,7 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
     userRatingsMovies: [],
     userRatingsEpisodes: [],
     userStats: null,
+    hiddenShowIds: [],
     isLoading: true,
     isMoviesLoading: true,
   }),

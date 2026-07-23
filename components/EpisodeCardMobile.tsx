@@ -132,7 +132,8 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
           <TrackingCardMenu
             style={styles.menuOverlay}
             id={data.id}
-            showName={data.showName}
+            title={data.showName}
+            mediaType="show"
             tmdbId={data.tmdbId}
             slug={data.slug}
             isDropped={!!data.tags?.includes('BIRAKILDI')}

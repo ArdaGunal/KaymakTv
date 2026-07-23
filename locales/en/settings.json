@@ -12,6 +12,7 @@
   "loggedInText": "Your Trakt account is successfully linked!",
   "goToApp": "Go to App",
   "logoutReset": "Log Out and Reset",
+  "exitGuestMode": "Exit Guest Mode",
   "loginCanceled": "Login process was canceled.",
   "loginSuccessText": "Successfully logged into your Trakt account!",
   "communicationError": "An error occurred while communicating with Trakt.",
@@ -35,5 +36,14 @@
   "exportPerformanceReportError": "An error occurred while generating the report.",
   "appVersion": "Version {{version}}",
   "developerModeUnlocked": "🔓 Developer Console Unlocked",
-  "developerModeLocked": "🔒 Developer Console Hidden"
+  "developerModeLocked": "🔒 Developer Console Hidden",
+  "errorLogTitle": "Error Log",
+  "errorLogEmptyTitle": "No errors logged yet",
+  "errorLogEmptyText": "Errors will be listed here as they occur.",
+  "errorLogCopyAction": "Copy",
+  "errorLogClearAction": "Clear",
+  "errorLogClearConfirmTitle": "Clear Log?",
+  "errorLogClearConfirmText": "The entire error log will be permanently deleted.",
+  "errorLogCopySuccess": "Error log copied to clipboard.",
+  "errorLogClearSuccess": "Error log cleared."
 }

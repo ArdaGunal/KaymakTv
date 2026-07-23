@@ -962,3 +962,89 @@ Aynı desendeki diğer iki fonksiyon (`getEpisodeComments`, `getRelatedMovies`) 
 4. `tsc --noEmit`: dokunulan dosyada hata yok (kalan hatalar önceden var olan `useShowDetail.ts`/`locales/` hatalarıdır). `handleExportMetrics`'in kendisi ve arkasındaki telemetri zinciri hiç değiştirilmedi.
 
 **Temizlik:** Kök nedeni ararken eklenen geçici `console.log` ve `window.__devTap*` debug kancaları tamamen kaldırıldı (`grep` ile teyit edildi).
+
+## 73. "Hata Günlüğü" Tanılama Ekranı
+**Bağlam:** Madde 72'de kapsam dışı bırakılan eksik tamamlandı: `utils/errorLog.ts`'in zaten hazır olan `getErrorLog()`/`clearErrorLog()` API'sinin üstüne gerçek bir UI kondu.
+
+**Uygulama:**
+- `hooks/useErrorLog.ts`: `{ entries, isLoading, isRefreshing, refresh, clear }` — `useSettings.ts` ile aynı desen.
+- `app/(protected)/error-log.tsx`: geri butonlu başlık, boş durum, `FlatList` (yeniden→eskiye), dokununca genişleyip stack/tags gösteren kartlar, Kopyala (panoya JSON) ve Temizle (onaylı) aksiyonları. `_layout.tsx`'e `Stack.Screen name="error-log"` eklendi.
+- Ayarlar > 🛠️ Tanılama bölümüne, "Performans Raporunu Kopyala"nın altına "Hata Günlüğü" satırı eklendi.
+- Çeviri anahtarları (tr/en `settings.json`): `errorLogTitle`, `errorLogEmpty(Text)`, `errorLogClear(Confirm)`, `errorLogCopy(Success)` vb.
+
+**Bulunan ve düzeltilen hata:** İlk sürümde "Temizle" onayı düz `Alert.alert(...)` kullanıyordu. `react-native-web`'de `Alert.alert` **tam bir no-op**'tur (`node_modules/react-native-web/dist/exports/Alert/index.js` — `static alert() {}`) — proje bunu zaten biliyor, `app/(protected)/list/[id].tsx`'teki `confirmAsync` (web'de `window.confirm`'e düşen) helper'ı tam bu yüzden var. Aynı `confirmAsync` deseni `error-log.tsx`'e eklendi.
+
+**Doğrulama:** Sahte `LoggedError[]` verisiyle (`@kaymak_error_log_v1` anahtarına yazılarak) uçtan uca test edildi: boş durum, liste sırası, genişlet/daralt (stack/tags olan/olmayan kayıtlar), Kopyala (panoya yazma), Temizle (gerçek `window.confirm` diyaloğu + gerçek AsyncStorage temizliği + boş duruma dönüş) — hepsi doğrulandı. `tsc --noEmit` temiz.
+
+## 74. Performans Raporu Analizi: Trend/Yorum Cache'i ve "İlerlemeyi Gizle" Düzeltmesi
+**Bağlam:** Kullanıcı, uygulamanın kendi "Performans Raporunu Kopyala" özelliğiyle (Madde 72) topladığı gerçek telemetri raporlarını ard arda paylaşarak iteratif performans incelemesi istedi. `utils/metricsStore.ts`'teki histogram kovaları (100/500/1000/5000/30000ms) nedeniyle p95/p99'un GERÇEK yüzdelik değil, doğrusal enterpolasyonla tahmin edildiği (küçük örneklemde yanıltıcı olabileceği) not edildi.
+
+**Bulgu 1 — `hooks/useExplore.ts`: trend dizi/film listesi hiç önbelleklenmiyordu.** Keşfet sekmesine her giriş-çıkışta component-local state sıfırlanıp `getTrendingShows`/`getTrendingMovies` baştan çekiliyordu (rapor: `movies/trending` tek oturumda 15-19 çağrı). Çözüm: `services/api/shows.ts` ve `movies.ts`'e sayfa başına 60sn'lik (`CACHE_TTL.SHORT`, `utils/cacheTTL.ts`'e eklendi) önbellek + `force` parametresi eklendi; `useExplore.ts`'te pull-to-refresh ve dil değişimi `force=true` ile önbelleği bilerek atlıyor.
+
+**Bulgu 2 — `MyInlineComment.tsx` + `WriteCommentSheet.tsx`: her dizi/film/bölüm sayfası kullanıcının SON 200 YORUMUNU baştan çekiyordu.** İkisi de bağımsız olarak sadece "bu içerikte zaten yorumum var mı" kontrolü için `getUserComments()`'ı (limit=200) tam çekiyordu (rapor: `users/me/comments/all/newest` en yüksek çağrı sayılarından biriydi, 38). Çözüm: `services/api/comments.ts`'te aynı 60sn TTL + eşzamanlı çağrıları tekilleştiren (in-flight promise paylaşımı) bir önbellek eklendi; `addComment`/`updateComment`/`deleteComment` başarı sonrası önbelleği geçersiz kılıyor.
+
+**Doğrulama (gerçek kullanıcı raporlarıyla, ardışık 3 rapor karşılaştırılarak):** Düzeltme sonrası bir saatlik dilimde 5-6 dizi/film detay sayfası açılmasına rağmen `users/me/comments/all/newest` sadece 1 kez çağrıldı (öncesinde sayfa başına 1 çağrı olurdu) — cache+dedup doğrulandı.
+
+**Bulgu 3 (kullanıcının bizzat test edip bulduğu) — "İlerlemeyi Gizle" orantısız tam kütüphane resync'i tetikliyordu.** Ardışık raporlardaki TIER1/2/3 endpoint'lerinin (`sync/watchlist/shows`, `sync/ratings/*`, `users/me/lists/:id/items/*` vb.) HEPSİNİN birebir aynı miktarda (+1, sayfalananlar +2/+3) arttığı gözlemlenerek `services/library/mutations/collections.ts`'teki `hideMediaFromProgress`'in her çağrıda `fetchFreshData(force=true)` (13+ endpoint'lik tam resync) tetiklediği kesin kanıtlandı.
+
+**Kullanıcının istediği asıl davranış değişikliği** (basit bir performans düzeltmesinin ötesinde, gerçek bir özellik tarifiydi): "İlerlemeyi Gizle" izleme geçmişine/puanlara DOKUNMAMALI, sadece diziyi ana vitrin listelerinden (Aktif İzlenenler, Takvim, Sıradaki Bölümler) çıkarmalı; dizi Kütüphane'nin yeni bir "Gizlenenler" filtresinde bulunabilir kalmalı ki kullanıcı geri getirebilsin. "İzlemeyi Bırak" (dropped) özelliğine KESİNLİKLE dokunulmayacaktı (kullanıcı: "orayı elleme").
+
+**Uygulama:**
+- `services/api/users.ts`: `getHiddenShows()` (GET `/users/hidden/progress_watched?type=show`) ve `unhideItemTrakt()` (POST `.../remove`) eklendi.
+- `store/slices/hiddenShowsSlice.ts` (yeni): `hiddenShowIds: number[]` — `droppedShowIds`'in aksine CİHAZA ÖZEL DEĞİL, Trakt'ın kendi listesinden gelir, bu yüzden mobil/web arasında otomatik senkron.
+- `services/library/fetchers.ts`: `hiddenShowIds` TIER3'e (LOW öncelik) eklendi, `loadCache()`'e de bağlandı.
+- `store/tracking/trackingLogic.ts`: `ShowCategories`'e yeni `hidden` kovası eklendi — kontrolü kural 1'in ("hazır bölümü yoksa hiçbir listede görünmez") bile ÖNÜNE alındı, çünkü gizli bir dizi bitmiş olsa bile Gizlenenler'de bulunabilmeli. `dropped` mantığı HİÇ değiştirilmedi.
+- `hooks/useTrackingShows.ts` + `useDashboardData.ts`: `hiddenShowIds` `categorizeShows`'a ve Takvim'in (`upcomingShows`) son filtresine bağlandı. `TrackingAccordionList`'in `SECTION_ORDER`'ı sabit 4 kategoriyle kaldığından `hidden` kovası Diziler sekmesinin vitrinine hiç sızmıyor (ekstra kod gerekmedi).
+- `hooks/useLibraryShowFilters.ts` + `useLibraryFilters.ts`: `SHOW_STATUS_KEYS`'e (en sona) `'hidden'` eklendi → Kütüphane filtre menüsünde "Gizlenenler" seçeneği.
+- `services/library/mutations/collections.ts`: `hideMediaFromProgress` → `toggleHiddenFromProgress(id, type, isCurrentlyHidden)` — `toggleFavoriteStatus` ile AYNI optimistic desen (önce yerel `hiddenShowIds` + cache güncellenir, sonra API çağrılır, hata olursa rollback). Gereksiz `fetchFreshData(force=true)` çağrısı KALDIRILDI — artık yerel state anında güncellendiği için tam resync'e gerek yok (Bulgu 3'ü de kökten çözer).
+- `app/show/[id].tsx` + `MediaHero.tsx` + `OptionsModal.tsx`: `isHidden` prop'u zincirlendi; "İlerlemeyi Gizle" satırı artık `isHidden`'a göre "İlerlemeyi Göster"e dönüşen bir toggle (ikon `EyeOff`↔`Eye`). Gizleme onay ister (`confirmAsync`, Madde 73'teki web-safe desen), gösterme (unhide) istemez — geri dönüş her zaman mümkün olduğundan sürtünmeye gerek yok.
+
+**Doğrulama:** `tsc --noEmit` tüm dokunulan dosyalarda temiz (kalan hatalar önceden var olan, alakasız `useShowDetail.ts`/`locales/` hataları). Tarayıcıda misafir modunda Ayarlar/Diziler/Kütüphane ekranlarına girilip yeni `hiddenShowIds`/`categorizeShows` kod yollarının boş veriyle çalışırken hiçbir runtime hatası üretmediği doğrulandı. **Kapsam dışı/doğrulanamayan:** Bu sandbox'ın Trakt API'ye ağ erişimi olmadığından (ve misafir modunda `fetchFreshData` hiç çalışmadığından) gerçek Trakt verisiyle uçtan uca akış (gizleme → Gizlenenler'de görünme → Aktif İzlenenler'den kaybolma → sonraki performans raporunda tam resync'in artık tetiklenmediğinin görülmesi) kullanıcının gerçek cihazında doğrulanmayı bekliyor.
+
+## 75. Misafir (Guest) İzin Denetimi + `Alert.alert`'in Web'de Kalıcı Olarak Düzeltilmesi
+**Bağlan:** Kullanıcı, misafir kullanıcıların Ayarlar'da "Hesabı Sil" gibi kendileri için anlamsız/işe yaramaz seçenekleri görebildiğini fark etti ve tüm uygulamada misafir izinlerinin denetlenmesini istedi.
+
+**Bulgu 1 — `app/(protected)/account.tsx`:** `isGuest` bu dosyada HİÇ kullanılmıyordu. "Hesabı Sil" satırı ve onay modalındaki "Trakt hesabınız etkilenmez" metni, olmayan bir Trakt hesabını "silmek" anlamına geldiğinden misafir için anlamsız/yanıltıcıydı. **Çözüm:** Bu satır artık yalnızca gerçek kullanıcıya gösteriliyor (`!isGuest &&`); "Çıkış Yap ve Sıfırla" misafir için "Misafir Modundan Çık"a dönüşüyor (yeni çeviri anahtarı `exitGuestMode`). Tarayıcıda doğrulandı.
+
+**Bulgu 2 (denetim sırasında bulunan, gerçekten erişilebilir bir hata) — bölüm "..." menüsündeki "Puanla veya Düzenle" butonu (`EpisodeOptionsModal.tsx`) hiç `isGuest` kontrolü yapmıyordu.** Dizinin/filmin ana puanlama butonu (`MediaHero.tsx`) zaten korunuyordu, ama bölüm bazlı puanlama bu tek noktada atlanmıştı — misafir bir bölümü puanlamaya çalışınca Trakt'a token'sız istek gidip genel "hata oluştu" mesajı görüyordu. Düzeltildi + tutarlılık için `useShowDetailHandlers.ts`'teki (`handleRate`, `handleRemoveRating`, `handleRateEpisode`, `handleRemoveEpisodeRating`) ve `movie/[id].tsx`'teki (`handleRate`, `handleRemoveRating`, `handleRewatch`) karşılık gelen handler'lara da ikinci bir savunma katmanı eklendi (tetikleyici buton zaten korumalıydı, handler'ın kendisi değildi). `WriteCommentSheet.tsx`'in `handleSend`'ine de aynı sebeple eklendi.
+
+**Doğrulanan, zaten sorunsuz alanlar:** Keşfet (bilinçli olarak serbest), Profil/Filmler/Diziler ana sekmeleri (misafir için zaten giriş daveti gösteriyor — `LoginPaywall`), izleme listesi/favori/gizle/bırak/liste ekleme butonları, yorum yanıtları (`CommentReplies.tsx`) — hepsi tetikleyici seviyesinde zaten `isGuest` ile korunuyordu.
+
+**Bulgu 3 (denetim sırasında ortaya çıkan, çok daha büyük bir kök sorun) — `react-native-web`'de `Alert.alert` TAM BİR NO-OP'tur** (`node_modules/react-native-web/dist/exports/Alert/index.js` — `static alert() {}`). Bu, tek butonlu bilgi/hata mesajları DAHİL, projedeki 20 dosyadaki HER `Alert.alert` çağrısının web'de sessizce hiçbir şey yapmadığı anlamına geliyordu (misafir kısıtlama mesajları, hata bildirimleri, onay diyalogları — hepsi). Önceki maddelerde (72-74) bu sorunu her ekranda ayrı ayrı bir `confirmAsync` kopyalayarak atlatmıştık; bu kez kök nedeni düzeltmeye karar verildi.
+
+**Çözüm — iki katmanlı:**
+1. `utils/confirmDialog.ts` (yeni, paylaşılan modül): `confirmAsync` (2 seçenekli onay) ve `notify` (tek butonlu bilgi) — artık `list/[id].tsx`, `error-log.tsx`, `OptionsModal.tsx`, `SeasonAccordion.tsx` kendi kopyalarını yazmak yerine buradan içe aktarıyor.
+2. **Kök neden düzeltmesi (patch-package):** `node_modules/react-native-web/dist/(cjs/)exports/Alert/index.js` — no-op yerine gerçek RN `Alert.alert(title, message, buttons, options)` imzasını `window.alert`/`window.confirm`'e eşleyen bir uygulama yazıldı (butonsuz/tek buton → `window.alert`; iki buton → `window.confirm`, `style:'cancel'` olan buton "Vazgeç" tarafına eşlenir). `npx patch-package react-native-web` ile `patches/react-native-web+0.21.2.patch` oluşturuldu — proje zaten `postinstall: patch-package` kullandığından bu, HER kurulumda kalıcı olarak uygulanır. Bu tek değişiklik, projedeki 20 dosyanın TAMAMINDAKİ mevcut `Alert.alert` çağrılarını (yeni yazılacaklar dahil) web'de otomatik olarak çalışır hale getirir — tek tek dosya değiştirmeye gerek kalmadan.
+3. **İstisna — `SeasonAccordion.tsx`'teki "Sezon Tamamen İzlendi" menüsü** (Vazgeç/Tekrar İzle/Bırakılmışı Sil, 3 seçenek): `window.confirm` en fazla 2 seçenek sunabildiğinden bu, patch ile bile tam temsil edilemez. Bu yüzden native bir bottom-sheet modale çevrildi (`EpisodeOptionsModal.tsx` ile aynı görsel/etkileşim deseni) — hem web hem mobilde aynı şekilde çalışır, tarayıcı diyaloğu sınırlamasına tabi değil.
+
+**Doğrulama:**
+- `tsc --noEmit`: dokunulan dosyalarda hata yok (kalan 3 hata önceden var olan, alakasız `useShowDetail.ts`/`locales/` hataları — bu oturumun başından beri değişmedi).
+- Patch'lenmiş `Alert.alert` mantığı Node ile izole birim testle doğrulandı: (1) butonsuz → `window.alert` çağrılıyor, (2) tek buton → `window.alert` + `onPress` tetikleniyor, (3) iki buton onaylanınca → `window.confirm` + doğru (cancel olmayan) butonun `onPress`'i tetikleniyor, (4) iki buton reddedilince → `cancel` butonunun `onPress`'i tetikleniyor. Dördü de beklendiği gibi çalıştı.
+- Tarayıcıda uygulama sıfırdan (Metro önbelleği temizlenmiş halde) sorunsuz açıldı, konsolda yalnızca bu sandbox'ın ağ erişimi olmamasından kaynaklanan (alakasız) hatalar var.
+
+**Kullanıcıya bildirilen, henüz aksiyon alınmamış madde:** `tsc --noEmit` çıktısında bu oturumun başından beri değişmeyen 3 hata var (`hooks/useShowDetail.ts`'te 8 adet implicit-any, `locales/index.ts` ve `locales/languageDetector.ts`'te i18next tip uyuşmazlığı) — bugünkü çalışmanın kapsamı dışında, dokunulmadı.
+
+## 76. Kalan 3 `tsc` Hatasının Temizlenmesi — Proje Genelinde Sıfır Tip Hatası
+**Bağlam:** Kullanıcı büyük bir sisteme geçmeden önce "hatasız bir başlangıç" istedi; Madde 75'te bildirilen 3 kalan hatanın da temizlenmesi istendi.
+
+**1. `hooks/useShowDetail.ts` (8 implicit-any hatası):** `let summary = null, seasons = null, cast = null, related = null;` — TS bu değişkenlerin tipini sonraki atamalardan çıkaramıyordu. Açık tip verildi (`summary: any`, `seasons`/`cast`/`related`: `any[]`, başlangıç değeri `[]` — `null` değil, çünkü bu üçü hiçbir kod yolunda kavramsal olarak "yok" değil, her zaman gerçek bir diziyle doluyor). İlk düzeltme (`any[] | null`) yeni "possibly null" hataları açtı (satır 90/106/122) çünkü TS akış analizi ternary/try-catch dallarını `null` içerebilir sayıyordu; `[]` başlangıcıyla ve nullable olmayan tipe geçilince bu da ortadan kalktı — `MediaData` arayüzüyle de artık birebir eşleşiyor.
+
+**2. `locales/index.ts` — `compatibilityJSON: 'v3'`:** Yüklü i18next sürümünde (26.x) bu seçenek hem tip tanımlarından hem ÇALIŞMA ZAMANINDAN (derlenmiş `i18next.js`'te "compatibilityJSON" hiç geçmiyor) tamamen kaldırılmış — yani zaten etkisizdi. Proje çeviri dosyalarının hiçbiri v3'e özgü `_plural` anahtar biçimini kullanmadığından (`grep` ile doğrulandı) satır davranışı hiç değiştirmeden kaldırıldı.
+
+**3. `locales/languageDetector.ts` — `detect` imza uyuşmazlığı:** i18next'in `LanguageDetectorAsyncModule.detect` tipi ya `callback(lng)` çağırmayı ya da doğrudan `Promise<string>` DÖNDÜRMEYİ bekler, ikisi birden değil. Eski kod `async` bir fonksiyon İÇİNDE `return callback(...)` yapıyordu — bu dönüş tipini `Promise<void>` yapıyordu (callback zaten void döner), beklenen `Promise<string | readonly string[] | undefined>` ile uyuşmuyordu. `callback` parametresi kaldırılıp değerler doğrudan `return` edildi — davranış birebir aynı, yalnızca dönüş şekli değişti.
+
+**Doğrulama:** `npx tsc --noEmit` artık **SIFIR hata** veriyor (proje genelinde). Tarayıcıda uygulama sıfırdan yeniden başlatılıp Türkçe metinlerin doğru render edildiği (i18n zinciri bozulmadı), konsolda i18n/languageDetector/useShowDetail kaynaklı hiçbir hata olmadığı doğrulandı.
+
+## 77. Film Kartlarına Dizi Kartlarındaki 3-Nokta Menüsü Eklendi
+**Bağlam:** Kullanıcı, Diziler sekmesindeki takip kartlarında (Aktif İzlenenler, Ara Verilenler vb.) her kartın üstünde bir 3-nokta menüsü olduğunu ("İzlemeyi Bırak", "Listeye Ekle", "Favorile", "Paylaş") fark etti ve aynı özelliğin film kartlarında da olmasını istedi.
+
+**Bulgu:** Bu menü `components/tracking/TrackingCardMenu.tsx`'te yaşıyor ama tamamen diziye özel sabitlenmişti (`showName` prop'u, `mediaType: 'show'` sabit `toggleFavoriteStatus` çağrısı, `favShows` seçici, `/show/${slug}` paylaşım linki). Film kartları (`MovieCardMobile.tsx`, `MovieCard.web.tsx`) bu menüyü hiç render etmiyordu; Filmler sekmesi (`MoviesMobile.tsx`/`movies.web.tsx`) ayrıca `useTrackingStore`'a (dizilerin `droppedShowIds`'iyle aynı desendeki `droppedMovieIds`) hiç abone değildi.
+
+**Çözüm — component TEKRARLANMADI, genelleştirildi** (yeni bir `MovieTrackCardMenu` kopyası yazmak yerine): `TrackingCardMenu`'ya `mediaType: 'show' | 'movie'` prop'u eklendi, `showName` → generic `title`'a yeniden adlandırıldı. Favori dilimi (`favShows`/`favMovies`), paylaşım linki/mesajı (`/show/` veya `/movie/`, `shareShowMsg`/`shareMovieMsg`) ve `AddToListModal`'ın `mediaType`'ı artık bu prop'a göre seçiliyor; menünün geri kalanı (konumlama, "Bırak/Devam Et" metni, favori/paylaş/listeye-ekle satırları) zaten dizi/film arasında ortaktı.
+
+**Değişen dosyalar:**
+- `TrackingCardMenu.tsx`: genelleştirildi (yukarıda).
+- Dizi tarafı (davranış DEĞİŞMEDİ, yalnızca yeni prop adlarına güncellendi): `EpisodeCardMobile.tsx`, `EpisodeCard.web.tsx`, `ShowTrackCardWeb.tsx` (kullanılmayan bir kalıntı olabilir, yine de derleme hatası vermesin diye güncellendi).
+- Film tarafı (yeni): `MovieCardMobile.tsx` ve `MovieCard.web.tsx`'e `isDropped`/`onToggleDropped` prop'ları eklendi, poster üzerine (mobilde sağ üst köşe, web'de hover overlay'in üst satırı — dizi kartlarıyla birebir aynı konumlar) menü bağlandı. `MoviesMobile.tsx` ve `movies.web.tsx`: `useTrackingStore`'dan `droppedMovieIds`/`toggleDroppedMovieStatus`/`hydrate` okunup `MovieCard`'a geçirildi (dizi ekranlarındaki `IndexMobile.tsx`/`shows.web.tsx` ile birebir aynı desen). Menü yalnızca `onToggleDropped` verilmişken render edildiğinden, `MovieCard`'ın DİĞER kullanıcıları (`profile.web.tsx`, `library/view-all.web.tsx` — bu prop'u hiç geçmiyor) hiç etkilenmedi.
+
+**Doğrulama:** `tsc --noEmit` projede sıfır hatayla temiz. Tarayıcıda misafir modunda Filmler sekmesine girilip yeni `useTrackingStore` bağlantısının (guest early-return'den ÖNCE çalışan hook'lar) hiçbir çalışma zamanı hatası üretmediği doğrulandı. **Doğrulanamayan:** Bu sandbox'ta misafir modu Filmler'i tamamen kilitlediğinden (ve gerçek Trakt verisi olmadığından) menünün gerçek bir film kartı üzerinde görsel olarak açılıp her 4 aksiyonun (Bırak/Listeye Ekle/Favorile/Paylaş) çalıştığı kullanıcının kendi cihazında doğrulanmayı bekliyor.

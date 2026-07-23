@@ -21,9 +21,16 @@
  *   ÖTESİNDEKİ bölüm tarihlerini önbellekleyen harita — bu veri haftalarca sabit
  *   kaldığından en uzun TTL'e sahiptir. (fetchers.ts'teki eski `TTL_48_HOURS`
  *   sabitiyle birebir aynı, davranış DEĞİŞMEDİ.)
+ * - SHORT: dakikalar içinde tazeliği önemli olan, sık tekrar istenen veri
+ *   (trend dizi/film listeleri, "yorumum var mı" kontrolü için kullanıcının
+ *   son yorumları). Önceden bu ikisi HİÇ önbelleklenmiyordu — Keşfet'e her
+ *   giriş-çıkışta ve her açılan dizi/film/bölüm sayfasında baştan çekiliyordu
+ *   (bkz. performans raporu: `shows/trending`, `movies/trending`,
+ *   `users/me/comments/all/newest` en yüksek çağrı sayılarındaydı).
  */
 export const CACHE_TTL = {
   SYNC_INTERVAL: 10 * 60 * 1000,
+  SHORT: 60 * 1000,
   STANDARD: 6 * 60 * 60 * 1000,
   LONG: 7 * 24 * 60 * 60 * 1000,
   CALENDAR_SEASONS: 48 * 60 * 60 * 1000,

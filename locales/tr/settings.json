@@ -12,6 +12,7 @@
   "loggedInText": "Trakt hesabınız başarıyla bağlandı!",
   "goToApp": "Uygulamaya Git",
   "logoutReset": "Çıkış Yap ve Sıfırla",
+  "exitGuestMode": "Misafir Modundan Çık",
   "loginCanceled": "Giriş işlemi iptal edildi.",
   "loginSuccessText": "Trakt hesabınıza başarıyla giriş yaptınız!",
   "communicationError": "Trakt ile iletişim kurarken bir hata oluştu.",
@@ -35,5 +36,14 @@
   "exportPerformanceReportError": "Rapor oluşturulurken bir hata oluştu.",
   "appVersion": "Sürüm {{version}}",
   "developerModeUnlocked": "🔓 Geliştirici Konsolu Kilidi Açıldı",
-  "developerModeLocked": "🔒 Geliştirici Konsolu Gizlendi"
+  "developerModeLocked": "🔒 Geliştirici Konsolu Gizlendi",
+  "errorLogTitle": "Hata Günlüğü",
+  "errorLogEmptyTitle": "Henüz kayıtlı hata yok",
+  "errorLogEmptyText": "Bir hata oluştuğunda burada listelenecek.",
+  "errorLogCopyAction": "Kopyala",
+  "errorLogClearAction": "Temizle",
+  "errorLogClearConfirmTitle": "Günlük Temizlensin mi?",
+  "errorLogClearConfirmText": "Kayıtlı tüm hata günlüğü kalıcı olarak silinecek.",
+  "errorLogCopySuccess": "Hata günlüğü panoya kopyalandı.",
+  "errorLogClearSuccess": "Hata günlüğü temizlendi."
 }

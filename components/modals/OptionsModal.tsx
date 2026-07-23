@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
-import { Bookmark, EyeOff, Share2, CheckCheck, Trash2, PauseCircle } from 'lucide-react-native';
+import { Bookmark, Eye, EyeOff, Share2, CheckCheck, Trash2, PauseCircle } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
+import { confirmAsync } from '../../utils/confirmDialog';
 
 interface OptionsModalProps {
   visible: boolean;
@@ -14,6 +15,8 @@ interface OptionsModalProps {
   isWatchlisted?: boolean;
   isWatched?: boolean;
   onToggleWatchlist: () => void;
+  /** Diziyi Trakt'ın "gizlenen ilerleme" listesinde mi (true → satır "Göster"e döner). */
+  isHidden?: boolean;
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
@@ -30,6 +33,7 @@ export default function OptionsModal({
   isWatchlisted,
   isWatched,
   onToggleWatchlist,
+  isHidden,
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
@@ -64,31 +68,31 @@ export default function OptionsModal({
     onClose();
   };
 
-  const handleHideProgress = () => {
+  const handleHideProgress = async () => {
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       onClose();
       return;
     }
     if (!onHideFromProgress) return;
-    // Trakt'ta gizlenen ilerleme uygulama içinden geri alınamıyor (görünür bir
-    // "geri getir" akışımız yok) — bu yüzden diğer geri döndürülemez işlemler
-    // gibi onay istiyoruz.
-    Alert.alert(
+    // Göstermeye (unhide) geri dönmek her zaman mümkün olduğundan (Kütüphane >
+    // Gizlenenler'den bu satıra tekrar dönülebilir) o yönde onay istemeye gerek
+    // yok — yalnızca GİZLEME yönü, kullanıcının bir daha nereden geri
+    // getireceğini bilmesi gereken bir aksiyon olduğundan onay ister.
+    if (isHidden) {
+      onHideFromProgress();
+      onClose();
+      return;
+    }
+    const confirmed = await confirmAsync(
       t('areYouSure'),
       t('hideProgressConfirmMsg'),
-      [
-        { text: t('common:cancel'), style: "cancel" },
-        {
-          text: t('yesHide'),
-          style: "destructive",
-          onPress: () => {
-            onHideFromProgress();
-            onClose();
-          }
-        }
-      ]
+      t('yesHide'),
+      t('common:cancel')
     );
+    if (!confirmed) return;
+    onHideFromProgress();
+    onClose();
   };
 
   const handleToggleDropped = () => {
@@ -102,34 +106,28 @@ export default function OptionsModal({
     onClose();
   };
 
-  const handleDeleteHistory = () => {
+  const handleDeleteHistory = async () => {
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       onClose();
       return;
     }
     if (!onDeleteFromHistory) return;
-    Alert.alert(
+    const confirmed = await confirmAsync(
       t('areYouSure'),
       t('historyDeleteConfirm'),
-      [
-        { text: t('common:cancel'), style: "cancel" },
-        {
-          text: t('yesDelete'),
-          style: "destructive",
-          onPress: () => {
-            onDeleteFromHistory();
-            onClose();
-            // Diziler: tüm izleme geçmişi/ilerlemesi silindiği için gösterilecek
-            // bir şey kalmaz, geri dönmek mantıklı. Filmler: tek film söz konusu,
-            // sayfada kalıp "İzledim" butonunun eski haline dönmesi görülebilsin.
-            if (type === 'show') {
-              router.back();
-            }
-          }
-        }
-      ]
+      t('yesDelete'),
+      t('common:cancel')
     );
+    if (!confirmed) return;
+    onDeleteFromHistory();
+    onClose();
+    // Diziler: tüm izleme geçmişi/ilerlemesi silindiği için gösterilecek
+    // bir şey kalmaz, geri dönmek mantıklı. Filmler: tek film söz konusu,
+    // sayfada kalıp "İzledim" butonunun eski haline dönmesi görülebilsin.
+    if (type === 'show') {
+      router.back();
+    }
   };
 
   return (
@@ -146,8 +144,10 @@ export default function OptionsModal({
 
           {type === 'show' && onHideFromProgress && (
             <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
-              <EyeOff color="#fff" size={24} />
-              <Text style={styles.optionText}>{t('hideProgress')}</Text>
+              {isHidden ? <Eye color="#38bdf8" size={24} /> : <EyeOff color="#fff" size={24} />}
+              <Text style={[styles.optionText, isHidden && { color: '#38bdf8' }]}>
+                {isHidden ? t('unhideProgress') : t('hideProgress')}
+              </Text>
             </TouchableOpacity>
           )}
 

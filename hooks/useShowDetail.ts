@@ -38,7 +38,14 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
       const cacheKey = `@show_detail_v3_${traktIdNum}`;
       
       let cachedContent = await cacheManager.get<any>(cacheKey);
-      let summary = null, seasons = null, cast = null, related = null;
+      // `seasons`/`cast`/`related` her yolda (cache hit veya taze çekim) daima
+      // gerçek bir diziyle doldurulur — hiçbir zaman kavramsal olarak "null"
+      // değildir, bu yüzden `[]` başlangıç değeriyle `any[]` (nullable olmayan)
+      // tiplendi; `MediaData` arayüzüyle de böylece birebir eşleşir.
+      let summary: any = null;
+      let seasons: any[] = [];
+      let cast: any[] = [];
+      let related: any[] = [];
 
       if (cachedContent) {
         summary = cachedContent.summary;

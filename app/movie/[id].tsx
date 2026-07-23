@@ -95,7 +95,14 @@ export default function MovieDetailScreen() {
     hydrateTracking();
   }, [hydrateTracking]);
 
+  // NOT: `MediaHero`'daki tetikleyici buton zaten `isGuest` ile koruyor —
+  // buradaki kontrol ikinci bir savunma katmanı (`handleToggleWatched` ile
+  // aynı desen, bkz. aşağısı).
   const handleRate = async (rating: number) => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(traktIdNum, 'movie', rating);
@@ -108,6 +115,10 @@ export default function MovieDetailScreen() {
   };
 
   const handleRemoveRating = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     try {
       removeLocalRating(traktIdNum, 'movie');
       await removeRating(traktIdNum, 'movie');
@@ -143,6 +154,10 @@ export default function MovieDetailScreen() {
   };
 
   const handleRewatch = async () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     try {
       await markMovieAsWatched(traktIdNum);
       setRewatchSnackbarVisible(true);

@@ -24,6 +24,7 @@ const SHOW_LABEL_KEYS: Record<ShowStatusKey, string> = {
   paused: 'paused',
   dropped: 'inactive',
   notStarted: 'notStarted',
+  hidden: 'hiddenProgress',
 };
 
 const MOVIE_LABEL_KEYS: Record<MovieCategoryKey, string> = {

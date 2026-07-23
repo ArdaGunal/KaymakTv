@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { ChevronDown, ChevronUp, Check, CheckCheck } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { generateEpisodeSlug } from '../utils/slugHelper';
@@ -8,6 +8,7 @@ import EpisodeCheckButton from './EpisodeCheckButton';
 import LoadingIndicator from './LoadingIndicator';
 import { useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
+import { confirmAsync, notify } from '../utils/confirmDialog';
 
 // Bir bölümün yayınlanıp yayınlanmadığını belirler (satırlardaki rozetle aynı mantık).
 const isEpisodeAired = (ep: any, airedEpisodesCount: number) =>
@@ -25,20 +26,24 @@ interface SeasonAccordionProps {
   seasonProgress: any;
 }
 
-export default function SeasonAccordion({ 
-  season, 
-  showTraktId, 
-  showSlug, 
-  showTitle, 
+export default function SeasonAccordion({
+  season,
+  showTraktId,
+  showSlug,
+  showTitle,
   showTmdbId,
-  onSelectEpisode, 
-  isExpanded, 
+  onSelectEpisode,
+  isExpanded,
   onToggle,
-  seasonProgress 
+  seasonProgress
 }: SeasonAccordionProps) {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
   const [seasonLoading, setSeasonLoading] = useState(false);
+  // Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" seçimi — 3 seçenekli
+  // olduğundan (Vazgeç dahil) tek bir window.confirm'e sığmaz, bu yüzden native bir
+  // bottom-sheet modal kullanılıyor (EpisodeOptionsModal.tsx ile aynı desen).
+  const [seasonMenuVisible, setSeasonMenuVisible] = useState(false);
   // Abonesiz aksiyon hook'u — store değişimleri bu bileşeni yeniden render etmez.
   const { markSeasonAsWatched, markEpisodesUpToAsWatched, unwatchSeason, rewatchSeason } = useLibraryActions();
   const { isGuest } = useAuth();
@@ -51,21 +56,42 @@ export default function SeasonAccordion({
   const airedInSeason = seasonProgress?.aired || 0;
   const isSeasonWatched = !!seasonProgress && airedInSeason > 0 && seasonProgress.completed >= airedInSeason;
 
+  const seasonLabel = season.number === 0
+    ? t('specials', 'Özel Bölümler')
+    : t('seasonNum', { number: season.number });
+
   const runSeasonAction = async (action: () => Promise<any>) => {
     setSeasonLoading(true);
     try {
       await action();
     } catch (e) {
       console.error(e);
-      Alert.alert(t('common:error'), t('seasonMarkError', 'Sezon işaretlenirken bir hata oluştu.'));
+      notify(t('common:error'), t('seasonMarkError', 'Sezon işaretlenirken bir hata oluştu.'));
     } finally {
       setSeasonLoading(false);
     }
   };
 
+  const handleRewatchFromMenu = () => {
+    setSeasonMenuVisible(false);
+    runSeasonAction(() => rewatchSeason(showTraktId, season.number));
+  };
+
+  const handleUnwatchFromMenu = async () => {
+    setSeasonMenuVisible(false);
+    const confirmed = await confirmAsync(
+      t('unwatchSeasonTitle'),
+      t('unwatchSeasonMsg', { season: seasonLabel }),
+      t('common:delete', 'Geri Al'),
+      t('common:cancel', 'Vazgeç')
+    );
+    if (!confirmed) return;
+    runSeasonAction(() => unwatchSeason(showTraktId, season.number));
+  };
+
   // Yanlışlıkla basmaya çok müsait bir buton: her iki yön de (işaretle / geri al)
   // artık onay istiyor ve yayınlanmamış bölümler asla işaretlenmiyor.
-  const handleMarkSeason = () => {
+  const handleMarkSeason = async () => {
     if (seasonLoading) return;
 
     if (isGuest) {
@@ -73,40 +99,11 @@ export default function SeasonAccordion({
       return;
     }
 
-    const seasonLabel = season.number === 0
-      ? t('specials', 'Özel Bölümler')
-      : t('seasonNum', { number: season.number });
-
     // Sezon tamamen izlenmişse: tekrar izle (Trakt'a yeni bir "play" ekler) ya
-    // da geçmişi tamamen sil (yıkıcı). Her iki seçenek de kendi onayını alır.
+    // da geçmişi tamamen sil (yıkıcı). Her iki seçenek de kendi onayını alır —
+    // menü kendisi (Vazgeç dahil 3 seçenek) aşağıdaki bottom-sheet'te.
     if (isSeasonWatched) {
-      Alert.alert(
-        t('seasonOptionsTitle'),
-        t('seasonOptionsMsg', { season: seasonLabel }),
-        [
-          { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
-          {
-            text: t('rewatch'),
-            onPress: () => runSeasonAction(() => rewatchSeason(showTraktId, season.number)),
-          },
-          {
-            text: t('unwatchSeasonTitle'),
-            style: 'destructive',
-            onPress: () => Alert.alert(
-              t('unwatchSeasonTitle'),
-              t('unwatchSeasonMsg', { season: seasonLabel }),
-              [
-                { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
-                {
-                  text: t('common:delete', 'Geri Al'),
-                  style: 'destructive',
-                  onPress: () => runSeasonAction(() => unwatchSeason(showTraktId, season.number)),
-                },
-              ]
-            ),
-          },
-        ]
-      );
+      setSeasonMenuVisible(true);
       return;
     }
 
@@ -117,10 +114,7 @@ export default function SeasonAccordion({
     const unairedCount = episodes.length - airedEps.length;
 
     if (airedEps.length === 0) {
-      Alert.alert(
-        t('seasonNotAiredTitle'),
-        t('seasonNotAiredMsg', { season: seasonLabel })
-      );
+      notify(t('seasonNotAiredTitle'), t('seasonNotAiredMsg', { season: seasonLabel }));
       return;
     }
 
@@ -128,28 +122,26 @@ export default function SeasonAccordion({
       ? t('markSeasonPartialMsg', { count: airedEps.length, unaired: unairedCount })
       : t('markSeasonMsg', { season: seasonLabel, count: airedEps.length });
 
-    Alert.alert(
+    const confirmed = await confirmAsync(
       t('markSeasonTitle'),
       message,
-      [
-        { text: t('common:cancel', 'Vazgeç'), style: 'cancel' },
-        {
-          text: t('markAsWatched'),
-          onPress: () => runSeasonAction(() =>
-            unairedCount > 0
-              // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
-              ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number))
-              : markSeasonAsWatched(showTraktId, season.number)
-          ),
-        },
-      ]
+      t('markAsWatched'),
+      t('common:cancel', 'Vazgeç')
+    );
+    if (!confirmed) return;
+
+    runSeasonAction(() =>
+      unairedCount > 0
+        // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
+        ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number))
+        : markSeasonAsWatched(showTraktId, season.number)
     );
   };
 
   return (
     <View style={styles.seasonContainer}>
-      <TouchableOpacity 
-        style={styles.seasonHeader} 
+      <TouchableOpacity
+        style={styles.seasonHeader}
         onPress={onToggle}
         activeOpacity={0.7}
       >
@@ -178,10 +170,10 @@ export default function SeasonAccordion({
           {season.episodes.map((ep: any) => {
              const isWatchedLocal = ep.isWatchedLocal;
              const isAired = isEpisodeAired(ep, season.aired_episodes || 0);
-             
+
              return (
                <View key={ep.number} style={styles.episodeRow}>
-                 <TouchableOpacity 
+                 <TouchableOpacity
                    style={styles.episodeInfo}
                    activeOpacity={0.7}
                    onPress={() => {
@@ -197,7 +189,7 @@ export default function SeasonAccordion({
                  </TouchableOpacity>
                  <View>
                    {isWatchedLocal ? (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.watchedIcon}
                         activeOpacity={0.7}
                         onPress={() => onSelectEpisode(ep, season.number)}
@@ -215,7 +207,7 @@ export default function SeasonAccordion({
                         </Text>
                       </View>
                    ) : (
-                      <EpisodeCheckButton 
+                      <EpisodeCheckButton
                         traktId={showTraktId}
                         season={season.number}
                         episode={ep.number}
@@ -228,6 +220,36 @@ export default function SeasonAccordion({
           })}
         </View>
       )}
+
+      {/* Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" menüsü —
+          Vazgeç dahil 3 seçenek olduğu için (window.confirm en fazla 2 seçenek
+          sunabilir) native bir bottom-sheet kullanılıyor, hem web hem mobilde
+          aynı şekilde çalışır. */}
+      <Modal
+        visible={seasonMenuVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSeasonMenuVisible(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setSeasonMenuVisible(false)}>
+          <Pressable style={styles.menuContent} onPress={() => {}}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>{t('seasonOptionsTitle')}</Text>
+              <Text style={styles.menuSubtitle}>{t('seasonOptionsMsg', { season: seasonLabel })}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.menuButton} onPress={handleRewatchFromMenu}>
+              <RotateCcw size={20} color="#3b82f6" />
+              <Text style={[styles.menuButtonText, { color: '#3b82f6' }]}>{t('rewatch')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.menuButton, { borderBottomWidth: 0 }]} onPress={handleUnwatchFromMenu}>
+              <Trash2 size={20} color="#ef4444" />
+              <Text style={[styles.menuButtonText, { color: '#ef4444' }]}>{t('unwatchSeasonTitle')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -316,5 +338,42 @@ const styles = StyleSheet.create({
   },
   markSeasonBtnWatched: {
     backgroundColor: '#10b981',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  menuContent: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  menuHeader: {
+    marginBottom: 20,
+  },
+  menuTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  menuSubtitle: {
+    color: '#a3a3a3',
+    fontSize: 14,
+  },
+  menuButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    gap: 12,
+  },
+  menuButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

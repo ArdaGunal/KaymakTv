@@ -1,0 +1,95 @@
+diff --git a/node_modules/react-native-web/dist/cjs/exports/Alert/index.js b/node_modules/react-native-web/dist/cjs/exports/Alert/index.js
+index e545d53..f6356c0 100644
+--- a/node_modules/react-native-web/dist/cjs/exports/Alert/index.js
++++ b/node_modules/react-native-web/dist/cjs/exports/Alert/index.js
+@@ -11,8 +11,42 @@ exports.default = void 0;
+  *
+  */
+ 
++// KaymakTV patch (patch-package): orijinal react-native-web `Alert.alert` tam bir
++// no-op'tu (`static alert() {}`) — web'de HER `Alert.alert` çağrısı (tek butonlu
++// bilgi mesajları dahil) sessizce hiçbir şey yapmıyordu. Bu, uygulama genelinde
++// (misafir kısıtlama mesajları, hata bildirimleri, onay diyalogları) onlarca
++// çağrı noktasını etkiliyordu. Gerçek React Native `Alert.alert(title, message,
++// buttons, options)` imzasını mümkün olduğunca native `window.alert`/`window.confirm`
++// ile karşılayan bir davranış eklendi. 3+ butonlu diyaloglar `window.confirm`'ün
++// yalnızca 2 seçeneğe izin vermesi nedeniyle tam temsil edilemez — bu projede
++// böyle tüm çağrılar zaten native modal'lere taşındı (bkz. components/SeasonAccordion.tsx).
+ class Alert {
+-  static alert() {}
++  static alert(title, message, buttons, _options) {
++    if (typeof window === 'undefined') return;
++
++    const fullMessage = message ? `${title}\n\n${message}` : title;
++
++    if (!buttons || buttons.length === 0) {
++      window.alert(fullMessage);
++      return;
++    }
++
++    if (buttons.length === 1) {
++      window.alert(fullMessage);
++      buttons[0] && buttons[0].onPress && buttons[0].onPress();
++      return;
++    }
++
++    const cancelButton = buttons.find((b) => b && b.style === 'cancel') || buttons[0];
++    const confirmButton = buttons.find((b) => b !== cancelButton) || buttons[buttons.length - 1];
++
++    const confirmed = window.confirm(fullMessage);
++    if (confirmed) {
++      confirmButton && confirmButton.onPress && confirmButton.onPress();
++    } else {
++      cancelButton && cancelButton.onPress && cancelButton.onPress();
++    }
++  }
+ }
+ var _default = exports.default = Alert;
+ module.exports = exports.default;
+diff --git a/node_modules/react-native-web/dist/exports/Alert/index.js b/node_modules/react-native-web/dist/exports/Alert/index.js
+index 705bda5..fb58fde 100644
+--- a/node_modules/react-native-web/dist/exports/Alert/index.js
++++ b/node_modules/react-native-web/dist/exports/Alert/index.js
+@@ -7,7 +7,41 @@
+  *
+  */
+ 
++// KaymakTV patch (patch-package): orijinal react-native-web `Alert.alert` tam bir
++// no-op'tu (`static alert() {}`) — web'de HER `Alert.alert` çağrısı (tek butonlu
++// bilgi mesajları dahil) sessizce hiçbir şey yapmıyordu. Bu, uygulama genelinde
++// (misafir kısıtlama mesajları, hata bildirimleri, onay diyalogları) onlarca
++// çağrı noktasını etkiliyordu. Gerçek React Native `Alert.alert(title, message,
++// buttons, options)` imzasını mümkün olduğunca native `window.alert`/`window.confirm`
++// ile karşılayan bir davranış eklendi. 3+ butonlu diyaloglar `window.confirm`'ün
++// yalnızca 2 seçeneğe izin vermesi nedeniyle tam temsil edilemez — bu projede
++// böyle tüm çağrılar zaten native modal'lere taşındı (bkz. components/SeasonAccordion.tsx).
+ class Alert {
+-  static alert() {}
++  static alert(title, message, buttons, _options) {
++    if (typeof window === 'undefined') return;
++
++    const fullMessage = message ? `${title}\n\n${message}` : title;
++
++    if (!buttons || buttons.length === 0) {
++      window.alert(fullMessage);
++      return;
++    }
++
++    if (buttons.length === 1) {
++      window.alert(fullMessage);
++      buttons[0] && buttons[0].onPress && buttons[0].onPress();
++      return;
++    }
++
++    const cancelButton = buttons.find((b) => b && b.style === 'cancel') || buttons[0];
++    const confirmButton = buttons.find((b) => b !== cancelButton) || buttons[buttons.length - 1];
++
++    const confirmed = window.confirm(fullMessage);
++    if (confirmed) {
++      confirmButton && confirmButton.onPress && confirmButton.onPress();
++    } else {
++      cancelButton && cancelButton.onPress && cancelButton.onPress();
++    }
++  }
+ }
+ export default Alert;

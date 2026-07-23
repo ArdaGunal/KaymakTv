@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 
 import MovieCard from '../../../components/movies/MovieCard';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import { useAuth } from '../../../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../../../context/LibraryContext';
+import { useTrackingStore } from '../../../store/tracking/useTrackingStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import WebCarousel from '../../../components/web/WebCarousel';
@@ -39,6 +40,17 @@ export default function MoviesScreenWeb() {
   }));
   const { refreshLibrary } = useLibraryActions();
 
+  // Dizi kartlarındaki 3-nokta menüsüyle aynı özellik film kartlarında da
+  // olsun istendi — "Bırakıldı" durumu dizilerle aynı izole tracking store'dan
+  // (droppedMovieIds) geliyor.
+  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
+  const toggleDroppedMovieStatus = useTrackingStore((s) => s.toggleDroppedMovieStatus);
+  const hydrateTracking = useTrackingStore((s) => s.hydrate);
+
+  useEffect(() => {
+    hydrateTracking();
+  }, [hydrateTracking]);
+
   const { watchlistMoviesList, upcomingMovies } = useMoviesDashboardData(
     watchlistMovies,
     calendarMovies,
@@ -66,8 +78,15 @@ export default function MoviesScreenWeb() {
   }, []);
 
   const renderMovieItem = useCallback(
-    ({ item }: { item: any }) => <MovieCard data={item} onMovieFinished={handleMovieFinished} />,
-    [handleMovieFinished]
+    ({ item }: { item: any }) => (
+      <MovieCard
+        data={item}
+        onMovieFinished={handleMovieFinished}
+        isDropped={droppedMovieIds.includes(item.id)}
+        onToggleDropped={() => toggleDroppedMovieStatus(item.id)}
+      />
+    ),
+    [handleMovieFinished, droppedMovieIds, toggleDroppedMovieStatus]
   );
 
   const openViewAll = useCallback((title: string, data: any[], routeType: string) => {

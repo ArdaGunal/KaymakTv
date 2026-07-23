@@ -8,6 +8,7 @@ import { useAirCountdown } from '../../hooks/useAirCountdown';
 import MediaPoster from '../MediaPoster';
 import { useResponsive } from '../../hooks/useResponsive';
 import MovieCardMobile from './MovieCardMobile';
+import TrackingCardMenu from '../tracking/TrackingCardMenu';
 import { useLibraryActions } from '../../context/LibraryContext';
 import { Check } from 'lucide-react-native';
 import { generateMediaSlug } from '../../utils/slugHelper';
@@ -16,9 +17,12 @@ import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 interface MovieCardProps {
   data: any;
   onMovieFinished?: (title: string) => void;
+  /** Verilirse afişin üzerinde 3-nokta menüsü (Bırak/Listeye Ekle/Favorile/Paylaş) gösterilir. */
+  isDropped?: boolean;
+  onToggleDropped?: (id: number) => void;
 }
 
-const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
+const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: MovieCardProps) => {
   // KRİTİK: Tüm hook'lar koşullu return'lerden ÖNCE çağrılmalı (Rules of Hooks).
   // Eskiden `if (!isDesktop) return <MovieCardMobile/>` hook'ların üstündeydi;
   // pencere 768px eşiğini geçince hook sayısı değişiyor ve ekran çöküyordu.
@@ -45,7 +49,14 @@ const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
   if (!data) return null;
 
   if (!isDesktop) {
-    return <MovieCardMobile data={data} onMovieFinished={onMovieFinished} />;
+    return (
+      <MovieCardMobile
+        data={data}
+        onMovieFinished={onMovieFinished}
+        isDropped={isDropped}
+        onToggleDropped={onToggleDropped}
+      />
+    );
   }
 
   const handleCardPress = () => {
@@ -119,6 +130,20 @@ const MovieCard = memo(({ data, onMovieFinished }: MovieCardProps) => {
             colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,1)']}
             style={styles.hoverOverlay}
           >
+            {onToggleDropped && (
+              <View style={styles.overlayTop}>
+                <TrackingCardMenu
+                  id={data.id}
+                  title={data.title}
+                  mediaType="movie"
+                  tmdbId={data.tmdbId}
+                  slug={data.slug}
+                  isDropped={!!isDropped}
+                  onToggleDropped={() => onToggleDropped(data.id)}
+                />
+              </View>
+            )}
+
             <View style={styles.playIconContainer}>
               <PlayCircle color="#ffffff" size={48} strokeWidth={1.5} style={styles.playIcon} />
             </View>
@@ -210,6 +235,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     padding: 16,
+  },
+  overlayTop: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   playIconContainer: {
     flex: 1,

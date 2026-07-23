@@ -33,6 +33,8 @@ interface MediaHeroProps {
   onRemoveRating: () => void;
   onToggleWatchlist: () => void;
   onToggleFavorite?: () => void;
+  /** Trakt'ta "İlerlemeyi Gizle/Göster" — `isHidden` durumuna göre iki yöne de çalışan bir toggle. */
+  isHidden?: boolean;
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
@@ -59,6 +61,7 @@ export default function MediaHero({
   onRemoveRating,
   onToggleWatchlist,
   onToggleFavorite,
+  isHidden,
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
@@ -290,6 +293,7 @@ export default function MediaHero({
         isWatchlisted={isWatchlisted}
         isWatched={isWatched}
         onToggleWatchlist={onToggleWatchlist}
+        isHidden={isHidden}
         onHideFromProgress={onHideFromProgress}
         onDeleteFromHistory={onDeleteFromHistory}
         onRewatch={onRewatch}

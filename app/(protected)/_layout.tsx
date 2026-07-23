@@ -12,6 +12,7 @@ export default function ProtectedLayout() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#171717' } }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="account" />
+      <Stack.Screen name="error-log" />
     </Stack>
   );
 }
