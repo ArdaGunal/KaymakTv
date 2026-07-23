@@ -32,5 +32,8 @@
   "diagnostics": "🛠️ Tanılama",
   "exportPerformanceReport": "Performans Raporunu Kopyala",
   "exportPerformanceReportSuccess": "Son 24 saatin performans raporu panoya kopyalandı.",
-  "exportPerformanceReportError": "Rapor oluşturulurken bir hata oluştu."
+  "exportPerformanceReportError": "Rapor oluşturulurken bir hata oluştu.",
+  "appVersion": "Sürüm {{version}}",
+  "developerModeUnlocked": "🔓 Geliştirici Konsolu Kilidi Açıldı",
+  "developerModeLocked": "🔒 Geliştirici Konsolu Gizlendi"
 }

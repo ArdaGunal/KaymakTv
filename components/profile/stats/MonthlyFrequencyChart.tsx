@@ -12,6 +12,7 @@ interface MonthlyFrequencyChartProps {
 
 const ACTIVE_COLOR = '#3B82F6';
 const IDLE_COLOR = '#1e3a5f';
+const SECTIONS = 4;
 
 /**
  * Son 6 ayın etkinlik grafiği. Sütunlara DOKUNULABİLİR: seçilen ayın gerçek
@@ -39,6 +40,15 @@ const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) 
   );
 
   const total = useMemo(() => data.reduce((sum, bar) => sum + bar.value, 0), [data]);
+
+  // Eksen tavanı veriye göre ayarlanır. Aksi halde kütüphane varsayılan bir
+  // tavan kullanıyor ve aylık değerler küçükken (1-3) sütunlar kartın dibinde
+  // cılız kalıyordu. Tavan bölüm sayısına tam bölünecek şekilde yuvarlanır ki
+  // eksen etiketleri ondalıklı çıkmasın.
+  const maxValue = useMemo(() => {
+    const peak = Math.max(...data.map((bar) => bar.value), 0);
+    return peak > 0 ? Math.ceil(peak / SECTIONS) * SECTIONS : SECTIONS;
+  }, [data]);
   const selected = data[Math.min(Math.max(selectedIndex, 0), data.length - 1)];
 
   const selectedText = selected
@@ -76,7 +86,8 @@ const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) 
           xAxisThickness={0}
           xAxisLabelTextStyle={styles.axisLabel}
           yAxisTextStyle={styles.axisLabel}
-          noOfSections={4}
+          noOfSections={SECTIONS}
+          maxValue={maxValue}
           height={140}
           initialSpacing={12}
           endSpacing={4}

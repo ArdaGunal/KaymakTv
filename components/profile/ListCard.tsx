@@ -15,6 +15,13 @@ import { POSTER_CARD_WIDTH, POSTER_CARD_HEIGHT, CARD_GAP } from './profileMetric
 
 interface ListCardProps {
   data: EnrichedList;
+  /**
+   * Varsayılan (mobil) ölçüleri geçersiz kılar. `profile.web.tsx` bunu
+   * `DESKTOP_CARD_WIDTH/HEIGHT/GAP` ile geçiriyor — bkz. dosya başındaki not.
+   */
+  cardWidth?: number;
+  cardHeight?: number;
+  gap?: number;
 }
 
 /**
@@ -27,8 +34,14 @@ interface ListCardProps {
  * Başlık poster ÜZERİNE değil ALTINA yazılıyor: küçülen kartta iki satırlık bir
  * bindirme kapak görselinin neredeyse tamamını örtüyordu. (İskelet bileşeni
  * `ListCardSkeleton` zaten bu düzene göre yazılmıştı; kart ondan sapmıştı.)
+ *
+ * `cardWidth`/`cardHeight`/`gap` OPSİYONEL: verilmezse mobil ölçüler
+ * (`POSTER_CARD_WIDTH` — pencere genişliğinin yüzdesi) kullanılır. Masaüstünde
+ * bu yüzde-tabanlı hesap, geniş pencerelerde komşu carousel kartlarından
+ * (sabit 180×270) çok daha büyük kartlar üretiyordu; `profile.web.tsx` artık
+ * bu üç prop'u sabit masaüstü değerleriyle geçiyor.
  */
-const ListCard = memo(({ data }: ListCardProps) => {
+const ListCard = memo(({ data, cardWidth = POSTER_CARD_WIDTH, cardHeight = POSTER_CARD_HEIGHT, gap = CARD_GAP }: ListCardProps) => {
   const router = useRouter();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -53,10 +66,10 @@ const ListCard = memo(({ data }: ListCardProps) => {
       onPressIn={() => animateTo(0.97)}
       onPressOut={() => animateTo(1)}
       onPress={handlePress}
-      style={styles.pressable}
+      style={[styles.pressable, { width: cardWidth, marginRight: gap }]}
     >
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <View style={styles.card}>
+        <View style={[styles.card, { width: cardWidth, height: cardHeight }]}>
           {data.coverImageUrl ? (
             <Image
               source={{ uri: data.coverImageUrl }}
@@ -90,12 +103,10 @@ export default ListCard;
 
 const styles = StyleSheet.create({
   pressable: {
-    width: POSTER_CARD_WIDTH,
-    marginRight: CARD_GAP,
+    // width/marginRight artık inline (prop'tan) geliyor.
   },
   card: {
-    width: POSTER_CARD_WIDTH,
-    height: POSTER_CARD_HEIGHT,
+    // width/height artık inline (prop'tan) geliyor.
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#172033',

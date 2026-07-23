@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Star } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import type { ProfileStatsRatings } from '../../../hooks/useProfileStatistics';
+import { formatRating } from '../../../utils/formatRating';
 
 interface RatingDistributionChartProps {
   ratings: ProfileStatsRatings;
@@ -12,7 +13,12 @@ const BAR_AREA_HEIGHT = 96;
 const MIN_BAR_HEIGHT = 3;
 
 /**
- * Kullanıcının verdiği puanların 1-10 dağılımı.
+ * Kullanıcının verdiği puanların dağılımı — UYGULAMA GENELİNDEKİ 5 YILDIZLIK
+ * ölçekte (0.5 artışlarla). Trakt puanları dahili olarak 1-10 tam sayı olarak
+ * saklanır; `formatRating` her yerde (StarSlider, MediaHero, InlineRater…)
+ * bunu ikiye bölüp "X/5" gösterir. Burada da AYNI dönüşüm kullanılıyor —
+ * aksi halde kullanıcı puan verirken 1-5 yıldız seçip burada "7.9" gibi 10'luk
+ * bir ortalama görür, iki ekran farklı ölçek konuşurdu.
  *
  * Bilinçli olarak grafik kütüphanesi KULLANILMIYOR: on adet basit sütun için
  * `flex` yükseklikleri hem daha az bağımlılık hem de tam kontrol demek
@@ -41,14 +47,18 @@ const RatingDistributionChart = ({ ratings }: RatingDistributionChartProps) => {
           <Text style={styles.title}>{t('ratingDistribution', 'Puan Dağılımı')}</Text>
           <Text style={styles.subtitle}>
             {selected
-              ? `${selected.score} ★ · ${t('ratedCount', '{{count}} puanlama', { count: selected.count })}`
+              ? `${formatRating(selected.rawScore)} ★ · ${t('ratedCount', '{{count}} puanlama', { count: selected.count })}`
               : t('ratedCount', '{{count}} puanlama', { count: ratings.total })}
           </Text>
         </View>
 
         <View style={styles.averageBadge}>
           <Star size={12} color="#fbbf24" fill="#fbbf24" />
-          <Text style={styles.averageValue}>{ratings.average.toFixed(1)}</Text>
+          {/* `average` zaten 5'lik ölçekte; `formatRating` ham (1-10) beklediği
+              için ×2 ile geri çevrilip AYNI biçimlendirme kuralına (tam sayıda
+              ondalık gösterme) tabi tutuluyor. */}
+          <Text style={styles.averageValue}>{formatRating(ratings.average * 2)}</Text>
+          <Text style={styles.averageMax}>/5</Text>
         </View>
       </View>
 
@@ -64,7 +74,7 @@ const RatingDistributionChart = ({ ratings }: RatingDistributionChartProps) => {
               style={styles.barColumn}
               onPress={() => setSelectedScore(isSelected ? null : bar.score)}
               accessibilityRole="button"
-              accessibilityLabel={`${bar.score}: ${bar.count}`}
+              accessibilityLabel={`${formatRating(bar.rawScore)}: ${bar.count}`}
               accessibilityState={{ selected: isSelected }}
             >
               <Text style={[styles.barCount, isSelected && styles.barCountActive]}>
@@ -80,7 +90,9 @@ const RatingDistributionChart = ({ ratings }: RatingDistributionChartProps) => {
                   ]}
                 />
               </View>
-              <Text style={[styles.barLabel, isSelected && styles.barLabelActive]}>{bar.score}</Text>
+              <Text style={[styles.barLabel, isSelected && styles.barLabelActive]}>
+                {formatRating(bar.rawScore)}
+              </Text>
             </Pressable>
           );
         })}
@@ -137,6 +149,11 @@ const styles = StyleSheet.create({
     color: '#fbbf24',
     fontSize: 14,
     fontWeight: '800',
+  },
+  averageMax: {
+    color: 'rgba(251,191,36,0.6)',
+    fontSize: 11,
+    fontWeight: '600',
   },
   emptyText: {
     color: '#64748b',

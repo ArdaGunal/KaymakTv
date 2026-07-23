@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 const trCommon = {
-  "webTitle": "Kaymak — İzlediklerinin kaymağını çıkar",
-  "webDesc": "Kaymak, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur.",
+  "webTitle": "KaymakTV — İzlediklerinin kaymağını çıkar",
+  "webDesc": "KaymakTV, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur.",
   "features": "Özellikler",
   "statistics": "İstatistikler",
   "exploreAsGuest": "Misafir Olarak İncele",
@@ -11,7 +11,7 @@ const trCommon = {
   "heroTitle1": "İzlediklerinin",
   "heroTitle2": "kaymağını",
   "heroTitle3": " çıkar.",
-  "heroSubtitle": "Her filmi, her diziyi kaydet. Puanla, yorumla, tartış. Kaymak; dağınık izleme alışkanlığını tek bir yerde toplayan, sana ait bir sinema günlüğü.",
+  "heroSubtitle": "Her filmi, her diziyi kaydet. Puanla, yorumla, tartış. KaymakTV; dağınık izleme alışkanlığını tek bir yerde toplayan, sana ait bir sinema günlüğü.",
   "howItWorks": "Nasıl Çalışır?",
   "oneApp": "Bir uygulama, bütün izleme hayatın.",
   "viewingDiary": "İzleme Günlüğü",
@@ -64,8 +64,8 @@ const trCommon = {
 };
 
 const enCommon = {
-  "webTitle": "Kaymak — Extract the best of what you watch",
-  "webDesc": "Kaymak is a personal viewing diary, tracking, and discovery platform for movie and TV enthusiasts.",
+  "webTitle": "KaymakTV — Extract the best of what you watch",
+  "webDesc": "KaymakTV is a personal viewing diary, tracking, and discovery platform for movie and TV enthusiasts.",
   "features": "Features",
   "statistics": "Statistics",
   "exploreAsGuest": "Explore as Guest",
@@ -73,7 +73,7 @@ const enCommon = {
   "heroTitle1": "Extract the",
   "heroTitle2": "best",
   "heroTitle3": " of what you watch.",
-  "heroSubtitle": "Log every movie and show. Rate, review, and discuss. Kaymak is your personal cinema diary that organizes your scattered viewing habits.",
+  "heroSubtitle": "Log every movie and show. Rate, review, and discuss. KaymakTV is your personal cinema diary that organizes your scattered viewing habits.",
   "howItWorks": "How it works?",
   "oneApp": "One app, your entire viewing life.",
   "viewingDiary": "Viewing Diary",
@@ -142,15 +142,15 @@ function injectTranslationImport(content, ns) {
 // 1. INDEX.WEB.TSX
 let indexWeb = read('app/(public)/index.web.tsx');
 indexWeb = injectTranslationImport(indexWeb, 'common');
-indexWeb = indexWeb.replace(/<title>Kaymak — İzlediklerinin kaymağını çıkar<\/title>/g, `<title>{t('webTitle')}</title>`);
-indexWeb = indexWeb.replace(/content="Kaymak, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur\."/g, `content={t('webDesc')}`);
-indexWeb = indexWeb.replace(/content="Kaymak — İzlediklerinin kaymağını çıkar"/g, `content={t('webTitle')}`);
+indexWeb = indexWeb.replace(/<title>KaymakTV — İzlediklerinin kaymağını çıkar<\/title>/g, `<title>{t('webTitle')}</title>`);
+indexWeb = indexWeb.replace(/content="KaymakTV, sinema ve dizi tutkunları için kişisel izleme günlüğü, takip ve keşif platformudur\."/g, `content={t('webDesc')}`);
+indexWeb = indexWeb.replace(/content="KaymakTV — İzlediklerinin kaymağını çıkar"/g, `content={t('webTitle')}`);
 indexWeb = indexWeb.replace(/>Özellikler<\/a>/g, `>{t('features')}</a>`);
 indexWeb = indexWeb.replace(/>İstatistikler<\/a>/g, `>{t('statistics')}</a>`);
 indexWeb = indexWeb.replace(/>Misafir Olarak İncele<\/a>/g, `>{t('exploreAsGuest')}</a>`);
 indexWeb = indexWeb.replace(/>Sinema & dizi günlüğün<\/span>/g, `>{t('diaryEyebrow')}</span>`);
 indexWeb = indexWeb.replace(/İzlediklerinin<br\/><em>kaymağını<\/em> çıkar\./g, `{t('heroTitle1')}<br/><em>{t('heroTitle2')}</em>{t('heroTitle3')}`);
-indexWeb = indexWeb.replace(/>Her filmi, her diziyi kaydet\. Puanla, yorumla, tartış\. Kaymak; dağınık izleme alışkanlığını tek bir yerde toplayan, sana ait bir sinema günlüğü\.</g, `>{t('heroSubtitle')}<`);
+indexWeb = indexWeb.replace(/>Her filmi, her diziyi kaydet\. Puanla, yorumla, tartış\. KaymakTV; dağınık izleme alışkanlığını tek bir yerde toplayan, sana ait bir sinema günlüğü\.</g, `>{t('heroSubtitle')}<`);
 indexWeb = indexWeb.replace(/>Nasıl Çalışır\?<\/a>/g, `>{t('howItWorks')}</a>`);
 indexWeb = indexWeb.replace(/>Bir uygulama, bütün izleme hayatın\.</g, `>{t('oneApp')}<`);
 indexWeb = indexWeb.replace(/>İzleme Günlüğü<\/h3>/g, `>{t('viewingDiary')}</h3>`);

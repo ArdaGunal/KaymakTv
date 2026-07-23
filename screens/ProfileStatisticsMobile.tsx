@@ -63,7 +63,7 @@ export default function ProfileStatisticsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
-        {hasStats && <StatsSummaryRow summary={summary} />}
+        {hasStats && <StatsSummaryRow summary={summary} activeTab={activeTab} />}
 
         {hasContent ? (
           <>

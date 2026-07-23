@@ -398,7 +398,16 @@ export const getUserRatings = async (type: 'shows' | 'movies' | 'episodes') => {
     return response.data;
   } catch (error) {
     console.error(`Trakt API Hatası (getUserRatings - ${type}):`, error);
-    return [];
+    // ESKİ HATA: burada `return []` vardı ve bu, KULLANICININ TÜM PUANLARINI
+    // siliyordu. Çağıran taraf (`fetchers.ts`) "başarısızlık = null" sözleşmesine
+    // göre yazılmıştır: `.catch(() => null)` ile sarmalanır ve `null` gelirse
+    // önbellekteki eski veriyi korur. Bu fonksiyon hatayı YUTUP boş dizi
+    // döndürdüğü için o `.catch` hiç çalışmıyor, `[]` geçerli bir sonuç sanılıp
+    // hem store'a hem diske yazılıyordu. Sonuç: ağ hatası / Trakt kesintisi /
+    // rate-limit durumunda kullanıcının verdiği tüm puanlar uygulamadan
+    // kayboluyordu. Diğer kardeş fonksiyonlar (getWatchedShows vb.) zaten
+    // `throw` ediyor — sözleşme burada da aynı hale getirildi.
+    throw error;
   }
 };
 

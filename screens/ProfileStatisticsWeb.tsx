@@ -58,7 +58,7 @@ export default function ProfileStatisticsScreenWeb() {
           </View>
         </View>
 
-        {hasStats && <StatsSummaryRowWide summary={summary} />}
+        {hasStats && <StatsSummaryRowWide summary={summary} activeTab={activeTab} />}
 
         {hasContent ? (
           <>

@@ -4,18 +4,25 @@ import { Clock, Tv, Film } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { formatWatchDuration } from '../../../utils/watchTimeHelper';
-import type { ProfileStatsSummary } from '../../../hooks/useProfileStatistics';
+import type { ProfileStatsSummary, StatsTab } from '../../../hooks/useProfileStatistics';
 
 interface StatsSummaryRowProps {
   summary: ProfileStatsSummary;
+  activeTab: StatsTab;
 }
 
 /**
- * Üstteki üç özet kutusu. Bölüm ve film kutuları artık TIKLANABİLİR: kullanıcı
- * sayıdan doğrudan ilgili kütüphane listesine gidebiliyor. Süre kutusu bir
- * listeye karşılık gelmediği için bilinçli olarak tıklanamaz bırakıldı.
+ * Üstteki özet kutuları — Diziler sekmesindeyken YALNIZCA dizi verisini,
+ * Filmler sekmesindeyken YALNIZCA film verisini gösterir.
+ *
+ * ESKİ HATA: bu satır her zaman "İzlenen Bölüm" VE "İzlenen Film" kutularını
+ * birlikte, `activeTab`'dan bağımsız olarak gösteriyordu — kullanıcı Filmler
+ * sekmesine geçse bile üstteki süre ve sayı hâlâ dizi verisiydi (ya da ikisinin
+ * toplamıydı). Sekmelerin işlevi yoktu. Artık ikinci kutunun ikonu, etiketi ve
+ * gittiği kütüphane sayfası aktif sekmeye göre değişiyor; süre de yalnızca o
+ * sekmenin süresi (`summary.totalMinutes` hook'ta zaten sekmeye göre hesaplanıyor).
  */
-const StatsSummaryRow = ({ summary }: StatsSummaryRowProps) => {
+const StatsSummaryRow = ({ summary, activeTab }: StatsSummaryRowProps) => {
   const { t } = useTranslation('media');
   const router = useRouter();
 
@@ -24,6 +31,15 @@ const StatsSummaryRow = ({ summary }: StatsSummaryRowProps) => {
     day: t('unitDay', 'Gün'),
     hour: t('unitHour', 'Saat'),
   });
+
+  const isShows = activeTab === 'shows';
+  const CountIcon = isShows ? Tv : Film;
+  const countLabel = isShows
+    ? t('episodesWatchedCount', 'İzlenen Bölüm')
+    : t('moviesWatchedCount', 'İzlenen Film');
+  const countRoute = isShows ? '/(protected)/library/shows' : '/(protected)/library/movies';
+  const countIconColor = isShows ? '#a78bfa' : '#fbbf24';
+  const countIconBg = isShows ? 'rgba(139,92,246,0.14)' : 'rgba(245,158,11,0.14)';
 
   return (
     <View style={styles.row}>
@@ -37,26 +53,14 @@ const StatsSummaryRow = ({ summary }: StatsSummaryRowProps) => {
 
       <Pressable
         style={({ pressed }) => [styles.card, styles.cardTappable, pressed && styles.cardPressed]}
-        onPress={() => router.push('/(protected)/library/shows')}
+        onPress={() => router.push(countRoute)}
         accessibilityRole="button"
       >
-        <View style={[styles.iconBadge, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
-          <Tv size={14} color="#a78bfa" />
+        <View style={[styles.iconBadge, { backgroundColor: countIconBg }]}>
+          <CountIcon size={14} color={countIconColor} />
         </View>
-        <Text style={styles.value}>{summary.episodesWatched.toLocaleString()}</Text>
-        <Text style={styles.label}>{t('episodesWatchedCount', 'İzlenen Bölüm')}</Text>
-      </Pressable>
-
-      <Pressable
-        style={({ pressed }) => [styles.card, styles.cardTappable, pressed && styles.cardPressed]}
-        onPress={() => router.push('/(protected)/library/movies')}
-        accessibilityRole="button"
-      >
-        <View style={[styles.iconBadge, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
-          <Film size={14} color="#fbbf24" />
-        </View>
-        <Text style={styles.value}>{summary.moviesWatched.toLocaleString()}</Text>
-        <Text style={styles.label}>{t('moviesWatchedCount', 'İzlenen Film')}</Text>
+        <Text style={styles.value}>{summary.watchedCount.toLocaleString()}</Text>
+        <Text style={styles.label}>{countLabel}</Text>
       </Pressable>
     </View>
   );

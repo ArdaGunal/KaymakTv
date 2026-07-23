@@ -843,3 +843,122 @@ Yani hata yalnızca `LibraryMobile`'daydı ve orası hem Diziler hem Filmler ekr
 **Temizlik:** Test verisi silindi, misafir modu geri alındı.
 
 **Not:** Doğrulama web'in mobil genişliğinde yapıldı. Ölçü ve yerleşim mantığı platformdan bağımsız olduğu için native'de de aynı sonucu vermeli; yine de gerçek cihazda bir kez göz atılması önerilir.
+
+## 69. "Detaylı Analiz" Ekranı: Sahte Verinin Kaldırılması, Puan Kaybı Hatası ve Etkileşimli Grafikler
+**En büyük bulgu — sayfa uyduruyordu:** Tür ve aylık grafiklerin ikisi de `components/profile/stats/mockChartData.ts` içindeki SABİT değerlerden besleniyordu. Her kullanıcıya aynı "Bilim Kurgu %40, Drama %25, Komedi %20, Suç %15" tablosu gösteriliyor; aylık çubukların etiketleri ("Şub, Mar, Nis, May, Haz, Tem") koda gömülü olduğu için gerçek takvimle hiç ilgisi olmuyordu. Dosyadaki `TODO` bunun geçici olduğunu söylüyordu ama ekran üretimde bu haliyle duruyordu.
+
+**Gerçek veri kaynakları (doğrulandı):** `getWatchedShows` ve `getWatchedMovies` uç noktalarının İKİSİ de `extended=full` ile çekiliyor — yani `show.genres` / `movie.genres` alanları zaten elimizde ve hiç kullanılmıyormuş. Aylık etkinlik için `last_watched_at`, puanlar için `userRatingsShows/Movies` kullanıldı.
+
+**KRİTİK HATA — kullanıcının tüm puanları siliniyordu (`services/api/users.ts`):** `getUserRatings` hatayı yutup `return []` yapıyordu. Oysa çağıran taraf (`fetchers.ts`) "başarısızlık = null" sözleşmesine göre yazılmış: istek `.catch(() => null)` ile sarmalanıyor ve `null` gelince `setIfValidInitial` önbellekteki eski veriyi koruyor. Fonksiyon reject etmediği için o `.catch` HİÇ çalışmıyor, `[]` geçerli bir sonuç sanılıp hem store'a hem diske yazılıyordu. Sonuç: ağ hatası, Trakt kesintisi veya rate-limit durumunda kullanıcının verdiği TÜM puanlar uygulamadan ve yerel önbellekten siliniyordu. `throw error` ile kardeş fonksiyonların (getWatchedShows vb.) sözleşmesine uyduruldu. **Bu hata bu maddedeki çalışma sırasında tesadüfen değil, puan grafiği boş çıkınca kovalanarak bulundu.**
+Aynı desendeki diğer iki fonksiyon (`getEpisodeComments`, `getRelatedMovies`) incelendi ve BİLİNÇLİ olarak değiştirilmedi: onların boş dönmesi yalnızca "yorum yok / benzer film yok" demek, kalıcı kullanıcı verisi silmiyor.
+
+**Diğer düzeltilen hata:** `GenreDonutChartWide` en büyük dilimi `data.reduce(fn, data[0])` ile buluyordu; veri boşken `max.value` okunurken ÇÖKÜYORDU. Sahte veri hep dolu olduğu için bu hata görünmüyordu — gerçek veriye geçilince ilk boş kütüphanede çökecekti. Boş durum artık açıkça ele alınıyor.
+**Görsel hata:** Aylık grafiğin eksen tavanı veriye göre ayarlanmıyordu; aylık değerler küçükken (1-3) sütunlar kartın dibinde cılız kalıyordu. Tavan artık tepe değerden türetiliyor ve bölüm sayısına tam bölünecek şekilde yuvarlanıyor (eksen etiketleri tam sayı çıksın diye).
+
+**Veri katmanı (`hooks/useProfileStatistics.ts`):** Hook artık `genres`, `monthly`, `ratings` ve `hasContent` da döndürüyor.
+- **Türler:** İzlenen içeriklerin `genres` dizileri sayılır, ilk 6 tür gösterilir, kalanı "Diğer"de toplanır. Yüzde, İÇERİK sayısı üzerinden değil TÜR ETİKETİ toplamı üzerinden hesaplanır — bir dizi birden fazla türe ait olabildiği için aksi halde yüzdeler 100'ü aşardı. Eşit sayıdaki türler arasında alfabetik sıralamayla deterministik sıra garantilenir (renkler kaymasın).
+- **Aylık:** Son 6 ay iskeleti önce kurulur (veri olmayan ay 0 değeriyle grafikte yer alır, zaman ekseni kesintisiz görünür), ay adları `toLocaleDateString` ile ARAYÜZ DİLİNDE üretilir.
+- **Dürüstlük notu (kod içinde de yazılı):** `last_watched_at` bir içeriğin SON izlenme anıdır; dolayısıyla grafik "o ay kaç bölüm izlendi"yi değil "o ay kaç dizi/filmle ilgilenildi"yi gösterir. Etiketler ("{{count}} dizi/film") elimizdeki veriyle dürüstçe söylenebilecek şeyi söyleyecek biçimde yazıldı.
+- **Puanlar:** 1-10 dağılımı, toplam ve ortalama.
+
+**Tür etiketleri:** `locales/{tr,en}/media.json` içine 35 Trakt tür kodunun çevirisi eklendi (`genres.science-fiction` → "Bilim Kurgu" / "Science Fiction"). Çevirisi olmayan bir kod gelirse okunabilir yedek üretilir ('game-show' → 'Game Show').
+
+**Etkileşim (kullanıcı isteği):**
+1. **Tür halkası:** dilimler VE lejant satırları tıklanabilir; seçilen tür halkanın ortasında yüzdesiyle, altta ise "Dram · 8 içerikte" şeklinde GERÇEK SAYISIYLA gösteriliyor. Seçilmeyen dilimler soluklaşıyor. Eskiden yalnızca en büyük dilimin yüzdesi sabit yazıyordu ve yüzdenin kaç içeriğe denk geldiği hiç görünmüyordu.
+2. **Aylık grafik:** sütunlara dokunulunca o ayın gerçek değeri başlıkta yazıyla çıkıyor; seçili sütun renkle ayrışıyor. Varsayılan seçim en güncel ay.
+3. **Özet kartları:** "İzlenen Bölüm" ve "İzlenen Film" kutuları artık kütüphanenin ilgili listesine gidiyor. Süre kutusu bir listeye karşılık gelmediği için bilinçli olarak tıklanamaz.
+4. **YENİ kart — Puan Dağılımı:** 1-10 arası sütunlar, ortalama rozeti, sütuna dokununca o puandan kaç tane verildiği. Grafik kütüphanesi bilinçli KULLANILMADI: on basit sütun için `flex` yükseklikleri hem daha az bağımlılık hem de dokunma alanı/seçili durum üzerinde tam kontrol demek.
+5. **Boş durumlar:** hiç içerik yoksa sayfa artık boş grafikler yerine açıklayıcı bir kart gösteriyor; tür/aylık/puan kartlarının her birinin kendi boş metni var.
+
+**Ölü kod temizliği:** `mockChartData.ts` tamamen silindi. `getHistoryEpisodes` (users.ts) tanımlıydı ama projede HİÇ çağrılmıyordu — silindi.
+
+**Doğrulama (web, 420×860, 15 dizi + 10 film gerçekçi tür/puan/tarih verisiyle):**
+1. **Tür matematiği bağımsız betikle karşılaştırıldı:** Diziler → Dram 8, Suç 3, Bilim Kurgu 3, Komedi 2, Macera 1, Animasyon 1, Diğer 6; toplam etiket 24; Dram %33 (8/24). Birebir tuttu. (Bağımsız betiğim eşitlik durumunda alfabetik sıralama uygulamadığı için 1'lik türlerin sırası farklı çıktı; hook'un deterministik sıralaması doğru olan.)
+2. **Sekme gerçekten veriyi değiştiriyor:** Filmler → Aksiyon 3, Dram 3, Komedi 2, Bilim Kurgu 2, Macera 1, Aile 1, Diğer 3; toplam 15; Aksiyon %20 (3/15) ✓.
+3. **Tür seçimi:** lejanttan "Bilim Kurgu"ya tıklandı → merkez "%13 Bilim Kurgu", alt satır "Bilim Kurgu · 3 içerikte" (3/24 = %12,5 → 13) ✓.
+4. **Aylık:** etiketler gerçek son 6 ay (Şub, Mar, Nis, May, Haz, Tem), seçili ay vurgulu; eksen tavanı düzeltmesinden sonra sütunlar kart alanını düzgün dolduruyor (ekran görüntüsüyle önce/sonra karşılaştırıldı).
+5. **Puanlar:** Diziler → 10 puanlama, ortalama 7.9, dağılım 3→1, 6→1, 7→1, 8→2, 9→3, 10→2 (girilen 10,10,9,9,9,8,8,7,6,3 ile birebir) ✓. Filmler → 5 puanlama, ortalama 7.4 (37/5) ✓.
+6. **Puan kaybı hatası:** düzeltmeden ÖNCE, ağ hatası sonrası `@trakt_lib_userRatingsShows` diskte `[]` oluyor ve kart "Henüz puan vermedin" gösteriyordu — iki kez üst üste tekrarlandı. Düzeltmeden SONRA aynı senaryoda puanlar hem diskte hem ekranda korundu.
+7. **Navigasyon:** "İzlenen Bölüm" kutusuna dokunuldu → `/library/shows` açıldı ✓.
+8. **Tamamlanma:** Filmler %100 (10/10) ✓.
+9. `tsc --noEmit` dokunulan dosyalarda temiz; `grep` ile `mockChartData` ve `getHistoryEpisodes` referansı sıfır.
+
+**Temizlik:** Test verisi silindi, misafir modu geri alındı.
+**Not:** Web (`Wide`) bileşenleri de aynı gerçek veriye ve aynı seçim davranışına geçirildi; ancak doğrulama mobil genişlikte yapıldı, masaüstü düzeni gözle kontrol edilmedi.
+
+## 70. Madde 69'daki İki Yeni Hatanın Düzeltilmesi: Puan Ölçeği (10 → 5) ve Sekmeler Arası Veri Sızıntısı
+**Bağlam:** Madde 69'da eklenen Puan Dağılımı kartı ve özet satırında kullanıcının bildirdiği iki hata bulundu — ikisi de kodsal inceleme + izole Node betiğiyle (tarayıcı açılmadan) doğrulandı.
+
+**Hata 1 — Puan Dağılımı 10'luk ölçekte gösteriyordu, uygulama genelinde ölçek 5:** `StarSlider`, `MediaHero`, `InlineRater`, `formatRating` — projedeki HER yer Trakt'ın dahili 1-10 tam sayı puanını ikiye bölüp "X/5" olarak gösteriyor (`grep` ile 7 dosyada doğrulandı). Yeni eklenen `RatingDistributionChart` ise ham 1-10 değerleri doğrudan basıyordu ("7.9" gibi) — kullanıcı puan verirken 1-5 yıldız seçiyor, analiz sayfasında 10 üzerinden bir sayı görüyordu.
+**Çözüm (`hooks/useProfileStatistics.ts`):** `RatingBar.score` artık 5 yıldızlık ölçekte (0.5 artışlarla: raw/2), ham değer ayrıca `rawScore` alanında saklanıyor. `average` da aynı ölçekte hesaplanıyor. `RatingDistributionChart.tsx` bar etiketleri ve ortalama için ARTIK KENDİ FORMÜLÜNÜ İCAT ETMİYOR — uygulamanın tek doğru kaynağı olan `utils/formatRating.ts` yeniden kullanılıyor (`formatRating(bar.rawScore)`, `formatRating(ratings.average * 2)`), böylece bu grafik projenin geri kalanıyla otomatik olarak aynı biçimlendirme kuralına (tam sayıda ondalık göstermeme vb.) tabi.
+
+**Hata 2 — özet kartları sekmeden bağımsız her zaman AYNI değeri gösteriyordu:** `summary.totalMinutes` = `episodes.minutes + movies.minutes` (HER ZAMAN toplam), `episodesWatched` ve `moviesWatched` de her zaman İKİSİ BİRDEN gösteriliyordu. Sonuç: kullanıcı "Filmler" sekmesine geçse bile üstteki kartlar hâlâ dizi verisini (ör. "İzlenen Bölüm") gösteriyordu — sekmelerin görsel dışında hiçbir işlevi yoktu.
+**Çözüm:** `ProfileStatsSummary` arayüzü `{ totalMinutes, watchedCount }` olarak sadeleştirildi; `useProfileStatistics` artık `activeTab`'a göre YALNIZCA o sekmenin süresini/sayısını döndürüyor (diziler → yalnızca `episodes.*`, filmler → yalnızca `movies.*`). `StatsSummaryRow` ve `StatsSummaryRowWide` üç kart yerine iki karta indirildi: geniş süre kartı + sekmeye göre ikonu/etiketi/gittiği kütüphane sayfası değişen tek bir sayaç kartı (Tv/mor → `/library/shows`, Film/turuncu → `/library/movies`). Her iki ekran (`ProfileStatisticsMobile.tsx`, `ProfileStatisticsWeb.tsx`) yeni `activeTab` prop'unu geçecek şekilde güncellendi.
+
+**Doğrulama — KULLANICI İSTEĞİ ÜZERİNE tarayıcı AÇILMADAN, yalnızca kod incelemesi + izole mantık testiyle yapıldı:**
+1. `grep` ile projede `episodesWatched`/`moviesWatched`/eski `ProfileStatsSummary` alanlarına kalan referans olmadığı, `RatingBar`/`ratings.bars`/`ratings.average`'ın tek tüketicisinin güncellenen `RatingDistributionChart` olduğu doğrulandı.
+2. Hook'taki `computeSummary` ve `computeRatings` fonksiyonlarının BİREBİR kopyası ayrı bir Node betiğinde çalıştırıldı (kullanıcının bildirdiği senaryoya yakın veriyle: 4812 bölüm/187430 dk dizi, 316 film/41220 dk film, 10 dizi + 5 film puanı) — **18 test, 18'i geçti**:
+   - Diziler sekmesi → `totalMinutes` SADECE 187430 (film süresi 41220 hiç karışmıyor), `watchedCount` SADECE 4812.
+   - Filmler sekmesi → `totalMinutes` SADECE 41220, `watchedCount` SADECE 316.
+   - Regresyon kontrolü: iki sekmenin döndürdüğü değerler artık kesinlikle FARKLI (eski hata tam olarak bunun aynı olmasıydı).
+   - Puan ortalaması artık 5 ölçekte **3.95** (10 ölçekte 7.9 DEĞİL), 5.0'ı geçmiyor.
+   - Bar etiketleri tam olarak `["0.5","1","1.5","2","2.5","3","3.5","4","4.5","5"]` — `formatRating` ile üretildi, elle yazılmadı.
+   - Girilen 10 puanın (10,10,9,9,9,8,8,7,6,3) kova dağılımı doğru: `[0,0,1,0,0,1,1,2,3,2]`.
+   - Filmler sekmesinde bağımsız hesap: 5 puan, ortalama 3.7 (ham 7.4/2) ✓.
+   - Uç durumlar: puan yokken çökmeden `{total:0, average:0}`; `userStats` `null` iken çökmeden `{0,0}`.
+3. `tsc --noEmit`: dokunulan dosyalarda hata yok (kalan hatalar önceden var olan `useShowDetail.ts`/`locales/` hatalarıdır).
+
+**Bilinçli olarak dokunulmayan bir kozmetik ayrıntı:** `formatRating(ratings.average * 2)` bazı ortalamalarda (ör. 3.95) `toFixed(1)`'in kayan nokta yuvarlamasından dolayı "4.0" gösterebiliyor (tam sayıya çok yakın ama tam eşit değil). Bu, paylaşılan `formatRating` yardımcısının projede zaten var olan bir davranışı — düzeltmek `formatRating`'i (ve onu kullanan 7 dosyayı) değiştirmeyi gerektirirdi, bu maddenin kapsamı dışında bırakıldı.
+
+## 71. Mobil Profil İyileştirmelerinin Masaüstüne (Web) Taşınması
+**Bağlam:** Madde 68-70'te profil ana sayfası ve Detaylı Analiz ekranı mobilde kapsamlı biçimde elden geçirildi. Kullanıcı bu işi masaüstü tarafına da uygun şekilde taşımayı istedi. Kodlamaya başlamadan önce projedeki `.web.tsx` dosyaları tarandı ve neyin zaten paylaşılan/dual-purpose olduğu, neyin gerçekten mobil-özel kaldığı netleştirildi.
+
+**Zaten dual-purpose olup ek iş gerektirmeyenler (doğrulandı, dokunulmadı):** Diziler/Filmler arama+filtre (`[type].web.tsx` zaten `useLibraryFilters` + `LibraryFilterBar/Modal`'a bağlıydı), "İzlemeyi Bırak" metni/mantığı (`OptionsModal`/`TrackingCardMenu` platform ayrımı olmayan ortak dosyalar), Detaylı Analiz sayfası (`ProfileStatisticsWeb.tsx` + `Wide` grafik bileşenleri Madde 69-70'te zaten paralel güncellenmişti), `LibraryMobile.tsx`'e özgü `getItemLayout` satır-indeksi hatası (web grid'i bu prop'u hiç kullanmıyor, hataya hiç maruz kalmamış).
+
+**Gerçekten geride kalan tek yer — Profil ana sayfası (`profile.web.tsx` + `ProfileStats.web.tsx`):** Mobildeki hiçbir yeniliği görmüyordu, kendi ayrı ve eski kod yolunu koruyordu.
+
+**Taramada bulunan 2 hata:**
+1. **`ProfileStats.web.tsx` — sekmeler arası veri sızıntısı (Madde 70'teki hatanın masaüstü ikizi):** Bu dosya `useProfileStatistics` hook'unu HİÇ kullanmıyor, kendi ayrı `useLibrarySelector` + yerel hesaplamasına sahipti. Yalnızca "Toplam İzleme Süresi" `activeTab`'a göre değişiyor, "İzlenen Bölüm" VE "İzlenen Film" sayıları sekmeden bağımsız olarak HER ZAMAN birlikte gösteriliyordu. Madde 70'teki düzeltme bu dosyaya hiç sirayet etmemişti çünkü tamamen ayrı bir kod yolu.
+2. **"Listelerim" kartları masaüstünde devasa büyüyordu:** `ListCard.tsx` boyutunu `profileMetrics.ts`'ten alıyor, o da `Dimensions.get('window').width * 0.28` formülü — MOBİL EKRAN için tasarlanmış. Web'deki komşu carousel kartları (`MovieCard.web.tsx`, `EpisodeCard.web.tsx`) ise SABİT 180×270. `WebCarousel` de `renderItem`'a genişlik sınırı koymuyor. Sonuç: 1440px'lik bir pencerede Listelerim kartları ~403px'e çıkıyor, yanındaki 180px'lik Diziler/Filmler kartlarından 2 kattan fazla büyük görünüyordu. Kod incelemesiyle doğrulandı, tahmin değil.
+
+**Ayrıca bulunan, kullanıcı isteğiyle YALNIZCA KAYDA GEÇİRİLEN, düzeltilmeyen bir bulgu:** Projede 6 farklı modal (`OptionsModal`, `AddToListModal`, `CommentSheet`, `WriteCommentSheet`, `EpisodeOptionsModal`, `app/(public)/settings.tsx`) tamamen platform-farkında olmayan `animationType="slide"` alttan-açılan-sheet desenini kullanıyor — masaüstünde tam pencere genişliğinde alttan kayan bir panel olarak açılıyorlar. `LibraryFilterModal`'a (Madde 65) yapılan `wide` (ortalanmış modal) varyantı hiçbirinde yok. Bu, bu oturumun mobil işinin bir parçası değil, önceden var olan sistemik bir tasarım borcu; kullanıcı "şimdilik not al, ileride konuşuruz" dedi — KOD DEĞİŞTİRİLMEDİ.
+
+**Çözüm 1 — `ProfileStats.web.tsx` yeniden yazıldı:** Kullanıcının açık talimatıyla ("mobildeki ile benzer karta yaklaştır, ama web ekranlarıyla uyumlu da olsun") mobildeki `ProfileStatsMobile.tsx`'in "süre + sayı TEK satırda, ince ayraçla yan yana" iskeleti masaüstü ölçeğine taşındı (birebir kopya değil: daha büyük tipografi — süre 40px vs mobilin 26px —, daha geniş dolgu, masaüstüne özgü her zaman görünen "Detaylı Analiz'e Git" bağlantısı korundu). Artık İKİ değer de (`formattedDuration` VE `watchedCount`) `activeTab`'a göre değişiyor — sekme sızıntısı kapandı. Dar ekranda (`!isDesktop`) hâlâ `ProfileStatsMobile`'a devrediyor (mevcut, doğru desen korundu).
+
+**Çözüm 2 — kart boyutu:** `profileMetrics.ts`'e `DESKTOP_CARD_WIDTH=180`, `DESKTOP_CARD_HEIGHT=270`, `DESKTOP_CARD_GAP=16` sabitleri eklendi (sibling web kartlarıyla birebir). `ListCard.tsx` ve `ListCardSkeleton.tsx`'e opsiyonel `cardWidth`/`cardHeight`/`gap` prop'ları eklendi (varsayılan = mobil yüzde-tabanlı ölçüler, yani `ProfileMobile.tsx`'teki mevcut çağrılar SIFIR değişiklikle eski davranışını korudu). `profile.web.tsx` artık bu üç prop'u masaüstü sabitleriyle geçiyor — hem dolu `WebCarousel` durumunda hem yüklenme iskeletinde.
+
+**Yan düzeltme:** "Listelerim" boş durumundaki elle çizilen başlık (`carouselTitle`, 20px) ile `WebCarousel`'in kendi başlığı (`categoryTitle`, 24px) arasında font boyutu tutarsızlığı bulundu — liste dolup boşaldıkça başlık görünür şekilde zıplıyordu. 24px'e eşitlendi.
+
+**Doğrulama — tarayıcıda, 1440×900 masaüstü genişliğinde, gerçekçi veriyle (24 dizi, 18 film, 6 favori dizi, 3 liste, userStats):**
+1. **Kart boyutu — konumsal olarak izole ölçüldü** (sidebar'daki aynı-metinli nav linkleriyle karışmaması için "Listelerim" ve carousel "Diziler" başlıklarının GERÇEK y-koordinatları bulunup kartlar o aralıkta arandı): Listelerim kartları `180×270`, Diziler carousel kartları da `180×270` — BİREBİR eşleşme.
+2. **Sekme sızıntısı testi:** İlk denemede `computer` aracının `ref`-tabanlı tıklaması RNW'nin Pressable'ını tetiklemedi (bu oturumda daha önce de görülen bir ortam kısıtı — bkz. Madde 64); gerçek `pointerdown/mousedown/pointerup/mouseup/click` olay dizisini doğrudan `dispatchEvent` ile göndererek doğrulandı. Filmler sekmesine geçildiğinde: süre "4 Ay, 10 Gün" → **"28 Gün, 15 Saat"**, sayı "4.812 İzlenen Bölüm" → **"316 İzlenen Film"** — ikisi de değişti (eski hata tam olarak ikisinin de değişmemesiydi). Diziler'e geri dönüldüğünde değerler doğru şekilde eski haline döndü (round-trip).
+3. **Navigasyon:** "Detaylı Analiz'e Git" bağlantısı `/profile/statistics`'e gitti.
+4. **Regresyon — dar ekran (400px):** `!isDesktop` dalı hâlâ doğru tetikleniyor (`ProfileMobile` başlığı "Profil" göründü), özet kartı mobildeki tek-değerli tasarımını koruyor, Listelerim kartları mobil yüzde-tabanlı boyutuna (112px = round(400×0.28)) geri döndü — masaüstü sabitleri mobil tarafa hiç sızmamış.
+5. Konsolda yalnızca beklenen ağ hataları var (bu ortamda internet kapalı; Madde 70'in düzeltmesi gereği `getUserRatings` artık sessizce yutmak yerine `throw` ediyor, bu da hata mesajlarının görünür olmasının SEBEBİ — regresyon değil, doğru davranışın kanıtı). React/bileşen seviyesinde hiçbir hata yok.
+6. `tsc --noEmit`: dokunulan dosyalarda hata yok (kalan hatalar önceden var olan `useShowDetail.ts`/`locales/` hatalarıdır).
+
+**Temizlik:** Test verisi silindi, misafir modu geri alındı.
+
+**Kapsam dışı bırakılan (kullanıcı onayıyla):** 6 modalin platform-farkında `wide` varyantına kavuşturulması — ayrı, daha büyük bir görev olarak ileride ele alınacak.
+
+## 72. Ayarlar: "Performans Raporunu Kopyala" Gizli Geliştirici Moduna Alındı
+**Bağlam:** Kullanıcı, tanılama amaçlı "Performans Raporunu Kopyala" butonunun normal kullanıcılara görünmemesini, yalnızca sürüm numarasına Android'in "Yapı Numarası" esprisiyle aynı mantıkta (7 hızlı ard arda dokunma) gizli bir Geliştirici Modu açıldığında ortaya çıkmasını istedi. Açık kural: performans raporunu toplayan arka plan/telemetri mantığına (`hooks/useSettings.ts`'teki `handleExportMetrics`, `utils/metrics.ts`, `utils/metricsStore.ts`, `utils/errorLog.ts`) KESİNLİKLE dokunulmayacaktı — yalnızca UI'da gizlenecekti. `git diff --stat` ile bu dört dosyanın SIFIR satır değiştiği doğrulandı.
+
+**Uygulama (`app/(protected)/account.tsx`):**
+1. "🛠️ Tanılama" `SettingsSection`'ının TAMAMI (yalnızca içindeki buton değil — aksi halde `isDeveloperMode=false` iken içi boş bir bölüm başlığı görünürdü) `isDeveloperMode` state'ine bağlandı.
+2. Sayfanın en altına, sürüm numarasını (`Constants.expoConfig?.version` — `app.json`'daki gerçek değer, hardcode edilip zamanla eskimemesi için) soluk/küçük bir metin olarak gösteren, görünüşte sıradan bir satır eklendi. `activeOpacity={1}` bilinçli: normal metinmiş gibi durması, buton gibi "bastırılmış" görünmemesi gerekiyordu.
+3. Bu metne 1500ms'lik bir pencere içinde ard arda 7 kez dokunulunca `isDeveloperMode` TERSİNE çevrilir (`!isDeveloperMode`) — yani AYNI jest tekrar uygulanınca modu KAPATIR (kullanıcının ek isteği: "tekrar 7 kere basınca gizlensin"). Pencere dışına taşan bir dokunuş sayacı sıfırlar — "hızlı ard arda" şartı gerçekten aranıyor, dağınık 7 dokunuş saymaz.
+4. Mod her değiştiğinde projenin mevcut `Snackbar` bileşeniyle (yeni bir toast sistemi icat edilmedi) "🔓 Geliştirici Konsolu Kilidi Açıldı" / "🔒 Geliştirici Konsolu Gizlendi" bildirimi gösterilir.
+5. Kalıcı DEĞİL (AsyncStorage'a yazılmıyor) — bilinçli tercih: uygulama yeniden açıldığında sıfırlanır, gerçek bir kullanıcının bunu yanlışlıkla açık unutması söz konusu olmaz.
+
+**Kapsam dışı bırakılan, kullanıcıya açıkça bildirilecek eksik:** Görev tarifi "Performans Raporunu Kopyala butonu (VE hata günlüğü ekranı) sadece bu gizli mod açıldığında görünür olsun" diyordu. Kod tabanı TARANDI (`grep -rn "errorLog\|hata günlüğü\|ErrorLog"`) ve projede böyle bir EKRAN (route/screen) bulunmadığı görüldü — yalnızca `utils/errorLog.ts` adında, hataları AsyncStorage'a yazan bir ARKA PLAN yardımcı dosyası var, hiçbir UI tüketicisi yok. Var olmayan bir şey gizlenemeyeceği için bu madde atlandı; sahte bir ekran icat edilmedi. Kullanıcıya bu bulgunun ayrı bir görev olarak ele alınıp alınmayacağı soruldu.
+
+**Doğrulama — tarayıcıda, gerçek olay dizileriyle:**
+1. **Varsayılan durum (taze sayfa yüklemesi):** "TANILAMA" metni ekranda YOK, "Sürüm 1.1.1" (app.json'daki gerçek sürüm) alt kısımda görünüyor — istenen 1. ve 2. madde doğrulandı.
+2. **Test sırasında karşılaşılan, KODLA İLGİSİZ bir ortam kısıtı:** İlk denemelerde tek bir senkron script içinde hem 7 dokunuşu gönderip hem de DOM'u AYNI ANDA kontrol etmek, React'in state güncellemesini henüz DOM'a yansıtmadığı bir ana denk geldiği için "toggle çalışmıyor" izlenimi verdi. `window` üzerine geçici bir çağrı sayacı (`__devTapInvocations`) koyup gerçek davranışı izole ettim: 7 dokunuş = TAM OLARAK 7 gerçek çağrı (çift tetikleme YOK), `setIsDeveloperMode` doğru tetikleniyor — sorun yalnızca DOM'u React'in commit'inden ÖNCE okumamdı. DOM kontrolü ayrı bir script çağrısına (React'e render için bir tık payı bırakacak şekilde) taşınınca:
+   - 7 hızlı dokunuş → "🛠️ TANILAMA" ve "Performans Raporunu Kopyala" GÖRÜNDÜ, Snackbar "🔓 Geliştirici Konsolu Kilidi Açıldı" ekranda belirdi (ekran görüntüsüyle doğrulandı).
+   - Aynı sayfada 7 hızlı dokunuş DAHA → "🛠️ TANILAMA" TEKRAR KAYBOLDU — istenen "tekrar basınca gizlensin" davranışı çalışıyor.
+3. **Pencere şartı doğrulandı (yan bulgu, iki ayrı tool çağrısı arasındaki gerçek gecikmeden kaynaklandı):** 1 dokunuş + (gerçek birkaç saniyelik bir aradan sonra) 6 dokunuş daha = toplam 7 gerçek çağrıya rağmen mod AÇILMADI — çünkü aradaki boşluk 1500ms penceresini aştığı için sayaç sıfırlandı. Bu, "hızlı ard arda" şartının kodda gerçekten uygulandığının kanıtı, hata değil.
+4. `tsc --noEmit`: dokunulan dosyada hata yok (kalan hatalar önceden var olan `useShowDetail.ts`/`locales/` hatalarıdır). `handleExportMetrics`'in kendisi ve arkasındaki telemetri zinciri hiç değiştirilmedi.
+
+**Temizlik:** Kök nedeni ararken eklenen geçici `console.log` ve `window.__devTap*` debug kancaları tamamen kaldırıldı (`grep` ile teyit edildi).

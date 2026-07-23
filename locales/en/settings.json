@@ -32,5 +32,8 @@
   "diagnostics": "🛠️ Diagnostics",
   "exportPerformanceReport": "Copy Performance Report",
   "exportPerformanceReportSuccess": "The last 24 hours' performance report was copied to the clipboard.",
-  "exportPerformanceReportError": "An error occurred while generating the report."
+  "exportPerformanceReportError": "An error occurred while generating the report.",
+  "appVersion": "Version {{version}}",
+  "developerModeUnlocked": "🔓 Developer Console Unlocked",
+  "developerModeLocked": "🔒 Developer Console Hidden"
 }

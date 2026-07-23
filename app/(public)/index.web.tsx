@@ -483,7 +483,7 @@ export default function WebLandingPage() {
       <nav className="nav" style={navStyle}>
         <div className="kaymak-container">
           <a onClick={() => window.scrollTo(0, 0)} className="logo">
-            <span className="dot"></span>Kaymak
+            <span className="dot"></span>KaymakTV
           </a>
           <ul className="nav-links">
             <li><a href="#ozellikler">{t('features')}</a></li>
@@ -672,7 +672,7 @@ export default function WebLandingPage() {
         <div className="kaymak-container">
           <div className="foot-top">
             <div className="foot-brand">
-              <a onClick={() => window.scrollTo(0, 0)} className="logo"><span className="dot"></span>Kaymak</a>
+              <a onClick={() => window.scrollTo(0, 0)} className="logo"><span className="dot"></span>KaymakTV</a>
               <p>{t('digitalDiary')}</p>
             </div>
             <div className="foot-cols">
@@ -696,7 +696,7 @@ export default function WebLandingPage() {
             </div>
           </div>
           <div className="foot-bottom">
-            <span>© 2026 Kaymak. Tüm hakları saklıdır.</span>
+            <span>© 2026 KaymakTV. Tüm hakları saklıdır.</span>
             <div className="foot-social">
               <a href="#" aria-label="Instagram"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
               <a href="#" aria-label="X"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4l16 16M20 4L4 20"/></svg></a>

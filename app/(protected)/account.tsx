@@ -1,14 +1,17 @@
 import * as AuthSession from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Activity, Globe, LogOut, Trash2 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -19,9 +22,17 @@ import SettingsRow from '../../components/settings/SettingsRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
+import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { exchangeAuthCode } from '../../services/traktApi';
+
+// Sürüm numarasına bu kadar kez, aşağıdaki pencere içinde ard arda dokununca
+// gizli "Geliştirici Modu" açılır/kapanır (Android'in "Yapı Numarası"na
+// dokunma esprisiyle aynı mantık). Aynı jest tekrar uygulanınca modu
+// KAPATIR — açma/kapama tek bir dokunma dizisiyle simetrik.
+const DEV_MODE_REQUIRED_TAPS = 7;
+const DEV_MODE_TAP_WINDOW_MS = 1500;
 
 // Auth session web browser desteğini başlat
 WebBrowser.maybeCompleteAuthSession();
@@ -39,6 +50,43 @@ export default function SettingsScreen() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  // ── Gizli Geliştirici Modu (sürüm numarasına 7 hızlı dokunma) ────────────
+  // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
+  // sıfırlanır — bu, "gizli" bir tanılama anahtarı için bilinçli bir tercih;
+  // gerçek kullanıcının yanlışlıkla bunu açık bırakması söz konusu olmasın.
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  const [devModeToast, setDevModeToast] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: '',
+  });
+  const tapCountRef = useRef(0);
+  const lastTapAtRef = useRef(0);
+
+  const handleVersionTap = () => {
+    const now = Date.now();
+    // Pencere dışına taşan bir dokunuş, sayaç dizisini SIFIRLAR — kullanıcı
+    // 3 kere dokunup ara verip 4 dokunma daha yaparsa bu 7 SAYILMAZ, "hızlı
+    // ard arda" şartını gerçekten karşılamış olması gerekir.
+    if (now - lastTapAtRef.current > DEV_MODE_TAP_WINDOW_MS) {
+      tapCountRef.current = 0;
+    }
+    tapCountRef.current += 1;
+    lastTapAtRef.current = now;
+    if (tapCountRef.current >= DEV_MODE_REQUIRED_TAPS) {
+      tapCountRef.current = 0;
+      const next = !isDeveloperMode;
+      setIsDeveloperMode(next);
+      setDevModeToast({
+        visible: true,
+        message: next
+          ? t('settings:developerModeUnlocked', '🔓 Geliştirici Konsolu Kilidi Açıldı')
+          : t('settings:developerModeLocked', '🔒 Geliştirici Konsolu Gizlendi'),
+      });
+    }
+  };
+
+  const appVersion = Constants.expoConfig?.version ?? '1.1.1';
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();
@@ -142,15 +190,19 @@ export default function SettingsScreen() {
             />
           </SettingsSection>
 
-          <SettingsSection title={t('settings:diagnostics')}>
-            <SettingsRow
-              icon={<Activity size={20} color="#38bdf8" />}
-              label={t('settings:exportPerformanceReport')}
-              tintColor="#38bdf8"
-              onPress={handleExportMetrics}
-              disabled={isExportingMetrics}
-            />
-          </SettingsSection>
+          {/* Yalnızca gizli Geliştirici Modu açıkken görünür — bkz. sürüm
+              numarasına 7 hızlı dokunma. Normal kullanıcı bu bölümü hiç görmez. */}
+          {isDeveloperMode && (
+            <SettingsSection title={t('settings:diagnostics')}>
+              <SettingsRow
+                icon={<Activity size={20} color="#38bdf8" />}
+                label={t('settings:exportPerformanceReport')}
+                tintColor="#38bdf8"
+                onPress={handleExportMetrics}
+                disabled={isExportingMetrics}
+              />
+            </SettingsSection>
+          )}
 
           <SettingsSection title="⚠️ Hesap Seçenekleri">
             <SettingsRow
@@ -171,6 +223,20 @@ export default function SettingsScreen() {
               disabled={isDeletingAccount}
             />
           </SettingsSection>
+
+          {/* Görünüşte sıradan bir sürüm etiketi — 7 hızlı dokunuşluk gizli
+              kapı. `activeOpacity={1}` bilinçli: normal bir metinmiş gibi
+              durması gerekiyor, buton gibi "bastırılmış" görünmemeli. */}
+          <TouchableOpacity
+            onPress={handleVersionTap}
+            activeOpacity={1}
+            hitSlop={{ top: 12, bottom: 12, left: 24, right: 24 }}
+            style={styles.versionRow}
+          >
+            <Text style={styles.versionText}>
+              {t('settings:appVersion', 'Sürüm {{version}}', { version: appVersion })}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -179,6 +245,13 @@ export default function SettingsScreen() {
         loading={isDeletingAccount}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteModalVisible(false)}
+      />
+
+      <Snackbar
+        visible={devModeToast.visible}
+        message={devModeToast.message}
+        onDismiss={() => setDevModeToast((prev) => ({ ...prev, visible: false }))}
+        duration={2500}
       />
     </SafeAreaView>
   );
@@ -209,5 +282,14 @@ const styles = StyleSheet.create({
     maxWidth: 680,
     alignSelf: 'center',
     paddingHorizontal: 0,
+  },
+  versionRow: {
+    alignItems: 'center',
+    marginTop: -8,
+  },
+  versionText: {
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

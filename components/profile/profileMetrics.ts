@@ -21,3 +21,18 @@ export const SECTION_PADDING_H = 16;
 
 /** Şeritler arası dikey boşluk. */
 export const SECTION_SPACING = 26;
+
+/**
+ * Masaüstü (`profile.web.tsx`, `isDesktop` dalı) için SABİT kart ölçüleri.
+ *
+ * `POSTER_CARD_WIDTH` yukarıda `Dimensions.get('window').width` üzerinden,
+ * yani MOBİL EKRAN için hesaplanır. Bunu masaüstünde de kullanmak "Listelerim"
+ * kartlarının, aynı sayfadaki komşu carousel'lerin (`MovieCard.web.tsx`,
+ * `EpisodeCard.web.tsx` — ikisi de sabit 180×270 kullanır) yanında devasa
+ * büyük görünmesine yol açardı: geniş bir pencerede `width * 0.28` kolayca
+ * 400px'i aşar. Bu yüzden masaüstünde ayrı, sabit bir ölçü kullanılır —
+ * sibling kartlarla BİREBİR aynı boyutta.
+ */
+export const DESKTOP_CARD_WIDTH = 180;
+export const DESKTOP_CARD_HEIGHT = 270;
+export const DESKTOP_CARD_GAP = 16;

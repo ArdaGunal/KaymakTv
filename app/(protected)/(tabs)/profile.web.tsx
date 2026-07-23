@@ -19,6 +19,7 @@ import ListCardSkeleton from '../../../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../../../components/profile/ListsEmptyCard';
 import LoginPaywall from '../../../components/LoginPaywall';
 import ProfileStats from '../../../components/profile/ProfileStats';
+import { DESKTOP_CARD_WIDTH, DESKTOP_CARD_HEIGHT, DESKTOP_CARD_GAP } from '../../../components/profile/profileMetrics';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
   items.map((item: any) => ({
@@ -58,7 +59,14 @@ export default function ProfileScreenWeb() {
 
   const renderShowItem = useCallback(({ item }: { item: any }) => <EpisodeCard data={item} />, []);
   const renderMovieItem = useCallback(({ item }: { item: any }) => <MovieCard data={item} />, []);
-  const renderListItem = useCallback(({ item }: { item: any }) => <ListCard data={item} />, []);
+  // ESKİ HATA (bulundu ve düzeltildi): `ListCard` varsayılan olarak
+  // `Dimensions.get('window').width`'in yüzdesi kadar genişlik alıyordu — bu
+  // mobil ekran için doğruydu ama geniş bir masaüstü penceresinde (ör. 1440px)
+  // kolayca 400px'i aşıyor, komşu Diziler/Filmler kartlarından (sabit 180px)
+  // çok daha büyük görünüyordu. Burada masaüstüne özgü SABİT ölçüler geçiliyor.
+  const renderListItem = useCallback(({ item }: { item: any }) => (
+    <ListCard data={item} cardWidth={DESKTOP_CARD_WIDTH} cardHeight={DESKTOP_CARD_HEIGHT} gap={DESKTOP_CARD_GAP} />
+  ), []);
 
   const openViewAll = useCallback((title: string, data: any[], routeType: string) => {
     viewAllStore.data = data;
@@ -118,7 +126,7 @@ export default function ProfileScreenWeb() {
             <View style={styles.listsSection}>
               <Text style={styles.carouselTitle}>{t('myLists', 'Listelerim')}</Text>
               {isListsLoading ? (
-                <ListCardSkeleton />
+                <ListCardSkeleton cardWidth={DESKTOP_CARD_WIDTH} cardHeight={DESKTOP_CARD_HEIGHT} gap={DESKTOP_CARD_GAP} />
               ) : (
                 <View style={styles.listsEmptyWrap}>
                   <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
@@ -169,12 +177,17 @@ const styles = StyleSheet.create({
   carouselsContainer: {
     gap: 16,
   },
+  // Bu başlık, "Listelerim" boş durumundayken WebCarousel render EDİLMEDİĞİ
+  // için (carousel `data.length === 0` olunca null döner) elle çizilir.
+  // Font boyutu WebCarousel'in kendi `categoryTitle` stiliyle (24px) BİREBİR
+  // eşleşecek şekilde ayarlandı — eskiden 20px'ti, dolu/boş durumlar arasında
+  // geçişte başlık boyutu görünür şekilde zıplıyordu.
   carouselTitle: {
-    color: '#ffffff',
-    fontSize: 20,
+    color: '#f8fafc',
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 12,
-    paddingLeft: 4,
+    letterSpacing: 0.5,
+    marginBottom: 16,
   },
   listsSection: {
     marginBottom: 8,

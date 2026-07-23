@@ -13,7 +13,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
         {/* Pinch-to-zoom'u kapatmak için (Native hissiyat): */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         
-        <title>Kaymak</title>
+        <title>KaymakTV</title>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         

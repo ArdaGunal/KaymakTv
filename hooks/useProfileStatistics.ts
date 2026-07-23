@@ -5,9 +5,10 @@ import { useLibrarySelector } from '../context/LibraryContext';
 export type StatsTab = 'shows' | 'movies';
 
 export interface ProfileStatsSummary {
+  /** Yalnızca aktif sekmenin süresi (dizi sekmesindeyken film süresi karışmaz, tersi de geçerli). */
   totalMinutes: number;
-  episodesWatched: number;
-  moviesWatched: number;
+  /** Aktif sekmeye göre "izlenen bölüm" ya da "izlenen film" sayısı. */
+  watchedCount: number;
 }
 
 export interface ProfileStatsCompletion {
@@ -33,13 +34,24 @@ export interface MonthlyBar {
 }
 
 export interface RatingBar {
+  /**
+   * UYGULAMA GENELİNDEKİ 5 YILDIZLIK ÖLÇEKTE puan (0.5 artışlarla: 0.5, 1, 1.5 … 5).
+   * Trakt API puanları 1-10 tam sayı olarak saklar; uygulamanın HER YERİ
+   * (`formatRating`, `StarSlider`, `MediaHero`, `InlineRater`…) bunu ikiye
+   * bölüp "X/5" olarak gösterir. Bu grafik de aynı ölçeği kullanmalı — aksi
+   * halde kullanıcı burada "7.9" görürken puan verirken hep 1-5 arası bir
+   * yıldız seçtiğini sanır, iki ekran farklı ölçek konuşur.
+   */
   score: number;
+  /** Trakt'ın ham 1-10 puanı — yalnızca dahili eşleme için. */
+  rawScore: number;
   count: number;
 }
 
 export interface ProfileStatsRatings {
   bars: RatingBar[];
   total: number;
+  /** 5 yıldızlık ölçekte ortalama (ör. 3.9), `formatRating` ile aynı ölçek. */
   average: number;
 }
 
@@ -64,7 +76,17 @@ const MONTHS_BACK = 6;
  *   dolayısıyla grafik "o ay kaç bölüm izlendi"yi değil, "o ay kaç dizi/filmle
  *   ilgilenildi"yi gösterir. Başlıklar da bunu söyleyecek şekilde yazıldı —
  *   elimizdeki veriyle dürüstçe söylenebilecek şey bu.
- * - Puanlar: `userRatingsShows` / `userRatingsMovies`.
+ * - Puanlar: `userRatingsShows` / `userRatingsMovies`. Trakt puanları dahili
+ *   olarak 1-10 tam sayı saklar; uygulamanın HER YERİ (`formatRating`,
+ *   `StarSlider`, `MediaHero`…) bunu ikiye bölüp 5 yıldızlık ölçekte gösterir.
+ *   `ratings` çıktısı da AYNI ölçekte — `bars[].score` ve `average` 0.5-5
+ *   arası, ham `bars[].rawScore` yalnızca dahili eşleme için tutulur.
+ *
+ * ÖNEMLİ (özet kartları): `summary` yalnızca `activeTab`'ın kendi verisini
+ * içerir (dizi sekmesindeyken film süresi/sayısı, film sekmesindeyken dizi
+ * süresi/sayısı KARIŞMAZ). Eskiden bu değer sekmeden bağımsız olarak HER ZAMAN
+ * ikisinin toplamıydı; kullanıcı Filmler'e geçse bile üstteki kartlar hâlâ
+ * dizi verisini gösteriyordu.
  */
 export function useProfileStatistics(activeTab: StatsTab) {
   const { t, i18n } = useTranslation('media');
@@ -99,11 +121,22 @@ export function useProfileStatistics(activeTab: StatsTab) {
       .filter((entry) => !!entry.media);
   }, [activeTab, watchedShows, watchedMovies]);
 
-  const summary = useMemo<ProfileStatsSummary>(() => ({
-    totalMinutes: (userStats?.episodes.minutes || 0) + (userStats?.movies.minutes || 0),
-    episodesWatched: userStats?.episodes.watched || 0,
-    moviesWatched: userStats?.movies.watched || 0,
-  }), [userStats]);
+  // ESKİ HATA: bu değer `activeTab`'a hiç bakmadan dizi + film süresini/sayısını
+  // HER ZAMAN topluyordu. Sonuç: kullanıcı "Filmler" sekmesine geçse bile üstteki
+  // kartlar hâlâ dizi verisini (ör. "İzlenen Bölüm") gösteriyordu — sekmenin
+  // hiçbir anlamı yoktu. Artık her sekme YALNIZCA kendi verisini gösteriyor.
+  const summary = useMemo<ProfileStatsSummary>(() => {
+    if (activeTab === 'shows') {
+      return {
+        totalMinutes: userStats?.episodes.minutes || 0,
+        watchedCount: userStats?.episodes.watched || 0,
+      };
+    }
+    return {
+      totalMinutes: userStats?.movies.minutes || 0,
+      watchedCount: userStats?.movies.watched || 0,
+    };
+  }, [activeTab, userStats]);
 
   // Diziler: "başlanan" = kütüphanede izlenen dizi sayısı, "biten" = ilerleme
   // haritasında yayınlanan tüm bölümlere yetişmiş (completed >= aired) diziler.
@@ -203,21 +236,32 @@ export function useProfileStatistics(activeTab: StatsTab) {
 
   const ratings = useMemo<ProfileStatsRatings>(() => {
     const source = activeTab === 'shows' ? userRatingsShows : userRatingsMovies;
-    const bars: RatingBar[] = Array.from({ length: 10 }, (_, i) => ({ score: i + 1, count: 0 }));
+    // Trakt'ın ham 1-10'u, uygulama genelindeki 5 yıldızlık ölçeğe eşlenir:
+    // raw 1 → 0.5 yıldız, raw 10 → 5 yıldız (bkz. `formatRating`).
+    const bars: RatingBar[] = Array.from({ length: 10 }, (_, i) => ({
+      score: (i + 1) / 2,
+      rawScore: i + 1,
+      count: 0,
+    }));
 
     let total = 0;
-    let sum = 0;
+    let rawSum = 0;
 
     for (const item of source || []) {
       const rating = Number(item?.rating);
       if (!Number.isFinite(rating) || rating < 1 || rating > 10) continue;
-      const score = Math.round(rating);
-      bars[score - 1].count += 1;
+      const rawScore = Math.round(rating);
+      bars[rawScore - 1].count += 1;
       total += 1;
-      sum += score;
+      rawSum += rawScore;
     }
 
-    return { bars, total, average: total > 0 ? sum / total : 0 };
+    // Ortalama da ham (1-10) toplam üzerinden hesaplanıp SONRA 5'lik ölçeğe
+    // bölünür — `rawSum / total / 2`, `(rawSum/2) / total`'a eşit olsa da
+    // niyeti (ham puanların ortalaması, sonra ölçek dönüşümü) daha açık anlatır.
+    const average = total > 0 ? (rawSum / total) / 2 : 0;
+
+    return { bars, total, average };
   }, [activeTab, userRatingsShows, userRatingsMovies]);
 
   return {

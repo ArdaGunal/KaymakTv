@@ -1,24 +1,40 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Clock, Tv, Film } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { formatWatchDuration } from '../../../utils/watchTimeHelper';
-import type { ProfileStatsSummary } from '../../../hooks/useProfileStatistics';
+import type { ProfileStatsSummary, StatsTab } from '../../../hooks/useProfileStatistics';
 
 interface StatsSummaryRowWideProps {
   summary: ProfileStatsSummary;
+  activeTab: StatsTab;
 }
 
 // Masaüstü özet satırı: mobildeki dar kartların büyütülmüş hali değil, ayrı
 // bir bileşen — geniş ekranda nefes alan padding ve daha büyük tipografi ile.
-const StatsSummaryRowWide = ({ summary }: StatsSummaryRowWideProps) => {
+//
+// ESKİ HATA: aktif sekmeden bağımsız olarak hem "İzlenen Bölüm" hem "İzlenen
+// Film" kutusu birlikte gösteriliyordu (bkz. mobil sürümdeki aynı düzeltme).
+// İkinci kutu artık aktif sekmeye göre değişiyor.
+const StatsSummaryRowWide = ({ summary, activeTab }: StatsSummaryRowWideProps) => {
   const { t } = useTranslation('media');
+  const router = useRouter();
 
   const totalWatchTime = formatWatchDuration(summary.totalMinutes, {
     month: t('unitMonth', 'Ay'),
     day: t('unitDay', 'Gün'),
     hour: t('unitHour', 'Saat'),
   });
+
+  const isShows = activeTab === 'shows';
+  const CountIcon = isShows ? Tv : Film;
+  const countLabel = isShows
+    ? t('episodesWatchedCount', 'İzlenen Bölüm')
+    : t('moviesWatchedCount', 'İzlenen Film');
+  const countRoute = isShows ? '/(protected)/library/shows' : '/(protected)/library/movies';
+  const countIconColor = isShows ? '#a78bfa' : '#fbbf24';
+  const countIconBg = isShows ? 'rgba(139,92,246,0.14)' : 'rgba(245,158,11,0.14)';
 
   return (
     <View style={styles.row}>
@@ -30,21 +46,17 @@ const StatsSummaryRowWide = ({ summary }: StatsSummaryRowWideProps) => {
         <Text style={styles.label}>{t('totalWatchTime', 'Toplam İzleme Süresi')}</Text>
       </View>
 
-      <View style={styles.card}>
-        <View style={[styles.iconBadge, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
-          <Tv size={18} color="#a78bfa" />
+      <Pressable
+        style={({ pressed }) => [styles.card, styles.cardTappable, pressed && styles.cardPressed]}
+        onPress={() => router.push(countRoute)}
+        accessibilityRole="button"
+      >
+        <View style={[styles.iconBadge, { backgroundColor: countIconBg }]}>
+          <CountIcon size={18} color={countIconColor} />
         </View>
-        <Text style={styles.value}>{summary.episodesWatched.toLocaleString()}</Text>
-        <Text style={styles.label}>{t('episodesWatchedCount', 'İzlenen Bölüm')}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={[styles.iconBadge, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
-          <Film size={18} color="#fbbf24" />
-        </View>
-        <Text style={styles.value}>{summary.moviesWatched.toLocaleString()}</Text>
-        <Text style={styles.label}>{t('moviesWatchedCount', 'İzlenen Film')}</Text>
-      </View>
+        <Text style={styles.value}>{summary.watchedCount.toLocaleString()}</Text>
+        <Text style={styles.label}>{countLabel}</Text>
+      </Pressable>
     </View>
   );
 };
@@ -64,6 +76,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 20,
     padding: 22,
+  },
+  cardTappable: {
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
+  },
+  cardPressed: {
+    opacity: 0.7,
   },
   iconBadge: {
     width: 34,

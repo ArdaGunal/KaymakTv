@@ -11,6 +11,7 @@ interface MonthlyFrequencyChartWideProps {
 
 const ACTIVE_COLOR = '#3B82F6';
 const IDLE_COLOR = '#1e3a5f';
+const SECTIONS = 4;
 
 // Sağ sütun: GenreDonutChartWide ile aynı yükseklikte, daha kalın çubuklu
 // bir sürüm — dar mobil kartın büyütülmüşü değil, ayrı bileşen.
@@ -34,6 +35,13 @@ const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWid
   );
 
   const total = useMemo(() => data.reduce((sum, bar) => sum + bar.value, 0), [data]);
+
+  // Bkz. mobil sürüm: eksen tavanı veriye göre ayarlanmazsa küçük değerlerde
+  // sütunlar kartın dibinde cılız kalıyor.
+  const maxValue = useMemo(() => {
+    const peak = Math.max(...data.map((bar) => bar.value), 0);
+    return peak > 0 ? Math.ceil(peak / SECTIONS) * SECTIONS : SECTIONS;
+  }, [data]);
   const selected = data[Math.min(Math.max(selectedIndex, 0), data.length - 1)];
 
   const selectedText = selected
@@ -72,7 +80,8 @@ const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWid
             xAxisThickness={0}
             xAxisLabelTextStyle={styles.axisLabel}
             yAxisTextStyle={styles.axisLabel}
-            noOfSections={4}
+            noOfSections={SECTIONS}
+            maxValue={maxValue}
             height={220}
             initialSpacing={16}
             endSpacing={8}
