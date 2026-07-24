@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { CheckCircle2, Compass, UserCheck } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import LoadingIndicator from '../LoadingIndicator';
 import SettingsRow from './SettingsRow';
 import { SettingsSection, SettingsSectionDivider } from './SettingsSection';
 
@@ -56,7 +55,7 @@ export function TraktAccountSection({ isConnected, isConnecting, canConnect, onC
             disabled={isConnecting || !canConnect}
           >
             {isConnecting ? (
-              <LoadingIndicator size="small" />
+              <ActivityIndicator size="small" />
             ) : (
               <>
                 <UserCheck size={18} color="#fff" />

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { generateEpisodeSlug } from '../utils/slugHelper';
 import EpisodeCheckButton from './EpisodeCheckButton';
-import LoadingIndicator from './LoadingIndicator';
 import { useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
 import { confirmAsync, notify } from '../utils/confirmDialog';
@@ -156,7 +155,7 @@ export default function SeasonAccordion({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
            >
               {seasonLoading ? (
-                <LoadingIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <CheckCheck color="#ffffff" size={20} />
               )}

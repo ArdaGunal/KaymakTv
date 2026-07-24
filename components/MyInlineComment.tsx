@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Edit2, Trash2, PenLine, LogIn } from 'lucide-react-native';
 import { getUserComments, deleteComment } from '../services/traktApi';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import LoadingIndicator from './LoadingIndicator';
 
 interface MyInlineCommentProps {
   mediaId: number;
@@ -87,7 +86,7 @@ export default function MyInlineComment({
   if (loading) {
     return (
       <View style={styles.loadingWrapper}>
-        <LoadingIndicator size="small" />
+        <ActivityIndicator size="small" />
       </View>
     );
   }
@@ -115,7 +114,7 @@ export default function MyInlineComment({
             disabled={deleting}
           >
             {deleting ? (
-              <LoadingIndicator size="small" />
+              <ActivityIndicator size="small" />
             ) : (
               <Trash2 size={16} color="#ef4444" />
             )}

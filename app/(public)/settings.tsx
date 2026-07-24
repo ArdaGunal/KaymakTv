@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Platform, useWindowDimensions } from 'react-native';
-import LoadingIndicator from '../../components/LoadingIndicator';
+import { View, Text, TouchableOpacity, Alert, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
@@ -164,7 +163,7 @@ export default function Login() {
               disabled={!request || isGenerating || !isChecked}
             >
               {isGenerating ? (
-                <LoadingIndicator color="#fff" />
+                <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>{t('loginTrakt')}</Text>
               )}

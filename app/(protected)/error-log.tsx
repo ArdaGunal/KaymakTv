@@ -17,7 +17,7 @@ import { Copy, Trash2, Inbox, ChevronDown, ChevronUp } from 'lucide-react-native
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import Snackbar from '../../components/Snackbar';
-import LoadingIndicator from '../../components/LoadingIndicator';
+import SkeletonLoader from '../../components/SkeletonLoader';
 import { useErrorLog } from '../../hooks/useErrorLog';
 import { LoggedError } from '../../utils/errorLog';
 import { confirmAsync } from '../../utils/confirmDialog';
@@ -141,8 +141,14 @@ export default function ErrorLogScreen() {
         )}
 
         {isLoading ? (
-          <View style={styles.centered}>
-            <LoadingIndicator size="large" />
+          <View style={{ gap: 10 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <View key={i} style={styles.row}>
+                <SkeletonLoader width={90} height={11} style={{ marginBottom: 8 }} />
+                <SkeletonLoader width="40%" height={13} style={{ marginBottom: 8 }} />
+                <SkeletonLoader width="90%" height={13} />
+              </View>
+            ))}
           </View>
         ) : !hasEntries ? (
           <View style={styles.centered}>

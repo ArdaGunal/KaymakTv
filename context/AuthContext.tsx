@@ -48,9 +48,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loadKeys = async () => {
     try {
-      const token = await SecureStore.getItemAsync('traktAccessToken');
-      const guestStatus = await SecureStore.getItemAsync('traktGuestMode');
-      
+      // Paralel: bu iki okuma birbirinden bağımsız, sıralı `await` açılışta
+      // gereksiz bir round-trip kadar gecikme ekliyordu.
+      const [token, guestStatus] = await Promise.all([
+        SecureStore.getItemAsync('traktAccessToken'),
+        SecureStore.getItemAsync('traktGuestMode'),
+      ]);
+
       if (token) {
         setAccessToken(token);
       }

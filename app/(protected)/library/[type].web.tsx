@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import MediaPoster from '../../../components/MediaPoster';
 import { generateMediaSlug } from '../../../utils/slugHelper';
-import LoadingIndicator from '../../../components/LoadingIndicator';
+import PosterGridSkeleton from '../../../components/skeletons/PosterGridSkeleton';
 import { useResponsive } from '../../../hooks/useResponsive';
 import LibraryMobile from '../../../screens/LibraryMobile';
 import { useLibraryTypeData, getLibraryTitleKey, LibraryItem } from '../../../hooks/useLibraryTypeData';
@@ -135,9 +135,13 @@ export default function LibraryScreenWeb() {
         ) : null}
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <LoadingIndicator />
-          </View>
+          <PosterGridSkeleton
+            columns={NUM_COLUMNS}
+            cardWidth={`calc(16.666% - ${(SPACING * 5) / 6}px)`}
+            aspectRatio={2 / 3}
+            gap={SPACING}
+            paddingHorizontal={20}
+          />
         ) : !hasData ? (
           <View style={styles.loadingContainer}>
             <View style={styles.emptyIconWrap}>

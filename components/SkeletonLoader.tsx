@@ -36,12 +36,12 @@ export default function SkeletonLoader({
   }, [opacity]);
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.skeleton, 
-        { width: width as any, height: height as any, borderRadius }, 
+        styles.skeleton,
+        { width: width as any, height: height as any, borderRadius, opacity },
         style
-      ]} 
+      ]}
     />
   );
 }

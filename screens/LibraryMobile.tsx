@@ -11,7 +11,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import LoadingIndicator from '../components/LoadingIndicator';
+import PosterGridSkeleton from '../components/skeletons/PosterGridSkeleton';
 import { Inbox, SearchX } from 'lucide-react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -184,9 +184,7 @@ export default function LibraryScreen() {
       ) : null}
 
       {loading ? (
-        <View style={styles.centered}>
-          <LoadingIndicator size="large" color="#ffffff" />
-        </View>
+        <PosterGridSkeleton columns={NUM_COLUMNS} cardWidth={metrics.cardWidth} cardHeight={metrics.cardHeight} paddingHorizontal={SPACING} gap={SPACING} />
       ) : !hasData ? (
         <View style={styles.centered}>
           <View style={styles.emptyIconWrap}>

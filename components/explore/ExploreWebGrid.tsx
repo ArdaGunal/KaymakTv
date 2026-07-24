@@ -8,6 +8,7 @@ import {
   Animated,
   Pressable,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import MediaPoster from '../MediaPoster';
 import { Star, Plus, Check } from 'lucide-react-native';
@@ -15,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
-import LoadingIndicator from '../LoadingIndicator';
+import PosterGridSkeleton from '../skeletons/PosterGridSkeleton';
 import { formatRating } from '../../utils/formatRating';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
@@ -202,16 +203,13 @@ const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(func
       ListFooterComponent={
         loadingMore ? (
           <View style={styles.footerLoader}>
-            <LoadingIndicator size="small" />
+            <ActivityIndicator size="small" />
           </View>
         ) : null
       }
       ListEmptyComponent={
         loading ? (
-          <View style={styles.centerState}>
-            <LoadingIndicator size="large" />
-            <Text style={styles.stateText}>{t('loading')}</Text>
-          </View>
+          <PosterGridSkeleton columns={COLUMN_COUNT} cardWidth={cardWidth} aspectRatio={2 / 3} gap={CARD_GAP} paddingHorizontal={containerPadding} />
         ) : error ? (
           <View style={styles.centerState}>
             <Text style={styles.errorText}>{error}</Text>

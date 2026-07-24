@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { getCustomListItems } from '../../../services/traktApi';
 import { useLibraryActions } from '../../../context/LibraryContext';
 import MediaPoster from '../../../components/MediaPoster';
-import LoadingIndicator from '../../../components/LoadingIndicator';
+import { ActivityIndicator } from 'react-native';
+import MediaRowSkeleton from '../../../components/skeletons/MediaRowSkeleton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
@@ -150,7 +151,7 @@ export default function ListDetailsScreen() {
           disabled={isRemoving}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {isRemoving ? <LoadingIndicator size="small" /> : <X size={18} color="#94a3b8" />}
+          {isRemoving ? <ActivityIndicator size="small" /> : <X size={18} color="#94a3b8" />}
         </TouchableOpacity>
       </View>
     );
@@ -176,7 +177,7 @@ export default function ListDetailsScreen() {
           </View>
           {canDeleteList ? (
             <TouchableOpacity onPress={handleDeleteList} disabled={isDeleting} style={styles.iconBtnDestructive} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              {isDeleting ? <LoadingIndicator size="small" /> : <Trash2 color="#ef4444" size={20} />}
+              {isDeleting ? <ActivityIndicator size="small" /> : <Trash2 color="#ef4444" size={20} />}
             </TouchableOpacity>
           ) : (
             <View style={{ width: 40 }} />
@@ -184,9 +185,7 @@ export default function ListDetailsScreen() {
         </View>
 
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <LoadingIndicator size="large" color="#3b82f6" />
-          </View>
+          <MediaRowSkeleton posterWidth={60} rowHeight={90} paddingHorizontal={12} />
         ) : (
           <FlatList
             style={{ flex: 1 }}

@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
   Platform,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
-import LoadingIndicator from '../LoadingIndicator';
 
 interface DeleteAccountModalProps {
   visible: boolean;
@@ -69,7 +69,7 @@ export default function DeleteAccountModal({
                   disabled={loading}
                 >
                   {loading ? (
-                    <LoadingIndicator size="small" />
+                    <ActivityIndicator size="small" />
                   ) : (
                     <Text style={styles.confirmText}>{t('yesDelete')}</Text>
                   )}

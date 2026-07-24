@@ -1,7 +1,6 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
 import { Star, CheckCheck } from 'lucide-react-native';
-import LoadingIndicator from '../LoadingIndicator';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
@@ -71,7 +70,7 @@ export default function EpisodeOptionsModal({
                 disabled={!!loadingOption}
               >
                 {loadingOption === 'rewatch' ? (
-                  <LoadingIndicator size="small" color="#3b82f6" />
+                  <ActivityIndicator size="small" color="#3b82f6" />
                 ) : (
                   <>
                     <CheckCheck size={20} color="#10b981" />
@@ -86,7 +85,7 @@ export default function EpisodeOptionsModal({
                 disabled={!!loadingOption}
               >
                 {loadingOption === 'remove' ? (
-                  <LoadingIndicator size="small" color="#ef4444" />
+                  <ActivityIndicator size="small" color="#ef4444" />
                 ) : (
                   <>
                     <Text style={[styles.modalButtonText, {color: '#ef4444', marginLeft: 0}]}>{t('unwatch')}</Text>

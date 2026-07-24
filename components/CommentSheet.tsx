@@ -9,10 +9,11 @@ import {
   FlatList,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { X, MessageSquare } from 'lucide-react-native';
 import CommentItem from './comments/CommentItem';
-import LoadingIndicator from './LoadingIndicator';
+import CommentListSkeleton from './skeletons/CommentListSkeleton';
 import { useComments } from '../hooks/useComments';
 
 interface CommentSheetProps {
@@ -73,10 +74,7 @@ export default function CommentSheet({
 
           {/* Content */}
           {loading ? (
-            <View style={styles.centerState}>
-              <LoadingIndicator size="large" />
-              <Text style={styles.stateText}>{t('loadingComments')}</Text>
-            </View>
+            <CommentListSkeleton />
           ) : error ? (
             <View style={styles.centerState}>
               <Text style={styles.errorText}>{error}</Text>
@@ -98,7 +96,7 @@ export default function CommentSheet({
               ListFooterComponent={
                 loadingMore ? (
                   <View style={styles.footerLoader}>
-                    <LoadingIndicator size="small" />
+                    <ActivityIndicator size="small" />
                   </View>
                 ) : null
               }

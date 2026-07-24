@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform, UIManager, LayoutAnimation, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
-import LoadingIndicator from '../../components/LoadingIndicator';
+import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 import { BlurView } from 'expo-blur';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -195,12 +195,7 @@ export default function ShowDetailScreen() {
   };
 
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LoadingIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>{t('loadingDetails')}</Text>
-      </View>
-    );
+    return <DetailHeroSkeleton />;
   }
 
   if (!showData) {

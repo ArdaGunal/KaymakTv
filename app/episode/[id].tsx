@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback, Platform, Share } from 'react-native';
-import LoadingIndicator from '../../components/LoadingIndicator';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback, Platform, Share, ActivityIndicator } from 'react-native';
+import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -225,11 +225,7 @@ export default function EpisodeDetailScreen() {
   };
 
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LoadingIndicator size="large" color="#3b82f6" />
-      </View>
-    );
+    return <DetailHeroSkeleton hasPoster={false} />;
   }
 
   const title = episodeData?.title || t('episodeNum', { number: episode });
@@ -332,7 +328,7 @@ export default function EpisodeDetailScreen() {
                     disabled={isCheckLoading}
                   >
                     {isCheckLoading ? (
-                      <LoadingIndicator size="small" color={isWatchedLocal ? "#10b981" : "#a3a3a3"} />
+                      <ActivityIndicator size="small" color={isWatchedLocal ? "#10b981" : "#a3a3a3"} />
                     ) : (
                       <>
                         <Check size={14} color={isWatchedLocal ? "#10b981" : "#a3a3a3"} strokeWidth={3} />

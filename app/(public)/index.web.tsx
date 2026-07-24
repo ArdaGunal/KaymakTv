@@ -393,16 +393,24 @@ export default function WebLandingPage() {
           getTrendingMovies(1, 10)
         ]);
         
-        const combined = [];
-        for (let item of shows) {
-          const poster = await getShowPoster(item.show.ids.tmdb);
-          if(poster) combined.push({ id: item.show.ids.trakt, title: item.show.title, poster, type: 'Dizi' });
-        }
-        for (let item of movies) {
-          const poster = await getMoviePoster(item.movie.ids.tmdb);
-          if(poster) combined.push({ id: item.movie.ids.trakt, title: item.movie.title, poster, type: 'Film' });
-        }
-        
+        // Paralel: her poster isteği bağımsız bir ağ çağrısı, sıralı `await`
+        // 20 istek boyunca birbirini bekletip ilk render'ı gereksiz geciktiriyordu.
+        const [showResults, movieResults] = await Promise.all([
+          Promise.all(shows.map(async (item: any) => ({
+            id: item.show.ids.trakt,
+            title: item.show.title,
+            poster: await getShowPoster(item.show.ids.tmdb),
+            type: 'Dizi' as const,
+          }))),
+          Promise.all(movies.map(async (item: any) => ({
+            id: item.movie.ids.trakt,
+            title: item.movie.title,
+            poster: await getMoviePoster(item.movie.ids.tmdb),
+            type: 'Film' as const,
+          }))),
+        ]);
+        const combined = [...showResults, ...movieResults].filter((m) => m.poster);
+
         const shuffled = combined.sort(() => 0.5 - Math.random());
         setTrendingMedia([...shuffled, ...shuffled]); // Duplicate for marquee
       } catch (e) {

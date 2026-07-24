@@ -7,11 +7,11 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { CornerDownRight, Send, MessageCircle, ChevronUp } from 'lucide-react-native';
 import { getCommentReplies, addCommentReply } from '../../services/traktApi';
 import { useAuth } from '../../context/AuthContext';
-import LoadingIndicator from '../LoadingIndicator';
 
 interface CommentRepliesProps {
   commentId: number;
@@ -108,7 +108,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
         <View style={styles.repliesArea}>
           {loading ? (
             <View style={styles.loadingRow}>
-              <LoadingIndicator size="small" />
+              <ActivityIndicator size="small" />
             </View>
           ) : (
             (replies || []).map((r: any, idx: number) => (
@@ -139,7 +139,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
                 disabled={sending}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                {sending ? <LoadingIndicator size="small" /> : <Send size={16} color="#3b82f6" />}
+                {sending ? <ActivityIndicator size="small" /> : <Send size={16} color="#3b82f6" />}
               </TouchableOpacity>
             </View>
           ) : (

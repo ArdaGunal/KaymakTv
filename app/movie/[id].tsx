@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Dimensions, Platform, UIManager, LayoutAnimation, Alert } from 'react-native';
-import LoadingIndicator from '../../components/LoadingIndicator';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Dimensions, Platform, UIManager, LayoutAnimation, Alert, ActivityIndicator } from 'react-native';
+import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Check, CheckCheck } from 'lucide-react-native';
@@ -169,12 +169,7 @@ export default function MovieDetailScreen() {
   const isReleased = movieData?.released ? new Date(movieData.released) <= new Date() : true;
 
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LoadingIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>{t('loadingMovieDetails')}</Text>
-      </View>
-    );
+    return <DetailHeroSkeleton />;
   }
 
   if (!movieData) {
@@ -224,7 +219,7 @@ export default function MovieDetailScreen() {
                 activeOpacity={0.8}
               >
                 {actionLoading ? (
-                  <LoadingIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : isWatched ? (
                   <>
                     <CheckCheck color="#ffffff" size={20} style={{ marginRight: 8 }} />

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { X, Plus, Check, Folder } from 'lucide-react-native';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import LoadingIndicator from './LoadingIndicator';
 import {
   DEFAULT_LIST_NAME,
   MAX_USER_LISTS,
@@ -203,7 +202,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
                   <Text style={styles.cancelText}>{t('common:cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleCreateList} style={[styles.smallSaveBtn, (!newListName.trim() || isCreatingList) && styles.disabledBtn]} disabled={isCreatingList || !newListName.trim()}>
-                  {isCreatingList ? <LoadingIndicator size="small" /> : <Text style={styles.smallSaveBtnText}>{t('create', 'Oluştur')}</Text>}
+                  {isCreatingList ? <ActivityIndicator size="small" /> : <Text style={styles.smallSaveBtnText}>{t('create', 'Oluştur')}</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -225,7 +224,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
             onPress={handleSave}
             disabled={isSaving || isCreating || selectedListIds.size === 0}
           >
-            {isSaving ? <LoadingIndicator /> : <Text style={styles.applyBtnText}>{t('common:save')}</Text>}
+            {isSaving ? <ActivityIndicator size="small" /> : <Text style={styles.applyBtnText}>{t('common:save')}</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

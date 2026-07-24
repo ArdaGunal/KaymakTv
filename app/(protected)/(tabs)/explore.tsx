@@ -12,7 +12,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { ArrowUp } from 'lucide-react-native';
-import LoadingIndicator from '../../../components/LoadingIndicator';
+import { ActivityIndicator } from 'react-native';
+import MediaRowSkeleton from '../../../components/skeletons/MediaRowSkeleton';
 import ShowCard from '../../../components/ShowCard';
 import SearchBar from '../../../components/SearchBar';
 import SearchTabs from '../../../components/SearchTabs';
@@ -218,17 +219,14 @@ export default function ExploreScreen() {
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footerLoader}>
-              <LoadingIndicator size="small" />
+              <ActivityIndicator size="small" />
             </View>
           ) : null
         }
         refreshControl={refreshControl}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.loadingContainer}>
-              <LoadingIndicator size="large" />
-              <Text style={styles.loadingText}>{t('common:loading')}</Text>
-            </View>
+            <MediaRowSkeleton paddingHorizontal={0} />
           ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
