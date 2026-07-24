@@ -2,7 +2,7 @@ import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Activity, FileWarning, Globe, LogOut, Trash2 } from 'lucide-react-native';
+import { Activity, FileWarning, Globe, LogOut, MessageCircle, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,6 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
+import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
+import ReportIssueModal from '../../components/settings/ReportIssueModal';
 import SettingsRow from '../../components/settings/SettingsRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
@@ -50,6 +52,8 @@ export default function SettingsScreen() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
   // ── Gizli Geliştirici Modu (sürüm numarasına 7 hızlı dokunma) ────────────
   // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
@@ -173,48 +177,20 @@ export default function SettingsScreen() {
             isConnecting={isConnecting}
             canConnect={!!request}
             onConnect={handleTraktLogin}
-            onGoToApp={navigateBack}
           />
 
-          <SettingsSection title={t('appPreferences', 'Uygulama Tercihleri')}>
+          <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
               icon={<Globe size={20} color="#a78bfa" />}
               label={t('language', 'Dil')}
               tintColor="#a78bfa"
               value={languageLabel}
               showChevron
-              onPress={() => {
-                const next = currentLanguage === 'tr' ? 'en' : 'tr';
-                handleChangeLanguage(next);
-              }}
+              onPress={() => setLanguageModalVisible(true)}
             />
           </SettingsSection>
 
-          {/* Yalnızca gizli Geliştirici Modu açıkken görünür — bkz. sürüm
-              numarasına 7 hızlı dokunma. Normal kullanıcı bu bölümü hiç görmez. */}
-          {isDeveloperMode && (
-            <SettingsSection title={t('settings:diagnostics')}>
-              <SettingsRow
-                icon={<Activity size={20} color="#38bdf8" />}
-                label={t('settings:exportPerformanceReport')}
-                tintColor="#38bdf8"
-                onPress={handleExportMetrics}
-                disabled={isExportingMetrics}
-              />
-
-              <SettingsSectionDivider />
-
-              <SettingsRow
-                icon={<FileWarning size={20} color="#f87171" />}
-                label={t('settings:errorLogTitle')}
-                tintColor="#f87171"
-                showChevron
-                onPress={() => router.push('/(protected)/error-log')}
-              />
-            </SettingsSection>
-          )}
-
-          <SettingsSection title="⚠️ Hesap Seçenekleri">
+          <SettingsSection title={t('settings:accountOptions', '⚠️ Hesap Seçenekleri')}>
             <SettingsRow
               icon={<LogOut size={20} color="#fb923c" />}
               label={isGuest ? t('settings:exitGuestMode', 'Misafir Modundan Çık') : t('logoutReset', 'Çıkış Yap')}
@@ -242,6 +218,45 @@ export default function SettingsScreen() {
             )}
           </SettingsSection>
 
+          {/* Tanılama artık HER ZAMAN görünür (eskiden yalnızca gizli
+              Geliştirici Modu açıkken görünürdü) — "Hata Bildir" satırı normal
+              kullanıcı için de burada, her zaman en altta. Performans Raporu
+              ve Hata Günlüğü satırları ise hâlâ yalnızca sürüm numarasına 7
+              hızlı dokunmayla açılan gizli Geliştirici Modu'nda belirir. */}
+          <SettingsSection title={t('settings:diagnostics', 'Destek & Geri Bildirim')}>
+            {isDeveloperMode && (
+              <>
+                <SettingsRow
+                  icon={<Activity size={20} color="#38bdf8" />}
+                  label={t('settings:exportPerformanceReport')}
+                  tintColor="#38bdf8"
+                  onPress={handleExportMetrics}
+                  disabled={isExportingMetrics}
+                />
+
+                <SettingsSectionDivider />
+
+                <SettingsRow
+                  icon={<FileWarning size={20} color="#f87171" />}
+                  label={t('settings:errorLogTitle')}
+                  tintColor="#f87171"
+                  showChevron
+                  onPress={() => router.push('/(protected)/error-log')}
+                />
+
+                <SettingsSectionDivider />
+              </>
+            )}
+
+            <SettingsRow
+              icon={<MessageCircle size={20} color="#a78bfa" />}
+              label={t('settings:reportIssueRowLabel', 'Bize Ulaşın / Hata Bildir')}
+              tintColor="#a78bfa"
+              showChevron
+              onPress={() => setReportModalVisible(true)}
+            />
+          </SettingsSection>
+
           {/* Görünüşte sıradan bir sürüm etiketi — 7 hızlı dokunuşluk gizli
               kapı. `activeOpacity={1}` bilinçli: normal bir metinmiş gibi
               durması gerekiyor, buton gibi "bastırılmış" görünmemeli. */}
@@ -263,6 +278,18 @@ export default function SettingsScreen() {
         loading={isDeletingAccount}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteModalVisible(false)}
+      />
+
+      <ReportIssueModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+      />
+
+      <LanguagePickerModal
+        visible={languageModalVisible}
+        currentLanguage={currentLanguage}
+        onSelect={handleChangeLanguage}
+        onClose={() => setLanguageModalVisible(false)}
       />
 
       <Snackbar

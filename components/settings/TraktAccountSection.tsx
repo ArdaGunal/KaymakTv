@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { CheckCircle2, Compass, UserCheck } from 'lucide-react-native';
+import { CheckCircle2, UserCheck } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import SettingsRow from './SettingsRow';
 import { SettingsSection, SettingsSectionDivider } from './SettingsSection';
 
 interface TraktAccountSectionProps {
@@ -10,35 +9,23 @@ interface TraktAccountSectionProps {
   isConnecting: boolean;
   canConnect: boolean;
   onConnect: () => void;
-  onGoToApp: () => void;
 }
 
-// "Hesap Ayarları" bölümü: Trakt bağlıysa durum banner'ı + uygulamaya dön
-// satırı, değilse bağlanma daveti + buton. account.tsx'i 400 satır sınırının
-// altında tutmak için ayrıştırıldı.
-export function TraktAccountSection({ isConnected, isConnecting, canConnect, onConnect, onGoToApp }: TraktAccountSectionProps) {
+// "Hesap Ayarları" bölümü: Trakt bağlıysa durum banner'ı, değilse bağlanma
+// daveti + buton. account.tsx'i 400 satır sınırının altında tutmak için
+// ayrıştırıldı. (Eskiden bağlıyken bir de "Uygulamaya Git" satırı vardı —
+// zaten ayarlar sayfasının kendi geri butonu aynı işi yaptığından kaldırıldı.)
+export function TraktAccountSection({ isConnected, isConnecting, canConnect, onConnect }: TraktAccountSectionProps) {
   const { t } = useTranslation(['settings', 'common']);
 
   return (
     <SettingsSection title={t('accountSettings', 'Hesap Ayarları')}>
       {isConnected ? (
-        <>
-          <View style={styles.connectedBanner}>
-            <View style={styles.connectedDot} />
-            <Text style={styles.connectedText}>{t('settings:traktConnected')}</Text>
-            <CheckCircle2 size={18} color="#4ade80" />
-          </View>
-
-          <SettingsSectionDivider />
-
-          <SettingsRow
-            icon={<Compass size={20} color="#60a5fa" />}
-            label={t('goToApp', 'Uygulamaya Git')}
-            tintColor="#60a5fa"
-            showChevron
-            onPress={onGoToApp}
-          />
-        </>
+        <View style={styles.connectedBanner}>
+          <View style={styles.connectedDot} />
+          <Text style={styles.connectedText}>{t('settings:traktConnected')}</Text>
+          <CheckCircle2 size={18} color="#4ade80" />
+        </View>
       ) : (
         <>
           <View style={styles.notConnectedBanner}>
