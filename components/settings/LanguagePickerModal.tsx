@@ -17,10 +17,29 @@ interface LanguagePickerModalProps {
 // SUPPORTED_LANGUAGES + locales/resources.ts'e dosya eklenmesi yeterli) burada
 // bir meta girişi eklemek isteğe bağlıdır — eksikse kod + 🌐 ile otomatik
 // düşer, liste yine de doğru çalışır.
-const LANGUAGE_META: Record<string, { label: string; flag: string }> = {
-  tr: { label: 'Türkçe', flag: '🇹🇷' },
-  en: { label: 'English', flag: '🇬🇧' },
+const LANGUAGE_META: Record<string, { label: string; flag: string; iso2?: string }> = {
+  tr: { label: 'Türkçe', flag: '🇹🇷', iso2: 'TR' },
+  en: { label: 'English', flag: '🇬🇧', iso2: 'GB' },
 };
+
+// Web'de emoji bayrakları macOS/Windows kombinasyonlarında render edilemiyor.
+// Flagcdn.com, CDN tabanlı ücretsiz ve her tarayıcıda çalışan SVG bayrakları sağlıyor.
+// Mobilde native emoji render kullanılmaya devam eder.
+function FlagImage({ iso2, emoji }: { iso2?: string; emoji: string }) {
+  if (Platform.OS === 'web' && iso2) {
+    // @ts-ignore — web-only: RN'de img elemanı yok ama web bundle'da düzgün render olur
+    return (
+      <img
+        src={`https://flagcdn.com/32x24/${iso2.toLowerCase()}.png`}
+        width={28}
+        height={20}
+        alt={iso2}
+        style={{ borderRadius: 3, objectFit: 'cover' }}
+      />
+    );
+  }
+  return <Text style={styles.flag}>{emoji}</Text>;
+}
 
 export default function LanguagePickerModal({
   visible,
@@ -30,20 +49,26 @@ export default function LanguagePickerModal({
 }: LanguagePickerModalProps) {
   const { t } = useTranslation('settings');
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={isWeb ? 'fade' : 'slide'}
       onRequestClose={onClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, isWeb && styles.overlayWeb]}>
         <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={onClose} />
 
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <View style={styles.grabber} />
+        {/* Web: Merkezi dialog kutusu | Mobil: Alt çekmece (bottom sheet) */}
+        <View style={[
+          styles.sheet,
+          isWeb ? styles.sheetWeb : { paddingBottom: Math.max(insets.bottom, 20) }
+        ]}>
+          {/* Mobil'e özgü kaydırma çubukçuğu */}
+          {!isWeb && <View style={styles.grabber} />}
 
           <View style={styles.header}>
             <Text style={styles.title}>{t('languagePickerTitle', 'Dil Seç')}</Text>
@@ -69,7 +94,7 @@ export default function LanguagePickerModal({
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.flag}>{meta.flag}</Text>
+                <FlagImage iso2={meta.iso2} emoji={meta.flag} />
                 <Text style={styles.label}>{meta.label}</Text>
                 {isSelected && <Check size={18} color="#3b82f6" strokeWidth={2.5} />}
               </TouchableOpacity>
@@ -87,6 +112,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
+  // Web'de ortada küçük bir dialog kutusu gibi görünür
+  overlayWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -97,6 +127,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     padding: 20,
+  },
+  // Web'de tam dialog kutusu
+  sheetWeb: {
+    width: 360,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 24,
+    // Bottom sheet radius'unu override et
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    ...({ boxShadow: '0 24px 64px rgba(0,0,0,0.6)' } as any),
   },
   grabber: {
     width: 40,

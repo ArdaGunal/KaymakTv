@@ -24,10 +24,10 @@ export default function SettingsSwitchRow({
 }: SettingsSwitchRowProps) {
   return (
     <View style={[styles.row, disabled && styles.rowDisabled]}>
-      <View style={[styles.iconSlot, tintColor && { backgroundColor: tintColor + '22' }]}>{icon}</View>
+      <View style={[styles.iconSlot, tintColor ? { backgroundColor: tintColor + '18' } : null]}>{icon}</View>
 
       <View style={styles.textWrap}>
-        <Text style={[styles.label, tintColor && { color: tintColor }]} numberOfLines={1}>
+        <Text style={styles.label} numberOfLines={1}>
           {label}
         </Text>
         {hint && (
@@ -38,14 +38,14 @@ export default function SettingsSwitchRow({
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="small" color="#3b82f6" />
+        <ActivityIndicator size="small" color="#22d3ee" />
       ) : (
         <Switch
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: '#334155', true: '#3b82f6' }}
-          thumbColor="#f1f5f9"
+          trackColor={{ false: '#334155', true: '#22d3ee' }}
+          thumbColor="#f8fafc"
         />
       )}
     </View>

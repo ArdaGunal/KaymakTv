@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   tabBtn: {
     flex: 1,

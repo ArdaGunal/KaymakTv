@@ -41,142 +41,145 @@ export default function ProfileHeader({
 
   return (
     <View style={styles.container}>
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-      ) : (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
+      {/* Üst Satır: Sol Avatar + Sağ İstatistikler & Aksiyon Butonu */}
+      <View style={styles.topRow}>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initial}</Text>
+          </View>
+        )}
+
+        <View style={styles.rightCol}>
+          <View style={styles.statsRow}>
+            <TouchableOpacity style={styles.statItem} onPress={onPressFollowers} activeOpacity={0.7}>
+              <Text style={styles.statValue}>{followersCount}</Text>
+              <Text style={styles.statLabel}>{t('profileFollowers', 'Takipçi')}</Text>
+            </TouchableOpacity>
+
+            <View style={styles.statDivider} />
+
+            <TouchableOpacity style={styles.statItem} onPress={onPressFollowing} activeOpacity={0.7}>
+              <Text style={styles.statValue}>{followingCount}</Text>
+              <Text style={styles.statLabel}>{t('profileFollowing', 'Takip Edilen')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              !isOwnProfile && !isFollowing && styles.actionBtnFollow,
+              !isOwnProfile && isFollowing && styles.actionBtnFollowing,
+            ]}
+            onPress={handleAction}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[
+                styles.actionBtnText,
+                !isOwnProfile && !isFollowing && styles.actionBtnTextFollow,
+                !isOwnProfile && isFollowing && styles.actionBtnTextFollowing,
+              ]}
+              numberOfLines={1}
+            >
+              {isOwnProfile
+                ? t('editProfile', 'Profili Düzenle')
+                : isFollowing
+                ? t('followingAction', 'Takip Ediliyor')
+                : t('followAction', 'Takip Et')}
+            </Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      <Text style={styles.name} numberOfLines={1}>
-        {profile.name || profile.username}
-      </Text>
-      <Text style={styles.handle} numberOfLines={1}>
-        @{profile.username}
-      </Text>
-
-      <View style={styles.statsRow}>
-        <TouchableOpacity style={styles.statItem} onPress={onPressFollowers} activeOpacity={0.7}>
-          <Text style={styles.statValue}>{followersCount}</Text>
-          <Text style={styles.statLabel}>{t('profileFollowers', 'Takipçi')}</Text>
-        </TouchableOpacity>
-        <View style={styles.statDivider} />
-        <TouchableOpacity style={styles.statItem} onPress={onPressFollowing} activeOpacity={0.7}>
-          <Text style={styles.statValue}>{followingCount}</Text>
-          <Text style={styles.statLabel}>{t('profileFollowing', 'Takip Edilen')}</Text>
-        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.actionBtn,
-          !isOwnProfile && !isFollowing && styles.actionBtnFollow,
-          !isOwnProfile && isFollowing && styles.actionBtnFollowing,
-        ]}
-        onPress={handleAction}
-        activeOpacity={0.85}
-      >
-        <Text
-          style={[
-            styles.actionBtnText,
-            !isOwnProfile && !isFollowing && styles.actionBtnTextFollow,
-            !isOwnProfile && isFollowing && styles.actionBtnTextFollowing,
-          ]}
-        >
-          {isOwnProfile
-            ? t('editProfile', 'Profili Düzenle')
-            : isFollowing
-            ? t('followingAction', 'Takip Ediliyor')
-            : t('followAction', 'Takip Et')}
+      {/* Alt Blok: İsim ve Kullanıcı Adı */}
+      <View style={styles.identityBlock}>
+        <Text style={styles.name} numberOfLines={1}>
+          {profile.name || profile.username}
         </Text>
-      </TouchableOpacity>
+        <Text style={styles.handle} numberOfLines={1}>
+          @{profile.username}
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 14,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+    marginBottom: 10,
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#1e293b',
     borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.35)',
+    borderColor: 'rgba(59,130,246,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
   },
   avatarImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.35)',
-    marginBottom: 14,
+    borderColor: 'rgba(59,130,246,0.4)',
   },
   avatarText: {
     color: '#94a3b8',
     fontWeight: '700',
-    fontSize: 34,
+    fontSize: 26,
   },
-  name: {
-    color: '#f8fafc',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  handle: {
-    color: '#64748b',
-    fontSize: 13,
-    marginTop: 2,
-    marginBottom: 16,
+  rightCol: {
+    flex: 1,
+    gap: 10,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
-    marginBottom: 18,
+    justifyContent: 'space-around',
   },
   statItem: {
     alignItems: 'center',
-    minWidth: 64,
   },
   statValue: {
     color: '#f1f5f9',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
   },
   statLabel: {
     color: '#94a3b8',
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 1,
   },
   statDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    height: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   actionBtn: {
-    alignSelf: 'center',
-    paddingHorizontal: 32,
-    height: 40,
-    borderRadius: 20,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   actionBtnFollow: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   actionBtnFollowing: {
     backgroundColor: 'rgba(74, 222, 128, 0.12)',
@@ -184,7 +187,7 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: '#f1f5f9',
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   actionBtnTextFollow: {
@@ -192,5 +195,19 @@ const styles = StyleSheet.create({
   },
   actionBtnTextFollowing: {
     color: '#4ade80',
+  },
+  identityBlock: {
+    gap: 1,
+  },
+  name: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  handle: {
+    color: '#64748b',
+    fontSize: 12.5,
+    fontWeight: '500',
   },
 });

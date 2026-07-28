@@ -1754,3 +1754,7 @@ Execution failed for task ':app:mergeReleaseResources'.
 **2) Arama sonuçlarının çevirisi — TMDB yolu DEĞERLENDİRİLDİ ve REDDEDİLDİ:** Madde 104'te, Trakt'ın `/search/:type` uç noktasının `translations` parametresini desteklemediği doğrulandıktan sonra alternatif olarak "TMDB'de `language=tr-TR` ile arayıp sonuçları Trakt ID'lerine eşlemek" önerilmişti. Kullanıcı bunu **aşırı mühendislik (over-engineering)** olarak değerlendirip reddetti ve gerekçeleri kabul edildi: her arama için ek bir servis çağrısı + N adet ID eşleme isteği demek olurdu — mimariyi hantallaştırır, Trakt/TMDB rate limit'lerini zorlar ve aramanın hızını düşürürdü. **Kabul edilen davranış:** arama sonuçları İngilizce kalır; kullanıcı içeriğin DETAYINA girdiğinde başlık/özet zaten Türkçe geliyor (`shows.ts`/`movies.ts` → `applyTranslation`) ve bu yeterlidir. Karar, gerekçesiyle birlikte `services/api/search.ts`'in başına kalıcı bir not olarak yazıldı ("bu notu silmeden önce yukarıdaki gerekçeyi yeniden değerlendirin") — ileride aynı fikrin tekrar gündeme gelip sessizce uygulanmasını önlemek için.
 
 **Doğrulama:** `npx tsc --noEmit` → 0 hata. `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` → 0 hata (kod tabanında hâlâ sıfır kullanılmayan yerel/import). Release APK yeniden derlendi → BUILD SUCCESSFUL. **Doğrulanamayan:** Film kartındaki "izledim" akışının gerçek cihazda görsel teyidi (bu ortamda cihaz/Trakt erişimi yok) — beklenen davranış değişmemesidir; APK'da bir kez teyit edilmeli.
+
+
+
+

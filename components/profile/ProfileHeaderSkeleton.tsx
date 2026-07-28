@@ -5,30 +5,40 @@ import SkeletonLoader from '../SkeletonLoader';
 export default function ProfileHeaderSkeleton() {
   return (
     <View style={styles.container}>
-      <SkeletonLoader width={96} height={96} borderRadius={48} style={styles.gap14} />
-      <SkeletonLoader width={140} height={18} borderRadius={5} style={styles.gap8} />
-      <SkeletonLoader width={90} height={13} borderRadius={4} style={styles.gap16} />
-      <View style={styles.statsRow}>
-        <SkeletonLoader width={64} height={36} borderRadius={8} />
-        <SkeletonLoader width={64} height={36} borderRadius={8} />
+      <View style={styles.topRow}>
+        <SkeletonLoader width={72} height={72} borderRadius={36} />
+        <View style={styles.rightCol}>
+          <View style={styles.statsRow}>
+            <SkeletonLoader width={50} height={30} borderRadius={6} />
+            <SkeletonLoader width={50} height={30} borderRadius={6} />
+          </View>
+          <SkeletonLoader width="100%" height={34} borderRadius={10} />
+        </View>
       </View>
-      <SkeletonLoader width={140} height={40} borderRadius={20} />
+      <SkeletonLoader width={130} height={16} borderRadius={5} style={{ marginBottom: 4, marginTop: 4 }} />
+      <SkeletonLoader width={80} height={12} borderRadius={4} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 14,
   },
-  gap14: { marginBottom: 14 },
-  gap8: { marginBottom: 8 },
-  gap16: { marginBottom: 16 },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+    marginBottom: 10,
+  },
+  rightCol: {
+    flex: 1,
+    gap: 10,
+  },
   statsRow: {
     flexDirection: 'row',
-    gap: 24,
-    marginBottom: 18,
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
 });

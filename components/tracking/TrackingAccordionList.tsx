@@ -57,9 +57,9 @@ import type { TrackingCategoryKey, CollapsedMap } from '../../store/tracking/use
 // çakışmadan muaftır, korunuyor.
 
 const SECTION_META: Record<TrackingCategoryKey, { Icon: React.ComponentType<any>; tint: string; bg: string }> = {
-  upNext: { Icon: PlayCircle, tint: '#60a5fa', bg: 'rgba(59, 130, 246, 0.12)' },
-  paused: { Icon: PauseCircle, tint: '#fb923c', bg: 'rgba(251, 146, 60, 0.12)' },
-  notStarted: { Icon: Bookmark, tint: '#c084fc', bg: 'rgba(168, 85, 247, 0.12)' },
+  upNext: { Icon: PlayCircle, tint: '#22d3ee', bg: 'rgba(34, 211, 238, 0.12)' },
+  paused: { Icon: PauseCircle, tint: '#fb7185', bg: 'rgba(251, 113, 133, 0.12)' },
+  notStarted: { Icon: Bookmark, tint: '#a5b4fc', bg: 'rgba(165, 180, 252, 0.12)' },
 };
 
 const SECTION_ORDER: TrackingCategoryKey[] = ['upNext', 'paused', 'notStarted'];

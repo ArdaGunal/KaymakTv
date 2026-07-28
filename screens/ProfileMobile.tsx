@@ -94,17 +94,18 @@ export default function ProfileScreen() {
     <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      {/* Kendi satırını/dikey alanını almasın diye akışın DIŞINDA, köşeye
-          bindirilmiş bir ikon — eskiden ayrı bir başlık satırı (sadece bu
-          ikonu barındırdığı için neredeyse boş görünen ~44px'lik bir şerit)
-          avatarı gereksiz yere aşağı itiyordu. */}
-      <TouchableOpacity
-        style={styles.settingsButton}
-        onPress={() => router.push('/(protected)/account')}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Settings size={22} color="#cbd5e1" />
-      </TouchableOpacity>
+      {/* Güvenli Alana (Safe Area) Hizalı Üst Başlık Satırı */}
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>{t('profileTitle', 'Profil')}</Text>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => router.push('/(protected)/account')}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Settings size={20} color="#cbd5e1" />
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
         {isProfileLoading || !profile ? (
@@ -232,20 +233,30 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0B1120', position: 'relative' },
-  container: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: '#0B1120' },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SECTION_PADDING_H,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    color: '#f8fafc',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
   settingsButton: {
-    position: 'absolute',
-    top: 8,
-    right: SECTION_PADDING_H,
-    zIndex: 1,
-    padding: 9,
+    padding: 8,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  content: { paddingTop: 12, paddingBottom: 40 },
+  container: { flex: 1 },
+  content: { paddingTop: 6, paddingBottom: 40 },
   sectionInset: { paddingHorizontal: SECTION_PADDING_H },
   listsSection: { marginBottom: SECTION_SPACING },
   listsScrollContent: { paddingHorizontal: SECTION_PADDING_H, paddingBottom: 4 },

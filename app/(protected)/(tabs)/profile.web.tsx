@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Settings } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -19,8 +19,7 @@ import ListCardSkeleton from '../../../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../../../components/profile/ListsEmptyCard';
 import LoginPaywall from '../../../components/LoginPaywall';
 import ProfileStats from '../../../components/profile/ProfileStats';
-import ProfileHeader from '../../../components/profile/ProfileHeader';
-import ProfileHeaderSkeleton from '../../../components/profile/ProfileHeaderSkeleton';
+import SkeletonLoader from '../../../components/SkeletonLoader';
 import ProfileTabs, { ProfileTabKey } from '../../../components/profile/ProfileTabs';
 import ProfileActivityTab from '../../../components/profile/ProfileActivityTab';
 import { DESKTOP_CARD_WIDTH, DESKTOP_CARD_HEIGHT, DESKTOP_CARD_GAP } from '../../../components/profile/profileMetrics';
@@ -36,6 +35,95 @@ const mapMedia = (items: any[], type: 'show' | 'movie') =>
 
 const sortRecent = (items: any[]) =>
   [...items].sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
+
+// ─── Desktop-only Header ─────────────────────────────────────────────────────
+// ProfileHeader.tsx (mobil) ve ProfileHeaderSkeleton.tsx'e DOKUNULMUYOR.
+// Desktop için ayrı bir header inline olarak burada çizilir.
+function DesktopProfileHeader({
+  profile,
+  followersCount,
+  followingCount,
+}: {
+  profile: any;
+  followersCount: number;
+  followingCount: number;
+}) {
+  const { t } = useTranslation('media');
+  const router = useRouter();
+
+  const avatarUrl = profile.images?.avatar?.full;
+  const initial = profile.username.charAt(0).toUpperCase();
+
+  return (
+    <View style={desktopHeaderStyles.container}>
+      {/* Avatar */}
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={desktopHeaderStyles.avatar} />
+      ) : (
+        <View style={desktopHeaderStyles.avatarFallback}>
+          <Text style={desktopHeaderStyles.avatarText}>{initial}</Text>
+        </View>
+      )}
+
+      {/* Orta Kolon: İsim + Handle */}
+      <View style={desktopHeaderStyles.identityCol}>
+        <Text style={desktopHeaderStyles.name} numberOfLines={1}>
+          {profile.name || profile.username}
+        </Text>
+        <Text style={desktopHeaderStyles.handle} numberOfLines={1}>
+          @{profile.username}
+        </Text>
+      </View>
+
+      {/* Sağ Kolon: İstatistikler + Profili Düzenle Butonu */}
+      <View style={desktopHeaderStyles.rightSection}>
+        <View style={desktopHeaderStyles.statsRow}>
+          <TouchableOpacity style={desktopHeaderStyles.statItem} activeOpacity={0.7}>
+            <Text style={desktopHeaderStyles.statValue}>{followersCount}</Text>
+            <Text style={desktopHeaderStyles.statLabel}>{t('profileFollowers', 'Takipçi')}</Text>
+          </TouchableOpacity>
+
+          <View style={desktopHeaderStyles.statDivider} />
+
+          <TouchableOpacity style={desktopHeaderStyles.statItem} activeOpacity={0.7}>
+            <Text style={desktopHeaderStyles.statValue}>{followingCount}</Text>
+            <Text style={desktopHeaderStyles.statLabel}>{t('profileFollowing', 'Takip Edilen')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={desktopHeaderStyles.editBtn}
+          onPress={() => router.push('/(protected)/account')}
+          activeOpacity={0.85}
+        >
+          <Text style={desktopHeaderStyles.editBtnText}>
+            {t('editProfile', 'Profili Düzenle')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function DesktopProfileHeaderSkeleton() {
+  return (
+    <View style={desktopHeaderStyles.container}>
+      <SkeletonLoader width={80} height={80} borderRadius={40} />
+      <View style={[desktopHeaderStyles.identityCol, { gap: 8 }]}>
+        <SkeletonLoader width={160} height={18} borderRadius={5} />
+        <SkeletonLoader width={100} height={13} borderRadius={4} />
+      </View>
+      <View style={desktopHeaderStyles.rightSection}>
+        <View style={desktopHeaderStyles.statsRow}>
+          <SkeletonLoader width={60} height={36} borderRadius={8} />
+          <SkeletonLoader width={60} height={36} borderRadius={8} />
+        </View>
+        <SkeletonLoader width={140} height={36} borderRadius={10} />
+      </View>
+    </View>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ProfileScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -80,6 +168,7 @@ export default function ProfileScreenWeb() {
     router.push(`/(protected)/library/${routeType}` as any);
   }, [router]);
 
+  // ── Mobil: ProfileMobile'a yönlendir ─────────────────────────────────────
   if (!isDesktop) {
     return <ProfileMobile />;
   }
@@ -106,36 +195,47 @@ export default function ProfileScreenWeb() {
 
   return (
     <View style={styles.pageBackground}>
-      {/* ScrollView'ın dışında, sabit (scroll ile kaymayan) köşe ikonu —
-          eskiden ayrı bir satır olarak 32px'lik boş bir marj bırakıyordu. */}
-      <TouchableOpacity
-        style={[styles.settingsButton, { top: insets.top + 16 }]}
-        onPress={() => router.push('/(protected)/account')}
-      >
-        <Settings size={24} color="#ffffff" />
-      </TouchableOpacity>
-
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {isProfileLoading || !profile ? (
-          <ProfileHeaderSkeleton />
-        ) : (
-          <ProfileHeader profile={profile} followersCount={followersCount} followingCount={followingCount} />
-        )}
+        {/* ── Desktop Header: Avatar + Kimlik + İstatistik + Ayarlar ───────── */}
+        <View style={styles.desktopTopBar}>
+          {isProfileLoading || !profile ? (
+            <DesktopProfileHeaderSkeleton />
+          ) : (
+            <DesktopProfileHeader
+              profile={profile}
+              followersCount={followersCount}
+              followingCount={followingCount}
+            />
+          )}
 
+          {/* Ayarlar butonu: header row'un en sağına entegre edildi */}
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => router.push('/(protected)/account')}
+            activeOpacity={0.8}
+          >
+            <Settings size={20} color="#cbd5e1" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Sekmeler: sol kenarla hizalı (avatarın başladığı çizgi) ───────── */}
         <View style={styles.tabsWrap}>
           <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
+        </View>
+
+        {/* ── İzleme İstatistikleri (Mikro-Şerit) — max-width sınırlı ─────── */}
+        <View style={styles.statsStrip}>
+          <ProfileStats />
         </View>
 
         {activeTab === 'activity' ? (
           <ProfileActivityTab traktSlug={profile?.ids?.slug ?? null} />
         ) : (
           <>
-            <ProfileStats />
-
             <View style={styles.carouselsContainer}>
               {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}
               {lists.length > 0 ? (
@@ -176,38 +276,157 @@ export default function ProfileScreenWeb() {
   );
 }
 
+// ─── Desktop Profile Header Styles (yalnızca bu dosyada kullanılır) ───────────
+const desktopHeaderStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    flex: 1,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: 'rgba(59,130,246,0.4)',
+    flexShrink: 0,
+  },
+  avatarFallback: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1e293b',
+    borderWidth: 2,
+    borderColor: 'rgba(59,130,246,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarText: {
+    color: '#94a3b8',
+    fontWeight: '700',
+    fontSize: 30,
+  },
+  identityCol: {
+    flexShrink: 1,
+  },
+  name: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginBottom: 2,
+  },
+  handle: {
+    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  rightSection: {
+    marginLeft: 'auto' as any,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    flexShrink: 0,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  statItem: {
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  statValue: {
+    color: '#f1f5f9',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  statLabel: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  editBtn: {
+    height: 38,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...({ cursor: 'pointer', transition: 'background-color 0.2s ease' } as any),
+  },
+  editBtnText: {
+    color: '#f1f5f9',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+});
+
+// ─── Page-level Styles ────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   pageBackground: {
     flex: 1,
     backgroundColor: '#0B1120',
-    position: 'relative',
   },
   safeArea: {
     flex: 1,
     backgroundColor: '#0B1120',
   },
   container: {
-    flex: 1
+    flex: 1,
   },
   contentContainer: {
     width: '100%',
     maxWidth: 1200,
-    marginHorizontal: 'auto',
-    paddingHorizontal: 20,
+    marginHorizontal: 'auto' as any,
+    paddingHorizontal: 24,
+  },
+  // ── Üst Bar: Desktop header + Ayarlar butonu yan yana ──────────────────────
+  desktopTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   settingsButton: {
-    position: 'absolute',
-    right: 24,
-    zIndex: 1,
-    padding: 8,
-    backgroundColor: '#1f2937',
-    borderRadius: 20,
-    ...( { cursor: 'pointer', transition: 'all 0.2s ease' } as any)
+    marginLeft: 16,
+    flexShrink: 0,
+    padding: 9,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    ...({ cursor: 'pointer', transition: 'background-color 0.2s ease' } as any),
   },
+  // ── Sekmeler: profil içeriğiyle aynı sol hizasında (avatarın çizgisi) ──────
   tabsWrap: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 360,
     alignSelf: 'center',
+    marginBottom: 4,
+  },
+  // ── İzleme İstatistikleri Şeridi: max-width sınırlı ────────────────────────
+  // ProfileStats (ProfileStatsMobile) bileşeni kendi `marginHorizontal`'ını
+  // SECTION_PADDING_H'e göre içsel olarak yönetiyor. Desktop'ta bu wrapper
+  // bileşenin genişliğini kısıtlar — 2000px'e devasa yayılması engellenir.
+  statsStrip: {
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    marginBottom: 4,
   },
   carouselsContainer: {
     gap: 16,

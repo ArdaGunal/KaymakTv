@@ -9,6 +9,7 @@ interface SettingsRowProps {
   onPress?: () => void;
   showChevron?: boolean;
   tintColor?: string;
+  isDestructive?: boolean;
   disabled?: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function SettingsRow({
   onPress,
   showChevron = false,
   tintColor,
+  isDestructive = false,
   disabled = false,
 }: SettingsRowProps) {
   return (
@@ -28,11 +30,11 @@ export default function SettingsRow({
       activeOpacity={onPress ? 0.7 : 1}
       disabled={disabled || !onPress}
     >
-      <View style={[styles.iconSlot, tintColor && { backgroundColor: tintColor + '22' }]}>
+      <View style={[styles.iconSlot, tintColor ? { backgroundColor: tintColor + '18' } : null]}>
         {icon}
       </View>
 
-      <Text style={[styles.label, tintColor && { color: tintColor }]} numberOfLines={1}>
+      <Text style={[styles.label, (isDestructive && tintColor) ? { color: tintColor } : null]} numberOfLines={1}>
         {label}
       </Text>
 
@@ -41,7 +43,7 @@ export default function SettingsRow({
           <Text style={styles.value}>{value}</Text>
         ) : null}
         {showChevron && (
-          <ChevronRight size={16} color={tintColor ?? '#475569'} />
+          <ChevronRight size={16} color="#64748b" />
         )}
       </View>
     </TouchableOpacity>

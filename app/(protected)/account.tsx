@@ -124,9 +124,9 @@ export default function SettingsScreen() {
 
           <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
-              icon={<Globe size={20} color="#a78bfa" />}
+              icon={<Globe size={20} color="#60a5fa" />}
               label={t('language', 'Dil')}
-              tintColor="#a78bfa"
+              tintColor="#60a5fa"
               value={languageLabel}
               showChevron
               onPress={() => setLanguageModalVisible(true)}
@@ -136,16 +136,16 @@ export default function SettingsScreen() {
           {/* Misafirin bir Trakt hesabı yok — bu ayarın onun için hiçbir
               anlamı yok, bu yüzden yalnızca gerçek kullanıcıya gösterilir. */}
           {!isGuest && accessToken && (
-            <SettingsSection title={t('settings:feedSection', '💬 Akış')}>
+            <SettingsSection title={t('settings:feedSection', 'Akış')}>
               {/* DB'de ayrı bir sütun DEĞİL — ikisi de kapalıysa türetilmiş
                   olarak açık görünür (bkz. useFeedPrivacy.ts: hideAll).
                   Açılınca ikisini birden kapatır, kapanınca ikisini birden
                   açar; alttaki ikisi bu açıkken devre dışı/soluk kalır. */}
               <SettingsSwitchRow
-                icon={<EyeOff size={20} color="#a78bfa" />}
+                icon={<EyeOff size={20} color="#60a5fa" />}
                 label={t('settings:hideFromFeed', 'Aktivitemi Akışta Gizle')}
                 hint={t('settings:hideFromFeedHint', 'Açıkken izlediklerin ve puanladıkların kimsenin akışında görünmez.')}
-                tintColor="#a78bfa"
+                tintColor="#60a5fa"
                 value={feedPrivacy.hideAll}
                 onValueChange={feedPrivacy.setHideAll}
                 isLoading={feedPrivacy.isLoading}
@@ -168,10 +168,10 @@ export default function SettingsScreen() {
               <SettingsSectionDivider />
 
               <SettingsSwitchRow
-                icon={<Star size={20} color="#facc15" />}
+                icon={<Star size={20} color="#60a5fa" />}
                 label={t('settings:publishRatings', 'Puanlarımı Akışta Paylaş')}
                 hint={t('settings:publishRatingsHint', 'Kapatırsan verdiğin puanlar kimsenin akışında görünmez.')}
-                tintColor="#facc15"
+                tintColor="#60a5fa"
                 value={feedPrivacy.settings.publishRatings}
                 onValueChange={(v) => feedPrivacy.update('publishRatings', v)}
                 isLoading={feedPrivacy.isLoading}
@@ -180,11 +180,12 @@ export default function SettingsScreen() {
             </SettingsSection>
           )}
 
-          <SettingsSection title={t('settings:accountOptions', '⚠️ Hesap Seçenekleri')}>
+          <SettingsSection title={t('settings:accountOptions', 'Hesap Seçenekleri')}>
             <SettingsRow
               icon={<LogOut size={20} color="#fb923c" />}
               label={isGuest ? t('settings:exitGuestMode', 'Misafir Modundan Çık') : t('logoutReset', 'Çıkış Yap')}
               tintColor="#fb923c"
+              isDestructive
               onPress={handleLogout}
               disabled={isLoggingOut}
             />
@@ -201,6 +202,7 @@ export default function SettingsScreen() {
                   icon={<Trash2 size={20} color="#f87171" />}
                   label={t('settings:deleteAccount')}
                   tintColor="#f87171"
+                  isDestructive
                   onPress={() => setDeleteModalVisible(true)}
                   disabled={isDeletingAccount}
                 />
@@ -217,9 +219,9 @@ export default function SettingsScreen() {
             {isDeveloperMode && (
               <>
                 <SettingsRow
-                  icon={<Activity size={20} color="#38bdf8" />}
+                  icon={<Activity size={20} color="#60a5fa" />}
                   label={t('settings:exportPerformanceReport')}
-                  tintColor="#38bdf8"
+                  tintColor="#60a5fa"
                   onPress={handleExportMetrics}
                   disabled={isExportingMetrics}
                 />
@@ -227,9 +229,9 @@ export default function SettingsScreen() {
                 <SettingsSectionDivider />
 
                 <SettingsRow
-                  icon={<FileWarning size={20} color="#f87171" />}
+                  icon={<FileWarning size={20} color="#60a5fa" />}
                   label={t('settings:errorLogTitle')}
-                  tintColor="#f87171"
+                  tintColor="#60a5fa"
                   showChevron
                   onPress={() => router.push('/(protected)/error-log')}
                 />
@@ -239,9 +241,9 @@ export default function SettingsScreen() {
             )}
 
             <SettingsRow
-              icon={<MessageCircle size={20} color="#a78bfa" />}
+              icon={<MessageCircle size={20} color="#60a5fa" />}
               label={t('settings:reportIssueRowLabel', 'Bize Ulaşın / Hata Bildir')}
-              tintColor="#a78bfa"
+              tintColor="#60a5fa"
               showChevron
               onPress={() => setReportModalVisible(true)}
             />
