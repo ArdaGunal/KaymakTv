@@ -18,15 +18,45 @@ import {
   setShowProgressMap,
   persistShowProgressMap,
 } from '../utils';
-import { useTrackingStore } from '../../../store/tracking/useTrackingStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
+import { toggleHiddenFromProgress } from './collections';
 import { logError } from '../../../utils/errorLog';
 import { recordMutationResult } from '../../../utils/metrics';
+
+// Kullanıcı "Bırak" ile Trakt'ta gizlediği bir diziyi/filmi sonradan yeniden
+// izlemeye başlarsa gizleme otomatik kaldırılır — aksi halde dizi/film Trakt'ın
+// gizlenen listesinde takılı kalır ve ana vitrin listelerine asla geri dönmez.
+//
+// Gizleme kaldırma mantığı BİLİNÇLİ OLARAK burada tekrar YAZILMAZ:
+// `toggleHiddenFromProgress` zaten iyimser güncelleme + diske yazma + hata
+// halinde rollback + metrik kaydı + senkron yarış koruması (hiddenSyncGuard)
+// içeriyor. Buradaki ilk sürüm bu adımların yalnızca bir kısmını kopyalamıştı
+// ve rollback'i yoktu — istek başarısız olduğunda yerel durum "gizli değil",
+// Trakt "gizli" kalıyor, ilk senkronda dizi kullanıcının gözü önünde geri
+// gizleniyordu. Tek kaynağa devredilerek bu sapma kapatıldı.
+//
+// Çağrı ateşle-ve-unut: kullanıcının "izledim" akışını bloklamamalı, bu yüzden
+// `await` edilmez; hata halinde `toggleHiddenFromProgress` kendi rollback'ini
+// zaten yapar.
+const unhideShowIfNeeded = (showId: number) => {
+  if (!useLibraryStore.getState().hiddenShowIds.includes(showId)) return;
+  toggleHiddenFromProgress(showId, 'show', true).catch((e) =>
+    console.error('Otomatik gizleme kaldırma (show) hatası:', e)
+  );
+};
+
+const unhideMovieIfNeeded = (movieId: number) => {
+  if (!useLibraryStore.getState().hiddenMovieIds.includes(movieId)) return;
+  toggleHiddenFromProgress(movieId, 'movie', true).catch((e) =>
+    console.error('Otomatik gizleme kaldırma (movie) hatası:', e)
+  );
+};
 
 // Kullanıcı bir dizinin yeni bir bölümünü/sezonunu izlediğinde (tek bölüm,
 // toplu bölüm veya sezon işaretleme — geri alma DEĞİL), o dizi artık "aktif
 // izleniyor" sayılmalı: Diziler > İzleme sekmesindeki normal bir dizi gibi
 // davranmalı.
-//   1. Manuel "Bırakıldı" işareti varsa kaldırılır (Bırakıldı, tarihten/
+//   1. "Bırak" ile Trakt'ta gizlenmişse gizleme kaldırılır (Bırak, tarihten/
 //      ilerlemeden tamamen bağımsız, en yüksek öncelikli bir kova olduğu için
 //      progress güncellemesi tek başına bunu geçersiz kılamaz — açıkça temizlemek gerekir).
 //   2. `watchedShows`'taki `last_watched_at` "şimdi"ye çekilir — aksi halde
@@ -36,7 +66,7 @@ import { recordMutationResult } from '../../../utils/metrics';
 //      bir dizi — dokunmuyoruz: trackingLogic zaten "son izleme bilinmiyor"
 //      durumunu güvenli varsayılan olarak aktif sayıyor.)
 const reactivateShowTracking = (showId: number) => {
-  useTrackingStore.getState().clearDroppedShowStatus(showId);
+  unhideShowIfNeeded(showId);
 
   setWatchedShows((prev: any[]) => {
     const idx = (prev || []).findIndex((item: any) => item?.show?.ids?.trakt === showId);
@@ -366,12 +396,12 @@ export const markMovieAsWatched = async (movieId: number) => {
 
   console.log(`[OPTIMISTIC UI] Film UI'da anında işaretleniyor: Movie ${movieId}`);
 
-  // Kullanıcı bıraktığı bir filmi sonradan izlediyse artık "Bırakılanlar"da
-  // görünmemeli. "Bırakıldı" en yüksek öncelikli kova olduğu için (bkz.
-  // movieTrackingLogic), geçmişe eklenmesi tek başına bunu geçersiz kılmaz —
-  // işareti açıkça temizlemek gerekir. Dizilerdeki `reactivateShowTracking`
-  // kuralının film karşılığı.
-  useTrackingStore.getState().clearDroppedMovieStatus(movieId);
+  // Kullanıcı "Bırak" ile gizlediği bir filmi sonradan izlediyse artık
+  // Gizlenenler/Bırakılanlar'da görünmemeli. Gizlenmiş olmak en yüksek
+  // öncelikli kova olduğu için (bkz. movieTrackingLogic), geçmişe eklenmesi
+  // tek başına bunu geçersiz kılmaz — gizlemeyi açıkça kaldırmak gerekir.
+  // Dizilerdeki `reactivateShowTracking` kuralının film karşılığı.
+  unhideMovieIfNeeded(movieId);
 
   setWatchlistMovies((prev: any) => {
     previousWatchlist = prev;

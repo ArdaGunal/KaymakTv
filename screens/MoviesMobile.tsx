@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, Dimensions, Platform } from 'react-native';
 
 import ConfettiCannon from 'react-native-confetti-cannon';
@@ -6,8 +6,7 @@ import MovieCard from '../components/movies/MovieCard';
 import LoginPaywall from '../components/LoginPaywall';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../context/AuthContext';
-import { useLibrarySelector } from '../context/LibraryContext';
-import { useTrackingStore } from '../store/tracking/useTrackingStore';
+import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useMoviesDashboardData } from '../hooks/useMoviesDashboardData';
@@ -28,27 +27,24 @@ export default function MoviesScreen() {
   const { accessToken, isGuest } = useAuth();
 
   // Katı seçici: yalnızca film dilimleri okunur; dizi/progress güncellemeleri bu ekranı render etmez.
-  const { watchlistMovies, calendarMovies, isMoviesLoading } = useLibrarySelector(s => ({
+  const { watchlistMovies, calendarMovies, isMoviesLoading, hiddenMovieIds } = useLibrarySelector(s => ({
     watchlistMovies: s.watchlistMovies,
     calendarMovies: s.calendarMovies,
     isMoviesLoading: s.isMoviesLoading,
+    hiddenMovieIds: s.hiddenMovieIds,
   }));
 
   // Dizi kartlarındaki 3-nokta menüsüyle (Bırak/Listeye Ekle/Favorile/Paylaş)
-  // aynı özellik film kartlarında da olsun istendi — "Bırakıldı" durumu dizilerle
-  // aynı izole tracking store'dan (droppedMovieIds) geliyor.
-  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
-  const toggleDroppedMovieStatus = useTrackingStore((s) => s.toggleDroppedMovieStatus);
-  const hydrateTracking = useTrackingStore((s) => s.hydrate);
-
-  useEffect(() => {
-    hydrateTracking();
-  }, [hydrateTracking]);
+  // aynı özellik film kartlarında da var — "Bırak" doğrudan Trakt'ın
+  // "İlerlemeyi Gizle" uç noktasına bağlıdır (bkz. toggleHiddenFromProgress),
+  // dizilerle birebir aynı mekanizma.
+  const { toggleHiddenFromProgress } = useLibraryActions();
 
   const { watchlistMoviesList, upcomingMovies } = useMoviesDashboardData(
     accessToken ? watchlistMovies : [],
     accessToken ? calendarMovies : [],
-    i18n.language
+    i18n.language,
+    hiddenMovieIds
   );
 
   const groupedUpcomingMovies = useMemo(() => groupByDateGroup(upcomingMovies), [upcomingMovies]);
@@ -70,11 +66,10 @@ export default function MoviesScreen() {
       <MovieCard
         data={item}
         onMovieFinished={handleMovieFinished}
-        isDropped={droppedMovieIds.includes(item.id)}
-        onToggleDropped={() => toggleDroppedMovieStatus(item.id)}
+        onToggleDropped={() => toggleHiddenFromProgress(item.id, 'movie', false)}
       />
     ),
-    [handleMovieFinished, droppedMovieIds, toggleDroppedMovieStatus]
+    [handleMovieFinished, toggleHiddenFromProgress]
   );
 
   if (isGuest) {

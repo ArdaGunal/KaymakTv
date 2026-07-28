@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Tv, Compass, User, Film } from 'lucide-react-native';
+import { Tv, Compass, User, Film, Rss } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useWindowDimensions, View } from 'react-native';
 import Sidebar from '../../../components/Sidebar';
@@ -41,6 +41,13 @@ export default function TabsLayout() {
             options={{
               title: t('movies'),
               tabBarIcon: ({ color }) => <Film size={28} color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="feed"
+            options={{
+              title: t('feed'),
+              tabBarIcon: ({ color }) => <Rss size={28} color={color} />,
             }}
           />
           <Tabs.Screen

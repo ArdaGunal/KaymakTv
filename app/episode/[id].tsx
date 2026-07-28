@@ -1,19 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback, Platform, Share, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Star, X, Info, Heart, Check, Share2 } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Star, Check, Share2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { WebView } from 'react-native-webview';
 
 import { addRating, removeRating } from '../../services/traktApi';
 import { useEpisodeDetail } from '../../hooks/useEpisodeDetail';
-import { getEpisodeStill } from '../../services/tmdbApi';
 import { formatRating } from '../../utils/formatRating';
-import EpisodeCheckButton from '../../components/EpisodeCheckButton';
-import StarSlider from '../../components/StarSlider';
 import RatingModal from '../../components/RatingModal';
 import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
@@ -21,7 +17,6 @@ import MyInlineComment from '../../components/MyInlineComment';
 import MediaCast from '../../components/MediaCast';
 import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
-import { useTrackingStore } from '../../store/tracking/useTrackingStore';
 import { getProgressBarColor } from '../../utils/progressBarColor';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
 import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug } from '../../utils/slugHelper';
@@ -39,11 +34,12 @@ export default function EpisodeDetailScreen() {
   const showName = formatSlugToTitle(showSlug);
   const showId = parsedShowId;
   const traktIdNum = parsedShowId;
-  const { 
-    userRatingsEpisodes, 
+  const {
+    userRatingsEpisodes,
     setLocalRating,
     removeLocalRating,
-    showProgressMap, 
+    showProgressMap,
+    hiddenShowIds,
     unwatchEpisode,
     markEpisodeAsWatched,
     markEpisodesUpToAsWatched
@@ -68,14 +64,6 @@ export default function EpisodeDetailScreen() {
   const [commentVersion, setCommentVersion] = useState(0);
   const [isCheckLoading, setIsCheckLoading] = useState(false);
 
-  const [isWebViewVisible, setIsWebViewVisible] = useState(false);
-  const [isWebViewLoading, setIsWebViewLoading] = useState(true);
-  const [revealedSpoilers, setRevealedSpoilers] = useState<Record<number, boolean>>({});
-
-  const toggleSpoiler = (commentId: number) => {
-    setRevealedSpoilers(prev => ({ ...prev, [commentId]: !prev[commentId] }));
-  };
-
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -96,18 +84,9 @@ export default function EpisodeDetailScreen() {
   const showProgress = showProgressMap[traktIdNum];
   const hasShowProgress = showProgress && showProgress.aired > 0 && showProgress.completed > 0;
   const showProgressPercentage = hasShowProgress ? (showProgress.completed / showProgress.aired) * 100 : 0;
-  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
-  const hydrateTracking = useTrackingStore((s) => s.hydrate);
-  const isShowDropped = droppedShowIds.includes(traktIdNum);
+  const isShowHidden = (hiddenShowIds || []).includes(traktIdNum);
   const isShowFinished = !!hasShowProgress && showProgress.completed >= showProgress.aired;
-  const showProgressColor = getProgressBarColor(isShowDropped, isShowFinished);
-
-  // Bu sayfaya İzleme sekmesine hiç uğramadan (örn. bir bildirimden/paylaşılan
-  // linkten) doğrudan gelinmiş olabilir — `droppedShowIds` o durumda boş kalır ve
-  // daha önce bırakılmış bir dizi burada yanlışlıkla "aktif" (mavi) görünür.
-  useEffect(() => {
-    hydrateTracking();
-  }, [hydrateTracking]);
+  const showProgressColor = getProgressBarColor(isShowHidden, isShowFinished);
 
   const handleRate = async (val: number) => {
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
@@ -213,7 +192,6 @@ export default function EpisodeDetailScreen() {
 
   const handleShare = async () => {
     try {
-      const safeTitle = encodeURIComponent(showName as string || '');
       const url = `https://kaymaktv.com/episode/${idStr}`;
       
       await Share.share({
@@ -250,11 +228,25 @@ export default function EpisodeDetailScreen() {
             style={styles.gradientOverlay}
           />
 
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          {/* Güvenli alan (safe area) DİNAMİK olmalı: `styles.backButton`/
+              `styles.shareButton` eskiden `top: 50` ile SABİT kodlanmıştı ve
+              bu ekranda çağrılan `useSafeAreaInsets()` sonucu hiç
+              kullanılmıyordu. Sonuç: çentiği/durum çubuğu yüksekliği farklı
+              cihazlarda (küçük ekranlı Android, katlanabilir, Dynamic Island)
+              butonlar ya durum çubuğunun altına giriyor ya da gereksiz aşağıda
+              kalıyordu. Artık `MediaHero.tsx`'teki mevcut desenin AYNISI
+              kullanılıyor (`insets.top + 10`, yatayda da insets'e saygılı). */}
+          <TouchableOpacity
+            style={[styles.backButton, { top: insets.top + 10, left: insets.left + 16 }]}
+            onPress={handleBack}
+          >
             <ChevronLeft color="#fff" size={24} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+          <TouchableOpacity
+            style={[styles.shareButton, { top: insets.top + 10, right: insets.right + 16 }]}
+            onPress={handleShare}
+          >
             <Share2 color="#fff" size={24} />
           </TouchableOpacity>
 
@@ -276,12 +268,20 @@ export default function EpisodeDetailScreen() {
             </Text>
 
             <View style={styles.ratingsRow}>
-              {/* Global Trakt Rating */}
+              {/* Global Trakt puanı + oy sayısı. `votes` zaten hesaplanıyordu
+                  ama HİÇBİR yerde basılmıyordu (repo genelinde `.votes`'un tek
+                  kullanımı buydu) — puanın kaç oya dayandığı bilgisi bir
+                  refaktörde arayüzden düşmüş. Oy sayısı yalnızca gerçekten
+                  varsa gösterilir: 0 oylu (yeni/niş) bölümlerde "(0)" basmak
+                  puanı gereksiz yere şüpheli gösterirdi. */}
               <View style={styles.ratingBadge}>
                 <Star size={14} color="#facc15" fill="#facc15" />
                 <Text style={styles.ratingText}>
                   {rating}
                 </Text>
+                {episodeData?.votes > 0 && (
+                  <Text style={styles.votesText}>({votes})</Text>
+                )}
               </View>
 
               {/* User Rating Badge (Puanla) */}
@@ -455,8 +455,10 @@ const styles = StyleSheet.create({
   stillImage: { width: '100%', height: '100%' },
   stillPlaceholder: { width: '100%', height: '100%', backgroundColor: '#0B1120' },
   gradientOverlay: { ...StyleSheet.absoluteFillObject },
-  backButton: { position: 'absolute', top: 50, left: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  shareButton: { position: 'absolute', top: 50, right: 16, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  // `top`/`left`/`right` BİLİNÇLİ OLARAK burada YOK — güvenli alana göre
+  // render sırasında veriliyor (bkz. yukarıdaki insets notu).
+  backButton: { position: 'absolute', zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  shareButton: { position: 'absolute', zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   headerContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, zIndex: 5 },
   // Sade breadcrumb: arka plan/kenarlık yok, sadece küçük soluk metin + ok — göze batmaz, isteyen fark edip kullanır.
   showNameRow: {
@@ -489,6 +491,14 @@ const styles = StyleSheet.create({
     color: '#facc15',
     fontWeight: 'bold',
     fontSize: 13,
+    marginLeft: 4,
+  },
+  // Oy sayısı: puanın yanında ikincil bilgi — daha soluk ve ince, puanı
+  // gölgelemesin.
+  votesText: {
+    color: 'rgba(250, 204, 21, 0.6)',
+    fontWeight: '600',
+    fontSize: 11,
     marginLeft: 4,
   },
   userRatingBadge: {
@@ -538,14 +548,4 @@ const styles = StyleSheet.create({
   commentText: { color: '#d4d4d4', fontSize: 14, lineHeight: 22 },
   commentFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 6 },
   commentLikes: { color: '#a3a3a3', fontSize: 12, fontWeight: 'bold' },
-  spoilerWarning: { backgroundColor: 'rgba(250, 204, 21, 0.1)', padding: 16, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.3)' },
-  spoilerText: { color: '#facc15', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
-  spoilerSubtext: { color: '#a3a3a3', fontSize: 12 },
-  modalContainer: { flex: 1, backgroundColor: '#0a0a0a' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#0a0a0a', borderBottomWidth: 1, borderBottomColor: '#172033' },
-  modalCloseButton: { flexDirection: 'row', alignItems: 'center' },
-  modalCloseText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-  webViewContainer: { flex: 1, position: 'relative' },
-  webViewLoader: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a', zIndex: 10 },
-  webView: { flex: 1, backgroundColor: '#0a0a0a' },
 });

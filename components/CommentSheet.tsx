@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -13,8 +13,9 @@ import {
 } from 'react-native';
 import { X, MessageSquare } from 'lucide-react-native';
 import CommentItem from './comments/CommentItem';
+import CommentSortBar from './comments/CommentSortBar';
 import CommentListSkeleton from './skeletons/CommentListSkeleton';
-import { useComments } from '../hooks/useComments';
+import { useComments, CommentSort } from '../hooks/useComments';
 
 interface CommentSheetProps {
   visible: boolean;
@@ -33,15 +34,27 @@ export default function CommentSheet({
   season,
   episode,
 }: CommentSheetProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'media']);
+  const [sort, setSort] = useState<CommentSort>('likes');
   const { comments, loading, loadingMore, error, totalCount, loadComments, loadMore } =
-    useComments({ mediaId, mediaType, season, episode, sort: 'likes' });
+    useComments({ mediaId, mediaType, season, episode, sort });
 
+  // `sort` bağımlılığa dahil: kullanıcı sıralamayı değiştirdiğinde de yeniden
+  // çekilsin. `loadComments` zaten `sort` değiştiğinde yeniden oluşturuluyor
+  // (`useComments` içindeki `useCallback` bağımlılığı) — bu yüzden burada
+  // yalnızca "ne zaman çağrılsın" sorusu var.
   useEffect(() => {
     if (visible && mediaId) {
       loadComments();
     }
-  }, [visible, mediaId]);
+  }, [visible, mediaId, sort]);
+
+  // Sheet kapanınca sıralamayı sıfırla — bir sonraki açılışta her zaman
+  // varsayılan "en çok beğenilen" ile başlasın, önceki medyada seçilmiş
+  // sıralama sızmasın.
+  useEffect(() => {
+    if (!visible) setSort('likes');
+  }, [visible]);
 
   return (
     <Modal
@@ -61,7 +74,7 @@ export default function CommentSheet({
             <View style={styles.headerLeft}>
               <MessageSquare size={20} color="#60a5fa" />
               <Text style={styles.title}>
-                Yorumlar
+                {t('media:comments')}
                 {totalCount > 0 && (
                   <Text style={styles.count}> ({totalCount})</Text>
                 )}
@@ -72,6 +85,14 @@ export default function CommentSheet({
             </TouchableOpacity>
           </View>
 
+          {/* Sıralama: yalnızca en az bir yorum bilindiğinde göster — ilk
+              yükleme bitmeden (totalCount hâlâ varsayılan 0) veya boş
+              durumda gösterip kullanıcıyı yanıltmayalım. Sıralama
+              değişirken de `totalCount` bir önceki istekten kalma değerini
+              koruduğu için (yalnızca başarılı fetch sonunda güncelleniyor)
+              bar geçişler arasında ZIPLAMIYOR. */}
+          {totalCount > 0 && <CommentSortBar value={sort} onChange={setSort} />}
+
           {/* Content */}
           {loading ? (
             <CommentListSkeleton />
@@ -79,7 +100,7 @@ export default function CommentSheet({
             <View style={styles.centerState}>
               <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity onPress={loadComments} style={styles.retryBtn}>
-                <Text style={styles.retryBtnText}>Tekrar Dene</Text>
+                <Text style={styles.retryBtnText}>{t('retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : (

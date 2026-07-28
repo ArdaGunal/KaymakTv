@@ -133,7 +133,8 @@ export const CACHE_KEYS = {
   calendarSeasonsMap: '@trakt_lib_calendarSeasonsMap',
   lastFetchTime: '@trakt_lib_lastFetchTime',
   userStats: '@trakt_lib_userStats',
-  hiddenShowIds: '@trakt_lib_hiddenShowIds'
+  hiddenShowIds: '@trakt_lib_hiddenShowIds',
+  hiddenMovieIds: '@trakt_lib_hiddenMovieIds'
 };
 
 export let currentAccessToken: string | null = null;
@@ -222,6 +223,11 @@ export const setHiddenShowIds = (val: any) => {
   const state = useLibraryStore.getState();
   const nextVal = typeof val === 'function' ? val(state.hiddenShowIds) : val;
   state.setHiddenShowIds(nextVal);
+};
+export const setHiddenMovieIds = (val: any) => {
+  const state = useLibraryStore.getState();
+  const nextVal = typeof val === 'function' ? val(state.hiddenMovieIds) : val;
+  state.setHiddenMovieIds(nextVal);
 };
 export const setIsLoading = (val: any) => {
   const state = useLibraryStore.getState();

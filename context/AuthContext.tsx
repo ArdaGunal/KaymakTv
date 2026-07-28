@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from '../utils/secureStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onSessionExpired } from '../services/api/traktClient';
+import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -43,6 +43,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.warn('[Auth] Oturum süresi doldu, kullanıcı çıkışa alınıyor.');
       setAccessToken(null);
       setIsGuest(false);
+    });
+  }, []);
+
+  // Simetrik abonelik: token arka planda SESSİZCE yenilendiğinde de bu
+  // state'in haberi olsun — aksi halde `useAuth().accessToken`'ı okuyup
+  // Worker'a doğrudan gönderen kod yolları (feed sync, feed privacy) eski/
+  // artık geçersiz token'ı göndermeye devam ediyordu (canlı testte bulundu).
+  useEffect(() => {
+    return onTokenRefreshed((newToken) => {
+      setAccessToken(newToken);
     });
   }, []);
 

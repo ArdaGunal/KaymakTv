@@ -18,11 +18,10 @@ interface MovieCardProps {
   data: any;
   onMovieFinished?: (title: string) => void;
   /** Verilirse afişin üzerinde 3-nokta menüsü (Bırak/Listeye Ekle/Favorile/Paylaş) gösterilir. */
-  isDropped?: boolean;
   onToggleDropped?: (id: number) => void;
 }
 
-const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: MovieCardProps) => {
+const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardProps) => {
   // KRİTİK: Tüm hook'lar koşullu return'lerden ÖNCE çağrılmalı (Rules of Hooks).
   // Eskiden `if (!isDesktop) return <MovieCardMobile/>` hook'ların üstündeydi;
   // pencere 768px eşiğini geçince hook sayısı değişiyor ve ekran çöküyordu.
@@ -53,7 +52,6 @@ const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: M
       <MovieCardMobile
         data={data}
         onMovieFinished={onMovieFinished}
-        isDropped={isDropped}
         onToggleDropped={onToggleDropped}
       />
     );
@@ -138,7 +136,6 @@ const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: M
                   mediaType="movie"
                   tmdbId={data.tmdbId}
                   slug={data.slug}
-                  isDropped={!!isDropped}
                   onToggleDropped={() => onToggleDropped(data.id)}
                 />
               </View>

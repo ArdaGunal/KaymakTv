@@ -22,7 +22,6 @@ import type { FilterOption } from '../components/library/LibraryFilterModal';
 const SHOW_LABEL_KEYS: Record<ShowStatusKey, string> = {
   upNext: 'upNext',
   paused: 'paused',
-  dropped: 'inactive',
   notStarted: 'notStarted',
   hidden: 'hiddenProgress',
 };
@@ -30,7 +29,7 @@ const SHOW_LABEL_KEYS: Record<ShowStatusKey, string> = {
 const MOVIE_LABEL_KEYS: Record<MovieCategoryKey, string> = {
   watched: 'filterWatched',
   watchlist: 'filterWatchlist',
-  dropped: 'inactive',
+  hidden: 'hiddenProgress',
 };
 
 export interface UseLibraryFiltersResult {

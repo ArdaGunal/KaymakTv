@@ -26,8 +26,10 @@ import {
   setCalendarShows,
   setCalendarSeasonsMap,
   setHiddenShowIds,
+  setHiddenMovieIds,
 } from '../utils';
 import { useLibraryStore } from '../../../store/useLibraryStore';
+import { beginHiddenMutation, endHiddenMutation } from '../hiddenSyncGuard';
 import { logError } from '../../../utils/errorLog';
 import { recordMutationResult } from '../../../utils/metrics';
 import {
@@ -126,23 +128,39 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
   }
 };
 
-// "İlerlemeyi Gizle/Göster" — dizinin izleme geçmişine/puanlarına HİÇ dokunmaz,
-// yalnızca Trakt'ın "gizlenen ilerleme" listesine ekler/çıkarır (bkz. hiddenShowIds
-// store dilimi + store/tracking/trackingLogic.ts). ESKİ DAVRANIŞ: yalnızca
-// hide yönü vardı ve arayüzü güncellemek için HER seferinde tam bir
+// "İlerlemeyi Gizle/Göster" — dizinin/filmin izleme geçmişine/puanlarına HİÇ
+// dokunmaz, yalnızca Trakt'ın "gizlenen" listesine ekler/çıkarır (diziler için
+// `progress_watched`, filmler için `calendar` bölümü — bkz. hideItemTrakt).
+// Bu, uygulamanın TEK "Bırak" (Drop) mekanizmasıdır: ayrı bir yerel/Supabase
+// "bırakıldı" durumu YOKTUR — Trakt hesabı tüm cihazlarda tek gerçek kaynaktır
+// (bkz. hiddenShowIds/hiddenMovieIds store dilimleri + store/tracking/
+// trackingLogic.ts, store/tracking/movieTrackingLogic.ts). ESKİ DAVRANIŞ:
+// yalnızca hide yönü vardı ve arayüzü güncellemek için HER seferinde tam bir
 // `fetchFreshData(force=true)` (13+ endpoint'lik tüm kütüphane resync'i) tetikliyordu
 // — tek bir diziyi gizlemek için orantısız bir maliyetti (bkz. performans raporu).
 // Artık `toggleFavoriteStatus` ile AYNI optimistic desen kullanılıyor: yerel
-// `hiddenShowIds` anında güncellenir, arayüz aynı anda yenilenir, tam resync'e
-// hiç gerek kalmaz.
+// `hiddenShowIds`/`hiddenMovieIds` anında güncellenir, arayüz aynı anda yenilenir,
+// tam resync'e hiç gerek kalmaz.
 export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie', isCurrentlyHidden: boolean) => {
   let previousHiddenShowIds: number[] | null = null;
+  let previousHiddenMovieIds: number[] | null = null;
+
+  // Aynı anda çalışan bir tam senkron, bu iyimser güncellemeyi ESKİ bir sunucu
+  // anlık görüntüsüyle geri almasın (bkz. services/library/hiddenSyncGuard.ts).
+  beginHiddenMutation(type, id, !isCurrentlyHidden);
 
   if (type === 'show') {
     setHiddenShowIds((prev: number[]) => {
       previousHiddenShowIds = prev;
       const next = isCurrentlyHidden ? prev.filter((existing) => existing !== id) : [...prev, id];
       safeStorageSet(CACHE_KEYS.hiddenShowIds, JSON.stringify(next));
+      return next;
+    });
+  } else {
+    setHiddenMovieIds((prev: number[]) => {
+      previousHiddenMovieIds = prev;
+      const next = isCurrentlyHidden ? prev.filter((existing) => existing !== id) : [...prev, id];
+      safeStorageSet(CACHE_KEYS.hiddenMovieIds, JSON.stringify(next));
       return next;
     });
   }
@@ -161,8 +179,15 @@ export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie
     if (type === 'show' && previousHiddenShowIds !== null) {
       setHiddenShowIds(previousHiddenShowIds);
       safeStorageSet(CACHE_KEYS.hiddenShowIds, JSON.stringify(previousHiddenShowIds));
+    } else if (type === 'movie' && previousHiddenMovieIds !== null) {
+      setHiddenMovieIds(previousHiddenMovieIds);
+      safeStorageSet(CACHE_KEYS.hiddenMovieIds, JSON.stringify(previousHiddenMovieIds));
     }
     throw err;
+  } finally {
+    // Başarı VEYA rollback fark etmez: istek artık uçuşta değil, sonraki
+    // senkronlar yine sunucuyu tek gerçek kaynak saysın.
+    endHiddenMutation(type, id);
   }
 };
 

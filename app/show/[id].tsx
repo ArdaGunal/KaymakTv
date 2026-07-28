@@ -1,36 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform, UIManager, LayoutAnimation, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, UIManager, LayoutAnimation } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
-import { BlurView } from 'expo-blur';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { ChevronLeft, Play, ChevronDown, ChevronUp, Check, CheckCheck, Star } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
-import { useTrackingStore } from '../../store/tracking/useTrackingStore';
 import { parseMediaSlug } from '../../utils/slugHelper';
-import EpisodeCheckButton from '../../components/EpisodeCheckButton';
 import MediaHero from '../../components/MediaHero';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import Snackbar from '../../components/Snackbar';
-import StarSlider from '../../components/StarSlider';
 import CommentSheet from '../../components/CommentSheet';
 import WriteCommentSheet from '../../components/WriteCommentSheet';
 import MyInlineComment from '../../components/MyInlineComment';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../context/AuthContext';
-import { generateEpisodeSlug } from '../../utils/slugHelper';
 import SeasonAccordion from '../../components/SeasonAccordion';
 import EpisodeRatingModal from '../../components/modals/EpisodeRatingModal';
 import EpisodeOptionsModal from '../../components/modals/EpisodeOptionsModal';
 
-
-const { width } = Dimensions.get('window');
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -42,7 +32,7 @@ export default function ShowDetailScreen() {
   const { t } = useTranslation('media');
 
   const idStr = Array.isArray(id) ? id[0] : id;
-  const { traktId: traktIdNum, slugText: showSlug } = parseMediaSlug(idStr as string);
+  const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
 
   // GRANÜLER SELECTOR'lar: eskiden useLibrary() ile TÜM store subscribe
   // ediliyordu — kütüphanedeki BAŞKA bir dizinin ilerlemesi/puanı/watchlist
@@ -62,11 +52,6 @@ export default function ShowDetailScreen() {
   // hook yalnızca accessToken değişince yenilenir. Store'daki hiçbir değişiklik
   // bu satırlar yüzünden ekstra render tetiklemez.
   const { toggleWatchlistStatus, toggleFavoriteStatus, toggleHiddenFromProgress, deleteMediaFromHistory } = useLibraryActions();
-
-  const { isGuest } = useAuth();
-  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
-  const toggleDroppedShowStatus = useTrackingStore((s) => s.toggleDroppedShowStatus);
-  const hydrateTracking = useTrackingStore((s) => s.hydrate);
 
   const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
@@ -92,28 +77,26 @@ export default function ShowDetailScreen() {
   // deseniyle kısa bir onay mesajı eklendi.
   const [rewatchSnackbarVisible, setRewatchSnackbarVisible] = useState(false);
 
-  // Handler hook'u
+  // Handler hook'u.
+  // NOT: `seasonLoading`, `handleMarkSeason` ve `snackbarData` BİLİNÇLİ OLARAK
+  // buradan alınmıyor. Sezon işaretleme mantığı `SeasonAccordion.tsx`'e taşındı
+  // (orada misafir kontrolü, yayınlanmamış bölüm ayıklama ve "Tekrar İzle /
+  // Geçmişi Sil" menüsü de var — bu ekranda kalan kopya çok daha zayıftı ve
+  // hiçbir yere bağlı değildi). `snackbarData`'nın DEĞERİNİ ise yalnızca
+  // hook'un kendi `handleUndoUnwatch`'ı okuyor; bu ekranın yalnızca yazması
+  // (`setSnackbarData`) yeterli.
   const {
     userRating,
-    seasonLoading,
     localLoadingOption,
-    snackbarData,
     setSnackbarData,
     handleRate,
     handleRemoveRating,
     handleRateEpisode: hookHandleRateEpisode,
     handleRemoveEpisodeRating: hookHandleRemoveEpisodeRating,
-    handleMarkSeason,
     handleUnwatchEpisode: hookHandleUnwatchEpisode,
     handleRewatchEpisode: hookHandleRewatchEpisode,
     handleUndoUnwatch,
   } = useShowDetailHandlers({ traktIdNum, id, t });
-
-  const isDropped = droppedShowIds.includes(traktIdNum);
-
-  useEffect(() => {
-    hydrateTracking();
-  }, [hydrateTracking]);
 
   const handleUnwatchEpisode = async () => {
     const success = await hookHandleUnwatchEpisode(selectedEpisode);
@@ -164,13 +147,6 @@ export default function ShowDetailScreen() {
     return () => { isMounted = false; };
   }, [tmdbId]);
 
-  const renderUnairedBadgeText = (ep: any) => {
-    if (!ep.first_aired) return 'TBA';
-    const diff = new Date(ep.first_aired).getTime() - new Date().getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days <= 0 ? t('today') : t('daysLeft', { days: days });
-  };
-  
   const handleRateEpisode = async (rating: number) => {
     if (!selectedEpisode?.traktId) return;
     const success = await hookHandleRateEpisode(selectedEpisode.traktId, rating);
@@ -230,8 +206,6 @@ export default function ShowDetailScreen() {
           onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
           onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
-          isDropped={isDropped}
-          onToggleDropped={() => toggleDroppedShowStatus(traktIdNum)}
         />
 
         <View style={styles.contentArea}>

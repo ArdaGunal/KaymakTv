@@ -1,127 +1,72 @@
 import { create } from 'zustand';
 import * as SecureStore from '../../utils/secureStorage';
 
-export type TrackingCategoryKey = 'upNext' | 'paused' | 'notStarted' | 'dropped';
+export type TrackingCategoryKey = 'upNext' | 'paused' | 'notStarted';
 
 export type CollapsedMap = Record<TrackingCategoryKey, boolean>;
 
 interface TrackingUIState {
   collapsed: CollapsedMap;
-  /**
-   * Kullanıcının manuel olarak "Bırakıldı" işaretlediği DİZİLERİN trakt id'leri.
-   *
-   * DİKKAT: Buraya ASLA film id'si yazılmamalı. Trakt'ta dizi ve film id'leri
-   * ayrı uzaylardadır ama ikisi de düz sayıdır — aynı listede tutulurlarsa
-   * id'si çakışan bir film ile bir dizi birbirini sessizce "bırakılmış"
-   * gösterirdi. Filmler için ayrı `droppedMovieIds` listesi vardır.
-   */
-  droppedShowIds: number[];
-  /** Kullanıcının manuel olarak "Bırakıldı" işaretlediği FİLMLERİN trakt id'leri. */
-  droppedMovieIds: number[];
   hydrated: boolean;
   toggle: (key: TrackingCategoryKey) => void;
-  toggleDroppedShowStatus: (id: number) => void;
-  /** Dizi manuel "Bırakıldı" değilse no-op. Yeni bölüm izlenince otomatik çağrılır. */
-  clearDroppedShowStatus: (id: number) => void;
-  toggleDroppedMovieStatus: (id: number) => void;
-  /** Film manuel "Bırakıldı" değilse no-op. Film izlendi işaretlenince otomatik çağrılır. */
-  clearDroppedMovieStatus: (id: number) => void;
   hydrate: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'kaymak_tracking_collapsed_v2';
-const DROPPED_SHOWS_STORAGE_KEY = 'kaymak_tracking_dropped_v1';
-const DROPPED_MOVIES_STORAGE_KEY = 'kaymak_tracking_dropped_movies_v1';
+
+// "Bırak" Trakt gizlemesine taşınmadan ÖNCE bu store, manuel "Bırakıldı"
+// işaretlerini cihaza yazıyordu. Kod artık bu anahtarları hiç okumuyor ama
+// güncelleme yapan mevcut kullanıcıların cihazlarında öksüz kalıyorlar —
+// hydrate sırasında bir kez sessizce silinirler.
+const LEGACY_DROPPED_KEYS = ['kaymak_tracking_dropped_v1', 'kaymak_tracking_dropped_movies_v1'];
 
 // Varsayılan: "Aktif İzlenenler" açık, diğerleri kapalı — kullanıcı en çok ona bakar.
 const DEFAULT_COLLAPSED: CollapsedMap = {
   upNext: false,
   paused: true,
   notStarted: true,
-  dropped: true,
-};
-
-/** Yalnızca sayı dizisi kabul eder: bozuk/eski bir kayıt tüm store'u çökertmesin. */
-const parseIdList = (raw: string | null): number[] | null => {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  } catch {
-    return null;
-  }
 };
 
 /**
- * Arayüz (accordion aç/kapa) durumunu VE kullanıcının manuel "Bırakıldı"
- * işaretlemelerini tutan izole Zustand store. Kategorizasyonun geri kalanı
- * (ilerleme durumu vs.) hâlâ ham kütüphane dilimlerinden `useTrackingShows` /
- * `categorizeMovies` ile türetilir — bu ayrım veri kategorizasyonuyla UI
- * durumunu birbirine karıştırmayıp "loading state bug'da kalıyor" sınıfı
- * hataları önler.
+ * Arayüz (accordion aç/kapa) durumunu tutan izole Zustand store. Kategorizasyonun
+ * geri kalanı (ilerleme durumu, "Bırak"/gizlenme durumu vs.) hâlâ ham kütüphane
+ * dilimlerinden `useTrackingShows` / `categorizeMovies` ile türetilir — bu ayrım
+ * veri kategorizasyonuyla UI durumunu birbirine karıştırmayıp "loading state
+ * bug'da kalıyor" sınıfı hataları önler.
+ *
+ * NOT: Bu store eskiden kullanıcının manuel "Bırakıldı" işaretlemelerini
+ * (droppedShowIds/droppedMovieIds) cihaza özel olarak da tutuyordu. "Bırak"
+ * eylemi artık doğrudan Trakt'ın "İlerlemeyi Gizle" uç noktasına bağlı olduğu
+ * için (bkz. services/library/mutations/collections.ts:toggleHiddenFromProgress,
+ * store/useLibraryStore.ts:hiddenShowIds/hiddenMovieIds) o yerel durum tamamen
+ * kaldırıldı — Trakt hesabı artık tüm cihazlarda tek gerçek kaynak.
  */
-export const useTrackingStore = create<TrackingUIState>((set, get) => {
-  // Dizi ve film "bırakıldı" listeleri BİRBİRİNİN AYNISI davranır, yalnızca
-  // hangi alana/anahtara yazdıkları değişir. Mantığı tek yerde tutmak, ileride
-  // eklenecek bir kuralın yalnızca birine uygulanıp diğerinde unutulmasını
-  // yapısal olarak engelliyor.
-  const writeIds = (field: 'droppedShowIds' | 'droppedMovieIds', storageKey: string, next: number[]) => {
-    set({ [field]: next } as Pick<TrackingUIState, typeof field>);
-    // Yaz-ve-unut: kalıcılık başarısız olsa bile UI çalışmaya devam eder.
-    SecureStore.setItemAsync(storageKey, JSON.stringify(next)).catch(() => {});
-  };
+export const useTrackingStore = create<TrackingUIState>((set, get) => ({
+  collapsed: DEFAULT_COLLAPSED,
+  hydrated: false,
 
-  const toggleId = (field: 'droppedShowIds' | 'droppedMovieIds', storageKey: string, id: number) => {
-    const current = get()[field];
-    writeIds(field, storageKey, current.includes(id) ? current.filter((existing) => existing !== id) : [...current, id]);
-  };
+  toggle: (key) => {
+    const next = { ...get().collapsed, [key]: !get().collapsed[key] };
+    set({ collapsed: next });
+    SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+  },
 
-  const clearId = (field: 'droppedShowIds' | 'droppedMovieIds', storageKey: string, id: number) => {
-    const current = get()[field];
-    if (!current.includes(id)) return;
-    writeIds(field, storageKey, current.filter((existing) => existing !== id));
-  };
-
-  return {
-    collapsed: DEFAULT_COLLAPSED,
-    droppedShowIds: [],
-    droppedMovieIds: [],
-    hydrated: false,
-
-    toggle: (key) => {
-      const next = { ...get().collapsed, [key]: !get().collapsed[key] };
-      set({ collapsed: next });
-      SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-    },
-
-    toggleDroppedShowStatus: (id) => toggleId('droppedShowIds', DROPPED_SHOWS_STORAGE_KEY, id),
-    clearDroppedShowStatus: (id) => clearId('droppedShowIds', DROPPED_SHOWS_STORAGE_KEY, id),
-
-    toggleDroppedMovieStatus: (id) => toggleId('droppedMovieIds', DROPPED_MOVIES_STORAGE_KEY, id),
-    clearDroppedMovieStatus: (id) => clearId('droppedMovieIds', DROPPED_MOVIES_STORAGE_KEY, id),
-
-    hydrate: async () => {
-      // Tek sefer: tekrar tekrar çağrılsa bile sonsuz döngüye/gereksiz okumaya
-      // girmez.
-      if (get().hydrated) return;
-      set({ hydrated: true });
-      try {
-        const [savedCollapsed, savedDropped, savedDroppedMovies] = await Promise.all([
-          SecureStore.getItemAsync(STORAGE_KEY),
-          SecureStore.getItemAsync(DROPPED_SHOWS_STORAGE_KEY),
-          SecureStore.getItemAsync(DROPPED_MOVIES_STORAGE_KEY),
-        ]);
-        if (savedCollapsed) {
-          set({ collapsed: { ...DEFAULT_COLLAPSED, ...JSON.parse(savedCollapsed) } });
-        }
-        const droppedShowIds = parseIdList(savedDropped);
-        if (droppedShowIds) set({ droppedShowIds });
-        const droppedMovieIds = parseIdList(savedDroppedMovies);
-        if (droppedMovieIds) set({ droppedMovieIds });
-      } catch {
-        // Bozuk/okunamayan kayıt → varsayılanla devam.
+  hydrate: async () => {
+    // Tek sefer: tekrar tekrar çağrılsa bile sonsuz döngüye/gereksiz okumaya
+    // girmez.
+    if (get().hydrated) return;
+    set({ hydrated: true });
+    try {
+      const savedCollapsed = await SecureStore.getItemAsync(STORAGE_KEY);
+      if (savedCollapsed) {
+        set({ collapsed: { ...DEFAULT_COLLAPSED, ...JSON.parse(savedCollapsed) } });
       }
-    },
-  };
-});
+    } catch {
+      // Bozuk/okunamayan kayıt → varsayılanla devam.
+    }
+    // Ateşle-ve-unut: başarısız olsa bile hiçbir şeyi etkilemez (yalnızca ölü veri).
+    LEGACY_DROPPED_KEYS.forEach((key) => {
+      SecureStore.deleteItemAsync(key).catch(() => {});
+    });
+  },
+}));

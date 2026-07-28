@@ -8,13 +8,16 @@
  *
  * Filmler dizilerden çok daha basit: "sıradaki bölüm", "yayınlanmış mı",
  * "ara verilmiş mi" gibi kavramlar YOKTUR. Bir film ya izlenmiştir, ya izlenmeyi
- * beklemektedir, ya da kullanıcı onu elle bırakmıştır. Bu yüzden dizilerdeki
+ * beklemektedir, ya da kullanıcı "Bırak" demiştir. Bu yüzden dizilerdeki
  * `pauseThresholdDays` / `readyToWatch` mantığının hiçbir karşılığı burada
  * bilerek yoktur — olmayan bir karmaşıklığı taklit etmiyoruz.
  *
  * Kurallar (bir film = bir kova, çakışma imkânsız):
- *   1. Kullanıcı elle "Bırakıldı" işaretlemiş                     → dropped
+ *   1. Kullanıcı "Bırak" demiş (= Trakt'ta gizlenmiş, bkz. hiddenMovieIds) → hidden
  *      (izlenmiş/izlenecek olmasından TAMAMEN bağımsız, en yüksek öncelik).
+ *      Uygulamanın "Bırak" eylemi doğrudan Trakt'ın gizleme uç noktasına
+ *      bağlıdır; ayrı bir yerel "bırakıldı" durumu YOKTUR (bkz.
+ *      services/library/mutations/collections.ts:toggleHiddenFromProgress).
  *   2. İzleme geçmişinde var                                      → watched
  *   3. Yalnızca izleme listesinde                                 → watchlist
  */
@@ -41,14 +44,14 @@ export interface MovieCategories {
   watched: MovieTrackCard[];
   /** İzlenecekler — listeye eklenmiş ama henüz izlenmemiş filmler. */
   watchlist: MovieTrackCard[];
-  /** Bırakılanlar — yalnızca ELLE işaretlenenler, otomatik hiçbir kural yok. */
-  dropped: MovieTrackCard[];
+  /** Bırakılanlar/Gizlenenler — yalnızca Trakt'ta gizlenmiş filmler, otomatik hiçbir kural yok. */
+  hidden: MovieTrackCard[];
 }
 
 export type MovieCategoryKey = keyof MovieCategories;
 
 /** Filtre menüsündeki ve kategori döngülerindeki tek doğru sıra. */
-export const MOVIE_CATEGORY_KEYS: readonly MovieCategoryKey[] = ['watched', 'watchlist', 'dropped'] as const;
+export const MOVIE_CATEGORY_KEYS: readonly MovieCategoryKey[] = ['watched', 'watchlist', 'hidden'] as const;
 
 export interface MovieTrackingLabels {
   unnamedMovie: string;
@@ -58,8 +61,8 @@ export interface CategorizeMoviesOptions {
   watchedMovies: any[];
   watchlistMovies: any[];
   labels: MovieTrackingLabels;
-  /** Kullanıcının elle "Bırakıldı" işaretlediği FİLMLERİN trakt id'leri. */
-  droppedMovieIds?: number[] | Set<number>;
+  /** Trakt'ta "Bırak" ile gizlenmiş FİLMLERİN trakt id'leri (bkz. `hiddenMovieIds` store dilimi). */
+  hiddenMovieIds?: number[] | Set<number>;
 }
 
 const toCard = (movie: any, id: number, fallbackTitle: string): MovieTrackCard => ({
@@ -81,13 +84,13 @@ export function categorizeMovies({
   watchedMovies,
   watchlistMovies,
   labels,
-  droppedMovieIds = [],
+  hiddenMovieIds = [],
 }: CategorizeMoviesOptions): MovieCategories {
-  const droppedSet = droppedMovieIds instanceof Set ? droppedMovieIds : new Set(droppedMovieIds);
+  const hiddenSet = hiddenMovieIds instanceof Set ? hiddenMovieIds : new Set(hiddenMovieIds);
 
   const watched: MovieTrackCard[] = [];
   const watchlist: MovieTrackCard[] = [];
-  const dropped: MovieTrackCard[] = [];
+  const hidden: MovieTrackCard[] = [];
 
   // Aynı filmin iki kovaya birden düşmesi yapısal olarak imkânsız olsun diye
   // tek bir "işlendi" kümesi tutuluyor. İzleme geçmişi önce işlenir: bir film
@@ -105,7 +108,7 @@ export function categorizeMovies({
       lastWatchedAt: item.last_watched_at,
     };
 
-    if (droppedSet.has(id)) dropped.push(card);
+    if (hiddenSet.has(id)) hidden.push(card);
     else watched.push(card);
   }
 
@@ -119,16 +122,16 @@ export function categorizeMovies({
       listedAt: item.listed_at,
     };
 
-    if (droppedSet.has(id)) dropped.push(card);
+    if (hiddenSet.has(id)) hidden.push(card);
     else watchlist.push(card);
   }
 
   // İzlenenler: en son izlenen en üstte. İzlenecekler: en son eklenen en üstte.
-  // Bırakılanlar karışık kaynaklıdır (hem geçmişten hem listeden gelebilir),
-  // bu yüzden elde hangi tarih varsa ona göre sıralanır.
+  // Gizlenenler/Bırakılanlar karışık kaynaklıdır (hem geçmişten hem listeden
+  // gelebilir), bu yüzden elde hangi tarih varsa ona göre sıralanır.
   watched.sort((a, b) => timeOf(b.lastWatchedAt) - timeOf(a.lastWatchedAt));
   watchlist.sort((a, b) => timeOf(b.listedAt) - timeOf(a.listedAt));
-  dropped.sort((a, b) => timeOf(b.lastWatchedAt || b.listedAt) - timeOf(a.lastWatchedAt || a.listedAt));
+  hidden.sort((a, b) => timeOf(b.lastWatchedAt || b.listedAt) - timeOf(a.lastWatchedAt || a.listedAt));
 
-  return { watched, watchlist, dropped };
+  return { watched, watchlist, hidden };
 }

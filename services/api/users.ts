@@ -518,17 +518,81 @@ export const unhideItemTrakt = async (id: number, type: 'show' | 'movie') => {
   }
 };
 
-/** "İlerlemeyi Gizle" ile gizlenmiş dizilerin listesi — senkron sırasında
- * `hiddenShowIds`'i güncel tutmak ve kütüphanenin "Gizlenenler" filtresini
- * beslemek için kullanılır. İzleme geçmişine (watched/history) HİÇ dokunmaz,
- * yalnızca hangi dizilerin "ilerleme/devam et" görünümünden gizlendiğini bildirir. */
+// Trakt'ın `/users/hidden/:section` uç noktası SAYFALANDIRILMIŞTIR (resmi
+// dokümanda page/limit destekli). ESKİ DAVRANIŞ: tek istek + `limit=200`, sayfa
+// döngüsü YOK. Bu, "Gizle" yalnızca nadiren kullanılan bir ek özellikken
+// görünmeyen ama artık KRİTİK olan bir hata: gizleme uygulamanın tek "Bırak"
+// mekanizması olduğundan liste zamanla kolayca 200'ü aşar ve 200. sıradan
+// sonraki her dizi/film `hiddenShowIds`'e HİÇ girmez — kullanıcının bıraktığı
+// yapımlar sessizce takip panosuna geri döner ve "Gizlenenler/Bırakılanlar"
+// filtresinden kaybolur. Artık tüm sayfalar, dosyanın geri kalanıyla (bkz.
+// getWatchedShows) aynı `x-pagination-page-count` başlığı desenine göre çekilir.
+const HIDDEN_PAGE_LIMIT = 100;
+// Güvenlik tavanı: bozuk/beklenmedik bir başlık yüzünden sonsuz döngüye
+// girilmesin (10.000 gizli öğe gerçekçi her kullanıcıyı fazlasıyla kapsar).
+const HIDDEN_MAX_PAGES = 100;
+
+// CDN ÖNBELLEK KIRICI (cache-busting) — CİHAZLAR ARASI SENKRONUN ŞARTI.
+// Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor (bkz. docs/HISTORY.md
+// Madde 9: "Trakt'ın CDN önbelleğinden kaynaklı veri gecikmeleri... Çözüm:
+// Tüm GET isteklerine cb=${Date.now()} eklendi" — o koruma sonraki
+// refaktörlerde bu dosyadan kaybolmuş, yalnızca services/api/comments.ts'te
+// kalmıştı). Bu uç noktanın URL'si her çağrıda BİREBİR AYNI olduğundan
+// (`?type=show&page=1&limit=100`) mükemmel bir önbellek anahtarı oluşturuyor.
+// Sonuç: Cihaz A bir diziyi bıraktığında POST Trakt'a anında işleniyor ama
+// Cihaz B'nin hemen ardından attığı GET, CDN'de duran ESKİ listeyi alıp
+// diziyi hâlâ "Aktif"te gösteriyordu — önbellek düşünce (dakikalar sonra ya
+// da tekrar denendiğinde) kendiliğinden düzeldiği için de "bazen oluyor
+// bazen olmuyor" şeklinde görünüyordu ve hata günlüğüne HİÇBİR iz düşmüyordu
+// (istek teknik olarak 200 dönüyordu, sadece içeriği bayattı).
+const cacheBustParam = () => `_=${Date.now()}`;
+
+const getAllHiddenItems = async (section: 'progress_watched' | 'calendar', type: 'show' | 'movie') => {
+  const client = await getTraktClient();
+  const url = (page: number) =>
+    `/users/hidden/${section}?type=${type}&page=${page}&limit=${HIDDEN_PAGE_LIMIT}&${cacheBustParam()}`;
+
+  const first = await client.get(url(1));
+  const allData: any[] = [...first.data];
+
+  const totalPagesStr = first.headers['x-pagination-page-count'];
+  const parsedPages = totalPagesStr ? parseInt(totalPagesStr, 10) : 1;
+  const totalPages = Math.min(Number.isFinite(parsedPages) && parsedPages > 0 ? parsedPages : 1, HIDDEN_MAX_PAGES);
+
+  // Sıralı (paralel değil): gizli listeler tipik olarak küçüktür ve bu istek
+  // zaten en düşük öncelikli arka plan turunda çalışır — Trakt'ın rate limit'ini
+  // zorlamaya değmez.
+  for (let page = 2; page <= totalPages; page++) {
+    const response = await client.get(url(page));
+    allData.push(...response.data);
+  }
+
+  return allData;
+};
+
+/** "İlerlemeyi Gizle" (= uygulamadaki "Bırak") ile gizlenmiş dizilerin TAM
+ * listesi — senkron sırasında `hiddenShowIds`'i güncel tutmak ve kütüphanenin
+ * "Gizlenenler/Bırakılanlar" filtresini beslemek için kullanılır. İzleme
+ * geçmişine (watched/history) HİÇ dokunmaz, yalnızca hangi dizilerin
+ * "ilerleme/devam et" görünümünden gizlendiğini bildirir. */
 export const getHiddenShows = async () => {
   try {
-    const client = await getTraktClient();
-    const response = await client.get('/users/hidden/progress_watched?type=show&limit=200');
-    return response.data;
+    return await getAllHiddenItems('progress_watched', 'show');
   } catch (error) {
     console.error('Trakt API Hatası (getHiddenShows):', error);
+    throw error;
+  }
+};
+
+/** Filmler için `progress_watched` bölümü YOKTUR (Trakt'ta filmlerin ilerlemesi
+ * olmaz; o bölüm yalnızca show/season kabul eder) — bu yüzden filmler
+ * `hideItemTrakt`/`unhideItemTrakt` ile `calendar` bölümünden gizlenir ve
+ * burada da oradan okunur. `getHiddenShows` ile aynı sözleşme. */
+export const getHiddenMovies = async () => {
+  try {
+    return await getAllHiddenItems('calendar', 'movie');
+  } catch (error) {
+    console.error('Trakt API Hatası (getHiddenMovies):', error);
     throw error;
   }
 };

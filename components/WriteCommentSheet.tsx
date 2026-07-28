@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Switch, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Switch, ActivityIndicator } from 'react-native';
 import { X, Send, AlertTriangle, Edit2, Trash2, Check } from 'lucide-react-native';
 import { addComment, getUserComments, updateComment, deleteComment } from '../services/traktApi';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { confirmAsync, notify } from '../utils/confirmDialog';
+import { validateComment, MAX_COMMENT_CHARS, MIN_COMMENT_CHARS, MIN_COMMENT_WORDS } from '../utils/commentValidation';
 
 interface WriteCommentSheetProps {
   visible: boolean;
@@ -16,20 +18,39 @@ interface WriteCommentSheetProps {
 
 export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType, episodeTraktId, onSuccess }: WriteCommentSheetProps) {
   const [inputText, setInputText] = useState('');
-  const [isSpoiler, setIsSpoiler] = useState(true);
+  // Trakt'ın kendi varsayılanı da `false`. Eskiden `true` idi — bu yüzden bu
+  // uygulamadan atılan HER yorum, kullanıcı hiç dokunmasa bile Trakt'ta
+  // "SPOILER" etiketiyle görünüyor ve diğer kullanıcılara bulanık geliyordu.
+  const [isSpoiler, setIsSpoiler] = useState(false);
   const [sending, setSending] = useState(false);
-  const [wordError, setWordError] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(false);
   const [existingCommentId, setExistingCommentId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState(false);
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
 
+  const validation = useMemo(() => validateComment(inputText), [inputText]);
+  const canSend = validation.isValid && !sending;
+
   useEffect(() => {
     if (visible && mediaId) {
       loadMyComment();
     }
   }, [visible, mediaId]);
+
+  // Sheet kapandığında state'i sıfırla. Eskiden sıfırlanmıyordu: A dizisinde
+  // yorumu olan biri sheet'i kapatıp B dizisininkini açtığında, yeni veri
+  // gelene kadar A'nın yorumu (ve `viewMode`/`isSpoiler` durumu) ekranda
+  // kalıyordu.
+  useEffect(() => {
+    if (!visible) {
+      setInputText('');
+      setIsSpoiler(false);
+      setExistingCommentId(null);
+      setViewMode(false);
+      setSending(false);
+    }
+  }, [visible]);
 
   const loadMyComment = async () => {
     if (isGuest) {
@@ -47,16 +68,20 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
       });
       if (myComment) {
         setInputText(myComment.comment.comment);
-        setIsSpoiler(myComment.comment.spoiler);
+        setIsSpoiler(!!myComment.comment.spoiler);
         setExistingCommentId(myComment.comment.id);
         setViewMode(true);
       } else {
+        // `isSpoiler` de sıfırlanmalı — aksi halde önce spoiler'lı bir yorumu
+        // olan medya açılıp sonra yorumu olmayan bir medyaya geçilince switch
+        // açık kalıyordu.
         setInputText('');
+        setIsSpoiler(false);
         setExistingCommentId(null);
         setViewMode(false);
       }
     } catch (e) {
-      console.error(e);
+      console.error('[WriteCommentSheet] loadMyComment:', e);
     } finally {
       setLoadingInitial(false);
     }
@@ -67,68 +92,89 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
     // açılır (misafirlere yazma butonu yerine giriş daveti gösterilir) — bu
     // yine de ikinci bir savunma katmanı.
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
-    const wordCount = inputText.trim().split(/\s+/).filter(w => w.length > 0).length;
-    if (wordCount < 5) {
-      setWordError(true);
-      setTimeout(() => setWordError(false), 2000);
-      return;
-    }
+    // Buton zaten pasif olduğu için buraya normalde hiç düşülmez — son savunma.
+    if (!validation.isValid) return;
 
     setSending(true);
     try {
+      const body = inputText.trim();
       if (existingCommentId) {
-        await updateComment(existingCommentId, inputText, isSpoiler);
+        await updateComment(existingCommentId, body, isSpoiler);
       } else {
         const targetId = mediaType === 'episode' && episodeTraktId ? episodeTraktId : mediaId;
-        await addComment(targetId, mediaType, inputText, isSpoiler);
+        await addComment(targetId, mediaType, body, isSpoiler);
       }
       if (onSuccess) onSuccess();
       onClose();
     } catch (e: any) {
-      console.error(e);
+      console.error('[WriteCommentSheet] handleSend:', e?.response?.data ?? e);
       let errorMessage = t('commentSendError');
-      if (e?.response?.status === 422) errorMessage = t('commentLengthError');
+      // 422 = Trakt kuralı ihlali. Pratikte neredeyse her zaman "5 kelimeden
+      // kısa" demek (eski metin "Yorum çok uzun" diyordu — tam tersi, yanıltıcıydı).
+      if (e?.response?.status === 422) errorMessage = t('commentRejectedError');
       else if (e?.response?.status === 409) errorMessage = t('commentDuplicateError');
       else if (e?.message) errorMessage = e.message;
-      Alert.alert(t('common:error'), errorMessage);
+      notify(t('common:error'), errorMessage);
     } finally {
       setSending(false);
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert(
+  const handleDelete = async () => {
+    // `Alert.alert` react-native-web'de TAM NO-OP — web'de silme onayı hiç
+    // görünmediği için yorum SİLİNEMİYORDU. `confirmAsync` web'de
+    // `window.confirm`e düşer.
+    const confirmed = await confirmAsync(
       t('deleteCommentTitle'),
       t('deleteCommentConfirm'),
-      [
-        { text: t('common:cancel'), style: "cancel" },
-        { 
-          text: t('common:delete'), 
-          style: "destructive",
-          onPress: async () => {
-            setSending(true);
-            try {
-              if (existingCommentId) {
-                await deleteComment(existingCommentId);
-              }
-              setExistingCommentId(null);
-              setInputText('');
-              setViewMode(false);
-              if (onSuccess) onSuccess();
-              onClose();
-            } catch (e) {
-              console.error(e);
-            } finally {
-              setSending(false);
-            }
-          }
-        }
-      ]
+      t('common:delete'),
+      t('common:cancel')
     );
+    if (!confirmed) return;
+
+    setSending(true);
+    try {
+      if (existingCommentId) {
+        await deleteComment(existingCommentId);
+      }
+      setExistingCommentId(null);
+      setInputText('');
+      setViewMode(false);
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (e: any) {
+      console.error('[WriteCommentSheet] handleDelete:', e?.response?.data ?? e);
+      notify(t('common:error'), t('commentDeleteError'));
+    } finally {
+      setSending(false);
+    }
   };
+
+  // Girdi durumuna göre anlık ipucu: kullanıcı butonun NEDEN pasif olduğunu her
+  // an görsün diye. Eskiden yalnızca gönderme denemesinden SONRA 2 saniyeliğine
+  // bir hata çıkıyordu — kullanıcı butona basana kadar eksiği göremiyordu.
+  const hint = useMemo(() => {
+    switch (validation.reason) {
+      case 'empty':
+        return { text: t('commentHintEmpty', { min: MIN_COMMENT_WORDS }), isError: false };
+      case 'tooShort':
+        return { text: t('commentHintTooShort', { count: validation.charCount, min: MIN_COMMENT_CHARS }), isError: true };
+      case 'tooFewWords':
+        return { text: t('commentHintTooFewWords', { count: validation.wordCount, min: MIN_COMMENT_WORDS }), isError: true };
+      case 'tooLong':
+        return { text: t('commentHintTooLong', { max: MAX_COMMENT_CHARS }), isError: true };
+      default:
+        return {
+          text: validation.isReviewLength
+            ? t('commentHintReview', { chars: validation.charCount, words: validation.wordCount })
+            : t('commentHintValid', { chars: validation.charCount, words: validation.wordCount }),
+          isError: false,
+        };
+    }
+  }, [validation, t]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
@@ -138,7 +184,7 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
         <View style={styles.sheetContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>{existingCommentId ? (viewMode ? t('yourComment') : t('editComment')) : t('writeComment')}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X color="#fff" size={24} />
             </TouchableOpacity>
           </View>
@@ -160,43 +206,55 @@ export default function WriteCommentSheet({ visible, onClose, mediaId, mediaType
           ) : (
             <View style={styles.inputSection}>
               <View style={styles.inputHeader}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Switch 
-                    value={isSpoiler} 
-                    onValueChange={setIsSpoiler} 
-                    trackColor={{false: '#3f3f46', true: '#3b82f6'}} 
+                {/* Switch'i TouchableOpacity ile SARMAMAK önemli: switch'e
+                    dokunma hem switch'i hem sarmalayıcıyı tetikleyip değeri iki
+                    kez çevirebiliyor. Bunun yerine yalnızca etiket metni
+                    ayrı bir dokunma hedefi. */}
+                <View style={styles.spoilerToggle}>
+                  <Switch
+                    value={isSpoiler}
+                    onValueChange={setIsSpoiler}
+                    trackColor={{false: '#3f3f46', true: '#3b82f6'}}
                     thumbColor={Platform.OS === 'ios' ? '#fff' : isSpoiler ? '#fff' : '#a3a3a3'}
                   />
-                  <Text style={styles.spoilerText}>{t('containsSpoiler')}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsSpoiler((v) => !v)}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                  >
+                    <Text style={styles.spoilerText}>{t('containsSpoiler')}</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.guidelineText}>{t('min5Words')}</Text>
               </View>
-              <View style={[styles.inputRow, wordError && styles.inputError]}>
-                <TextInput 
+              <View style={[styles.inputRow, hint.isError && styles.inputError]}>
+                <TextInput
                   style={styles.textInput}
                   placeholder={existingCommentId ? t('updateComment') : t('episodeThought')}
                   placeholderTextColor="#a3a3a3"
                   value={inputText}
                   onChangeText={setInputText}
                   multiline
+                  maxLength={MAX_COMMENT_CHARS}
                   autoFocus={!existingCommentId}
                 />
-                <TouchableOpacity style={styles.sendBtn} onPress={handleSend} disabled={sending}>
+                <TouchableOpacity
+                  style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+                  onPress={handleSend}
+                  disabled={!canSend}
+                >
                   {sending ? (
                     <ActivityIndicator size="small" />
                   ) : existingCommentId ? (
-                    <Check size={20} color="#3b82f6" />
+                    <Check size={20} color={canSend ? '#3b82f6' : '#475569'} />
                   ) : (
-                    <Send size={20} color="#3b82f6" />
+                    <Send size={20} color={canSend ? '#3b82f6' : '#475569'} />
                   )}
                 </TouchableOpacity>
               </View>
-              {wordError && (
-                <View style={styles.errorBanner}>
-                  <AlertTriangle size={14} color="#ef4444" style={{marginRight: 4}} />
-                  <Text style={styles.errorText}>{t('min5WordsError')}</Text>
-                </View>
-              )}
+              <View style={styles.hintRow}>
+                {hint.isError && <AlertTriangle size={13} color="#ef4444" style={{marginRight: 5}} />}
+                <Text style={[styles.hintText, hint.isError && styles.hintTextError]}>{hint.text}</Text>
+              </View>
             </View>
           )}
 
@@ -217,6 +275,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    // Web'de sheet ekranın tamamına yayılıp devasa görünüyordu.
+    ...(Platform.OS === 'web' && {
+      maxWidth: 680,
+      alignSelf: 'center',
+      width: '100%',
+    } as any),
   },
   header: {
     flexDirection: 'row',
@@ -243,14 +307,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  spoilerToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   spoilerText: {
     color: '#e5e5e5',
     fontSize: 12,
     marginLeft: 6,
-  },
-  guidelineText: {
-    color: '#737373',
-    fontSize: 10,
   },
   inputRow: {
     flexDirection: 'row',
@@ -259,9 +323,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   inputError: {
-    borderWidth: 1,
     borderColor: '#ef4444',
   },
   textInput: {
@@ -269,19 +334,27 @@ const styles = StyleSheet.create({
     maxHeight: 150,
     minHeight: 80,
     flex: 1, // '%90' sabit genişlik dar ekranlarda gönder butonunu taşırıyordu
+    ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any),
   },
   sendBtn: {
     marginLeft: 12,
     padding: 8,
   },
-  errorBanner: {
+  sendBtnDisabled: {
+    opacity: 0.6,
+  },
+  hintRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 6,
+    minHeight: 18,
   },
-  errorText: {
+  hintText: {
+    color: '#737373',
+    fontSize: 11,
+  },
+  hintTextError: {
     color: '#ef4444',
-    fontSize: 12,
   },
   viewModeContainer: {
     padding: 16,

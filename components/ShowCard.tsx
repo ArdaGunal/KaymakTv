@@ -1,11 +1,10 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
-import { useTrackingStore } from '../store/tracking/useTrackingStore';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { getProgressBarColor } from '../utils/progressBarColor';
 import { useTranslation } from 'react-i18next';
@@ -16,25 +15,16 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const router = useRouter();
   // Katı seçici: tam context aboneliği listedeki HER kartı her store
   // değişiminde yeniden çiziyordu — keşfet kaydırmasındaki takılmanın kaynağı.
-  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, showProgressMap } = useLibrarySelector(s => ({
+  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, showProgressMap, hiddenShowIds } = useLibrarySelector(s => ({
     watchlistShows: s.watchlistShows,
     watchlistMovies: s.watchlistMovies,
     watchedShows: s.watchedShows,
     watchedMovies: s.watchedMovies,
     showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
   const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
-  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
-  const hydrateTracking = useTrackingStore((s) => s.hydrate);
-
-  // İzleme sekmesine hiç uğramadan doğrudan Keşfet'e gelinmiş olabilir — bu
-  // durumda `droppedShowIds` boş kalır ve daha önce bırakılmış bir dizi burada
-  // yanlışlıkla "aktif" (mavi) görünürdü. `hydrate()` idempotent olduğu için
-  // her kart örneğinden çağrılması güvenli (ilk çağrıdan sonra no-op).
-  useEffect(() => {
-    hydrateTracking();
-  }, [hydrateTracking]);
 
   const media = data?.show || data?.movie;
   
@@ -61,7 +51,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const progress = type === 'show' && traktId ? showProgressMap[traktId] : null;
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
-  const isDropped = type === 'show' && droppedShowIds.includes(traktId);
+  const isDropped = type === 'show' && hiddenShowIds.includes(traktId);
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
   const progressColor = getProgressBarColor(isDropped, isFinished);
 

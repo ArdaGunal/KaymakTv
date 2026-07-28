@@ -29,7 +29,7 @@ export default function DizilerScreen() {
   const { accessToken, isGuest } = useAuth();
 
   // ── Yeni izole takip modülü: kategorizasyon store/hook'ta, UI durumu ayrı store'da.
-  const { categories, isLoading: trackingLoading, isEmpty, toggleDroppedShowStatus } = useTrackingShows();
+  const { categories, isLoading: trackingLoading, isEmpty, dropShow } = useTrackingShows();
   const collapsed = useTrackingStore((s) => s.collapsed);
   const toggle = useTrackingStore((s) => s.toggle);
   const hydrateCollapsed = useTrackingStore((s) => s.hydrate);
@@ -65,7 +65,6 @@ export default function DizilerScreen() {
       upNext: t('upNext'),
       paused: t('paused'),
       notStarted: t('notStarted'),
-      dropped: t('inactive'),
     }),
     [t, i18n.language]
   );
@@ -133,7 +132,7 @@ export default function DizilerScreen() {
           onToggle={toggle}
           labels={accordionLabels}
           onShowFinished={handleShowFinished}
-          onToggleDropped={toggleDroppedShowStatus}
+          onToggleDropped={dropShow}
           refreshing={refreshing}
           onRefresh={onRefresh}
           insets={insets}

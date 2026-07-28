@@ -1,0 +1,10 @@
+{
+  "emptyTitle": "Akışın Boş",
+  "emptyText": "Trakt'ta takip ettiğin kişilerin izleme aktiviteleri burada görünecek.",
+  "searchPlaceholder": "Kullanıcı adı veya Trakt profil linki",
+  "searchNotFound": "Bu kullanıcı adında biri bulunamadı.",
+  "searchError": "Bir şeyler ters gitti, tekrar dene.",
+  "follow": "Takip Et",
+  "following": "Takip Ediliyor",
+  "pending": "Onay Bekleniyor"
+}

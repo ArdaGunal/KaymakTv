@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
-import { Bookmark, Eye, EyeOff, Share2, CheckCheck, Trash2, PauseCircle } from 'lucide-react-native';
+import { Bookmark, PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -15,14 +15,19 @@ interface OptionsModalProps {
   isWatchlisted?: boolean;
   isWatched?: boolean;
   onToggleWatchlist: () => void;
-  /** Diziyi Trakt'ın "gizlenen ilerleme" listesinde mi (true → satır "Göster"e döner). */
+  /** "İzlemeyi Bırak" eylemi — dizi/filmi Trakt'ın gizlenen listesinde mi
+   * (true → satır "İzlemeye Devam Et"e döner). Diziler için `progress_watched`,
+   * filmler için `calendar` bölümü kullanılır (bkz.
+   * services/api/users.ts:hideItemTrakt); ayrı bir yerel "bırakıldı" durumu
+   * YOKTUR. */
   isHidden?: boolean;
-  onHideFromProgress?: () => void;
+  /** Trakt'a giden asenkron bir istektir (bkz. toggleHiddenFromProgress) —
+   * `handleHideProgress` bunu BEKLER ve reddedilirse kullanıcıya görünür bir
+   * hata gösterir (aksi halde ağ hatası/401 gibi durumlarda buton "hiçbir şey
+   * yapmıyormuş" gibi hissettirir, bkz. Madde 99). */
+  onHideFromProgress?: () => void | Promise<void>;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
-  /** Takip modülündeki manuel "Bırakıldı" işaretlemesi (dizi + film). */
-  isDropped?: boolean;
-  onToggleDropped?: () => void;
 }
 
 export default function OptionsModal({
@@ -37,8 +42,6 @@ export default function OptionsModal({
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
-  isDropped,
-  onToggleDropped,
 }: OptionsModalProps) {
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
@@ -75,35 +78,27 @@ export default function OptionsModal({
       return;
     }
     if (!onHideFromProgress) return;
-    // Göstermeye (unhide) geri dönmek her zaman mümkün olduğundan (Kütüphane >
-    // Gizlenenler'den bu satıra tekrar dönülebilir) o yönde onay istemeye gerek
-    // yok — yalnızca GİZLEME yönü, kullanıcının bir daha nereden geri
-    // getireceğini bilmesi gereken bir aksiyon olduğundan onay ister.
-    if (isHidden) {
-      onHideFromProgress();
-      onClose();
-      return;
-    }
-    const confirmed = await confirmAsync(
-      t('areYouSure'),
-      t('hideProgressConfirmMsg'),
-      t('yesHide'),
-      t('common:cancel')
-    );
-    if (!confirmed) return;
-    onHideFromProgress();
+    // ONAY DİYALOĞU YOK (bilinçli, kullanıcı kararı): "İzlemeyi Bırak"a basan
+    // kullanıcı ne yaptığını zaten biliyor; üstelik eylem YIKICI DEĞİL —
+    // izleme geçmişi/puanlar korunur, yapım Kütüphane > "Gizlenenler /
+    // Bırakılanlar" filtresinden her an geri getirilebilir ve yeni bir bölüm
+    // izlenince otomatik geri döner (bkz. mutations/progress.ts:
+    // unhideShowIfNeeded). Takip panosundaki 3-nokta menüsü (TrackingCardMenu)
+    // da zaten onay sormuyordu — bu satır o davranışla eşitlendi.
     onClose();
-  };
-
-  const handleToggleDropped = () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      onClose();
-      return;
+    // ESKİ DAVRANIŞ: `onHideFromProgress()` (Trakt'a giden asenkron bir
+    // istek) ne await edilip ne yakalanıyordu — reddedilirse tamamen SESSİZ
+    // bir "unhandled promise rejection" oluşuyordu. Kullanıcı butona basıyor,
+    // ağ hatası/401 gibi bir sebeple istek başarısız oluyor, YERELDEKİ iyimser
+    // güncelleme kendi içinde rollback yapıyor (bkz. toggleHiddenFromProgress)
+    // ama ekranda HİÇBİR ŞEY göstermiyordu — "İzlemeyi Bırak" butonu
+    // "çalışmıyor gibi" hissettiriyordu, tek iz cihazın hata günlüğünde kalıyordu.
+    try {
+      await onHideFromProgress();
+    } catch (error) {
+      console.error('İzlemeyi Bırak hatası:', error);
+      Alert.alert(t('common:error'), t('common:actionFailedMessage'));
     }
-    if (!onToggleDropped) return;
-    onToggleDropped();
-    onClose();
   };
 
   const handleDeleteHistory = async () => {
@@ -142,23 +137,18 @@ export default function OptionsModal({
             </Text>
           </TouchableOpacity>
 
-          {type === 'show' && onHideFromProgress && (
+          {/* "İzlemeyi Bırak" — hem diziler hem filmler için Trakt'ın gizleme uç
+              noktasına bağlıdır (bkz. isHidden/onHideFromProgress), takip
+              panosundaki 3-nokta menüsüyle (`TrackingCardMenu`) BİREBİR AYNI
+              eylem/mekanizma/ikon — yalnızca buradan iki yöne de (bırak/devam
+              et) çalışabilir, panodaki menü tek yönlüdür (bkz. o dosyadaki not).
+              `PauseCircle` uygulama genelinde bu eylemin TEK ikonudur;
+              "devam et" yönünde onun doğal karşıtı `PlayCircle` kullanılır. */}
+          {onHideFromProgress && (
             <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
-              {isHidden ? <Eye color="#38bdf8" size={24} /> : <EyeOff color="#fff" size={24} />}
+              {isHidden ? <PlayCircle color="#38bdf8" size={24} /> : <PauseCircle color="#fff" size={24} />}
               <Text style={[styles.optionText, isHidden && { color: '#38bdf8' }]}>
                 {isHidden ? t('unhideProgress') : t('hideProgress')}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Hem dizilerde hem filmlerde: takip modülündeki manuel "Bırakıldı"
-              işaretlemesi. Eskiden bu satır `type === 'show'` ile kapalıydı, bu
-              yüzden bir filmi bırakılmış işaretlemenin HİÇBİR yolu yoktu. */}
-          {onToggleDropped && (
-            <TouchableOpacity style={styles.optionRow} onPress={handleToggleDropped}>
-              <PauseCircle color={isDropped ? '#fbbf24' : '#fff'} size={24} />
-              <Text style={styles.optionText}>
-                {isDropped ? t('resumeWatching') : t('stopWatching')}
               </Text>
             </TouchableOpacity>
           )}

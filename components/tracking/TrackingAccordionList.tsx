@@ -15,7 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
-import { ChevronDown, PlayCircle, Bookmark, Clock, PauseCircle } from 'lucide-react-native';
+import { ChevronDown, PlayCircle, Bookmark, PauseCircle } from 'lucide-react-native';
 import EpisodeCard from '../EpisodeCard';
 import type { ShowCategories, TrackingCard } from '../../store/tracking/trackingLogic';
 import type { TrackingCategoryKey, CollapsedMap } from '../../store/tracking/useTrackingStore';
@@ -60,10 +60,9 @@ const SECTION_META: Record<TrackingCategoryKey, { Icon: React.ComponentType<any>
   upNext: { Icon: PlayCircle, tint: '#60a5fa', bg: 'rgba(59, 130, 246, 0.12)' },
   paused: { Icon: PauseCircle, tint: '#fb923c', bg: 'rgba(251, 146, 60, 0.12)' },
   notStarted: { Icon: Bookmark, tint: '#c084fc', bg: 'rgba(168, 85, 247, 0.12)' },
-  dropped: { Icon: Clock, tint: '#fbbf24', bg: 'rgba(245, 158, 11, 0.12)' },
 };
 
-const SECTION_ORDER: TrackingCategoryKey[] = ['upNext', 'paused', 'notStarted', 'dropped'];
+const SECTION_ORDER: TrackingCategoryKey[] = ['upNext', 'paused', 'notStarted'];
 
 // Listenin içerik üst boşluğu (`styles.content.paddingTop`). Overlay başlık
 // YALNIZCA kaydırma bu değeri geçtiğinde gösterilir: tam bu eşikte overlay'in

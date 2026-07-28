@@ -1,18 +1,16 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 
 import MovieCard from '../../../components/movies/MovieCard';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import { useAuth } from '../../../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../../../context/LibraryContext';
-import { useTrackingStore } from '../../../store/tracking/useTrackingStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import WebCarousel from '../../../components/web/WebCarousel';
 import { useRouter } from 'expo-router';
 import { useResponsive } from '../../../hooks/useResponsive';
 import MoviesMobile from '../../../screens/MoviesMobile';
-import { viewAllStore } from '../../../utils/viewAllStore';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useMoviesDashboardData } from '../../../hooks/useMoviesDashboardData';
 import { groupByDateGroup } from '../../../utils/groupByDateGroup';
@@ -33,28 +31,22 @@ export default function MoviesScreenWeb() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Katı seçici: yalnızca film dilimleri — showProgressMap vb. değiştiğinde bu ekran render OLMAZ.
-  const { watchlistMovies, calendarMovies, isMoviesLoading } = useLibrarySelector(s => ({
+  const { watchlistMovies, calendarMovies, isMoviesLoading, hiddenMovieIds } = useLibrarySelector(s => ({
     watchlistMovies: s.watchlistMovies,
     calendarMovies: s.calendarMovies,
     isMoviesLoading: s.isMoviesLoading,
+    hiddenMovieIds: s.hiddenMovieIds,
   }));
-  const { refreshLibrary } = useLibraryActions();
+  const { refreshLibrary, toggleHiddenFromProgress } = useLibraryActions();
 
-  // Dizi kartlarındaki 3-nokta menüsüyle aynı özellik film kartlarında da
-  // olsun istendi — "Bırakıldı" durumu dizilerle aynı izole tracking store'dan
-  // (droppedMovieIds) geliyor.
-  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
-  const toggleDroppedMovieStatus = useTrackingStore((s) => s.toggleDroppedMovieStatus);
-  const hydrateTracking = useTrackingStore((s) => s.hydrate);
-
-  useEffect(() => {
-    hydrateTracking();
-  }, [hydrateTracking]);
-
+  // Dizi kartlarındaki 3-nokta menüsüyle aynı özellik film kartlarında da var —
+  // "Bırak" doğrudan Trakt'ın "İlerlemeyi Gizle" uç noktasına bağlıdır (bkz.
+  // toggleHiddenFromProgress), dizilerle birebir aynı mekanizma.
   const { watchlistMoviesList, upcomingMovies } = useMoviesDashboardData(
     watchlistMovies,
     calendarMovies,
-    i18n.language
+    i18n.language,
+    hiddenMovieIds
   );
 
   const groupedUpcomingMovies = useMemo(() => groupByDateGroup(upcomingMovies), [upcomingMovies]);
@@ -82,25 +74,25 @@ export default function MoviesScreenWeb() {
       <MovieCard
         data={item}
         onMovieFinished={handleMovieFinished}
-        isDropped={droppedMovieIds.includes(item.id)}
-        onToggleDropped={() => toggleDroppedMovieStatus(item.id)}
+        onToggleDropped={() => toggleHiddenFromProgress(item.id, 'movie', false)}
       />
     ),
-    [handleMovieFinished, droppedMovieIds, toggleDroppedMovieStatus]
+    [handleMovieFinished, toggleHiddenFromProgress]
   );
 
-  const openViewAll = useCallback((title: string, data: any[], routeType: string) => {
-    viewAllStore.data = data;
-    viewAllStore.title = title;
-    router.push(`/(protected)/library/view-all?type=${routeType}` as any);
+  // Filmler sekmesindeki her carousel mobildeki gibi tam teşekküllü arama+filtre
+  // ekranına gider — bu ekranda yalnızca 'movies' tipi kullanıldığı için tek,
+  // parametresiz bir yönlendirme yeterli.
+  const openViewAllMovies = useCallback(() => {
+    router.push('/(protected)/library/movies' as any);
   }, [router]);
 
-  const renderCarousel = (title: string, data: any[], routeType: string = 'movies') => (
+  const renderCarousel = (title: string, data: any[]) => (
     <WebCarousel
       title={title}
       data={data}
       renderItem={renderMovieItem}
-      onViewAll={() => openViewAll(title, data, routeType)}
+      onViewAll={openViewAllMovies}
     />
   );
 

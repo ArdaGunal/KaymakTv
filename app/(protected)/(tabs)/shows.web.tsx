@@ -14,7 +14,6 @@ import WebCarousel from '../../../components/web/WebCarousel';
 import { useRouter } from 'expo-router';
 import { useResponsive } from '../../../hooks/useResponsive';
 import IndexMobile from '../../../screens/IndexMobile';
-import { viewAllStore } from '../../../utils/viewAllStore';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useDashboardData } from '../../../hooks/useDashboardData';
 import { useTrackingShows } from '../../../hooks/useTrackingShows';
@@ -37,8 +36,12 @@ export default function DizilerScreenWeb() {
   const { accessToken, isGuest } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── Yeni izole takip modülü (İzleme sekmesi kategorileri).
-  const { categories, isLoading: trackingLoading, isEmpty, toggleDroppedShowStatus } = useTrackingShows();
+  // ── Yeni izole takip modülü (İzleme sekmesi kategorileri). Masaüstü görünümü
+  // bilinçli olarak Netflix tarzı yatay carousel'ler kullanır (mobildeki
+  // aç/kapa akordeon YERİNE) — geniş masaüstü ekranında bu, kullanıcının
+  // tercih ettiği görsel dil. Kategorizasyon verisi (categories) mobille
+  // BİREBİR aynı `useTrackingShows`'tan geliyor, yalnızca GÖSTERİM farklı.
+  const { categories, isLoading: trackingLoading, isEmpty, dropShow } = useTrackingShows();
 
   // ── Yaklaşan (takvim) sekmesi eski, sağlam hattı kullanmaya devam eder.
   const { watchedShows, watchlistShows, calendarShows, showProgressMap, calendarSeasonsMap, hiddenShowIds } = useLibrarySelector((s) => ({
@@ -109,9 +112,9 @@ export default function DizilerScreenWeb() {
   // Takip kartı (poster) — Netflix tarzı; carousel içinde yan yana sıkı dizilir.
   const renderTrackItem = useCallback(
     ({ item }: { item: any }) => (
-      <ShowTrackCardWeb data={item} onShowFinished={handleShowFinished} onToggleDropped={toggleDroppedShowStatus} />
+      <ShowTrackCardWeb data={item} onShowFinished={handleShowFinished} onToggleDropped={dropShow} />
     ),
-    [handleShowFinished, toggleDroppedShowStatus]
+    [handleShowFinished, dropShow]
   );
   // Trend/yaklaşan için eski yatay EpisodeCard hâlâ kullanılır.
   const renderEpisodeItem = useCallback(
@@ -119,19 +122,24 @@ export default function DizilerScreenWeb() {
     [handleShowFinished]
   );
 
-  const openViewAll = useCallback((title: string, data: any[], routeType: string) => {
-    viewAllStore.data = data;
-    viewAllStore.title = title;
-    router.push(`/(protected)/library/view-all?type=${routeType}` as any);
+  // Mobildeki gibi tam teşekküllü arama+filtre ekranına gider — bu ekranda
+  // yalnızca 'shows' tipi kullanıldığı için tek, parametresiz bir yönlendirme
+  // yeterli (bkz. docs/HISTORY.md, Madde 95).
+  const openViewAllShows = useCallback(() => {
+    router.push('/(protected)/library/shows' as any);
   }, [router]);
 
   const renderTrackCarousel = (title: string, data: any[]) =>
     data.length > 0 ? (
-      <WebCarousel title={title} data={data} renderItem={renderTrackItem} onViewAll={() => openViewAll(title, data, 'shows')} />
+      <WebCarousel title={title} data={data} renderItem={renderTrackItem} onViewAll={openViewAllShows} />
     ) : null;
 
-  const renderCarousel = (title: string, data: any[]) => (
-    <WebCarousel title={title} data={data} renderItem={renderEpisodeItem} onViewAll={() => openViewAll(title, data, 'shows')} />
+  // `showViewAll=false`: misafirin gördüğü trend dizileri carousel'i için —
+  // `/library/shows` kişisel kütüphaneyi gösterir, misafirin hiç kütüphanesi
+  // yok, o yüzden orada "Tümünü Gör" butonu hiç gösterilmiyor (boş bir ekrana
+  // düşürmek yerine).
+  const renderCarousel = (title: string, data: any[], showViewAll: boolean = true) => (
+    <WebCarousel title={title} data={data} renderItem={renderEpisodeItem} onViewAll={showViewAll ? openViewAllShows : undefined} />
   );
 
   if (!isDesktop) {
@@ -206,14 +214,13 @@ export default function DizilerScreenWeb() {
                 <Text style={styles.filterPillText}>{t('trendShowsApi')}</Text>
               </View>
             </View>
-            {renderCarousel(t('trendShowsApi'), trendingFallback)}
+            {renderCarousel(t('trendShowsApi'), trendingFallback, false)}
           </>
         ) : (
           <>
             {renderTrackCarousel(t('upNext'), categories.upNext)}
             {renderTrackCarousel(t('paused'), categories.paused)}
             {renderTrackCarousel(t('notStarted'), categories.notStarted)}
-            {renderTrackCarousel(t('inactive'), categories.dropped)}
 
             {isEmpty && <Text style={styles.emptyText}>{t('noShowsInCategory')}</Text>}
           </>

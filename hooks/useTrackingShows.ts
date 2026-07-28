@@ -1,23 +1,27 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLibrarySelector } from '../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { categorizeShows, ShowCategories } from '../store/tracking/trackingLogic';
-import { useTrackingStore } from '../store/tracking/useTrackingStore';
 
 export interface UseTrackingShowsResult {
   categories: ShowCategories;
   /** Hiç veri yokken ve kütüphane hâlâ yüklenirken true — asla takılmaz. */
   isLoading: boolean;
-  /** Dört kategori de boş mu? */
+  /** Üç ana kategori de (upNext/paused/notStarted) boş mu? */
   isEmpty: boolean;
   totalCount: number;
-  /** Bir diziyi manuel olarak "Bırakıldı" yap / geri al. */
-  toggleDroppedShowStatus: (id: number) => void;
+  /** Bir diziyi "Bırak" — Trakt'ta ilerlemesini gizler. Takip panosundaki
+   * kartlar tanım gereği hiçbir zaman zaten gizli bir diziyi göstermez (bkz.
+   * trackingLogic.ts), bu yüzden bu eylem her zaman "gizle" yönünde çalışır.
+   * Trakt'a giden asenkron isteği BİLİNÇLİ OLARAK burada yutmaz/loglamaz —
+   * çağıran taraf (`TrackingCardMenu`) bunu bekleyip reddedilirse kullanıcıya
+   * görünür bir hata gösterir (bkz. Madde 99). */
+  dropShow: (id: number) => Promise<void>;
 }
 
 /**
  * Dizi takip ekranının TEK veri kaynağı. Ham kütüphane dilimlerini okuyup
- * `categorizeShows` (saf, tek gerçek kaynak) ile 4 kategoriye ayırır.
+ * `categorizeShows` (saf, tek gerçek kaynak) ile kategorilere ayırır.
  *
  * Loading mantığı türetilmiştir (ayrı bir state + effect değil): veri geldiği
  * an isLoading kendiliğinden false olur, bu yüzden "yükleniyor state'inde
@@ -34,13 +38,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
     isLibraryLoading: s.isLoading,
   }));
 
-  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
-  const toggleDroppedShowStatus = useTrackingStore((s) => s.toggleDroppedShowStatus);
-  const hydrate = useTrackingStore((s) => s.hydrate);
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+  const { toggleHiddenFromProgress } = useLibraryActions();
 
   const categories = useMemo(
     () =>
@@ -48,7 +46,6 @@ export function useTrackingShows(): UseTrackingShowsResult {
         watchedShows: watchedShows || [],
         watchlistShows: watchlistShows || [],
         showProgressMap: showProgressMap || {},
-        droppedShowIds,
         hiddenShowIds,
         labels: {
           unnamedShow: t('unnamedShow', 'İsimsiz Dizi'),
@@ -57,13 +54,17 @@ export function useTrackingShows(): UseTrackingShowsResult {
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, droppedShowIds, hiddenShowIds, t]
+    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, t]
   );
 
-  const totalCount =
-    categories.upNext.length + categories.paused.length + categories.notStarted.length + categories.dropped.length;
+  const totalCount = categories.upNext.length + categories.paused.length + categories.notStarted.length;
   const isEmpty = totalCount === 0;
   const isLoading = isEmpty && isLibraryLoading;
 
-  return { categories, isLoading, isEmpty, totalCount, toggleDroppedShowStatus };
+  const dropShow = useCallback(
+    (id: number) => toggleHiddenFromProgress(id, 'show', false),
+    [toggleHiddenFromProgress]
+  );
+
+  return { categories, isLoading, isEmpty, totalCount, dropShow };
 }

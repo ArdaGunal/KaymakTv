@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { CornerDownRight, Send, MessageCircle, ChevronUp } from 'lucide-react-native';
 import { getCommentReplies, addCommentReply } from '../../services/traktApi';
 import { useAuth } from '../../context/AuthContext';
+import { notify } from '../../utils/confirmDialog';
+import { validateComment, MAX_COMMENT_CHARS, MIN_COMMENT_WORDS } from '../../utils/commentValidation';
 
 interface CommentRepliesProps {
   commentId: number;
@@ -21,10 +22,11 @@ interface CommentRepliesProps {
 /**
  * Bir yorumun altındaki cevaplar bölümü: tıklayınca cevapları yükler,
  * altındaki inline kutudan yeni cevap yazılabilir. Cevap sayısı 0 olsa da
- * "Cevapla" ile açılabilir. Trakt kuralı gereği cevaplar da en az 5 kelime.
+ * "Cevapla" ile açılabilir. Doğrulama kuralı `utils/commentValidation.ts`'te
+ * (Trakt cevaplara da yorumlarla aynı "en az 5 kelime" kuralını uygular).
  */
 export default function CommentReplies({ commentId, initialCount }: CommentRepliesProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'media']);
   const { isGuest } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [replies, setReplies] = useState<any[] | null>(null);
@@ -32,6 +34,9 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
   const [localCount, setLocalCount] = useState(initialCount);
+
+  const validation = useMemo(() => validateComment(replyText), [replyText]);
+  const canSend = validation.isValid && !sending;
 
   const toggleExpanded = async () => {
     if (expanded) {
@@ -56,15 +61,13 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
 
   const handleSendReply = async () => {
     if (isGuest) {
-      Alert.alert('Giriş Gerekli', 'Cevap yazmak için giriş yapmalısınız.');
+      // `Alert.alert` react-native-web'de no-op — web'de bu uyarılar SESSİZCE
+      // hiç görünmüyordu. `notify` web'de `window.alert`e düşer.
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
-    const wordCount = replyText.trim().split(/\s+/).filter(w => w.length > 0).length;
-    if (wordCount < 5) {
-      Alert.alert('Çok Kısa', 'Cevabınız en az 5 kelime olmalı (Trakt kuralı).');
-      return;
-    }
-    if (sending) return;
+    // Buton zaten pasif — son savunma katmanı.
+    if (!canSend) return;
 
     setSending(true);
     try {
@@ -73,10 +76,11 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
       setLocalCount(c => c + 1);
       setReplyText('');
     } catch (e: any) {
+      console.error('[CommentReplies] handleSendReply:', e?.response?.data ?? e);
       const msg = e?.response?.status === 422
-        ? 'Cevap Trakt kurallarına uymuyor (en az 5 kelime).'
-        : t('replyError');
-      Alert.alert('Hata', msg);
+        ? t('media:commentRejectedError')
+        : t('common:replyError');
+      notify(t('common:error'), msg);
     } finally {
       setSending(false);
     }
@@ -97,10 +101,10 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
         )}
         <Text style={[styles.toggleText, expanded && styles.toggleTextMuted]}>
           {expanded
-            ? 'Cevapları gizle'
+            ? t('media:hideReplies')
             : localCount > 0
-              ? t('viewReplies', { count: localCount, defaultValue: `${localCount} cevabı gör · Cevapla` })
-              : 'Cevapla'}
+              ? t('common:viewReplies', { count: localCount })
+              : t('media:reply')}
         </Text>
       </TouchableOpacity>
 
@@ -124,26 +128,36 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
 
           {/* Cevap yazma kutusu */}
           {!isGuest ? (
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Bir cevap yaz (en az 5 kelime)..."
-                placeholderTextColor="#475569"
-                value={replyText}
-                onChangeText={setReplyText}
-                multiline
-              />
-              <TouchableOpacity
-                style={styles.sendBtn}
-                onPress={handleSendReply}
-                disabled={sending}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                {sending ? <ActivityIndicator size="small" /> : <Send size={16} color="#3b82f6" />}
-              </TouchableOpacity>
-            </View>
+            <>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('media:replyPlaceholder', { min: MIN_COMMENT_WORDS })}
+                  placeholderTextColor="#475569"
+                  value={replyText}
+                  onChangeText={setReplyText}
+                  multiline
+                  maxLength={MAX_COMMENT_CHARS}
+                />
+                <TouchableOpacity
+                  style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+                  onPress={handleSendReply}
+                  disabled={!canSend}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {sending ? <ActivityIndicator size="small" /> : <Send size={16} color={canSend ? '#3b82f6' : '#475569'} />}
+                </TouchableOpacity>
+              </View>
+              {/* Yalnızca yazmaya başlayınca göster — boş kutunun altında
+                  sürekli kırmızı uyarı durmasın. */}
+              {validation.reason !== null && validation.reason !== 'empty' && (
+                <Text style={styles.replyHint}>
+                  {t('media:commentHintTooFewWords', { count: validation.wordCount, min: MIN_COMMENT_WORDS })}
+                </Text>
+              )}
+            </>
           ) : (
-            <Text style={styles.guestNote}>{t('loginToReply')}</Text>
+            <Text style={styles.guestNote}>{t('common:loginToReply')}</Text>
           )}
         </View>
       )}
@@ -224,6 +238,15 @@ const styles = StyleSheet.create({
   sendBtn: {
     padding: 6,
     marginLeft: 8,
+  },
+  sendBtnDisabled: {
+    opacity: 0.6,
+  },
+  replyHint: {
+    color: '#ef4444',
+    fontSize: 11,
+    marginTop: 5,
+    marginLeft: 2,
   },
   guestNote: {
     color: '#475569',

@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
-import { Alert, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { exportMetricsReport } from '../utils/metrics';
+import { deleteAccountData } from '../features/feed/services/accountDeletion';
 
 export interface UseSettingsResult {
   isLoggingOut: boolean;
@@ -18,8 +18,7 @@ export interface UseSettingsResult {
 }
 
 export function useSettings(): UseSettingsResult {
-  const { removeKeys } = useAuth();
-  const router = useRouter();
+  const { removeKeys, accessToken, isGuest } = useAuth();
   const { i18n, t } = useTranslation(['settings', 'common']);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -40,10 +39,17 @@ export function useSettings(): UseSettingsResult {
   }, [removeKeys, t]);
 
   const handleDeleteAccount = useCallback(async () => {
-    // "Hesap silme" mevcut sistemde yalnızca local verileri temizler.
-    // Trakt hesabı etkilenmez.
+    // Trakt hesabına HİÇ dokunulmaz (Trakt zaten silinemez, kendi API'si de
+    // yok) — yalnızca KaymakTV'nin sunucusundaki (Supabase: users satırı,
+    // CASCADE ile feed_activities + comments) ve cihazdaki veriler silinir.
+    // Sunucu silme isteği BAŞARISIZ olursa yerel oturumu da temizlemiyoruz —
+    // aksi halde kullanıcı verisi hâlâ sunucuda dururken "silindi" sanıp
+    // tekrar denemezdi.
     setIsDeletingAccount(true);
     try {
+      if (accessToken && !isGuest) {
+        await deleteAccountData(accessToken);
+      }
       await removeKeys();
     } catch (error) {
       console.error('[useSettings] deleteAccount error:', error);
@@ -51,7 +57,7 @@ export function useSettings(): UseSettingsResult {
     } finally {
       setIsDeletingAccount(false);
     }
-  }, [removeKeys, t]);
+  }, [removeKeys, accessToken, isGuest, t]);
 
   const handleChangeLanguage = useCallback((lng: string) => {
     i18n.changeLanguage(lng);

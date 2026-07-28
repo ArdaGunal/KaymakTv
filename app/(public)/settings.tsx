@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
 import { Globe, CheckSquare, Square } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { exchangeAuthCode } from '../../services/traktApi';
+import { notify } from '../../utils/confirmDialog';
+import LegalTermsModal from '../../components/settings/LegalTermsModal';
+import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 
@@ -13,7 +16,7 @@ import * as AuthSession from 'expo-auth-session';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function Login() {
-  const { accessToken, saveTokens, removeKeys, loginAsGuest } = useAuth();
+  const { saveTokens, loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
@@ -22,10 +25,6 @@ export default function Login() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
-
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-  };
 
   // Redirect URI (app.json'daki scheme ile eşleşmeli)
   const redirectUri = AuthSession.makeRedirectUri({
@@ -46,13 +45,20 @@ export default function Login() {
     }
   );
 
+  // OAuth authorization code'ları TEK KULLANIMLIKTIR. Aşağıdaki iki yakalayıcı
+  // (expo-auth-session'ın `response`'u ve web'e özel manuel URL okuması) aynı
+  // kod için BİRLİKTE tetiklenebiliyordu; ikinci değişim Trakt'tan
+  // `invalid_grant` alıp ilk (başarılı) girişin üzerine hata mesajı basıyordu.
+  // Bu ref, bir kodun yalnızca bir kez değişilmesini garanti eder.
+  const exchangedCodeRef = useRef<string | null>(null);
+
   // Tarayıcıdan dönüş yanıtını (Authorization Code) yakala
   useEffect(() => {
     if (response?.type === 'success') {
       const { code } = response.params;
       handleTokenExchange(code);
     } else if (response?.type === 'error') {
-      Alert.alert(t('common:error'), t('loginCanceled'));
+      notify(t('common:error'), t('loginCanceled'));
     }
   }, [response]);
 
@@ -61,9 +67,16 @@ export default function Login() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
+      const oauthError = urlParams.get('error');
       if (code) {
         window.history.replaceState({}, document.title, window.location.pathname);
         handleTokenExchange(code);
+      } else if (oauthError) {
+        // Trakt onayı reddedildiğinde `?error=access_denied` ile döner —
+        // eskiden bu durum hiç okunmuyordu, kullanıcı sessizce giriş
+        // ekranında kalıyordu.
+        window.history.replaceState({}, document.title, window.location.pathname);
+        notify(t('common:error'), t('loginCanceled'));
       }
     }
   }, []);
@@ -80,25 +93,39 @@ export default function Login() {
 
   // Kodu alıp Trakt API üzerinden Access Token'a çevir
   const handleTokenExchange = async (code: string) => {
+    // Aynı kod ikinci kez değişilmeye çalışılmasın (bkz. exchangedCodeRef).
+    if (exchangedCodeRef.current === code) return;
+    exchangedCodeRef.current = code;
+
     setIsGenerating(true);
     try {
+      // `exchangeAuthCode` artık yanıtı DOĞRULUYOR: access_token yoksa veya
+      // proxy eksik olduğu için HTML döndüyse istisna fırlatır. Eskiden burada
+      // `if (tokenData?.access_token)` vardı ve `else`'i YOKTU — token'sız yanıt
+      // hiçbir iz bırakmadan yutuluyor, kullanıcı sebebini göremeden misafir
+      // olarak kalıyordu. Artık her başarısızlık aşağıdaki catch'e düşer.
       const tokenData = await exchangeAuthCode(code, redirectUri);
-      
-      if (tokenData && tokenData.access_token) {
-        await saveTokens(tokenData.access_token, tokenData.refresh_token);
-        Alert.alert(t('common:success'), t('loginSuccessText'));
-        router.replace('/(protected)/(tabs)/explore');
-      }
-    } catch (error) {
+      await saveTokens(tokenData.access_token, tokenData.refresh_token);
+      router.replace('/(protected)/(tabs)/explore');
+    } catch (error: any) {
       console.error('Token Exchange Hatası:', error);
-      Alert.alert(t('common:error'), t('communicationError'));
+      // Kod tüketilmiş olabilir ama giriş başarısız — kullanıcı tekrar
+      // deneyebilsin diye kilidi aç.
+      exchangedCodeRef.current = null;
+
+      const raw = String(error?.message ?? '');
+      // `Alert.alert` react-native-web'de TAM NO-OP olduğu için bu mesajların
+      // HİÇBİRİ web'de görünmüyordu — `notify` web'de window.alert'e düşer.
+      if (raw.startsWith('AUTH_PROXY_MISSING')) {
+        notify(t('common:error'), t('settings:loginProxyMissing'));
+      } else if (raw.startsWith('AUTH_NO_TOKEN') || raw.startsWith('AUTH_BAD_RESPONSE')) {
+        notify(t('common:error'), t('settings:loginTokenError'));
+      } else {
+        notify(t('common:error'), t('communicationError'));
+      }
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await removeKeys();
   };
 
   return (
@@ -112,37 +139,10 @@ export default function Login() {
         <Text style={styles.topRightLangText}>{i18n.language.toUpperCase()}</Text>
       </TouchableOpacity>
 
-      {/* Language Selection Modal */}
-      <Modal
+      <LanguageMenuModal
         visible={isLangMenuVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsLangMenuVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setIsLangMenuVisible(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.langMenu}>
-                <Text style={styles.langMenuTitle}>{t('language')}</Text>
-                
-                <TouchableOpacity 
-                  style={[styles.langMenuItem, i18n.language === 'tr' && styles.langMenuItemActive]}
-                  onPress={() => { changeLanguage('tr'); setIsLangMenuVisible(false); }}
-                >
-                  <Text style={[styles.langMenuItemText, i18n.language === 'tr' && styles.langMenuItemTextActive]}>{t('turkish')}</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.langMenuItem, i18n.language === 'en' && styles.langMenuItemActive]}
-                  onPress={() => { changeLanguage('en'); setIsLangMenuVisible(false); }}
-                >
-                  <Text style={[styles.langMenuItemText, i18n.language === 'en' && styles.langMenuItemTextActive]}>{t('english')}</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        onClose={() => setIsLangMenuVisible(false)}
+      />
 
       <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
         <View style={[styles.headerContainer, isDesktop && { alignItems: 'center', marginBottom: 40 }]}>
@@ -216,32 +216,10 @@ export default function Login() {
           </>
         </View>
       </View>
-      <Modal
+      <LegalTermsModal
         visible={isLegalModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsLegalModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.legalMenu}>
-            <Text style={styles.legalMenuTitle}>{t('legal:title')}</Text>
-            <ScrollView style={styles.legalScrollView}>
-              {(t('legal:sections', { returnObjects: true }) as Array<{heading: string, text: string}>).map((section, index) => (
-                <View key={index} style={{ marginBottom: 16 }}>
-                  <Text style={[styles.legalMenuText, { fontWeight: 'bold', marginBottom: 4, color: '#e2e8f0' }]}>{section.heading}</Text>
-                  <Text style={styles.legalMenuText}>{section.text}</Text>
-                </View>
-              ))}
-            </ScrollView>
-            <TouchableOpacity 
-              style={styles.legalCloseButton}
-              onPress={() => setIsLegalModalVisible(false)}
-            >
-              <Text style={styles.legalCloseButtonText}>{t('common:close', 'Kapat')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setIsLegalModalVisible(false)}
+      />
 
     </View>
   );
@@ -364,16 +342,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  loggedInContainer: {
-    marginTop: 24,
-  },
-  loggedInText: {
-    color: '#10b981',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
   topRightLangButton: {
     position: 'absolute',
     top: 50,
@@ -393,78 +361,6 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontWeight: 'bold',
     fontSize: 14,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  langMenu: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
-    width: 250,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  langMenuTitle: {
-    color: '#94a3b8',
-    fontSize: 14,
-    marginBottom: 12,
-    fontWeight: '600',
-  },
-  langMenuItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  langMenuItemActive: {
-    backgroundColor: '#3b82f6',
-  },
-  langMenuItemText: {
-    color: '#cbd5e1',
-    fontSize: 16,
-  },
-  langMenuItemTextActive: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  legalMenu: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  legalMenuTitle: {
-    color: '#e2e8f0',
-    fontSize: 18,
-    marginBottom: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  legalScrollView: {
-    marginBottom: 16,
-  },
-  legalMenuText: {
-    color: '#cbd5e1',
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  legalCloseButton: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  legalCloseButtonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   backButton: {
     backgroundColor: 'transparent',

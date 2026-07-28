@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Dimensions, Platform, UIManager, LayoutAnimation, Alert, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Platform, UIManager, Alert, ActivityIndicator } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -19,7 +19,6 @@ import MyInlineComment from '../../components/MyInlineComment';
 import Snackbar from '../../components/Snackbar';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
-import { useTrackingStore } from '../../store/tracking/useTrackingStore';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -43,11 +42,12 @@ export default function MovieDetailScreen() {
   
   // Katı seçici: yalnızca film dilimleri okunur; dizi ilerlemesi gibi ilgisiz
   // store değişimlerinde bu ekran artık yeniden render olmaz.
-  const { userRatingsMovies, watchedMovies, watchlistMovies, favMovies } = useLibrarySelector(s => ({
+  const { userRatingsMovies, watchedMovies, watchlistMovies, favMovies, hiddenMovieIds } = useLibrarySelector(s => ({
     userRatingsMovies: s.userRatingsMovies,
     watchedMovies: s.watchedMovies,
     watchlistMovies: s.watchlistMovies,
     favMovies: s.favMovies,
+    hiddenMovieIds: s.hiddenMovieIds,
   }));
   const {
     setLocalRating,
@@ -55,13 +55,10 @@ export default function MovieDetailScreen() {
     markMovieAsWatched,
     toggleWatchlistStatus,
     toggleFavoriteStatus,
+    toggleHiddenFromProgress,
     deleteMediaFromHistory,
   } = useLibraryActions();
   const { isGuest } = useAuth();
-
-  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
-  const toggleDroppedMovieStatus = useTrackingStore((s) => s.toggleDroppedMovieStatus);
-  const hydrateTracking = useTrackingStore((s) => s.hydrate);
 
   const idStr = Array.isArray(id) ? id[0] : id;
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
@@ -84,16 +81,10 @@ export default function MovieDetailScreen() {
   const isWatched = watchedMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isWatchlisted = watchlistMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isFavorited = favMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
-
-  // Filmler sekmesine hiç uğramadan (bildirimden/paylaşılan linkten) doğrudan
-  // buraya gelinmiş olabilir — o durumda `droppedMovieIds` boş kalır ve daha
-  // önce bırakılmış bir film menüde "İzlemeyi Bırak" gösterirdi. `hydrate()`
-  // idempotent olduğu için buradan çağrılması güvenli (ilk çağrıdan sonra no-op).
-  const isDropped = droppedMovieIds.includes(traktIdNum);
-
-  useEffect(() => {
-    hydrateTracking();
-  }, [hydrateTracking]);
+  // "Bırak" eylemi: Trakt'ta filmler için `calendar` bölümünden gizlenmiş mi
+  // (bkz. hideItemTrakt/unhideItemTrakt, dizilerdeki `progress_watched`in film
+  // karşılığı). Diziler sayfasındaki isHidden ile birebir aynı mekanizma.
+  const isHidden = hiddenMovieIds.includes(traktIdNum);
 
   // NOT: `MediaHero`'daki tetikleyici buton zaten `isGuest` ile koruyor —
   // buradaki kontrol ikinci bir savunma katmanı (`handleToggleWatched` ile
@@ -204,8 +195,8 @@ export default function MovieDetailScreen() {
           onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
           onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
           onRewatch={handleRewatch}
-          isDropped={isDropped}
-          onToggleDropped={() => toggleDroppedMovieStatus(traktIdNum)}
+          isHidden={isHidden}
+          onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'movie', isHidden)}
         />
 
         <View style={styles.contentArea}>

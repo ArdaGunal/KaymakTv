@@ -15,6 +15,7 @@ import {
   getLikedMovies,
   getUserStats,
   getHiddenShows,
+  getHiddenMovies,
 } from '../traktApi';
 import {
   CACHE_KEYS,
@@ -35,11 +36,13 @@ import {
   setCalendarSeasonsMap,
   setUserStats,
   setHiddenShowIds,
+  setHiddenMovieIds,
   setIsLoading,
   setIsMoviesLoading,
   readChunkedRecord,
   writeChunkedRecord,
 } from './utils';
+import { reconcileHiddenIds } from './hiddenSyncGuard';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 import { logError } from '../../utils/errorLog';
 import { requestQueue } from '../api/requestQueue';
@@ -126,6 +129,7 @@ export const loadCache = async () => {
     setCalendarSeasonsMap(getParsed(CACHE_KEYS.calendarSeasonsMap) || {});
     setUserStats(getParsed(CACHE_KEYS.userStats) || null);
     setHiddenShowIds(getParsed(CACHE_KEYS.hiddenShowIds) || []);
+    setHiddenMovieIds(getParsed(CACHE_KEYS.hiddenMovieIds) || []);
 
     // Progress haritası boşsa TTL'yi sıfırla: fetchFreshData kesin çalışsın.
     // Aksi halde 10 dakikalık TTL yüzünden kartlar spinner'da asılı kalırdı.
@@ -139,12 +143,88 @@ export const loadCache = async () => {
   }
 };
 
+/**
+ * "İzlemeyi Bırak" (gizlenen dizi/film) listelerinin BAĞIMSIZ hızlı yolu.
+ *
+ * NEDEN AYRI BİR FONKSİYON: Bu iki liste eskiden `fetchFreshData`'nın TIER3
+ * turunda, 9 isteklik tek bir `Promise.all`'un içinde ve `LOW` öncelikte
+ * çekiliyordu. Bu üç ayrı gecikme/atlama kaynağı yaratıyordu:
+ *   1. `setHiddenShowIds` ancak o turdaki EN YAVAŞ istek (sayfalanan
+ *      `getWatchedMovies`, 3 ayrı `getUserRatings`, iki `getLiked*` — ki
+ *      bunlar ek bir "liked list" round-trip'i daha yapıyor) bitince
+ *      çağrılıyordu. Kullanıcı Cihaz B'ye o an bakıyorsa bayat veri görüyordu.
+ *   2. `LOW` öncelik, `backgroundWork`'ün onlarca/yüzlerce `getShowProgress`
+ *      isteğiyle AYNI kuyruk seviyesinde yarışıyordu — büyük kütüphanelerde
+ *      gizli listeler dakikalarca sıra bekleyebiliyordu.
+ *   3. `fetchFreshData` TTL (10 dk) veya eşzamanlılık kilidi yüzünden erken
+ *      dönerse TIER3'e HİÇ ulaşılmıyordu — yani gizli listeler o çağrıda hiç
+ *      yenilenmiyordu.
+ * Üçü birlikte "bazen senkron oluyor bazen olmuyor" tablosunu üretiyordu.
+ *
+ * Bu fonksiyon iki hafif isteği `NORMAL` öncelikte, kendi başına çalıştırır ve
+ * `fetchFreshData`'nın TTL/kilit kontrollerinden ÖNCE çağrılır — böylece
+ * "Bırak" durumu, tam senkron atlansa bile her tetiklemede tazelenir.
+ * `reconcileHiddenIds` yine uygulanır: o an uçuşta olan yerel bir mutasyon
+ * eski bir sunucu anlık görüntüsüyle geri alınamaz (bkz. hiddenSyncGuard.ts).
+ */
+export const syncHiddenLists = async (accessToken: string | null) => {
+  if (!accessToken) return;
+
+  // NOT: Hatalar `logError` ile KALICI günlüğe de yazılır. Eskiden bu iki
+  // istek yalnızca `console.error` ile yutuluyordu — cihazda geliştirici
+  // konsolu olmadığından, senkron sessizce başarısız olduğunda kullanıcının
+  // "Hata Günlüğü" ekranında HİÇBİR iz kalmıyordu.
+  const [hiddenData, hiddenMoviesData] = await Promise.all([
+    requestQueue.enqueue(() => getHiddenShows(), 'NORMAL').catch((e) => {
+      console.error('getHiddenShows failed', e?.message);
+      logError('fetchers.syncHiddenLists.shows', e);
+      return null;
+    }),
+    requestQueue.enqueue(() => getHiddenMovies(), 'NORMAL').catch((e) => {
+      console.error('getHiddenMovies failed', e?.message);
+      logError('fetchers.syncHiddenLists.movies', e);
+      return null;
+    }),
+  ]);
+
+  const pairs: [string, string][] = [];
+
+  if (hiddenData !== null) {
+    const ids = reconcileHiddenIds(
+      'show',
+      (hiddenData as any[]).map((item: any) => item.show?.ids?.trakt).filter((id: any): id is number => typeof id === 'number')
+    );
+    setHiddenShowIds(ids);
+    pairs.push([CACHE_KEYS.hiddenShowIds, JSON.stringify(ids)]);
+  }
+
+  if (hiddenMoviesData !== null) {
+    const ids = reconcileHiddenIds(
+      'movie',
+      (hiddenMoviesData as any[]).map((item: any) => item.movie?.ids?.trakt).filter((id: any): id is number => typeof id === 'number')
+    );
+    setHiddenMovieIds(ids);
+    pairs.push([CACHE_KEYS.hiddenMovieIds, JSON.stringify(ids)]);
+  }
+
+  if (pairs.length > 0) {
+    AsyncStorage.multiSet(pairs).catch((err) => console.log('Hidden cache save error:', err));
+  }
+};
+
 export const fetchFreshData = async (accessToken: string | null, force = false) => {
   if (!accessToken) {
     setIsLoading(false);
     setIsMoviesLoading(false);
     return;
   }
+
+  // "Bırak" listeleri BİLİNÇLİ OLARAK aşağıdaki TTL ve eşzamanlılık kilidi
+  // kontrollerinden ÖNCE, ateşle-ve-unut olarak tazelenir: iki hafif istek
+  // (toplam iki GET) karşılığında, kullanıcı uygulamaya her döndüğünde
+  // cihazlar arası "Bırak" durumu güncel olur — tam senkron TTL yüzünden
+  // atlansa ya da devam eden bir senkron kilidi tutuyor olsa bile.
+  syncHiddenLists(accessToken).catch((e) => logError('fetchers.syncHiddenLists', e));
 
   const now = Date.now();
   if (!force && (now - lastFetchTimeRef.current < CACHE_TTL.SYNC_INTERVAL)) {
@@ -302,9 +382,12 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         requestQueue.enqueue(() => getLikedMovies(), 'LOW').catch((e) => { console.error('getLikedMovies failed', e.message); return null; }),
         requestQueue.enqueue(() => getUserRatings('shows'), 'LOW').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
         requestQueue.enqueue(() => getUserRatings('movies'), 'LOW').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
-        requestQueue.enqueue(() => getUserRatings('episodes'), 'LOW').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; }),
-        requestQueue.enqueue(() => getHiddenShows(), 'LOW').catch((e) => { console.error('getHiddenShows failed', e.message); return null; })
-      ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData, hiddenData]) => {
+        requestQueue.enqueue(() => getUserRatings('episodes'), 'LOW').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
+        // NOT: `getHiddenShows`/`getHiddenMovies` BİLİNÇLİ OLARAK bu turdan
+        // ÇIKARILDI — artık `syncHiddenLists` ile, bu ağır `Promise.all`'un
+        // ve `LOW` önceliğin arkasında beklemeden, çok daha erken çekiliyorlar
+        // (sebebi için o fonksiyonun başındaki nota bakınız).
+      ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData]) => {
         if (moviesData !== null) setWatchedMovies(moviesData);
         if (listsData !== null) setCustomLists(listsData);
         if (fShowsData !== null) setFavShows(fShowsData);
@@ -312,11 +395,6 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         if (rShowsData !== null) setUserRatingsShows(rShowsData);
         if (rMoviesData !== null) setUserRatingsMovies(rMoviesData);
         if (rEpisodesData !== null) setUserRatingsEpisodes(rEpisodesData);
-
-        const hiddenShowIds = hiddenData !== null
-          ? (hiddenData as any[]).map((item: any) => item.show?.ids?.trakt).filter((id: any): id is number => typeof id === 'number')
-          : null;
-        if (hiddenShowIds !== null) setHiddenShowIds(hiddenShowIds);
 
         const multiSetDataInitial: [string, string][] = [];
         const setIfValidInitial = (key: string, data: any, prevData: any) => {
@@ -334,7 +412,10 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         setIfValidInitial(CACHE_KEYS.userRatingsShows, rShowsData, useLibraryStore.getState().userRatingsShows);
         setIfValidInitial(CACHE_KEYS.userRatingsMovies, rMoviesData, useLibraryStore.getState().userRatingsMovies);
         setIfValidInitial(CACHE_KEYS.userRatingsEpisodes, rEpisodesData, useLibraryStore.getState().userRatingsEpisodes);
-        setIfValidInitial(CACHE_KEYS.hiddenShowIds, hiddenShowIds, useLibraryStore.getState().hiddenShowIds);
+        // hiddenShowIds/hiddenMovieIds burada YAZILMAZ — kendi kalıcılığını
+        // `syncHiddenLists` yapıyor. Buradan da yazmak, o hızlı yolun az önce
+        // kaydettiği TAZE listeyi, bu geç biten turun elindeki daha ESKİ
+        // store anlık görüntüsüyle geri ezme riski taşırdı.
 
         AsyncStorage.multiSet(multiSetDataInitial).catch(err => console.log('Initial cache save error:', err));
       });

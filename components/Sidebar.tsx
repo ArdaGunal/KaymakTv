@@ -1,17 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter, usePathname, Link } from 'expo-router';
-import { Tv, Film, Compass, User, Settings } from 'lucide-react-native';
+import { usePathname, Link } from 'expo-router';
+import { Tv, Film, Compass, User, Settings, Rss } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 export default function Sidebar() {
-  const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation('navigation');
 
   const menuItems = [
     { name: t('shows'), icon: Tv, path: '/shows' },
     { name: t('movies'), icon: Film, path: '/movies' },
+    { name: t('feed'), icon: Rss, path: '/(protected)/(tabs)/feed' },
     { name: t('explore'), icon: Compass, path: '/(protected)/(tabs)/explore' },
     { name: t('profile'), icon: User, path: '/profile' },
   ];

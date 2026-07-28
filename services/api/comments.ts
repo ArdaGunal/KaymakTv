@@ -1,6 +1,19 @@
 import { getTraktClient } from './traktClient';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
+// Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor (bkz. docs/HISTORY.md
+// Madde 9 — aynı sınıf sorun, eski prototipte de görülmüştü). Sonuç: bir
+// yorum silinip yenisi yazıldığında, `POST`/`DELETE` Trakt'ta ANINDA
+// işleniyor (ve `/users/me/comments/...`'ta hemen doğru görünüyor) ama
+// hemen ardından gelen `GET .../comments/{sort}` isteği CDN'de duran ESKİ
+// sürümü döndürebiliyor. Bu, yalnızca "eski görünüyor" demek değil: o
+// silinmiş yorum başka kullanıcılara dakikalarca görünmeye devam edip
+// üzerine cevap/beğeni bırakılabiliyor. Her isteğe benzersiz bir `_` query
+// parametresi eklemek CDN'i her seferinde "yeni bir kaynak" sanmaya
+// zorlayıp önbelleği atlatır — Trakt topluluğunun bilinen çözümü de bu
+// (bkz. Trakt API tartışmaları, cache-busting query param önerisi).
+const cacheBustParam = () => `_=${Date.now()}`;
+
 export const addComment = async (id: number, type: 'show' | 'movie' | 'episode', comment: string, spoiler: boolean = true) => {
   try {
     const client = await getTraktClient();
@@ -20,8 +33,11 @@ export const addComment = async (id: number, type: 'show' | 'movie' | 'episode',
     const response = await client.post('/comments', body);
     invalidateUserCommentsCache();
     return response.data;
-  } catch (error) {
-    console.error('Trakt API Hatası (addComment):', error);
+  } catch (error: any) {
+    // Trakt reddetme sebebini yanıt GÖVDESİNDE döndürür (örn. 422 →
+    // "comment must be at least 5 words"). Eskiden yalnızca AxiosError
+    // basılıyordu; gövde hiç görünmediği için 422'nin sebebi tahmin ediliyordu.
+    console.error('Trakt API Hatası (addComment):', error?.response?.status, error?.response?.data ?? error);
     throw error;
   }
 };
@@ -36,8 +52,8 @@ export const updateComment = async (commentId: number, comment: string, spoiler:
     const response = await client.put(`/comments/${commentId}`, body);
     invalidateUserCommentsCache();
     return response.data;
-  } catch (error) {
-    console.error('Trakt API Hatası (updateComment):', error);
+  } catch (error: any) {
+    console.error('Trakt API Hatası (updateComment):', error?.response?.status, error?.response?.data ?? error);
     throw error;
   }
 };
@@ -64,8 +80,8 @@ export const getMediaComments = async (id: number, type: 'show' | 'movie' | 'epi
       const typePath = type === 'show' ? 'shows' : type === 'movie' ? 'movies' : 'episodes';
       url = `/${typePath}/${id}/comments/${sort}?page=${page}&limit=${limit}&extended=full`;
     }
-    
-    const response = await client.get(url);
+
+    const response = await client.get(`${url}&${cacheBustParam()}`);
     
     return {
       data: response.data,
@@ -112,7 +128,7 @@ export const getUserComments = async (force = false): Promise<any[]> => {
       // limit şart: Trakt varsayılanı 10 kayıttır — limitsiz istekte 10'dan fazla
       // yorumu olan kullanıcının eski yorumları bulunamıyor ve "zaten yorum var"
       // tespiti kaçtığı için tekrar gönderimde 409 (duplicate) hatası oluşuyordu.
-      const response = await client.get('/users/me/comments/all/newest?include_replies=false&extended=full&limit=200');
+      const response = await client.get(`/users/me/comments/all/newest?include_replies=false&extended=full&limit=200&${cacheBustParam()}`);
       userCommentsCache = { data: response.data, fetchedAt: Date.now() };
       return response.data;
     } catch (error) {
@@ -130,7 +146,7 @@ export const getUserComments = async (force = false): Promise<any[]> => {
 export const getCommentReplies = async (commentId: number, page: number = 1, limit: number = 25) => {
   try {
     const client = await getTraktClient();
-    const response = await client.get(`/comments/${commentId}/replies?page=${page}&limit=${limit}&extended=full`);
+    const response = await client.get(`/comments/${commentId}/replies?page=${page}&limit=${limit}&extended=full&${cacheBustParam()}`);
     return response.data;
   } catch (error) {
     console.error('Trakt API Hatası (getCommentReplies):', error);
@@ -143,8 +159,8 @@ export const addCommentReply = async (commentId: number, comment: string, spoile
     const client = await getTraktClient();
     const response = await client.post(`/comments/${commentId}/replies`, { comment, spoiler });
     return response.data;
-  } catch (error) {
-    console.error('Trakt API Hatası (addCommentReply):', error);
+  } catch (error: any) {
+    console.error('Trakt API Hatası (addCommentReply):', error?.response?.status, error?.response?.data ?? error);
     throw error;
   }
 };
@@ -152,7 +168,7 @@ export const addCommentReply = async (commentId: number, comment: string, spoile
 export const getEpisodeComments = async (showId: number, season: number, episode: number) => {
   try {
     const client = await getTraktClient();
-    const response = await client.get(`/shows/${showId}/seasons/${season}/episodes/${episode}/comments?extended=full`);
+    const response = await client.get(`/shows/${showId}/seasons/${season}/episodes/${episode}/comments?extended=full&${cacheBustParam()}`);
     return response.data;
   } catch (error) {
     console.error(`Trakt API HatasÄ± (getEpisodeComments - ${showId} S${season}E${episode}):`, error);

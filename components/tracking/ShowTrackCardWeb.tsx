@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PlayCircle } from 'lucide-react-native';
-import { useTranslation } from 'react-i18next';
 import MediaPoster from '../MediaPoster';
 import ProgressBar from '../ProgressBar';
 import EpisodeCheckButton from '../EpisodeCheckButton';
@@ -25,7 +24,6 @@ interface ShowTrackCardWebProps {
 // WebCarousel içinde kullanılır — bu yüzden platform uzantısı yerine açık isim.
 const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTrackCardWebProps) => {
   const router = useRouter();
-  const { t } = useTranslation('media');
   const [isHovered, setIsHovered] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -49,8 +47,10 @@ const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTr
       ? Math.min(100, (data.completedCount / data.totalCount) * 100)
       : null;
 
-  const isDropped = data.tags.includes('BIRAKILDI');
-  const progressColor = getProgressBarColor(isDropped, false);
+  // Bu kart yalnızca takip panosunun görünür kategorilerinden beslenir
+  // (Aktif/Ara Verilen/Başlanmadı) — "Bırak" ile gizlenmiş yapımlar oraya HİÇ
+  // girmez, bu yüzden burada "bırakıldı" durumu diye bir şey yoktur.
+  const progressColor = getProgressBarColor(false, false);
 
   const handleCardPress = () => {
     if (!data.id) return;
@@ -77,18 +77,8 @@ const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTr
               mediaType="show"
               tmdbId={data.tmdbId}
               slug={data.slug}
-              isDropped={isDropped}
               onToggleDropped={() => onToggleDropped(data.id)}
             />
-          )}
-
-          {/* Zarif durum rozeti (yalnızca "Bırakıldı" — "Ara Verildi" için ayrı
-              bir metin rozeti YOK, kategori grubu + ilerleme çubuğunun rengi
-              zaten yeterli sinyal veriyor). */}
-          {isDropped && (
-            <View style={[styles.badge, styles.badgeDropped]}>
-              <Text style={styles.badgeDroppedText}>{t('dropped')}</Text>
-            </View>
           )}
 
           {/* İzlenebilir sıradaki bölüm kodu — küçük, şık, altta */}
@@ -169,23 +159,6 @@ const styles = StyleSheet.create({
     top: 8,
     right: 8,
     zIndex: 15,
-  },
-  badge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  badgeDropped: {
-    backgroundColor: 'rgba(245, 158, 11, 0.92)',
-  },
-  badgeDroppedText: {
-    color: '#0B1120',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.4,
   },
   episodePill: {
     position: 'absolute',

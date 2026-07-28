@@ -1,21 +1,32 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { CheckCircle2, UserCheck } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { CheckCircle2, LogIn } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { SettingsSection, SettingsSectionDivider } from './SettingsSection';
 
 interface TraktAccountSectionProps {
   isConnected: boolean;
-  isConnecting: boolean;
-  canConnect: boolean;
-  onConnect: () => void;
+  onGoToLogin: () => void;
 }
 
-// "Hesap Ayarları" bölümü: Trakt bağlıysa durum banner'ı, değilse bağlanma
-// daveti + buton. account.tsx'i 400 satır sınırının altında tutmak için
-// ayrıştırıldı. (Eskiden bağlıyken bir de "Uygulamaya Git" satırı vardı —
-// zaten ayarlar sayfasının kendi geri butonu aynı işi yaptığından kaldırıldı.)
-export function TraktAccountSection({ isConnected, isConnecting, canConnect, onConnect }: TraktAccountSectionProps) {
+/**
+ * "Hesap Ayarları" bölümü: Trakt bağlıysa durum banner'ı, değilse giriş
+ * ekranına yönlendiren bir buton.
+ *
+ * ⚠️ BURADA OAUTH YOKTUR — ve bilinçli olarak olmamalıdır. Eskiden bu bileşen
+ * kendi `useAuthRequest`/`exchangeAuthCode` akışını çalıştırıyordu, yani
+ * uygulamada BİRBİRİNİN KOPYASI İKİ OAuth implementasyonu vardı
+ * (`app/(public)/settings.tsx` ve `app/(protected)/account.tsx`). Bu ciddi
+ * sorunlara yol açıyordu:
+ *   • Trakt'a kayıtlı yönlendirme adresi TEK bir yol: `/settings`. Giriş
+ *     `/account`'tan başlatılsa bile Trakt kodu `/settings`'e geri gönderiyor —
+ *     yani akışı başlatan ekran ile kodu yakalayan ekran FARKLI oluyordu.
+ *   • İki ekranın yakalayıcıları aynı tek-kullanımlık kodu iki kez değişmeye
+ *     çalışıp `invalid_grant` üretebiliyordu.
+ * Tek giriş noktası (`/settings`) bu sınıf hataların tamamını ortadan kaldırır;
+ * kullanım koşulları onayı da orada TEK yerde zorlanır.
+ */
+export function TraktAccountSection({ isConnected, onGoToLogin }: TraktAccountSectionProps) {
   const { t } = useTranslation(['settings', 'common']);
 
   return (
@@ -36,19 +47,13 @@ export function TraktAccountSection({ isConnected, isConnecting, canConnect, onC
           <SettingsSectionDivider />
 
           <TouchableOpacity
-            style={[styles.connectBtn, isConnecting && styles.btnDisabled]}
+            style={styles.connectBtn}
             activeOpacity={0.82}
-            onPress={onConnect}
-            disabled={isConnecting || !canConnect}
+            onPress={onGoToLogin}
+            accessibilityRole="button"
           >
-            {isConnecting ? (
-              <ActivityIndicator size="small" />
-            ) : (
-              <>
-                <UserCheck size={18} color="#fff" />
-                <Text style={styles.connectBtnText}>{t('settings:connectWithTrakt')}</Text>
-              </>
-            )}
+            <LogIn size={18} color="#fff" />
+            <Text style={styles.connectBtnText}>{t('settings:goToLogin', 'Giriş Yap')}</Text>
           </TouchableOpacity>
         </>
       )}
@@ -101,13 +106,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     minHeight: 54,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   connectBtnText: {
     color: '#fff',
     fontWeight: '700',
     fontSize: 15,
-  },
-  btnDisabled: {
-    opacity: 0.5,
   },
 });

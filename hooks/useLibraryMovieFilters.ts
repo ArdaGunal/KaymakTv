@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useLibrarySelector } from '../context/LibraryContext';
-import { useTrackingStore } from '../store/tracking/useTrackingStore';
 import {
   categorizeMovies,
   MOVIE_CATEGORY_KEYS,
@@ -18,7 +17,7 @@ import {
 /**
  * Kütüphane "Filmler" ekranının lokal süzme hook'u — dizi tarafındaki
  * `useLibraryShowFilters` ile aynı iskelet, tek farkı kategori kaynağının
- * `categorizeMovies` olması (3 kategori: İzlenenler / İzlenecekler / Bırakılanlar).
+ * `categorizeMovies` olması (3 kategori: İzlenenler / İzlenecekler / Gizlenenler-Bırakılanlar).
  */
 export type { MovieCategoryKey };
 export { MOVIE_CATEGORY_KEYS };
@@ -31,19 +30,11 @@ const EMPTY_INDEX = emptyStatusIndex<MovieCategoryKey>();
  * Kategori indeksi. `enabled` false iken kategorizasyon HİÇ çalıştırılmaz.
  */
 function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKey> {
-  const { watchedMovies, watchlistMovies } = useLibrarySelector((s) => ({
+  const { watchedMovies, watchlistMovies, hiddenMovieIds } = useLibrarySelector((s) => ({
     watchedMovies: s.watchedMovies,
     watchlistMovies: s.watchlistMovies,
+    hiddenMovieIds: s.hiddenMovieIds,
   }));
-
-  const droppedMovieIds = useTrackingStore((s) => s.droppedMovieIds);
-  const hydrate = useTrackingStore((s) => s.hydrate);
-
-  // "Bırakılanlar" filtresinin doğru çalışması için elle yapılan işaretlemelerin
-  // diskten okunmuş olması şart; hydrate idempotent (tek sefer çalışır).
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
 
   return useMemo(() => {
     if (!enabled) return EMPTY_INDEX;
@@ -51,7 +42,7 @@ function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKe
     const categories = categorizeMovies({
       watchedMovies: watchedMovies || [],
       watchlistMovies: watchlistMovies || [],
-      droppedMovieIds,
+      hiddenMovieIds,
       labels: STATIC_LABELS,
     });
 
@@ -61,7 +52,7 @@ function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKe
     }
 
     // Ekranın varsayılan listesi `watchedMovies` — yani İZLENENLER. "İzlenecekler"
-    // ve izleme listesinden gelen "Bırakılanlar" o listede HİÇ bulunmaz; havuza
+    // ve gizlenmiş/bırakılmış filmler o listede HİÇ bulunmaz; havuza
     // katılmasalardı bu iki seçenek hiçbir zaman sonuç döndüremezdi. (Filtre
     // kapalıyken havuza girmedikleri için ekranın varsayılan içeriği ve
     // "Toplam" sayısı değişmez.)
@@ -81,7 +72,7 @@ function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKe
     }
 
     return { statusOf, extraPool };
-  }, [enabled, watchedMovies, watchlistMovies, droppedMovieIds]);
+  }, [enabled, watchedMovies, watchlistMovies, hiddenMovieIds]);
 }
 
 export type UseLibraryMovieFiltersResult = UseLibraryFiltersResult<MovieCategoryKey>;

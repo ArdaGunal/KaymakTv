@@ -18,11 +18,14 @@ const daysUntil = (dateObj: Date): number => {
 export const useMoviesDashboardData = (
   watchlistMovies: any[],
   calendarMovies: any[],
-  i18nLanguage: string
+  i18nLanguage: string,
+  hiddenMovieIds: number[] = []
 ) => {
   const { t } = useTranslation('media');
 
   return useMemo(() => {
+    const hiddenSet = new Set(hiddenMovieIds);
+
     // 1. Watchlist (İzleme Listesi) — gelecek tarihliler takvime taşınır
     const watchlistTemp: any[] = [];
     const farFutureTemp: any[] = [];
@@ -30,6 +33,10 @@ export const useMoviesDashboardData = (
     for (const item of watchlistMovies) {
       const traktId = item?.movie?.ids?.trakt;
       if (!traktId) continue;
+      // Trakt'ta "Bırak" ile gizlenmiş filmler, dizilerdeki hiddenShowIds ile
+      // AYNI kuralı izler: ana izleme listesi vitrininden tamamen çıkarılır,
+      // yalnızca Kütüphane'nin "Gizlenenler/Bırakılanlar" filtresinde görünür.
+      if (hiddenSet.has(traktId)) continue;
       const movie = item.movie;
 
       const releaseDateStr = movie.released;
@@ -58,7 +65,7 @@ export const useMoviesDashboardData = (
 
     for (const item of calendarMovies) {
       const traktId = item?.movie?.ids?.trakt;
-      if (!traktId) continue;
+      if (!traktId || hiddenSet.has(traktId)) continue;
       const movie = item.movie;
 
       if (seenMovies.has(traktId)) continue;
@@ -104,5 +111,5 @@ export const useMoviesDashboardData = (
       watchlistMoviesList: watchlistTemp,
       upcomingMovies: upcomingTemp,
     };
-  }, [watchlistMovies, calendarMovies, i18nLanguage]);
+  }, [watchlistMovies, calendarMovies, i18nLanguage, hiddenMovieIds]);
 };

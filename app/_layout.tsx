@@ -1,11 +1,12 @@
 import '../locales/index'; // Initialize i18n
-import { useEffect, useRef } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../context/AuthContext';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { LibraryProvider } from '../context/LibraryContext';
+import VersionGate from '../features/versionGate/components/VersionGate';
 
 function RootLayoutNav() {
-    const { accessToken, isGuest, isLoading } = useAuth();
+  const { isLoading } = useAuth();
 
   if (isLoading) {
     return <View style={styles.loadingContainer} />;
@@ -19,15 +20,19 @@ function RootLayoutNav() {
   );
 }
 
-import { LibraryProvider } from '../context/LibraryContext';
-
 export default function RootLayout() {
+  // VersionGate BİLİNÇLİ OLARAK AuthProvider'ın DIŞINDA: kendi kontrolünü
+  // Trakt/Auth işlemlerinden tamamen bağımsız ve onlardan ÖNCE yapar — eski
+  // bir sürüm engellendiğinde AuthProvider'ın SecureStore okuması/Trakt'a
+  // giden hiçbir istek asla tetiklenmez (bkz. features/versionGate).
   return (
-    <AuthProvider>
-      <LibraryProvider>
-        <RootLayoutNav />
-      </LibraryProvider>
-    </AuthProvider>
+    <VersionGate>
+      <AuthProvider>
+        <LibraryProvider>
+          <RootLayoutNav />
+        </LibraryProvider>
+      </AuthProvider>
+    </VersionGate>
   );
 }
 

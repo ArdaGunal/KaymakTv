@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, Modal, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import StarSlider from './StarSlider';
-import { useTranslation } from 'react-i18next';
 
 interface RatingModalProps {
   visible: boolean;
@@ -20,8 +19,6 @@ export default function RatingModal({
   onRate,
   onRemoveRating
 }: RatingModalProps) {
-  const { t } = useTranslation('media');
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>

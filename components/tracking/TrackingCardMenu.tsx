@@ -8,12 +8,14 @@ import {
   Pressable,
   Platform,
   Share,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MoreVertical, Bookmark, ListPlus, Heart, Share2 } from 'lucide-react-native';
+import { MoreVertical, PauseCircle, ListPlus, Heart, Share2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
+import { useAuth } from '../../context/AuthContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import AddToListModal from '../AddToListModal';
 
@@ -24,8 +26,10 @@ interface TrackingCardMenuProps {
   mediaType: 'show' | 'movie';
   tmdbId?: number;
   slug?: string;
-  isDropped: boolean;
-  onToggleDropped: () => void;
+  /** "Bırak" — Trakt'ta ilerlemeyi/takvimi gizler (bkz. toggleHiddenFromProgress).
+   * Trakt'a giden asenkron bir istektir; `handleToggleDropped` bunu BEKLER ve
+   * reddedilirse kullanıcıya görünür bir hata gösterir. */
+  onToggleDropped: () => void | Promise<void>;
   style?: any;
 }
 
@@ -45,11 +49,20 @@ const ROW_COUNT = 5; // Bırakılanlara Ekle, Listeye Ekle, Favorilere Ekle, Pay
 // NOT: Başlangıçta dizi diline özeldi (`showName`, `mediaType: 'show'` sabit).
 // Kullanıcı aynı menünün filmler için de olmasını istediğinde `mediaType` prop'u
 // eklenerek genelleştirildi — favori dilimi, paylaşım linki ve "Listeye Ekle"
-// hedefi artık buna göre seçiliyor; menünün geri kalanı (konumlama, "Bırak/Devam
-// Et" metni) dizi/film arasında zaten ortaktı.
+// hedefi artık buna göre seçiliyor; menünün geri kalanı (konumlama, "Bırak"
+// metni) dizi/film arasında zaten ortaktı.
+//
+// NOT 2: Menüde eskiden `isDropped`e göre "Bırak"/"İzlemeye Devam Et" arasında
+// gidip gelen bir satır vardı. "Bırak" artık Trakt gizlemesine bağlandığından
+// (bkz. store/tracking/trackingLogic.ts) gizlenmiş bir yapım BU kartların
+// beslendiği hiçbir listede görünmez — yani `isDropped` her çağrı yerinde
+// kalıcı olarak `false`'tu ve "Devam Et" dalı ULAŞILAMAZDI. Satır tek yönlü
+// hale getirildi; geri alma, Kütüphane > "Gizlenenler / Bırakılanlar"
+// filtresinden ilgili yapımın detay sayfasına girip yapılır.
 const TrackingCardMenu = memo(
-  ({ id, title, mediaType, tmdbId, slug, isDropped, onToggleDropped, style }: TrackingCardMenuProps) => {
-    const { t } = useTranslation('media');
+  ({ id, title, mediaType, tmdbId, slug, onToggleDropped, style }: TrackingCardMenuProps) => {
+    const { t } = useTranslation(['media', 'common']);
+    const { isGuest } = useAuth();
     const insets = useSafeAreaInsets();
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const triggerRef = useRef<View>(null);
@@ -71,9 +84,26 @@ const TrackingCardMenu = memo(
 
     const closeMenu = () => setOpen(false);
 
-    const handleToggleDropped = () => {
+    // ESKİ DAVRANIŞ: (1) misafir kontrolü hiç yoktu — `OptionsModal`'daki aynı
+    // "Bırak" eylemi (detay sayfası "..." menüsü) misafiri engellerken, bu menü
+    // (takip panosu/film listesi 3-nokta menüsü) misafirin isteği Trakt'a
+    // AUTH'SUZ göndermesine izin veriyordu: kart iyimser olarak anında gizlenip
+    // sonra sessizce geri geliyordu ("çalışıyor gibi görünüp çalışmayan" bir
+    // buton). (2) `onToggleDropped()` (Trakt'a giden asenkron bir istek) ne
+    // await ediliyor ne yakalanıyordu — reddedilirse tamamen SESSİZ kalıyordu,
+    // tek iz cihazın hata günlüğüne düşüyordu.
+    const handleToggleDropped = async () => {
       closeMenu();
-      onToggleDropped();
+      if (isGuest) {
+        Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+        return;
+      }
+      try {
+        await onToggleDropped();
+      } catch (error) {
+        console.error('Bırak (gizle) hatası:', error);
+        Alert.alert(t('common:error'), t('common:actionFailedMessage'));
+      }
     };
 
     const handleToggleFavorite = () => {
@@ -131,10 +161,12 @@ const TrackingCardMenu = memo(
           <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu}>
             <View style={[styles.menu, { top, left, width: MENU_WIDTH }]}>
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleToggleDropped}>
-                <Bookmark size={18} color={isDropped ? '#fbbf24' : '#f1f5f9'} />
-                <Text style={styles.menuItemText}>
-                  {isDropped ? t('resumeWatching') : t('stopWatching')}
-                </Text>
+                {/* PauseCircle — "İzlemeyi Bırak" eyleminin uygulama
+                    GENELİNDEKİ tek ikonu (detay sayfasındaki OptionsModal ile
+                    birebir aynı). Eskiden burada `Bookmark` vardı; aynı eylem
+                    iki farklı yüzeyde iki farklı ikonla görünüyordu. */}
+                <PauseCircle size={18} color="#f1f5f9" />
+                <Text style={styles.menuItemText}>{t('stopWatching')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={openListModal}>

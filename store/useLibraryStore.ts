@@ -56,6 +56,7 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
     userRatingsEpisodes: [],
     userStats: null,
     hiddenShowIds: [],
+    hiddenMovieIds: [],
     isLoading: true,
     isMoviesLoading: true,
   }),

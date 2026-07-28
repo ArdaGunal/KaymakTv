@@ -1,4 +1,5 @@
-import React, { createContext, useMemo, useCallback } from 'react';
+import React, { createContext, useMemo, useCallback, useEffect, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore, LibraryState } from '../store/useLibraryStore';
 import * as LibraryService from '../services/libraryService';
@@ -20,6 +21,37 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       });
     }
   }, [accessToken, authIsLoading]);
+
+  // KRİTİK EKSİK (cihazlar arası senkron kopukluğu): eskiden `fetchFreshData`
+  // yalnızca (1) soğuk açılışta VE (2) `SYNC_INTERVAL` (10 dk, bkz.
+  // utils/cacheTTL.ts) doldurduğunda çalışıyordu — uygulama arka plana
+  // atılıp geri getirildiğinde HİÇBİR yeniden senkron tetiklenmiyordu (repo
+  // genelinde tek bir `AppState` dinleyicisi bile yoktu). Sonuç: Cihaz A'da
+  // bir dizi "Bırakıl"sa bile, Cihaz B zaten açıksa (veya kendi son
+  // senkronundan bu yana 10 dakika geçmemişse) Trakt'a BİR DAHA HİÇ
+  // sormuyordu — "Bırak" isteği Trakt'a başarıyla gitmiş olsa bile Cihaz B
+  // sonsuza dek eski veriyi göstermeye devam ediyordu. Standart RN deseni:
+  // arka plan → ön plan GEÇİŞİNİ (yalnızca ilk mount'u DEĞİL) yakalayıp
+  // `force=true` ile taze bir senkron tetikle — kullanıcı Cihaz B'ye
+  // döndüğü an Trakt'taki gerçek durumu görsün. Mevcut `isFetchingFreshData`
+  // kilidi + devre kesici + rate-limit koruması zaten üst üste binen/art
+  // arda tetiklenen çağrılara karşı savunma sağlıyor, burada ek bir
+  // throttle'a gerek yok.
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const wasBackgrounded = appStateRef.current.match(/inactive|background/);
+      appStateRef.current = nextState;
+      if (wasBackgrounded && nextState === 'active') {
+        LibraryService.fetchFreshData(accessToken, true);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [accessToken]);
 
   return <>{children}</>;
 };

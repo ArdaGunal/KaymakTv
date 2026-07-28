@@ -9,18 +9,22 @@
  * dağılmış olmasından kaynaklanıyordu. Artık kategorizasyon burada, tek yerde.
  *
  * Kurallar (bir dizi = bir kova, çakışma imkânsız):
- *   1. İzlenmeye başlanmış AMA şu an izlenmeye hazır (yayınlanmış) bir sonraki
+ *   1. Kullanıcı "Bırak" demişse (= Trakt'ta "İlerlemeyi Gizle" ile
+ *      gizlenmiş)                                                             → hidden
+ *      (tarihten TAMAMEN bağımsız, EN YÜKSEK öncelik — bkz. aşağıdaki not).
+ *      Uygulamanın "Bırak" eylemi doğrudan Trakt'ın gizleme uç noktasına
+ *      bağlıdır; ayrı bir yerel "bırakıldı" durumu YOKTUR (bkz.
+ *      services/library/mutations/collections.ts:toggleHiddenFromProgress).
+ *   2. İzlenmeye başlanmış AMA şu an izlenmeye hazır (yayınlanmış) bir sonraki
  *      bölüm YOK → hiçbir takip listesinde görünmez. Fark etmez dizi sonsuza
  *      dek bitmiş olsun ya da gelecekte henüz yayınlanmamış bir sezonu/bölümü
  *      olsun — "şu an izlenecek bir şey yok" ikisi için de aynı sonucu doğurur.
- *   2. Kullanıcı manuel "Bırakıldı" işaretlemiş                            → dropped
- *      (tarihten TAMAMEN bağımsız — 3-nokta menüsünden elle yapılan tek işlem).
  *   3. Hiç izlenmemiş (completed===0)                                      → notStarted
  *   4. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
  *      izlemenin üzerinden `pauseThresholdDays` (varsayılan 45) günden FAZLA
  *      geçmiş                                                              → paused
  *      (Ara Verilenler / Beklemede — otomatik, ama SADECE bu iki kova
- *      arasındaki ayrımı belirler; "Bırakıldı" ile hiçbir ilişkisi yok).
+ *      arasındaki ayrımı belirler; "Bırak" ile hiçbir ilişkisi yok).
  *   5. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
  *      izleme `pauseThresholdDays` günden AZ                               → upNext
  *      (Aktif İzlenenler)
@@ -51,12 +55,11 @@ export interface ShowCategories {
   /** Ara Verilenler (Beklemede) — otomatik, `pauseThresholdDays` günden eski. */
   paused: TrackingCard[];
   notStarted: TrackingCard[];
-  /** Manuel olarak "Bırakıldı" işaretlenenler. */
-  dropped: TrackingCard[];
-  /** "İlerlemeyi Gizle" ile Trakt'ta gizlenmiş diziler — izleme geçmişi/puanları
-   * KORUNUR, sadece ana vitrin listelerinden (Aktif İzlenenler, Takvim, Sıradaki
-   * Bölümler) çıkarılırlar. Yalnızca Kütüphane'nin "Gizlenenler" filtresinde
-   * gösterilir; takip panosu (TrackingAccordionList) bu anahtarı hiç okumaz. */
+  /** "Bırak" ile Trakt'ta gizlenmiş diziler — izleme geçmişi/puanları KORUNUR,
+   * sadece ana vitrin listelerinden (Aktif İzlenenler, Takvim, Sıradaki
+   * Bölümler) çıkarılırlar. Yalnızca Kütüphane'nin "Gizlenenler/Bırakılanlar"
+   * filtresinde gösterilir; takip panosu (TrackingAccordionList) bu anahtarı
+   * hiç okumaz. */
   hidden: TrackingCard[];
 }
 
@@ -73,9 +76,7 @@ export interface CategorizeOptions {
   watchlistShows: any[];
   showProgressMap: Record<string, any>;
   labels: TrackingLabels;
-  /** Kullanıcının manuel olarak "Bırakıldı" işaretlediği dizilerin trakt id'leri. */
-  droppedShowIds?: number[] | Set<number>;
-  /** Trakt'ta "İlerlemeyi Gizle" ile gizlenmiş dizilerin trakt id'leri (bkz. `hiddenShowIds` store dilimi). */
+  /** Trakt'ta "İlerlemeyi Gizle" (= "Bırak") ile gizlenmiş dizilerin trakt id'leri (bkz. `hiddenShowIds` store dilimi). */
   hiddenShowIds?: number[] | Set<number>;
   now?: number;
   /** Son izlemenin üzerinden kaç gün geçince "Ara Verilenler"e düşeceği. */
@@ -93,7 +94,7 @@ const hasAired = (firstAired: string | null | undefined, now: number): boolean =
 };
 
 /**
- * Ham dilimleri, ekranın doğrudan gösterebileceği 4 kategoriye ayırır.
+ * Ham dilimleri, ekranın doğrudan gösterebileceği kategorilere ayırır.
  * Her dizi trakt id'siyle tekilleştirilir; watched + watchlist havuzları
  * birleştirilip her kimlik yalnızca BİR kez işlenir.
  */
@@ -102,12 +103,10 @@ export function categorizeShows({
   watchlistShows,
   showProgressMap,
   labels,
-  droppedShowIds = [],
   hiddenShowIds = [],
   now = Date.now(),
   pauseThresholdDays = DEFAULT_PAUSE_THRESHOLD_DAYS,
 }: CategorizeOptions): ShowCategories {
-  const droppedSet = droppedShowIds instanceof Set ? droppedShowIds : new Set(droppedShowIds);
   const hiddenSet = hiddenShowIds instanceof Set ? hiddenShowIds : new Set(hiddenShowIds);
   const pauseThreshold = now - pauseThresholdDays * 24 * 60 * 60 * 1000;
 
@@ -130,7 +129,6 @@ export function categorizeShows({
   const upNext: TrackingCard[] = [];
   const paused: TrackingCard[] = [];
   const notStarted: TrackingCard[] = [];
-  const dropped: TrackingCard[] = [];
   const hidden: TrackingCard[] = [];
 
   for (const [id, entry] of byId) {
@@ -145,7 +143,7 @@ export function categorizeShows({
     const nextReady = !!next && hasAired(next.first_aired, now);
 
     // Ortak görsel alanları — hem "gizli" hem normal kategoriler için gerekli,
-    // bu yüzden aşağıdaki kural 1'in erken `continue`'undan ÖNCE hesaplanır.
+    // bu yüzden aşağıdaki kural 2'nin erken `continue`'undan ÖNCE hesaplanır.
     const base = {
       id,
       showName: toTitle(show?.title, labels.unnamedShow),
@@ -161,11 +159,11 @@ export function categorizeShows({
     const episode = hasStarted && nextReady ? next.number : 1;
     const title = hasStarted ? (nextReady ? (next.title || labels.caughtUp) : labels.caughtUp) : labels.notStarted;
 
-    // 0. Kullanıcı "İlerlemeyi Gizle" ile gizlemiş → hidden (EN YÜKSEK öncelik,
-    // aşağıdaki kural 1'in "hiçbir listede görünmez" davranışını BİLE atlar —
-    // "hazır bölümü olmayan bitmiş bir dizi" bile Gizlenenler'de bulunabilmeli,
-    // yoksa kullanıcı onu geri getirecek bir yer bulamaz). Bırakıldı ile
-    // TAMAMEN bağımsız: ikisi aynı anda işaretlenmişse gizli olan kazanır.
+    // 1. Kullanıcı "Bırak" demiş (Trakt'ta "İlerlemeyi Gizle") → hidden (EN
+    // YÜKSEK öncelik, aşağıdaki kural 2'nin "hiçbir listede görünmez"
+    // davranışını BİLE atlar — "hazır bölümü olmayan bitmiş bir dizi" bile
+    // Gizlenenler'de bulunabilmeli, yoksa kullanıcı onu geri getirecek bir yer
+    // bulamaz).
     if (hiddenSet.has(id)) {
       hidden.push({
         ...base,
@@ -178,7 +176,7 @@ export function categorizeShows({
       continue;
     }
 
-    // 1. Kullanıcı bu dizide izlemeye başlamış VE elimizde gerçek (hesaplanmakta
+    // 2. Kullanıcı bu dizide izlemeye başlamış VE elimizde gerçek (hesaplanmakta
     // OLMAYAN) ilerleme verisi varken şu an izlenmeye hazır (yayınlanmış) bir
     // sonraki bölüm yoksa, dizi HİÇBİR takip listesinde görünmez — fark etmez
     // dizi sonsuza dek bitmiş olsun (next yok) ya da gelecekte henüz
@@ -199,19 +197,6 @@ export function categorizeShows({
     // henüz hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor"
     // spinner kartını göstermeye devam etmesini garanti eder.
     if (!!progress && hasStarted && !nextReady) continue;
-
-    // 2. Kullanıcı manuel "Bırakıldı" işaretlemiş → dropped (tarihten/ilerlemeden bağımsız).
-    if (droppedSet.has(id)) {
-      dropped.push({
-        ...base,
-        season,
-        episode,
-        title,
-        tags: ['BIRAKILDI'],
-        readyToWatch: hasStarted && nextReady,
-      });
-      continue;
-    }
 
     // 3. Hiç başlanmamış → notStarted. completedCount/totalCount BİLİNÇLİ
     // OLARAK null'a sabitlenir — ilerleme çubuğu bu kategoride asla görünmemeli
@@ -272,5 +257,5 @@ export function categorizeShows({
     return bt - at;
   });
 
-  return { upNext, paused, notStarted, dropped, hidden };
+  return { upNext, paused, notStarted, hidden };
 }

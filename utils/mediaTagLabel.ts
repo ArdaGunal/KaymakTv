@@ -2,7 +2,7 @@
  * Kart etiketlerinin (tag) TEK çeviri noktası.
  *
  * Veri katmanı (`trackingLogic`, `useMoviesDashboardData`, `useDashboardData`)
- * etiketleri SEMANTİK KOD olarak üretir — 'WATCHLIST', 'BIRAKILDI', 'EN SON'…
+ * etiketleri SEMANTİK KOD olarak üretir — 'WATCHLIST', 'GİZLİ', 'EN SON'…
  * Bu kodlar tarihsel sebeplerle Türkçe yazılmıştır ve ekranda doğrudan
  * basıldıklarında İngilizce arayüzde de Türkçe metin görünür.
  *
@@ -19,7 +19,7 @@ export function getMediaTagLabel(tag: string, t: (key: string) => string): strin
   switch (tag) {
     case 'WATCHLIST':
       return t('watchlistTab');
-    case 'BIRAKILDI':
+    case 'GİZLİ':
       return t('dropped');
     case 'EN SON':
       return t('last');

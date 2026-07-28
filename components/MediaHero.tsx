@@ -7,12 +7,9 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { useResponsive } from '../hooks/useResponsive';
-import { BlurView } from 'expo-blur';
 import RatingModal from './modals/RatingModal';
 import OptionsModal from './modals/OptionsModal';
 import { formatRuntime } from '../utils/formatters';
-import { generateMediaSlug } from '../utils/slugHelper';
 import { formatRating } from '../utils/formatRating';
 import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
@@ -33,18 +30,14 @@ interface MediaHeroProps {
   onRemoveRating: () => void;
   onToggleWatchlist: () => void;
   onToggleFavorite?: () => void;
-  /** Trakt'ta "İlerlemeyi Gizle/Göster" — `isHidden` durumuna göre iki yöne de çalışan bir toggle. */
+  /** "Bırak" eylemi — Trakt'ta "İlerlemeyi Gizle/Göster", `isHidden` durumuna
+   * göre iki yöne de çalışan bir toggle. Diziler için `hiddenShowIds`, filmler
+   * için `hiddenMovieIds` üzerinden gelir — ilgili ekran hangisini besleyeceğini
+   * bilir. */
   isHidden?: boolean;
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
-  /**
-   * Takip modülündeki manuel "Bırakıldı" işaretlemesi. Diziler için
-   * `droppedShowIds`, filmler için `droppedMovieIds` üzerinden gelir —
-   * ilgili ekran hangisini besleyeceğini bilir.
-   */
-  isDropped?: boolean;
-  onToggleDropped?: () => void;
 }
 
 export default function MediaHero({
@@ -65,15 +58,12 @@ export default function MediaHero({
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
-  isDropped,
-  onToggleDropped,
 }: MediaHeroProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
   const { showProgressMap } = useLibrary();
-  const { isDesktop } = useResponsive();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [listModalVisible, setListModalVisible] = useState(false);
@@ -82,7 +72,7 @@ export default function MediaHero({
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
-  const progressColor = getProgressBarColor(!!isDropped, isFinished);
+  const progressColor = getProgressBarColor(!!isHidden, isFinished);
 
 
   const handleRate = (r: number) => {
@@ -297,8 +287,6 @@ export default function MediaHero({
         onHideFromProgress={onHideFromProgress}
         onDeleteFromHistory={onDeleteFromHistory}
         onRewatch={onRewatch}
-        isDropped={isDropped}
-        onToggleDropped={onToggleDropped}
       />
 
       <AddToListModal

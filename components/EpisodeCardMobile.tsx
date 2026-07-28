@@ -89,8 +89,10 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
   };
 
   const progressPct = getProgressPct(data);
-  const isDropped = !!data.tags?.includes('BIRAKILDI');
-  const progressColor = getProgressBarColor(isDropped, !!data.tags?.includes('TAMAMLANDI'));
+  // "Bırak" ile gizlenmiş yapımlar bu kartın beslendiği hiçbir listede
+  // (takip panosu kategorileri / yaklaşanlar) görünmez — bu yüzden burada
+  // "bırakıldı" rengi diye bir durum yoktur.
+  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'));
 
   const episodeCode = !data.isCalculating && data.season !== undefined
     ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`
@@ -136,7 +138,6 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
             mediaType="show"
             tmdbId={data.tmdbId}
             slug={data.slug}
-            isDropped={!!data.tags?.includes('BIRAKILDI')}
             onToggleDropped={() => onToggleDropped(data.id)}
           />
         )}
@@ -209,11 +210,6 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
                 {data.tags.includes('PREMIERE') && (
                   <View style={[styles.tag, styles.tagWhite]}>
                     <Text style={styles.tagTextBlack}>{t('premiere')}</Text>
-                  </View>
-                )}
-                {data.tags.includes('BIRAKILDI') && (
-                  <View style={[styles.tag, styles.tagYellow]}>
-                    <Text style={styles.tagTextBlack}>{t('dropped')}</Text>
                   </View>
                 )}
                 {data.tags.includes('YENİ') && (

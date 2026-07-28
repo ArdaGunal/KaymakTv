@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Inbox, SearchX } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../context/AuthContext';
 import MediaPoster from '../../../components/MediaPoster';
@@ -50,7 +49,6 @@ const LibraryGridItemWeb = memo(({ item, type, onPress }: GridItemProps) => (
 
 export default function LibraryScreenWeb() {
   const { isDesktop } = useResponsive();
-  const insets = useSafeAreaInsets();
   const { type } = useLocalSearchParams();
   const router = useRouter();
   const { accessToken } = useAuth();

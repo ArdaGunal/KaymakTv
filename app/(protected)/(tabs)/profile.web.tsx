@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Settings } from 'lucide-react-native';
@@ -9,9 +9,9 @@ import { useAuth } from '../../../context/AuthContext';
 import { useLibrarySelector } from '../../../context/LibraryContext';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useProfileLists } from '../../../hooks/useProfileLists';
+import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
 import ProfileMobile from '../../../screens/ProfileMobile';
 import WebCarousel from '../../../components/web/WebCarousel';
-import { viewAllStore } from '../../../utils/viewAllStore';
 import EpisodeCard from '../../../components/EpisodeCard';
 import MovieCard from '../../../components/movies/MovieCard';
 import ListCard from '../../../components/profile/ListCard';
@@ -19,6 +19,10 @@ import ListCardSkeleton from '../../../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../../../components/profile/ListsEmptyCard';
 import LoginPaywall from '../../../components/LoginPaywall';
 import ProfileStats from '../../../components/profile/ProfileStats';
+import ProfileHeader from '../../../components/profile/ProfileHeader';
+import ProfileHeaderSkeleton from '../../../components/profile/ProfileHeaderSkeleton';
+import ProfileTabs, { ProfileTabKey } from '../../../components/profile/ProfileTabs';
+import ProfileActivityTab from '../../../components/profile/ProfileActivityTab';
 import { DESKTOP_CARD_WIDTH, DESKTOP_CARD_HEIGHT, DESKTOP_CARD_GAP } from '../../../components/profile/profileMetrics';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
@@ -51,6 +55,8 @@ export default function ProfileScreenWeb() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading } = useMyTraktProfile();
+  const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   const shows = useMemo(() => mapMedia(sortRecent(watchedShows || []).slice(0, 100), 'show'), [watchedShows]);
   const movies = useMemo(() => mapMedia(sortRecent(watchedMovies || []).slice(0, 100), 'movie'), [watchedMovies]);
@@ -68,10 +74,10 @@ export default function ProfileScreenWeb() {
     <ListCard data={item} cardWidth={DESKTOP_CARD_WIDTH} cardHeight={DESKTOP_CARD_HEIGHT} gap={DESKTOP_CARD_GAP} />
   ), []);
 
-  const openViewAll = useCallback((title: string, data: any[], routeType: string) => {
-    viewAllStore.data = data;
-    viewAllStore.title = title;
-    router.push(`/(protected)/library/view-all?type=${routeType}` as any);
+  // Mobildeki `ProfileMobile.tsx` ile aynı hedef: `/library/{type}` — kişisel
+  // kütüphanenin tamamını, gerçek arama + kategori filtresiyle gösteren ekran.
+  const openViewAll = useCallback((routeType: string) => {
+    router.push(`/(protected)/library/${routeType}` as any);
   }, [router]);
 
   if (!isDesktop) {
@@ -93,53 +99,78 @@ export default function ProfileScreenWeb() {
         title={title}
         data={data}
         renderItem={renderItem}
-        onViewAll={() => openViewAll(title, data, routeType)}
+        onViewAll={() => openViewAll(routeType)}
       />
     );
   };
 
   return (
     <View style={styles.pageBackground}>
+      {/* ScrollView'ın dışında, sabit (scroll ile kaymayan) köşe ikonu —
+          eskiden ayrı bir satır olarak 32px'lik boş bir marj bırakıyordu. */}
+      <TouchableOpacity
+        style={[styles.settingsButton, { top: insets.top + 16 }]}
+        onPress={() => router.push('/(protected)/account')}
+      >
+        <Settings size={24} color="#ffffff" />
+      </TouchableOpacity>
+
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.topHeader}>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/account')}>
-            <Settings size={28} color="#ffffff" />
-          </TouchableOpacity>
+        {isProfileLoading || !profile ? (
+          <ProfileHeaderSkeleton />
+        ) : (
+          <ProfileHeader profile={profile} followersCount={followersCount} followingCount={followingCount} />
+        )}
+
+        <View style={styles.tabsWrap}>
+          <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
         </View>
 
-        <ProfileStats />
+        {activeTab === 'activity' ? (
+          <ProfileActivityTab traktSlug={profile?.ids?.slug ?? null} />
+        ) : (
+          <>
+            <ProfileStats />
 
-        <View style={styles.carouselsContainer}>
-          {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}
-          {lists.length > 0 ? (
-            <WebCarousel
-              title={t('myLists', 'Listelerim')}
-              data={lists}
-              renderItem={renderListItem}
-              onViewAll={() => openViewAll(t('myLists', 'Listelerim'), lists, 'lists')}
-            />
-          ) : (
-            <View style={styles.listsSection}>
-              <Text style={styles.carouselTitle}>{t('myLists', 'Listelerim')}</Text>
-              {isListsLoading ? (
-                <ListCardSkeleton cardWidth={DESKTOP_CARD_WIDTH} cardHeight={DESKTOP_CARD_HEIGHT} gap={DESKTOP_CARD_GAP} />
+            <View style={styles.carouselsContainer}>
+              {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}
+              {lists.length > 0 ? (
+                <WebCarousel
+                  title={t('myLists', 'Listelerim')}
+                  data={lists}
+                  renderItem={renderListItem}
+                  onViewAll={() => openViewAll('lists')}
+                />
               ) : (
-                <View style={styles.listsEmptyWrap}>
-                  <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
+                <View style={styles.listsSection}>
+                  <Text style={styles.carouselTitle}>{t('myLists', 'Listelerim')}</Text>
+                  {isListsLoading ? (
+                    <ListCardSkeleton cardWidth={DESKTOP_CARD_WIDTH} cardHeight={DESKTOP_CARD_HEIGHT} gap={DESKTOP_CARD_GAP} />
+                  ) : (
+                    <View style={styles.listsEmptyWrap}>
+                      <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
 
-          {renderCarousel(t('shows'), shows, 'shows', renderShowItem)}
-          {renderCarousel(t('favShows'), favShowsList, 'shows', renderShowItem)}
-          {renderCarousel(t('movies'), movies, 'movies', renderMovieItem)}
-          {renderCarousel(t('favMovies'), favMoviesList, 'movies', renderMovieItem)}
-        </View>
+              {renderCarousel(t('shows'), shows, 'shows', renderShowItem)}
+              {/* DÜZELTİLDİ: bu ikisi eskiden 'shows'/'movies' gönderiyordu (favori
+                  değil, tüm izlenenler tipi) — eski `view-all` ekranı `type`'ı yalnızca
+                  kart görünümü seçmek için kullandığı için zararsızdı (favShows da
+                  EpisodeCard ile render olur), ama artık `type` `/library/{type}`'ın
+                  HANGİ VERİYİ ÇEKECEĞİNİ belirlediği için yanlış tip "Tümünü Gör"ü
+                  favoriler yerine tüm kütüphaneye götürürdü. */}
+              {renderCarousel(t('favShows'), favShowsList, 'favShows', renderShowItem)}
+              {renderCarousel(t('movies'), movies, 'movies', renderMovieItem)}
+              {renderCarousel(t('favMovies'), favMoviesList, 'favMovies', renderMovieItem)}
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -149,6 +180,7 @@ const styles = StyleSheet.create({
   pageBackground: {
     flex: 1,
     backgroundColor: '#0B1120',
+    position: 'relative',
   },
   safeArea: {
     flex: 1,
@@ -163,16 +195,19 @@ const styles = StyleSheet.create({
     marginHorizontal: 'auto',
     paddingHorizontal: 20,
   },
-  topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 32,
-  },
   settingsButton: {
+    position: 'absolute',
+    right: 24,
+    zIndex: 1,
     padding: 8,
     backgroundColor: '#1f2937',
     borderRadius: 20,
     ...( { cursor: 'pointer', transition: 'all 0.2s ease' } as any)
+  },
+  tabsWrap: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   carouselsContainer: {
     gap: 16,

@@ -1,6 +1,5 @@
 import axios from 'axios';
 import * as SecureStore from '../../utils/secureStorage';
-import i18n from '../../locales/index';
 import { refreshTraktToken } from './auth';
 import { logError } from '../../utils/errorLog';
 import { getCircuitBreaker, normalizeEndpointKey } from '../../utils/circuitBreaker';
@@ -55,6 +54,36 @@ const notifySessionExpired = () => {
       listener();
     } catch (e) {
       console.error('[SessionExpired Listener Error]', e);
+    }
+  });
+};
+
+// onSessionExpired'ın simetriği: token BAŞARIYLA yenilendiğinde de aynı
+// sorun var — bu dosya SecureStore'u ve kendi `cachedAccessToken`'ını
+// güncelliyor ama AuthContext'teki React state'i (accessToken) hiç
+// güncellenmiyordu. Sonuç: `useAuth().accessToken`'ı okuyup Worker'a
+// (feedSync, feedPrivacy) doğrudan gönderen kod yolları, arka planda sessiz
+// bir yenileme olduktan SONRA bile hâlâ ESKİ (artık gerçekten geçersiz)
+// token'ı göndermeye devam ediyordu — Trakt'a giden normal istekler
+// interceptor sayesinde otomatik tekrar deneniyordu ama bizim Worker'a giden
+// isteklerimiz bu mekanizmadan hiç geçmiyor, doğrudan Trakt'a çarpıp 401
+// alıyorlardı (canlı testte bulundu).
+type TokenRefreshedListener = (token: string) => void;
+let tokenRefreshedListeners: TokenRefreshedListener[] = [];
+
+export const onTokenRefreshed = (listener: TokenRefreshedListener) => {
+  tokenRefreshedListeners.push(listener);
+  return () => {
+    tokenRefreshedListeners = tokenRefreshedListeners.filter((l) => l !== listener);
+  };
+};
+
+const notifyTokenRefreshed = (token: string) => {
+  tokenRefreshedListeners.forEach((listener) => {
+    try {
+      listener(token);
+    } catch (e) {
+      console.error('[TokenRefreshed Listener Error]', e);
     }
   });
 };
@@ -217,6 +246,7 @@ export const getTraktClient = async () => {
           // yeni bir axios instance + yeni bir response interceptor daha kurar —
           // her token yenilemesinde bir tane daha üst üste yığılır.
           cachedAccessToken = newAccessToken;
+          notifyTokenRefreshed(newAccessToken);
 
           processQueue(null, newAccessToken);
           console.log('Token başarıyla yenilendi ve eski istekler tekrar ediliyor.');
@@ -276,61 +306,3 @@ export const getTraktClient = async () => {
   cachedInstance = instance;
   return instance;
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// --- MOVIE DETAYLARI ---
-
-
-
-
-// --- PUANLAMA (RATING) SÄ°STEMÄ° ---
-
-
-
-
-// --- GELÄ°ÅMÄ°Å SEÃ‡ENEKLER (ADVANCED OPTIONS) ---
-
-
-
-
-
-
-
-
-
-
-
-

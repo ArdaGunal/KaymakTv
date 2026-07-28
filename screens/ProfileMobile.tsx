@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,10 @@ import { useRouter } from 'expo-router';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ListCard from '../components/profile/ListCard';
 import ProfileStats from '../components/profile/ProfileStats';
+import ProfileHeader from '../components/profile/ProfileHeader';
+import ProfileHeaderSkeleton from '../components/profile/ProfileHeaderSkeleton';
+import ProfileTabs, { ProfileTabKey } from '../components/profile/ProfileTabs';
+import ProfileActivityTab from '../components/profile/ProfileActivityTab';
 import ListCardSkeleton from '../components/profile/ListCardSkeleton';
 import ListsEmptyCard from '../components/profile/ListsEmptyCard';
 import SectionHeader from '../components/profile/SectionHeader';
@@ -21,6 +25,7 @@ import {
   SECTION_SPACING,
 } from '../components/profile/profileMetrics';
 import { useProfileLists } from '../hooks/useProfileLists';
+import { useMyTraktProfile } from '../hooks/useMyTraktProfile';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
 
@@ -65,6 +70,8 @@ export default function ProfileScreen() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading } = useMyTraktProfile();
+  const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   const seeAllLabel = t('seeAll', 'Tümü');
 
@@ -87,151 +94,158 @@ export default function ProfileScreen() {
     <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      <View style={styles.topHeader}>
-        <Text style={styles.headerTitle}>{t('profileTitle', 'Profil')}</Text>
-        <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/(protected)/account')}>
-          <Settings size={22} color="#cbd5e1" />
-        </TouchableOpacity>
-      </View>
+      {/* Kendi satırını/dikey alanını almasın diye akışın DIŞINDA, köşeye
+          bindirilmiş bir ikon — eskiden ayrı bir başlık satırı (sadece bu
+          ikonu barındırdığı için neredeyse boş görünen ~44px'lik bir şerit)
+          avatarı gereksiz yere aşağı itiyordu. */}
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => router.push('/(protected)/account')}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Settings size={22} color="#cbd5e1" />
+      </TouchableOpacity>
 
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
-        <ProfileStats />
-
-        {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
-            bilgilendirici kart, veri gelmemişse iskelet. */}
-        <View style={styles.listsSection}>
-          <SectionHeader
-            title={t('myLists', 'Listelerim')}
-            icon={<ListIcon size={14} color="#60a5fa" />}
-            iconTint="#60a5fa"
-            count={lists.length}
-            seeAllLabel={seeAllLabel}
-            onSeeAll={lists.length > 0 ? () => router.push('/(protected)/library/lists') : undefined}
-          />
-
-          {lists.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.listsScrollContent}
-            >
-              {lists.map((item) => (
-                <ListCard key={String(item.id)} data={item} />
-              ))}
-            </ScrollView>
-          ) : isListsLoading ? (
-            <ListCardSkeleton />
-          ) : (
-            <View style={styles.sectionInset}>
-              <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
-            </View>
-          )}
-        </View>
-
-        {/* Diziler — Tier 1 verisi, ilk gelen bölüm */}
-        {shows.length > 0 ? (
-          <HorizontalShowList
-            title={t('shows')}
-            titleIcon={<Tv size={14} color="#60a5fa" />}
-            titleTint="#60a5fa"
-            data={shows}
-            seeAllLabel={seeAllLabel}
-            onShowAll={() => router.push('/(protected)/library/shows')}
-          />
-        ) : isLibraryLoading ? (
-          <SectionSkeleton />
-        ) : null}
-
-        {favShowsList.length > 0 && (
-          <HorizontalShowList
-            title={t('favShows')}
-            titleIcon={<Heart size={13} color="#f87171" fill="#f87171" />}
-            titleTint="#f87171"
-            data={favShowsList}
-            seeAllLabel={seeAllLabel}
-            onShowAll={() => router.push('/(protected)/library/favShows')}
-          />
+        {isProfileLoading || !profile ? (
+          <ProfileHeaderSkeleton />
+        ) : (
+          <ProfileHeader profile={profile} followersCount={followersCount} followingCount={followingCount} />
         )}
 
-        {/* Filmler — Tier 2/3 verisi, kendi iskeletiyle gelir */}
-        {movies.length > 0 ? (
-          <HorizontalShowList
-            title={t('movies')}
-            titleIcon={<Film size={14} color="#60a5fa" />}
-            titleTint="#60a5fa"
-            data={movies}
-            seeAllLabel={seeAllLabel}
-            onShowAll={() => router.push('/(protected)/library/movies')}
-            type="movie"
-          />
-        ) : isMoviesLoading ? (
-          <SectionSkeleton />
-        ) : null}
+        <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        {favMoviesList.length > 0 ? (
-          <HorizontalShowList
-            title={t('favMovies')}
-            titleIcon={<Heart size={13} color="#f87171" fill="#f87171" />}
-            titleTint="#f87171"
-            data={favMoviesList}
-            seeAllLabel={seeAllLabel}
-            onShowAll={() => router.push('/(protected)/library/favMovies')}
-            type="movie"
-          />
-        ) : !isLibraryLoading && !isMoviesLoading ? (
-          <View style={styles.emptyFavSection}>
-            <SectionHeader
-              title={t('favMovies')}
-              icon={<Heart size={13} color="#f87171" fill="#f87171" />}
-              iconTint="#f87171"
-              seeAllLabel={seeAllLabel}
-            />
-            <View style={styles.sectionInset}>
-              <TouchableOpacity
-                style={styles.emptyFavCard}
-                activeOpacity={0.75}
-                onPress={() => router.push('/(protected)/(tabs)/explore')}
-              >
-                <View style={styles.emptyFavPlusChip}>
-                  <Plus size={18} color="#93c5fd" />
+        {activeTab === 'activity' ? (
+          <ProfileActivityTab traktSlug={profile?.ids?.slug ?? null} />
+        ) : (
+          <>
+            <ProfileStats />
+
+            {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
+                bilgilendirici kart, veri gelmemişse iskelet. */}
+            <View style={styles.listsSection}>
+              <SectionHeader
+                title={t('myLists', 'Listelerim')}
+                icon={<ListIcon size={14} color="#60a5fa" />}
+                iconTint="#60a5fa"
+                count={lists.length}
+                seeAllLabel={seeAllLabel}
+                onSeeAll={lists.length > 0 ? () => router.push('/(protected)/library/lists') : undefined}
+              />
+
+              {lists.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.listsScrollContent}
+                >
+                  {lists.map((item) => (
+                    <ListCard key={String(item.id)} data={item} />
+                  ))}
+                </ScrollView>
+              ) : isListsLoading ? (
+                <ListCardSkeleton />
+              ) : (
+                <View style={styles.sectionInset}>
+                  <ListsEmptyCard onPress={() => router.push('/(protected)/(tabs)/explore')} />
                 </View>
-                <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
-              </TouchableOpacity>
+              )}
             </View>
-          </View>
-        ) : null}
+
+            {/* Diziler — Tier 1 verisi, ilk gelen bölüm */}
+            {shows.length > 0 ? (
+              <HorizontalShowList
+                title={t('shows')}
+                titleIcon={<Tv size={14} color="#60a5fa" />}
+                titleTint="#60a5fa"
+                data={shows}
+                seeAllLabel={seeAllLabel}
+                onShowAll={() => router.push('/(protected)/library/shows')}
+              />
+            ) : isLibraryLoading ? (
+              <SectionSkeleton />
+            ) : null}
+
+            {favShowsList.length > 0 && (
+              <HorizontalShowList
+                title={t('favShows')}
+                titleIcon={<Heart size={13} color="#f87171" fill="#f87171" />}
+                titleTint="#f87171"
+                data={favShowsList}
+                seeAllLabel={seeAllLabel}
+                onShowAll={() => router.push('/(protected)/library/favShows')}
+              />
+            )}
+
+            {/* Filmler — Tier 2/3 verisi, kendi iskeletiyle gelir */}
+            {movies.length > 0 ? (
+              <HorizontalShowList
+                title={t('movies')}
+                titleIcon={<Film size={14} color="#60a5fa" />}
+                titleTint="#60a5fa"
+                data={movies}
+                seeAllLabel={seeAllLabel}
+                onShowAll={() => router.push('/(protected)/library/movies')}
+                type="movie"
+              />
+            ) : isMoviesLoading ? (
+              <SectionSkeleton />
+            ) : null}
+
+            {favMoviesList.length > 0 ? (
+              <HorizontalShowList
+                title={t('favMovies')}
+                titleIcon={<Heart size={13} color="#f87171" fill="#f87171" />}
+                titleTint="#f87171"
+                data={favMoviesList}
+                seeAllLabel={seeAllLabel}
+                onShowAll={() => router.push('/(protected)/library/favMovies')}
+                type="movie"
+              />
+            ) : !isLibraryLoading && !isMoviesLoading ? (
+              <View style={styles.emptyFavSection}>
+                <SectionHeader
+                  title={t('favMovies')}
+                  icon={<Heart size={13} color="#f87171" fill="#f87171" />}
+                  iconTint="#f87171"
+                  seeAllLabel={seeAllLabel}
+                />
+                <View style={styles.sectionInset}>
+                  <TouchableOpacity
+                    style={styles.emptyFavCard}
+                    activeOpacity={0.75}
+                    onPress={() => router.push('/(protected)/(tabs)/explore')}
+                  >
+                    <View style={styles.emptyFavPlusChip}>
+                      <Plus size={18} color="#93c5fd" />
+                    </View>
+                    <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0B1120' },
+  safeArea: { flex: 1, backgroundColor: '#0B1120', position: 'relative' },
   container: { flex: 1 },
-  // Başlık şeridi de içerikle AYNI ızgaraya (16px) hizalandı — eskiden 20px'ti
-  // ve altındaki kartlarla hizasız duruyordu.
-  topHeader: {
-    paddingHorizontal: SECTION_PADDING_H,
-    paddingTop: 8,
-    paddingBottom: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: -0.6,
-  },
   settingsButton: {
+    position: 'absolute',
+    top: 8,
+    right: SECTION_PADDING_H,
+    zIndex: 1,
     padding: 9,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  content: { paddingBottom: 40 },
+  content: { paddingTop: 12, paddingBottom: 40 },
   sectionInset: { paddingHorizontal: SECTION_PADDING_H },
   listsSection: { marginBottom: SECTION_SPACING },
   listsScrollContent: { paddingHorizontal: SECTION_PADDING_H, paddingBottom: 4 },

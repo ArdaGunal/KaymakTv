@@ -3,12 +3,14 @@ import enSettings from './en/settings.json';
 import enMedia from './en/media.json';
 import enLegal from './en/legal.json';
 import enNavigation from './en/navigation.json';
+import enFeed from './en/feed.json';
 
 import trCommon from './tr/common.json';
 import trSettings from './tr/settings.json';
 import trMedia from './tr/media.json';
 import trLegal from './tr/legal.json';
 import trNavigation from './tr/navigation.json';
+import trFeed from './tr/feed.json';
 
 export const resources = {
   en: {
@@ -17,6 +19,7 @@ export const resources = {
     media: enMedia,
     legal: enLegal,
     navigation: enNavigation,
+    feed: enFeed,
   },
   tr: {
     common: trCommon,
@@ -24,5 +27,6 @@ export const resources = {
     media: trMedia,
     legal: trLegal,
     navigation: trNavigation,
+    feed: trFeed,
   },
 };

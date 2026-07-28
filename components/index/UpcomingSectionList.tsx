@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, SectionList, RefreshControl, StyleSheet } from 'react-native';
+import { Text, SectionList, RefreshControl, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import EpisodeCard from '../EpisodeCard';
 

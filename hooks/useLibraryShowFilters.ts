@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useLibrarySelector } from '../context/LibraryContext';
-import { useTrackingStore } from '../store/tracking/useTrackingStore';
 import { categorizeShows } from '../store/tracking/trackingLogic';
 import type { LibraryItem } from './useLibraryTypeData';
 import {
@@ -19,12 +18,13 @@ import {
  * modülünün tek gerçek kaynağı `categorizeShows`'tan türetilir, böylece "Aktif
  * İzlenenler" burada ve takip ekranında ASLA farklı anlama gelmez.
  */
-export type ShowStatusKey = 'upNext' | 'paused' | 'dropped' | 'notStarted' | 'hidden';
+export type ShowStatusKey = 'upNext' | 'paused' | 'notStarted' | 'hidden';
 
-/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Bırakılan / Başlanmadı / Gizlenen).
- * "Gizlenenler" bilinçli olarak EN SONDA — takip panosunun ana vitrininden çıkarılan
- * bu diziler, kullanıcı bilinçli olarak arayana kadar göz önünde olmamalı. */
-export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'dropped', 'notStarted', 'hidden'] as const;
+/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Başlanmadı / Gizlenen).
+ * "Gizlenenler/Bırakılanlar" bilinçli olarak EN SONDA — takip panosunun ana
+ * vitrininden çıkarılan bu diziler, kullanıcı bilinçli olarak arayana kadar göz
+ * önünde olmamalı. */
+export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'notStarted', 'hidden'] as const;
 
 // `categorizeShows` etiketleri yalnızca kart ÜZERİNDEKİ metinler için kullanılır;
 // burada sadece kategori üyeliği okunduğundan sabit boş değerler yeterli. Çeviri
@@ -46,15 +46,6 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
     hiddenShowIds: s.hiddenShowIds,
   }));
 
-  const droppedShowIds = useTrackingStore((s) => s.droppedShowIds);
-  const hydrate = useTrackingStore((s) => s.hydrate);
-
-  // "Bırakılanlar" filtresinin doğru çalışması için manuel işaretlemelerin
-  // diskten okunmuş olması şart; hydrate idempotent (tek sefer çalışır).
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
   return useMemo(() => {
     if (!enabled) return EMPTY_INDEX;
 
@@ -62,7 +53,6 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
       watchedShows: watchedShows || [],
       watchlistShows: watchlistShows || [],
       showProgressMap: showProgressMap || {},
-      droppedShowIds,
       hiddenShowIds,
       labels: STATIC_LABELS,
     });
@@ -93,7 +83,7 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
     }
 
     return { statusOf, extraPool };
-  }, [enabled, watchedShows, watchlistShows, showProgressMap, droppedShowIds, hiddenShowIds]);
+  }, [enabled, watchedShows, watchlistShows, showProgressMap, hiddenShowIds]);
 }
 
 export type UseLibraryShowFiltersResult = UseLibraryFiltersResult<ShowStatusKey>;

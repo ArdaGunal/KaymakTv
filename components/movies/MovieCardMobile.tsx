@@ -1,5 +1,5 @@
 import React, { useState, memo, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { useLibraryActions } from '../../context/LibraryContext';
 import { useRouter } from 'expo-router';
@@ -28,9 +28,16 @@ const REMOVAL_ANIMATION = {
 
 // Sağ panel: geri sayım / işaretleme butonu. useAirCountdown timer'ı BURADA yaşar —
 // her tick'te yalnızca bu panel yeniden çizilir, kart gövdesi (poster/başlık) etkilenmez.
-const MovieCardActions = memo(({ data, isLoading, isSuccess, onCheckIn }: {
+//
+// NOT: Burada eskiden bir `isLoading` prop'u ve ona bağlı bir `ActivityIndicator`
+// dalı vardı. Üst bileşendeki state'in setter'ı hiç çağrılmadığı için değer
+// kalıcı olarak `false`'tu — yani spinner ASLA render edilmiyordu. Zaten
+// gösterilse de görünmezdi: "izledim" akışında geri bildirimi, isteği
+// beklemeden başlayan başarı çapraz geçişi (crossfade) üstleniyor ve butonun
+// üstünü kaplıyor. Çift-dokunuş koruması da state'e değil `busyRef`'e bağlı
+// (state güncellemesi asenkron olduğundan hızlı iki dokunuşu kaçırırdı).
+const MovieCardActions = memo(({ data, isSuccess, onCheckIn }: {
   data: any;
-  isLoading: boolean;
   isSuccess: boolean;
   onCheckIn: () => void;
 }) => {
@@ -56,14 +63,10 @@ const MovieCardActions = memo(({ data, isLoading, isSuccess, onCheckIn }: {
         <TouchableOpacity
           style={[styles.checkButton, isSuccess && styles.checkButtonSuccess]}
           onPress={onCheckIn}
-          disabled={isLoading || isSuccess}
+          disabled={isSuccess}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Check size={20} color="#ffffff" strokeWidth={3} />
-          )}
+          <Check size={20} color="#ffffff" strokeWidth={3} />
         </TouchableOpacity>
       )}
     </View>
@@ -74,14 +77,12 @@ interface MovieCardMobileProps {
   data: any;
   onMovieFinished?: (title: string) => void;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırak/Listeye Ekle/Favorile/Paylaş) gösterilir. */
-  isDropped?: boolean;
   onToggleDropped?: (id: number) => void;
 }
 
-const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: MovieCardMobileProps) => {
+const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMobileProps) => {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const contentOpacity = useRef(new Animated.Value(1)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -103,7 +104,7 @@ const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: M
   // YENİ AKIŞ: önce kartta yumuşak "Geçmişinize eklendi" gösterilir (~1.4 sn),
   // store güncellemesi SONRA yapılır ve kart listeden animasyonla çıkar.
   const handleCheckIn = () => {
-    if (busyRef.current || isLoading || isSuccess) return;
+    if (busyRef.current || isSuccess) return;
     busyRef.current = true;
 
     Animated.parallel([
@@ -174,7 +175,6 @@ const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: M
             mediaType="movie"
             tmdbId={data.tmdbId}
             slug={data.slug}
-            isDropped={!!isDropped}
             onToggleDropped={() => onToggleDropped(data.id)}
           />
         )}
@@ -219,7 +219,6 @@ const MovieCard = memo(({ data, onMovieFinished, isDropped, onToggleDropped }: M
 
       <MovieCardActions
         data={data}
-        isLoading={isLoading}
         isSuccess={isSuccess}
         onCheckIn={handleCheckIn}
       />

@@ -1,0 +1,10 @@
+{
+  "emptyTitle": "Your Feed is Empty",
+  "emptyText": "Activity from people you follow on Trakt will show up here.",
+  "searchPlaceholder": "Username or Trakt profile link",
+  "searchNotFound": "No one found with that username.",
+  "searchError": "Something went wrong, try again.",
+  "follow": "Follow",
+  "following": "Following",
+  "pending": "Pending Approval"
+}

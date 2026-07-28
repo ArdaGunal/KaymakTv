@@ -3,6 +3,8 @@ import { getMediaComments } from '../services/traktApi';
 
 const PAGE_LIMIT = 15;
 
+export type CommentSort = 'likes' | 'newest' | 'oldest';
+
 export interface CommentData {
   id: number;
   comment: string;
@@ -29,7 +31,7 @@ interface UseCommentsProps {
   mediaType: 'show' | 'movie' | 'episode';
   season?: number;
   episode?: number;
-  sort?: 'likes' | 'newest' | 'oldest';
+  sort?: CommentSort;
 }
 
 export function useComments({

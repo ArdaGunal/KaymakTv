@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Edit2, Trash2, PenLine, LogIn } from 'lucide-react-native';
 import { getUserComments, deleteComment } from '../services/traktApi';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { confirmAsync, notify } from '../utils/confirmDialog';
 
 interface MyInlineCommentProps {
   mediaId: number;
@@ -56,31 +57,29 @@ export default function MyInlineComment({
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert(
+  const handleDelete = async () => {
+    // `Alert.alert` react-native-web'de TAM NO-OP: web'de onay dialogu hiç
+    // çıkmadığı için "sil" butonu hiçbir şey yapmıyordu. `confirmAsync` web'de
+    // `window.confirm`e düşer.
+    const confirmed = await confirmAsync(
       t('deleteConfirmTitle'),
       t('deleteConfirmText'),
-      [
-        { text: t('common:cancel'), style: 'cancel' },
-        {
-          text: t('common:delete'),
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              await deleteComment(myComment.id);
-              setMyComment(null);
-              if (onDeleteSuccess) onDeleteSuccess();
-            } catch (e: any) {
-              console.error(e);
-              Alert.alert(t('common:error'), e?.message || t('common:error'));
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ]
+      t('common:delete'),
+      t('common:cancel')
     );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await deleteComment(myComment.id);
+      setMyComment(null);
+      if (onDeleteSuccess) onDeleteSuccess();
+    } catch (e: any) {
+      console.error('[MyInlineComment] handleDelete:', e?.response?.data ?? e);
+      notify(t('common:error'), t('commentDeleteError'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {

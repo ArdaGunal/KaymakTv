@@ -45,7 +45,6 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
   const airStatus = useAirCountdown(data?.rawDate);
 
   const [isHovered, setIsHovered] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -97,8 +96,8 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
 
   const isFuture = data.rawDate !== undefined && !airStatus.isAired;
   const progressPct = getProgressPct(data);
-  const isDropped = !!data.tags?.includes('BIRAKILDI');
-  const progressColor = getProgressBarColor(isDropped, !!data.tags?.includes('TAMAMLANDI'));
+  // Bkz. EpisodeCardMobile: gizlenmiş yapımlar bu kartın listelerine hiç girmez.
+  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'));
 
   const episodeCode =
     data.season !== undefined && data.episode !== undefined
@@ -184,7 +183,6 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
                   mediaType="show"
                   tmdbId={data.tmdbId}
                   slug={data.slug}
-                  isDropped={!!data.tags?.includes('BIRAKILDI')}
                   onToggleDropped={() => onToggleDropped(data.id)}
                 />
               )}
@@ -217,7 +215,6 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
                       episode={data.episode}
                       showName={data.showName}
                       onShowFinished={onShowFinished}
-                      onSuccessStateChange={setIsSuccess}
                     />
                   </View>
                 )}

@@ -15,7 +15,6 @@ import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
-import { useTranslation } from 'react-i18next';
 import PosterGridSkeleton from '../skeletons/PosterGridSkeleton';
 import { formatRating } from '../../utils/formatRating';
 
@@ -27,7 +26,6 @@ interface GridCardProps {
 }
 
 const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
-  const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
   // Katı seçici: ilgisiz store dilimleri (progress, ratings vb.) değiştiğinde
   // grid'deki kartlar yeniden çizilmesin.
@@ -173,8 +171,6 @@ const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(func
   screenWidth,
   onScroll,
 }, ref) {
-  const { t } = useTranslation('common');
-
   const containerPadding = 32;
   const totalGapWidth = CARD_GAP * (COLUMN_COUNT - 1);
   const availableWidth = Math.min(screenWidth, 1280) - containerPadding * 2;

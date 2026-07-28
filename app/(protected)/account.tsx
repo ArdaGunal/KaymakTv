@@ -1,13 +1,9 @@
-import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { Activity, FileWarning, Globe, LogOut, MessageCircle, Trash2 } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import { Activity, EyeOff, FileWarning, Globe, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,13 +17,14 @@ import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import ReportIssueModal from '../../components/settings/ReportIssueModal';
 import SettingsRow from '../../components/settings/SettingsRow';
+import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
 import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
-import { exchangeAuthCode } from '../../services/traktApi';
+import { useFeedPrivacy } from '../../features/feed/hooks/useFeedPrivacy';
 
 // Sürüm numarasına bu kadar kez, aşağıdaki pencere içinde ard arda dokununca
 // gizli "Geliştirici Modu" açılır/kapanır (Android'in "Yapı Numarası"na
@@ -36,13 +33,10 @@ import { exchangeAuthCode } from '../../services/traktApi';
 const DEV_MODE_REQUIRED_TAPS = 7;
 const DEV_MODE_TAP_WINDOW_MS = 1500;
 
-// Auth session web browser desteğini başlat
-WebBrowser.maybeCompleteAuthSession();
-
 const DESKTOP_BREAKPOINT = 768;
 
 export default function SettingsScreen() {
-  const { accessToken, saveTokens, isGuest } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
     isLoggingOut, isDeletingAccount, handleExportMetrics, isExportingMetrics } = useSettings();
   const router = useRouter();
@@ -50,10 +44,10 @@ export default function SettingsScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  const [isConnecting, setIsConnecting] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const feedPrivacy = useFeedPrivacy();
 
   // ── Gizli Geliştirici Modu (sürüm numarasına 7 hızlı dokunma) ────────────
   // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
@@ -97,60 +91,11 @@ export default function SettingsScreen() {
     else router.replace('/(protected)/(tabs)/explore');
   };
 
-  // ── Trakt OAuth ─────────────────────────────────────────────────────────
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'kaymak', path: 'settings' });
-
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID || '',
-      redirectUri,
-      responseType: AuthSession.ResponseType.Code,
-      usePKCE: false,
-    },
-    { authorizationEndpoint: 'https://trakt.tv/oauth/authorize' }
-  );
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      handleTokenExchange(response.params.code);
-    } else if (response?.type === 'error') {
-      Alert.alert(t('common:error'), t('loginCanceled'));
-    }
-  }, [response]);
-
-  // Web redirect code capture
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const code = new URLSearchParams(window.location.search).get('code');
-      if (code) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        handleTokenExchange(code);
-      }
-    }
-  }, []);
-
-  const handleTraktLogin = () => {
-    if (Platform.OS === 'web' && request?.url) {
-      window.location.href = request.url;
-    } else {
-      promptAsync();
-    }
-  };
-
-  const handleTokenExchange = async (code: string) => {
-    setIsConnecting(true);
-    try {
-      const tokenData = await exchangeAuthCode(code, redirectUri);
-      if (tokenData?.access_token) {
-        await saveTokens(tokenData.access_token, tokenData.refresh_token);
-        Alert.alert(t('common:success'), t('loginSuccessText'));
-      }
-    } catch {
-      Alert.alert(t('common:error'), t('communicationError'));
-    } finally {
-      setIsConnecting(false);
-    }
-  };
+  // ── Trakt girişi ────────────────────────────────────────────────────────
+  // Bu ekranda OAuth YOK. Trakt'a kayıtlı yönlendirme adresi tek bir yola
+  // (`/settings`) işaret ettiği için giriş akışı da TEK ekranda yaşamalı;
+  // burada yalnızca o ekrana yönlendiriyoruz (bkz. TraktAccountSection).
+  const goToLogin = () => router.push('/(public)/settings');
 
   const handleDeleteConfirm = async () => {
     await handleDeleteAccount();
@@ -174,9 +119,7 @@ export default function SettingsScreen() {
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           <TraktAccountSection
             isConnected={!!accessToken}
-            isConnecting={isConnecting}
-            canConnect={!!request}
-            onConnect={handleTraktLogin}
+            onGoToLogin={goToLogin}
           />
 
           <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
@@ -189,6 +132,53 @@ export default function SettingsScreen() {
               onPress={() => setLanguageModalVisible(true)}
             />
           </SettingsSection>
+
+          {/* Misafirin bir Trakt hesabı yok — bu ayarın onun için hiçbir
+              anlamı yok, bu yüzden yalnızca gerçek kullanıcıya gösterilir. */}
+          {!isGuest && accessToken && (
+            <SettingsSection title={t('settings:feedSection', '💬 Akış')}>
+              {/* DB'de ayrı bir sütun DEĞİL — ikisi de kapalıysa türetilmiş
+                  olarak açık görünür (bkz. useFeedPrivacy.ts: hideAll).
+                  Açılınca ikisini birden kapatır, kapanınca ikisini birden
+                  açar; alttaki ikisi bu açıkken devre dışı/soluk kalır. */}
+              <SettingsSwitchRow
+                icon={<EyeOff size={20} color="#a78bfa" />}
+                label={t('settings:hideFromFeed', 'Aktivitemi Akışta Gizle')}
+                hint={t('settings:hideFromFeedHint', 'Açıkken izlediklerin ve puanladıkların kimsenin akışında görünmez.')}
+                tintColor="#a78bfa"
+                value={feedPrivacy.hideAll}
+                onValueChange={feedPrivacy.setHideAll}
+                isLoading={feedPrivacy.isLoading}
+                disabled={feedPrivacy.savingKey !== null}
+              />
+
+              <SettingsSectionDivider />
+
+              <SettingsSwitchRow
+                icon={<Tv size={20} color="#60a5fa" />}
+                label={t('settings:publishWatches', 'İzlediklerimi Akışta Paylaş')}
+                hint={t('settings:publishWatchesHint', 'Kapatırsan izleme aktiviten kimsenin akışında görünmez.')}
+                tintColor="#60a5fa"
+                value={feedPrivacy.settings.publishWatches}
+                onValueChange={(v) => feedPrivacy.update('publishWatches', v)}
+                isLoading={feedPrivacy.isLoading}
+                disabled={feedPrivacy.savingKey !== null || feedPrivacy.hideAll}
+              />
+
+              <SettingsSectionDivider />
+
+              <SettingsSwitchRow
+                icon={<Star size={20} color="#facc15" />}
+                label={t('settings:publishRatings', 'Puanlarımı Akışta Paylaş')}
+                hint={t('settings:publishRatingsHint', 'Kapatırsan verdiğin puanlar kimsenin akışında görünmez.')}
+                tintColor="#facc15"
+                value={feedPrivacy.settings.publishRatings}
+                onValueChange={(v) => feedPrivacy.update('publishRatings', v)}
+                isLoading={feedPrivacy.isLoading}
+                disabled={feedPrivacy.savingKey !== null || feedPrivacy.hideAll}
+              />
+            </SettingsSection>
+          )}
 
           <SettingsSection title={t('settings:accountOptions', '⚠️ Hesap Seçenekleri')}>
             <SettingsRow

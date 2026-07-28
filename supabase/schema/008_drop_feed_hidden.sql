@@ -1,0 +1,13 @@
+-- Mimari düzeltme: `feed_hidden` ayrı bir DB sütunu olarak KALDIRILDI.
+-- Kullanıcı haklı bir noktaya değindi: `feed_hidden=true` ile
+-- `publish_watches=false AND publish_ratings=false` birebir aynı sonucu
+-- üretiyordu — üç sütun, iki gerçek durumu tutuyordu, bu da (örneğin
+-- feed_hidden=true ama publish_watches=true gibi) çelişkili durumlara açık
+-- kapı bırakıyordu.
+--
+-- Yeni model: "Her Şeyi Gizle" artık bir DB sütunu değil, tamamen client'ta
+-- TÜRETİLMİŞ (derived) bir UI durumu — `!publish_watches && !publish_ratings`.
+-- Tek gerçek kaynak (single source of truth) bu iki sütun; üçüncü bir
+-- bayrağın onlarla senkron kalmasına hiç gerek kalmıyor çünkü üçüncü bayrak
+-- yok.
+ALTER TABLE users DROP COLUMN feed_hidden;
