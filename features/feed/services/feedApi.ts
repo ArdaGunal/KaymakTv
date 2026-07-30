@@ -2,6 +2,22 @@ import axios from 'axios';
 import { getMyFollowingSlugs } from '../../../services/api/social';
 import { supabase } from './supabaseClient';
 import { FeedActivity, FeedActivityType } from '../types';
+import { CACHE_TTL } from '../../../utils/cacheTTL';
+import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
+
+// Supabase istekleri `services/api/traktClient.ts`'teki axios interceptor'ından
+// GEÇMİYOR — o yalnızca Trakt trafiğini ölçer. Bu yüzden feed_activities
+// sorguları performans raporunda görünmez kalıyordu. Aynı `api.latency.*`
+// isim uzayını (bkz. traktClient.ts) manuel olarak burada da kullanıyoruz ki
+// tek bir raporda hem Trakt hem Supabase/Worker gecikmeleri görülebilsin.
+const timeSupabaseCall = async <T>(metricKey: string, fn: () => PromiseLike<T>): Promise<T> => {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    recordApiLatency(metricKey, Date.now() - start);
+  }
+};
 
 // Aynı Cloudflare Worker'ın (kaymaktv-feedback-worker) /feed/delete uç
 // noktası — bkz. feedSync.ts/feedPrivacy.ts. DOĞRUDAN client'tan Supabase'e
@@ -57,28 +73,24 @@ export async function fetchFeedActivities(): Promise<FeedActivity[]> {
   const followingSlugs = await getMyFollowingSlugs();
   if (followingSlugs.length === 0) return [];
 
-  // Trakt'ta takip ettiğim herkes KaymakTV'yi kullanmış olmayabilir — yalnızca
-  // bizim `users` tablomuzda (en az bir kez senkronize olmuş) karşılığı
-  // olanları filtreliyoruz. Karşılığı olmayanlar için zaten `feed_activities`
-  // hiç yok, sorgu doğal olarak boş döner.
-  const { data: usersData, error: usersError } = await supabase
-    .from('users')
-    .select('id')
-    .in('trakt_slug', followingSlugs);
-  if (usersError) throw usersError;
-
-  const followingIds = (usersData ?? []).map((row) => row.id);
-  if (followingIds.length === 0) return [];
-
   const cutoff = new Date(Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabase
-    .from('feed_activities')
-    .select('id, activity_type, show_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users(id, trakt_slug, username, avatar_url)')
-    .in('user_id', followingIds)
-    .gte('activity_at', cutoff)
-    .order('activity_at', { ascending: false })
-    .limit(PAGE_SIZE);
+  // Trakt'ta takip ettiğim herkes KaymakTV'yi kullanmış olmayabilir — `!inner`
+  // ile `users`e join edip `user.trakt_slug` üzerinden filtreliyoruz; karşılığı
+  // olmayan slug'lar join'e hiç girmediğinden sorgu doğal olarak onları eler.
+  // ESKİDEN: önce `users`den id'leri çekip SONRA `feed_activities`i o id'lerle
+  // filtreleyen 2 AYRI, SIRALI istek vardı — bu, her yüklemede gereksiz bir
+  // ağ round-trip'i ekliyordu. Tek sorguya indirildi (bkz. fetchUserFeedActivities'teki
+  // aynı düzeltme, performans şikayeti üzerine).
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.list', () =>
+    supabase
+      .from('feed_activities')
+      .select('id, activity_type, show_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users!inner(id, trakt_slug, username, avatar_url)')
+      .in('user.trakt_slug', followingSlugs)
+      .gte('activity_at', cutoff)
+      .order('activity_at', { ascending: false })
+      .limit(PAGE_SIZE)
+  );
 
   if (error) throw error;
   return ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
@@ -86,27 +98,47 @@ export async function fetchFeedActivities(): Promise<FeedActivity[]> {
 
 const PROFILE_ACTIVITY_LIMIT = 20;
 
-// Profil ekranındaki "Aktiviteler" sekmesi için — takip ettiklerim değil,
-// TEK bir kullanıcının (kendimin) tüm izleme aktivitesi, tarih penceresi
-// olmadan (profilde "son 30 gün" kısıtı anlamlı değil).
-export async function fetchUserFeedActivities(traktSlug: string): Promise<FeedActivity[]> {
-  const { data: userRow, error: userError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('trakt_slug', traktSlug)
-    .maybeSingle();
-  if (userError) throw userError;
-  if (!userRow) return [];
+// Profildeki "Aktiviteler" sekmesi (kendi profilim VEYA Public Profile — bkz.
+// features/publicProfile/hooks/usePublicProfileActivity.ts, ikisi de bu
+// fonksiyonu paylaşır) kısa süre içinde tekrar tekrar mount/unmount edilebilir
+// (sekmeler arası geçiş, geri/ileri gezinme) — her seferinde 2 sıralı Supabase
+// isteğiyle baştan yüklenmesi "aktiviteler bölümü geç geliyor" şikayetinin
+// ana kaynağıydı. `services/api/shows.ts`'teki `trendingShowsCache` ile AYNI
+// desen: kısa ömürlü (CACHE_TTL.SHORT = 60sn) bellek-içi önbellek — aynı
+// slug'a tekrar bakıldığında ağ isteği ATLANIR, veri anında görünür.
+const userFeedActivitiesCache = new Map<string, { data: FeedActivity[]; fetchedAt: number }>();
 
-  const { data, error } = await supabase
-    .from('feed_activities')
-    .select('id, activity_type, show_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users(id, trakt_slug, username, avatar_url)')
-    .eq('user_id', userRow.id)
-    .order('activity_at', { ascending: false })
-    .limit(PROFILE_ACTIVITY_LIMIT);
+/** Silme (bkz. useUserActivity.ts) sonrası önbelleğin bayat kalmaması için. */
+export function invalidateUserFeedActivitiesCache(traktSlug: string): void {
+  userFeedActivitiesCache.delete(traktSlug);
+}
+
+// Takip ettiklerim değil, TEK bir kullanıcının TÜM izleme aktivitesi, tarih
+// penceresi olmadan (profilde "son 30 gün" kısıtı anlamlı değil).
+export async function fetchUserFeedActivities(traktSlug: string, force = false): Promise<FeedActivity[]> {
+  const cached = userFeedActivitiesCache.get(traktSlug);
+  if (!force && cached && Date.now() - cached.fetchedAt < CACHE_TTL.SHORT) {
+    return cached.data;
+  }
+
+  // ESKİDEN: önce `users`den `id` çekip SONRA `feed_activities`i o id'yle
+  // filtreleyen 2 SIRALI istek vardı (2× ağ round-trip'i). `!inner` join +
+  // `user.trakt_slug` filtresiyle TEK isteğe indirildi — eşleşen `users`
+  // satırı yoksa join hiç satır döndürmediğinden sonuç zaten doğal olarak
+  // boş dizi olur, ayrı bir "bulunamadı" dalına gerek kalmadı.
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.byUser', () =>
+    supabase
+      .from('feed_activities')
+      .select('id, activity_type, show_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users!inner(id, trakt_slug, username, avatar_url)')
+      .eq('user.trakt_slug', traktSlug)
+      .order('activity_at', { ascending: false })
+      .limit(PROFILE_ACTIVITY_LIMIT)
+  );
 
   if (error) throw error;
-  return ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+  const mapped = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+  userFeedActivitiesCache.set(traktSlug, { data: mapped, fetchedAt: Date.now() });
+  return mapped;
 }
 
 // ── Aktivite Silme (Hard Delete) ────────────────────────────────────────────
@@ -121,13 +153,22 @@ export async function deleteActivitiesBulk(
   if (activityIds.length === 0) return;
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
 
-  const response = await axios.post(
-    `${KAYMAK_WORKER_URL}/feed/delete`,
-    { traktAccessToken, activityIds },
-    { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
-  );
-  if (!response.data?.success) {
-    throw new Error(response.data?.message || 'İşlem başarısız.');
+  const start = Date.now();
+  try {
+    const response = await axios.post(
+      `${KAYMAK_WORKER_URL}/feed/delete`,
+      { traktAccessToken, activityIds },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+    );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || 'İşlem başarısız.');
+    }
+    recordMutationResult('deleteFeedActivities', true);
+  } catch (error) {
+    recordMutationResult('deleteFeedActivities', false);
+    throw error;
+  } finally {
+    recordApiLatency('worker.feed.delete', Date.now() - start);
   }
 }
 

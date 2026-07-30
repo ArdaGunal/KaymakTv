@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { useWindowDimensions, View } from 'react-native';
 import Sidebar from '../../../components/Sidebar';
 import CustomTabBar from '../../../components/CustomTabBar';
+import { useNotificationStore } from '../../../store/notificationStore';
 
 export default function TabsLayout() {
   const { t } = useTranslation('navigation');
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const { unreadCount } = useNotificationStore();
   
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -47,6 +49,8 @@ export default function TabsLayout() {
             name="profile"
             options={{
               title: t('profile'),
+              tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+              tabBarBadgeStyle: { backgroundColor: '#ef4444', color: 'white', fontSize: 10, fontWeight: 'bold' }
             }}
           />
         </Tabs>

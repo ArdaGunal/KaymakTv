@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from '../utils/secureStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
+import { useFollowStore } from '../store/followStore';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -106,6 +107,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await SecureStore.deleteItemAsync('traktRefreshToken');
       await SecureStore.deleteItemAsync('traktGuestMode');
       await AsyncStorage.clear();
+      // AsyncStorage.clear() yalnızca DİSKTEKİ kopyayı siler — followStore
+      // RAM'de bir Zustand singleton'ı olduğundan bir önceki oturumun
+      // connectionStates/isFetched'i JS süreci canlı kaldığı sürece (uygulama
+      // tamamen kapatılmadan çıkış-giriş yapılırsa) hafızada kalmaya devam
+      // eder. `isFetched: true` kalınca yeni oturumda fetchFollowingSlugs
+      // tekrar hiç çalışmaz ve önceki hesabın (varsa farklı bir Trakt hesabı)
+      // takip durumu yeni oturuma sızar. Çıkışta açıkça sıfırla.
+      useFollowStore.getState().reset();
       setAccessToken(null);
       setIsGuest(false);
     } catch (error) {

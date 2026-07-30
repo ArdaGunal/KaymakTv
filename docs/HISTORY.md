@@ -1763,6 +1763,38 @@ Execution failed for task ':app:mergeReleaseResources'.
 - `app/(protected)/account.tsx`: fallback sürüm `'1.1.2'`
 - `npx tsc --noEmit` ile doğrulandı.
 
+## 117. APK İndirme Sayfası (`download.web.tsx`) Tasarımsal Yenileme & Çapraz Ekran Duyarlılığı (Responsive 2-Column)
+
+**Bağlam:** Kullanıcı `download` klasörü/sayfası için APK indirme linkinin virüs linki gibi değil, resmi, son derece şık, güvenli ve modern bir uygulamanın indirme sayfası gibi görünmesini istedi. Ardından dar mobil görünümünün masaüstü geniş ekranlarda (1280px+) küçük kalması üzerine geniş ekranlara özel responsive 2 sütunlu düzen istendi. Son olarak, "Resmi ve Virüssüz" ifadesinin aksine gereksiz şüphe uyandırabileceği gerekçesiyle kaldırılması ve indirme butonlarının göz yormayan, daha mat ve şık bir renge çekilmesi istendi.
+
+**Uygulama:**
+- `app/(public)/download.web.tsx` masaüstü & mobil duyarlı (responsive) olacak şekilde yenilendi:
+  - **Duyarlı Düzen (`isDesktop` = width ≥ 868px):**
+    - Masaüstünde geniş 2 sütunlu düzen (`maxWidth: 1040px`, `flexDirection: 'row'`, `gap: 40px`).
+    - **Sol Sütun:** Sade kategori rozeti ("Android APK İndirme"), uygulama başlığı & ikonu, mat şık indirme butonu, teknik metrikler izgarası (Boyut, Android 8.0+, GitHub Release) ve "Android Yükleme Bilgisi" kutusu.
+    - **Sağ Sütun:** Sürüm notları (`v1.1.2` Changelog) ve varsayılan olarak açık tutulan 3 Adımda Kolay Kurulum Rehberi.
+  - **Mobil Düzen (width < 868px):**
+    - Mobil ekranlar için dikey 1 sütunlu dikey layout (`maxWidth: 520px`), akordiyon kurulum rehberi ve dikey sıralama korundu.
+  - **Ton ve Görsel İyileştirmeler (Sade & Şık):**
+    - Şüphe uyandıran "Resmi & Virüssüz" metni tamamen kaldırıldı, yerine sade `Android APK İndirme` rozeti kondu.
+    - Parlak neon mavi/kırmızı buton ve parlak gölgeler kaldırıldı; yerine gözü yormayan, mat lacivert/mavi gradyan (`#2563eb` -> `#1d4ed8`) ve ince şeffaf kenarlık eklendi.
+    - Ortam ışıkları (ambient glow) parlaklığı düşürüldü.
+    - Metrik kartlarındaki **"GitHub Release"** alanı tıklanabilir hale getirildi (`ExternalLink` ikonu eklendi); tıklandığında kullanıcının doğrudan GitHub Release (`/tag/beta`) sayfasına gitmesi sağlandı.
+- `npx tsc --noEmit` ile doğrulandı (0 hata).
+
+## 118. Sürüm Güncellemesi: 2.0.0
+
+**Bağlam:** Kullanıcının talimatı üzerine uygulamanın sürüm numarası `2.0.0` olarak güncellendi.
+- `package.json`: `"version": "2.0.0"`
+- `app.json`: `"version": "2.0.0"`
+- `app/(protected)/account.tsx`: fallback sürüm `'2.0.0'`
+- `app/(public)/download.web.tsx`: `CURRENT_VERSION = 'v2.0.0'`
+- `npx tsc --noEmit` ile doğrulandı (0 hata).
+
+
+
+
+
 
 
 
@@ -1885,3 +1917,102 @@ Yeni bir throttle/debounce mekanizması, ek bir zamanlayıcı ya da ek bir state
 **Yan bulgu — `useFollowState.toggleFollow`'da misafir koruması eksikti (düzeltildi):** Arayüzü inşa ederken fark edildi: `toggleFollow`, `isGuest`/`accessToken` hiç kontrol etmiyordu — bir misafir "Takip Et"e bassaydı istek token'sız gidip Trakt'tan sessizce 401 alacaktı (409 dışında hiçbir hata özel olarak ele alınmıyordu), bu da AI_RULES.md'nin "sessiz başarısızlık yasak" kuralını ihlal ederdi. Projenin her yerde kullandığı **birebir aynı** desen eklendi: `Alert.alert(t('common:error'), t('common:guestRestrictedMessage', ...))`, istek hiç gönderilmeden. Bu, Madde 112'de onaylanmış koddaki gerçek bir açıktı — yeni tüketici (Public Profile ekranı) bunu daha görünür kıldığı için bu adımda düzeltildi.
 
 **Doğrulama:** `npx tsc --noEmit` ve `--noUnusedLocals --noUnusedParameters` → 0 hata. Web önizlemede canlı test edildi: (a) mobil genişlik (730px) → `PublicProfileMobile` render edildi, geri butonu + "Profil yüklenemedi" hata durumu doğru göründü; (b) masaüstü genişlik (1280px) → kendi başlığı ("← Geri Dön") + hata durumu göründü, `getComputedStyle` ile DOM ölçümü yapılıp arka planın (`#0B1120`) gerçekten tüm 1280×900 viewport'u kapladığı ve içeriğin 720px'lik ortalanmış bir sütunda (`x:280`) doğru konumlandığı doğrulandı (screenshot aracının küçük/karanlık-üstü-karanlık render'ı ilk bakışta yanıltıcıydı, DOM ölçümüyle netleştirildi). **Doğrulanamayan:** Gerçek bir Trakt kullanıcı profiliyle uçtan uca (bu ortamda Trakt ağ erişimi yok) — avatar görseli, gerçek takipçi/takip edilen sayıları, ve gerçek bir "Takip Et" tıklamasının uçtan uca çalıştığı kullanıcının kendi ortamında doğrulanmalı.
+
+## 114. "Aktiviteler Bölümü Geç Geliyor" — `feedApi.ts`'te İki Ayrı Yavaşlık Kaynağı Bulunup Düzeltildi
+
+**Bildiren:** Kullanıcı, Profil sekmesindeki "Aktiviteler" bölümünün (`ProfileActivityTab.tsx` → `useUserActivity.ts`) belirgin şekilde geç yüklendiğini bildirdi ve "olabildiğince hızlı ve stabil olması" istendi. (Not: Bu oturumdan bağımsız olarak, kullanıcı tarafında `[slug].web.tsx`/`PublicProfileMobile.tsx`'e Diziler/Filmler sekmeleri ve `usePublicProfileLibrary.ts` eklenmişti — bu madde yalnızca doğrudan şikayet edilen "Aktiviteler" veri yoluna odaklanıyor, o eklentilere dokunulmadı.)
+
+**Kök Neden 1 — `fetchUserFeedActivities` (Profil Aktiviteleri) ve `fetchFeedActivities` (Ana Akış) her çağrıda 2 SIRALI Supabase isteği atıyordu:** Önce `users` tablosundan `trakt_slug` ile `id` çekiliyor, o `id` gelene KADAR ikinci sorgu (`feed_activities`) hiç başlamıyordu — gereksiz bir tam ağ round-trip'i (~100-300ms, ağ koşuluna göre) her yüklemeye ekleniyordu. **Çözüm:** PostgREST'in `!inner` join + gömülü kaynak filtresi (`user:users!inner(...)` + `.eq('user.trakt_slug', ...)` / `.in('user.trakt_slug', ...)`) kullanılarak TEK sorguya indirildi — `supabase-js@2.110.8`'in resmi, belgelenmiş bir özelliği (yeni bir bağımlılık gerekmedi). Eşleşen `users` satırı yoksa join hiç satır döndürmediğinden eski "bulunamadı" dalına da gerek kalmadı, kod kısaldı.
+
+**Kök Neden 2 — Her sekme geçişinde/yeniden mount'ta baştan yükleme, önbellek YOKTU:** `ProfileActivityTab`, "Özet"e geçilip geri dönüldüğünde tamamen unmount/remount oluyor (`activeTab === 'activity' ? <ProfileActivityTab/> : ...`), `useUserActivity`'nin `useEffect`'i her seferinde SIFIRDAN başlıyordu — kullanıcı 10 saniye önce baktığı aynı listeyi tekrar tam bir yükleme animasyonuyla bekliyordu. **Çözüm:** `services/api/shows.ts`'teki `trendingShowsCache` ile BİREBİR AYNI desen — `feedApi.ts`'e slug başına kısa ömürlü (`CACHE_TTL.SHORT` = 60sn, `utils/cacheTTL.ts`, projede zaten merkezi olarak tanımlıydı) bir bellek-içi önbellek (`userFeedActivitiesCache`) eklendi. Aynı slug'a 60sn içinde tekrar bakıldığında ağ isteği ATLANIR, veri anında (0ms) görünür. Yeni bir `invalidateUserFeedActivitiesCache(slug)` export'u eklenip `useUserActivity.ts`'in başarılı silme akışına bağlandı — böylece bir aktivite silindiğinde önbellek TTL dolana kadar beklemeden temizlenir (şu an `ACTIVITY_DELETE_ENABLED=false` olduğu için pratikte tetiklenmiyor ama özellik geri açıldığında ekstra bir düzeltmeye gerek kalmayacak).
+
+**Kapsam:** İki fonksiyon da (`fetchFeedActivities`, `fetchUserFeedActivities`) AYNI dosyada, AYNI mekanik hata deseni taşıdığı için ikisi de düzeltildi — yalnızca önbellek (Kök Neden 2) `fetchUserFeedActivities`'e (doğrudan şikayet edilen yol) eklendi, ana Akış ekranının kendi `refresh()`/pull-to-refresh semantiğiyle beklenmedik şekilde çakışmasın diye.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. **Doğrulanamayan:** `!inner` join sorgusu bu ortamda gerçek Supabase'e karşı ÇALIŞTIRILAMADI (kimlik bilgisi/ağ erişimi yok) — resmi, belgelenmiş bir PostgREST/supabase-js özelliği olduğundan yüksek güvenle doğru, ama kullanıcının kendi ortamında Aktiviteler sekmesini açıp gerçekten veri geldiğini (ve hızlandığını) doğrulaması gerekiyor. Sözdizimi hatalı olsaydı sonuç sessiz bir veri bozukluğu değil, açık bir API hatası (mevcut `.catch` zaten yakalıyor) olurdu.
+
+## 115. Takip (Follow) Sistemi Denetimi — Kararsız "Takip Ediyorum/Etmiyorum" Durumu ve Performans Denetimi
+
+**Bildiren:** Kullanıcı, Aktiviteler (feed) ve Profil'deki yeni takipçi/takip edilen alanlarını denetlememi istedi. İki somut hata bildirdi: (1) takip ettiği biri bazen "takip etmiyor" gibi görünüyor, (2) özel (private) bir hesaba takip isteği gönderip onay beklerken uygulamadan çıkıp tekrar girince buton yine "Takip Et" yazıyor (aslında istek hâlâ beklemede).
+
+**Kök Neden 1 — `store/followStore.ts`'te hidrasyon/ağ yarış durumu (race condition):** Uygulama açılışında AsyncStorage'daki kalıcı `connectionStates`'i okuyan hidrasyon, bağımsız bir IIFE olarak modül yüklenir yüklenmez ateşleniyordu; `fetchFollowingSlugs()` (Trakt `/users/me/following` ağ isteği) ise tamamen ayrı, sıralamasız bir yoldan aynı state'i güncelliyordu. İkisi arasında HİÇBİR sıralama garantisi yoktu — AsyncStorage okuması ağ isteğinden yavaş kalırsa (yavaş cihaz/disk G/Ç) hidrasyon SONRADAN tamamlanıp `connectionStates`'i doğrudan eski disk anlık görüntüsüyle DEĞİŞTİRİYOR, ağdan az önce doğrulanmış "following" listesini VE varsa optimistic "pending" durumlarını sessizce siliyordu. **Çözüm:** Hidrasyon artık `fetchFollowingSlugs`'ın en başında `await` edilen tek bir paylaşımlı promise (`ensureHydrated()`) — ağdan gelen sonuç asla hidrasyondan ÖNCE birleştirilemiyor, işlem sırası artık cihaz hızından bağımsız olarak garanti. Ayrıca `isFetched` bayrağı eskiden oturum boyunca SÜRESİZ "tek seferlik" kilitliyordu (bir kez çekildikten sonra bir daha asla tazelenmiyordu) — `fetchedAt` eklenip `CACHE_TTL.SYNC_INTERVAL` (10dk) aşıldığında otomatik yeniden çekim izni verildi, böylece uygulama açık kalırken oluşan (ör. takip isteğinin onaylanması/reddedilmesi gibi) sapmalar kendiliğinden düzelir.
+
+**Kök Neden 2 — `useFollowStore.reset()` hiç çağrılmıyordu (ölü kod, bkz. docs/AI_RULES.md § Ölü Kod):** `context/AuthContext.tsx`'teki `removeKeys()` (çıkış) `AsyncStorage.clear()` ile DİSKİ temizliyor ama Zustand store bir RAM singleton'ı olduğundan bir önceki oturumun `connectionStates`/`isFetched`'i JS süreci canlı kaldığı sürece hafızada kalıyordu. Uygulama tamamen kapatılmadan çıkış yapılıp (aynı veya farklı bir Trakt hesabıyla) tekrar girildiğinde `isFetched: true` yeni oturumda `fetchFollowingSlugs`'ın hiç çalışmasını engelliyor, önceki oturuma ait takip durumu yeni oturuma sızıyordu. **Çözüm:** `removeKeys()` içine `useFollowStore.getState().reset()` eklendi.
+
+**Kök Neden 3 (yapısal sınırlama, iyileştirildi ama tam çözülemedi) — "pending" durumu tamamen istemci-yerel:** Trakt API'sinde gönderdiğim bekleyen takip isteklerini listeleyen bir uç nokta yok (yalnızca BANA gelen istekleri onaylayan `/users/requests` var) — bu yüzden `pending` durumu yalnızca `setOptimisticState` ile yazılıp `AsyncStorage`'a kalıcılaştırılan bir işaret, sunucudan asla yeniden doğrulanamıyor. Kök Neden 1 ve 2 bu durumun kaybolmasının ASIL sebebiydi (ikisi de düzeltildi); kalan artık kabul edilebilir bir sınırlama: hedef kullanıcı isteği onaylarsa bir sonraki `fetchFollowingSlugs` (en geç 10dk içinde, bkz. yukarı) durumu doğru şekilde `following`'e çevirir, ama REDDEDİLİRSE bunu öğrenecek bir yol yok (Trakt bunu hiçbir occasion'da bildirmiyor) — kullanıcıya açıklandı, gelecekte "isteği geri çek" gibi bir UI eklenebilir.
+
+**Performans — Zustand'da seçicisiz (selector'sız) whole-store abonelik:** `useFollowState.ts` ve `useNetworkList.ts` `useFollowStore()`'u parametresiz çağırıp TÜM store'a abone oluyordu — Zustand'da bu, `connectionStates` içindeki HERHANGİ bir slug değiştiğinde (tek bir "Takip Et" tıklaması) ekrandaki HER `useFollowState` örneğinin (arama sonucu kartı, takipçi/takip edilen listesindeki HER satır) gereksiz yere yeniden render olması demek — kalabalık takipçi listelerinde gözle görülür yavaşlık/donma riski. `app/(protected)/user/[slug]/network.tsx` da aynı şekilde `connectionStates`'in tamamına abone olup her satırın state'ini kendisi hesaplıyordu. **Çözüm:** Üç dosyada da `useFollowStore(selector)` deseni kullanılarak yalnızca ilgili slug'a/alana abone olunacak şekilde değiştirildi; `network.tsx`'teki whole-store abonelik tamamen kaldırıldı (her kart kendi durumunu `NetworkUserCard` → `useFollowState` üzerinden doğrudan okuyor).
+
+**Performans raporuna eklenen görünürlük:** `useFollowState.ts`'teki takip et/bırak mutasyonlarına `recordMutationResult('followUser'/'unfollowUser', ...)` eklendi (`utils/metrics.ts` — Ayarlar > Tanılama > "Performans Raporunu Kopyala" ile dışa aktarılıyor, desen `services/library/mutations/*.ts`'teki mevcut kullanımla birebir aynı). Ayrıca `features/feed/services/feedApi.ts` (Supabase sorguları) ve `feedSync.ts` (`/feed/sync` Worker isteği) `services/api/traktClient.ts`'in otomatik `recordApiLatency` enstrümantasyonundan GEÇMİYOR (Trakt'a değil Supabase/Worker'a gidiyorlar) — bu yüzden performans raporunda hiç görünmüyorlardı. İkisine de manuel `recordApiLatency` (`supabase.feed_activities.*`, `worker.feed.sync`, `worker.feed.delete`) eklendi; artık bir sonraki performans raporunda görünürler.
+
+**Kapsam dışı bırakılanlar:** `feedSync.ts`/`useFeedSyncTrigger.ts` (senkronizasyon zamanlaması), `groupMarathonActivities.ts` (maraton gruplama algoritması) ve Feed/Profil FlatList render katmanı incelendi, yapısal bir hata bulunmadı — mevcut `FlatList` kullanımı zaten doğru virtualization sağlıyor, ek bir değişiklik yapılmadı.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. **Doğrulanamayan:** Gerçek bir Trakt hesabıyla uçtan uca (takip isteği gönder → uygulamayı kapat/aç → hâlâ "Onay Bekleniyor" görünüyor mu) bu ortamda test EDİLEMEDİ — kullanıcının kendi cihazında doğrulaması gerekiyor.
+
+## 116. Bildirim Sistemi Denetimi — Sahte Sayaç Kaldırıldı + `docs/notifications.md` Yol Haritası
+
+**Bildiren:** Kullanıcı, yeni kurulmakta olan `features/notifications/` iskeletinin denetlenmesini istedi.
+
+**Bulgu:** Tüm servis dosyaları (`expoPush.ts`, `webPush.ts`, `notificationApi.ts`) ve `useNotifications.ts` hook'u tamamen TODO/no-op durumundaydı (`expo-notifications` bağımlılığı bile kurulu değil) — **tek istisna**, `NotificationBadge.tsx`'in üç gerçek ekranda (mobil/web Profil + tab bar rozeti) canlıda görünen, `store/notificationStore.ts`'teki `unreadCount`'u butona her basışta sahte şekilde artıran bir "test" davranışıydı. Bu, kullanıcıyı gerçek bir bildirim varmış gibi yanıltıyordu.
+
+**Çözüm (Görev 1 — Acil Müdahale):**
+1. `store/notificationStore.ts`: test amaçlı `incrementUnread` kaldırıldı, yalnızca gerçek bir kaynağın besleyeceği `setUnreadCount`/`clearUnread` bırakıldı — `unreadCount` artık başka hiçbir yerden mutasyona uğramadığı için her zaman `0`.
+2. `NotificationBadge.tsx`: `incrementUnread()` çağrısı kaldırıldı, yerine platforma göre `Alert.alert` (native) / `window.alert` (web) ile "Çok Yakında" uyarısı eklendi — `hooks/useFollowState.ts`'teki web/native Alert ayrımıyla aynı desen. Kullanılmayan `useRouter` importu da temizlendi (zaten hiç kullanılmıyordu).
+3. Çeviri anahtarları eklendi: `locales/{tr,en}/common.json` → `notificationsComingSoonTitle`, `notificationsComingSoonMessage`.
+4. Tab bar / header rozetleri (`_layout.tsx`'teki `tabBarBadge` dahil) hiçbir değişiklik gerektirmedi — `unreadCount > 0` koşulu zaten `0` iken otomatik gizleniyor.
+
+**Görev 2 — `docs/notifications.md`:** Yeni bir mimari doküman oluşturuldu (`docs/feed.md` ile aynı format/derinlik). İçerik: gerekli kütüphaneler (`expo-notifications`, `expo-device`; web için ekstra native paket gerekmiyor — Service Worker + PushManager yeterli), platforma göre ayrılmış token alma stratejisi (mobil: Expo Push token + Android bildirim kanalı zorunluluğu; web: VAPID + Service Worker, `PushToken` tipinin web için genişletilmesi gerektiği), backend stratejisi (yeni Supabase `push_tokens` tablosu taslağı + `kaymaktv-feedback-worker`'a eklenecek `/notifications/register`/`/unregister` uç noktaları + Cloudflare Workers'ta Node `web-push` paketinin ÇALIŞMAYACAĞI, VAPID imzalamanın Web Crypto API ile elle yapılması gerektiği uyarısı) ve bir tetikleyici taslağı tablosu. En önemli mimari tespit: **Trakt'ın webhook'u olmadığından, "biri seni takip etti" gibi bir bildirim yalnızca eylem KaymakTV içinden yapıldığında gerçek zamanlı yakalanabilir** — trakt.tv üzerinde yapılan eylemler ancak periyodik senkronizasyonla (Faz 2) sonradan fark edilebilir. Doküman sonunda kodlamaya başlamadan önce karar gerektiren 5 açık soru listelendi (EAS projectId, VAPID key üretimi, Web SW dosya yolu, gelen istekleri onaylama arayüzünün hiç var olmaması, rate-limit).
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata.
+
+## 117. Beta APK Dağıtım (Web Sideloading) Sayfası — Geçici, Kolayca Kaldırılabilir Özellik
+
+**İstek:** Google Play'e yayınlanmadan önce test kullanıcılarına APK dağıtmak için, auth gerektirmeyen bir Web sayfası. Kullanıcı açıkça "Play Store'a çıktıktan sonra kökten kaldıracağım" dediği için tasarım kriteri **temiz/izole olması ve tek adımda silinebilmesi** oldu.
+
+**Eklenenler:**
+1. `utils/constants.ts`: `APK_DOWNLOAD_URL` sabiti (örnek bir Supabase public storage linkiyle, kullanıcı kendi gerçek linkiyle güncelleyecek).
+2. `app/(public)/download.web.tsx`: Auth bariyerine hiç takılmayan (`(public)` grubunda), yalnızca Web'de gösterilen, `#0B1120` arka planlı, ortalanmış, `Smartphone` ikonlu, kırmızı `LinearGradient` "APK İndir" butonlu (`Linking.openURL(APK_DOWNLOAD_URL)`) bir sayfa.
+3. `app/(public)/download.tsx`: **Beklenmedik bir keşifle eklenmesi ZORUNLU hale gelen** fallback dosyası — canlı tarayıcı testinde expo-router (~6.0.24)'nin, platforma özel bir rota dosyasının yanında sade bir `.tsx` fallback'i OLMADAN **tüm uygulamayı** "does not have a fallback sibling file without a platform extension" hatasıyla çökerttiği bulundu. `docs/ARCHITECTURE.md` § D'deki platform-splitting açıklaması (mobil dosyalara dokunulmadan Web'e özel dosya eklenmesi) COMPONENT import'ları için doğru ama ROTA dosyaları için geçerli değilmiş — bu proje için yeni bir mimari ders. Fallback, native'de `/` (herkese açık karşılama) sayfasına `Redirect` yapıyor.
+
+**Kaldırma stratejisi (bilinçli tasarım kararı):** Üç parça da BAŞKA HİÇBİR dosyadan import/link almıyor — hiçbir navigasyon menüsüne, `_layout.tsx`'e veya başka bir ekrana bağlanmadı (yalnızca beta testçilere doğrudan paylaşılacak bir URL olarak düşünüldü). Metinler bilerek `locales/`'e değil, doğrudan dosyaya yazıldı — geçici bir sayfa için çeviri anahtarı eklemek, silinirken o anahtarların da ayrıca temizlenmesini gerektirirdi. **Play Store yayını sonrası kaldırma = şu üç şeyi silmek:** `app/(public)/download.web.tsx`, `app/(public)/download.tsx`, `utils/constants.ts`'teki `APK_DOWNLOAD_URL` satırı. Başka hiçbir dosyada değişiklik gerekmiyor.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. Canlı tarayıcıda test edildi (`expo start --web`) — ilk denemede fallback dosyası olmadan TÜM uygulama çöktü (yukarıda açıklandı), `download.tsx` eklenince taze bir tarayıcı sekmesinde `/download` sıfır konsol hatasıyla doğru render oldu, buton tıklaması çökme üretmedi. (Not: aynı oturumda önceden açılmış, fallback dosyası eklenmeden ÖNCE yüklenmiş bir sekmede hata mesajı bir süre ısrarla göründü — bu Metro/Fast Refresh'in o sekmedeki eski modül önbelleğinden kaynaklı bir test artefaktıydı, sunucu yeniden başlatılıp taze bir sekmede doğrulandı, gerçek bir kod sorunu değildi.)
+
+**Ek (aynı gün, ayrı bir istekte):** `download.web.tsx`'e "APK İndir" butonunun altına statik bir sürüm notları kartı eklendi (`RELEASE_NOTES_VERSION`/`RELEASE_NOTES` — dosyanın içinde, DB'ye bağlı değil, geliştirici elle günceller). Mevcut kart tasarım diliyle (`#172033`/`#22304A`, bkz. `FeedCard.tsx`) uyumlu. Yalnızca bu dosya değişti.
+
+## 118. APK Barındırma: Supabase Storage → GitHub Releases
+
+**Sorun:** Madde 117'de kurulan `APK_DOWNLOAD_URL`, Supabase Storage'ın ücretsiz plandaki **50 MB dosya yükleme sınırına** takıldı — APK dosyası bunu aştığı için kullanıcı barındırma stratejisini GitHub Releases'e taşıdı (ücretsiz, boyut sınırı KaymakTV'nin ölçeği için pratikte sorun değil, kalıcı bir indirilebilir URL veriyor).
+
+**Çözüm:** `utils/constants.ts`'teki `APK_DOWNLOAD_URL`, sabit bir `beta` tag'i altındaki GitHub Release asset'ine güncellendi: `https://github.com/ArdaGunal/KaymakTv/releases/download/beta/kaymaktv-latest.apk`. Yeni bir beta derlemesi çıktığında kullanıcı bu asset'i **aynı dosya adıyla** `beta` release'ine tekrar yükleyip eskisinin üzerine yazacak — link URL'si sabit kaldığı için kod tarafında BAŞKA HİÇBİR değişiklik gerekmiyor. Dosyadaki yorum satırı da Supabase'e referans vermeyecek şekilde güncellendi.
+
+**Kapsam dışı:** `app/(public)/download.web.tsx`/`download.tsx` (madde 117'deki kaldırma stratejisi hâlâ aynen geçerli — bu değişiklik yalnızca `APK_DOWNLOAD_URL`'in DEĞERİNİ değiştirdi, dosya yapısına dokunmadı) ve `docs/notifications.md` (orada barındırılan tek Supabase referansı `push_tokens` tablosu tasarımı — APK dağıtımıyla ilgisiz, GEÇERLİLİĞİNİ KORUYOR).
+
+**Doğrulama (madde 118):** `npx tsc --noEmit` → 0 hata.
+
+## 119. Sürüm Notları: Statik → GitHub Releases API (Dinamik)
+
+**Sorun:** `app/(public)/download.web.tsx`'teki sürüm notları önceden statik bir TypeScript array'i (`const RELEASE_NOTES: string[]`) idi. Yeni bir beta sürümü her çıktığında geliştirici dosyayı elle açıp array'i güncellemelidir — tasarımdan uzak bir iş akışı.
+
+**Çözüm:** GitHub API'den dinamik olarak sürüm notları çekme sistemi kuruldu:
+
+1. **Import:** `useEffect` hook'u eklenmiş.
+2. **State'ler:**
+   - `releaseNotes`: GitHub'dan çekilen markdown metin (body field)
+   - `isLoadingNotes`: Loading durumu
+   - `notesError`: Hata durumuna ait fallback mesaj
+3. **`useEffect` Hook:** Component mount edildiğinde, genel API'ye (auth gerektirmiyor) istek atılıyor:
+   ```
+   fetch('https://api.github.com/repos/ArdaGunal/KaymakTv/releases/tags/beta')
+   ```
+   Gelen JSON'dan `body` alanı state'e kaydediliyor. Hata durumunda: `"Sürüm notlarına GitHub üzerinden ulaşabilirsiniz."` fallback'i gösteriliyor.
+4. **UI Render:** Markdown metin `\n`'ler split'lenerek her bir satır kontrol ediliyor (boş satırlar filtreleniyor), ardından liste olarak render ediliyor. Loading/error durumlarında uygun mesajlar gösteriliyor.
+
+**Eski Kalıntılar Kaldırıldı:**
+- `const RELEASE_NOTES: string[]` array (statik, 5 madde)
+- `const RELEASE_DATE` sabit (artık gerekmiyor — tarih GitHub Release tarafından otomatik olarak veriliyor)
+
+**İş Akışı:** Yeni bir beta APK'sı dışarı çıktığında, geliştirici (1) yeni sürüm notlarını GitHub release'inin `body` alanına yazıyor, (2) APK dosyasını `beta` tag'ine aynı dosya adıyla yükleyip eski sürümün üzerine yazıyor, (3) başka hiçbir kod değişikliği gerekmeden dinamik sistem yeni notaları otomatik çekiyor. Yükleme sayfası (canlı kullanıcılara bakış açısından) her refresh'te en güncel notaları gösteriyor.
+
+**Kapsam:** Yalnızca `app/(public)/download.web.tsx` değişti. Diğer download-related dosyalar (`download.tsx`, `utils/constants.ts` sabitleri) etkilenmedi.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. Canlı tarayıcıda test edildi — GitHub Releases'ten beta tag'inin body'si başarıyla çekiliyor ve sayfa render ediliyor (yükleme animasyonu + hata handling başarılı).

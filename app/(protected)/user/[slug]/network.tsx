@@ -8,7 +8,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import NetworkUserCard from '../../../../features/publicProfile/components/NetworkUserCard';
 import { useNetworkList } from '../../../../hooks/useNetworkList';
 import { TraktUserProfile } from '../../../../services/api/social';
-import { useFollowStore } from '../../../../store/followStore';
 
 export default function NetworkScreen() {
   const { slug: rawSlug, type: rawType } = useLocalSearchParams();
@@ -22,14 +21,18 @@ export default function NetworkScreen() {
   const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialType);
 
   const { data, isLoading, fetchNextPage, isFetchingNextPage, isStoreLoading } = useNetworkList(slug, activeTab);
-  const { connectionStates } = useFollowStore();
 
-  const renderItem = ({ item }: { item: TraktUserProfile }) => {
-    const itemSlug = item.ids?.slug || item.username;
-    // Fallback'li olarak connectionState'i belirliyoruz, undefined ise 'none' diyebiliriz.
-    const state = connectionStates[itemSlug] || 'none';
-    return <NetworkUserCard user={item} initialConnectionState={state} />;
-  };
+  // Not: connectionState burada store'dan OKUNMUYOR — bu ekran zaten
+  // `isStoreLoading` bitene kadar (yani followStore.fetchFollowingSlugs
+  // tamamlanana kadar) FlatList'i hiç render etmiyor, NetworkUserCard kendi
+  // güncel durumunu içeride bir Zustand seçicisiyle doğrudan okuyor (bkz.
+  // hooks/useFollowState.ts). Burada `connectionStates`'in TAMAMINA abone
+  // olmak, listedeki HERHANGİ bir kullanıcının takip durumu değiştiğinde bu
+  // ekranın (ve dolayısıyla FlatList'in) gereksiz yere yeniden render
+  // olmasına yol açardı — kalabalık takipçi listelerinde performans sorunu.
+  const renderItem = ({ item }: { item: TraktUserProfile }) => (
+    <NetworkUserCard user={item} initialConnectionState="none" />
+  );
 
   return (
     <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>

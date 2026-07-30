@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
-import { deleteActivitiesBulk, fetchUserFeedActivities } from '../services/feedApi';
+import { deleteActivitiesBulk, fetchUserFeedActivities, invalidateUserFeedActivitiesCache } from '../services/feedApi';
 import { FeedItem, isMarathonActivity } from '../types';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
 
@@ -85,6 +85,10 @@ export function useUserActivity(traktSlug: string | null) {
       try {
         const rawIds = items.flatMap(resolveRawActivityIds);
         await deleteActivitiesBulk(accessToken, rawIds);
+        // Silinenler bir sonraki mount'ta önbellekten (bkz. feedApi.ts
+        // userFeedActivitiesCache) geri gelmesin diye — TTL dolana kadar
+        // beklemeye gerek yok.
+        if (traktSlug) invalidateUserFeedActivitiesCache(traktSlug);
       } catch (error) {
         console.warn('[Profile] Aktivite silinemedi:', error);
         // Sunucu başarısız oldu — optimistic değişikliği geri al.
@@ -92,7 +96,7 @@ export function useUserActivity(traktSlug: string | null) {
         Alert.alert(t('common:error'), t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.'));
       }
     },
-    [accessToken, isGuest, data, t]
+    [accessToken, isGuest, data, t, traktSlug]
   );
 
   const deleteItem = useCallback((item: FeedItem) => deleteItems([item]), [deleteItems]);

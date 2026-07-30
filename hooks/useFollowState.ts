@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { followTraktUser, unfollowTraktUser } from '../services/api/social';
 import { useFollowStore } from '../store/followStore';
+import { recordMutationResult } from '../utils/metrics';
 
 export type ConnectionState = 'none' | 'following' | 'pending';
 
@@ -22,13 +23,24 @@ export function useFollowState(
   const { accessToken, isGuest } = useAuth();
   const { t } = useTranslation('common');
   
-  const { connectionStates, isFetched, fetchFollowingSlugs, setOptimisticState } = useFollowStore();
+  // Seçici (selector) ile abone olunuyor: `useFollowStore()` (parametresiz)
+  // TÜM store'a abone olurdu — bir kullanıcının takip durumu değiştiğinde
+  // ekrandaki (arama sonucu, takipçi/takip edilen listesi vb.) HER
+  // useFollowState örneği gereksiz yere yeniden render olurdu. Yalnızca BU
+  // slug'ın değerine abone olunca her kart yalnızca kendi durumu
+  // değiştiğinde render olur — takipçi sayısı yüksek listelerde performans
+  // farkı büyük.
+  const storeConnectionState = useFollowStore(
+    useCallback((s) => (slug ? s.connectionStates[slug] : undefined), [slug])
+  );
+  const isFetched = useFollowStore((s) => s.isFetched);
+  const fetchFollowingSlugs = useFollowStore((s) => s.fetchFollowingSlugs);
+  const setOptimisticState = useFollowStore((s) => s.setOptimisticState);
 
   let connectionState: ConnectionState = initialConnectionState;
   if (slug) {
-     const storeState = connectionStates[slug];
-     if (storeState !== undefined) {
-         connectionState = storeState;
+     if (storeConnectionState !== undefined) {
+         connectionState = storeConnectionState;
      } else if (isFetched) {
          // Liste API'den tamamen çekildiyse ve bu slug listede YOKSA, demek ki takip edilmiyor
          connectionState = 'none';
@@ -63,8 +75,10 @@ export function useFollowState(
     
     try {
       await unfollowTraktUser(targetSlug);
+      recordMutationResult('unfollowUser', true);
     } catch (err) {
       console.warn('[useFollowState] Unfollow failed:', err);
+      recordMutationResult('unfollowUser', false);
       // Hata durumunda eski state'e geri çevir (Rollback)
       setOptimisticState(targetSlug, previousState);
     } finally {
@@ -115,11 +129,14 @@ export function useFollowState(
       const result = await followTraktUser(slug);
       const actualState = result.approvedAt ? 'following' : 'pending';
       setOptimisticState(slug, actualState);
+      recordMutationResult('followUser', true);
     } catch (err: any) {
       if (err?.response?.status === 409) {
         setOptimisticState(slug, 'pending');
+        recordMutationResult('followUser', true);
       } else {
         console.warn('[useFollowState] Follow failed:', err);
+        recordMutationResult('followUser', false);
         // Hata durumunda geri al (Rollback)
         setOptimisticState(slug, previousState);
       }

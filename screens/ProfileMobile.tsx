@@ -28,6 +28,7 @@ import { useProfileLists } from '../hooks/useProfileLists';
 import { useMyTraktProfile } from '../hooks/useMyTraktProfile';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
+import { NotificationBadge } from '../features/notifications/components/NotificationBadge';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
   items.map((item: any) => ({
@@ -97,14 +98,17 @@ export default function ProfileScreen() {
       {/* Güvenli Alana (Safe Area) Hizalı Üst Başlık Satırı */}
       <View style={styles.headerBar}>
         <Text style={styles.headerTitle}>{t('profileTitle', 'Profil')}</Text>
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => router.push('/(protected)/account')}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Settings size={20} color="#cbd5e1" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <NotificationBadge />
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => router.push('/(protected)/account')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Settings size={20} color="#cbd5e1" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>

@@ -10,7 +10,14 @@ export function useNetworkList(slug: string | null, type: 'followers' | 'followi
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [page, setPage] = useState(1);
-  const { isFetched, isLoading: isStoreLoading, fetchFollowingSlugs } = useFollowStore();
+  // Seçicilerle abone olunuyor (bkz. hooks/useFollowState.ts'teki aynı not) —
+  // bu ekran `connectionStates`'in tamamına ihtiyaç duymuyor, yalnızca bu üç
+  // alana. Whole-store abonelik, listedeki herhangi bir kullanıcının takip
+  // durumu değiştiğinde bu ekranın (ve altındaki FlatList'in) gereksiz yere
+  // yeniden render olmasına yol açardı.
+  const isFetched = useFollowStore((s) => s.isFetched);
+  const isStoreLoading = useFollowStore((s) => s.isLoading);
+  const fetchFollowingSlugs = useFollowStore((s) => s.fetchFollowingSlugs);
 
   useEffect(() => {
     if (!accessToken || isGuest) return;

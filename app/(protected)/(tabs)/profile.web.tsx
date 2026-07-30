@@ -22,6 +22,7 @@ import ProfileStats from '../../../components/profile/ProfileStats';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import ProfileTabs, { ProfileTabKey } from '../../../components/profile/ProfileTabs';
 import ProfileActivityTab from '../../../components/profile/ProfileActivityTab';
+import { NotificationBadge } from '../../../features/notifications/components/NotificationBadge';
 import { DESKTOP_CARD_WIDTH, DESKTOP_CARD_HEIGHT, DESKTOP_CARD_GAP } from '../../../components/profile/profileMetrics';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
@@ -220,14 +221,17 @@ export default function ProfileScreenWeb() {
             />
           )}
 
-          {/* Ayarlar butonu: header row'un en sağına entegre edildi */}
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => router.push('/(protected)/account')}
-            activeOpacity={0.8}
-          >
-            <Settings size={20} color="#cbd5e1" />
-          </TouchableOpacity>
+          {/* Ayarlar ve Bildirim butonları yan yana */}
+          <View style={{ flexDirection: 'row', gap: 12, marginLeft: 16 }}>
+            <NotificationBadge />
+            <TouchableOpacity
+              style={[styles.settingsButton, { marginLeft: 0 }]}
+              onPress={() => router.push('/(protected)/account')}
+              activeOpacity={0.8}
+            >
+              <Settings size={20} color="#cbd5e1" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Sekmeler: sol kenarla hizalı (avatarın başladığı çizgi) ───────── */}
