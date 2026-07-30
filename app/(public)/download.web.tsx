@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,18 +27,9 @@ import {
 import { useRouter } from 'expo-router';
 import { APK_DOWNLOAD_URL, GITHUB_RELEASES_URL } from '../../utils/constants';
 
-// Sürüm ve değişiklik notları (v2.0.0)
+// APK bilgileri — Sürüm notları GitHub API'den dinamik çekilir
 const CURRENT_VERSION = 'v2.0.0';
-const RELEASE_DATE = '29 Temmuz 2026';
-const APK_SIZE = '~45 MB';
-
-const RELEASE_NOTES: string[] = [
-  '🍿 Maraton Takibi: Arda arda izlenen bölümler otomatik gruplanır.',
-  '🌐 Dil Desteği: Karşılama ve ayarlar ekranına kolay dil değiştirici eklendi.',
-  '⚡ Yüksek Performans: Özel tab bar animasyonları ve hızlı veri yükleme.',
-  '🔒 Güvenli Senkronizasyon: Trakt.tv altyapısı ile şifreli veri aktarımı.',
-  '📱 Modern UI: Tamamen yenilenen karanlık tema ve bento grid tasarımı.',
-];
+const APK_SIZE = '~87 MB';
 
 const DESKTOP_BREAKPOINT = 868;
 
@@ -49,6 +40,38 @@ export default function DownloadScreen() {
 
   // Masaüstünde kurulum rehberi varsayılan olarak açık tutulur
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // GitHub'dan dinamik sürüm notları
+  const [releaseNotes, setReleaseNotes] = useState<string>('');
+  const [isLoadingNotes, setIsLoadingNotes] = useState(true);
+  const [notesError, setNotesError] = useState<string | null>(null);
+
+  // GitHub Releases API'sinden beta sürüm notlarını çek
+  useEffect(() => {
+    const fetchReleaseNotes = async () => {
+      try {
+        const response = await fetch(
+          'https://api.github.com/repos/ArdaGunal/KaymakTv/releases/tags/beta'
+        );
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setReleaseNotes(data.body || '');
+        setNotesError(null);
+      } catch (err) {
+        console.error('Sürüm notları çekilemedi:', err);
+        setNotesError('Sürüm notlarına GitHub üzerinden ulaşabilirsiniz.');
+        setReleaseNotes('');
+      } finally {
+        setIsLoadingNotes(false);
+      }
+    };
+
+    fetchReleaseNotes();
+  }, []);
 
   const handleDownload = () => {
     Linking.openURL(APK_DOWNLOAD_URL).catch((e) => console.error('APK linki açılamadı:', e));
@@ -224,23 +247,32 @@ export default function DownloadScreen() {
 
           {/* MASAÜSTÜ SAĞ SÜTUN / MOBİL ALT KISIM */}
           <View style={isDesktop ? styles.rightColumn : styles.singleColumn}>
-            {/* Sürüm Notları (Changelog) */}
+            {/* Sürüm Notları (Changelog) — GitHub API'den dinamik */}
             <View style={styles.changelogCard}>
               <View style={styles.changelogHeader}>
                 <Sparkles size={16} color="#60a5fa" />
                 <Text style={styles.changelogTitle}>
-                  {CURRENT_VERSION} Sürüm Notları ({RELEASE_DATE})
+                  {CURRENT_VERSION} Sürüm Notları
                 </Text>
               </View>
 
-              <View style={styles.changelogList}>
-                {RELEASE_NOTES.map((note, index) => (
-                  <View key={index} style={styles.changelogRow}>
-                    <CheckCircle2 size={15} color="#60a5fa" style={styles.checkIcon} />
-                    <Text style={styles.changelogText}>{note}</Text>
-                  </View>
-                ))}
-              </View>
+              {isLoadingNotes ? (
+                <Text style={styles.changelogText}>Sürüm notları yükleniyor...</Text>
+              ) : notesError ? (
+                <Text style={styles.changelogText}>{notesError}</Text>
+              ) : (
+                <View style={styles.changelogList}>
+                  {releaseNotes
+                    .split('\n')
+                    .filter((line) => line.trim().length > 0)
+                    .map((line, index) => (
+                      <View key={index} style={styles.changelogRow}>
+                        <CheckCircle2 size={15} color="#60a5fa" style={styles.checkIcon} />
+                        <Text style={styles.changelogText}>{line.trim()}</Text>
+                      </View>
+                    ))}
+                </View>
+              )}
             </View>
 
             {/* Adım Adım Kurulum Rehberi */}
