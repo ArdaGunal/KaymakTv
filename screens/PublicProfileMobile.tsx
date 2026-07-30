@@ -39,7 +39,13 @@ export default function PublicProfileMobile() {
   const [activeTab, setActiveTab] = useState<'activity' | 'shows' | 'movies'>('activity');
 
   const { profile, followersCount, followingCount, isLoading: isProfileLoading, error } = usePublicProfile(slug);
-  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(slug);
+  // Rota parametresi (`slug`) çağıran ekrana göre username YA DA kanonik
+  // slug olabilir (bkz. FeedCard.tsx/UserProfileCard.tsx'teki düzeltme notu)
+  // — followStore HER ZAMAN kanonik slug'a göre anahtarlandığından, profil
+  // yüklenince `profile.ids.slug`'a geçiliyor. Bu, "zaten takip ettiğim
+  // biri profilinde 'Takip Et' görünüyor" hatasına karşı ikinci bir güvence.
+  const followSlug = profile?.ids?.slug || slug;
+  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
   const { data: activityData, isLoading: isActivityLoading } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
 

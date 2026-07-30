@@ -755,3 +755,42 @@ export const removeSeasonFromHistoryTrakt = async (showId: number, season: numbe
     throw error;
   }
 };
+
+// Profil gizliliği (Gizli/Açık Hesap) — `/users/settings`, `/users/hidden/*`
+// ve `/users/:id/follow` ile AYNI aileden (`/users/*` yazma) bir uç nokta.
+// Baştan proxy'den geçiriliyor: bu iki kardeş uç nokta gerçek kullanıcı
+// raporlarıyla tarayıcıdan çağrıldığında CORS'a takıldığı kanıtlanmıştı
+// (bkz. docs/HISTORY.md Madde 109/120) — aynı riski curl ile tek başına
+// test etmek (OPTIONS preflight dahil) bu oturumda GÜVENİLİR bulunmadı,
+// bu yüzden ihtiyatlı yol seçildi. `TRAKT_PROXY_URL`/token-header deseni
+// yukarıdaki `hideItemTrakt`/`getAllHiddenItems` ile BİREBİR aynı.
+export const getProfilePrivacy = async (): Promise<boolean> => {
+  try {
+    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+    const response = await axios.get(TRAKT_PROXY_URL, {
+      params: { endpoint: '/users/settings' },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
+    return response.data?.user?.private ?? false;
+  } catch (error) {
+    console.error('Trakt API Hatası (getProfilePrivacy):', error);
+    throw error;
+  }
+};
+
+export const updateProfilePrivacy = async (isPrivate: boolean): Promise<void> => {
+  try {
+    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+    await axios.put(
+      TRAKT_PROXY_URL,
+      { user: { private: isPrivate } },
+      {
+        params: { endpoint: '/users/settings' },
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      }
+    );
+  } catch (error) {
+    console.error('Trakt API Hatası (updateProfilePrivacy):', error);
+    throw error;
+  }
+};

@@ -1,12 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { followTraktUser, unfollowTraktUser } from '../services/api/social';
 import { useFollowStore } from '../store/followStore';
 import { recordMutationResult } from '../utils/metrics';
+import { confirmAsync, notify } from '../utils/confirmDialog';
 
 export type ConnectionState = 'none' | 'following' | 'pending';
+
+// Follow/unfollow başarısız olduğunda kullanıcıya görünür bir uyarı gösterir
+// (bkz. "takip isteği gitmiyor" bug raporu — öncesinde hata yalnızca
+// console.warn ile sessizce yutuluyordu). `notify()` (utils/confirmDialog.ts)
+// projedeki TEK web/native Alert kaynağı — burada kendi kopyasını yazmak
+// yerine o kullanılıyor (bkz. useProfilePrivacy.ts'te de aynı desen).
+const showFollowErrorAlert = (t: (key: string, fallback: string) => string) => {
+  notify(
+    t('error', 'Hata'),
+    t('actionFailedMessage', 'İşlem gerçekleştirilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.')
+  );
+};
 
 /**
  * useFollowState — Trakt'ın kendi takip (follow) API'sini saran paylaşımlı hook.
@@ -81,6 +94,10 @@ export function useFollowState(
       recordMutationResult('unfollowUser', false);
       // Hata durumunda eski state'e geri çevir (Rollback)
       setOptimisticState(targetSlug, previousState);
+      // Önceden yalnızca console.warn ile sessizce yutuluyordu — kullanıcı
+      // butona basıp hiçbir tepki görmüyordu. Artık en azından bir işlemin
+      // başarısız olduğu görünür (bkz. "takip isteği gitmiyor" bug raporu).
+      showFollowErrorAlert(t);
     } finally {
       setIsFollowPending(false);
     }
@@ -95,27 +112,19 @@ export function useFollowState(
     }
 
     if (connectionState !== 'none') {
-      // Takipten Çıkma Onayı (Confirmation Dialog)
+      // Takipten Çıkma Onayı — `utils/confirmDialog.ts`'teki merkezi
+      // `confirmAsync` (web'de `window.confirm`, native'de iki butonlu
+      // `Alert.alert`e düşer) — burada elle Platform.OS dallanması
+      // YAZILMIYOR, o dosyanın kendi amacı zaten bunu önlemekti.
       const previousState = connectionState;
-
-      if (Platform.OS === 'web') {
-        const confirmed = window.confirm(t('unfollowMessage', 'Takipten çıkmak istediğinize emin misiniz?'));
-        if (confirmed) {
-          await execUnfollow(slug, previousState);
-        }
-      } else {
-        Alert.alert(
-          t('unfollowTitle', 'Takipten Çık'),
-          t('unfollowMessage', 'Takipten çıkmak istediğinize emin misiniz?'),
-          [
-            { text: t('cancel', 'İptal'), style: 'cancel' },
-            { 
-              text: t('unfollowConfirm', 'Çık'), 
-              style: 'destructive', 
-              onPress: () => execUnfollow(slug, previousState) 
-            }
-          ]
-        );
+      const confirmed = await confirmAsync(
+        t('unfollowTitle', 'Takipten Çık'),
+        t('unfollowMessage', 'Takipten çıkmak istediğinize emin misiniz?'),
+        t('unfollowConfirm', 'Çık'),
+        t('cancel', 'İptal')
+      );
+      if (confirmed) {
+        await execUnfollow(slug, previousState);
       }
       return;
     }
@@ -139,6 +148,11 @@ export function useFollowState(
         recordMutationResult('followUser', false);
         // Hata durumunda geri al (Rollback)
         setOptimisticState(slug, previousState);
+        // Önceden yalnızca console.warn ile sessizce yutuluyordu — kullanıcı
+        // butona basıp "takip ediliyor" görüp sonra hiçbir açıklama olmadan
+        // eski haline döndüğünü görüyordu (bkz. "takip isteği gitmiyor" bug
+        // raporu). Artık en azından bir hata olduğu görünür.
+        showFollowErrorAlert(t);
       }
     } finally {
       setIsFollowPending(false);

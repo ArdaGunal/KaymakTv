@@ -49,7 +49,11 @@ export default function UserProfileCard({
     <View style={styles.card}>
       <TouchableOpacity 
         style={styles.profileSection} 
-        onPress={() => router.push(`/user/${profile.username}`)}
+        // bkz. FeedCard.tsx'teki AYNI düzeltme notu — takip durumu
+        // (followStore) kanonik `slug`'a göre anahtarlanıyor, username'e
+        // göre değil; diğer `/user/*` yönlendirmeleriyle AYNI `ids?.slug ||
+        // username` deseni.
+        onPress={() => router.push(`/user/${profile.ids?.slug || profile.username}`)}
         activeOpacity={0.7}
       >
         {avatarUrl ? (

@@ -58,7 +58,14 @@ export default function FeedCard({
   const router = useRouter();
 
   const handlePressProfile = () => {
-    router.push(`/user/${activity.user.username}`);
+    // Takip durumu (followStore) HER ZAMAN Trakt'ın kanonik `slug`'ıyla
+    // anahtarlanıyor — kullanıcı adıyla (username) yönlendirirse ve ikisi
+    // farklıysa (ör. username'de büyük harf varsa), profile.web.tsx/
+    // PublicProfileMobile.tsx'teki `useFollowState` bu slug'ı store'da
+    // BULAMAZ ve zaten takip edilen biri için "Takip Et" gösterirdi. Diğer
+    // tüm `/user/*` yönlendirmeleriyle (ör. ProfileMobile.tsx) AYNI
+    // `traktSlug || username` deseni.
+    router.push(`/user/${activity.user.traktSlug || activity.user.username}`);
   };
 
   const card = (

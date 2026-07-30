@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, EyeOff, FileWarning, Globe, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
+import { Activity, EyeOff, FileWarning, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,6 +25,7 @@ import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { useFeedPrivacy } from '../../features/feed/hooks/useFeedPrivacy';
+import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
 
 // Sürüm numarasına bu kadar kez, aşağıdaki pencere içinde ard arda dokununca
 // gizli "Geliştirici Modu" açılır/kapanır (Android'in "Yapı Numarası"na
@@ -48,6 +49,7 @@ export default function SettingsScreen() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const feedPrivacy = useFeedPrivacy();
+  const profilePrivacy = useProfilePrivacy();
 
   // ── Gizli Geliştirici Modu (sürüm numarasına 7 hızlı dokunma) ────────────
   // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
@@ -176,6 +178,24 @@ export default function SettingsScreen() {
                 onValueChange={(v) => feedPrivacy.update('publishRatings', v)}
                 isLoading={feedPrivacy.isLoading}
                 disabled={feedPrivacy.savingKey !== null || feedPrivacy.hideAll}
+              />
+            </SettingsSection>
+          )}
+
+          {/* Trakt'ın hesap düzeyindeki Gizli/Açık Hesap ayarı — KaymakTV'nin
+              kendi akış gizliliğinden (yukarıdaki "Akış" bölümü) BAĞIMSIZ.
+              Misafirin bir Trakt hesabı yok, bu yüzden yalnızca gerçek
+              kullanıcıya gösterilir (yukarıdaki "Akış" bölümüyle AYNI guard). */}
+          {!isGuest && accessToken && (
+            <SettingsSection title={t('settings:privacySection', 'Gizlilik')}>
+              <SettingsSwitchRow
+                icon={<Lock size={20} color="#60a5fa" />}
+                label={t('settings:privateAccount', 'Gizli Hesap')}
+                hint={t('settings:privateAccountHint', 'Hesabınız gizliyken, sizi takip etmek isteyenlerin size istek göndermesi gerekir.')}
+                tintColor="#60a5fa"
+                value={profilePrivacy.isPrivate}
+                onValueChange={profilePrivacy.toggle}
+                isLoading={profilePrivacy.isLoading || profilePrivacy.isSaving}
               />
             </SettingsSection>
           )}

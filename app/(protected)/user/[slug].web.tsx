@@ -31,7 +31,10 @@ export default function PublicProfileScreenWeb() {
   const { t } = useTranslation(['feed', 'media']);
 
   const { profile, followersCount, followingCount, isLoading: isProfileLoading, error } = usePublicProfile(slug);
-  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(slug);
+  // bkz. screens/PublicProfileMobile.tsx'teki AYNI düzeltme notu — rota
+  // parametresi username olabilir, followStore kanonik slug bekliyor.
+  const followSlug = profile?.ids?.slug || slug;
+  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
   const { data: activityData, isLoading: isActivityLoading } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
 

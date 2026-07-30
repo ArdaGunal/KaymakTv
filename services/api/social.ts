@@ -1,4 +1,6 @@
+import axios from 'axios';
 import { getTraktClient } from './traktClient';
+import * as SecureStore from '../../utils/secureStorage';
 
 // Trakt'ın kendi sosyal grafiği (Follow/Following) — bkz. docs/feed.md
 // "Mimari Pivot". KaymakTV kendi takip tablosunu tutmuyor, tüm takip
@@ -6,6 +8,18 @@ import { getTraktClient } from './traktClient';
 // hepsi kullanıcının KENDİ token'ıyla çağrılıyor — Trakt zaten "bu isteği
 // kim yapıyor" sorusunu kendi OAuth'uyla cevapladığı için ayrı bir kimlik
 // doğrulama katmanına (Worker vb.) hiç gerek yok.
+
+// `/users/:id/follow` (POST/DELETE), `/users/hidden/*` ile AYNI aile davranışını
+// gösteriyor: tarayıcıdan doğrudan `getTraktClient()` ile çağrıldığında Trakt
+// CORS preflight'ını reddediyor (bkz. docs/HISTORY.md Madde 109 ve "takip
+// isteği gitmiyor" bug raporu — hata `useFollowState`'te sessizce yutulup
+// optimistic UI rollback'ine düştüğü için kullanıcıya hiçbir iz bırakmıyordu).
+// `services/api/users.ts`'teki TRAKT_PROXY_URL ile BİREBİR AYNI desen:
+// sunucu-sunucu isteği CORS'a hiç tabi değil. `Platform.OS` kontrolü
+// EKLENMEDİ (bkz. Madde 91) — native/web aynı yolu kullanır.
+const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
+  : '/api/trakt-proxy';
 
 export interface TraktUserProfile {
   username: string;
@@ -59,16 +73,22 @@ export interface FollowResult {
 }
 
 export const followTraktUser = async (username: string): Promise<FollowResult> => {
-  const client = await getTraktClient();
-  const response = await client.post(`/users/${encodeURIComponent(username)}/follow`, {});
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  const response = await axios.post(TRAKT_PROXY_URL, {}, {
+    params: { endpoint: `/users/${encodeURIComponent(username)}/follow` },
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
   return { approvedAt: response.data?.approved_at ?? null };
 };
 
 // NOT: Path gerçekten `/follow` — dokümantasyon sayfasının adı "unfollow"
 // olsa da HTTP path'i aynı follow endpoint'i, yalnızca metod DELETE.
 export const unfollowTraktUser = async (username: string): Promise<void> => {
-  const client = await getTraktClient();
-  await client.delete(`/users/${encodeURIComponent(username)}/follow`);
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  await axios.delete(TRAKT_PROXY_URL, {
+    params: { endpoint: `/users/${encodeURIComponent(username)}/follow` },
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
 };
 
 export const getUserWatchedShows = async (username: string) => {

@@ -41,7 +41,9 @@ export default function MarathonFeedCard({
   const initial = activity.user.username.charAt(0).toUpperCase();
 
   const handlePressProfile = () => {
-    router.push(`/user/${activity.user.username}`);
+    // bkz. FeedCard.tsx'teki AYNI düzeltme notu — takip durumu (followStore)
+    // kanonik `slug`'a göre anahtarlanıyor, username'e göre değil.
+    router.push(`/user/${activity.user.traktSlug || activity.user.username}`);
   };
 
   // Hex rengine opaklık katmak için basit yardımcı (inline stil gerektiğinde)

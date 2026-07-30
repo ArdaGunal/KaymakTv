@@ -1,26 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bell } from 'lucide-react-native';
-import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { useNotificationStore } from '../../../store/notificationStore';
 
 export const NotificationBadge = () => {
   const { unreadCount } = useNotificationStore();
-  const { t } = useTranslation('common');
+  const router = useRouter();
 
-  // Bildirim sistemi henüz yapım aşamasında (bkz. docs/notifications.md) —
-  // gerçek bir hedef ekran/yönlendirme yok. `useFollowState.ts`'teki
-  // web/native Alert ayrımıyla aynı desen: RN'in `Alert.alert`'ı Web'de
-  // hiç render olmaz, orada `window.alert` kullanılır.
   const handlePress = () => {
-    if (Platform.OS === 'web') {
-      window.alert(`${t('notificationsComingSoonTitle', 'Çok Yakında')}\n\n${t('notificationsComingSoonMessage', 'Bildirim sistemi yapım aşamasında.')}`);
-    } else {
-      Alert.alert(
-        t('notificationsComingSoonTitle', 'Çok Yakında'),
-        t('notificationsComingSoonMessage', 'Bildirim sistemi yapım aşamasında.')
-      );
-    }
+    router.push('/notifications');
   };
 
   const displayCount = unreadCount > 99 ? '99+' : unreadCount;

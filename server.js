@@ -159,6 +159,87 @@ app.post('/api/trakt-proxy', async (req, res) => {
   }
 });
 
+// Aynı köprünün DELETE varyantı — `unfollowTraktUser` (`DELETE /users/:id/follow`)
+// için. `followTraktUser`/`unfollowTraktUser` ikisi de `/users/:id/follow`
+// ailesine gittiğinden GET/POST'taki `/users/hidden/*` ile AYNI CORS reddine
+// takılıyor (bkz. docs/HISTORY.md Madde 109 ve "Takip isteği gitmiyor" bug'ı).
+app.delete('/api/trakt-proxy', async (req, res) => {
+  try {
+    const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: 'Server configuration error (missing EXPO_PUBLIC_TRAKT_CLIENT_ID)' });
+    }
+
+    let endpoint = req.query.endpoint;
+    if (!endpoint || typeof endpoint !== 'string') {
+      return res.status(400).json({ error: 'Endpoint is required' });
+    }
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId,
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const traktResponse = await axios.delete(`https://api.trakt.tv${endpoint}`, { headers });
+    res.status(traktResponse.status).json(traktResponse.data ?? {});
+  } catch (error) {
+    console.error('Error in Trakt proxy (DELETE):', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || 'Internal Server Error',
+      details: error.message,
+    });
+  }
+});
+
+// Aynı köprünün PUT varyantı — `updateProfilePrivacy` (`PUT /users/settings`,
+// gizli/açık hesap değiştirme) için. `/users/*` ailesindeki diğer yazma
+// uç noktaları (follow, hidden) gerçek kullanıcı raporlarıyla CORS'a
+// takıldığından (Madde 109/120), aynı riski taşıyan bu uç nokta da baştan
+// proxy'den geçirildi — curl ile tek başına test etmenin (OPTIONS
+// preflight'ı bile) gerçek tarayıcı davranışını güvenilir şekilde
+// öngöremediği bu oturumda ayrıca doğrulandı.
+app.put('/api/trakt-proxy', async (req, res) => {
+  try {
+    const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: 'Server configuration error (missing EXPO_PUBLIC_TRAKT_CLIENT_ID)' });
+    }
+
+    let endpoint = req.query.endpoint;
+    if (!endpoint || typeof endpoint !== 'string') {
+      return res.status(400).json({ error: 'Endpoint is required' });
+    }
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId,
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const traktResponse = await axios.put(`https://api.trakt.tv${endpoint}`, req.body, { headers });
+    res.status(traktResponse.status).json(traktResponse.data ?? {});
+  } catch (error) {
+    console.error('Error in Trakt proxy (PUT):', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || 'Internal Server Error',
+      details: error.message,
+    });
+  }
+});
+
 // ==========================================
 // TRAKT AUTH ENDPOINT
 // ==========================================
