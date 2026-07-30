@@ -4,45 +4,81 @@ import { View, Text, StyleSheet } from 'react-native';
 
 export default function Footer() {
   const { t } = useTranslation('common');
+
   return (
     <View style={styles.container}>
       <View style={styles.divider} />
-      <Text style={styles.brand}>KaymakTV</Text>
-      <Text style={styles.text}>{t('footerRights')}</Text>
-      <Text style={styles.subText}>{t('footerData')}</Text>
+
+      {/* Marka */}
+      <View style={styles.brandRow}>
+        <View style={styles.brandDot} />
+        <Text style={styles.brand}>KaymakTV</Text>
+      </View>
+
+      <Text style={styles.tagline}>İzlediklerinin kaymağını çıkar.</Text>
+
+      <View style={styles.metaRow}>
+        <Text style={styles.metaText}>{t('footerRights')}</Text>
+        <Text style={styles.metaDot}>·</Text>
+        <Text style={styles.metaText}>{t('footerData')}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 40,
+    paddingVertical: 36,
     paddingHorizontal: 24,
     alignItems: 'center',
     width: '100%',
   },
   divider: {
-    width: 48,
+    width: '100%',
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginBottom: 24,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 28,
+    maxWidth: 400,
   },
-  brand: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-    marginBottom: 8,
-  },
-  text: {
-    color: '#475569',
-    fontSize: 13,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     marginBottom: 6,
   },
-  subText: {
+  brandDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#3b82f6',
+  },
+  brand: {
+    color: '#e2e8f0',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  tagline: {
     color: '#334155',
+    fontSize: 12.5,
+    marginBottom: 18,
+    fontStyle: 'italic',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    alignItems: 'center',
+  },
+  metaText: {
+    color: '#1e293b',
     fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 17,
+  },
+  metaDot: {
+    color: '#1e293b',
+    fontSize: 11,
   },
 });

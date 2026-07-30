@@ -78,14 +78,22 @@ function DesktopProfileHeader({
       {/* Sağ Kolon: İstatistikler + Profili Düzenle Butonu */}
       <View style={desktopHeaderStyles.rightSection}>
         <View style={desktopHeaderStyles.statsRow}>
-          <TouchableOpacity style={desktopHeaderStyles.statItem} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={desktopHeaderStyles.statItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'followers' } })}
+          >
             <Text style={desktopHeaderStyles.statValue}>{followersCount}</Text>
             <Text style={desktopHeaderStyles.statLabel}>{t('profileFollowers', 'Takipçi')}</Text>
           </TouchableOpacity>
 
           <View style={desktopHeaderStyles.statDivider} />
 
-          <TouchableOpacity style={desktopHeaderStyles.statItem} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={desktopHeaderStyles.statItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'following' } })}
+          >
             <Text style={desktopHeaderStyles.statValue}>{followingCount}</Text>
             <Text style={desktopHeaderStyles.statLabel}>{t('profileFollowing', 'Takip Edilen')}</Text>
           </TouchableOpacity>

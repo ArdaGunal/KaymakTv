@@ -6,5 +6,9 @@
   "searchError": "Something went wrong, try again.",
   "follow": "Follow",
   "following": "Following",
-  "pending": "Pending Approval"
+  "pending": "Pending Approval",
+  "publicProfileEmptyTitle": "No activity yet",
+  "publicProfileEmptyText": "This user hasn't watched or rated anything yet.",
+  "publicProfileNotFound": "This user couldn't be found.",
+  "publicProfileLoadError": "Couldn't load profile. Please try again."
 }

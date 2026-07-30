@@ -6,6 +6,7 @@ import { supabase } from '../../feed/services/supabaseClient';
 // Dashboard'dan elle yapılır, istemcide hiçbir yazma yolu YOKTUR.
 export interface AppSettings {
   minRequiredVersion: string;
+  latestVersion: string;
   updateUrl: string;
 }
 
@@ -15,7 +16,7 @@ export interface AppSettings {
 export async function getAppSettings(): Promise<AppSettings | null> {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('min_required_version, update_url')
+    .select('min_required_version, latest_version, update_url')
     .eq('id', 1)
     .maybeSingle();
 
@@ -27,6 +28,7 @@ export async function getAppSettings(): Promise<AppSettings | null> {
 
   return {
     minRequiredVersion: data.min_required_version,
+    latestVersion: data.latest_version || data.min_required_version,
     updateUrl: data.update_url,
   };
 }

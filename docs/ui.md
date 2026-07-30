@@ -213,6 +213,49 @@ Bu dosya, KaymakTV projesinde yapılan tüm kullanıcı arayüzü (UI) ve kullan
 
 **Doğrulama:** `npx tsc --noEmit` → 0 hata.
 
+---
+
+## Madde 117. Hoş Geldin (Landing / Hero) Ekranı Modernizasyonu ve Premium Dark UI Tasarımı
+
+**Bağlam:** Uygulamanın karşılama/giriş ekranları (`HeroSection.tsx`, `BentoGrid.tsx`) görsel zenginlik ve kullanıcıyı ilk bakışta etkileme açısından sade kalıyordu.
+
+**Yapılan Değişiklikler:**
+1. **Yenilenen Hero Karşılama Rozeti (`badge`):** Parlayan aktif durum noktasına (`badgeDot`) sahip glassmorphism sürüm hapı (`✨ Yeni Sürüm 2.0 Yayında`).
+2. **Tipografi & Başlık Vurguları:** Yumuşak pastel camgöbeği/mavi tonlarda gradyan vurgu kelimeler (`#60a5fa` -> `#93c5fd`).
+3. **Butonlar & Aksiyonlar:**
+   - **Giriş Yap:** Canlı mavi gradyan (`#2563eb` -> `#3b82f6`) ve gölge efektleri.
+   - **Misafir Girişi:** Şeffaf sınır çizgili cam efekti (`rgba(59, 130, 246, 0.08)`).
+4. **Mikro Özellik Çipleri Satırı (`chipsRow`):** Butonların hemen altına güven ve görsel zenginlik katan 3 mikro çip eklendi (`🍿 100K+ Dizi & Film`, `⚡ Trakt.tv Senkron`, `📊 Detaylı İstatistik`).
+5. **BentoGrid Kartlarında Cam Efekti (`BentoGrid.tsx`):** Yumuşak koyu gradyan arka planlar (`rgba(30, 41, 59, 0.7)` -> `rgba(15, 23, 42, 0.95)`), zarif ikon çipleri ve modern tipografi hierarchy.
+
+**Güncellenen Dosyalar:**
+- [HeroSection.tsx](file:///c:/Yapay_Zeka_Uygulamalar/Kaymak/components/landing/HeroSection.tsx)
+- [BentoGrid.tsx](file:///c:/Yapay_Zeka_Uygulamalar/Kaymak/components/landing/BentoGrid.tsx)
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata.
+
+---
+
+## Madde 118. Özel Alt Navigasyon Çubuğu (CustomTabBar): Reanimated v3 UI Thread Animasyonu Entegrasyonu
+
+**Bağlam:** Alt navigasyon çubuğunda (Bottom Tab Bar) inaktif çizgisel ikonlar ile aktif pastel turkuaz kapsül (pill) arasındaki geçiş anlık ve sert gerçekleşiyordu.
+
+**Yapılan Geliştirme & Mimari:**
+1. **Reanimated v3 Entegrasyonu (`react-native-reanimated`):** JS thread'i bloklamamak ve 60/120 FPS akıcılığı garantilemek için UI thread animasyonları (`useDerivedValue`, `useAnimatedStyle`, `withTiming`, `interpolate`, `interpolateColor`) kullanıldı.
+2. **Kapsül Genişleme & Etiket Yumuşak Geçişi (`TabItem` bileşeni):**
+   - Aktifleşen sekmeye dokunulduğunda 220ms içinde kapsül arka planı (`ACCENT_BG`) ve kenarlığı (`ACCENT_BORDER`) yumuşakça belirir.
+   - Kapsül genişliği (`paddingHorizontal: 0 -> 14`) ve etiket konteyneri (`maxWidth: 0 -> 90px`, `marginLeft: 0 -> 7px`) yumuşakça açılır.
+   - Metin etiketi (`opacity: 0 -> 1`) yumuşak bir fade-in efektiyle belirmeden önce metnin taşması engellenir (`overflow: 'hidden'`).
+3. **Web Koruması (`Platform.OS === 'web'`):** Masaüstü/web tarafında tarayıcı yükünü sıfıra indirmek için Reanimated animasyonları baypas edilip statik, anlık geçiş korunmuştur.
+
+**Güncellenen Dosyalar:**
+- [CustomTabBar.tsx](file:///c:/Yapay_Zeka_Uygulamalar/Kaymak/components/CustomTabBar.tsx)
+- [package.json](file:///c:/Yapay_Zeka_Uygulamalar/Kaymak/package.json) (Expo SDK 54 uyumlu `react-native-reanimated` yüklendi)
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata.
+
+
+
 
 
 

@@ -2,13 +2,17 @@ import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Lock, Check, Clock, UserPlus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { TraktUserProfile } from '../../../services/api/social';
-import { ConnectionState } from '../hooks/useUserSearch';
+import { ConnectionState } from '../../../hooks/useFollowState';
 
 interface UserProfileCardProps {
   profile: TraktUserProfile | null;
   error: string | null;
   connectionState: ConnectionState;
+  /** Bağlantı durumu ilk kez okunurken (bkz. hooks/useFollowState.ts) true —
+   *  bu sırada buton "Takip Et" gibi yanlış bir varsayılanı YANIP SÖNMEMELİ. */
+  isLoadingConnection: boolean;
   isFollowPending: boolean;
   onToggleFollow: () => void;
 }
@@ -17,10 +21,12 @@ export default function UserProfileCard({
   profile,
   error,
   connectionState,
+  isLoadingConnection,
   isFollowPending,
   onToggleFollow,
 }: UserProfileCardProps) {
   const { t } = useTranslation('feed');
+  const router = useRouter();
 
   if (error) {
     return (
@@ -41,25 +47,31 @@ export default function UserProfileCard({
 
   return (
     <View style={styles.card}>
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-      ) : (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
-      )}
+      <TouchableOpacity 
+        style={styles.profileSection} 
+        onPress={() => router.push(`/user/${profile.username}`)}
+        activeOpacity={0.7}
+      >
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initial}</Text>
+          </View>
+        )}
 
-      <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={styles.username} numberOfLines={1}>
-            {profile.name || profile.username}
+        <View style={styles.info}>
+          <View style={styles.nameRow}>
+            <Text style={styles.username} numberOfLines={1}>
+              {profile.name || profile.username}
+            </Text>
+            {profile.private && <Lock size={13} color="#94a3b8" />}
+          </View>
+          <Text style={styles.handle} numberOfLines={1}>
+            @{profile.username}
           </Text>
-          {profile.private && <Lock size={13} color="#94a3b8" />}
         </View>
-        <Text style={styles.handle} numberOfLines={1}>
-          @{profile.username}
-        </Text>
-      </View>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={[
@@ -68,10 +80,10 @@ export default function UserProfileCard({
           connectionState === 'pending' && styles.pendingBtn,
         ]}
         onPress={onToggleFollow}
-        disabled={isFollowPending}
+        disabled={isFollowPending || isLoadingConnection}
         activeOpacity={0.8}
       >
-        {isFollowPending ? (
+        {isFollowPending || isLoadingConnection ? (
           <ActivityIndicator size="small" color={connectionState === 'none' ? '#fff' : '#94a3b8'} />
         ) : connectionState === 'following' ? (
           <>
@@ -105,6 +117,12 @@ const styles = StyleSheet.create({
     borderColor: '#22304A',
     padding: 14,
     marginBottom: 16,
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
   avatar: {
     width: 44,

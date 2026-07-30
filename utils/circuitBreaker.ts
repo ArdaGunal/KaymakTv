@@ -94,15 +94,35 @@ export const getCircuitBreaker = (key: string): CircuitBreaker => {
   return breaker;
 };
 
+// `/users/<segment>` yolunda BİLİNEN SABİT alt yollar — kullanıcı adı DEĞİL,
+// dokunulmaz. Trakt API'sinde bu ikisi dışında `/users/` sonrası her şey
+// (profil görüntüleme, takip, takipçi listesi — bkz. services/api/social.ts)
+// rastgele bir kullanıcı adıdır.
+const KNOWN_USERS_SUBPATHS = new Set(['me', 'hidden']);
+
 /**
- * Bir istek URL'sini breaker anahtarına indirger: sorgu string'i atılır,
- * sayısal path segmentleri (dizi/film/sezon ID'leri) `:id` ile normalize
- * edilir. Aksi halde `/shows/123/progress/watched` ve `/shows/456/progress/watched`
- * ayrı breaker'lar sayılır ve tek bir dizinin ilerlemesi başarısız olduğunda
- * diğer TÜM dizilerin ilerleme isteği yanlışlıkla korunmuş olurdu — oysa asıl
- * amaç, aynı ENDPOINT TÜRÜNÜN sağlığını izlemektir.
+ * Bir istek URL'sini breaker/metrik anahtarına indirger: sorgu string'i
+ * atılır, sayısal path segmentleri (dizi/film/sezon ID'leri) `:id` ile
+ * normalize edilir. Aksi halde `/shows/123/progress/watched` ve
+ * `/shows/456/progress/watched` ayrı breaker'lar sayılır ve tek bir dizinin
+ * ilerlemesi başarısız olduğunda diğer TÜM dizilerin ilerleme isteği
+ * yanlışlıkla korunmuş olurdu — oysa asıl amaç, aynı ENDPOINT TÜRÜNÜN
+ * sağlığını izlemektir.
+ *
+ * `/users/<username>` segmenti AYRICA normalize edilir (bkz. docs/HISTORY.md
+ * Madde 106): kullanıcı adları SAYISAL olmadığından yukarıdaki `:id` kuralı
+ * onları yakalamaz — her farklı arama/profil/takip isteği kendi KALICI
+ * breaker + metrik anahtarını üretiyordu. Sonuçları: (1) bu registry'ler hiç
+ * temizlenmediğinden [kullanıcı adı sayısı] kadar sınırsız büyüyorlardı, (2)
+ * asıl amaçlanan koruma da BOŞA çıkıyordu — `/users/{sorunlu-kullanıcı}`
+ * endpoint'i art arda 5 kez başarısız olsa bile her denemede FARKLI bir
+ * kullanıcı adıyla geldiğinden breaker hiçbir zaman art arda hata SAYAMIYOR,
+ * yani devre asla açılamıyordu.
  */
 export const normalizeEndpointKey = (url: string): string => {
   const path = (url || '').split('?')[0];
-  return path.replace(/\/\d+(?=\/|$)/g, '/:id');
+  const numericNormalized = path.replace(/\/\d+(?=\/|$)/g, '/:id');
+  return numericNormalized.replace(/^\/users\/([^/]+)/, (match, segment) =>
+    KNOWN_USERS_SUBPATHS.has(segment) ? match : '/users/:user'
+  );
 };

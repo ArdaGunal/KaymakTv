@@ -6,5 +6,9 @@
   "searchError": "Bir şeyler ters gitti, tekrar dene.",
   "follow": "Takip Et",
   "following": "Takip Ediliyor",
-  "pending": "Onay Bekleniyor"
+  "pending": "Onay Bekleniyor",
+  "publicProfileEmptyTitle": "Henüz aktivite yok",
+  "publicProfileEmptyText": "Bu kullanıcı henüz bir şey izlemedi veya puanlamadı.",
+  "publicProfileNotFound": "Bu kullanıcı bulunamadı.",
+  "publicProfileLoadError": "Profil yüklenemedi. Lütfen tekrar deneyin."
 }

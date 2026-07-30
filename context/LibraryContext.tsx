@@ -22,21 +22,31 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [accessToken, authIsLoading]);
 
-  // KRİTİK EKSİK (cihazlar arası senkron kopukluğu): eskiden `fetchFreshData`
-  // yalnızca (1) soğuk açılışta VE (2) `SYNC_INTERVAL` (10 dk, bkz.
-  // utils/cacheTTL.ts) doldurduğunda çalışıyordu — uygulama arka plana
-  // atılıp geri getirildiğinde HİÇBİR yeniden senkron tetiklenmiyordu (repo
-  // genelinde tek bir `AppState` dinleyicisi bile yoktu). Sonuç: Cihaz A'da
-  // bir dizi "Bırakıl"sa bile, Cihaz B zaten açıksa (veya kendi son
-  // senkronundan bu yana 10 dakika geçmemişse) Trakt'a BİR DAHA HİÇ
-  // sormuyordu — "Bırak" isteği Trakt'a başarıyla gitmiş olsa bile Cihaz B
-  // sonsuza dek eski veriyi göstermeye devam ediyordu. Standart RN deseni:
-  // arka plan → ön plan GEÇİŞİNİ (yalnızca ilk mount'u DEĞİL) yakalayıp
-  // `force=true` ile taze bir senkron tetikle — kullanıcı Cihaz B'ye
-  // döndüğü an Trakt'taki gerçek durumu görsün. Mevcut `isFetchingFreshData`
-  // kilidi + devre kesici + rate-limit koruması zaten üst üste binen/art
-  // arda tetiklenen çağrılara karşı savunma sağlıyor, burada ek bir
-  // throttle'a gerek yok.
+  // KRİTİK EKSİK (cihazlar arası senkron kopukluğu — bkz. docs/HISTORY.md
+  // Madde 101): eskiden `fetchFreshData` yalnızca (1) soğuk açılışta VE (2)
+  // `SYNC_INTERVAL` (10 dk, bkz. utils/cacheTTL.ts) doldurduğunda çalışıyordu
+  // — uygulama arka plana atılıp geri getirildiğinde HİÇBİR yeniden senkron
+  // tetiklenmiyordu (repo genelinde tek bir `AppState` dinleyicisi bile
+  // yoktu). Standart RN deseni: arka plan → ön plan GEÇİŞİNİ (yalnızca ilk
+  // mount'u DEĞİL) yakala ve bir senkron tetikle.
+  //
+  // BİLİNÇLİ KARAR (Madde 107) — `force=false`, `force=true` DEĞİL:
+  // Kullanıcı hem "cihazlar arası gecikme istemiyorum" hem "pil/performansı
+  // yorma, spam yapma" dedi — ilk bakışta çelişkili görünen bu iki isteği TEK
+  // parametre değişikliğiyle karşılıyoruz. `fetchFreshData` (bkz.
+  // services/library/fetchers.ts) içindeki `syncHiddenLists(accessToken)`
+  // çağrısı BİLİNÇLİ OLARAK `force`/TTL kontrolünden ÖNCE, KOŞULSUZ çalışır
+  // (Madde 102) — yani `force=false` verilse BİLE "Bırak" (hide/unhide)
+  // durumu HER foreground geçişinde, TTL'den bağımsız, iki hafif GET isteğiyle
+  // anında tazelenir; hiçbir gecikme eklenmez. Yalnızca ARKASINDAN gelen ağır
+  // ~15 uç noktalı tam senkron (izleme geçmişi, puanlar, listeler, takvim vb.)
+  // 10 dakikalık TTL'e tabi kalır — kullanıcı uygulamalar arasında sık sık
+  // geçiş yapsa bile (bildirim kontrolü, kısa bir göz atma) her seferinde
+  // ağır bir senkron tetiklenip pil/veri harcamaz. `force=true` kullanılsaydı
+  // "Bırak" için zaten gereksiz olan bu ağır senkron da her foreground'da
+  // tetiklenir, tam olarak kullanıcının istemediği "spam" davranışını
+  // üretirdi. Mevcut `isFetchingFreshData` kilidi + devre kesici + rate-limit
+  // koruması ayrıca üst üste binen çağrılara karşı savunma sağlıyor.
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
@@ -46,7 +56,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       const wasBackgrounded = appStateRef.current.match(/inactive|background/);
       appStateRef.current = nextState;
       if (wasBackgrounded && nextState === 'active') {
-        LibraryService.fetchFreshData(accessToken, true);
+        LibraryService.fetchFreshData(accessToken, false);
       }
     });
 

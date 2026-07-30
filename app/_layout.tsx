@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { View, StyleSheet } from 'react-native';
 import { LibraryProvider } from '../context/LibraryContext';
 import VersionGate from '../features/versionGate/components/VersionGate';
+import SoftUpdateBanner from '../components/SoftUpdateBanner';
 
 function RootLayoutNav() {
   const { isLoading } = useAuth();
@@ -13,10 +14,13 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#171717' } }}>
-      <Stack.Screen name="(public)" />
-      <Stack.Screen name="(protected)" />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#171717' } }}>
+        <Stack.Screen name="(public)" />
+        <Stack.Screen name="(protected)" />
+      </Stack>
+      <SoftUpdateBanner />
+    </>
   );
 }
 

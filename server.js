@@ -66,6 +66,100 @@ app.get('/api/tmdb', async (req, res) => {
 });
 
 // ==========================================
+// TRAKT GENERIC PROXY (CORS Köprüsü)
+// ==========================================
+// `/users/hidden/progress_watched` ve `/users/hidden/calendar` tarayıcıdan
+// (web) doğrudan çağrıldığında Trakt CORS preflight'ını reddediyor
+// (Access-Control-Allow-Origin başlığı gelmiyor) — diğer Trakt uç
+// noktalarının çoğu bu sorunu yaşamıyor, yalnızca bunlarda gözlemlendi.
+// Sunucu-sunucu isteği CORS'a hiç tabi olmadığından, /api/trakt (auth) ve
+// /api/tmdb ile AYNI proxy deseni burada da uygulandı. Token, sızıntı
+// riskini azaltmak için URL/query string'e DEĞİL, isteğin kendi
+// Authorization başlığına konur ve olduğu gibi Trakt'a iletilir.
+app.get('/api/trakt-proxy', async (req, res) => {
+  try {
+    const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: 'Server configuration error (missing EXPO_PUBLIC_TRAKT_CLIENT_ID)' });
+    }
+
+    let endpoint = req.query.endpoint;
+    if (!endpoint || typeof endpoint !== 'string') {
+      return res.status(400).json({ error: 'Endpoint is required' });
+    }
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const queryParams = { ...req.query };
+    delete queryParams.endpoint;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId,
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const traktResponse = await axios.get(`https://api.trakt.tv${endpoint}`, {
+      params: queryParams,
+      headers,
+    });
+
+    // Sayfalama bilgisini (getAllHiddenItems bunu okuyor) yanıt başlığında koru.
+    const pageCount = traktResponse.headers['x-pagination-page-count'];
+    if (pageCount) res.setHeader('x-pagination-page-count', pageCount);
+
+    res.json(traktResponse.data);
+  } catch (error) {
+    console.error('Error in Trakt proxy:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || 'Internal Server Error',
+      details: error.message,
+    });
+  }
+});
+
+// Aynı köprünün POST varyantı — `hideItemTrakt`/`unhideItemTrakt` da
+// `/users/hidden/*` ailesine yazdığından aynı CORS reddiyle karşılaşıyor.
+app.post('/api/trakt-proxy', async (req, res) => {
+  try {
+    const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: 'Server configuration error (missing EXPO_PUBLIC_TRAKT_CLIENT_ID)' });
+    }
+
+    let endpoint = req.query.endpoint;
+    if (!endpoint || typeof endpoint !== 'string') {
+      return res.status(400).json({ error: 'Endpoint is required' });
+    }
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId,
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const traktResponse = await axios.post(`https://api.trakt.tv${endpoint}`, req.body, { headers });
+    res.json(traktResponse.data);
+  } catch (error) {
+    console.error('Error in Trakt proxy (POST):', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || 'Internal Server Error',
+      details: error.message,
+    });
+  }
+});
+
+// ==========================================
 // TRAKT AUTH ENDPOINT
 // ==========================================
 app.post('/api/trakt', async (req, res) => {

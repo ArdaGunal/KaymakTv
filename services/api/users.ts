@@ -1,4 +1,6 @@
+import axios from 'axios';
 import { getTraktClient } from './traktClient';
+import * as SecureStore from '../../utils/secureStorage';
 
 export const getWatchedShows = async () => {
   try {
@@ -278,36 +280,103 @@ export const removeMediaFromCustomList = async (listId: number | string, mediaId
   }
 };
 
-export const getOrCreateLikedList = async () => {
-  const client = await getTraktClient();
-  const { data: lists } = await client.get('/users/me/lists');
-  
-  let likedList = lists.find((l: any) => l.name === 'Beğenilen Diziler' || l.name === 'Beğenilenler');
-  
-  if (!likedList) {
-    const { data: newList } = await client.post('/users/me/lists', {
-      name: 'Beğenilen Diziler',
-      description: 'Kalp butonuna basarak beğendiğim içerikler.',
-      privacy: 'private',
-      display_numbers: false,
-      allow_comments: false
-    });
-    likedList = newList;
+// "Beğenilenler" özel liste ID'si — CACHE'LENİR (bkz. docs/HISTORY.md Madde 106).
+// ESKİ DAVRANIŞ: her çağrı `GET /users/me/lists`i baştan çekiyordu; tek bir
+// `fetchFreshData` turunda `getCustomLists()` + `getLikedShows()` +
+// `getLikedMovies()` AYNI ANDA tetiklendiğinden (Promise.all) bu uç nokta
+// senkron başına 3 KEZ vuruluyordu — performans raporunda 25 senkron × 3 = 75
+// çağrı olarak görüldü, üçte ikisi gereksizdi. Liste ID'si bir oturum boyunca
+// değişmeyen sabit bir değer olduğundan önbelleğe almak güvenlidir.
+let cachedLikedListId: number | null = null;
+// Önbellek HANGİ hesaba ait olduğunu unutmamalı: kullanıcı çıkış yapıp farklı
+// bir Trakt hesabıyla tekrar girerse (uygulama yeniden başlatılmadan) eski
+// liste ID'si YANLIŞ hesaba ait kalır — favorileme sessizce yanlış listeye
+// yazardı. `getTraktClient()`'ın kendisi de token'ı SecureStore'dan okuyup
+// aynı şekilde karşılaştırıyor (bkz. `cachedAccessToken`); aynı deseni burada
+// da uyguluyoruz.
+let cachedForAccessToken: string | null = null;
+// Aynı anda birden fazla çağıran (ör. Promise.all içindeki getLikedShows +
+// getLikedMovies) varsa hepsi TEK bir isteği paylaşsın — üç ayrı istek yerine.
+let inFlightListLookup: Promise<number> | null = null;
+
+/** Hesap değişimi/çıkış sonrası önbelleği elle geçersiz kılmak için (bkz.
+ * aşağıdaki 404 kurtarma yolu — liste kullanıcı tarafından Trakt.tv'den
+ * silinmişse önbellekteki ID artık geçersizdir). */
+export const invalidateLikedListCache = () => {
+  cachedLikedListId = null;
+  cachedForAccessToken = null;
+};
+
+export const getOrCreateLikedList = async (): Promise<number> => {
+  const currentToken = await SecureStore.getItemAsync('traktAccessToken');
+
+  if (cachedLikedListId !== null && cachedForAccessToken === currentToken) {
+    return cachedLikedListId;
   }
-  return likedList.ids.trakt;
+
+  if (inFlightListLookup) {
+    return inFlightListLookup;
+  }
+
+  inFlightListLookup = (async () => {
+    const client = await getTraktClient();
+    const { data: lists } = await client.get('/users/me/lists');
+
+    let likedList = lists.find((l: any) => l.name === 'Beğenilen Diziler' || l.name === 'Beğenilenler');
+
+    if (!likedList) {
+      const { data: newList } = await client.post('/users/me/lists', {
+        name: 'Beğenilen Diziler',
+        description: 'Kalp butonuna basarak beğendiğim içerikler.',
+        privacy: 'private',
+        display_numbers: false,
+        allow_comments: false
+      });
+      likedList = newList;
+    }
+
+    cachedLikedListId = likedList.ids.trakt;
+    cachedForAccessToken = currentToken;
+    return cachedLikedListId as number;
+  })();
+
+  try {
+    return await inFlightListLookup;
+  } finally {
+    inFlightListLookup = null;
+  }
+};
+
+/** Önbellekteki liste ID'si ile bir işlemi çalıştırır; 404 (liste artık yok —
+ * kullanıcı Trakt.tv'den elle silmiş olabilir) alınırsa önbellek temizlenip
+ * TEK seferlik bir yeniden deneme yapılır. Üç tüketicinin (getLikedShows,
+ * getLikedMovies, toggleLikedMedia) tekrarlamaması için ortak yardımcı. */
+const withLikedListId = async <T>(fn: (listId: number) => Promise<T>): Promise<T> => {
+  const listId = await getOrCreateLikedList();
+  try {
+    return await fn(listId);
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      invalidateLikedListCache();
+      const freshListId = await getOrCreateLikedList();
+      return await fn(freshListId);
+    }
+    throw error;
+  }
 };
 
 export const getLikedShows = async () => {
   try {
-    const listId = await getOrCreateLikedList();
-    const client = await getTraktClient();
-    const response = await client.get(`/users/me/lists/${listId}/items/shows?extended=full`);
-    // Custom list items return an array of { id, rank, listed_at, type, show: { ... } }
-    // So we map them to return just the show object similar to favorites API
-    return response.data.map((item: any) => ({
-      listed_at: item.listed_at,
-      show: item.show
-    }));
+    return await withLikedListId(async (listId) => {
+      const client = await getTraktClient();
+      const response = await client.get(`/users/me/lists/${listId}/items/shows?extended=full`);
+      // Custom list items return an array of { id, rank, listed_at, type, show: { ... } }
+      // So we map them to return just the show object similar to favorites API
+      return response.data.map((item: any) => ({
+        listed_at: item.listed_at,
+        show: item.show
+      }));
+    });
   } catch (error) {
     console.error('Trakt API Hatası (getLikedShows):', error);
     throw error;
@@ -316,13 +385,14 @@ export const getLikedShows = async () => {
 
 export const getLikedMovies = async () => {
   try {
-    const listId = await getOrCreateLikedList();
-    const client = await getTraktClient();
-    const response = await client.get(`/users/me/lists/${listId}/items/movies?extended=full`);
-    return response.data.map((item: any) => ({
-      listed_at: item.listed_at,
-      movie: item.movie
-    }));
+    return await withLikedListId(async (listId) => {
+      const client = await getTraktClient();
+      const response = await client.get(`/users/me/lists/${listId}/items/movies?extended=full`);
+      return response.data.map((item: any) => ({
+        listed_at: item.listed_at,
+        movie: item.movie
+      }));
+    });
   } catch (error) {
     console.error('Trakt API Hatası (getLikedMovies):', error);
     throw error;
@@ -331,18 +401,19 @@ export const getLikedMovies = async () => {
 
 export const toggleLikedMedia = async (id: number, type: 'show' | 'movie', isAdding: boolean) => {
   try {
-    const listId = await getOrCreateLikedList();
-    const client = await getTraktClient();
-    const endpoint = isAdding ? `/users/me/lists/${listId}/items` : `/users/me/lists/${listId}/items/remove`;
-    const payload = {
-      [type === 'show' ? 'shows' : 'movies']: [
-        {
-          ids: { trakt: id }
-        }
-      ]
-    };
-    const response = await client.post(endpoint, payload);
-    return response.data;
+    return await withLikedListId(async (listId) => {
+      const client = await getTraktClient();
+      const endpoint = isAdding ? `/users/me/lists/${listId}/items` : `/users/me/lists/${listId}/items/remove`;
+      const payload = {
+        [type === 'show' ? 'shows' : 'movies']: [
+          {
+            ids: { trakt: id }
+          }
+        ]
+      };
+      const response = await client.post(endpoint, payload);
+      return response.data;
+    });
   } catch (error) {
     console.error('Trakt API Hatası (toggleLikedMedia):', error);
     throw error;
@@ -487,30 +558,39 @@ export const removeFromWatchlistTrakt = async (id: number, type: 'show' | 'movie
   }
 };
 
+// NOT: `getAllHiddenItems`'taki gibi (bkz. aşağıdaki not) bunlar da
+// `/users/hidden/*` ailesine gittiği için aynı tarayıcı CORS reddine takılıyor
+// — proxy üzerinden gönderilir, `TRAKT_PROXY_URL`/token-header deseni birebir aynı.
 export const hideItemTrakt = async (id: number, type: 'show' | 'movie') => {
   try {
-    const client = await getTraktClient();
+    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
     const body = {
       [type === 'show' ? 'shows' : 'movies']: [{ ids: { trakt: id } }]
     };
-    // Sadece dizilerin progress'i gizlenebilir (Trakt API dÃ¶kÃ¼mantasyonuna gÃ¶re film progressi yok, genelde shows is hidden)
+    // Sadece dizilerin progress'i gizlenebilir (Trakt API dökümantasyonuna göre film progressi yok, genelde shows is hidden)
     const section = type === 'show' ? 'progress_watched' : 'calendar';
-    const response = await client.post(`/users/hidden/${section}`, body);
+    const response = await axios.post(TRAKT_PROXY_URL, body, {
+      params: { endpoint: `/users/hidden/${section}` },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
     return response.data;
   } catch (error) {
-    console.error('Trakt API HatasÄ± (hideItemTrakt):', error);
+    console.error('Trakt API Hatası (hideItemTrakt):', error);
     throw error;
   }
 };
 
 export const unhideItemTrakt = async (id: number, type: 'show' | 'movie') => {
   try {
-    const client = await getTraktClient();
+    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
     const body = {
       [type === 'show' ? 'shows' : 'movies']: [{ ids: { trakt: id } }]
     };
     const section = type === 'show' ? 'progress_watched' : 'calendar';
-    const response = await client.post(`/users/hidden/${section}/remove`, body);
+    const response = await axios.post(TRAKT_PROXY_URL, body, {
+      params: { endpoint: `/users/hidden/${section}/remove` },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
     return response.data;
   } catch (error) {
     console.error('Trakt API Hatası (unhideItemTrakt):', error);
@@ -545,14 +625,36 @@ const HIDDEN_MAX_PAGES = 100;
 // da tekrar denendiğinde) kendiliğinden düzeldiği için de "bazen oluyor
 // bazen olmuyor" şeklinde görünüyordu ve hata günlüğüne HİÇBİR iz düşmüyordu
 // (istek teknik olarak 200 dönüyordu, sadece içeriği bayattı).
-const cacheBustParam = () => `_=${Date.now()}`;
+// NEDEN client-side getTraktClient() (direkt Trakt'a) DEĞİL: `/users/hidden/*`
+// tarayıcıdan (web) doğrudan çağrıldığında Trakt CORS preflight'ını
+// reddediyor (Access-Control-Allow-Origin başlığı gelmiyor) — diğer Trakt uç
+// noktalarının çoğu bu sorunu yaşamıyor, yalnızca bu ikisinde gözlemlendi.
+// server.js'teki /api/trakt (auth) ve /api/tmdb ile AYNI proxy deseni
+// uygulandı: sunucu-sunucu isteği CORS'a hiç tabi değil.
+//
+// ⚠️ services/api/auth.ts'teki notla AYNI gerekçeyle: bu URL seçimine
+// Platform.OS kontrolü EKLENMEDİ (bkz. docs/HISTORY.md Madde 91) — hem native
+// hem web aynı /api/trakt-proxy yolunu, aynı EXPO_PUBLIC_API_URL mutlak/göreli
+// seçim mantığıyla kullanıyor.
+const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
+  : '/api/trakt-proxy';
 
 const getAllHiddenItems = async (section: 'progress_watched' | 'calendar', type: 'show' | 'movie') => {
-  const client = await getTraktClient();
-  const url = (page: number) =>
-    `/users/hidden/${section}?type=${type}&page=${page}&limit=${HIDDEN_PAGE_LIMIT}&${cacheBustParam()}`;
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  // Token URL/query string'e DEĞİL, isteğin kendi Authorization başlığına
+  // konur — sunucu erişim loglarında kalıcı iz bırakmaması için.
+  const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
 
-  const first = await client.get(url(1));
+  // CDN önbellek kırıcı (bkz. docs/HISTORY.md Madde 9/102) — `_` her çağrıda
+  // benzersiz olmalı ki Trakt'ın CDN'i bayat bir yanıtı önbellekten dönmesin.
+  const fetchPage = (page: number) =>
+    axios.get(TRAKT_PROXY_URL, {
+      params: { endpoint: `/users/hidden/${section}`, type, page, limit: HIDDEN_PAGE_LIMIT, _: Date.now() },
+      headers,
+    });
+
+  const first = await fetchPage(1);
   const allData: any[] = [...first.data];
 
   const totalPagesStr = first.headers['x-pagination-page-count'];
@@ -563,7 +665,7 @@ const getAllHiddenItems = async (section: 'progress_watched' | 'calendar', type:
   // zaten en düşük öncelikli arka plan turunda çalışır — Trakt'ın rate limit'ini
   // zorlamaya değmez.
   for (let page = 2; page <= totalPages; page++) {
-    const response = await client.get(url(page));
+    const response = await fetchPage(page);
     allData.push(...response.data);
   }
 

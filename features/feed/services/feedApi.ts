@@ -1,6 +1,15 @@
+import axios from 'axios';
 import { getMyFollowingSlugs } from '../../../services/api/social';
 import { supabase } from './supabaseClient';
 import { FeedActivity, FeedActivityType } from '../types';
+
+// Aynı Cloudflare Worker'ın (kaymaktv-feedback-worker) /feed/delete uç
+// noktası — bkz. feedSync.ts/feedPrivacy.ts. DOĞRUDAN client'tan Supabase'e
+// DELETE atILMAZ: bu proje Supabase Auth kullanmıyor, `supabase` client'ı
+// (supabaseClient.ts) yalnızca anon key + SELECT-only RLS ile okuma yapar.
+// Silme, Worker'ın Trakt token'ını doğrulayıp service_role ile yaptığı bir
+// yazma işlemidir.
+const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 
 // Feed doğası gereği "taze" olanı gösterir — docs/feed.md'de kararlaştırıldığı
 // gibi son 30 gün + sabit bir sayfa boyutu. Daha eskisi bir kullanıcının
@@ -98,4 +107,32 @@ export async function fetchUserFeedActivities(traktSlug: string): Promise<FeedAc
 
   if (error) throw error;
   return ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+}
+
+// ── Aktivite Silme (Hard Delete) ────────────────────────────────────────────
+// Profil › Aktiviteler sekmesinde kullanıcının kendi aktivitelerini kalıcı
+// olarak silmesi. Worker, id'leri `user_id = doğrulanan kullanıcı` şartıyla
+// siler — bu yüzden başka bir kullanıcının id'si gönderilse bile hiçbir şey
+// silinmez (bkz. kaymaktv-feedback-worker/src/index.js handleFeedDelete).
+export async function deleteActivitiesBulk(
+  traktAccessToken: string,
+  activityIds: string[]
+): Promise<void> {
+  if (activityIds.length === 0) return;
+  if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+
+  const response = await axios.post(
+    `${KAYMAK_WORKER_URL}/feed/delete`,
+    { traktAccessToken, activityIds },
+    { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+  );
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || 'İşlem başarısız.');
+  }
+}
+
+// Tekil silme, toplu uç noktanın tek elemanlı bir çağrısıdır — Worker'da
+// ayrı bir kod yolu yok, tutarlılık için tek bir uç nokta yeterli.
+export async function deleteActivity(traktAccessToken: string, activityId: string): Promise<void> {
+  return deleteActivitiesBulk(traktAccessToken, [activityId]);
 }

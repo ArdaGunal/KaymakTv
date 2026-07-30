@@ -25,15 +25,21 @@ export const getUserProfile = async (username: string): Promise<TraktUserProfile
 };
 
 // `?extended=full` olmadan avatar/isim gibi alanlar eksik gelir — bkz. yukarıdaki not.
-export const getFollowers = async (username: string): Promise<TraktUserProfile[]> => {
+export const getFollowers = async (username: string, page?: number, limit?: number): Promise<TraktUserProfile[]> => {
   const client = await getTraktClient();
-  const response = await client.get(`/users/${encodeURIComponent(username)}/followers?extended=full`);
+  let url = `/users/${encodeURIComponent(username)}/followers?extended=full`;
+  if (page) url += `&page=${page}`;
+  if (limit) url += `&limit=${limit}`;
+  const response = await client.get(url);
   return (response.data ?? []).map((item: any) => item?.user).filter(Boolean);
 };
 
-export const getFollowing = async (username: string): Promise<TraktUserProfile[]> => {
+export const getFollowing = async (username: string, page?: number, limit?: number): Promise<TraktUserProfile[]> => {
   const client = await getTraktClient();
-  const response = await client.get(`/users/${encodeURIComponent(username)}/following?extended=full`);
+  let url = `/users/${encodeURIComponent(username)}/following?extended=full`;
+  if (page) url += `&page=${page}`;
+  if (limit) url += `&limit=${limit}`;
+  const response = await client.get(url);
   return (response.data ?? []).map((item: any) => item?.user).filter(Boolean);
 };
 
@@ -63,4 +69,16 @@ export const followTraktUser = async (username: string): Promise<FollowResult> =
 export const unfollowTraktUser = async (username: string): Promise<void> => {
   const client = await getTraktClient();
   await client.delete(`/users/${encodeURIComponent(username)}/follow`);
+};
+
+export const getUserWatchedShows = async (username: string) => {
+  const client = await getTraktClient();
+  const response = await client.get(`/users/${encodeURIComponent(username)}/watched/shows?extended=full`);
+  return response.data ?? [];
+};
+
+export const getUserWatchedMovies = async (username: string) => {
+  const client = await getTraktClient();
+  const response = await client.get(`/users/${encodeURIComponent(username)}/watched/movies?extended=full`);
+  return response.data ?? [];
 };

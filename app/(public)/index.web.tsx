@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../hooks/useSettings';
+import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import Head from 'expo-router/head';
 import { getTrendingShows, getTrendingMovies } from '../../services/traktApi';
 import { getShowPoster, getMoviePoster } from '../../services/tmdbApi';
@@ -85,6 +87,16 @@ const LandingCSS = `
   .nav-actions{ display:flex; align-items:center; gap:22px; }
   .link-ghost{ font-size:14.5px; font-weight:600; color:var(--text-muted); transition:color .2s ease; }
   .link-ghost:hover{ color:var(--cream); }
+
+  /* Dil değiştirme butonu */
+  .lang-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 13px; border-radius:100px; font-size:12.5px; font-weight:700;
+    background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.22);
+    color:#93c5fd; letter-spacing:.04em; cursor:pointer;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .lang-btn:hover{ background:rgba(59,130,246,.18); border-color:rgba(59,130,246,.4); }
 
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:8px;
@@ -332,9 +344,11 @@ export default function WebLandingPage() {
   const { t } = useTranslation('common');
   const router = useRouter();
   const { loginAsGuest } = useAuth();
+  const { currentLanguage, handleChangeLanguage } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [navStyle, setNavStyle] = useState({ background: 'rgba(11,17,32,.72)' });
   const [trendingMedia, setTrendingMedia] = useState<any[]>([]);
+  const [langModalVisible, setLangModalVisible] = useState(false);
   
   const handleScroll = () => {
     if (window.scrollY > 40) {
@@ -499,6 +513,13 @@ export default function WebLandingPage() {
             <li><a href="#kesfet">Trendler</a></li>
           </ul>
           <div className="nav-actions">
+            <button
+              className="lang-btn"
+              onClick={() => setLangModalVisible(true)}
+              aria-label="Change language"
+            >
+              🌐 {currentLanguage === 'tr' ? 'TR' : 'EN'}
+            </button>
             <a onClick={handleGuest} className="link-ghost desktop-only">{t('exploreAsGuest')}</a>
             <a onClick={handleLogin} className="btn btn-primary desktop-only">{t('login')}</a>
             <button
@@ -519,6 +540,13 @@ export default function WebLandingPage() {
         <a href="#istatistik" onClick={() => setIsMenuOpen(false)}>{t('statistics')}</a>
         <a href="#kesfet" onClick={() => setIsMenuOpen(false)}>Trendler</a>
         <a onClick={() => { setIsMenuOpen(false); handleGuest(); }}>{t('exploreAsGuest')}</a>
+        <button
+          className="lang-btn"
+          style={{ alignSelf: 'flex-start' }}
+          onClick={() => { setIsMenuOpen(false); setLangModalVisible(true); }}
+        >
+          🌐 {currentLanguage === 'tr' ? 'Türkçe' : 'English'}
+        </button>
         <a onClick={() => { setIsMenuOpen(false); handleLogin(); }} className="btn btn-primary">{t('login')}</a>
       </div>
 
@@ -713,6 +741,13 @@ export default function WebLandingPage() {
           </div>
         </div>
       </footer>
+
+      <LanguagePickerModal
+        visible={langModalVisible}
+        currentLanguage={currentLanguage}
+        onSelect={handleChangeLanguage}
+        onClose={() => setLangModalVisible(false)}
+      />
     </>
   );
 }

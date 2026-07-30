@@ -1,28 +1,24 @@
 import { useCallback, useState } from 'react';
-import {
-  getUserProfile,
-  getMyFollowingSlugs,
-  followTraktUser,
-  unfollowTraktUser,
-  TraktUserProfile,
-} from '../../../services/api/social';
+import { getUserProfile, TraktUserProfile } from '../../../services/api/social';
+import { useFollowState } from '../../../hooks/useFollowState';
 import { extractTraktUsername } from '../utils/extractTraktUsername';
-
-export type ConnectionState = 'none' | 'following' | 'pending';
 
 export function useUserSearch() {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [profile, setProfile] = useState<TraktUserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>('none');
-  const [isFollowPending, setIsFollowPending] = useState(false);
+
+  // Takip et/bırak + bağlantı durumu artık paylaşımlı hook'ta (bkz.
+  // hooks/useFollowState.ts) — Public Profile ekranı da aynısını kullanıyor.
+  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(
+    profile?.ids?.slug ?? null
+  );
 
   const clear = useCallback(() => {
     setQuery('');
     setProfile(null);
     setError(null);
-    setConnectionState('none');
   }, []);
 
   const search = useCallback(async () => {
@@ -33,12 +29,8 @@ export function useUserSearch() {
     setError(null);
     setProfile(null);
     try {
-      const [foundProfile, followingSlugs] = await Promise.all([
-        getUserProfile(username),
-        getMyFollowingSlugs().catch(() => [] as string[]),
-      ]);
+      const foundProfile = await getUserProfile(username);
       setProfile(foundProfile);
-      setConnectionState(followingSlugs.includes(foundProfile.ids.slug) ? 'following' : 'none');
     } catch (err: any) {
       if (err?.response?.status === 404) {
         setError('not_found');
@@ -50,29 +42,6 @@ export function useUserSearch() {
     }
   }, [query]);
 
-  const toggleFollow = useCallback(async () => {
-    if (!profile || isFollowPending) return;
-    setIsFollowPending(true);
-
-    try {
-      if (connectionState === 'none') {
-        const result = await followTraktUser(profile.ids.slug);
-        setConnectionState(result.approvedAt ? 'following' : 'pending');
-      } else {
-        await unfollowTraktUser(profile.ids.slug);
-        setConnectionState('none');
-      }
-    } catch (err: any) {
-      // 409: zaten takip ediliyor veya istek zaten gönderilmiş — kullanıcıya
-      // hata gibi göstermek yerine mevcut durumu "bağlı" kabul ediyoruz.
-      if (err?.response?.status === 409 && connectionState === 'none') {
-        setConnectionState('pending');
-      }
-    } finally {
-      setIsFollowPending(false);
-    }
-  }, [profile, connectionState, isFollowPending]);
-
   return {
     query,
     setQuery,
@@ -80,6 +49,7 @@ export function useUserSearch() {
     profile,
     error,
     connectionState,
+    isLoadingConnection,
     isFollowPending,
     search,
     clear,

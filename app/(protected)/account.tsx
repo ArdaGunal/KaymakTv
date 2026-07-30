@@ -84,7 +84,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const appVersion = Constants.expoConfig?.version ?? '1.1.1';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.2';
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();

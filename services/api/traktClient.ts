@@ -115,9 +115,22 @@ export const getTraktClient = async () => {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
+  // KRİTİK: `timeout` eskiden HİÇ yoktu — projedeki DİĞER tüm HTTP istemcileri
+  // (feedPrivacy.ts, feedSync.ts, accountDeletion.ts, services/api/feedback.ts)
+  // 10-15sn timeout kullanırken, uygulamanın TÜM Trakt trafiğini taşıyan bu
+  // istemci korumasızdı. Sonuç: ağ askıda kalırsa (uykuya geçiş, zayıf sinyal)
+  // istek SÜRESİZ bekler — `requestQueue`'nun eşzamanlılık sınırı (3) dolarsa
+  // kuyruktaki HER ŞEY görünürde "donar" (asıl istekler 5 dakikalık deadline'a
+  // kadar hiç ilerlemez). Devre kesici de bu senaryoda hiç devreye giremez,
+  // çünkü `onFailure()` yalnızca istek GERÇEKTEN başarısız/timeout olduğunda
+  // çağrılır — performans raporunda görülen ~130sn'lik uç değerler (bkz.
+  // docs/HISTORY.md Madde 106) bu boşluğun izidir. 20sn: normal bir Trakt
+  // isteğinin (p99 ~5sn) kat kat üstünde, ama kullanıcıyı süresiz beklemekten
+  // kurtaracak kadar kısa.
   const instance = axios.create({
     baseURL: TRAKT_API_URL,
     headers,
+    timeout: 20000,
   });
 
   // Devre kesici (Circuit Breaker): bir endpoint art arda başarısız oluyorsa

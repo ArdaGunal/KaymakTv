@@ -1,11 +1,19 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Eye, Play, CheckCircle2, Star, Film } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { FeedActivity } from '../types';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import ActivityDeleteRow from './ActivityDeleteRow';
 
 interface FeedCardProps {
   activity: FeedActivity;
+  /** Yalnızca Profil › Aktiviteler'de kullanılır — Akış (feed.tsx) sekmesinde
+   *  hiçbiri geçilmez, bu yüzden `onDelete` yoksa kart eskisi gibi davranır. */
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onDelete?: () => void;
 }
 
 // Her aktivite tipi kendi ikonunu, vurgu rengini ve metin şablonunu taşır —
@@ -37,23 +45,35 @@ const ACTIVITY_META: Record<
   },
 };
 
-export default function FeedCard({ activity }: FeedCardProps) {
+export default function FeedCard({
+  activity,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onDelete,
+}: FeedCardProps) {
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
   const initial = activity.user.username.charAt(0).toUpperCase();
+  const router = useRouter();
 
-  // NOT: Kullanıcı profili görüntüleme ekranı henüz yok (Phase 1.5) — bu
-  // yüzden kart şimdilik tıklanabilir değil. Profil sayfası eklendiğinde
-  // buraya `onPress` ile yönlendirme eklenecek.
-  return (
+  const handlePressProfile = () => {
+    router.push(`/user/${activity.user.username}`);
+  };
+
+  const card = (
     <View style={styles.card}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
+      <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initial}</Text>
+        </View>
+      </TouchableOpacity>
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
-          <Text style={styles.username}>{activity.user.username}</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
+            <Text style={styles.username}>{activity.user.username}</Text>
+          </TouchableOpacity>
           <Icon size={14} color={meta.color} />
         </View>
 
@@ -68,6 +88,19 @@ export default function FeedCard({ activity }: FeedCardProps) {
         <Film size={20} color="#475569" />
       </View>
     </View>
+  );
+
+  if (!onDelete) return card;
+
+  return (
+    <ActivityDeleteRow
+      isSelectionMode={isSelectionMode}
+      isSelected={isSelected}
+      onToggleSelect={onToggleSelect ?? (() => {})}
+      onDelete={onDelete}
+    >
+      {card}
+    </ActivityDeleteRow>
   );
 }
 

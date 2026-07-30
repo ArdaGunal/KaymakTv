@@ -1,68 +1,77 @@
 import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Platform, Animated, useWindowDimensions, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Platform,
+  Animated,
+  useWindowDimensions,
+  Pressable,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, BarChart2, ListVideo, Film, CheckCircle2 } from 'lucide-react-native';
 
 const MOBILE_BREAKPOINT = 768;
-const ICON_COLORS = ['#fbbf24', '#34d399', '#60a5fa', '#e879f9', '#f87171'] as const;
 
 const features = [
   {
     title: 'featureStats',
     description: 'featureStatsDesc',
-    iconColor: ICON_COLORS[0],
+    iconColor: '#fbbf24',
     Icon: BarChart2,
-    accent: 'rgba(251,191,36,0.15)',
-    size: 'large',
+    accent: 'rgba(251,191,36,0.12)',
+    borderAccent: 'rgba(251,191,36,0.18)',
   },
   {
     title: 'featureLists',
     description: 'featureListsDesc',
-    iconColor: ICON_COLORS[1],
+    iconColor: '#34d399',
     Icon: ListVideo,
-    accent: 'rgba(52,211,153,0.12)',
-    size: 'medium',
+    accent: 'rgba(52,211,153,0.1)',
+    borderAccent: 'rgba(52,211,153,0.18)',
   },
   {
     title: 'featureCalendar',
     description: 'featureCalendarDesc',
-    iconColor: ICON_COLORS[2],
+    iconColor: '#60a5fa',
     Icon: Calendar,
-    accent: 'rgba(96,165,250,0.12)',
-    size: 'small',
+    accent: 'rgba(96,165,250,0.1)',
+    borderAccent: 'rgba(96,165,250,0.18)',
   },
   {
     title: 'featureDiscover',
     description: 'featureDiscoverDesc',
-    iconColor: ICON_COLORS[3],
+    iconColor: '#c084fc',
     Icon: Film,
-    accent: 'rgba(232,121,249,0.12)',
-    size: 'small',
+    accent: 'rgba(192,132,252,0.1)',
+    borderAccent: 'rgba(192,132,252,0.18)',
   },
   {
     title: 'featureProgress',
     description: 'featureProgressDesc',
-    iconColor: ICON_COLORS[4],
+    iconColor: '#f87171',
     Icon: CheckCircle2,
-    accent: 'rgba(248,113,113,0.12)',
-    size: 'medium',
+    accent: 'rgba(248,113,113,0.1)',
+    borderAccent: 'rgba(248,113,113,0.18)',
   },
 ];
 
-interface BentoCardProps {
+interface CardProps {
   feature: typeof features[0];
   isDesktop: boolean;
+  index: number;
+  t: any;
 }
 
-const BentoCard = ({ feature, isDesktop, t }: BentoCardProps & {t: any}) => {
+const BentoCard = ({ feature, isDesktop, index, t }: CardProps) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       useNativeDriver: true,
-      friction: 6,
+      friction: 7,
       tension: 200,
     }).start();
   };
@@ -71,42 +80,46 @@ const BentoCard = ({ feature, isDesktop, t }: BentoCardProps & {t: any}) => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      friction: 6,
+      friction: 7,
       tension: 200,
     }).start();
   };
 
-  const cardStyle = [
-    styles.cardContainer,
-    !isDesktop && styles.cardMobileFixed,
-    isDesktop && feature.size === 'large' && styles.cardLarge,
-    isDesktop && feature.size === 'medium' && styles.cardMedium,
-    isDesktop && feature.size === 'small' && styles.cardSmall,
-  ];
+  // Mobilde: 2 sütunlu grid benzeri yerleşim
+  // 0. kart (Stats) tam genişlik, diğerleri 2'li sıra
+  const isMobileFull = !isDesktop && index === 0;
 
   return (
     <Pressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      // @ts-ignore web-only hover
+      // @ts-ignore web-only
       onHoverIn={handlePressIn}
       onHoverOut={handlePressOut}
-      style={cardStyle}
+      style={[
+        styles.cardOuter,
+        !isDesktop && (isMobileFull ? styles.cardOuterFullMobile : styles.cardOuterHalfMobile),
+        isDesktop && styles.cardOuterDesktop,
+      ]}
     >
-      <Animated.View style={[styles.cardAnimWrapper, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View style={[styles.cardAnimWrap, { transform: [{ scale: scaleAnim }] }]}>
         <LinearGradient
-          colors={['#1e293b', '#0f172a']}
+          colors={['rgba(22, 31, 50, 0.9)', 'rgba(11, 17, 32, 0.98)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.card}
+          style={[styles.card, { borderColor: feature.borderAccent }]}
         >
-          <View style={[styles.iconContainer, { backgroundColor: feature.accent }]}>
-            <feature.Icon size={28} color={feature.iconColor} />
-          </View>
-          <View style={styles.cardTextBlock}>
+          {/* İkon + Başlık yatay */}
+          <View style={styles.cardTop}>
+            <View style={[styles.iconWrap, { backgroundColor: feature.accent }]}>
+              <feature.Icon size={18} color={feature.iconColor} strokeWidth={2} />
+            </View>
             <Text style={styles.cardTitle}>{t(feature.title)}</Text>
-            <Text style={styles.cardDesc}>{t(feature.description)}</Text>
           </View>
+          <Text style={styles.cardDesc}>{t(feature.description)}</Text>
+
+          {/* Alt dekorasyon çizgisi */}
+          <View style={[styles.cardLine, { backgroundColor: feature.borderAccent }]} />
         </LinearGradient>
       </Animated.View>
     </Pressable>
@@ -122,19 +135,28 @@ export default function BentoGrid() {
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 900,
-      delay: 200,
+      duration: 800,
+      delay: 150,
       useNativeDriver: true,
     }).start();
   }, []);
 
   return (
     <View style={styles.container}>
+      {/* Bölüm Başlığı */}
       <View style={styles.header}>
-        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>{t('landingWhy')}<Text style={styles.highlight}>KaymakTV?</Text></Text>
-        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>{t('landingWhySub')}</Text>
+        <View style={styles.eyebrow}>
+          <Text style={styles.eyebrowText}>ÖZELLİKLER</Text>
+        </View>
+        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
+          {t('landingWhy', 'Neden ')}<Text style={styles.highlight}>KaymakTV?</Text>
+        </Text>
+        <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
+          {t('landingWhySub')}
+        </Text>
       </View>
 
+      {/* Kart Izgarası */}
       <Animated.View
         style={[
           styles.grid,
@@ -143,7 +165,7 @@ export default function BentoGrid() {
         ]}
       >
         {features.map((feature, index) => (
-          <BentoCard key={index} feature={feature} isDesktop={isDesktop} t={t} />
+          <BentoCard key={index} feature={feature} isDesktop={isDesktop} index={index} t={t} />
         ))}
       </Animated.View>
     </View>
@@ -152,107 +174,137 @@ export default function BentoGrid() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 72,
-    paddingHorizontal: 20,
+    paddingVertical: 56,
+    paddingHorizontal: 16,
     alignItems: 'center',
     width: '100%',
   },
+  // ── Başlık ──────────────────────────────────────────────────────────────
   header: {
     alignItems: 'center',
-    marginBottom: 40,
-    maxWidth: 620,
+    marginBottom: 32,
+    maxWidth: 580,
     paddingHorizontal: 8,
   },
+  eyebrow: {
+    backgroundColor: 'rgba(96,165,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.16)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 100,
+    marginBottom: 16,
+  },
+  eyebrowText: {
+    color: '#60a5fa',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
   title: {
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#f8fafc',
+    color: '#f1f5f9',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     letterSpacing: -0.5,
   },
   titleDesktop: {
-    fontSize: 42,
+    fontSize: 38,
     letterSpacing: -1,
   },
   highlight: {
-    color: '#3B82F6',
+    color: '#60a5fa',
   },
   subtitle: {
-    fontSize: 15,
-    color: '#94a3b8',
+    fontSize: 14.5,
+    color: '#64748b',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   subtitleDesktop: {
-    fontSize: 18,
-    lineHeight: 28,
+    fontSize: 17,
+    lineHeight: 26,
+    color: '#94a3b8',
   },
+  // ── Grid ────────────────────────────────────────────────────────────────
   grid: {
     width: '100%',
-    maxWidth: 1100,
+    maxWidth: 1000,
   },
   gridMobile: {
-    flexDirection: 'column',
-    gap: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   gridDesktop: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 20,
+    gap: 14,
   },
-  cardContainer: {
+  // ── Kart Dış Kaplama ────────────────────────────────────────────────────
+  cardOuter: {},
+  cardOuterFullMobile: {
     width: '100%',
   },
-  cardMobileFixed: {
-    minHeight: 140,
+  cardOuterHalfMobile: {
+    // Mobilde 2 sütunlu: boşluklar çıkarılarak yaklaşık %48
+    flex: 1,
+    minWidth: '45%',
   },
-  cardLarge: {
-    width: '100%',
-    minHeight: 260,
+  cardOuterDesktop: {
+    flex: 1,
+    minWidth: 200,
+    maxWidth: 320,
   },
-  cardMedium: {
-    width: '57%',
-    minHeight: 230,
-  },
-  cardSmall: {
-    width: '39%',
-    minHeight: 230,
-  },
-  cardAnimWrapper: {
+  cardAnimWrap: {
     flex: 1,
   },
   card: {
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
     flex: 1,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
     ...(Platform.OS === 'web' && {
-      boxShadow: '0 8px 24px -8px rgba(0,0,0,0.55)',
+      boxShadow: '0 8px 24px -8px rgba(0,0,0,0.45)',
     } as any),
   },
-  iconContainer: {
-    alignSelf: 'flex-start',
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 20,
+  // ── Kart İçi ────────────────────────────────────────────────────────────
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
   },
-  cardTextBlock: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   cardTitle: {
-    color: '#f8fafc',
-    fontSize: 20,
+    color: '#e2e8f0',
+    fontSize: 14.5,
     fontWeight: '700',
-    marginBottom: 6,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
+    flex: 1,
+    flexWrap: 'wrap',
   },
   cardDesc: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    lineHeight: 22,
+    color: '#64748b',
+    fontSize: 12.5,
+    lineHeight: 19,
+  },
+  cardLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 18,
+    right: 18,
+    height: 1,
   },
 });

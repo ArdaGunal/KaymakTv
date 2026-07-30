@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Application from 'expo-application';
-import { getAppSettings } from '../services/appSettingsApi';
 import { isVersionBelow } from '../../../utils/semver';
+import { useAppSettingsStore } from '../../../store/appSettingsStore';
+import { STORE_URL } from '../../../utils/constants';
 
 export type VersionGateStatus = 'checking' | 'ok' | 'blocked';
 
@@ -12,7 +13,11 @@ export interface VersionGateResult {
   updateUrl: string | null;
 }
 
-const FALLBACK_UPDATE_URL = 'https://kaymaktv.com';
+export interface VersionGateResult {
+  status: VersionGateStatus;
+  /** Yalnızca `status === 'blocked'` iken dolu. */
+  updateUrl: string | null;
+}
 
 /**
  * "Zorunlu Güncelleme" kontrolü — uygulama açılışında, Trakt/Auth
@@ -49,7 +54,7 @@ export function useVersionGate(): VersionGateResult {
           return;
         }
 
-        const settings = await getAppSettings();
+        const settings = await useAppSettingsStore.getState().fetchSettings();
         if (cancelled) return;
 
         if (!settings) {
@@ -58,7 +63,7 @@ export function useVersionGate(): VersionGateResult {
         }
 
         if (isVersionBelow(currentVersion, settings.minRequiredVersion)) {
-          setUpdateUrl(settings.updateUrl || FALLBACK_UPDATE_URL);
+          setUpdateUrl(settings.updateUrl || STORE_URL);
           setStatus('blocked');
         } else {
           setStatus('ok');

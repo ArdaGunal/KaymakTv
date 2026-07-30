@@ -46,9 +46,41 @@ example
 .env
 .env.*
 *.pem
+*.key
+*.cert
+*.crt
+*.jks
+*.keystore
+secrets.json
+google-services.json
+GoogleService-Info.plist
+firebase.json
 
-# Scripts and Documentation
+# Scripts and Batch Files
 *.bat
+/*.js
+!/metro.config.js
+!/tailwind.config.js
+!/babel.config.js
+!/server.js
+/*.py
+
+# Text files
+*.txt
+
+# Markdown and Docs
+*.md
+# Geliştirme kuralları için zorunlu olanları istisna tutuyoruz
+!README.md
+!AGENTS.md
+!docs/HISTORY.md
+!docs/ARCHITECTURE.md
+!docs/AI_RULES.md
+
+# IDEs and AI tools
+.vscode/
+.claude/
+.continue/
 
 # Netlify and deployment configs
 netlify.toml

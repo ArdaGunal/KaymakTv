@@ -4,14 +4,20 @@ import { Rss } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FeedCard from '../../../features/feed/components/FeedCard';
+import MarathonFeedCard from '../../../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import UserSearchBar from '../../../features/feed/components/UserSearchBar';
 import UserProfileCard from '../../../features/feed/components/UserProfileCard';
 import { useFeed } from '../../../features/feed/hooks/useFeed';
 import { useUserSearch } from '../../../features/feed/hooks/useUserSearch';
-import { FeedActivity } from '../../../features/feed/types';
+import { FeedItem } from '../../../features/feed/types';
 
 const DESKTOP_BREAKPOINT = 768;
+
+/** Discriminant tip guard — MarathonActivity mi yoksa FeedActivity mi? */
+function isMarathon(item: FeedItem): item is import('../../../features/feed/types').MarathonActivity {
+  return 'type' in item && item.type === 'marathon';
+}
 
 export default function FeedScreen() {
   const { t } = useTranslation(['navigation', 'feed']);
@@ -41,6 +47,7 @@ export default function FeedScreen() {
             profile={search.profile}
             error={search.error}
             connectionState={search.connectionState}
+            isLoadingConnection={search.isLoadingConnection}
             isFollowPending={search.isFollowPending}
             onToggleFollow={search.toggleFollow}
           />
@@ -49,10 +56,14 @@ export default function FeedScreen() {
         {isLoading ? (
           <FeedSkeleton />
         ) : (
-          <FlatList<FeedActivity>
+          <FlatList<FeedItem>
             data={data}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <FeedCard activity={item} />}
+            renderItem={({ item }) =>
+              isMarathon(item)
+                ? <MarathonFeedCard activity={item} />
+                : <FeedCard activity={item} />
+            }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={

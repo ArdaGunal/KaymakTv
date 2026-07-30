@@ -1,18 +1,25 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { TraktUserProfile } from '../../services/api/social';
+import { ConnectionState } from '../../hooks/useFollowState';
 
 interface ProfileHeaderProps {
   profile: TraktUserProfile;
   followersCount: number;
   followingCount: number;
-  // Şu an yalnızca kendi profilimiz görüntülenebiliyor (başka bir kullanıcının
-  // profilini görüntüleme Phase 1.5) — ama bileşen o senaryo için hazır:
-  // isOwnProfile=false verilince "Takip Et"/"Takip Ediliyor" butonuna döner.
+  // Public Profile ekranında (app/(protected)/user/[slug].tsx) kullanılıyor:
+  // isOwnProfile=false verilince "Takip Et"/"Takip Ediliyor"/"Onay Bekleniyor"
+  // durumlarını `connectionState`'ten okuyan bir butona döner (bkz.
+  // hooks/useFollowState.ts).
   isOwnProfile?: boolean;
-  isFollowing?: boolean;
+  connectionState?: ConnectionState;
+  /** Takip et/bırak isteği uçuşta — buton devre dışı + spinner gösterir. */
+  isFollowPending?: boolean;
+  /** İlk bağlantı durumu kontrolü sürüyor — aynı şekilde spinner gösterir,
+   *  aksi halde buton kısa süreliğine yanlış bir "Takip Et" gösterebilirdi. */
+  isLoadingConnection?: boolean;
   onPressFollowers?: () => void;
   onPressFollowing?: () => void;
   onPressAction?: () => void;
@@ -23,13 +30,16 @@ export default function ProfileHeader({
   followersCount,
   followingCount,
   isOwnProfile = true,
-  isFollowing = false,
+  connectionState = 'none',
+  isFollowPending = false,
+  isLoadingConnection = false,
   onPressFollowers,
   onPressFollowing,
   onPressAction,
 }: ProfileHeaderProps) {
   const { t } = useTranslation('media');
   const router = useRouter();
+  const isFollowBusy = !isOwnProfile && (isFollowPending || isLoadingConnection);
 
   const avatarUrl = profile.images?.avatar?.full;
   const initial = profile.username.charAt(0).toUpperCase();
@@ -69,26 +79,35 @@ export default function ProfileHeader({
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              !isOwnProfile && !isFollowing && styles.actionBtnFollow,
-              !isOwnProfile && isFollowing && styles.actionBtnFollowing,
+              !isOwnProfile && connectionState === 'none' && styles.actionBtnFollow,
+              !isOwnProfile && connectionState === 'following' && styles.actionBtnFollowing,
+              !isOwnProfile && connectionState === 'pending' && styles.actionBtnPending,
             ]}
             onPress={handleAction}
+            disabled={isFollowBusy}
             activeOpacity={0.85}
           >
-            <Text
-              style={[
-                styles.actionBtnText,
-                !isOwnProfile && !isFollowing && styles.actionBtnTextFollow,
-                !isOwnProfile && isFollowing && styles.actionBtnTextFollowing,
-              ]}
-              numberOfLines={1}
-            >
-              {isOwnProfile
-                ? t('editProfile', 'Profili Düzenle')
-                : isFollowing
-                ? t('followingAction', 'Takip Ediliyor')
-                : t('followAction', 'Takip Et')}
-            </Text>
+            {isFollowBusy ? (
+              <ActivityIndicator size="small" color={connectionState === 'none' ? '#fff' : '#94a3b8'} />
+            ) : (
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  !isOwnProfile && connectionState === 'none' && styles.actionBtnTextFollow,
+                  !isOwnProfile && connectionState === 'following' && styles.actionBtnTextFollowing,
+                  !isOwnProfile && connectionState === 'pending' && styles.actionBtnTextPending,
+                ]}
+                numberOfLines={1}
+              >
+                {isOwnProfile
+                  ? t('editProfile', 'Profili Düzenle')
+                  : connectionState === 'following'
+                  ? t('followingAction', 'Takip Ediliyor')
+                  : connectionState === 'pending'
+                  ? t('pendingAction', 'Onay Bekleniyor')
+                  : t('followAction', 'Takip Et')}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -185,6 +204,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(74, 222, 128, 0.12)',
     borderColor: 'rgba(74, 222, 128, 0.35)',
   },
+  actionBtnPending: {
+    backgroundColor: 'rgba(250, 204, 21, 0.1)',
+    borderColor: 'rgba(250, 204, 21, 0.3)',
+  },
   actionBtnText: {
     color: '#f1f5f9',
     fontSize: 12.5,
@@ -195,6 +218,9 @@ const styles = StyleSheet.create({
   },
   actionBtnTextFollowing: {
     color: '#4ade80',
+  },
+  actionBtnTextPending: {
+    color: '#facc15',
   },
   identityBlock: {
     gap: 1,

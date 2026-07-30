@@ -111,7 +111,13 @@ export default function ProfileScreen() {
         {isProfileLoading || !profile ? (
           <ProfileHeaderSkeleton />
         ) : (
-          <ProfileHeader profile={profile} followersCount={followersCount} followingCount={followingCount} />
+          <ProfileHeader 
+            profile={profile} 
+            followersCount={followersCount} 
+            followingCount={followingCount} 
+            onPressFollowers={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'followers' } })}
+            onPressFollowing={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'following' } })}
+          />
         )}
 
         <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
