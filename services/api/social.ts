@@ -21,6 +21,16 @@ const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
   ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
   : '/api/trakt-proxy';
 
+// Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor — `services/api/comments.ts`'teki
+// AYNI `cacheBustParam` deseni (bkz. docs/HISTORY.md Madde 87/102): sabit bir
+// URL'ye (`/users/{id}?extended=full`, her çağrıda BİREBİR AYNI) her seferinde
+// benzersiz bir `_` parametresi eklemek CDN'i "yeni bir kaynak" sanmaya
+// zorlayıp önbelleği atlatır. Kök sebep: Profili Düzenle'den `updateProfile()`
+// (PUT /users/settings) ile kaydedip hemen ardından `getUserProfile('me')` ile
+// okuyunca, CDN henüz güncellenmemiş ESKİ yanıtı dönebiliyordu — kullanıcı
+// "değişiklik kalıcı olmuyor" diye bildirdi, oysa Trakt'a yazma İŞLEMİ başarılıydı.
+const cacheBustParam = () => `_=${Date.now()}`;
+
 export interface TraktUserProfile {
   username: string;
   private: boolean;
@@ -28,13 +38,18 @@ export interface TraktUserProfile {
   vip: boolean;
   ids: { slug: string };
   images?: { avatar?: { full: string } };
+  // `?extended=full` ile gelir (bkz. aşağıdaki not) — Profili Düzenle formunu
+  // doldurmak ve bio'yu profil ekranlarında göstermek için kullanılıyor,
+  // önceden tipte tanımlı değildi. `location` BİLİNÇLİ OLARAK YOK — kullanıcı
+  // bu uygulamada şehir/konum alanına gerek olmadığını belirtti.
+  about?: string | null;
 }
 
 // GET /users/{id} yalnızca `extended=full` ile avatar (images.avatar.full)
 // döndürüyor — canlı bir istekle doğrulandı, eksik bırakılırsa alan hiç gelmiyor.
 export const getUserProfile = async (username: string): Promise<TraktUserProfile> => {
   const client = await getTraktClient();
-  const response = await client.get(`/users/${encodeURIComponent(username)}?extended=full`);
+  const response = await client.get(`/users/${encodeURIComponent(username)}?extended=full&${cacheBustParam()}`);
   return response.data;
 };
 
@@ -87,6 +102,44 @@ export const unfollowTraktUser = async (username: string): Promise<void> => {
   const accessToken = await SecureStore.getItemAsync('traktAccessToken');
   await axios.delete(TRAKT_PROXY_URL, {
     params: { endpoint: `/users/${encodeURIComponent(username)}/follow` },
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
+};
+
+// Gelen takip istekleri (hesabım gizliyken beni takip etmek isteyip onayımı
+// bekleyenler) — `/users/requests[/:id]`, `/users/:id/follow` ile AYNI
+// "kullanıcının özel/yazma verisi" ailesinden (bkz. docs/HISTORY.md Madde
+// 109/120/122). Bu oturumda internet erişimi olmadığından `curl` ile CORS
+// doğrulaması YAPILAMADI — ihtiyatlı yol seçildi, üçü de zaten var olan
+// `TRAKT_PROXY_URL` üzerinden geçiyor (server.js'te değişiklik GEREKMEDİ,
+// proxy endpoint-agnostik).
+export interface TraktFollowRequest {
+  id: number;
+  requested_at: string;
+  user: TraktUserProfile;
+}
+
+export const getFollowRequests = async (): Promise<TraktFollowRequest[]> => {
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  const response = await axios.get(TRAKT_PROXY_URL, {
+    params: { endpoint: '/users/requests' },
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
+  return response.data ?? [];
+};
+
+export const approveFollowRequest = async (id: number): Promise<void> => {
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  await axios.post(TRAKT_PROXY_URL, {}, {
+    params: { endpoint: `/users/requests/${id}` },
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
+};
+
+export const denyFollowRequest = async (id: number): Promise<void> => {
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  await axios.delete(TRAKT_PROXY_URL, {
+    params: { endpoint: `/users/requests/${id}` },
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
   });
 };

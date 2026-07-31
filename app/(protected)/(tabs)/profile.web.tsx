@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Settings } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -74,6 +75,11 @@ function DesktopProfileHeader({
         <Text style={desktopHeaderStyles.handle} numberOfLines={1}>
           @{profile.username}
         </Text>
+        {!!profile.about && (
+          <Text style={desktopHeaderStyles.bio} numberOfLines={2}>
+            {profile.about}
+          </Text>
+        )}
       </View>
 
       {/* Sağ Kolon: İstatistikler + Profili Düzenle Butonu */}
@@ -102,7 +108,7 @@ function DesktopProfileHeader({
 
         <TouchableOpacity
           style={desktopHeaderStyles.editBtn}
-          onPress={() => router.push('/(protected)/account')}
+          onPress={() => router.push('/(protected)/profile/edit')}
           activeOpacity={0.85}
         >
           <Text style={desktopHeaderStyles.editBtnText}>
@@ -152,8 +158,17 @@ export default function ProfileScreenWeb() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
+
+  // Profili Düzenle ekranından dönüldüğünde güncel veriyi çeker — mobil
+  // genişlikte bu dosya zaten `<ProfileMobile />`e devrediyor (o da kendi
+  // aynı `useFocusEffect`'ine sahip), bu yalnızca masaüstü dalı için gerekli.
+  useFocusEffect(
+    useCallback(() => {
+      refetchProfile();
+    }, [refetchProfile])
+  );
 
   const shows = useMemo(() => mapMedia(sortRecent(watchedShows || []).slice(0, 100), 'show'), [watchedShows]);
   const movies = useMemo(() => mapMedia(sortRecent(watchedMovies || []).slice(0, 100), 'movie'), [watchedMovies]);
@@ -334,6 +349,12 @@ const desktopHeaderStyles = StyleSheet.create({
     color: '#64748b',
     fontSize: 13,
     fontWeight: '500',
+  },
+  bio: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
   rightSection: {
     marginLeft: 'auto' as any,

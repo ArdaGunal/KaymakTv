@@ -1,5 +1,7 @@
 {
   "accept": "Kabul Et",
+  "activityNewFollower": "{{name}} sizi takip etmeye başladı",
+  "activityRequestApproved": "{{name}} takip isteğinizi onayladı",
   "actionFailedMessage": "İşlem gerçekleştirilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.",
   "actor": "Oyuncu",
   "back": "Geri",

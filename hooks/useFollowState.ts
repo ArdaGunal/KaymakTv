@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { followTraktUser, unfollowTraktUser } from '../services/api/social';
 import { useFollowStore } from '../store/followStore';
+import { useNotificationStore } from '../store/notificationStore';
 import { recordMutationResult } from '../utils/metrics';
 import { confirmAsync, notify } from '../utils/confirmDialog';
 
@@ -138,10 +139,15 @@ export function useFollowState(
       const result = await followTraktUser(slug);
       const actualState = result.approvedAt ? 'following' : 'pending';
       setOptimisticState(slug, actualState);
+      // Onay bekleyen bir istek gönderdiysek hatırla — daha sonra karşı taraf
+      // onaylayınca `notificationStore.refreshActivity()` bunu tespit edip
+      // "takip isteğiniz onaylandı" bildirimi üretebilsin diye (bkz. store/notificationStore.ts).
+      if (!result.approvedAt) useNotificationStore.getState().addPendingSentSlug(slug);
       recordMutationResult('followUser', true);
     } catch (err: any) {
       if (err?.response?.status === 409) {
         setOptimisticState(slug, 'pending');
+        useNotificationStore.getState().addPendingSentSlug(slug);
         recordMutationResult('followUser', true);
       } else {
         console.warn('[useFollowState] Follow failed:', err);

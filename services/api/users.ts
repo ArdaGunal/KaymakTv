@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import { getTraktClient } from './traktClient';
 import * as SecureStore from '../../utils/secureStorage';
 
@@ -756,41 +757,146 @@ export const removeSeasonFromHistoryTrakt = async (showId: number, season: numbe
   }
 };
 
-// Profil gizliliği (Gizli/Açık Hesap) — `/users/settings`, `/users/hidden/*`
-// ve `/users/:id/follow` ile AYNI aileden (`/users/*` yazma) bir uç nokta.
-// Baştan proxy'den geçiriliyor: bu iki kardeş uç nokta gerçek kullanıcı
-// raporlarıyla tarayıcıdan çağrıldığında CORS'a takıldığı kanıtlanmıştı
-// (bkz. docs/HISTORY.md Madde 109/120) — aynı riski curl ile tek başına
-// test etmek (OPTIONS preflight dahil) bu oturumda GÜVENİLİR bulunmadı,
-// bu yüzden ihtiyatlı yol seçildi. `TRAKT_PROXY_URL`/token-header deseni
-// yukarıdaki `hideItemTrakt`/`getAllHiddenItems` ile BİREBİR aynı.
-export const getProfilePrivacy = async (): Promise<boolean> => {
+// ══════════════════════════════════════════════════════════════════════════
+// `/users/settings` — Gizli Hesap + Profili Düzenle'nin ORTAK veri katmanı
+// ══════════════════════════════════════════════════════════════════════════
+// Uç nokta Trakt'ın resmi API sözleşmesiyle doğrulandı (github.com/trakt/trakt-api,
+// `users/schema/request/settingsRequestSchema.ts`): `PUT /users/settings`,
+// gövde `{ user: { name?, about?, location?, private?, dob? } }`, başarıda
+// gövdesiz `201`. Okuma: `GET /users/settings` → `{ user: { name, about, private, ... } }`.
+//
+// NEDEN NATIVE'DE PROXY YOK (bkz. docs/HISTORY.md Madde 132): Proxy YALNIZCA
+// tarayıcı CORS'u için var (Madde 109/120/122). Native'de CORS diye bir şey
+// YOKTUR — uygulamanın diğer TÜM Trakt çağrıları zaten `getTraktClient()` ile
+// doğrudan gidiyor. Native'i de proxy'ye bağlamak, özelliği gereksiz yere
+// "sunucu güncel mi" sorusuna bağımlı kılıyordu ve gerçekte KIRILMASINA sebep
+// oldu. Artık native doğrudan Trakt'a gider; proxy yalnızca web'de devrede.
+// Ek fayda: `getTraktClient()` 401'de token yenileme/rate-limit/circuit breaker
+// mantığını da getiriyor — ham `axios` çağrısında bunların hiçbiri yoktu.
+//
+// ⚠️ Bu, `services/api/auth.ts`'teki "Platform.OS KONTROLÜ EKLEMEYİN"
+// uyarısıyla ÇELİŞMEZ: o uyarı `TRAKT_PROXY_URL`'in MUTLAK/GÖRELİ seçim
+// koşuluna aittir (Madde 88/91 — web'i göreli yola zorlamak, API'yi ayrı bir
+// makinede barındıran bu kurulumu kırmıştı). Aşağıdaki `TRAKT_PROXY_URL`
+// tanımına HİÇ DOKUNULMADI; burada karar verilen şey URL'in şekli değil,
+// "web dışında proxy'ye hiç uğramaya gerek var mı" sorusudur.
+const isWeb = Platform.OS === 'web';
+
+/**
+ * Proxy'nin isteği Trakt'a GERÇEKTEN ilettiğini doğrular.
+ *
+ * Kök neden (Madde 132): `server.js`'in SPA fallback'i eşleşmeyen HER isteğe
+ * `200 + index.html` döndürüyordu. Sunucuda `PUT /api/trakt-proxy` handler'ı
+ * yoksa (henüz deploy edilmemişse) istemci HTML'i 2xx sanıp "kaydedildi"
+ * diyordu — istek Trakt'a hiç ulaşmadan. Bu guard o sessiz yalanı GÖRÜNÜR bir
+ * hataya çevirir; sunucu düzeltmesi deploy edilene kadar da koruma sağlar.
+ */
+const assertProxyReachedTrakt = (response: any, label: string): void => {
+  const contentType = String(response?.headers?.['content-type'] ?? '');
+  const looksLikeHtml =
+    contentType.includes('text/html') ||
+    (typeof response?.data === 'string' && response.data.trimStart().startsWith('<'));
+
+  if (looksLikeHtml) {
+    throw new Error(
+      `[${label}] İstek Trakt'a ulaşmadı: proxy JSON yerine HTML döndürdü. ` +
+        `Sunucuda /api/trakt-proxy handler'ı eksik olabilir (server.js güncel mi?).`
+    );
+  }
+};
+
+/** `GET /users/settings` — native doğrudan, web proxy üzerinden. */
+export const getUserSettings = async (): Promise<any> => {
   try {
+    if (!isWeb) {
+      const client = await getTraktClient();
+      // Trakt CDN'i aynı URL'yi önbelliyor (bkz. Madde 87/102/130) — yazma
+      // sonrası doğrulama okuması BAYAT olmamalı, yoksa doğru kaydedilmiş bir
+      // değer "kaydedilmedi" sanılıp yanlış hata gösterilir.
+      const response = await client.get(`/users/settings?_=${Date.now()}`);
+      return response.data;
+    }
+
     const accessToken = await SecureStore.getItemAsync('traktAccessToken');
     const response = await axios.get(TRAKT_PROXY_URL, {
-      params: { endpoint: '/users/settings' },
+      params: { endpoint: '/users/settings', _: Date.now() },
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
-    return response.data?.user?.private ?? false;
+    assertProxyReachedTrakt(response, 'getUserSettings');
+    return response.data;
   } catch (error) {
-    console.error('Trakt API Hatası (getProfilePrivacy):', error);
+    console.error('Trakt API Hatası (getUserSettings):', error);
     throw error;
   }
 };
 
+/**
+ * `PUT /users/settings` — yalnızca verilen alanları gönderir (Trakt kısmi
+ * güncellemeyi destekliyor: şemadaki her alan `nullish`).
+ */
+const updateUserSettings = async (userPatch: Record<string, unknown>, label: string): Promise<void> => {
+  if (!isWeb) {
+    const client = await getTraktClient();
+    await client.put('/users/settings', { user: userPatch });
+    return;
+  }
+
+  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+  const response = await axios.put(
+    TRAKT_PROXY_URL,
+    { user: userPatch },
+    {
+      params: { endpoint: '/users/settings' },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    }
+  );
+  assertProxyReachedTrakt(response, label);
+};
+
+export const getProfilePrivacy = async (): Promise<boolean> => {
+  const settings = await getUserSettings();
+  return settings?.user?.private ?? false;
+};
+
 export const updateProfilePrivacy = async (isPrivate: boolean): Promise<void> => {
   try {
-    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-    await axios.put(
-      TRAKT_PROXY_URL,
-      { user: { private: isPrivate } },
-      {
-        params: { endpoint: '/users/settings' },
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      }
-    );
+    await updateUserSettings({ private: isPrivate }, 'updateProfilePrivacy');
   } catch (error) {
     console.error('Trakt API Hatası (updateProfilePrivacy):', error);
+    throw error;
+  }
+};
+
+/**
+ * Profili Düzenle — Görünen Ad + Hakkında (bio).
+ *
+ * YAZ-SONRA-OKU DOĞRULAMASI: PUT başarılı görünse bile ardından ayarlar geri
+ * okunup değerlerin GERÇEKTEN yazıldığı teyit edilir; tutmadıysa hata fırlatır.
+ * Sebebi (Madde 132): kullanıcı iki kez "kaydediyorum ama olmuyor, hata da
+ * vermiyor" durumu yaşadı. Artık kaydetmenin sessizce kaybolması MÜMKÜN DEĞİL —
+ * ya gerçekten yazılır ya da kullanıcı görünür bir hata alır.
+ *
+ * NOT: `location` BİLİNÇLİ OLARAK gönderilmiyor — kullanıcı bu uygulamada
+ * şehir/konum alanına gerek olmadığını belirtti. Trakt'ın kendi `location`
+ * değerine de DOKUNULMAZ (kısmi güncelleme, gönderilmeyen alan korunur).
+ */
+export const updateProfile = async (data: { name: string; about: string }): Promise<void> => {
+  try {
+    await updateUserSettings({ name: data.name, about: data.about }, 'updateProfile');
+
+    const settings = await getUserSettings();
+    const savedName = settings?.user?.name ?? '';
+    const savedAbout = settings?.user?.about ?? '';
+
+    if (savedName !== data.name || savedAbout !== data.about) {
+      throw new Error(
+        `[updateProfile] Trakt değişikliği kaydetmedi. ` +
+          `Gönderilen: name="${data.name}", about="${data.about}" — ` +
+          `Trakt'ta okunan: name="${savedName}", about="${savedAbout}".`
+      );
+    }
+  } catch (error) {
+    console.error('Trakt API Hatası (updateProfile):', error);
     throw error;
   }
 };

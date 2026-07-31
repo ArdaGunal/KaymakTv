@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../../context/AuthContext';
 import { useNotificationStore } from '../../../store/notificationStore';
 
 export const NotificationBadge = () => {
-  const { unreadCount } = useNotificationStore();
+  const { unreadCount, refreshActivity } = useNotificationStore();
+  const { accessToken, isGuest } = useAuth();
   const router = useRouter();
+
+  // Bu bileşen yalnızca gerçek (misafir olmayan) kullanıcının profil
+  // ekranlarında render oluyor (bkz. ProfileMobile.tsx/profile.web.tsx'teki
+  // `!accessToken || isGuest` guard'ları), ama yine de burada da kontrol
+  // ediliyor — Madde 89'daki AYNI hata sınıfını (misafirde token'sız istek →
+  // sessizce oturumdan atılma) tekrar açmamak için.
+  useEffect(() => {
+    if (!accessToken || isGuest) return;
+    refreshActivity();
+  }, [accessToken, isGuest, refreshActivity]);
 
   const handlePress = () => {
     router.push('/notifications');

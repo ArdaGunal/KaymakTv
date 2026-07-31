@@ -46,7 +46,7 @@ export default function ProfileHeader({
 
   const handleAction = () => {
     if (onPressAction) return onPressAction();
-    if (isOwnProfile) router.push('/(protected)/account');
+    if (isOwnProfile) router.push('/(protected)/profile/edit');
   };
 
   return (
@@ -120,6 +120,11 @@ export default function ProfileHeader({
         <Text style={styles.handle} numberOfLines={1}>
           @{profile.username}
         </Text>
+        {!!profile.about && (
+          <Text style={styles.bio} numberOfLines={3}>
+            {profile.about}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -235,5 +240,11 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 12.5,
     fontWeight: '500',
+  },
+  bio: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
   },
 });

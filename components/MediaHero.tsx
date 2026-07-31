@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus } from 'lucide-react-native';
+import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -103,6 +103,17 @@ export default function MediaHero({
       onToggleFavorite();
     }
     setOptionsModalVisible(false);
+  };
+
+  // "..." menüsünde gizli duran İzleme Listesi satırı kaldırılıp buraya,
+  // rozet satırına taşındı — Favori butonuyla birebir aynı desen (bkz. plan:
+  // C:\Users\ardag\.claude\plans\iterative-sparking-hippo.md).
+  const handleToggleWatchlist = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+    onToggleWatchlist();
   };
 
   return (
@@ -236,6 +247,26 @@ export default function MediaHero({
         </View>
       </View>
 
+      {/* TAKİP ET (Watchlist) — rozet satırından BİLİNÇLİ OLARAK ayrıldı: 5
+          rozetin (Puan/Kullanıcı Puanı/Favori/Takip Et/Listeye Ekle) tek
+          satırda sıkışması mobilde karmaşık görünüyordu (proje sahibinin
+          ekran görüntüsüyle bildirdiği sorun, bkz. docs/HISTORY.md). Artık
+          kendi başına, tam genişlikte, tanınabilir bir aksiyon çubuğu —
+          "kişiyi takip et" (Public Profile) butonuyla karışmasın diye hâlâ
+          `Bookmark` ikonunu ve farklı bir sayfa bağlamını koruyor. */}
+      <View style={[styles.watchlistSection, { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right }]}>
+        <TouchableOpacity
+          style={[styles.watchlistBtn, isWatchlisted && styles.watchlistBtnActive]}
+          onPress={handleToggleWatchlist}
+          activeOpacity={0.85}
+        >
+          <Bookmark size={18} color={isWatchlisted ? "#3b82f6" : "#fff"} fill={isWatchlisted ? "#3b82f6" : "transparent"} />
+          <Text style={[styles.watchlistBtnText, isWatchlisted && styles.watchlistBtnTextActive]}>
+            {isWatchlisted ? t('watchlistActive', 'Takip Ediliyor') : t('watchlistAction', 'Takip Et')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* OVERVIEW */}
       {data.overview && (
         <View style={styles.overviewSection}>
@@ -280,9 +311,7 @@ export default function MediaHero({
         onClose={() => setOptionsModalVisible(false)}
         type={type}
         data={data}
-        isWatchlisted={isWatchlisted}
         isWatched={isWatched}
-        onToggleWatchlist={onToggleWatchlist}
         isHidden={isHidden}
         onHideFromProgress={onHideFromProgress}
         onDeleteFromHistory={onDeleteFromHistory}
@@ -466,6 +495,32 @@ const styles = StyleSheet.create({
   userRatingTextActive: {
     color: '#3b82f6',
     fontWeight: 'bold',
+  },
+  watchlistSection: {
+    marginTop: 14,
+  },
+  watchlistBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  watchlistBtnActive: {
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+  },
+  watchlistBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  watchlistBtnTextActive: {
+    color: '#3b82f6',
   },
   overviewSection: {
     padding: 16,

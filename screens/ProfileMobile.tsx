@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Settings, List as ListIcon, Tv, Film, Plus } from 'lucide-react-native';
 import HorizontalShowList from '../components/HorizontalShowList';
@@ -71,8 +72,17 @@ export default function ProfileScreen() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
+
+  // Profili Düzenle ekranından `router.back()` ile dönüldüğünde güncel
+  // isim/bio/konumun anında görünmesi için — Zustand'a taşımadan aynı sonuç
+  // (bkz. hooks/useEditProfile.ts'teki mimari gerekçe).
+  useFocusEffect(
+    useCallback(() => {
+      refetchProfile();
+    }, [refetchProfile])
+  );
 
   const seeAllLabel = t('seeAll', 'Tümü');
 

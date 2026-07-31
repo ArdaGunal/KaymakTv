@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfile, getFollowers, getFollowing, TraktUserProfile } from '../services/api/social';
 
@@ -25,35 +25,44 @@ export function useMyTraktProfile() {
   const [followingCount, setFollowingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!accessToken || isGuest) {
-      setIsLoading(false);
-      return;
-    }
-    let cancelled = false;
-
-    (async () => {
+  // `refetch` olarak da dışa aktarılıyor — Profili Düzenle ekranından
+  // `router.back()` ile dönüldüğünde profil ekranının `useFocusEffect` ile
+  // güncel veriyi çekebilmesi için (bkz. screens/ProfileMobile.tsx).
+  // `isMounted` parametresi, mount-effect'in unmount/deps-değişimi sonrası
+  // yarışan bir yanıtı sessizce yok saymasını sağlar — `refetch()` çağrıları
+  // bu korumaya ihtiyaç duymadığı için `undefined` bırakır.
+  const fetchProfile = useCallback(
+    async (isMounted?: () => boolean) => {
+      if (!accessToken || isGuest) {
+        setIsLoading(false);
+        return;
+      }
       try {
         const [myProfile, followers, following] = await Promise.all([
           getUserProfile('me'),
           getFollowers('me').catch(() => []),
           getFollowing('me').catch(() => []),
         ]);
-        if (cancelled) return;
+        if (isMounted && !isMounted()) return;
         setProfile(myProfile);
         setFollowersCount(followers.length);
         setFollowingCount(following.length);
       } catch (error) {
         console.warn('[Profile] Trakt profili yüklenemedi:', error);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!isMounted || isMounted()) setIsLoading(false);
       }
-    })();
+    },
+    [accessToken, isGuest]
+  );
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchProfile(() => !cancelled);
     return () => {
       cancelled = true;
     };
-  }, [accessToken, isGuest]);
+  }, [fetchProfile]);
 
-  return { profile, followersCount, followingCount, isLoading };
+  return { profile, followersCount, followingCount, isLoading, refetch: fetchProfile };
 }

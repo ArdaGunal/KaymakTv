@@ -109,6 +109,12 @@ export default function PublicProfileScreenWeb() {
                   @{profile.username}
                 </Text>
 
+                {!!profile.about && (
+                  <Text style={styles.bio} numberOfLines={3}>
+                    {profile.about}
+                  </Text>
+                )}
+
                 <View style={styles.statsRow}>
                   <TouchableOpacity 
                     style={styles.statItem} 
@@ -332,6 +338,12 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 13,
     fontWeight: '500',
+  },
+  bio: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: 'row',

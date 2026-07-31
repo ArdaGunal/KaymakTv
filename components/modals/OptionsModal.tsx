@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
-import { Bookmark, PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from 'lucide-react-native';
+import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -12,9 +12,7 @@ interface OptionsModalProps {
   onClose: () => void;
   type: 'show' | 'movie';
   data: any;
-  isWatchlisted?: boolean;
   isWatched?: boolean;
-  onToggleWatchlist: () => void;
   /** "İzlemeyi Bırak" eylemi — dizi/filmi Trakt'ın gizlenen listesinde mi
    * (true → satır "İzlemeye Devam Et"e döner). Diziler için `progress_watched`,
    * filmler için `calendar` bölümü kullanılır (bkz.
@@ -35,9 +33,7 @@ export default function OptionsModal({
   onClose,
   type,
   data,
-  isWatchlisted,
   isWatched,
-  onToggleWatchlist,
   isHidden,
   onHideFromProgress,
   onDeleteFromHistory,
@@ -59,16 +55,6 @@ export default function OptionsModal({
     } catch (error) {
       console.log(error);
     }
-  };
-
-  const handleToggleWatchlist = () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      onClose();
-      return;
-    }
-    onToggleWatchlist();
-    onClose();
   };
 
   const handleHideProgress = async () => {
@@ -129,13 +115,10 @@ export default function OptionsModal({
     <Modal visible={visible} transparent animationType="slide">
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <View style={styles.modalContent}>
-          
-          <TouchableOpacity style={styles.optionRow} onPress={handleToggleWatchlist}>
-            <Bookmark color={isWatchlisted ? "#3b82f6" : "#fff"} size={24} fill={isWatchlisted ? "#3b82f6" : "transparent"} />
-            <Text style={styles.optionText}>
-              {isWatchlisted ? t('removeFromWatchlist') : t('addToWatchlist')}
-            </Text>
-          </TouchableOpacity>
+
+          {/* İzleme Listesi artık burada DEĞİL — tek, görünür yerden (MediaHero
+              rozet satırındaki Bookmark butonu) yönetiliyor. Aynı eylemi iki
+              yerde göstermek karışıklık yaratırdı (bkz. docs/HISTORY.md). */}
 
           {/* "İzlemeyi Bırak" — hem diziler hem filmler için Trakt'ın gizleme uç
               noktasına bağlıdır (bkz. isHidden/onHideFromProgress), takip

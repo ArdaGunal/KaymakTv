@@ -1,57 +1,35 @@
-import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, Bell, Check, X, Inbox } from 'lucide-react-native';
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
+import { useAuth } from '../../context/AuthContext';
+import { useFollowRequests } from '../../hooks/useFollowRequests';
+import { useNotificationStore, ActivityNotification } from '../../store/notificationStore';
+import { TraktFollowRequest } from '../../services/api/social';
+import { formatRelativeTime } from '../../utils/formatRelativeTime';
 
 const DESKTOP_BREAKPOINT = 768;
 
-// TODO: Backend entegrasyonu — bu arayüz onaylandıktan sonraki adımda
-// Supabase'e bağlanacak. Şimdilik yalnızca statik/örnek (mock) veri var,
-// hiçbir ağ çağrısı yapılmıyor. Kabul Et/Reddet butonları yalnızca yerel
-// state'ten satırı kaldırıyor — kalıcı DEĞİL, sayfa yenilenince mock veri
-// sıfırlanır.
-interface MockFollowRequest {
-  id: string;
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-}
-
-interface MockNotification {
-  id: string;
-  message: string;
-  timeAgo: string;
-}
-
-const MOCK_FOLLOW_REQUESTS: MockFollowRequest[] = [
-  { id: '1', username: 'ahmetk', displayName: 'Ahmet K.', avatarUrl: null },
-  { id: '2', username: 'elifyilmaz', displayName: 'Elif Yılmaz', avatarUrl: null },
-];
-
-const MOCK_NOTIFICATIONS: MockNotification[] = [
-  { id: '1', message: 'Sisteme yeni bir dizi eklendi: Severance', timeAgo: '2s' },
-  { id: '2', message: 'Takip ettiğin bir kullanıcı yeni bir liste oluşturdu', timeAgo: '5s' },
-  { id: '3', message: 'Haftalık izleme özetin hazır', timeAgo: '1g' },
-];
-
 interface FollowRequestRowProps {
-  request: MockFollowRequest;
-  onAccept: (id: string) => void;
-  onReject: (id: string) => void;
+  request: TraktFollowRequest;
+  onAccept: (id: number) => void;
+  onReject: (id: number) => void;
 }
 
 function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps) {
   const { t } = useTranslation('common');
-  const initial = request.displayName.charAt(0).toUpperCase();
+  const displayName = request.user.name || request.user.username;
+  const avatarUrl = request.user.images?.avatar?.full;
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <View style={styles.requestRow}>
-      {request.avatarUrl ? (
-        <Image source={{ uri: request.avatarUrl }} style={styles.avatarImage} />
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
       ) : (
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>
@@ -59,8 +37,8 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
       )}
 
       <View style={styles.requestInfo}>
-        <Text style={styles.requestName} numberOfLines={1}>{request.displayName}</Text>
-        <Text style={styles.requestUsername} numberOfLines={1}>@{request.username}</Text>
+        <Text style={styles.requestName} numberOfLines={1}>{displayName}</Text>
+        <Text style={styles.requestUsername} numberOfLines={1}>@{request.user.username}</Text>
       </View>
 
       <View style={styles.requestActions}>
@@ -85,14 +63,22 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
   );
 }
 
-function NotificationRow({ notification }: { notification: MockNotification }) {
+function NotificationRow({ notification }: { notification: ActivityNotification }) {
+  const { t } = useTranslation('common');
+  const name = notification.name || notification.username;
+  const message =
+    notification.type === 'newFollower'
+      ? t('activityNewFollower', '{{name}} sizi takip etmeye başladı', { name })
+      : t('activityRequestApproved', '{{name}} takip isteğinizi onayladı', { name });
+  const timeAgo = formatRelativeTime(new Date(notification.createdAt).toISOString(), t);
+
   return (
     <View style={styles.notificationRow}>
       <View style={styles.notificationIconWrap}>
         <Bell size={16} color="#60a5fa" />
       </View>
-      <Text style={styles.notificationMessage} numberOfLines={2}>{notification.message}</Text>
-      <Text style={styles.notificationTime}>{notification.timeAgo}</Text>
+      <Text style={styles.notificationMessage} numberOfLines={2}>{message}</Text>
+      <Text style={styles.notificationTime}>{timeAgo}</Text>
     </View>
   );
 }
@@ -102,21 +88,26 @@ export default function NotificationsScreen() {
   const { t } = useTranslation('common');
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
+  const { accessToken, isGuest } = useAuth();
 
-  const [followRequests, setFollowRequests] = useState(MOCK_FOLLOW_REQUESTS);
-  const [notifications] = useState(MOCK_NOTIFICATIONS);
+  const { requests, isLoading: isRequestsLoading, accept, reject } = useFollowRequests();
+  const items = useNotificationStore((s) => s.items);
+  const refreshActivity = useNotificationStore((s) => s.refreshActivity);
+  const markAllRead = useNotificationStore((s) => s.markAllRead);
+
+  // Misafirde/token yokken Trakt'a istek atılmaz (bkz. docs/HISTORY.md
+  // Madde 89'daki AYNI koruma — token'sız `/users/me` çağrısı misafiri
+  // sessizce oturumdan atıyordu). Ekranı açmak rozeti temizler (yaygın
+  // bildirim-listesi konvansiyonu).
+  useEffect(() => {
+    if (!accessToken || isGuest) return;
+    refreshActivity();
+    markAllRead();
+  }, [accessToken, isGuest, refreshActivity, markAllRead]);
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace('/(protected)/(tabs)/explore');
-  };
-
-  const handleAccept = (id: string) => {
-    setFollowRequests((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const handleReject = (id: string) => {
-    setFollowRequests((prev) => prev.filter((r) => r.id !== id));
   };
 
   return (
@@ -135,16 +126,20 @@ export default function NotificationsScreen() {
             <Text style={styles.sectionTitle}>{t('followRequests', 'Takip İstekleri')}</Text>
           </View>
 
-          {followRequests.length === 0 ? (
+          {isRequestsLoading ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+            </View>
+          ) : requests.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>{t('noFollowRequests', 'Bekleyen takip isteğiniz yok.')}</Text>
             </View>
           ) : (
             <View style={styles.card}>
-              {followRequests.map((request, index) => (
+              {requests.map((request, index) => (
                 <React.Fragment key={request.id}>
-                  <FollowRequestRow request={request} onAccept={handleAccept} onReject={handleReject} />
-                  {index < followRequests.length - 1 && <View style={styles.divider} />}
+                  <FollowRequestRow request={request} onAccept={accept} onReject={reject} />
+                  {index < requests.length - 1 && <View style={styles.divider} />}
                 </React.Fragment>
               ))}
             </View>
@@ -158,17 +153,17 @@ export default function NotificationsScreen() {
             <Text style={styles.sectionTitle}>{t('generalNotifications', 'Genel Bildirimler')}</Text>
           </View>
 
-          {notifications.length === 0 ? (
+          {items.length === 0 ? (
             <View style={styles.emptyBox}>
               <Inbox size={28} color="#334155" />
               <Text style={styles.emptyText}>{t('noNotifications', 'Henüz bildiriminiz yok.')}</Text>
             </View>
           ) : (
             <View style={styles.card}>
-              {notifications.map((notification, index) => (
+              {items.map((notification, index) => (
                 <React.Fragment key={notification.id}>
                   <NotificationRow notification={notification} />
-                  {index < notifications.length - 1 && <View style={styles.divider} />}
+                  {index < items.length - 1 && <View style={styles.divider} />}
                 </React.Fragment>
               ))}
             </View>

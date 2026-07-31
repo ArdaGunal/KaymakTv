@@ -2099,3 +2099,158 @@ Yeni bir throttle/debounce mekanizması, ek bir zamanlayıcı ya da ek bir state
 **KULLANICIYA ÖNEMLİ NOT:** `task_462d9a57`'nin çalıştığı ayrı worktree/oturum ARTIK GEREKSİZ — onun tek değişikliği burada elle (ve `notify()` ile birleştirilerek) zaten uygulandı. O oturumdaki chip/PR'ı AYRICA uygulamayın/birleştirmeyin — mevcut haliyle uygulanırsa (eski, `notify()`'sız bir temel üzerinden geldiği için) Madde 120/122'nin hata mesajı gösterme özelliğini SESSİZCE GERİ ALIR. O arka plan oturumu güvenle kapatılabilir/atlanabilir.
 
 **Doğrulama:** `npx tsc --noEmit` → 0 hata.
+
+## 125. İzleme Listesi Butonu Rozet Satırına Taşındı — Başka Bir Worktree'nin Elle Birleştirilmesi (Madde 124'le Aynı Desen)
+
+**Bağlam:** Kullanıcı, `.claude/worktrees/intelligent-mclaren-7b32d5` (plan dosyası: `C:\Users\ardag\.claude\plans\iterative-sparking-hippo.md`) adlı ayrı bir oturumda "İzleme Listesi" butonunun `MediaHero.tsx` rozet satırına (Puan/Favori/Liste Ekle'nin yanına) TV Time tarzı görünür bir buton olarak eklendiğini, "..." menüsündeki eski satırın kaldırıldığını bildirdi — ama o oturum worktree olduğu için `npm install`/tarayıcı testi yapamamıştı.
+
+**Teşhis — worktree'nin kod hâli ARTIK GEÇERSİZDİ, elle yeniden uygulandı (Madde 124'teki `task_462d9a57` durumuyla BİREBİR AYNI desen):** Worktree, ana daldan (`main`) BUGÜNKÜ oturumun TÜM işinden (Madde 108-124) önceki bir noktada (`b8496b8`) ayrılmıştı. `git diff` ile karşılaştırıldığında:
+- `components/modals/OptionsModal.tsx`: worktree'nin taban sürümü mevcut `main` ile **birebir aynıydı** (0 satır fark) — oradaki değişiklik (İzleme Listesi satırının kaldırılması) doğrudan uygulanabilir durumdaydı.
+- `components/MediaHero.tsx`: worktree'nin taban sürümü mevcut `main`'den **1022 satır** farklıydı (dosya neredeyse tamamen başka bir noktada) — worktree'nin diff'i doğrudan uygulanamazdı, mevcut `main`'in GERÇEK yapısına göre YENİDEN yazıldı.
+- `hooks/useFollowState.ts`: worktree'nin uncommitted değişikliği (`Platform.OS` dallanmasını merkezi `confirmAsync()`'e taşımak) zaten **mevcut `main`'de vardı** (üstelik çok daha ileri bir hâliyle — Zustand `followStore`, metrik kaydı, takipten çıkma onayı dahil) — bu kısım atlandı, hiçbir şey yapılmadı.
+- **Ayrı bir bulgu — `.gitignore`:** Worktree'de commit edilmiş (`f9e585e`) ve commit edilmemiş bir değişiklik daha vardı: `docs/` klasörünü (İLK `docs/HISTORY.md` DAHİL) git takibinden tamamen çıkarma teklifi ("Raspberry Pi depolama tasarrufu" gerekçesiyle). Kullanıcıya soruldu — `AGENTS.md`'nin kendi "HISTORY.md her özellik sonrası güncellenmeli" kuralıyla çelişeceği ve yeni clone/Pi deploy'larda bu dosyaların hiç gelmeyeceği açıklandı. Kullanıcı "güvenlik açığı yoksa en mantıklısını yap" dedi — **`.gitignore`'a DOKUNULMADI**, mevcut takip davranışı korundu (bu, AGENTS.md'nin kendi kuralıyla çelişmeyen tek seçenekti).
+
+**Uygulanan (mevcut `main`'in gerçek yapısına göre, worktree'den ilham alınarak):**
+- `components/MediaHero.tsx`: `Bookmark` ikonu import edildi; rozet satırına Favori ile Listeye Ekle arasına (plandaki sıra: `[Puan][Kullanıcı Puanı][Favori][İzleme Listesi][Listeye Ekle]`) yeni bir `TouchableOpacity` eklendi — Favori butonuyla BİREBİR AYNI rozet deseni (`styles.userRatingBadge` + `styles.iconOnlyBadge`), aktifken `styles.userRatingActive` (mavi `#3b82f6`, rating rozetiyle aynı vurgu — Favori'nin kırmızısından bilinçli olarak farklı). Misafir kontrolü Favori butonuyla aynı desende (`handleToggleWatchlist` → `isGuest` ise `Alert.alert`).
+- `components/modals/OptionsModal.tsx`: Eski "İzleme Listesine Ekle/Çıkar" satırı, `handleToggleWatchlist` fonksiyonu, `isWatchlisted`/`onToggleWatchlist` prop'ları ve artık kullanılmayan `Bookmark` import'u KALDIRILDI (AI_RULES'daki "eski state/handler/import'u aynı anda temizle" kuralına uyularak) — aynı eylemi iki yerde göstermemek için.
+- `app/show/[id].tsx` / `app/movie/[id].tsx`: DOKUNULMADI — `isWatchlisted`/`onToggleWatchlist`'i zaten `MediaHero`'ya geçiyorlardı (`toggleWatchlistStatus()` mutation'ı optimistic UI + Trakt sync + rollback ile zaten hazırdı).
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` → değiştirilen iki dosyada (MediaHero.tsx, OptionsModal.tsx) sıfır kalıntı (raporlanan diğer hatalar — `features/notifications/hooks/useNotifications.ts`, `screens/PublicProfileMobile.tsx` — bu değişiklikten ÖNCE de vardı, başka bir oturumun işi, kapsam dışı bırakıldı). Metro bundler hatasız derledi (`preview_logs` temiz). **Doğrulanamayan:** Gerçek bir dizi/film detay sayfasında görsel/etkileşimli test — bu ortamda tarayıcı sekmesi Trakt'a hiç ulaşamıyor (iskelet ekranında süresiz bekliyor, önceki maddelerdeki AYNI kısıtlama), kullanıcının kendi ortamında (a) rozet satırında Bookmark ikonu görünüyor mu, (b) tıklayınca mavi/aktif olup tekrar tıklayınca geri dönüyor mu, (c) "..." menüsünde artık bu satırın olmadığını, (d) mobil+web'de rozet satırının taşmadığını doğrulaması gerekiyor. **Kullanıcıya not:** `.claude/worktrees/intelligent-mclaren-7b32d5` oturumu artık gereksiz — Madde 124'teki gibi güvenle kapatılabilir, işi burada zaten (mevcut `main`'e göre düzeltilerek) uygulandı; oradaki `.gitignore` değişikliği AYRICA uygulanmamalı.
+
+## 126. "Takip Et" (Watchlist) Butonu Salt İkondan İkon+Metne Çevrildi — "Listeye Ekle" ile Görsel Karışıklık Giderildi
+
+**Bildiren:** Proje sahibi, Madde 125'te eklenen Takip Et (watchlist, `Bookmark` ikonu) butonunun hemen yanındaki "Listeye Ekle" (`ListPlus` ikonu) butonuyla ikisi de salt ikon olduğu için görsel olarak ayırt edilemediğini fark etti — kullanıcılar bunu muhtemelen hiç sorun olarak görmezdi ama iki ayrı eylemin (Trakt watchlist'e ekleme vs. kişisel özel listeye ekleme, bkz. Madde 125'teki net ayrım) aynı görünmesi istenmedi. Çözüm için özellikle şunu vurguladı: kişiyi takip etme (Public Profile ekranındaki Takip Et/Ediliyor butonu) ile KARIŞTIRILMAMALI.
+
+**Çözüm:** `components/MediaHero.tsx`'teki Takip Et butonu, `styles.iconOnlyBadge` (salt ikon) yerine `Kullanıcı Puanı` rozetiyle AYNI ikon+metin deseni kullanacak şekilde değiştirildi: pasifken "Takip Et", aktifken "Takip Ediliyor" (mavi `#3b82f6`, rating rozetiyle aynı vurgu). Karışıklık riski iki katmanlı önlendi: (1) farklı bir sayfa bağlamı — bu buton medya (dizi/film) detay sayfasında, kişi takip butonu Public Profile ekranında, ikisi asla aynı ekranda yan yana görünmüyor; (2) farklı ikon — `Bookmark` (medya) vs `UserPlus`/`Check` (kişi). Yeni çeviri anahtarları: `watchlistAction` ("Takip Et"/"Track"), `watchlistActive` ("Takip Ediliyor"/"Tracking") — tr/en `media.json`.
+
+**Kapsam bilinçli olarak dar tutuldu:** `MediaHero.tsx` mobil/web arasında zaten TEK, paylaşımlı bir dosya (ayrı `.web.tsx` yok) — bu yüzden tek bir değişiklik her iki platforma da otomatik yansıyor, ayrı bir web implementasyonu gerekmedi. İstek özellikle medya detay sayfasındaki butonla ilgiliydi (plan'ın Faz 4'ü — kart hover'larına watchlist butonu eklemek — kapsam dışı, ayrıca istenmedi).
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. **Doğrulanamayan:** Gerçek bir detay sayfasında görsel test (bu ortamda tarayıcı Trakt'a ulaşamıyor, Madde 125'teki AYNI kısıtlama) — kullanıcının kendi ortamında rozetin taşmadığını ve iki metnin (Takip Et/Takip Ediliyor) doğru göründüğünü doğrulaması gerekiyor.
+
+## 127. Takip Et Butonu Rozet Satırından Çıkarılıp Kendi Aksiyon Çubuğuna Taşındı
+
+**Bildiren:** Proje sahibi, Madde 126'nın ekran görüntüsünü paylaştı — House of the Dragon detay sayfasında rozet satırının artık 5 öğe (Puan/Kullanıcı Puanı/Favori/Takip Et/Listeye Ekle) taşıdığını, satırın "tek yerde ve kalabalık" göründüğünü bildirdi. Takip Et butonunun kullanıcı deneyimi açısından daha iyi bir yere konulmasını istedi.
+
+**Çözüm:** `components/MediaHero.tsx`'te Takip Et, rozet satırından (ratingsRow) tamamen çıkarılıp `contentContainer` (poster+başlık satırı) kapandıktan HEMEN SONRA, OVERVIEW'dan ÖNCE kendi başına tam genişlikte bir aksiyon çubuğuna taşındı — TV Time'daki gibi belirgin, kendi satırında tek bir buton. Rozet satırı eski hâline (4 öğe: Puan, Kullanıcı Puanı, Favori, Listeye Ekle) döndü. Görsel dil: pasifken yarı saydam beyaz (`rgba(255,255,255,0.08)` arka plan + `rgba(255,255,255,0.14)` kenarlık, beyaz `Bookmark` ikon+metin), aktifken mavi (`rgba(59,130,246,0.12)` arka plan + mavi kenarlık/metin/ikon) — Madde 126'daki renk kararlarıyla (ve projenin genelindeki "aktif = mavi" deseniyle) tutarlı, yalnızca yerleşim değişti. `insets.left`/`insets.right` `contentContainer` ile aynı şekilde uygulandı (çentikli ekranlarda hizasız kalmasın diye).
+
+**Kapsam:** Yine `MediaHero.tsx` TEK dosya (mobil/web ortak) olduğundan bu yerleşim değişikliği otomatik olarak her iki platforma yansıyor — ayrı bir web düzeni gerekmedi.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata.
+
+## 128. "Profili Düzenle" Artık Gerçek Bir Form Ekranı — Ayarlar'a Yönlendirme Kaldırıldı
+
+**İstek:** Profil sayfasındaki "Profili Düzenle" butonu genel Ayarlar ekranına (`/(protected)/account`) yönlendiriyordu — orada isim/bio/konum düzenleme hiç yoktu. Kullanıcının Trakt profilindeki `name`/`about`/`location` alanlarını düzenleyebileceği kendi ekranı istendi; avatar değişimi resim seçici AÇMADAN Trakt.tv'ye yönlendirmeli.
+
+İstek metninde `services/trakt.ts` adında bir dosyaya ve global Zustand state güncellemesine atıfta bulunuluyordu — ikisi de bu projenin gerçek mimarisiyle uyuşmuyordu (bkz. Madde 122'deki AYNI iki sapma), aşağıda açıklandı.
+
+**Eklenenler:**
+1. `services/api/social.ts`: `TraktUserProfile` interface'ine `about`/`location` alanları eklendi — Trakt'ın `extended=full` yanıtı bunları zaten döndürüyordu, sadece tipte tanımlı değildi; yeni bir GET çağrısına gerek kalmadı.
+2. `services/api/users.ts`: `updateProfile(data: { name, about, location })` eklendi — `updateProfilePrivacy` (Madde 122) ile BİREBİR aynı desen: `PUT /users/settings`, `TRAKT_PROXY_URL` üzerinden (CORS gerekçesi Madde 109/120/122'yle aynı).
+3. `hooks/useMyTraktProfile.ts`: Fetch mantığı `fetchProfile` adlı bir `useCallback`'e çıkarıldı ve `refetch` olarak dışa aktarıldı (eski mount-`useEffect`'teki race-condition koruması `isMounted` parametresiyle korunarak, kod TEKRARI olmadan).
+4. `hooks/useEditProfile.ts` (YENİ): `useProfilePrivacy.ts` ile AYNI desen — yerel state (`name`/`about`/`location`/`isSaving`), `profile` geldiğinde formu dolduran bir `useEffect`, `save()` (`updateProfile()` çağırır, hata olursa `notify()` ile Alert, başarıysa `true` döner).
+5. `screens/EditProfileMobile.tsx` (YENİ) + `app/(protected)/profile/edit.tsx` (YENİ, re-export): `profile/statistics.tsx`'in izlediği "route dosyası re-export eder, gerçek ekran `screens/`'te" deseni. `SettingsHeader` (mevcut, `account.tsx`/`error-log.tsx`'te de kullanılan) yeniden kullanıldı. Avatar üzerine kalem ikonlu bir buton — tıklanınca resim seçici AÇILMIYOR, `confirmAsync` ile "Trakt.tv'yi ziyaret etmek ister misiniz?" sorup onaylanırsa `Linking.openURL('https://trakt.tv/settings/profile')`. Mount'ta `isGuest` ise `notify` + otomatik geri dönüş (AI_RULES'ın zorunlu guest koruması).
+6. `components/profile/ProfileHeader.tsx` ve `app/(protected)/(tabs)/profile.web.tsx`'teki "Profili Düzenle" butonları artık `/(protected)/account` yerine `/(protected)/profile/edit`'e yönleniyor.
+7. `screens/ProfileMobile.tsx` ve `app/(protected)/(tabs)/profile.web.tsx`: `@react-navigation/native`'in `useFocusEffect`'i ile, ekran odağa her geldiğinde `useMyTraktProfile().refetch()` çağrılıyor — Profili Düzenle'den `router.back()` ile dönüldüğünde güncel isim/bio anında görünür.
+8. Çeviriler: `locales/{tr,en}/media.json`'a `editProfileTitle`, `editProfileNameLabel`, `editProfileNamePlaceholder`, `editProfileAboutLabel`, `editProfileAboutPlaceholder`, `editProfileLocationLabel`, `editProfileLocationPlaceholder`, `editProfileAvatarHint`, `editProfileAvatarConfirmTitle/Message/Button`, `editProfileSaveButton` eklendi (mevcut `editProfile` anahtarının yanına, alfabetik sırada). Hata mesajı için yeni bir anahtar açılmadı — mevcut `common:actionFailedMessage`/`common:error` yeniden kullanıldı (`useEditProfile.ts` → `notify()`).
+
+**Kullanıcının isteğinden bilinçli sapmalar (Madde 122'deki gerekçeyle AYNI):**
+- `services/trakt.ts` yerine `services/api/users.ts` — proje zaten Trakt çağrılarını sorumluluğa göre `services/api/{auth,social,users,...}.ts` altında bölüyor.
+- Global Zustand state güncellemesi yerine `useFocusEffect` tabanlı refetch — bu proje kullanıcıya özel/tekil profil verisini (Madde 122'de olduğu gibi) ZATEN "hook + yerel state" desenine tutuyor; tek bir düzenleme ekranı için global bir store eklemek gereksiz karmaşıklık olurdu. Aynı "kaydedince anında görünme" kullanıcı deneyimi, Zustand olmadan `refetch()` ile sağlandı.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. **Doğrulanamayan:** Gerçek bir Trakt oturumuyla uçtan uca (bu ortamda gerçek OAuth oturumu yok) — kullanıcının kendi hesabıyla (1) formun mevcut ad/bio/konumla dolu geldiğini, (2) kaydedince Trakt'a gerçekten yazıldığını ve profile dönünce yeni değerlerin göründüğünü, (3) avatar kalemine basınca resim seçicinin AÇILMADIĞINI ve `confirmAsync`in çıktığını, (4) misafir hesapla `/(protected)/profile/edit`'e doğrudan gidilirse guard'ın geri attığını doğrulaması gerekiyor.
+
+## 129. Bildirimler Ekranındaki Sahte Veriler Kaldırıldı — Gerçek Takip İstekleri + Basit Aktivite Bildirimleri
+
+**İstek:** Madde 121'de kurulan `/notifications` ekranı tamamen `MOCK_FOLLOW_REQUESTS`/`MOCK_NOTIFICATIONS` sahte verisiyle çalışıyordu. Kullanıcı sahte verilerin kaldırılıp gerçek verilerle değiştirilmesini istedi. İki ayrı soruyla kapsam netleştirildi: (1) Genel Bildirimler için TAM push-bildirim altyapısı (yeni Supabase tablosu + `kaymaktv-feedback-worker`'a yeni endpoint) DEĞİL, yalnızca basit uygulama-içi "aktivite" bildirimleri ("biri seni takip etti" / "takip isteğin onaylandı") isteniyor — dış push YOK. (2) Takip İstekleri gerçek Trakt verisine bağlansın.
+
+**Kritik bulgu:** Trakt'ın gelen takip isteklerini listeleme/onaylama uç noktaları (`GET/POST/DELETE /users/requests[/:id]`) bu projede HİÇ kullanılmamıştı — `docs/notifications.md`'nin kendi "Açık Soru #4"ü bunu zaten ayrı bir özellik olarak işaretlemişti. Bu oturumda internet erişimi olmadığından Madde 122'deki gibi `curl` ile CORS doğrulaması YAPILAMADI — ihtiyatlı yol seçildi: yeni üç uç nokta da `TRAKT_PROXY_URL` üzerinden geçiyor (Madde 109/120/122'deki AYNI "kullanıcının özel/yazma verisi" ailesi mantığı; `server.js`'te değişiklik GEREKMEDİ, proxy zaten endpoint-agnostik).
+
+**Bölüm A — Takip İstekleri (gerçek Trakt verisi):**
+1. `services/api/social.ts`: `getFollowRequests()` (GET `/users/requests`), `approveFollowRequest(id)` (POST `/users/requests/:id`), `denyFollowRequest(id)` (DELETE `/users/requests/:id`) eklendi — `followTraktUser`/`unfollowTraktUser` ile BİREBİR aynı proxy deseni.
+2. `hooks/useFollowRequests.ts` (YENİ): `useProfilePrivacy.ts` ile aynı desen — guest/token korumalı fetch, `accept(id)`/`reject(id)` optimistic kaldırma + hata olursa rollback + `notify()`.
+3. `app/(protected)/notifications.tsx`: "Takip İstekleri" bölümü artık bu hook'u kullanıyor, `FollowRequestRow` gerçek `TraktFollowRequest.user` alanlarını (`images.avatar.full`, `name`, `username`) okuyor, yükleniyor durumu için `ActivityIndicator` eklendi.
+
+**Bölüm B — Basit Aktivite Bildirimleri (Genel Bildirimler, push YOK, backend YOK):**
+1. `store/notificationStore.ts` genişletildi (mevcut `unreadCount`/`setUnreadCount`/`clearUnread` korunarak): `items` (en fazla 50, en yeni önde), `seenFollowerSlugs` (`null` = ilk çalıştırma, taban alınır ama bildirim ÜRETİLMEZ — aksi halde mevcut TÜM takipçiler "yeni" gibi görünüp bildirim yağmuru olurdu), `pendingSentSlugs`, `addPendingSentSlug(slug)`, `refreshActivity()` (yeni takipçi diff'i için `getFollowers('me')` + onaylanan istekler için `followStore.fetchFollowingSlugs()`'un ZATEN TTL-cache'li sonucunu okur, yeni bir ham `getMyFollowingSlugs()` çağrısı EKLEMEZ), `markAllRead()`. Kalıcılık `store/followStore.ts`'teki hydrate/persist deseninin BİREBİR aynısı (AsyncStorage, `logError` ile sessiz-yutmayan hata günlüğü).
+2. `hooks/useFollowState.ts`: `toggleFollow` başarıyla `approvedAt: null` (veya 409 "zaten pending") döndürdüğünde `useNotificationStore.getState().addPendingSentSlug(slug)` çağrısı eklendi — karşı taraf daha sonra onaylayınca `refreshActivity()` bunu tespit edip bildirim üretebilsin diye.
+3. `features/notifications/components/NotificationBadge.tsx`: mount olduğunda (guest/token korumalı — Madde 89'daki AYNI hata sınıfını tekrar açmamak için `useAuth()` kontrolü eklendi) `refreshActivity()` çağrılıyor.
+4. `app/(protected)/notifications.tsx`: "Genel Bildirimler" bölümü artık `store`'un `items`'ını okuyor; ekran açılınca (guest korumalı) `refreshActivity()` + `markAllRead()` çağrılıyor (ekranı açmak rozeti temizler).
+5. `utils/formatRelativeTime.ts` (YENİ): `components/comments/CommentItem.tsx`'teki yerel `formatRelativeDate` fonksiyonu davranış AYNI kalacak şekilde buraya taşındı (bildirim satırları da aynı "X önce" formatına ihtiyaç duyduğundan tekrar yazmak yerine tek kaynağa çıkarıldı), `CommentItem.tsx` bu paylaşılan fonksiyonu kullanacak şekilde güncellendi.
+6. Çeviriler: `locales/{tr,en}/common.json`'a `activityNewFollower`/`activityRequestApproved` eklendi (alfabetik sırada); mevcut `daysAgo`/`hoursAgo`/`minutesAgo`/`justNow`/vb. yeniden kullanıldı.
+
+**Kapsam dışı (bilinçli, kullanıcının seçimiyle):** Gerçek push bildirimleri (Expo/Web Push), yeni Supabase tablosu, `kaymaktv-feedback-worker` değişiklikleri — `docs/notifications.md`'nin Faz 2'si olarak kalıyor. Arka planda/uygulama kapalıyken bildirim üretimi YOK — yalnızca `NotificationBadge` mount olduğunda veya Bildirimler ekranı açıldığında diff hesaplanıyor. Takip isteği reddedilirse karşı tarafa herhangi bir "reddedildi" bildirimi YOK (Trakt bunun için sinyal vermiyor).
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata, değişen `common.json` dosyaları `node -e "JSON.parse(...)"` ile doğrulandı. Kod tabanında `MOCK_FOLLOW_REQUESTS`/`MOCK_NOTIFICATIONS` referansı KALMADI (grep ile doğrulandı, yalnızca bu HISTORY.md kaydında geçiyor). **Doğrulanamayan:** Gerçek bir Trakt oturumuyla uçtan uca (bu ortamda internet erişimi/gerçek OAuth oturumu yok) — kullanıcının kendi hesabıyla (1) gelen bir takip isteğinin listede gerçekten göründüğünü ve Kabul Et/Reddet'in Trakt'a gerçekten yazdığını, (2) yeni bir takipçi kazanınca (bir SONRAKİ `refreshActivity()` çağrısında, ilk çalıştırma hariç) bildirim üretildiğini, (3) gizli bir hesaba gönderilen bir takip isteği onaylanınca "onaylandı" bildirimi göründüğünü doğrulaması gerekiyor.
+
+## 130. Bug: "Profili Düzenle" Kaydediyor Ama Kalıcı Olmuyormuş Gibi Görünüyordu — Trakt CDN Önbelleği
+
+**Bildiren:** Kullanıcı Madde 128'deki Profili Düzenle ekranında ad/bio/konumu değiştirip kaydetti, profile geri döndü, tekrar Düzenle'ye girince DEĞİŞMEMİŞ eski hali gördü — "Trakt ile tam entegre olması gerekiyor" diyerek durumun kontrol edilmesini istedi.
+
+**Doğrulama adımları (bu oturumda istisnaen internet erişimi vardı):**
+1. **Yazma tarafı gerçek Trakt kaynağıyla doğrulandı** — `github.com/trakt/trakt-api` deposundaki (Trakt'ın resmi API tanım kaynağı) `settingsRequestSchema.ts` çekildi: `PUT /users/settings` gövdesi tam olarak `{ user: { name, about, location, private, dob } }` şeklinde, üçü de (name/about/location) GERÇEKTEN yazılabilir alanlar — `services/api/users.ts`'teki `updateProfile()`'ın gönderdiği gövde BİREBİR doğru. `server.js`'teki PUT proxy handler'ı da body'yi olduğu gibi Trakt'a iletiyor, sorun yok.
+2. **Okuma tarafı da doğru alanı istiyor** — aynı depodaki `profileResponseSchema.ts`, `about`/`location`'ın yalnızca `extended=full` ile geldiğini doğruluyor; `getUserProfile()` zaten `?extended=full` gönderiyor.
+3. **Kök neden — proje bu TAM sınıftan hatayı daha önce İKİ KEZ yaşamıştı (Madde 87, Madde 102):** Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor. `getUserProfile('me')`'in çağırdığı `/users/me?extended=full` her seferinde BİREBİR AYNI URL — Madde 102'nin tabiriyle "mükemmel bir önbellek anahtarı". `updateProfile()` (PUT) Trakt'a anında yazıyor ama hemen ardından aynı ekranın/`useMyTraktProfile`'ın yaptığı `getUserProfile('me')` okuması CDN'de duran ESKİ yanıtı dönebiliyordu — yazma İŞLEMİ başarılı, yalnızca okunan içerik bayat, bu yüzden hata günlüğünde de HİÇBİR iz yoktu (istek teknik olarak 200 dönüyor).
+
+**Çözüm (`services/api/social.ts`):** Madde 87'deki `services/api/comments.ts`'in `cacheBustParam()` deseni (`_=${Date.now()}`) BİREBİR aynı şekilde `getUserProfile()`'a eklendi — `/users/{id}?extended=full&_=...` artık her çağrıda benzersiz, CDN'i "yeni kaynak" sanmaya zorluyor. Kapsam Madde 87'deki gibi dar tutuldu: yalnızca `getUserProfile` (bu hatayla doğrudan ilgili fonksiyon), `getFollowers`/`getFollowing` gibi diğer `services/api/social.ts` GET'lerine YAYILMADI (bildirilen sorun yalnızca profil alanlarıyla ilgiliydi).
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata. Bu oturumda istisnaen gerçek internet erişimi vardı ve `github.com/trakt/trakt-api` kaynağına karşı hem yazma hem okuma şemaları doğrulandı (yukarıda). **Doğrulanamayan:** Gerçek bir kullanıcı token'ıyla uçtan uca (bu ortamda hâlâ gerçek bir Trakt OAuth oturumu yok) — kullanıcının kendi hesabıyla Profili Düzenle'de bir alanı değiştirip kaydettikten hemen sonra tekrar girip yeni değerin göründüğünü doğrulaması gerekiyor.
+
+## 131. Konum Alanı Tamamen Kaldırıldı + "Hakkında" Hiçbir Yerde Görünmüyordu — Bio Profil Ekranlarına Eklendi
+
+**İstek:** Kullanıcı (1) Konum (şehir) alanının bu tür bir uygulamada gereksiz olduğunu belirtip TAMAMEN kaldırılmasını istedi, (2) Hakkında (bio) alanının kaydedildikten sonra "ne profilde görünüyor ne başka yerde" diye bildirdi.
+
+**Teşhis (2. madde) — kök neden Madde 130'daki CDN önbelleği DEĞİL, daha temel bir eksiklik:** `grep -rn "\.about\b" **/*.tsx` sıfır sonuç döndürdü — `about` alanı `services/api/users.ts` (yazma), `hooks/useEditProfile.ts` (form state) ve `services/api/social.ts` (tip) dışında HİÇBİR ekran/bileşende OKUNMUYOR/RENDER EDİLMİYORDU. Yani Madde 130'daki CDN düzeltmesi doğru olsa bile, yazma+okuma mükemmel çalışsa dahi, kullanıcı bio'yu HİÇBİR YERDE göremezdi — çünkü onu gösterecek tek satır kod yoktu. "Ne profilde görünüyor ne başka yerde" şikayetinin en dolaysız açıklaması buydu.
+
+**Çözüm — bio artık gerçekten gösteriliyor (hem kendi hem başkasının profilinde, Trakt'tan gelen gerçek veriyle):**
+1. `components/profile/ProfileHeader.tsx` (mobil, hem `ProfileMobile.tsx`'te kendi profil hem `PublicProfileMobile.tsx`'te başka kullanıcı profili için ORTAK bileşen) — `@kullaniciadi` satırının altına `profile.about` varsa (`numberOfLines={3}`) eklendi.
+2. `app/(protected)/(tabs)/profile.web.tsx`'teki `DesktopProfileHeader` (kendi profil, masaüstü) — aynı şekilde eklendi.
+3. `app/(protected)/user/[slug].web.tsx` (başkasının profili, masaüstü) — aynı şekilde eklendi.
+Üçü de `!!profile.about` koşuluyla — bio boşsa hiçbir boşluk/satır bırakmıyor.
+
+**Konum kaldırma (1. madde) — kodun tamamından temizlendi:**
+- `services/api/social.ts`: `TraktUserProfile.location` alanı silindi.
+- `services/api/users.ts`: `updateProfile(data: { name, about, location })` → `updateProfile(data: { name, about })`, PUT gövdesinden `location` çıktı.
+- `hooks/useEditProfile.ts`: `location`/`setLocation` state'i ve `save()`'in gönderdiği alan kaldırıldı.
+- `screens/EditProfileMobile.tsx`: Konum `TextInput`/etiketi kaldırıldı; boşalan alanı doldurmak ve kullanıcının "açıklama çok daha önemli" vurgusuna karşılık, Hakkında kutusu büyütüldü (`numberOfLines={4}→6`, `minHeight: 100→150`).
+- Çeviriler: `locales/{tr,en}/media.json`'dan `editProfileLocationLabel`/`editProfileLocationPlaceholder` silindi.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata, değişen `media.json` dosyaları `node -e "JSON.parse(...)"` ile doğrulandı. Kod tabanında `location`/`setLocation`/`editProfileLocation*` referansı KALMADI (yalnızca bu HISTORY.md kaydında geçiyor, grep ile doğrulandı). **Doğrulanamayan:** Gerçek bir Trakt oturumuyla uçtan uca (bu ortamda gerçek OAuth oturumu yok) — kullanıcının kendi hesabıyla Hakkında'yı kaydedip profiline döndüğünde metnin artık gerçekten göründüğünü doğrulaması gerekiyor; hâlâ görünmüyorsa bu, Madde 130'un CDN teorisinin ötesinde üçüncü bir kök neden (ör. yazmanın kendisinin sessizce reddedilmesi) olduğunu işaret eder ve hata günlüğü/ağ isteği detaylarıyla tekrar incelenmelidir.
+
+## 132. ✅ ÇÖZÜLDÜ — "Kaydediyorum Ama Olmuyor, Hata da Vermiyor": SPA Fallback Her İsteğe `200 + HTML` Dönüyormuş
+
+**Bildiren:** Kullanıcı Madde 130/131'den sonra da açıklamanın kaydedilmediğini bildirdi: "hem Trakt'ı hem uygulamayı test ettim, her ikisinde de yazılmamış." Yani önceki iki maddedeki teşhisler (CDN önbelleği, bio'nun render edilmemesi) GERÇEK sorunlardı ama ASIL kök neden bu değildi — yazma işlemi Trakt'a hiç ulaşmıyordu.
+
+**Teşhis — bu oturumda internet erişimi vardı, kök neden CANLI SUNUCUYA KARŞI KESİN OLARAK KANITLANDI:**
+
+1. **Trakt tarafı tamamen doğruydu.** Resmi API sözleşmesi (`github.com/trakt/trakt-api`) satır satır doğrulandı: `saveSettings` → `path: '/settings'`, `method: 'PUT'`, gövde `{ user: { name?, about?, location?, private?, dob? } }`, başarıda gövdesiz `201`. `about` hem istek (`settingsRequestSchema`) hem yanıt (`settingsResponseSchema`) şemasında GERÇEK bir alan. Token'sız canlı `PUT /users/settings` → `401` (yani uç nokta yönlendiriliyor, `404`/`405` değil). Kısacası gönderdiğimiz gövde/metot/yol %100 doğruydu.
+
+2. **Kök neden `server.js`'in SPA fallback'iydi.** Satır 310'daki `app.use((req, res) => { res.sendFile(index.html) })` — metoda ve yola BAKMADAN **her** eşleşmeyen isteği yakalıyor ve `200 + index.html` döndürüyordu. Canlı sunucuya (kaymaktv.com) karşı yapılan iki test bunu kanıtladı:
+   - `GET /api/trakt-proxy?endpoint=/users/settings` → `401`, `application/json` ✅ (GET handler'ı deploy edilmiş)
+   - `PUT /api/trakt-proxy?endpoint=/users/settings` → **`200`, `text/html`** ❌ (PUT handler'ı YOK — Madde 122'de eklenmişti ama o maddenin kendi notunda yazdığı gibi Raspberry Pi'ye HİÇ DEPLOY EDİLMEDİ)
+
+   Zincir şöyle işliyordu: PUT isteği → sunucuda PUT handler'ı yok → SPA fallback yakalıyor → `200 + HTML` → **axios 2xx gördüğü için hata FIRLATMIYOR** → `updateProfile()` başarıyla çözülüyor → `save()` `true` dönüyor → ekran `router.back()` ile kapanıyor, kullanıcı "kaydedildi" sanıyor → **ama istek Trakt'a hiç ulaşmamış.** Hata mesajı çıkmamasının ve hata günlüğünde hiçbir iz olmamasının sebebi tam olarak buydu.
+
+   **Bu aynı sessiz hata `updateProfilePrivacy`'yi (Madde 122'deki "Gizli Hesap" anahtarı) de vuruyordu** — o da aynı PUT proxy'sini kullanıyor ve Madde 122'de "doğrulanamayan" olarak işaretlenmişti; hiçbir zaman gerçekten çalışmamış.
+
+**Çözüm — üç katmanlı (biri bile tek başına yeterli değildi):**
+
+1. **`server.js` (kök neden):** SPA fallback artık YALNIZCA gerçek sayfa gezinmelerine (`GET`/`HEAD`) hizmet ediyor ve `/api/*` altındaki hiçbir yolu ASLA yutmuyor — eşleşmeyen her API isteği dürüstçe JSON `404` dönüyor (`docs/AI_RULES.md` § sessiz başarısızlık yasak).
+
+2. **`services/api/users.ts` — native artık proxy'ye HİÇ UĞRAMIYOR:** Proxy yalnızca tarayıcı CORS'u için vardı (Madde 109/120/122); native'de CORS diye bir şey yok ve uygulamanın diğer TÜM Trakt çağrıları zaten `getTraktClient()` ile doğrudan gidiyor. Artık `/users/settings` de native'de doğrudan Trakt'a gidiyor — **böylece özellik APK'da sunucu deploy'una hiç bağımlı olmadan çalışıyor** (ek fayda: 401'de token yenileme/rate-limit/circuit breaker mantığı da devreye giriyor, ham `axios` çağrısında bunların hiçbiri yoktu). Web proxy'yi kullanmaya devam ediyor. ⚠️ Bu, `auth.ts`'teki "Platform.OS EKLEMEYİN" uyarısıyla ÇELİŞMEZ: o uyarı `TRAKT_PROXY_URL`'in mutlak/göreli seçim koşuluna aittir (Madde 88/91), o koşula HİÇ dokunulmadı.
+
+3. **İki ayrı sessiz-başarı savunması:**
+   - `assertProxyReachedTrakt()`: proxy JSON yerine HTML döndürürse (SPA fallback yuttuysa) hata fırlatır — sunucu düzeltmesi deploy edilene kadar da web'i korur.
+   - **Yaz-sonra-oku doğrulaması:** `updateProfile()` artık PUT'tan sonra ayarları geri okuyup `name`/`about`'un GERÇEKTEN yazıldığını teyit ediyor; tutmadıysa gönderilen ve okunan değerleri içeren açıklayıcı bir hata fırlatıyor. Doğrulama okuması cache-bust'lı (Madde 130) — bayat okuma yüzünden yanlış hata verilmesin diye. Artık bir kaydetmenin sessizce kaybolması MÜMKÜN DEĞİL.
+   - `hooks/useEditProfile.ts`: hata artık `logError` ile kalıcı hata günlüğüne de yazılıyor (yalnızca `console.warn` yetmez) — sebebi Ayarlar > Hata Günlüğü'nden okunabilir.
+
+**Ortak katman temizliği:** `getProfilePrivacy`/`updateProfilePrivacy`/`updateProfile` artık tek bir `getUserSettings()`/`updateUserSettings()` çiftini paylaşıyor — üç yerde kopyalanmış token/proxy/axios kodu tek kaynağa indi ve gizlilik anahtarı da yukarıdaki tüm korumaları otomatik olarak kazandı.
+
+**Karakter sınırı (kullanıcının sorusu):** Trakt'ın resmi API sözleşmesinde `about` alanı `z.string().nullish()` — **hiçbir `.max()` kısıtı YOK**, yani API düzeyinde belgelenmiş bir karakter/kelime sınırı bulunmuyor. Bu yüzden istemciye UYDURMA bir sınır KONULMADI (yanlış bir sayı kullanıcının metnini haksız yere keserdi). Trakt ileride bir sınır uygularsa, yaz-sonra-oku doğrulaması bunu artık sessizce yutmak yerine görünür bir hataya çevirir.
+
+**Doğrulama:** `npx tsc --noEmit` → 0 hata, `node --check server.js` → geçerli. **`server.js` düzeltmesi boş bir portta (4877) GERÇEKTEN AYAĞA KALDIRILIP test edildi — üç senaryo da geçti:** (1) `PUT /api/trakt-proxy?endpoint=/users/settings` → Trakt'ın gerçek `401`'i, `application/json` (istek Trakt'a ulaşıyor); (2) `PUT /api/olmayan-yol` → `404` + `{"error":"Not Found"}` JSON (ESKİDEN `200` + HTML dönerdi — kök neden düzeldi); (3) `GET /profile/edit` → `200` + `index.html` (SPA yönlendirmesi bozulmadı). İstemci guard'ının yakalaması gereken durum da canlı sunucuya karşı doğrulandı (`200`/`text/html`).
+
+**KULLANICI TARAFINDAN YAPILMASI GEREKENLER:**
+- **Mobil (APK):** Yeni bir derleme almak yeterli — sunucuya hiç dokunmadan çalışır (native artık doğrudan Trakt'a gidiyor).
+- **Web:** `server.js` Raspberry Pi'ye deploy edilip `node server.js` yeniden başlatılmalı, ardından web build'i yeniden yayınlanmalı. Bu yapılmadan web'de kaydetme çalışmaz — ama artık sessizce başarılı görünmek yerine **görünür bir hata** verir.
+
+**Ek Doğrulama (kullanıcının "izleme listesini test et" isteği üzerine):** Bu ortamdan gerçek bir Trakt detay sayfasına hâlâ erişilemediği için (Madde 125-126'daki AYNI kısıtlama), `MediaHero`'yu mock veriyle izole render eden GEÇİCİ bir test rotası (`app/test-watchlist-preview.tsx`) oluşturuldu, tarayıcı önizlemesinde hem masaüstü (1280px) hem mobil (375px) genişlikte gerçekten tıklanarak test edildi, ardından SİLİNDİ (kalıcı kod tabanında iz bırakmadı). Doğrulanan davranışlar: (1) rozet satırı artık 4 öğeye (Puan/Kullanıcı Puanı/Favori/Listeye Ekle) döndü, tek satırda rahatça sığıyor, taşma yok; (2) aksiyon çubuğu tam genişlikte, rozet satırından net bir şekilde ayrışıyor; (3) tıklanınca "Takip Et" (yarı saydam beyaz, outline `Bookmark`) ↔ "Takip Ediliyor" (mavi `#3b82f6` arka plan/kenarlık/metin, dolu `Bookmark`) arasında doğru geçiş yapıyor, her iki yönde de; (4) 375px mobil genişlikte de rozet satırı VEYA aksiyon çubuğu hiç taşmıyor/sarmıyor; (5) konsolda hata yok. **Hâlâ doğrulanamayan (yalnızca mock veriyle test edildiği için):** gerçek `toggleWatchlistStatus()` mutation'ının uçtan uca Trakt senkronu ve misafir (`isGuest`) engelleme diyaloğu — bunlar için kullanıcının kendi (gerçek giriş yapılmış) ortamında denemesi gerekiyor.

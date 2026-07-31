@@ -1,5 +1,7 @@
 {
   "accept": "Accept",
+  "activityNewFollower": "{{name}} started following you",
+  "activityRequestApproved": "{{name}} approved your follow request",
   "actionFailedMessage": "The action failed. Please check your internet connection and try again.",
   "actor": "Actor",
   "back": "Back",

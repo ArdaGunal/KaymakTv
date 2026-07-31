@@ -308,7 +308,26 @@ app.use(express.static(path.join(__dirname, 'dist'), {
 }));
 
 app.use((req, res) => {
-  // SPA Fallback (örneğin /settings adresine direkt gidildiğinde) 
+  // ⚠️ KRİTİK (bkz. docs/HISTORY.md Madde 132): Bu fallback ESKİDEN metoda ve
+  // yola BAKMADAN her isteğe `200 + index.html` döndürüyordu. Sonucu gerçek ve
+  // sinsi bir hataydı: sunucuda karşılığı olmayan bir API isteği (ör. henüz
+  // deploy edilmemiş `PUT /api/trakt-proxy`) hata DEĞİL, BAŞARI olarak
+  // dönüyordu — axios 2xx gördüğü için istemci "kaydedildi" sanıyor, oysa
+  // istek Trakt'a hiç ulaşmamış oluyordu. Kullanıcı "profil açıklamam
+  // kaydedilmiyor ama hata da vermiyor" diye bildirdi; kök neden buydu.
+  //
+  // Artık SPA fallback YALNIZCA gerçek sayfa gezinmelerine (GET/HEAD) hizmet
+  // eder ve `/api/*` altındaki hiçbir yolu ASLA yutmaz — eşleşmeyen her API
+  // isteği dürüstçe JSON 404 döner (docs/AI_RULES.md § sessiz başarısızlık yasak).
+  const isPageNavigation = req.method === 'GET' || req.method === 'HEAD';
+  if (!isPageNavigation || req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      error: 'Not Found',
+      details: `${req.method} ${req.path} bu sunucuda tanımlı değil.`,
+    });
+  }
+
+  // SPA Fallback (örneğin /settings adresine direkt gidildiğinde)
   // index.html gönderilirken aynı önbellek kuralları geçerli olmalı
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
