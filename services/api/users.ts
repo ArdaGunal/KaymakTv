@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
-import { getTraktClient } from './traktClient';
+import { getTraktClient, refreshAccessToken } from './traktClient';
 import * as SecureStore from '../../utils/secureStorage';
 
 export const getWatchedShows = async () => {
@@ -805,6 +805,39 @@ const assertProxyReachedTrakt = (response: any, label: string): void => {
   }
 };
 
+/**
+ * Web'deki proxy yolu `getTraktClient()`'ın axios instance'ını hiç
+ * KULLANMADIĞI için, o instance'a bağlı 401→token-yenileme interceptor'ından
+ * da hiç geçmiyordu (bkz. docs/HISTORY.md Madde 133 — kullanıcı gerçek bir
+ * `401` aldı, çünkü token süresi dolmuştu ama bu yol hiç yenilemiyordu).
+ * Burada AYNI davranış elle uygulanıyor: 401 alınca `refreshAccessToken()`
+ * (traktClient.ts'teki paylaşılan mutex) ile bir kez yenile, isteği TEK
+ * SEFERLİK tekrar dene.
+ */
+const webProxyRequest = async (
+  method: 'get' | 'put',
+  params: Record<string, unknown>,
+  data?: unknown
+): Promise<any> => {
+  const send = async () => {
+    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+    return method === 'get'
+      ? axios.get(TRAKT_PROXY_URL, { params, headers })
+      : axios.put(TRAKT_PROXY_URL, data, { params, headers });
+  };
+
+  try {
+    return await send();
+  } catch (error: any) {
+    if (error?.response?.status === 401) {
+      await refreshAccessToken();
+      return await send();
+    }
+    throw error;
+  }
+};
+
 /** `GET /users/settings` — native doğrudan, web proxy üzerinden. */
 export const getUserSettings = async (): Promise<any> => {
   try {
@@ -817,11 +850,7 @@ export const getUserSettings = async (): Promise<any> => {
       return response.data;
     }
 
-    const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-    const response = await axios.get(TRAKT_PROXY_URL, {
-      params: { endpoint: '/users/settings', _: Date.now() },
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
+    const response = await webProxyRequest('get', { endpoint: '/users/settings', _: Date.now() });
     assertProxyReachedTrakt(response, 'getUserSettings');
     return response.data;
   } catch (error) {
@@ -841,15 +870,7 @@ const updateUserSettings = async (userPatch: Record<string, unknown>, label: str
     return;
   }
 
-  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-  const response = await axios.put(
-    TRAKT_PROXY_URL,
-    { user: userPatch },
-    {
-      params: { endpoint: '/users/settings' },
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    }
-  );
+  const response = await webProxyRequest('put', { endpoint: '/users/settings' }, { user: userPatch });
   assertProxyReachedTrakt(response, label);
 };
 

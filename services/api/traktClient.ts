@@ -91,6 +91,70 @@ const notifyTokenRefreshed = (token: string) => {
 let cachedInstance: any = null;
 let cachedAccessToken: string | null = null;
 
+/**
+ * `getTraktClient()`'ın axios interceptor'ındaki 401→refresh mantığının
+ * DIŞARIDAN ÇAĞRILABİLİR hali (bkz. docs/HISTORY.md Madde 133).
+ *
+ * NEDEN GEREKLİ: Web'de `/users/settings` gibi bazı yazma istekleri CORS
+ * yüzünden Trakt'a DOĞRUDAN değil, `/api/trakt-proxy` üzerinden gidiyor
+ * (services/api/users.ts). Bu istekler `getTraktClient()`'ın axios
+ * instance'ını hiç KULLANMADIĞI için, o instance'a bağlı interceptor'ın
+ * 401-yenileme mekanizmasından da hiç geçmiyorlardı — token süresi dolmuşsa
+ * (ör. bir GET zaten sessizce yenilemişti ama kullanıcı formu doldururken
+ * araya zaman girdi) istek sessizce/açıklamasız `401` ile başarısız oluyordu.
+ *
+ * Interceptor'daki `isRefreshing`/`failedQueue`/`cachedAccessToken` ile AYNI
+ * modül-seviyesi durumu paylaşır — bağımsız, YARIŞAN ikinci bir yenileme akışı
+ * OLUŞTURMAZ (Trakt refresh token'ları muhtemelen tek kullanımlık; iki ayrı
+ * akış aynı anda aynı refresh_token'ı kullanmaya çalışırsa biri başarısız olurdu).
+ */
+export const refreshAccessToken = async (): Promise<string> => {
+  if (isRefreshing) {
+    return new Promise<string>((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
+    if (!refreshToken) {
+      const err = new Error('Refresh token yok — oturum sona ermiş.');
+      await SecureStore.deleteItemAsync('traktAccessToken');
+      await SecureStore.deleteItemAsync('traktRefreshToken');
+      processQueue(err, null);
+      logError('traktClient.refreshAccessToken.noRefreshToken', err);
+      notifySessionExpired();
+      throw err;
+    }
+
+    try {
+      const data = await refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob');
+      const newAccessToken = data.access_token;
+      const newRefreshToken = data.refresh_token;
+
+      await SecureStore.setItemAsync('traktAccessToken', newAccessToken);
+      await SecureStore.setItemAsync('traktRefreshToken', newRefreshToken);
+      cachedAccessToken = newAccessToken;
+      notifyTokenRefreshed(newAccessToken);
+      processQueue(null, newAccessToken);
+      return newAccessToken;
+    } catch (refreshError) {
+      // Refresh token VARDI ama Trakt onu reddetti (süresi dolmuş/iptal
+      // edilmiş) — interceptor'daki `refreshFailed` dalıyla AYNI davranış:
+      // oturum kesin olarak ölü sayılır, token'lar temizlenir.
+      await SecureStore.deleteItemAsync('traktAccessToken');
+      await SecureStore.deleteItemAsync('traktRefreshToken');
+      processQueue(refreshError, null);
+      logError('traktClient.refreshAccessToken.refreshFailed', refreshError);
+      notifySessionExpired();
+      throw refreshError;
+    }
+  } finally {
+    isRefreshing = false;
+  }
+};
+
 export const getTraktClient = async () => {
   const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
   const accessToken = await SecureStore.getItemAsync('traktAccessToken');
