@@ -18,13 +18,22 @@ import {
  * modülünün tek gerçek kaynağı `categorizeShows`'tan türetilir, böylece "Aktif
  * İzlenenler" burada ve takip ekranında ASLA farklı anlama gelmez.
  */
-export type ShowStatusKey = 'upNext' | 'paused' | 'notStarted' | 'hidden';
+// 'caughtUp' = "Bitirilenler" filtresi. Anahtar adı BİLİNÇLİ OLARAK
+// `categorizeShows`'un ürettiği kova adıyla (`caughtUp`) BİREBİR aynı tutuldu:
+// izlenmeye başlanmış AMA şu an izlenmeye hazır bir sonraki bölümü olmayan
+// diziler (dizi bitmiş ya da yeni sezon henüz yayınlanmamış) — bkz.
+// store/tracking/trackingLogic.ts kural 2. Bu kova zaten hesaplanıyordu ama
+// hiçbir UI onu tüketmiyordu (Takip panosu kendi ekranında BİLİNÇLİ OLARAK
+// göstermiyor — "Yapılacaklar" panosu felsefesi, bkz. o dosyanın notu);
+// Kütüphane filtresi ayrı bir ekran ve ayrı bir ihtiyaç ("bu diziyi
+// bitirdim mi, bulabiliyor muyum") — burada göstermek o kararla ÇELİŞMEZ.
+export type ShowStatusKey = 'upNext' | 'paused' | 'notStarted' | 'caughtUp' | 'hidden';
 
-/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Başlanmadı / Gizlenen).
- * "Gizlenenler/Bırakılanlar" bilinçli olarak EN SONDA — takip panosunun ana
- * vitrininden çıkarılan bu diziler, kullanıcı bilinçli olarak arayana kadar göz
- * önünde olmamalı. */
-export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'notStarted', 'hidden'] as const;
+/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Başlanmadı /
+ * Bitirilen / Gizlenen). "Gizlenenler/Bırakılanlar" bilinçli olarak EN
+ * SONDA — takip panosunun ana vitrininden çıkarılan bu diziler, kullanıcı
+ * bilinçli olarak arayana kadar göz önünde olmamalı. */
+export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'notStarted', 'caughtUp', 'hidden'] as const;
 
 // `categorizeShows` etiketleri yalnızca kart ÜZERİNDEKİ metinler için kullanılır;
 // burada sadece kategori üyeliği okunduğundan sabit boş değerler yeterli. Çeviri

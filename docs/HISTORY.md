@@ -2604,3 +2604,29 @@ Worker'ın router'ında **path kontrolü yoktu**: tanınmayan HER POST yolu `han
 **Doğrulama:** Worker testleri **29/29 geçti** — yenileri: tanınmayan yolun 404 dönmesi, yazım hatalı uç noktanın 404 dönmesi, kök path'in geri bildirim olarak KALMASI (eski client uyumu korunuyor). `tsc --noEmit` temiz.
 
 **Not:** Bu iki düzeltme, asıl 2 elle adımın (migration + deploy) yerine geçmez — onlar hâlâ gerekli. Yaptıkları, adımlar atlandığında sistemin **sessizce yanlış davranmak yerine gürültülü ve dürüst şekilde başarısız olması**.
+
+## 147. Kütüphane Filtrelerine "Bitirilenler" Eklendi (Diziler + Filmler)
+
+**Kullanıcı isteği:** Profil › Diziler/Filmler ekranındaki mevcut filtre yapısını (diziler: Aktif İzlenenler/Ara Verilenler/Henüz Başlanmadı/Gizlenenler; filmler: İzlenenler/İzlenecekler/Gizlenenler) bozmadan "Bitirilenler" filtresi eklensin — dizilerde de filmlerde de bitmiş yapımlar gösterilsin.
+
+### Önce mevcut mimari anlaşıldı
+`hooks/libraryFilterCore.ts` medya tipinden bağımsız, paylaşılan bir süzme çekirdeği; `useLibraryShowFilters`/`useLibraryMovieFilters` yalnızca kendi "durum indeksini" (trakt id → kategori) üretip ona veriyor. `LibraryFilterModal`/`LibraryFilterBar` tamamen jenerik — `options: FilterOption[]` üzerinde döner, kaç kategori olduğunu bilmez. Bu sayede yeni bir kategori eklemek, listedeki anahtar dizisine bir satır eklemekten ibaret — **modal/bar/çekirdek hiç değişmedi**.
+
+### Diziler: gerçek bir boşluk vardı
+`store/tracking/trackingLogic.ts`'teki `categorizeShows` zaten bir `caughtUp` kovası hesaplıyordu (izlenmeye başlanmış AMA şu an izlenmeye hazır bir sonraki bölümü olmayan diziler — dizi bitmiş ya da yeni sezon henüz yayınlanmamış). Ancak Takip panosu bu kovayı BİLİNÇLİ OLARAK göstermiyordu (Madde "Güncel Kategorisini Kaldırıyoruz" — panosu bir "Yapılacaklar" listesi felsefesiyle 3 sekmeye döndürülmüştü) VE Kütüphane filtresi de onu hiç tüketmiyordu. Sonuç: bitmiş bir diziyi filtreyle bulmanın **hiçbir yolu yoktu**.
+
+**Çözüm:** `hooks/useLibraryShowFilters.ts`'teki `ShowStatusKey`e ve `SHOW_STATUS_KEYS`e `'caughtUp'` eklendi — isim BİLİNÇLİ OLARAK `categorizeShows`'un ürettiği kova adıyla birebir aynı tutuldu (yeni bir kavram icat edilmedi, var olanı UI'a açtı). `useShowStatusIndex` zaten `SHOW_STATUS_KEYS` üzerinde döngüye giriyordu, tek satırlık ekleme yeterliydi. `extraPool`e hiçbir şey EKLENMEDİ: bitmiş diziler tanım gereği `completed > 0`, yani zaten `watchedShows`te — ekranın base listesi (`useLibraryTypeData`) de tam olarak oradan geliyor, dolayısıyla bu diziler filtre kapalıyken bile zaten görünüyordu, yalnızca ONLARI SEÇEREK bulmanın yolu yoktu.
+
+### Filmler: gerçek bir boşluk YOKTU — etiket düzeltildi
+`store/tracking/movieTrackingLogic.ts`'in kendi başlığında açıkça yazıyor: filmlerde dizilerdeki bölüm/sezon ilerlemesinin karşılığı yok, bir film ya `watched` ya `watchlist` ya `hidden`dır — ara bir durum yok. Yani `watched` (Trakt'ın izleme geçmişinde olan film) kovası zaten **tam olarak** "Bitirilenler" anlamına geliyordu; yeni bir kova icat etmek `İzlenenler` ile bitebir aynı üyeliğe sahip, kafa karıştırıcı bir ikinci (yinelenen) filtre çipi yaratırdı. Bunun yerine yalnızca ETİKET değiştirildi: `MOVIE_LABEL_KEYS.watched` artık dizi tarafındaki ile AYNI terimi kullanan `'filterFinished'` anahtarına bağlı — kova/mantık/davranış **birebir aynı**, filtreye basınca hâlâ tam olarak aynı filmler geliyor, yalnızca artık doğru terimle adlandırılmış.
+
+### Değişen dosyalar
+- `hooks/useLibraryShowFilters.ts` — `caughtUp` eklendi (yukarıda).
+- `hooks/useLibraryFilters.ts` — `SHOW_LABEL_KEYS.caughtUp: 'filterFinished'` (YENİ — `caughtUp`'ın kendi i18n anahtarı "Yeni bölüm bekleniyor" kart metni içindi, filtre menüsünde YANLIŞ görünürdü, bu yüzden ayrı bir etiket anahtarı); `MOVIE_LABEL_KEYS.watched: 'filterWatched'` → `'filterFinished'`.
+- `locales/tr|en/media.json` — yeni `filterFinished` ("Bitirilenler"/"Finished") eklendi; artık hiçbir yerde kullanılmayan `filterWatched` kaldırıldı (ölü kod bırakılmadı).
+- `LibraryFilterModal.tsx`, `LibraryFilterBar.tsx`, `libraryFilterCore.ts`, `movieTrackingLogic.ts`, `trackingLogic.ts` — **HİÇBİRİ değişmedi**, mimarinin zaten bunu desteklediğinin kanıtı.
+
+### Doğrulama
+`tsc --noEmit` temiz. `categorizeShows` + `filterLibraryItems`i sahte bir kütüphaneyle (aktif/ara verilen/bitmiş/başlanmamış 4 dizi) izole çalıştırıp **11 senaryo test edildi, hepsi geçti**: bitmiş dizinin yalnızca `caughtUp` kovasına düştüğü, diğer HİÇBİR kovaya (upNext/paused/notStarted/hidden) girmediği, "Bitirilenler" filtresi seçilince yalnızca bitmiş dizinin göründüğü, başka bir filtre seçiliyken bitmiş dizinin dışarıda kaldığı ve filtre hiç seçili değilken bitmiş dizinin yine de (base listede) göründüğü. Web bundle hatasız derlendi.
+
+**Doğrulanamayan:** gerçek bir Trakt kütüphanesiyle uçtan uca (Profil → Diziler/Filmler → filtre menüsünü aç → "Bitirilenler"i seç → doğru listenin gelmesi) — kullanıcının kendi cihazında denemesi gerekiyor.

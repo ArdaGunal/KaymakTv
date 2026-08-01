@@ -23,11 +23,22 @@ const SHOW_LABEL_KEYS: Record<ShowStatusKey, string> = {
   upNext: 'upNext',
   paused: 'paused',
   notStarted: 'notStarted',
+  // `caughtUp` kovasının KENDİ i18n anahtarı ("caughtUp": "Yeni bölüm
+  // bekleniyor") kart ÜZERİNDEKİ metin için — filtre menüsünde YANLIŞ
+  // görünürdü. Bu yüzden ayrı, filtreye özgü bir etiket: 'filterFinished'.
+  caughtUp: 'filterFinished',
   hidden: 'hiddenProgress',
 };
 
 const MOVIE_LABEL_KEYS: Record<MovieCategoryKey, string> = {
-  watched: 'filterWatched',
+  // Filmlerde "izlenmiş" = "bitirilmiş": Trakt'ta bir filmin kısmi izlenme
+  // durumu YOK (dizilerdeki bölüm/sezon ilerlemesinin film karşılığı yok,
+  // bkz. store/tracking/movieTrackingLogic.ts başlığı) — bu yüzden `watched`
+  // kovası zaten TAM OLARAK "Bitirilenler" anlamına geliyor, yeni bir kova
+  // icat etmeye gerek yok. Etiket, dizi tarafındaki filtreyle AYNI terimi
+  // ("Bitirilenler") kullanacak şekilde 'filterFinished'e bağlandı — eskiden
+  // burada 'filterWatched' ("İzlenenler") vardı, o anahtar artık kullanılmıyor.
+  watched: 'filterFinished',
   watchlist: 'filterWatchlist',
   hidden: 'hiddenProgress',
 };
