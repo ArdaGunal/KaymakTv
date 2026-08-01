@@ -3,6 +3,10 @@ import * as SecureStore from '../utils/secureStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
 import { useFollowStore } from '../store/followStore';
+import { clearMyTraktSlug } from '../services/api/myIdentity';
+import { useFeedStore } from '../features/feed/store/feedStore';
+import { clearFeedPublishIdentity } from '../features/feed/services/feedPublish';
+import { invalidateFeedCache } from '../features/feed/services/feedApi';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -115,6 +119,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // tekrar hiç çalışmaz ve önceki hesabın (varsa farklı bir Trakt hesabı)
       // takip durumu yeni oturuma sızar. Çıkışta açıkça sıfırla.
       useFollowStore.getState().reset();
+      // Aynı gerekçe, modül seviyesindeki kimlik önbelleği için (bkz.
+      // services/api/myIdentity.ts): temizlenmezse önceki hesabın slug'ı yeni
+      // oturuma sızar ve Akış'ta yanlış kişinin aktiviteleri "benim" görünürdü.
+      clearMyTraktSlug();
+      // Akış da RAM'de bir singleton — temizlenmezse yeni oturumda bir an
+      // için ÖNCEKİ hesabın akışı görünürdü.
+      useFeedStore.getState().reset();
+      clearFeedPublishIdentity();
+      invalidateFeedCache();
       setAccessToken(null);
       setIsGuest(false);
     } catch (error) {

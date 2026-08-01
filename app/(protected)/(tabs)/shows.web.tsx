@@ -5,7 +5,7 @@ import EpisodeCard from '../../../components/EpisodeCard';
 import ShowTrackCardWeb from '../../../components/tracking/ShowTrackCardWeb';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import InlineRater from '../../../components/InlineRater';
-import { addRating, getTrendingShows } from '../../../services/traktApi';
+import { getTrendingShows } from '../../../services/traktApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../../../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,8 +52,12 @@ export default function DizilerScreenWeb() {
     calendarSeasonsMap: s.calendarSeasonsMap,
     hiddenShowIds: s.hiddenShowIds,
   }));
-  const { refreshLibrary } = useLibraryActions();
+  // `rateMedia`: Trakt'a yazar VE aynı damgayla Akış'a yayınlar (bkz.
+  // services/library/mutations/ratings.ts).
+  const { refreshLibrary, rateMedia } = useLibraryActions();
 
+  // "Yaklaşan" sekmesi görünür değilken bu ağır hesap tamamen atlanır (bkz.
+  // useDashboardData'nın `enabled` parametresi).
   const { upcomingShows } = useDashboardData(
     watchedShows,
     watchlistShows,
@@ -61,7 +65,8 @@ export default function DizilerScreenWeb() {
     showProgressMap,
     calendarSeasonsMap,
     i18n.language,
-    hiddenShowIds
+    hiddenShowIds,
+    renderedTab === 'yaklasan'
   );
   const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 
@@ -235,7 +240,7 @@ export default function DizilerScreenWeb() {
                 <Text style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>{t('howWasShow')}</Text>
                 <InlineRater
                   onRate={async (val) => {
-                    await addRating(finishedShow.id, 'show', val);
+                    await rateMedia(finishedShow.id, 'show', val);
                     setTimeout(() => setShowConfetti(false), 800);
                   }}
                 />

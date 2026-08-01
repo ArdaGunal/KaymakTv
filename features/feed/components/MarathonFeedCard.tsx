@@ -15,9 +15,11 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import MediaPoster from '../../../components/MediaPoster';
 import { MarathonActivity } from '../types';
 import { getMarathonMessage } from '../utils/marathonMessages';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { buildMediaHref } from '../utils/feedNavigation';
 import ActivityDeleteRow from './ActivityDeleteRow';
 
 interface MarathonFeedCardProps {
@@ -45,6 +47,10 @@ export default function MarathonFeedCard({
     // kanonik `slug`'a göre anahtarlanıyor, username'e göre değil.
     router.push(`/user/${activity.user.traktSlug || activity.user.username}`);
   };
+
+  // bkz. utils/feedNavigation.ts — dizi/film ayrımına göre doğru rota.
+  // (Maraton her zaman dizidir ama yönlendirme mantığı tek yerde tutuluyor.)
+  const handlePressShow = () => router.push(buildMediaHref(activity) as any);
 
   // Hex rengine opaklık katmak için basit yardımcı (inline stil gerektiğinde)
   const colorAlpha = (hex: string, alpha: string) => `${hex}${alpha}`;
@@ -75,9 +81,11 @@ export default function MarathonFeedCard({
           </Text>
         </TouchableOpacity>
 
-        {/* Dizi adı + bölüm aralığı */}
+        {/* Dizi adı (tıklanabilir → dizi sayfası) + bölüm aralığı */}
         <Text style={styles.subtitle} numberOfLines={1}>
-          {activity.showTitle}
+          <Text style={styles.showNameLink} onPress={handlePressShow}>
+            {activity.showTitle}
+          </Text>
           {activity.episodeCount > 1
             ? ` • ${activity.episodeRange} arası izlendi`
             : ` • ${activity.firstEpisode} izlendi`}
@@ -87,13 +95,19 @@ export default function MarathonFeedCard({
         <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt)}</Text>
       </View>
 
-      {/* ── Sağ: Bölüm Sayacı ────────────────────────────────────────────── */}
-      <View style={[styles.counter, { backgroundColor: colorAlpha(message.color, '12') }]}>
-        <Text style={[styles.counterNumber, { color: message.color }]}>
-          ×{activity.episodeCount}
-        </Text>
-        <Text style={styles.counterLabel}>bölüm</Text>
-      </View>
+      {/* ── Sağ: Poster + Bölüm Sayacı rozeti ────────────────────────────── */}
+      <TouchableOpacity activeOpacity={0.8} onPress={handlePressShow} style={styles.posterWrap}>
+        <MediaPoster
+          tmdbId={activity.tmdbId}
+          type="show"
+          title={activity.showTitle}
+          style={styles.poster}
+          placeholderTextLines={2}
+        />
+        <View style={[styles.counterBadge, { backgroundColor: colorAlpha(message.color, 'e6') }]}>
+          <Text style={styles.counterBadgeText}>×{activity.episodeCount}</Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 
@@ -169,29 +183,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  showNameLink: {
+    color: '#e2e8f0',
+    fontWeight: '700',
+  },
   timestamp: {
     color: '#475569',
     fontSize: 11,
     marginTop: 2,
   },
-  // ── Sağ Sayaç ────────────────────────────────────────────────────────────
-  counter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 44,
-    height: 52,
-    borderRadius: 12,
+  // ── Sağ: Poster + sayaç rozeti ───────────────────────────────────────────
+  posterWrap: {
     flexShrink: 0,
+    position: 'relative',
   },
-  counterNumber: {
-    fontSize: 16,
+  poster: {
+    width: 44,
+    height: 62,
+    borderRadius: 8,
+    backgroundColor: '#0B1120',
+  },
+  // Sayaç posterin üstünde bir rozet: hem bölüm sayısını korur hem de
+  // kartın görsel ağırlığını postere taşır (sosyal akış hissi).
+  counterBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: '#131f35',
+  },
+  counterBadgeText: {
+    color: '#0B1120',
+    fontSize: 10,
     fontWeight: '800',
-    lineHeight: 20,
-  },
-  counterLabel: {
-    color: '#64748b',
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.2,
   },
 });

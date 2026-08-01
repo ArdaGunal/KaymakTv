@@ -22,6 +22,34 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import { toggleHiddenFromProgress } from './collections';
 import { logError } from '../../../utils/errorLog';
 import { recordMutationResult } from '../../../utils/metrics';
+import {
+  publishActivities,
+  retractLocalActivity,
+  formatEpisodeCode,
+  nowStamp,
+} from '../../../features/feed/services/feedPublish';
+import { resolveMediaMeta } from '../mediaMeta';
+
+// ─────────────────────────────────────────────────────────────────────────
+// AKIŞA ANINDA YAYIN
+//
+// ESKİ DAVRANIŞ: bir bölümü/filmi işaretlemek yalnızca Trakt'a yazıyordu;
+// aktivitenin Akış'a düşmesi için uygulamanın kapanıp yeniden açılması ve
+// oradaki `/feed/sync`in çalışması gerekiyordu. Artık Trakt yazımı başarılı
+// olur olmaz aktivite Akış'a da yayınlanıyor.
+//
+// İKİ KURAL:
+//  1. ATEŞLE-VE-UNUT — yayın, kullanıcının "izledim" akışını ASLA bloklamaz
+//     ve başarısız olsa bile izleme işlemini başarısız SAYDIRMAZ (yayın
+//     kendi içinde iyimser kartı geri alıp loglar).
+//  2. AYNI ZAMAN DAMGASI — Trakt'a `watched_at`/`rated_at` olarak gönderilen
+//     damganın AYNISI yayınlanır. Bir sonraki tam senkron Trakt'tan aynı
+//     damgayı okuyup aynı dedup anahtarını üretir; satır ne kopyalanır ne
+//     de "Trakt'ta yok" sanılıp silinir.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Yayın için gereken meta (başlık + poster id) — bkz. services/library/mediaMeta.ts */
+const showMetaFor = (showId: number) => resolveMediaMeta(showId, 'show');
 
 // Kullanıcı "Bırak" ile Trakt'ta gizlediği bir diziyi/filmi sonradan yeniden
 // izlemeye başlarsa gizleme otomatik kaldırılır — aksi halde dizi/film Trakt'ın
@@ -102,10 +130,26 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
     return { ...prev, [showId]: optimisticProgress };
   });
 
+  // Damga Trakt'a ve Akış'a AYNI gönderilir (bkz. dosya başındaki not).
+  const watchedAt = nowStamp();
+
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor...`);
-    await addEpisodeToHistory(showId, season, episode);
+    await addEpisodeToHistory(showId, season, episode, watchedAt);
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
+
+    const meta = showMetaFor(showId);
+    publishActivities([
+      {
+        activityType: 'watched_episode',
+        showId,
+        mediaType: 'show',
+        showTitle: meta.title,
+        tmdbId: meta.tmdbId,
+        episodeNumber: formatEpisodeCode(season, episode),
+        activityAt: watchedAt,
+      },
+    ]);
 
     let newProgress = await getShowProgress(showId);
 
@@ -170,6 +214,19 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
     console.log(`[API REQUEST] Trakt'tan Bölüm Siliniyor...`);
     await removeEpisodeFromHistoryTrakt(showId, season, episode);
     console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
+
+    // Geri alınan bölüm akıştan da düşmeli — aksi halde kullanıcı "izlemedim"
+    // dediği bir bölümü akışında görmeye devam ederdi. Yalnızca YEREL akış
+    // temizlenir; Supabase'deki satırı bir sonraki tam senkron kendi geri
+    // alma (retraction) mantığıyla siler (bkz. Worker handleFeedSync) —
+    // aynı işi ikinci bir uç noktayla tekrarlamıyoruz.
+    const removedCode = formatEpisodeCode(season, episode);
+    retractLocalActivity(
+      (a) =>
+        a.activityType === 'watched_episode' &&
+        a.showId === showId &&
+        a.episodeNumber === removedCode
+    );
 
     let newProgress = await getShowProgress(showId);
 
@@ -250,6 +307,16 @@ export const unwatchSeason = async (showId: number, season: number) => {
     await removeSeasonFromHistoryTrakt(showId, season);
     console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
 
+    // Bkz. unwatchEpisode'daki aynı not — geri alınan sezonun TÜM bölümleri
+    // yerel akıştan düşer ("S{season}E" önekiyle eşleşenler).
+    const seasonPrefix = `S${String(season).padStart(2, '0')}E`;
+    retractLocalActivity(
+      (a) =>
+        a.activityType === 'watched_episode' &&
+        a.showId === showId &&
+        !!a.episodeNumber?.startsWith(seasonPrefix)
+    );
+
     let newProgress = await getShowProgress(showId);
 
     if (newProgress.completed === 0) {
@@ -307,12 +374,33 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
     return { ...prev, [showId]: optimisticProgress };
   });
 
+  const watchedAt = nowStamp();
+
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Sezon)...`);
-    await addSeasonToHistory(showId, season);
+    await addSeasonToHistory(showId, season, watchedAt);
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
 
     const newProgress = await getShowProgress(showId);
+
+    // Sezonun HANGİ bölümlerinin işaretlendiğini ancak taze ilerlemeden
+    // öğrenebiliyoruz (Trakt "tüm sezon" isteğini kendisi bölümlere açıyor).
+    // Bu yüzden yayın, progress çekildikten SONRA yapılıyor.
+    const meta = showMetaFor(showId);
+    const seasonEpisodes: any[] = newProgress?.seasons?.find((s: any) => s.number === season)?.episodes || [];
+    publishActivities(
+      seasonEpisodes
+        .filter((ep: any) => ep?.completed && typeof ep?.number === 'number')
+        .map((ep: any) => ({
+          activityType: 'watched_episode' as const,
+          showId,
+          mediaType: 'show' as const,
+          showTitle: meta.title,
+          tmdbId: meta.tmdbId,
+          episodeNumber: formatEpisodeCode(season, ep.number),
+          activityAt: watchedAt,
+        }))
+    );
 
     setShowProgressMap((prev: any) => {
       const updated = { ...prev, [showId]: newProgress };
@@ -363,10 +451,25 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
     return { ...prev, [showId]: optimisticProgress };
   });
 
+  const watchedAt = nowStamp();
+
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Toplu Bölüm)...`);
-    await addEpisodesBulkToHistory(showId, season, episodes);
+    await addEpisodesBulkToHistory(showId, season, episodes, watchedAt);
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
+
+    const meta = showMetaFor(showId);
+    publishActivities(
+      episodes.map((num) => ({
+        activityType: 'watched_episode' as const,
+        showId,
+        mediaType: 'show' as const,
+        showTitle: meta.title,
+        tmdbId: meta.tmdbId,
+        episodeNumber: formatEpisodeCode(season, num),
+        activityAt: watchedAt,
+      }))
+    );
 
     const newProgress = await getShowProgress(showId);
 
@@ -433,10 +536,31 @@ export const markMovieAsWatched = async (movieId: number) => {
     return prev;
   });
 
+  const watchedAt = nowStamp();
+
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Film)...`);
-    await addMovieToHistory(movieId);
+    await addMovieToHistory(movieId, watchedAt);
     console.log(`[API SUCCESS] Film Trakt ile senkronize edildi.`);
+
+    // Film izlemeleri artık Akış'ta görünüyor (yeni `watched_movie` tipi) —
+    // eskiden akış YALNIZCA bölüm izlemelerini ve puanlamaları taşıyordu,
+    // bir filmi izlediğini işaretlemek hiçbir yerde görünmüyordu.
+    const movie = movieItemToMove?.movie
+      || (useLibraryStore.getState().watchedMovies || []).find((m: any) => m?.movie?.ids?.trakt === movieId)?.movie;
+    if (movie?.title) {
+      publishActivities([
+        {
+          activityType: 'watched_movie',
+          showId: movieId,
+          mediaType: 'movie',
+          showTitle: movie.title,
+          tmdbId: movie?.ids?.tmdb,
+          activityAt: watchedAt,
+        },
+      ]);
+    }
+
     recordMutationResult('markMovieAsWatched', true);
   } catch (error) {
     console.error(`[API ERROR] Film işaretleme başarısız, eski haline dönülüyor!`, error);

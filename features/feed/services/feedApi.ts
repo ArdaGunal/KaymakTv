@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { getMyFollowingSlugs } from '../../../services/api/social';
+import { getFollowingSlugs } from '../../../store/followStore';
+import { getMyTraktSlug } from '../../../services/api/myIdentity';
 import { supabase } from './supabaseClient';
 import { FeedActivity, FeedActivityType } from '../types';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
@@ -33,10 +34,18 @@ const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 const FEED_WINDOW_DAYS = 30;
 const PAGE_SIZE = 30;
 
-interface FeedActivityRow {
+// Supabase'den seçilen kolonlar — TEK yerde tanımlı ki `fetchFeedActivities`,
+// `fetchUserFeedActivities` ve Realtime'ın satır tamamlama sorgusu birbirinden
+// sapmasın (biri `tmdb_id` seçmeyi unutursa o kartta poster kaybolurdu).
+const ACTIVITY_COLUMNS =
+  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users!inner(id, trakt_slug, username, avatar_url)';
+
+export interface FeedActivityRow {
   id: string;
   activity_type: FeedActivityType;
   show_id: number;
+  media_type: 'show' | 'movie' | null;
+  tmdb_id: number | null;
   show_title: string;
   show_poster_url: string | null;
   episode_number: string | null;
@@ -50,8 +59,12 @@ interface FeedActivityRow {
   };
 }
 
-function mapRow(row: FeedActivityRow): FeedActivity {
+export function mapRow(row: FeedActivityRow): FeedActivity {
   return {
+    // `media_type` 013 migration'ından ÖNCEKİ satırlarda yok — 'show'a düşmek
+    // güvenli varsayılan (o dönemde film izleme aktivitesi hiç yazılmıyordu).
+    mediaType: row.media_type === 'movie' ? 'movie' : 'show',
+    tmdbId: row.tmdb_id ?? undefined,
     id: row.id,
     user: {
       id: row.user.id,
@@ -69,9 +82,41 @@ function mapRow(row: FeedActivityRow): FeedActivity {
   };
 }
 
-export async function fetchFeedActivities(): Promise<FeedActivity[]> {
-  const followingSlugs = await getMyFollowingSlugs();
-  if (followingSlugs.length === 0) return [];
+// Akış, `fetchUserFeedActivities` ile AYNI kısa ömürlü önbellek desenini
+// kullanır. Neden gerekli: Akış sekmesi her yeniden mount olduğunda (sekmeler
+// arası geçiş, geri/ileri gezinme) sıfırdan yükleniyor, kullanıcı boş bir
+// skeleton görüyordu. `refresh` (pull-to-refresh) `force: true` ile bunu
+// bilinçli olarak atlar — kullanıcı açıkça tazeleme istediğinde önbellek
+// asla araya girmez.
+let feedCache: { data: FeedActivity[]; fetchedAt: number } | null = null;
+
+/** Kendi aktivitem değişince (ör. senkron sonrası) bayat kalmasın diye. */
+export function invalidateFeedCache(): void {
+  feedCache = null;
+}
+
+export async function fetchFeedActivities(force = false): Promise<FeedActivity[]> {
+  if (!force && feedCache && Date.now() - feedCache.fetchedAt < CACHE_TTL.SHORT) {
+    return feedCache.data;
+  }
+
+  // İki bağımsız okuma PARALEL: takip listesi (followStore — çoğu zaman zaten
+  // önbellekte, ağa hiç çıkmaz) ve kendi slug'ım (uygulama ömrü boyunca tek
+  // istek). ESKİDEN: `getMyFollowingSlugs()` ile HER yüklemede Trakt'a ayrı bir
+  // istek gidiyor, Supabase sorgusu onun bitmesini SIRAYLA bekliyordu.
+  const [followingSlugs, mySlug] = await Promise.all([getFollowingSlugs(), getMyTraktSlug()]);
+
+  // Kendi aktivitelerim de akışta görünür (kullanıcı isteği) — Profil'deki
+  // "Aktiviteler" sekmesiyle aynı veri, burada takip ettiklerimle tek bir
+  // kronolojik akışta birleşiyor. `Set` ile tekilleştirme: kendi slug'ım
+  // takip listemde olamaz ama savunmacı davranmak, olası bir çift kaydın
+  // sorguyu bozmasını engeller.
+  const slugs = Array.from(new Set(mySlug ? [...followingSlugs, mySlug] : followingSlugs));
+
+  // ESKİ DAVRANIŞ: `followingSlugs.length === 0` iken erken dönülüyordu. Artık
+  // kendi aktivitelerim de akışa girdiği için bu erken dönüş, hiç kimseyi
+  // takip etmeyen bir kullanıcının KENDİ aktivitelerini de gizlerdi.
+  if (slugs.length === 0) return [];
 
   const cutoff = new Date(Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
@@ -85,15 +130,52 @@ export async function fetchFeedActivities(): Promise<FeedActivity[]> {
   const { data, error } = await timeSupabaseCall('supabase.feed_activities.list', () =>
     supabase
       .from('feed_activities')
-      .select('id, activity_type, show_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users!inner(id, trakt_slug, username, avatar_url)')
-      .in('user.trakt_slug', followingSlugs)
+      .select(ACTIVITY_COLUMNS)
+      .in('user.trakt_slug', slugs)
       .gte('activity_at', cutoff)
       .order('activity_at', { ascending: false })
       .limit(PAGE_SIZE)
   );
 
   if (error) throw error;
-  return ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+  const mapped = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+  feedCache = { data: mapped, fetchedAt: Date.now() };
+  return mapped;
+}
+
+/**
+ * Akışta aktivitesini görebileceğim kullanıcıların Supabase `users.id`
+ * kümesi — takip ettiklerim + ben.
+ *
+ * Realtime için ŞART: gelen INSERT olayı yalnızca `feed_activities` satırını
+ * taşır (`user_id` var, kullanıcı adı/slug YOK). Her olayda "bu kişiyi takip
+ * ediyor muyum" diye sorgu atmak yerine kümeyi bir kez çözüp bellekte
+ * tutuyoruz — eleme tek bir `Set.has()` çağrısı oluyor.
+ */
+export async function getVisibleUserIds(): Promise<Set<string>> {
+  const [followingSlugs, mySlug] = await Promise.all([getFollowingSlugs(), getMyTraktSlug()]);
+  const slugs = Array.from(new Set(mySlug ? [...followingSlugs, mySlug] : followingSlugs));
+  if (slugs.length === 0) return new Set();
+
+  const { data, error } = await timeSupabaseCall('supabase.users.visibleIds', () =>
+    supabase.from('users').select('id').in('trakt_slug', slugs)
+  );
+  if (error) throw error;
+  return new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
+}
+
+/**
+ * Tek bir aktiviteyi kullanıcı bilgisiyle birlikte çeker.
+ * Realtime yükü `users` join'ini içermediği için (kart çizmek adı/avatarı
+ * gerektirir) yeni satır geldiğinde bu tek sorgu atılır — yalnızca takip
+ * ettiğim biri bir şey yaptığında, yani nadiren.
+ */
+export async function fetchActivityById(id: string): Promise<FeedActivity | null> {
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.byId', () =>
+    supabase.from('feed_activities').select(ACTIVITY_COLUMNS).eq('id', id).maybeSingle()
+  );
+  if (error) throw error;
+  return data ? mapRow(data as unknown as FeedActivityRow) : null;
 }
 
 const PROFILE_ACTIVITY_LIMIT = 20;
@@ -129,7 +211,7 @@ export async function fetchUserFeedActivities(traktSlug: string, force = false):
   const { data, error } = await timeSupabaseCall('supabase.feed_activities.byUser', () =>
     supabase
       .from('feed_activities')
-      .select('id, activity_type, show_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users!inner(id, trakt_slug, username, avatar_url)')
+      .select(ACTIVITY_COLUMNS)
       .eq('user.trakt_slug', traktSlug)
       .order('activity_at', { ascending: false })
       .limit(PROFILE_ACTIVITY_LIMIT)
@@ -163,6 +245,11 @@ export async function deleteActivitiesBulk(
     if (!response.data?.success) {
       throw new Error(response.data?.message || 'İşlem başarısız.');
     }
+    // Silinen satırlar kendi aktivitelerim olduğundan Akış'ta da görünüyorlar
+    // (bkz. fetchFeedActivities — kendi slug'ım artık sorguya dahil). Burada,
+    // TEK bir yerde geçersiz kılmak, her çağıranın bunu ayrıca hatırlamak
+    // zorunda kalmasını önler.
+    invalidateFeedCache();
     recordMutationResult('deleteFeedActivities', true);
   } catch (error) {
     recordMutationResult('deleteFeedActivities', false);

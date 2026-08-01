@@ -26,6 +26,12 @@ export function useShowDetailHandlers({
     removeLocalRating,
     unwatchEpisode,
     rewatchEpisode,
+    // Dizi puanı artık ham `addRating` yerine mutasyon katmanından geçiyor:
+    // Trakt'a yazar VE aynı damgayla Akış'a yayınlar (bkz. mutations/ratings.ts).
+    // BÖLÜM puanı kapsam dışı olduğu için `addRating`/`removeRating` doğrudan
+    // kullanılmaya devam ediyor.
+    rateMedia,
+    unrateMedia,
   } = useLibraryActions();
   const { isGuest } = useAuth();
 
@@ -51,13 +57,13 @@ export function useShowDetailHandlers({
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(traktIdNum, 'show', rating);
-      await addRating(traktIdNum, 'show', rating);
+      await rateMedia(traktIdNum, 'show', rating);
     } catch (e) {
       removeLocalRating(traktIdNum, 'show');
       Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
-  }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, t]);
+  }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, rateMedia, t]);
 
   const handleRateEpisode = useCallback(async (episodeTraktId: number, rating: number) => {
     if (isGuest) {
@@ -99,12 +105,12 @@ export function useShowDetailHandlers({
     }
     try {
       removeLocalRating(traktIdNum, 'show');
-      await removeRating(traktIdNum, 'show');
+      await unrateMedia(traktIdNum, 'show');
     } catch (e) {
       Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
       console.error(e);
     }
-  }, [isGuest, traktIdNum, removeLocalRating, t]);
+  }, [isGuest, traktIdNum, removeLocalRating, unrateMedia, t]);
 
   const handleMarkSeason = useCallback(async (seasonNum: number, isWatched: boolean) => {
     if (isGuest) {

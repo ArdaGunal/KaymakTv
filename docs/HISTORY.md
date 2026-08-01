@@ -2405,3 +2405,202 @@ Yeni bir throttle/debounce mekanizması, ek bir zamanlayıcı ya da ek bir state
 - İstek / Öneri kategorisindeki karakter sınırı 300 karaktere güncellendi.
 - Uygulama sürümü `v2.0.1` olarak yükseltildi (`package.json`, `app.json`, `account.tsx`, `download.web.tsx`).
 
+
+## 140. Takip Ekranı: Performans (Chunk Toplulaştırma + Lazy Dashboard) ve UX ("Güncel" Kategorisi + Zaman Girdisi)
+
+**Arka plan:** Kullanıcı "Diziler" sekmesindeki üç kategorinin (Aktif İzlenenler / Ara Verilenler / Henüz Başlanmadı) mantığını sorguladı, uygulamanın "daha hızlı ve daha stabil" olmasını istedi. Yapılan kod analizinde iki ayrı sorun sınıfı bulundu: (a) senkron sırasında arayüzü kilitleyen render dalgaları, (b) kategorizasyonun kullanıcıya açıklanamayan davranışları. İki aşamada uygulandı.
+
+### Aşama 1 — Performans
+
+**② Chunk yayınını toplulaştırma (`services/library/fetchers.ts`).** ESKİ DAVRANIŞ: `backgroundWork` içindeki ilerleme döngüsü, her 6 dizilik ağ chunk'ı biter bitmez `setShowProgressMap((prev) => ({...prev, ...chunk}))` çağırıyordu. Bu, yeni bir obje referansı üretip şu zinciri tetikliyordu: store bildirimi → `useLibrarySelector` shallow karşılaştırması false → `categorizeShows` TÜM kütüphaneyi baştan tarıyor → `useDashboardData` (354 satır) da baştan koşuyor → `sections` yeniden kuruluyor → SectionList görünür hücreleri yeniden çiziyor. 300 dizilik bir kütüphanede bu 50 kez tekrarlanıyordu; üstelik her 4 chunk'ta bir `writeChunkedRecord` tüm haritayı (bölüm bazlı ham veriyle megabaytlarca JSON) JS thread'inde senkron olarak `JSON.stringify` ediyordu. İlk senkrondaki donmanın kaynağı ağ değil, buydu. **ÇÖZÜM:** sonuçlar bir tamponda (`pendingResults`) birikir, store'a yalnızca ~400ms'de bir (veya son chunk'ta) TEK seferde yayınlanır (`flushPending`). Ağ isteklerinin hızı/sırası, rate-limit gecikmesi (150ms) ve kademeli kalıcılık davranışı DEĞİŞMEDİ — yalnızca kaç kez render tetiklendiği azaldı. **Aynı anti-pattern takvim sezonları (`calendarSeasonsMap`) döngüsünde de vardı** ve o döngü ilerleme döngüsünün hemen ardından çalışıp kendi render dalgasını üstüne bindirdiği için, o da aynı teknikle (`flushPendingSeasons`) toplulaştırıldı.
+
+**⑧ Dashboard'u lazy yapma (`hooks/useDashboardData.ts`, `screens/IndexMobile.tsx`, `app/(protected)/(tabs)/shows.web.tsx`).** ESKİ DAVRANIŞ: `useDashboardData` yalnızca "Yaklaşan" sekmesinin verisini üretiyordu (`upNextShows`/`inactiveShows`/`watchlistShowsList` alanları artık kullanılmıyor — gerçek kaynak `trackingLogic`), ama girdileri her senkron chunk'ında değiştiği için kullanıcı "İzleme" sekmesindeyken BİLE tüm dizi/takvim/sezon haritası taraması boşuna koşuyordu. **ÇÖZÜM:** hook'a `enabled` parametresi eklendi; `false` iken tüm ağır tarama atlanıp son hesaplanan sonuç bir `useRef`'ten döndürülür. Her iki ekranda da `enabled = (renderedTab === 'yaklasan')`. `enabled` bağımlılık dizisinde olduğu için sekmeye geçildiğinde güncel veriyle otomatik yeniden hesaplanır.
+
+### Aşama 2 — Kullanıcı Deneyimi
+
+**③ `now` (zaman) girdisinin koda dahil edilmesi (`hooks/useTrackingShows.ts`).** ESKİ DAVRANIŞ: `categorizeShows` `now = Date.now()` varsayılanını kullanıyordu ama `useTrackingShows`'un `useMemo` bağımlılıklarında zaman YOKTU. Kategorizasyon zamana bağlı olmasına rağmen (45 günlük `paused` eşiği, "bölüm yayınlandı mı" kontrolü) zamanı bir girdi olarak almıyordu. Sonuç: eşiği geçen bir dizi kendiliğinden kova değiştirmiyor, ALAKASIZ bir store güncellemesi tetiklenene kadar bekliyor, sonra aniden yer değiştiriyordu — kullanıcının bildirdiği "bazen atlıyor, bazen atlamıyor" hissinin kaynağı buydu. **ÇÖZÜM:** hook artık kendi `now` state'ini tutup iki tetikleyiciyle tazeliyor (`useTrackingNow`): (1) saatte bir `setInterval` — gün sınırlarını makul gecikmeyle yakalamaya yeter, dakikalık kontrol gereksiz re-render üretirdi; (2) uygulama arka plandan öne her geldiğinde `AppState` dinleyicisi — kullanıcı günlerce uzak kalmış olabilir, ekrana döner dönmez kategoriler güncel olmalı. `now` artık hem `categorizeShows`'a açıkça geçiliyor hem de `useMemo` bağımlılığı.
+
+**⑤ "Güncel" (caughtUp) kategorisinin eklenmesi.** ESKİ DAVRANIŞ (kural 2): izlenmeye başlanmış ama şu an izlenmeye hazır (yayınlanmış) bir sonraki bölümü olmayan diziler — dizi bitmiş ya da yeni sezon henüz yayınlanmamış — `continue` ile eleniyor, HİÇBİR listede görünmeden sessizce kayboluyordu. "Bırak" değillerdi, o yüzden Gizlenenler'e de düşmüyorlardı; kullanıcının onları geri bulabileceği hiçbir yer yoktu. Üstelik `labels.caughtUp` ("Yeni bölüm bekleniyor") etiketi kodda üretiliyor ama bu diziler elendiği için pratikte hiç görünmüyordu — ölü bir yol. **ÇÖZÜM:** `ShowCategories`'e dördüncü kova `caughtUp` eklendi; kural 2 artık `continue` yerine bu kovaya yazıyor. Bölüm akordeonda **en sonda** ve **varsayılan KAPALI** (aksiyon gerektirmeyen, bilgilendirici bir liste), yeşil `CheckCircle2` ikonu ve sayaçla. **Yan düzeltme:** bu kartlarda `season`/`episode` hesabı `hasStarted && nextReady` şartını sağlayamadığı için `: 1` dalına düşüp hep "S1E1" gösteriyordu; artık Trakt progress yanıtındaki `next_episode` (duyurulmuş ama yayınlanmamış) veya `last_episode` (son izlenen) referans alınıyor, izlenmiş sezonlar artık doğru görünüyor.
+
+**Değiştirilen dosyalar (Aşama 2):** `store/tracking/trackingLogic.ts` (dördüncü kova + `last_episode` referansı + `caughtUp` sıralaması + `now` dokümantasyonu), `store/tracking/useTrackingStore.ts` (`TrackingCategoryKey`'e `caughtUp`, `DEFAULT_COLLAPSED`'a `caughtUp: true`), `hooks/useTrackingShows.ts` (`useTrackingNow` + `now` girdisi + `totalCount`'a `caughtUp` dahil), `components/tracking/TrackingAccordionList.tsx` ve `.web.tsx` (`SECTION_META`/`SECTION_ORDER`), `screens/IndexMobile.tsx` + `app/(protected)/(tabs)/shows.web.tsx` (etiket/carousel), `locales/tr|en/media.json` (`caughtUpSection`: "Güncel" / "Up to Date").
+
+**Geriye uyumluluk:** `useTrackingStore.hydrate` kayıtlı durumu `{ ...DEFAULT_COLLAPSED, ...JSON.parse(saved) }` ile birleştirdiği için, mevcut kullanıcıların cihazındaki eski `v2` kaydı (`caughtUp` anahtarı olmayan) sorunsuz okunur ve `caughtUp` varsayılan (kapalı) değerini alır — ayrı bir migration GEREKMEDİ.
+
+**Doğrulama:** `tsc --noEmit` her iki aşamada da temiz (0 hata). `trackingLogic.ts` bağımlılıksız saf bir dosya olduğu için tek başına derlenip Node'da **22 senaryoluk bir test koşusundan geçirildi** (hepsi geçti): bitmiş dizi → caughtUp; yayınlanmamış yeni sezon → caughtUp (paused DEĞİL); caughtUp kartının S1E1 yerine gerçek sezon/bölümü göstermesi; **aynı veriyle `now` 2 gün ilerletilince upNext → paused geçişi (③'ün çalıştığının kanıtı)**; gizli dizinin caughtUp'a sızmaması (kural 1 önceliği); `completed=0`'ın notStarted'da kalması; `isCalculating` spinner'ının korunması; ve her dizinin TAM OLARAK bir kovada olması (çakışma yok). Web önizlemesi hatasız derlenip render edildi. **Doğrulanamayan (gerçek Trakt hesabı/kütüphanesi gerektirdiği için, kullanıcının kendi cihazında test etmesi gereken):** büyük bir kütüphanede ilk senkron sırasındaki gerçek FPS kazancı ve "Güncel" bölümünün gerçek verideki dolulukları.
+
+**Bilinçli olarak KAPSAM DIŞI bırakılan:** Kütüphane ekranının dizi filtresi (`hooks/useLibraryShowFilters.ts`, `SHOW_STATUS_KEYS`) `caughtUp`'ı bir filtre seçeneği olarak SUNMUYOR — o ekranda bu diziler eskiden de hiçbir duruma eşleşmiyordu, davranış aynen korundu (regresyon yok). İstenirse ayrı bir iş olarak eklenebilir.
+
+## 141. Madde 140 Revizyonu: "Güncel" Kategorisi Arayüzden Kaldırıldı (Veri Katmanı Korundu)
+
+**Kullanıcı geri bildirimi:** Madde 140'ta eklenen ⑤ numaralı "Güncel" (caughtUp) akordeon bölümü arayüzden tamamen kaldırılması istendi. Gerekçe: bu ekran bir "Yapılacaklar" (to-do) panosu — kullanıcının şu an izleyebileceği yeni bir bölümü yoksa, o dizi ekranda kalabalık yapmamalı; diziler listeden "sessizce kaybolması" BİLİNÇLİ bir tasarım kararı, hata değil. Yeni bölüm yayınlandığında Trakt'ın kendi verisi zaten diziyi otomatik olarak upNext/paused'a geri taşıyor. ③ ve `now` girdisiyle ilgili altyapı değişiklikleri ("harika" olarak onaylandı) AYNEN korundu.
+
+**Değişiklik:** UI katmanı 3 orijinal kategoriye (Aktif İzlenenler / Ara Verilenler / Henüz Başlanmadı) döndürüldü, veri katmanındaki `caughtUp` kovası ise ileride başka bir yerde (ör. profil sayfası) kullanılabilecek mantıksal bir etiket olarak KORUNDU:
+- `store/tracking/trackingLogic.ts`: **DEĞİŞMEDİ** — `categorizeShows` hâlâ `caughtUp` kovasını üretiyor (kural 2, `last_episode`/`next_episode` referanslı S/E düzeltmesiyle birlikte); yalnızca dosya başındaki ve `ShowCategories.caughtUp` üzerindeki yorumlar, artık takip panosunda render edilmediğini netleştirecek şekilde güncellendi.
+- `store/tracking/useTrackingStore.ts`: `TrackingCategoryKey` tekrar `'upNext' | 'paused' | 'notStarted'`e daraltıldı (bilinçli olarak `keyof ShowCategories`'in TAMAMI değil, panoda RENDER EDİLEN alt kümesi — bunu açıklayan bir yorum eklendi). `DEFAULT_COLLAPSED`'dan `caughtUp` çıkarıldı.
+- `components/tracking/TrackingAccordionList.tsx` ve `.web.tsx`: `SECTION_META`'dan `caughtUp` girdisi ve `CheckCircle2` importu, `SECTION_ORDER`'dan `'caughtUp'` kaldırıldı.
+- `screens/IndexMobile.tsx`: `accordionLabels`'tan `caughtUp` etiketi kaldırıldı.
+- `app/(protected)/(tabs)/shows.web.tsx`: dördüncü carousel çağrısı (`renderTrackCarousel(t('caughtUpSection'), categories.caughtUp)`) kaldırıldı.
+- `hooks/useTrackingShows.ts`: `totalCount`/`isEmpty` hesabından `categories.caughtUp.length` ÇIKARILDI — panoda hiç render edilmeyen bir kovayı sayıma dahil etmek, pano boşken bile "boş değil" gibi yanlış bir sinyal verirdi (boş durumu mesajı yanlış zamanda gizlenirdi). JSDoc bunu açıklayacak şekilde güncellendi.
+- `locales/tr|en/media.json`: artık hiçbir yerden referans edilmeyen `caughtUpSection` anahtarı silindi (dead entry bırakılmadı).
+
+**Doğrulama:** `tsc --noEmit` temiz (0 hata). `trackingLogic.ts` yeniden derlenip Madde 140'taki 22 senaryoluk test takımı tekrar koşturuldu — hepsi geçti (veri katmanının, özellikle `now` girdisinin ve `caughtUp` kovasının davranışı DEĞİŞMEDİĞİNİN kanıtı). Web önizlemesi hatasız derlendi; `SECTION_ORDER`'ın her iki accordion dosyasında da 3 elemanlı olduğu ve `caughtUp`'a hiçbir UI dosyasından referans kalmadığı grep ile doğrulandı.
+
+## 142. Akış (Feed): Performans, Stabilite ve "Kendimi de Akışta Gör"
+
+**Kullanıcı isteği:** (1) Akış özelliği "hantal" çalışıyor, hız ve stabilite kazandırılmalı; (2) kullanıcılar kendi aktivitelerini profillerinde görebiliyor ama Akış sekmesinde göremiyor — orada da görmeliler. Spagetti kod yazılmadan, gereksiz kod bırakılmadan.
+
+### Tespit edilen sorunlar
+
+1. **Her akış yüklemesinde GEREKSİZ ve SIRALI bir Trakt isteği.** `fetchFeedActivities` her çağrıldığında `getMyFollowingSlugs()` ile Trakt'a gidiyordu — oysa `store/followStore.ts` bu veriyi zaten 10 dakikalık TTL + AsyncStorage kalıcılığıyla tutuyordu. Sonuç: aynı veri iki ayrı mekanizmayla yönetiliyor ve Supabase sorgusu, hiç gerekmeyen bir ağ round-trip'inin bitmesini SIRAYLA bekliyordu. "Hantal" hissinin ana kaynağı buydu.
+2. **Akış verisinde hiç önbellek yoktu.** `fetchUserFeedActivities` (profil) 60 saniyelik bellek önbelleğine sahipti; `fetchFeedActivities` (akış) hiç yoktu — her yeniden mount = tam yeniden yükleme + boş skeleton.
+3. **`followStore.fetchFollowingSlugs`'ta yarış durumu.** `|| get().isLoading` koşulu yüzünden, o an başka bir çağrı uçuştaysa ikinci çağıran BEKLEMEDEN anında dönüyordu. `await fetchFollowingSlugs()` yapıp hemen `connectionStates`i okuyan tüketiciler (Akış, `store/notificationStore.ts`) HENÜZ DOLMAMIŞ listeyi okuyup "kimseyi takip etmiyorum" sonucuna varabiliyordu.
+4. **Sessiz başarısızlık (`docs/AI_RULES.md` ihlali).** `useFeed` hatayı yalnızca `console.warn` ile yutuyor, `data` boş kalıyordu — kullanıcı gerçek bir ağ/veritabanı hatasında "Akışın Boş — takip ettiğin kişilerin aktiviteleri burada görünecek" mesajını görüyordu. Uygulama ona YANLIŞ bilgi veriyordu.
+5. **`useFeed`'de yarış koruması YOKTU.** `useUserActivity`/`usePublicProfileActivity`'de `cancelled` bayrağı vardı, `useFeed`'de yoktu — hızlı arka arkaya tazelemede eski yanıt yeninin üzerine yazabiliyordu.
+6. **Üç hook'ta birebir aynı mantığın kopyası.** `useFeed`, `useUserActivity`, `usePublicProfileActivity` üçü de "çek → grupla → state'e yaz → iptal bayrağı → hatayı yut" işini ayrı ayrı yapıyordu.
+7. **Ölü/gereksiz kod.** `feed.tsx` kendi lokal `isMarathon` tip guard'ını tanımlamıştı (oysa `types.ts`'te `isMarathonActivity` zaten vardı); üç hook'ta da `setData([...grouped])` ile gereksiz bir kopya alınıyordu (`groupMarathonActivities` zaten YENİ dizi döndürüyor); `useFeedPrivacy` ile Akış ayrı ayrı `getUserProfile('me')` çağırıyordu.
+
+### Yapılanlar
+
+**`services/api/myIdentity.ts` [YENİ]** — kullanıcının kendi Trakt slug'ı için tek gerçek kaynak. Oturum boyunca değişmeyen bu değer modül seviyesinde önbelleklenir (uygulama ömrü boyunca TEK istek), uçuştaki istek paylaşılır, BAŞARISIZLIK önbelleğe alınmaz (geçici ağ hatası slug'ı kalıcı olarak `null` yapmasın). `context/AuthContext.tsx`'in `removeKeys`'ine `clearMyTraktSlug()` eklendi — `followStore.reset()` ile aynı gerekçe: uygulama kapatılmadan hesap değiştirilirse önceki kullanıcının slug'ı yeni oturuma sızardı.
+
+**`store/followStore.ts`** — (a) uçuştaki istek artık paylaşılıyor (`inFlightFetch`), eşzamanlı çağıranlar onu bekliyor; `reset()` bu referansı da bırakıyor. (b) `getFollowingSlugs()` dışa aktarıldı: takip listesini store'un mevcut `connectionStates`'inden TÜRETİR, ayrı ağ isteği YAPMAZ; `pending` (onay bekleyen) durumlar bilinçli olarak dışarıda. (c) `ConnectionState` importu `import type`a çevrildi — düz import, `useFollowState` üzerinden AuthContext + notificationStore'u içeri çekip **followStore ↔ useFollowState çalışma-zamanı döngüsü** yaratıyordu; Akış artık bu store'u kullandığından döngü daha erken bir yükleme yolunda tetiklenebilirdi. Derlenmiş çıktıda ilgili `require` satırının tamamen kalktığı doğrulandı.
+
+**`features/feed/services/feedApi.ts`** — `getMyFollowingSlugs()` çağrısı kaldırıldı; takip listesi `followStore`'dan, kendi slug'ı `myIdentity`'den **PARALEL** okunuyor. Kendi slug'ı sorguya dahil edildi (**kullanıcı isteği**). `followingSlugs.length === 0` erken dönüşü kaldırıldı — kendi aktiviteleri de akışa girdiği için bu, hiç kimseyi takip etmeyen kullanıcının KENDİ aktivitelerini de gizlerdi. `fetchUserFeedActivities` ile aynı desende kısa ömürlü (60sn) önbellek + `invalidateFeedCache()` eklendi; `deleteActivitiesBulk` başarıda önbelleği tek yerden geçersiz kılıyor.
+
+**`features/feed/services/feedSync.ts`** — senkron başarıyla bitince `invalidateFeedCache()` çağırıyor: senkron kullanıcının kendi yeni aktivitelerini Supabase'e yazar, artık bunlar Akış'ta da göründüğü için "az önce bölüm izledim ama akışta yokum" durumu önlenir.
+
+**`features/feed/hooks/useActivityFeed.ts` [YENİ]** — üç hook'un ortak veri çekirdeği: çek → grupla → state, `runId` sayacıyla yarış koruması (boolean bayrak yerine sayaç, çünkü `refresh` art arda çağrılırsa önce BAŞLAYAN sonra BİTEBİLİR), unmount'ta uçuştaki yanıtı yok sayma ve **`hasError` durumu**. `useFeed`/`useUserActivity`/`usePublicProfileActivity` üçü de buna bağlandı; `useUserActivity` yalnızca SİLME yetkisini üstüne ekliyor (rollback için `previousData` bilinçli olarak `data` bağımlılığından okunuyor — `setData` güncelleyicisi StrictMode'da birden fazla kez çağrılabildiği için SAF kalmalı).
+
+**`app/(protected)/(tabs)/feed.tsx`** — lokal `isMarathon` kopyası silindi (`isMarathonActivity` kullanılıyor); "veri yok" ile "yüklenemedi" ayrıştırıldı: hata durumunda `WifiOff` ikonu + "Akış Yüklenemedi" + **"Tekrar Dene"** butonu. `locales/tr|en/feed.json`'a `errorTitle`/`errorText`/`retry` eklendi.
+
+**`features/feed/hooks/useFeedPrivacy.ts`** — kendi `getUserProfile('me')` çağrısı yerine `getMyTraktSlug()` kullanıyor (aynı isteğin ikinci kopyası kaldırıldı).
+
+### Sonuç
+Akış açılışı **2 sıralı ağ isteğinden 1'e** indi (takip listesi çoğu zaman zaten önbellekte, ağa hiç çıkmaz); yeniden mount'larda 60sn önbellek sayesinde ağ isteği tamamen atlanıyor; kullanıcı kendi aktivitelerini artık Akış'ta da görüyor (Profil'deki "Aktiviteler" sekmesi **aynen korundu**, o kod yolu değişmedi).
+
+**Doğrulama:** `tsc --noEmit` temiz (0 hata). `feedApi.ts` sahte bağımlılıklarla (Supabase sorgu yakalayıcı + stub followStore/myIdentity) izole derlenip Node'da **11 senaryoluk test koşusundan geçirildi, hepsi geçti**: sorgunun takip edilenler + KENDİM ile yapılması; takip listesi boşken bile kendi aktivitelerimin görünmesi (eski erken-dönüş bug'ı); slug tekilleştirme; kimlik çözülemediğinde (mySlug=null) akışın yine çalışması; gösterilecek kimse yokken Supabase'e HİÇ gidilmemesi; önbelleğin 2. çağrıda ağa çıkmaması; `force=true`nun (pull-to-refresh) önbelleği atlaması; `invalidateFeedCache` sonrası taze veri çekilmesi. Ayrıca `import type` düzeltmesinin döngüyü gerçekten kırdığı, derlenmiş `followStore.js`'te `useFollowState` require'ının kalmadığı doğrulandı. Web bundle hatasız derlenip render edildi.
+
+**Doğrulanamayan (gerçek Trakt+Supabase hesabı gerektirdiği için, kullanıcının kendi cihazında test etmesi gereken):** Akış'ta kendi aktivitelerinin gerçek veriyle görünmesi ve algılanan hız kazancı.
+
+**Bilinçli olarak KAPSAM DIŞI:** Akış verisinin AsyncStorage'a kalıcı yazılması (soğuk açılışta anında içerik gösterip arkada tazelemek). Bellek önbelleği sekme geçişlerini/yeniden mount'ları zaten çözüyor; kalıcılık ayrı bir adım olarak değerlendirilebilir.
+
+## 143. Akış Kartlarında Dizi Adına Basınca Dizi Sayfasına Gitme
+
+**Kullanıcı isteği:** Akış'ta "X dizisi izledi" yazısındaki dizi adına basınca dizinin detay sayfasına gidilsin.
+
+**Yapılan:** `FeedCard.tsx` ve `MarathonFeedCard.tsx` — bu iki bileşen Akış, Profil › Aktiviteler VE Herkese Açık Profil'in ÜÇÜ tarafından paylaşıldığı için tek noktadan düzeltme her yerde geçerli oldu.
+- `ACTIVITY_META.label` (tam cümle) → `labelSuffix` (yalnızca dizi adından SONRAKİ kısım) olarak ayrıştırıldı — dört aktivite şablonu de zaten `showTitle` ile başladığından hiçbir template bozulmadan bölünebildi.
+- Dizi adı artık kendi iç içe `<Text onPress=...>` öğesi (RN'de bir cümle içinde yalnızca bir alt-dizeyi tıklanabilir yapmanın standart yolu), kalın/açık renkle görsel olarak "tıklanabilir" hissettiriliyor.
+- Hedef: `router.push(\`/show/${activity.showId}\`)`. `feed_activities` tablosunda dizi/film için yalnızca Trakt'ın SAYISAL id'si tutuluyor (ne slug ne tmdbId) — `/show/[id]` rotasının `parseMediaSlug`'ı `{traktId}-{slug}` biçimini ayrıştırıyor, slug kısmı boşken de (yalnızca sayı) sorunsuz çalıştığı doğrulandı. `tmdbId` de opsiyonel — `useShowDetail` eksikse Trakt özetinden kendisi keşfediyor.
+
+**Doğrulama:** `tsc --noEmit` temiz. Web bundle hatasız derlendi. **Doğrulanamayan:** gerçek Akış verisiyle tıklama testi — gerçek bir Trakt+Supabase oturumu gerektiriyor, kullanıcının kendi cihazında denemesi gerekiyor.
+
+## 144. "Takip Et" Butonu: İzlenen/Bitirilen Yapımlar İçin Yanlış Durum Gösteriyordu
+
+**Kullanıcı bildirimi:** "200-300 dizim var, önceden izlediklerim, hâlihazırda takip ettiklerim, bazıları bitirdiklerim. Bunlarda 'Takip Et' butonu 'Takip Ediliyor' şeklinde olması gerekiyor. Zaten izleme listemdeyse ya da dizi/film bittiyse mantıken takip ediyorumdur. TV Time'daki sistem bile bendeki gibiydi."
+
+**Kök neden:** Bu uygulamada izleme listesi (watchlist) **"henüz başlanmadı"** anlamına gelir — bir diziyi izlemeye başlayınca watchlist'ten düşer (bkz. `store/tracking/trackingLogic.ts` `notStarted` kovası ve `mutations/progress.ts`'teki "WATCHLIST RECOVERY": ilerleme sıfıra düşünce dizi watchlist'e GERİ eklenir). Detay sayfasındaki takip butonu (`components/MediaHero.tsx`) ise YALNIZCA `isWatchlisted`e bakıyordu. Sonuç: kullanıcının izlediği/bitirdiği yüzlerce yapım için buton hâlâ "Takip Et" gösteriyordu.
+
+**Aynı soru uygulamada üç yerde, iki farklı şekilde cevaplanıyordu** — asıl mimari sorun buydu:
+- `components/ShowCard.tsx` → `isWatchlisted || isWatched` (neredeyse doğru, "bırakılmış"ı gözetmiyor)
+- `components/explore/ExploreWebGrid.tsx` → aynısının ikinci kopyası
+- `components/MediaHero.tsx` → yalnızca `isWatchlisted` (**HATALI**)
+
+**`utils/followStatus.ts` [YENİ] — tek gerçek kaynak.** Tanım:
+
+> takipEdiyorum = (izleme listemde **VEYA** izleme geçmişim var) **VE** bırakmadım
+
+`isDropped` (Trakt'ta "Bırak" ile gizlenmiş — uygulamanın TEK bırakma mekanizması, `trackingLogic.ts`'te de EN YÜKSEK öncelikli kural) bilinçli olarak dahil edildi: kullanıcının bilerek bıraktığı bir yapım için "Takip Ediliyor" demek ona yanlış bilgi vermek olurdu. İki giriş noktası, TEK kural: `deriveFollowStatus(flags)` (bayrakları zaten elinde olanlar için — `MediaHero`) ve `getMediaFollowStatus(id, type, slices)` (ham store dilimlerinden — kartlar).
+
+**Toggle davranışı da düzeltildi (`resolveFollowAction`).** ESKİ DAVRANIŞ: her durumda körü körüne `toggleWatchlistStatus` çağrılıyordu — izleme geçmişi olan ama watchlist'te olmayan bir yapımda bu, yapımı watchlist'e EKLİYOR ve butonun görünümünü hiç değiştirmiyordu, yani buton "hiçbir şey yapmıyor" gibi hissettiriyordu. Yeni karar tablosu:
+
+| Durum | Buton | Basınca |
+|---|---|---|
+| Kütüphanede yok | Takip Et | izleme listesine ekle |
+| Sadece izleme listesinde (başlanmadı) | Takip Ediliyor | listeden çıkar |
+| İzleme geçmişi var (izleniyor/bitti) | Takip Ediliyor | **Bırak** |
+| Bırakılmış | Takip Et | bırakmayı geri al |
+
+"İzleme geçmişi var" durumunda geçmişi silmek YIKICI olurdu; doğru karşılık uygulamanın kendi "takibi bırak" ilkeli olan **"Bırak"**tır — izleme geçmişi ve puanlar KORUNUR, yapım yalnızca vitrin listelerinden çıkar, her an geri alınabilir ve yeni bir bölüm izlenince kendiliğinden geri döner (`mutations/progress.ts` `unhideShowIfNeeded`). Bu eylem detay sayfasının "..." menüsünde zaten mevcuttu; buton yeni bir yetenek eklemiyor, var olanı doğru duruma bağlıyor.
+
+**Değiştirilen dosyalar:** `utils/followStatus.ts` [YENİ]; `components/MediaHero.tsx` (durum + toggle kararı, `handleToggleWatchlist` → `handleToggleFollow`); `app/show/[id].tsx` (`isWatched` hiç hesaplanmıyordu — eklendi ve `MediaHero`'ya geçildi; `movie/[id].tsx` zaten geçiyordu); `components/ShowCard.tsx` ve `components/explore/ExploreWebGrid.tsx` (yinelenen `.some()` blokları ortak fonksiyona devredildi, `isAdded` yerel değişkeni kalktı, `hiddenMovieIds` seçiciye eklendi).
+
+**Liste/grid kartlarındaki küçük +/✓ butonu BİLİNÇLİ OLARAK basılamaz kaldı** (izleme geçmişi varken): oradaki tek anlamlı "takibi bırak" karşılığı "Bırak"tır ve o, bir kartın köşesindeki küçük bir butondan tetiklenecek kadar hafif bir eylem değil — detay sayfasından ya da "..." menüsünden yapılır. Yalnızca GÖSTERİM tek kaynaktan doğrulandı.
+
+**Doğrulama:** `tsc --noEmit` temiz. `utils/followStatus.ts` bağımlılıksız saf bir modül olduğu için tek başına derlenip Node'da **20 senaryoluk test koşusundan geçirildi, hepsi geçti**: karar tablosunun her hücresi (kütüphanede yok / sadece listede / izleme geçmişi var — ESKİ BUG / bitirdim / hem liste hem geçmiş / bırakılmış), her durum için doğru toggle eylemi, ham store dilimlerinden hesaplama, **dizi ve film id'lerinin karışmaması** (aynı trakt id'si farklı tipte), `traktId` yokken ve boş dilimlerde çökmemesi. Web bundle hatasız derlendi. **Doğrulanamayan (gerçek Trakt kütüphanesi gerektirdiği için):** kullanıcının 200-300 dizilik gerçek kütüphanesinde butonun toplu davranışı — kendi cihazında doğrulaması gerekiyor.
+
+## 145. Akış'ın Gerçek Zamanlı Sosyal Akışa Dönüştürülmesi
+
+**Kullanıcı isteği:** "Her şey anlık olarak oraya düşüp anlık etkileşimler olmalı. Şu an diziyi izliyorum, uygulamadan çıkıp gelince ancak düşüyor. Bu kabul edilemez. İşaretlenen diziler/filmler ve verilen puanlar anlık olarak oraya düşmeli. Gerekirse sistemi baştan kur, bu akışı bir sosyal medya uygulaması gibi tasarla — hızlı, stabil, kullanıcı dostu, web+mobil uyumlu, Trakt ile entegre."
+
+### Kök neden
+Akış tamamen bir **PULL** modeliydi: `/feed/sync` YALNIZCA uygulama açılışında (`useFeedSyncTrigger`) tetikleniyor, Trakt'tan son 50 kaydı çekip Supabase ile karşılaştırıyordu. Bir bölümü işaretlemek yalnızca Trakt'a yazıyordu; aktivitenin akışa düşmesi için uygulamanın kapanıp yeniden açılması gerekiyordu. Ayrıca **film izlemeleri akışta HİÇ yoktu** (sync sadece `/sync/history/episodes` çekiyordu).
+
+### Mimarinin temel taşı: ZAMAN DAMGASI HİZALAMASI
+Anında yayın (PUSH) eklemenin önündeki asıl engel çift kayıttı. Uygulama Trakt'a `watched_at`/`rated_at` GÖNDERMİYORDU — Trakt kendi sunucu saatini yazıyordu, dolayısıyla client olayın hangi damgayla kaydedildiğini **bilmiyordu**. Damga bilinmeden yayınlanan satır, bir sonraki senkronda farklı bir dedup anahtarı üretir ve ya kopyalanır ya da "Trakt'ta yok" sanılıp silinirdi.
+
+**Çözüm:** client damgayı kendisi üretir, Trakt'a `watched_at`/`rated_at` olarak **açıkça** gönderir ve **aynısını** akışa yayınlar. Sonraki tam senkron Trakt'tan aynı damgayı okur → aynı dedup anahtarı → satır "zaten var" sayılır. (`services/api/users.ts`: `addEpisodeToHistory`, `addSeasonToHistory`, `addEpisodesBulkToHistory`, `addMovieToHistory`, `addRating` — hepsi opsiyonel damga parametresi aldı, verilmezse eski davranış korunuyor.)
+
+### Yapılanlar
+
+**Şema — `supabase/schema/013_realtime_feed.sql` [YENİ, idempotent]**
+- `media_type` ('show'|'movie'): `show_id` kolonu HEM dizi HEM film trakt id'si taşıyordu ve ayırt etmenin hiçbir yolu yoktu — akış kartından bir FİLM puanına tıklandığında `/show/{id}`ye gidiliyordu (yanlış sayfa). Aynı alan `deleted_feed_activities`e de eklendi: olmadan silinen bir film aktivitesinin tombstone'u eşleşmez ve aktivite bir sonraki senkronda **sessizce geri gelirdi**.
+- `tmdb_id`: `show_poster_url` hep NULL yazılıyordu, kartlarda gri bir film ikonu vardı. URL yerine tmdb id saklanıyor (URL bayatlar); poster uygulamanın var olan TMDB önbellekli `MediaPoster` bileşeniyle çiziliyor.
+- Yeni aktivite tipi `watched_movie` (CHECK constraint güncellendi).
+- Idempotent yazma için kısmi unique index'ler — **öncesinde mevcut çift satırları temizleyen DELETE'ler** (aksi halde `CREATE UNIQUE INDEX` patlar ve migration'ın tamamı geri alınır).
+- `feed_activities` Realtime publication'a eklendi + `REPLICA IDENTITY FULL`.
+
+**Worker — `/feed/publish` [YENİ uç nokta]**
+Token doğrular (satırın `user_id`si **istekten değil**, doğrulanan kullanıcıdan gelir — başkası adına yazmak imkânsız), gizlilik ayarlarına ve gizli Trakt hesabı kuralına uyar, sync ile **AYNI** dedup anahtarlarını kullanır (`watchedKeyOf`/`ratedKeyOf` modül seviyesine alınıp paylaşıldı), idempotenttir. `normalizePublishActivity` client girdisini sıkı doğrular (bölüm biçimi, puan aralığı, gelecek tarih reddi).
+Ayrıca sync: film izleme geçmişini de çekiyor (`/sync/history/movies`), `tmdb_id`/`media_type` yazıyor ve **TAZE YAYIN KORUMASI** kazandı — Trakt'ın geçmiş/puan uç noktaları kısa süre gecikebildiği için, son 10 dakikada yazılmış satırlar geri alma kontrolünden muaf (aksi halde kart beliriyor → saniyeler sonra kayboluyor → sonraki senkronda geri geliyordu).
+
+**Client**
+- `features/feed/store/feedStore.ts` [YENİ]: akış artık paylaşılan bir zustand store'unda. Zorunluydu — veri UI dışından da değişiyor (mutasyon katmanı + Realtime WebSocket), bir hook'un yerel state'ine bu iki yazıcı erişemezdi.
+- `features/feed/services/feedPublish.ts` [YENİ]: iyimser (optimistic) kart ANINDA ekranda, ardından Worker'a POST. Başarısızlıkta kart geri alınır (yayınlanmamış bir şeyi "yayınlandı" göstermek yalan olurdu). Gizlilik kapalıysa Worker `published: 0` döner ve kart yine düşer. Geçici id **deterministik** (`tempActivityId`) — Realtime'dan gerçek satır geldiğinde hangi kartın değiştirileceği arama/tahmin gerektirmez.
+- `features/feed/hooks/useFeedRealtime.ts` [YENİ]: `feed_activities` INSERT aboneliği. Sunucu tarafı filtre yerine, takip ettiklerimin `users.id` kümesi bir kez çözülüp bellek içi `Set` ile eleniyor (Realtime `filter`ı uzun/değişken listeler için uygun değil). Arka plandan öne dönüşte küme tazeleniyor.
+- Mutasyonlar bağlandı: `markEpisodeAsWatched`, `markSeasonAsWatched`, `markEpisodesUpToAsWatched`, `markMovieAsWatched` → yayın; `unwatchEpisode`/`unwatchSeason` → yerel akıştan düşürme. Hepsi **ateşle-ve-unut** (izleme akışını asla bloklamaz).
+- `rateMedia`/`unrateMedia` [YENİ, `mutations/ratings.ts`]: puanlama 6 ayrı ekrandan ham `addRating` ile çağrılıyordu, hiçbiri akıştan haberdar değildi. Dizi/film puanı için tek giriş noktası oldu (bölüm puanı kapsam dışı — akış şeması taşımıyor).
+- `services/library/mediaMeta.ts` [YENİ]: yayın için gereken başlık/tmdb id kütüphane dilimlerinden çözülüyor — 6 ekranın imzasını Akış yüzünden değiştirmemek için.
+- UI: gerçek posterler, dizi/film ayrımına göre doğru rota (`utils/feedNavigation.ts`), "N yeni gönderi" pill'i (canlı gelen içerik kullanıcının okuduğu yeri kaydırmaz), yayınlanıyor göstergesi, puanlama metni artık dizi/film ayrımı yapıyor (eskiden dizilere de "filmine ... puan verdi" diyordu).
+- Çıkışta `feedStore.reset()` + kimlik önbellekleri temizleniyor (hesap değişiminde önceki kullanıcının akışı sızmasın).
+
+**Temizlik:** Worker'ın `test/index.spec.js`'i `npm create cloudflare` iskeletinden kalma, hiç güncellenmemiş ve **uzun süredir başarısız** olan "Hello World!" testiydi (bu Worker o yanıtı hiç döndürmedi) — gerçek testlerle değiştirildi.
+
+### Doğrulama
+- `tsc --noEmit` temiz; web bundle hatasız derlendi.
+- **Worker: 26 test geçti** (vitest) — `normalizePublishActivity` doğrulaması (geçersiz tip/tarih/puan/bölüm biçimi reddi, gelecek tarih reddi, `user_id`nin istekten alınmaması), dedup anahtarlarının ISO biçim farklarına (Z / +00:00 / ms) dayanıklılığı, dizi-film ayrımı, `/feed/publish` istek doğrulama yolları.
+- **Client: 18 test geçti** — store sıralaması, aynı id'nin çift kart üretmemesi (Realtime yankısı), "yeni gönderi" sayacının kendi aktivitemi saymaması, iyimser kartın yaşam döngüsü (ekle → gerçek satırla değiştir → başarısızlıkta geri al → gerçek satır zaten varsa kopya bırakma), oturum izolasyonu, dizi/film rota ayrımı.
+- **Zincir doğrulaması: 7 test geçti** — client'ın ürettiği damganın Trakt→sync yolundan geçtikten sonra **aynı dedup anahtarını** üretmesi, sunucu satırından hesaplanan geçici id'nin iyimser kartınkiyle eşleşmesi ve **damga hizalanmasaydı anahtarların tutmayacağının** kanıtı (regresyon testi).
+
+### ⚠️ KULLANICININ ELLE YAPMASI GEREKEN 2 ADIM
+Bu ikisi yapılmadan anında yayın ve canlı akış ÇALIŞMAZ (uygulama çalışmaya devam eder, yalnızca eski davranışa düşer):
+1. **Supabase SQL Editor**'de `supabase/schema/013_realtime_feed.sql` çalıştırılmalı.
+2. **Worker deploy**: `cd "C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker" && npx wrangler deploy`
+
+### Doğrulanamayan (gerçek hesap + canlı altyapı gerektirir)
+Gerçek Trakt hesabıyla uçtan uca akış (bölüm işaretle → kart anında düşsün → başkasının ekranında canlı belirsin), Realtime WebSocket'in gerçek Supabase projesinde bağlanması ve poster yüklenmesi — kullanıcının kendi cihazında/hesabıyla doğrulaması gerekiyor.
+
+## 146. Canlı Ortam Bulgusu: Bilinmeyen POST Yolları Sessizce Discord'a Düşüyordu
+
+**Kullanıcı bildirimi:** "Bir dizi izledim, anlık geldi ve gördüm. Ama ardından hata çıktı, garip şekilde Discord'a hata mesajı geldi (ben atmadım), 'anonim' kullanıcıdan. Daha da ilginci bu hata Supabase error_logs'ta yok. Hepsi bağlantılı mı?"
+
+**Evet — üç belirti de tek kök nedene çıkıyor: Madde 145'in iki elle adımı henüz yapılmamıştı.**
+
+### 1) Supabase 400 — migration 013 çalıştırılmamış
+Client artık `media_type` ve `tmdb_id` kolonlarını seçiyor; migration çalıştırılmadığı için PostgREST 400 döndü ve akış yüklenemedi. Dizinin "anlık gelmesi" gerçek yayından DEĞİL, **iyimser (optimistic) karttan** geliyordu — o kart tamamen client tarafında, sunucuya hiç dokunmadan çiziliyor. Yani üç katmandan yalnızca en üsttekinin çalıştığını görüyorduk.
+
+### 2) Discord'a "anonim" mesaj — Worker'ın CATCH-ALL router'ı (GERÇEK KUSUR)
+Worker'ın router'ında **path kontrolü yoktu**: tanınmayan HER POST yolu `handleFeedback`e düşüyordu ("eski client kök path'e POST atıyor" uyumluluğu için). Worker henüz `/feed/publish` ile deploy edilmediğinden client'ın yayın isteği bu catch-all'a düştü ve:
+- `body.userMessage`/`body.userId` yok → `sanitizeData(undefined)` → `""` → **boş/anonim bir "geri bildirim"** oluştu,
+- **Discord'a gönderildi** (kullanıcı hiçbir şey bildirmemişken),
+- `error_logs` INSERT'i zorunlu alanlar boş olduğu için başarısız oldu → **bu yüzden Supabase'de yok**,
+- ve en kötüsü, `handleFeedback` `{success: true}` döndürdüğü için **client aktiviteyi yayınlanmış sandı** ve iyimser kartı geri almadı.
+
+**Düzeltme:** artık yalnızca kök path (`/`) geri bildirimdir; tanınmayan her yol **404** döner. Bu, ileride eklenecek herhangi bir uç noktanın (ya da bir yazım hatasının) aynı sessiz Discord spam'ini üretmesini yapısal olarak imkânsız kılar.
+
+### 3) Client tarafı savunma — "yanlış başarı" kapatıldı
+`publishActivities` yalnızca `success: true`ya bakıyordu; eski Worker da bunu döndürdüğü için ayırt edemiyordu. Artık yayın yanıtına ÖZGÜ `published` alanı şart: yoksa "karşımızdaki uç nokta yayın uç noktası değil" kabul edilip iyimser kart geri alınıyor ve net bir mesaj loglanıyor ("Worker güncel sürümle deploy edilmiş mi?").
+
+**Doğrulama:** Worker testleri **29/29 geçti** — yenileri: tanınmayan yolun 404 dönmesi, yazım hatalı uç noktanın 404 dönmesi, kök path'in geri bildirim olarak KALMASI (eski client uyumu korunuyor). `tsc --noEmit` temiz.
+
+**Not:** Bu iki düzeltme, asıl 2 elle adımın (migration + deploy) yerine geçmez — onlar hâlâ gerekli. Yaptıkları, adımlar atlandığında sistemin **sessizce yanlış davranmak yerine gürültülü ve dürüst şekilde başarısız olması**.

@@ -1,6 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateGroup, isFutureDate, getEpisodeKey } from '../utils/dateHelper';
+
+const EMPTY_DASHBOARD_DATA = {
+  upNextShows: [] as any[],
+  inactiveShows: [] as any[],
+  watchlistShowsList: [] as any[],
+  upcomingShows: [] as any[],
+};
 
 export const useDashboardData = (
   watchedShows: any[],
@@ -9,11 +16,29 @@ export const useDashboardData = (
   showProgressMap: any,
   calendarSeasonsMap: any,
   i18nLanguage: string,
-  hiddenShowIds: number[] = []
+  hiddenShowIds: number[] = [],
+  // "Yaklaşan" sekmesi görünür değilken bu hesap TAMAMEN atlanır. Bu hook
+  // yalnızca "Yaklaşan" sekmesinin verisini üretir (upNextShows/inactiveShows/
+  // watchlistShowsList artık kullanılmıyor, gerçek kaynak trackingLogic'tir —
+  // bkz. store/tracking/trackingLogic.ts başındaki not), ama girdileri
+  // (watchedShows, calendarSeasonsMap vb.) her senkron chunk'ında değişiyor.
+  // ESKİ DAVRANIŞ: `enabled` yoktu, bu yüzden kullanıcı "İzleme" sekmesindeyken
+  // bile her arka plan güncellemesinde tüm dizi/takvim/sezon haritası baştan
+  // taranıyordu — tamamen görünmeyen bir sekme için boşuna CPU harcanıyordu.
+  enabled: boolean = true
 ) => {
   const { t } = useTranslation('media');
+  const lastResultRef = useRef(EMPTY_DASHBOARD_DATA);
 
   return useMemo(() => {
+    // Devre dışıyken en son hesaplanan sonucu (ya da hiç hesaplanmadıysa boş
+    // sonucu) aynen döndür — aşağıdaki ağır taramalar HİÇ çalışmaz. `enabled`
+    // bağımlılık dizisinde olduğu için sekme tekrar aktif olduğunda güncel
+    // veriyle otomatik olarak yeniden hesaplanır.
+    if (!enabled) {
+      return lastResultRef.current;
+    }
+
     const hiddenSet = new Set(hiddenShowIds);
     // ============================================
     // 1. WATCHED SHOWS (Sıradakiler & Bırakılanlar)
@@ -336,13 +361,16 @@ export const useDashboardData = (
       ? upcomingTemp.filter((item) => !hiddenSet.has(item.rawTraktId))
       : upcomingTemp;
 
-    return {
+    const result = {
       upNextShows: upNextTemp,
       inactiveShows: inactiveTemp,
       watchlistShowsList: watchlistFinal,
       upcomingShows: visibleUpcoming
     };
+    lastResultRef.current = result;
+    return result;
   }, [
+    enabled,
     watchedShows,
     watchlistShows,
     calendarShows,

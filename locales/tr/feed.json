@@ -1,6 +1,10 @@
 {
   "emptyTitle": "Akışın Boş",
   "emptyText": "Trakt'ta takip ettiğin kişilerin izleme aktiviteleri burada görünecek.",
+  "errorTitle": "Akış Yüklenemedi",
+  "errorText": "Bağlantını kontrol edip tekrar dene.",
+  "retry": "Tekrar Dene",
+  "newPosts": "{{count}} yeni gönderi",
   "searchPlaceholder": "Kullanıcı adı veya Trakt profil linki",
   "searchNotFound": "Bu kullanıcı adında biri bulunamadı.",
   "searchError": "Bir şeyler ters gitti, tekrar dene.",

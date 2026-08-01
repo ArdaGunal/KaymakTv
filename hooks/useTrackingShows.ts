@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { categorizeShows, ShowCategories } from '../store/tracking/trackingLogic';
@@ -7,7 +8,12 @@ export interface UseTrackingShowsResult {
   categories: ShowCategories;
   /** Hiç veri yokken ve kütüphane hâlâ yüklenirken true — asla takılmaz. */
   isLoading: boolean;
-  /** Üç ana kategori de (upNext/paused/notStarted) boş mu? */
+  /** Üç ana kategori de (upNext/paused/notStarted) boş mu? `caughtUp`
+   * BİLİNÇLİ OLARAK bu hesaba dahil DEĞİL — bu pano bir "Yapılacaklar"
+   * listesi, `caughtUp` (izlenecek yeni bir şeyi olmayan diziler) burada hiç
+   * render edilmiyor (bkz. `trackingLogic.ts` kural 2), o yüzden onu
+   * `isEmpty`'e katmak panoda tek bir kart yokken bile "boş değil" gibi
+   * yanlış bir sinyal verirdi. */
   isEmpty: boolean;
   totalCount: number;
   /** Bir diziyi "Bırak" — Trakt'ta ilerlemesini gizler. Takip panosundaki
@@ -17,6 +23,43 @@ export interface UseTrackingShowsResult {
    * çağıran taraf (`TrackingCardMenu`) bunu bekleyip reddedilirse kullanıcıya
    * görünür bir hata gösterir (bkz. Madde 99). */
   dropShow: (id: number) => Promise<void>;
+}
+
+// Kategorizasyon (`paused` eşiği, "yayınlandı mı" kontrolü) zamana bağlı ama
+// `categorizeShows` SAF bir fonksiyon — kendi kendine tazelenmez. Store hiçbir
+// şey değişmese bile (kullanıcı hiçbir işaretleme yapmasa, hiçbir senkron
+// tetiklenmese) 45. günü aşan bir dizi kendiliğinden "Ara Verilenler"e
+// geçmiyordu; yalnızca ALAKASIZ bir store güncellemesi bu hesaplamayı yeniden
+// tetikleyene kadar eski kovasında takılı kalıyordu. ÇÖZÜM: bu hook kendi
+// "now" state'ini tutar ve iki tetikleyiciyle tazeler:
+//   1. Saatte bir (gün sınırlarını makul bir gecikmeyle yakalamak için yeterli;
+//      dakika dakika kontrol gereksiz re-render üretirdi).
+//   2. Uygulama arka plandan öne her geldiğinde (kullanıcı saatlerce/günlerce
+//      uzak kalmış olabilir, ekrana döner dönmez kategoriler güncel olmalı).
+const NOW_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 saat
+
+function useTrackingNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), NOW_REFRESH_INTERVAL_MS);
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const wasBackgrounded = appStateRef.current.match(/inactive|background/);
+      appStateRef.current = nextState;
+      if (wasBackgrounded && nextState === 'active') {
+        setNow(Date.now());
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, []);
+
+  return now;
 }
 
 /**
@@ -29,6 +72,7 @@ export interface UseTrackingShowsResult {
  */
 export function useTrackingShows(): UseTrackingShowsResult {
   const { t } = useTranslation('media');
+  const now = useTrackingNow();
 
   const { watchedShows, watchlistShows, showProgressMap, hiddenShowIds, isLibraryLoading } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
@@ -47,6 +91,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         watchlistShows: watchlistShows || [],
         showProgressMap: showProgressMap || {},
         hiddenShowIds,
+        now,
         labels: {
           unnamedShow: t('unnamedShow', 'İsimsiz Dizi'),
           notStarted: t('notStarted', 'Henüz Başlanmadı'),
@@ -54,7 +99,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, t]
+    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, now, t]
   );
 
   const totalCount = categories.upNext.length + categories.paused.length + categories.notStarted.length;

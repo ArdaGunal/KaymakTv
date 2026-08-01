@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
+import { invalidateFeedCache } from './feedApi';
 
 // Aynı Cloudflare Worker'ın (kaymaktv-feedback-worker) /feed/sync uç noktası —
 // Worker, Trakt token'ını GET /users/settings ile doğrulayıp service_role key
@@ -20,6 +21,12 @@ export const syncFeedActivity = async (traktAccessToken: string): Promise<void> 
       { traktAccessToken },
       { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
     );
+    // Senkron, kullanıcının KENDİ yeni aktivitelerini Supabase'e yazdı — ve
+    // artık kendi aktiviteleri Akış'ta da görünüyor (bkz. feedApi.ts
+    // fetchFeedActivities). Önbelleği burada, TEK yerde geçersiz kılmak,
+    // "az önce bölüm izledim ama akışta yokum" durumunu önler: senkron
+    // uygulama açılışında tetiklenir ve Akış'a girildiğinde taze veri okunur.
+    invalidateFeedCache();
     recordMutationResult('feedSync', true);
   } catch (error) {
     recordMutationResult('feedSync', false);

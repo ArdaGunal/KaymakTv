@@ -17,6 +17,7 @@ import { useLibrarySelector, useLibraryActions } from '../../context/LibraryCont
 import { generateMediaSlug } from '../../utils/slugHelper';
 import PosterGridSkeleton from '../skeletons/PosterGridSkeleton';
 import { formatRating } from '../../utils/formatRating';
+import { getMediaFollowStatus } from '../../utils/followStatus';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
 
@@ -29,11 +30,13 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
   const router = useRouter();
   // Katı seçici: ilgisiz store dilimleri (progress, ratings vb.) değiştiğinde
   // grid'deki kartlar yeniden çizilmesin.
-  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies } = useLibrarySelector(s => ({
+  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, hiddenShowIds, hiddenMovieIds } = useLibrarySelector(s => ({
     watchlistShows: s.watchlistShows,
     watchlistMovies: s.watchlistMovies,
     watchedShows: s.watchedShows,
     watchedMovies: s.watchedMovies,
+    hiddenShowIds: s.hiddenShowIds,
+    hiddenMovieIds: s.hiddenMovieIds,
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
 
@@ -47,17 +50,16 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
   const traktId = media?.ids?.trakt;
   const tmdbId = media?.ids?.tmdb || '';
 
-  const isWatchlisted =
-    type === 'movie'
-      ? watchlistMovies.some(m => m.movie?.ids?.trakt === traktId)
-      : watchlistShows.some(s => s.show?.ids?.trakt === traktId);
-
-  const isWatched =
-    type === 'movie'
-      ? watchedMovies.some(m => m.movie?.ids?.trakt === traktId)
-      : watchedShows.some(s => s.show?.ids?.trakt === traktId);
-
-  const isAdded = isWatchlisted || isWatched;
+  // Takip durumu tek gerçek kaynaktan — bkz. utils/followStatus.ts
+  // (`ShowCard` ve dizi/film detay sayfası da aynı fonksiyonu kullanır).
+  const { isWatchlisted, isWatched, isFollowing } = getMediaFollowStatus(traktId, type, {
+    watchlistShows,
+    watchlistMovies,
+    watchedShows,
+    watchedMovies,
+    hiddenShowIds,
+    hiddenMovieIds,
+  });
 
   const handleHoverIn = () => {
     Animated.parallel([
@@ -108,11 +110,11 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
 
           {/* Watchlist badge */}
           <TouchableOpacity
-            style={[styles.watchlistBadge, isAdded && styles.watchlistBadgeActive]}
+            style={[styles.watchlistBadge, isFollowing && styles.watchlistBadgeActive]}
             onPress={handleWatchlist}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            {isAdded ? (
+            {isFollowing ? (
               <Check size={14} color="#10b981" strokeWidth={3} />
             ) : (
               <Plus size={14} color="#a3a3a3" strokeWidth={2.5} />

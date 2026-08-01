@@ -1,6 +1,11 @@
 {
   "emptyTitle": "Your Feed is Empty",
   "emptyText": "Activity from people you follow on Trakt will show up here.",
+  "errorTitle": "Couldn't Load Feed",
+  "errorText": "Check your connection and try again.",
+  "retry": "Try Again",
+  "newPosts_one": "{{count}} new post",
+  "newPosts_other": "{{count}} new posts",
   "searchPlaceholder": "Username or Trakt profile link",
   "searchNotFound": "No one found with that username.",
   "searchError": "Something went wrong, try again.",

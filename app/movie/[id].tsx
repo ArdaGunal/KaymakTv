@@ -5,7 +5,7 @@ import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Check, CheckCheck } from 'lucide-react-native';
 
-import { addRating, removeRating } from '../../services/traktApi';
+
 import { useMovieDetail } from '../../hooks/useMovieDetail';
 
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
@@ -57,6 +57,10 @@ export default function MovieDetailScreen() {
     toggleFavoriteStatus,
     toggleHiddenFromProgress,
     deleteMediaFromHistory,
+    // Film puanı mutasyon katmanından geçiyor: Trakt'a yazar VE aynı damgayla
+    // Akış'a yayınlar (bkz. services/library/mutations/ratings.ts).
+    rateMedia,
+    unrateMedia,
   } = useLibraryActions();
   const { isGuest } = useAuth();
 
@@ -97,7 +101,7 @@ export default function MovieDetailScreen() {
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(traktIdNum, 'movie', rating);
-      await addRating(traktIdNum, 'movie', rating);
+      await rateMedia(traktIdNum, 'movie', rating);
     } catch (e) {
       removeLocalRating(traktIdNum, 'movie');
       Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
@@ -112,7 +116,7 @@ export default function MovieDetailScreen() {
     }
     try {
       removeLocalRating(traktIdNum, 'movie');
-      await removeRating(traktIdNum, 'movie');
+      await unrateMedia(traktIdNum, 'movie');
     } catch (e) {
       // Optimistic revert requires knowing the old rating, but for remove we might just fetch
       Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');

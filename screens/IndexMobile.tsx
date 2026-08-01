@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import SkeletonLoader from '../components/SkeletonLoader';
 import LoginPaywall from '../components/LoginPaywall';
-import { addRating } from '../services/traktApi';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,8 +46,15 @@ export default function DizilerScreen() {
     showProgressMap: s.showProgressMap,
     hiddenShowIds: s.hiddenShowIds,
   }));
-  const { refreshLibrary } = useLibraryActions();
+  // `rateMedia`: Trakt'a yazar VE aynı damgayla Akış'a yayınlar — dizi
+  // bitirme kutlamasında verilen puan da anında akışa düşsün diye
+  // (bkz. services/library/mutations/ratings.ts).
+  const { refreshLibrary, rateMedia } = useLibraryActions();
 
+  // "Yaklaşan" sekmesi görünür değilken bu ağır hesap tamamen atlanır (bkz.
+  // useDashboardData'nın `enabled` parametresi) — kullanıcı "İzleme"
+  // sekmesindeyken arka planda gelen her senkron chunk'ında boşuna
+  // koşmasının önüne geçer.
   const { upcomingShows } = useDashboardData(
     watchedShows,
     watchlistShows,
@@ -56,7 +62,8 @@ export default function DizilerScreen() {
     showProgressMap,
     calendarSeasonsMap,
     i18n.language,
-    hiddenShowIds
+    hiddenShowIds,
+    renderedTab === 'yaklasan'
   );
   const groupedUpcomingShows = useMemo(() => groupByDateGroup(upcomingShows), [upcomingShows]);
 
@@ -144,7 +151,7 @@ export default function DizilerScreen() {
         <CelebrationOverlay
           finishedShow={finishedShow}
           onRate={async (val) => {
-            await addRating(finishedShow.id, 'show', val);
+            await rateMedia(finishedShow.id, 'show', val);
           }}
           onClose={() => setShowConfetti(false)}
           howWasShowLabel={t('howWasShow')}

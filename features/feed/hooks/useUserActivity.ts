@@ -1,11 +1,9 @@
 /**
  * useUserActivity — Profil sayfasının "Aktiviteler" sekmesi için veri hook'u
  *
- * useFeed ile aynı gruplama mantığını kullanır: ham FeedActivity[] çekilir,
- * ardından groupMarathonActivities ile FeedItem[] döndürülür. Bu sayede
- * profil sayfası ile akış (feed) sayfası birebir aynı görünümü sunar.
- *
- * feedApi.ts kesinlikle gruplamaz; gruplama her zaman burada yapılır.
+ * Veri çekme/gruplama/yarış-koruması çekirdeği `useActivityFeed`'te paylaşılır
+ * (Akış ve Public Profile ile AYNI kaynak) — bu hook onun üzerine yalnızca
+ * SİLME yetkisini ekler.
  *
  * Silme (deleteItem/deleteItems): Optimistic UI — sunucu yanıtını beklemeden
  * state'ten kaldırılır, istek başarısız olursa önceki state'e geri dönülür
@@ -13,13 +11,13 @@
  * başarısızlık YASAKTIR).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { deleteActivitiesBulk, fetchUserFeedActivities, invalidateUserFeedActivitiesCache } from '../services/feedApi';
 import { FeedItem, isMarathonActivity } from '../types';
-import { groupMarathonActivities } from '../utils/groupMarathonActivities';
+import { useActivityFeed } from './useActivityFeed';
 
 // Maraton kartı için TÜM gruplanan ham satırlar; tekil aktivite için kendi id'si.
 function resolveRawActivityIds(item: FeedItem): string[] {
@@ -29,39 +27,16 @@ function resolveRawActivityIds(item: FeedItem): string[] {
 export function useUserActivity(traktSlug: string | null) {
   const { accessToken, isGuest } = useAuth();
   const { t } = useTranslation(['media', 'common']);
-  const [data, setData] = useState<FeedItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!traktSlug) {
-      setData([]);
-      setIsLoading(false);
-      return;
-    }
+  const fetcher = useCallback(
+    (force: boolean) => fetchUserFeedActivities(traktSlug as string, force),
+    [traktSlug]
+  );
 
-    let cancelled = false;
-    setIsLoading(true);
-
-    fetchUserFeedActivities(traktSlug)
-      .then((rawActivities) => {
-        if (!cancelled) {
-          // useFeed ile birebir aynı: tüm veri geldikten sonra, ekrana
-          // basmadan hemen önce grupla. Spread ile yeni referans garantile.
-          const grouped = groupMarathonActivities(rawActivities);
-          setData([...grouped]);
-        }
-      })
-      .catch((error) => {
-        console.warn('[Profile] Aktiviteler yüklenemedi:', error);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [traktSlug]);
+  const { data, setData, isLoading, hasError, refresh } = useActivityFeed(
+    traktSlug ? fetcher : null,
+    'Profile'
+  );
 
   const deleteItems = useCallback(
     async (items: FeedItem[]) => {
@@ -78,6 +53,10 @@ export function useUserActivity(traktSlug: string | null) {
       }
 
       const idsToRemove = new Set(items.map((item) => item.id));
+      // Geri alma (rollback) için o anki liste. `setData` güncelleyicisinin
+      // İÇİNDEN yakalamak cazip görünse de React güncelleyiciyi (StrictMode'da)
+      // birden fazla kez çağırabilir — güncelleyiciler SAF kalmalı, yan etki
+      // barındırmamalı. Bu yüzden `data` bağımlılıklardan okunuyor.
       const previousData = data;
       // Optimistic UI: sunucu yanıtını beklemeden anında ekrandan kaldır.
       setData((current) => current.filter((item) => !idsToRemove.has(item.id)));
@@ -87,7 +66,8 @@ export function useUserActivity(traktSlug: string | null) {
         await deleteActivitiesBulk(accessToken, rawIds);
         // Silinenler bir sonraki mount'ta önbellekten (bkz. feedApi.ts
         // userFeedActivitiesCache) geri gelmesin diye — TTL dolana kadar
-        // beklemeye gerek yok.
+        // beklemeye gerek yok. Akış önbelleğini `deleteActivitiesBulk`
+        // kendisi geçersiz kılıyor.
         if (traktSlug) invalidateUserFeedActivitiesCache(traktSlug);
       } catch (error) {
         console.warn('[Profile] Aktivite silinemedi:', error);
@@ -96,10 +76,10 @@ export function useUserActivity(traktSlug: string | null) {
         Alert.alert(t('common:error'), t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.'));
       }
     },
-    [accessToken, isGuest, data, t, traktSlug]
+    [accessToken, isGuest, data, setData, t, traktSlug]
   );
 
   const deleteItem = useCallback((item: FeedItem) => deleteItems([item]), [deleteItems]);
 
-  return { data, isLoading, deleteItem, deleteItems };
+  return { data, isLoading, hasError, refresh, deleteItem, deleteItems };
 }

@@ -102,6 +102,9 @@ function buildMarathon(group: GroupAccumulator): MarathonActivity {
     type: 'marathon',
     user: group.user,
     showId: group.showId,
+    // Maraton yalnızca `watched_episode`lardan kurulur → her zaman dizi.
+    mediaType: 'show',
+    tmdbId: group.episodes[0]?.tmdbId,
     showTitle: group.showTitle,
     showPosterUrl: group.showPosterUrl,
     episodeCount: count,

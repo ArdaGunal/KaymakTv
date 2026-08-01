@@ -1,7 +1,26 @@
 # KaymakTV Feed (Akış) Sistemi — Tasarım & Yol Haritası
 
-**Son Güncelleme:** 2026-07-25
+**Son Güncelleme:** 2026-08-02
 **Durum:** ✅ Phase 1 **uçtan uca canlı doğrulandı** + **ince taneli gizlilik sistemi tamamlandı**. Gerçek kullanıcı verisiyle test edildi, `feed_activities` doluyor, Profil/Feed ekranları gerçek aktiviteleri gösteriyor, Ayarlar'da 3 bağımsız gizlilik anahtarı var. Yolda ciddi bir prodüksiyon bug'ı bulunup düzeltildi — bkz. `docs/HISTORY.md` Madde 89 (kısmi unique index'ler PostgREST `on_conflict` ile hiç çalışmıyormuş).
+
+### 🚀 Akış artık GERÇEK ZAMANLI (Madde 145)
+Akış bir PULL modelinden (yalnızca uygulama açılışında `/feed/sync`) **PUSH + canlı** bir sosyal akışa dönüştü:
+- **Anında yayın:** bir bölüm/film işaretlendiği ya da puan verildiği ANDA aktivite akışa düşer (`POST /feed/publish`). Kart ağ beklenmeden ekranda belirir (iyimser), yayın başarısız olursa geri alınır.
+- **Canlı akış:** Supabase Realtime ile takip ettiklerinin aktiviteleri sayfa yenilemeden gelir; kullanıcı listeyi kaydırmışsa içerik ayağının altından kaymaz, üstte "N yeni gönderi" rozeti çıkar.
+- **Çift kayıt neden olmuyor:** client zaman damgasını kendisi üretip Trakt'a `watched_at`/`rated_at` olarak AÇIKÇA gönderir ve aynısını yayınlar → sonraki tam senkron aynı dedup anahtarını üretir. Bu, tüm mimarinin temel taşıdır.
+- **Yeni:** film izlemeleri (`watched_movie`) artık akışta; kartlarda gerçek posterler; dizi/film ayrımına göre doğru detay rotası (`media_type`).
+
+⚠️ **Çalışması için 2 elle adım gerekir:** `supabase/schema/013_realtime_feed.sql` çalıştırılmalı ve Worker deploy edilmeli. Detay: `docs/HISTORY.md` Madde 145.
+
+### ✅ Akış artık KENDİ aktivitelerini de gösteriyor + performans turu (Madde 142)
+Akış eskiden yalnızca takip edilenlerin aktivitelerini gösteriyordu; kullanıcı kendini yalnızca Profil › Aktiviteler'de görebiliyordu. Artık `fetchFeedActivities` sorguya kullanıcının kendi `trakt_slug`'ını da dahil ediyor — **Profil sekmesi aynen korundu**, oradaki kod yolu (`fetchUserFeedActivities`) hiç değişmedi. Aynı turda performans/stabilite düzeltmeleri yapıldı:
+- Takip listesi artık `store/followStore.ts`'ten (zaten önbellekli) okunuyor — her yüklemede Trakt'a giden **gereksiz ve sıralı** `getMyFollowingSlugs()` isteği kalktı, iki okuma paralelleşti.
+- Kendi Trakt slug'ı için tek gerçek kaynak: `services/api/myIdentity.ts` (uygulama ömrü boyunca tek istek; çıkışta `clearMyTraktSlug()` ile temizlenir).
+- Akış verisine 60 saniyelik bellek önbelleği (`invalidateFeedCache` ile senkron/silme sonrası geçersiz kılınır); pull-to-refresh `force` ile onu atlar.
+- `useFeed`/`useUserActivity`/`usePublicProfileActivity`'nin üçünde tekrarlanan "çek → grupla → state" mantığı `features/feed/hooks/useActivityFeed.ts`'te tek çekirdeğe indi; yarış koruması ve **hata durumu** (artık "Akış Yüklenemedi" + Tekrar Dene, sessiz "Akışın Boş" yalanı yok) burada.
+- `followStore` ↔ `useFollowState` çalışma-zamanı import döngüsü `import type` ile kırıldı; `fetchFollowingSlugs`'taki "uçuştaki isteği beklemeden dön" yarışı düzeltildi.
+
+Detay: `docs/HISTORY.md` Madde 142.
 
 ### ✅ Çözüldü: "Her Şeyi Gizle" artık ayrı bir DB sütunu değil
 Önceki oturumda açık bırakılan soru ("feed_hidden gereksiz mi?") kullanıcı tarafından karara bağlandı: **evet, gereksizdi ve çelişkili durum riski taşıyordu.** `supabase/schema/008_drop_feed_hidden.sql` ile sütun tamamen kaldırıldı. "Her Şeyi Gizle" artık `features/feed/hooks/useFeedPrivacy.ts`'te TÜRETİLMİŞ (derived) bir UI durumu: `!publishWatches && !publishRatings`. Açılınca ikisini birden `false` yapan tek bir istek atar; kapanınca ikisini birden `true`'ya döndürür; ikisinden biri (örn. başka bir cihazdan) tekrar açılırsa üstteki anahtar otomatik "kapalı" görünür — çünkü hesaplanan bir değer, senkron dışı kalması mümkün değil. Tek gerçek kaynak: `publish_watches` + `publish_ratings`.

@@ -7,6 +7,7 @@ import ProgressBar from './ProgressBar';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { getProgressBarColor } from '../utils/progressBarColor';
+import { getMediaFollowStatus } from '../utils/followStatus';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';
 
@@ -15,13 +16,14 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const router = useRouter();
   // Katı seçici: tam context aboneliği listedeki HER kartı her store
   // değişiminde yeniden çiziyordu — keşfet kaydırmasındaki takılmanın kaynağı.
-  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, showProgressMap, hiddenShowIds } = useLibrarySelector(s => ({
+  const { watchlistShows, watchlistMovies, watchedShows, watchedMovies, showProgressMap, hiddenShowIds, hiddenMovieIds } = useLibrarySelector(s => ({
     watchlistShows: s.watchlistShows,
     watchlistMovies: s.watchlistMovies,
     watchedShows: s.watchedShows,
     watchedMovies: s.watchedMovies,
     showProgressMap: s.showProgressMap,
     hiddenShowIds: s.hiddenShowIds,
+    hiddenMovieIds: s.hiddenMovieIds,
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
   const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
@@ -38,20 +40,21 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const traktId = media?.ids?.trakt;
   const tmdbId = media?.ids?.tmdb || '';
 
-  const isWatchlisted = type === 'movie' 
-    ? watchlistMovies.some(m => m.movie?.ids?.trakt === traktId)
-    : watchlistShows.some(s => s.show?.ids?.trakt === traktId);
-
-  const isWatched = type === 'movie'
-    ? watchedMovies.some(m => m.movie?.ids?.trakt === traktId)
-    : watchedShows.some(s => s.show?.ids?.trakt === traktId);
-
-  const isAdded = isWatchlisted || isWatched;
+  // Takip durumu tek gerçek kaynaktan (bkz. utils/followStatus.ts) —
+  // eskiden bu üç `.some()` taraması burada, ExploreWebGrid'de ve detay
+  // sayfasında AYRI AYRI (ve detay sayfasında YANLIŞ) yazılmıştı.
+  const { isWatchlisted, isWatched, isDropped, isFollowing } = getMediaFollowStatus(traktId, type, {
+    watchlistShows,
+    watchlistMovies,
+    watchedShows,
+    watchedMovies,
+    hiddenShowIds,
+    hiddenMovieIds,
+  });
 
   const progress = type === 'show' && traktId ? showProgressMap[traktId] : null;
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
-  const isDropped = type === 'show' && hiddenShowIds.includes(traktId);
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
   const progressColor = getProgressBarColor(isDropped, isFinished);
 
@@ -92,14 +95,19 @@ const ShowCard = memo(({ data }: { data: any }) => {
       <View style={styles.contentContainer}>
         <View style={styles.titleHeader}>
           <Text style={styles.titleText} numberOfLines={1}>{media?.title}</Text>
-          <TouchableOpacity 
-            style={[styles.watchlistButton, isAdded && styles.watchlistButtonActive]} 
+          {/* Hızlı ekle/çıkar butonu. İzleme geçmişi olan yapımlarda BASILAMAZ:
+              buradaki tek anlamlı "takibi bırak" karşılığı "Bırak"tır ve o,
+              bir liste kartındaki küçük bir + butonundan yapılacak kadar
+              hafif bir eylem değil — detay sayfasındaki takip butonundan ya da
+              "..." menüsünden yapılır (bkz. utils/followStatus.ts). */}
+          <TouchableOpacity
+            style={[styles.watchlistButton, isFollowing && styles.watchlistButtonActive]}
             onPress={handleToggleWatchlist}
             disabled={isWatchlistLoading || isWatched}
           >
             {isWatchlistLoading ? (
             <ActivityIndicator size="small" />
-            ) : isAdded ? (
+            ) : isFollowing ? (
               <Check size={18} color="#10b981" strokeWidth={3} />
             ) : (
               <Plus size={18} color="#a3a3a3" strokeWidth={2.5} />

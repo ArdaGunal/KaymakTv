@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import * as SecureStore from '../../utils/secureStorage';
 
+// Takip panosunda RENDER EDİLEN kategoriler. `ShowCategories` bunlara ek olarak
+// `caughtUp` ve `hidden` kovalarını da üretir ama ikisi de bu panoda bilinçli
+// olarak GÖSTERİLMEZ (bkz. store/tracking/trackingLogic.ts) — bu yüzden bu tip
+// `keyof ShowCategories` DEĞİL, ondan dar bir alt kümedir.
 export type TrackingCategoryKey = 'upNext' | 'paused' | 'notStarted';
 
 export type CollapsedMap = Record<TrackingCategoryKey, boolean>;

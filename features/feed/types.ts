@@ -3,9 +3,15 @@
 
 export type FeedActivityType =
   | 'watched_episode'
+  | 'watched_movie'
   | 'started_show'
   | 'completed_show'
   | 'rated';
+
+/** Yapımın türü. `showId` hem dizi hem film trakt id'sini taşıdığı için
+ *  (bkz. supabase şeması `show_id`), doğru detay sayfasına yönlendirmenin
+ *  TEK yolu budur. */
+export type FeedMediaType = 'show' | 'movie';
 
 export interface FeedUser {
   id: string;
@@ -19,11 +25,18 @@ export interface FeedActivity {
   user: FeedUser;
   activityType: FeedActivityType;
   showId: number;
+  mediaType: FeedMediaType;
+  /** Poster için — TMDB id'si (URL değil, bkz. migration 013). */
+  tmdbId?: number;
   showTitle: string;
   showPosterUrl: string | null;
   episodeNumber?: string; // "S03E04" — yalnızca watched_episode
   rating?: number;        // 1-10 — yalnızca rated
   activityAt: string;     // ISO timestamp
+  /** Yalnızca ANINDA YAYIN sırasında true: kart ekranda ama sunucu onayı
+   *  henüz gelmedi. Onay gelince silinir, hata olursa kart geri alınır
+   *  (bkz. features/feed/services/feedPublish.ts). */
+  isPending?: boolean;
 }
 
 // ── Maraton (Gruplanmış) Aktivite ─────────────────────────────────────────
@@ -38,6 +51,10 @@ export interface MarathonActivity {
   type: 'marathon';
   user: FeedUser;
   showId: number;
+  /** Maraton tanım gereği bir dizidir; alan yine de taşınıyor ki kartlar
+   *  `FeedActivity` ile aynı yönlendirme mantığını paylaşabilsin. */
+  mediaType: FeedMediaType;
+  tmdbId?: number;
   showTitle: string;
   showPosterUrl: string | null;
   episodeCount: number;  // Kaç bölüm izlendi

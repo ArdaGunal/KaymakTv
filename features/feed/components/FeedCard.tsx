@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Eye, Play, CheckCircle2, Star, Film } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Eye, Play, CheckCircle2, Star, Clapperboard } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import MediaPoster from '../../../components/MediaPoster';
 import { FeedActivity } from '../types';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { buildMediaHref } from '../utils/feedNavigation';
 import ActivityDeleteRow from './ActivityDeleteRow';
 
 interface FeedCardProps {
@@ -19,29 +21,41 @@ interface FeedCardProps {
 // Her aktivite tipi kendi ikonunu, vurgu rengini ve metin şablonunu taşır —
 // yeni bir tip eklemek (Phase 2: 'commented' vb.) bu map'e bir satır eklemek
 // kadar basit olacak şekilde tasarlandı.
+//
+// `labelSuffix` BİLİNÇLİ OLARAK yapım adını İÇERMEZ, yalnızca ONDAN SONRA
+// gelen kısmı döndürür — yapım adı JSX'te ayrı, tıklanabilir bir <Text>
+// olarak render edilir.
 const ACTIVITY_META: Record<
   FeedActivity['activityType'],
-  { icon: typeof Eye; color: string; label: (a: FeedActivity) => string }
+  { icon: typeof Eye; color: string; labelSuffix: (a: FeedActivity) => string }
 > = {
   watched_episode: {
     icon: Eye,
     color: '#38bdf8',
-    label: (a) => `${a.showTitle} ${a.episodeNumber ?? ''} izledi`.trim(),
+    labelSuffix: (a) => `${a.episodeNumber ?? ''} izledi`.trim(),
+  },
+  watched_movie: {
+    icon: Clapperboard,
+    color: '#f472b6',
+    labelSuffix: () => 'filmini izledi',
   },
   started_show: {
     icon: Play,
     color: '#a78bfa',
-    label: (a) => `${a.showTitle} izlemeye başladı`,
+    labelSuffix: () => 'izlemeye başladı',
   },
   completed_show: {
     icon: CheckCircle2,
     color: '#4ade80',
-    label: (a) => `${a.showTitle} tamamladı`,
+    labelSuffix: () => 'tamamladı',
   },
   rated: {
+    // Puanlama hem dizi hem film olabilir — metin `mediaType`e göre değişir,
+    // eskiden her puanlama için sabit "filmine" yazıyordu (diziler için yanlış).
     icon: Star,
     color: '#facc15',
-    label: (a) => `${a.showTitle} filmine ${a.rating}/10 puan verdi`,
+    labelSuffix: (a) =>
+      a.mediaType === 'movie' ? `filmine ${a.rating}/10 puan verdi` : `dizisine ${a.rating}/10 puan verdi`,
   },
 };
 
@@ -62,14 +76,16 @@ export default function FeedCard({
     // anahtarlanıyor — kullanıcı adıyla (username) yönlendirirse ve ikisi
     // farklıysa (ör. username'de büyük harf varsa), profile.web.tsx/
     // PublicProfileMobile.tsx'teki `useFollowState` bu slug'ı store'da
-    // BULAMAZ ve zaten takip edilen biri için "Takip Et" gösterirdi. Diğer
-    // tüm `/user/*` yönlendirmeleriyle (ör. ProfileMobile.tsx) AYNI
-    // `traktSlug || username` deseni.
+    // BULAMAZ ve zaten takip edilen biri için "Takip Et" gösterirdi.
     router.push(`/user/${activity.user.traktSlug || activity.user.username}`);
   };
 
+  // Dizi mi film mi — `mediaType` olmadan doğru rota bilinemez (ikisi de aynı
+  // `showId` kolonunda taşınıyor). Bkz. utils/feedNavigation.ts
+  const handlePressShow = () => router.push(buildMediaHref(activity) as any);
+
   const card = (
-    <View style={styles.card}>
+    <View style={[styles.card, activity.isPending && styles.cardPending]}>
       <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>
@@ -85,15 +101,34 @@ export default function FeedCard({
         </View>
 
         <Text style={styles.label} numberOfLines={2}>
-          {meta.label(activity)}
+          <Text style={styles.showNameLink} onPress={handlePressShow}>
+            {activity.showTitle}
+          </Text>
+          {' '}
+          {meta.labelSuffix(activity)}
         </Text>
 
-        <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt)}</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt)}</Text>
+          {/* Yayınlanıyor göstergesi: kart ekranda ama sunucu onayı henüz
+              gelmedi. Onaylanınca kaybolur, hata olursa kart geri alınır. */}
+          {activity.isPending && <ActivityIndicator size="small" color="#475569" />}
+        </View>
       </View>
 
-      <View style={styles.poster}>
-        <Film size={20} color="#475569" />
-      </View>
+      {/* Poster: bir sosyal akışın en güçlü görsel sinyali. ESKİDEN burada
+          sabit gri bir film ikonu vardı — `show_poster_url` her zaman NULL
+          yazılıyordu. Artık tmdb id'si saklanıyor (migration 013) ve poster
+          uygulamanın var olan TMDB önbellekli bileşeniyle çiziliyor. */}
+      <TouchableOpacity activeOpacity={0.8} onPress={handlePressShow}>
+        <MediaPoster
+          tmdbId={activity.tmdbId}
+          type={activity.mediaType}
+          title={activity.showTitle}
+          style={styles.poster}
+          placeholderTextLines={2}
+        />
+      </TouchableOpacity>
     </View>
   );
 
@@ -122,6 +157,10 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     gap: 12,
+  },
+  // Sunucu onayı beklenirken hafif soluk — "gönderiliyor" hissi.
+  cardPending: {
+    opacity: 0.65,
   },
   avatar: {
     width: 40,
@@ -157,17 +196,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  showNameLink: {
+    color: '#f1f5f9',
+    fontWeight: '700',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
   timestamp: {
     color: '#64748b',
     fontSize: 11,
-    marginTop: 2,
   },
   poster: {
-    width: 40,
-    height: 56,
+    width: 44,
+    height: 62,
     borderRadius: 8,
     backgroundColor: '#0B1120',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

@@ -46,7 +46,29 @@ export const getWatchedShows = async () => {
   }
 };
 
-export const addEpisodeToHistory = async (showId: number, season: number, episode: number) => {
+// ─────────────────────────────────────────────────────────────────────────
+// AÇIK ZAMAN DAMGASI (watched_at / rated_at) — Akış'ın anında yayın
+// mekanizmasının temeli.
+//
+// ESKİ DAVRANIŞ: bu uç noktalara hiç zaman gönderilmiyordu, Trakt kendi sunucu
+// saatini yazıyordu. Sonuç: client, olayın Trakt'ta HANGİ damgayla kaydedildiğini
+// BİLMİYORDU. Akış artık aktiviteyi Trakt'a yazıldığı anda kendi veritabanına
+// da yayınlıyor (bkz. features/feed/services/feedPublish.ts); damga bilinmezse
+// bir sonraki tam senkron Trakt'tan FARKLI bir damga okur, dedup anahtarı
+// tutmaz ve aynı olay ya ikinci kez eklenir ya da "Trakt'ta yok" sanılıp
+// silinir. Damgayı client üretip HER İKİ tarafa da aynısını göndererek bu
+// sınıf hatayı yapısal olarak imkânsız kılıyoruz.
+//
+// `watchedAt` opsiyonel: verilmezse eski davranış (Trakt kendi saatini yazar)
+// korunur — çağıranların hepsini değiştirmek zorunda kalmadan kademeli geçiş.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const addEpisodeToHistory = async (
+  showId: number,
+  season: number,
+  episode: number,
+  watchedAt?: string
+) => {
   try {
     const client = await getTraktClient();
     const payload = {
@@ -56,7 +78,7 @@ export const addEpisodeToHistory = async (showId: number, season: number, episod
           seasons: [
             {
               number: season,
-              episodes: [{ number: episode }]
+              episodes: [{ number: episode, ...(watchedAt ? { watched_at: watchedAt } : {}) }]
             }
           ]
         }
@@ -70,7 +92,7 @@ export const addEpisodeToHistory = async (showId: number, season: number, episod
   }
 };
 
-export const addSeasonToHistory = async (showId: number, season: number) => {
+export const addSeasonToHistory = async (showId: number, season: number, watchedAt?: string) => {
   try {
     const client = await getTraktClient();
     const payload = {
@@ -79,7 +101,8 @@ export const addSeasonToHistory = async (showId: number, season: number) => {
           ids: { trakt: showId },
           seasons: [
             {
-              number: season
+              number: season,
+              ...(watchedAt ? { watched_at: watchedAt } : {})
             }
           ]
         }
@@ -93,7 +116,12 @@ export const addSeasonToHistory = async (showId: number, season: number) => {
   }
 };
 
-export const addEpisodesBulkToHistory = async (showId: number, season: number, episodes: number[]) => {
+export const addEpisodesBulkToHistory = async (
+  showId: number,
+  season: number,
+  episodes: number[],
+  watchedAt?: string
+) => {
   try {
     const client = await getTraktClient();
     const payload = {
@@ -103,7 +131,7 @@ export const addEpisodesBulkToHistory = async (showId: number, season: number, e
           seasons: [
             {
               number: season,
-              episodes: episodes.map(num => ({ number: num }))
+              episodes: episodes.map(num => ({ number: num, ...(watchedAt ? { watched_at: watchedAt } : {}) }))
             }
           ]
         }
@@ -445,13 +473,14 @@ export const getMyCalendarMovies = async (days = 30) => {
   }
 };
 
-export const addMovieToHistory = async (movieId: number) => {
+export const addMovieToHistory = async (movieId: number, watchedAt?: string) => {
   try {
     const client = await getTraktClient();
     const payload = {
       movies: [
         {
-          ids: { trakt: movieId }
+          ids: { trakt: movieId },
+          ...(watchedAt ? { watched_at: watchedAt } : {})
         }
       ]
     };
@@ -483,9 +512,18 @@ export const getUserRatings = async (type: 'shows' | 'movies' | 'episodes') => {
   }
 };
 
-export const addRating = async (id: number, type: 'show' | 'movie' | 'episode', rating: number, season?: number, episode?: number) => {
+export const addRating = async (
+  id: number,
+  type: 'show' | 'movie' | 'episode',
+  rating: number,
+  season?: number,
+  episode?: number,
+  ratedAt?: string
+) => {
   try {
     const client = await getTraktClient();
+    // bkz. addEpisodeToHistory üstündeki "AÇIK ZAMAN DAMGASI" notu.
+    const stamp = ratedAt ? { rated_at: ratedAt } : {};
     let body: any = {};
     if (type === 'episode' && season !== undefined && episode !== undefined) {
       body = {
@@ -493,7 +531,7 @@ export const addRating = async (id: number, type: 'show' | 'movie' | 'episode', 
           ids: { trakt: id },
           seasons: [{
             number: season,
-            episodes: [{ number: episode, rating: rating }]
+            episodes: [{ number: episode, rating: rating, ...stamp }]
           }]
         }]
       };
@@ -502,7 +540,8 @@ export const addRating = async (id: number, type: 'show' | 'movie' | 'episode', 
       body = {
         [typeKey]: [{
           rating: rating,
-          ids: { trakt: id }
+          ids: { trakt: id },
+          ...stamp
         }]
       };
     }

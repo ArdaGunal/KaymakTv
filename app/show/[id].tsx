@@ -43,6 +43,11 @@ export default function ShowDetailScreen() {
   // sayesinde — bkz. services/library/mutations/*.ts).
   const showProgress = useLibrarySelector((s) => s.showProgressMap[traktIdNum]);
   const isWatchlisted = useLibrarySelector((s) => s.watchlistShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
+  // Takip butonu için ŞART: bu uygulamada izleme listesi "henüz başlanmadı"
+  // demek — izlemeye başlanan dizi watchlist'ten düşer. `isWatched` olmadan
+  // buton, kullanıcının yıllardır izlediği diziler için bile "Takip Et"
+  // gösteriyordu (bkz. utils/followStatus.ts).
+  const isWatched = useLibrarySelector((s) => s.watchedShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
   const isFavorited = useLibrarySelector((s) => s.favShows?.some((item: any) => item.show?.ids?.trakt === traktIdNum));
   const isHidden = useLibrarySelector((s) => s.hiddenShowIds?.includes(traktIdNum));
   const userRatingsEpisodes = useLibrarySelector((s) => s.userRatingsEpisodes);
@@ -198,6 +203,7 @@ export default function ShowDetailScreen() {
           trailerId={trailerId}
           userRating={userRating}
           isWatchlisted={isWatchlisted}
+          isWatched={isWatched}
           isFavorited={isFavorited}
           isHidden={!!isHidden}
           onRate={handleRate}

@@ -15,6 +15,7 @@ import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
 import { getProgressBarColor } from '../utils/progressBarColor';
+import { deriveFollowStatus, resolveFollowAction } from '../utils/followStatus';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -28,6 +29,10 @@ interface MediaHeroProps {
   isWatched?: boolean;
   onRate: (rating: number) => void;
   onRemoveRating: () => void;
+  /** Yapımı izleme listesine ekler/çıkarır. Takip butonu bunu YALNIZCA
+   *  `resolveFollowAction` "addToWatchlist"/"removeFromWatchlist" dediğinde
+   *  çağırır — izleme geçmişi olan yapımlarda doğru karşılık `Bırak`tır
+   *  (bkz. utils/followStatus.ts). */
   onToggleWatchlist: () => void;
   onToggleFavorite?: () => void;
   /** "Bırak" eylemi — Trakt'ta "İlerlemeyi Gizle/Göster", `isHidden` durumuna
@@ -105,12 +110,33 @@ export default function MediaHero({
     setOptionsModalVisible(false);
   };
 
+  // ── Takip durumu ────────────────────────────────────────────────────────
+  // ESKİ DAVRANIŞ: buton YALNIZCA `isWatchlisted`e bakıyordu. Bu uygulamada
+  // izleme listesi "henüz başlanmadı" demek olduğundan, kullanıcının izlediği
+  // ya da bitirdiği yüzlerce dizi/film için buton hâlâ "Takip Et" gösteriyordu.
+  // Tanım artık tek yerde: utils/followStatus.ts.
+  // Üç bayrak zaten prop olarak geliyor — store'u burada tekrar taramaya
+  // gerek yok, kuralı doğrudan uygula.
+  const followStatus = deriveFollowStatus({ isWatchlisted, isWatched, isDropped: isHidden });
+
   // "..." menüsünde gizli duran İzleme Listesi satırı kaldırılıp buraya,
   // rozet satırına taşındı — Favori butonuyla birebir aynı desen (bkz. plan:
   // C:\Users\ardag\.claude\plans\iterative-sparking-hippo.md).
-  const handleToggleWatchlist = () => {
+  const handleToggleFollow = () => {
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+    // Hangi eylemin doğru olduğu duruma göre değişir — karar tablosu
+    // utils/followStatus.ts'te (saf ve test edilebilir), burada yalnızca
+    // uygulanıyor.
+    const action = resolveFollowAction(followStatus);
+    if (action === 'drop' || action === 'undrop') {
+      // "Bırak"/"Devam Et" — izleme geçmişi ve puanlar KORUNUR, yapım yalnızca
+      // vitrin listelerinden çıkar. `onHideFromProgress` verilmemişse (ör.
+      // eski bir çağıran) sessizce hiçbir şey yapmak yerine watchlist'e
+      // düşmüyoruz: yanlış eylem yapmaktansa hiç yapmamak doğrudur.
+      onHideFromProgress?.();
       return;
     }
     onToggleWatchlist();
@@ -256,13 +282,17 @@ export default function MediaHero({
           `Bookmark` ikonunu ve farklı bir sayfa bağlamını koruyor. */}
       <View style={[styles.watchlistSection, { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right }]}>
         <TouchableOpacity
-          style={[styles.watchlistBtn, isWatchlisted && styles.watchlistBtnActive]}
-          onPress={handleToggleWatchlist}
+          style={[styles.watchlistBtn, followStatus.isFollowing && styles.watchlistBtnActive]}
+          onPress={handleToggleFollow}
           activeOpacity={0.85}
         >
-          <Bookmark size={18} color={isWatchlisted ? "#3b82f6" : "#fff"} fill={isWatchlisted ? "#3b82f6" : "transparent"} />
-          <Text style={[styles.watchlistBtnText, isWatchlisted && styles.watchlistBtnTextActive]}>
-            {isWatchlisted ? t('watchlistActive', 'Takip Ediliyor') : t('watchlistAction', 'Takip Et')}
+          <Bookmark
+            size={18}
+            color={followStatus.isFollowing ? '#3b82f6' : '#fff'}
+            fill={followStatus.isFollowing ? '#3b82f6' : 'transparent'}
+          />
+          <Text style={[styles.watchlistBtnText, followStatus.isFollowing && styles.watchlistBtnTextActive]}>
+            {followStatus.isFollowing ? t('watchlistActive', 'Takip Ediliyor') : t('watchlistAction', 'Takip Et')}
           </Text>
         </TouchableOpacity>
       </View>

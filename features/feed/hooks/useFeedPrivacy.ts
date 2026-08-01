@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { getUserProfile } from '../../../services/api/social';
+import { getMyTraktSlug } from '../../../services/api/myIdentity';
 import { getFeedPrivacySettings, updateFeedPrivacy, FeedPrivacySettings } from '../services/feedPrivacy';
 
 const DEFAULT_SETTINGS: FeedPrivacySettings = {
@@ -24,8 +24,11 @@ export function useFeedPrivacy() {
     let cancelled = false;
     (async () => {
       try {
-        const profile = await getUserProfile('me');
-        const current = await getFeedPrivacySettings(profile.ids.slug);
+        // Kendi slug'ım tek yerden, önbellekli (bkz. services/api/myIdentity.ts)
+        // — eskiden burada da ayrı bir `getUserProfile('me')` isteği vardı.
+        const mySlug = await getMyTraktSlug();
+        if (!mySlug) return;
+        const current = await getFeedPrivacySettings(mySlug);
         if (!cancelled) setSettings(current);
       } catch (error) {
         console.warn('[Feed] Gizlilik ayarları okunamadı:', error);

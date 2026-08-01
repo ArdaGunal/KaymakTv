@@ -16,9 +16,19 @@
  *      bağlıdır; ayrı bir yerel "bırakıldı" durumu YOKTUR (bkz.
  *      services/library/mutations/collections.ts:toggleHiddenFromProgress).
  *   2. İzlenmeye başlanmış AMA şu an izlenmeye hazır (yayınlanmış) bir sonraki
- *      bölüm YOK → hiçbir takip listesinde görünmez. Fark etmez dizi sonsuza
- *      dek bitmiş olsun ya da gelecekte henüz yayınlanmamış bir sezonu/bölümü
- *      olsun — "şu an izlenecek bir şey yok" ikisi için de aynı sonucu doğurur.
+ *      bölüm YOK                                                            → caughtUp
+ *      (Güncel). BİLİNÇLİ TASARIM: bu ekran bir "Yapılacaklar" panosu —
+ *      kullanıcının şu an izleyebileceği bir bölüm yoksa, o dizi burada
+ *      kalabalık yapmamalı. `caughtUp` kovası bu yüzden takip panosunda
+ *      (TrackingAccordionList) HİÇ RENDER EDİLMEZ — bkz. `useTrackingStore.ts`
+ *      `TrackingCategoryKey`. Yalnızca ileride başka bir yerde (ör. profil
+ *      sayfasında "tamamladıkların" gibi) kullanılabilecek mantıksal bir
+ *      etiket olarak burada, veri katmanında tutulur. Fark etmez dizi
+ *      sonsuza dek bitmiş olsun ya da gelecekte henüz yayınlanmamış bir
+ *      sezonu/bölümü olsun — "şu an izlenecek bir şey yok" ikisi için de aynı
+ *      sonucu doğurur. Yeni bölüm yayınlandığında Trakt'ın kendi verisi
+ *      (next_episode) değişir ve dizi otomatik olarak upNext/paused'a geri
+ *      döner — ayrı bir "geri getirme" eylemi gerekmez.
  *   3. Hiç izlenmemiş (completed===0)                                      → notStarted
  *   4. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
  *      izlemenin üzerinden `pauseThresholdDays` (varsayılan 45) günden FAZLA
@@ -28,6 +38,13 @@
  *   5. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
  *      izleme `pauseThresholdDays` günden AZ                               → upNext
  *      (Aktif İzlenenler)
+ *
+ * ZAMAN GİRDİSİ: kurallar 2/4/5 `now` parametresine bağlıdır (bölüm yayın
+ * tarihi geçti mi, son izlemenin üzerinden kaç gün geçti). Bu fonksiyon SAF
+ * olduğu için kendi başına zamanla "tazelenmez" — çağıran taraf (`useTrackingShows`)
+ * `now`'ı periyodik olarak yenileyip yeniden çağırmakla yükümlü, aksi halde
+ * bir dizi eşiği geçtiğinde alakasız bir store güncellemesi tetiklenene kadar
+ * eski kovasında takılı kalır.
  */
 
 export interface TrackingCard {
@@ -55,6 +72,15 @@ export interface ShowCategories {
   /** Ara Verilenler (Beklemede) — otomatik, `pauseThresholdDays` günden eski. */
   paused: TrackingCard[];
   notStarted: TrackingCard[];
+  /** Güncel — izlenmeye başlanmış, şu an izlenmeye hazır (yayınlanmış) bir
+   * sonraki bölümü olmayan diziler (dizi bitmiş ya da yeni sezon henüz
+   * yayınlanmamış). BİLİNÇLİ TASARIM: takip panosu (TrackingAccordionList)
+   * bu anahtarı HİÇ okumaz/render etmez — pano bir "Yapılacaklar" listesi,
+   * izlenecek yeni bir şeyi olmayan dizinin orada kalabalık yapmaması
+   * istendi. Yalnızca ileride başka bir ekranda (ör. profil sayfası)
+   * kullanılabilecek mantıksal bir etiket olarak burada tutulur — `hidden`
+   * gibi "Bırak" ile ilişkili DEĞİLDİR, tamamen otomatik ve zamana bağlıdır. */
+  caughtUp: TrackingCard[];
   /** "Bırak" ile Trakt'ta gizlenmiş diziler — izleme geçmişi/puanları KORUNUR,
    * sadece ana vitrin listelerinden (Aktif İzlenenler, Takvim, Sıradaki
    * Bölümler) çıkarılırlar. Yalnızca Kütüphane'nin "Gizlenenler/Bırakılanlar"
@@ -129,6 +155,7 @@ export function categorizeShows({
   const upNext: TrackingCard[] = [];
   const paused: TrackingCard[] = [];
   const notStarted: TrackingCard[] = [];
+  const caughtUp: TrackingCard[] = [];
   const hidden: TrackingCard[] = [];
 
   for (const [id, entry] of byId) {
@@ -137,10 +164,19 @@ export function categorizeShows({
     const completed = progress?.completed ?? 0;
     const aired = progress?.aired ?? 0;
     const next = progress?.next_episode ?? null;
+    // Trakt'ın progress uç noktası `next_episode`nin yanında `last_episode`yi
+    // de döndürür (son izlenen bölüm). "Güncel" kovasındaki bir dizi için
+    // anlamlı bir sezon/bölüm göstermek amacıyla kullanılır — aksi halde
+    // aşağıdaki `: 1` düşüşü her caughtUp kartında yanlışlıkla "S1E1"
+    // gösterirdi (bkz. kural 2'nin eski, artık düzeltilmiş hâliyle ilgili not).
+    const lastEp = progress?.last_episode ?? null;
 
     const isCalculating = progress === undefined && entry.fromWatched;
     const hasStarted = completed > 0 || (isCalculating && entry.fromWatched);
     const nextReady = !!next && hasAired(next.first_aired, now);
+    // Sıradaki (henüz yayınlanmamış olsa bile) duyurulan bölüm varsa onu,
+    // yoksa son izlenen bölümü göster — ikisi de yoksa (uç durum) 1'e düş.
+    const caughtUpRef = next || lastEp;
 
     // Ortak görsel alanları — hem "gizli" hem normal kategoriler için gerekli,
     // bu yüzden aşağıdaki kural 2'nin erken `continue`'undan ÖNCE hesaplanır.
@@ -155,8 +191,8 @@ export function categorizeShows({
       isCalculating,
       lastWatchedAt: entry.lastWatchedAt,
     };
-    const season = hasStarted && nextReady ? next.season : 1;
-    const episode = hasStarted && nextReady ? next.number : 1;
+    const season = hasStarted && nextReady ? next.season : (hasStarted && caughtUpRef ? caughtUpRef.season : 1);
+    const episode = hasStarted && nextReady ? next.number : (hasStarted && caughtUpRef ? caughtUpRef.number : 1);
     const title = hasStarted ? (nextReady ? (next.title || labels.caughtUp) : labels.caughtUp) : labels.notStarted;
 
     // 1. Kullanıcı "Bırak" demiş (Trakt'ta "İlerlemeyi Gizle") → hidden (EN
@@ -178,25 +214,31 @@ export function categorizeShows({
 
     // 2. Kullanıcı bu dizide izlemeye başlamış VE elimizde gerçek (hesaplanmakta
     // OLMAYAN) ilerleme verisi varken şu an izlenmeye hazır (yayınlanmış) bir
-    // sonraki bölüm yoksa, dizi HİÇBİR takip listesinde görünmez — fark etmez
-    // dizi sonsuza dek bitmiş olsun (next yok) ya da gelecekte henüz
-    // yayınlanmamış bir sezonu/bölümü olsun (next var ama tarihi gelmemiş):
-    // "şu an izlenecek bir şey yok" ikisi için de aynı anlama gelir, dizi
-    // "izlenip bitmiş" gibi davranılır (yalnızca profil/istatistiklerde
-    // görünmeye devam eder — bu ekranlar watchedShows'tan bağımsız ayrı bir
-    // kaynaktan besleniyor, bu listeden çıkarmak onları etkilemez).
-    // ESKİ DAVRANIŞ yalnızca "next === null" (sonsuza dek bitmiş) durumunu
-    // buraya alıyordu; "yeni sezon duyuruldu ama henüz yayınlanmadı" durumu bu
-    // kontrolü atlatıp "Aktif İzlenenler"e SIZIYORDU — üstelik aşağıdaki
-    // season/episode hesaplaması `hasStarted && nextReady` şartını
-    // sağlayamadığından `: 1` dalına düşüp kartta hep "S1E1" gösteriyordu,
-    // izlenmiş sezonlar sanki hiç izlenmemiş gibi görünüyordu. Henüz hiç
-    // başlanmamış diziler (hasStarted=false) bu kuraldan MUAF — onlar
-    // "Henüz Başlanmadı"da görünmeye devam eder (bilinçli takip edilen,
-    // ileride izlenecek içerik). `!!progress` şartı, arka planda ilerlemesi
-    // henüz hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor"
-    // spinner kartını göstermeye devam etmesini garanti eder.
-    if (!!progress && hasStarted && !nextReady) continue;
+    // sonraki bölüm yoksa → caughtUp (Güncel). Fark etmez dizi sonsuza dek
+    // bitmiş olsun (next yok) ya da gelecekte henüz yayınlanmamış bir
+    // sezonu/bölümü olsun (next var ama tarihi gelmemiş): "şu an izlenecek bir
+    // şey yok" ikisi için de aynı anlama gelir.
+    // ESKİ DAVRANIŞ: bu diziler HİÇBİR listede görünmeden sessizce
+    // kayboluyordu — "Bırak" değillerdi, o yüzden Gizlenenler'e de düşmüyordu;
+    // kullanıcının onu geri bulabileceği hiçbir yer yoktu. Ayrıca yalnızca
+    // "next === null" (sonsuza dek bitmiş) durumu bu kurala giriyordu; "yeni
+    // sezon duyuruldu ama henüz yayınlanmadı" durumu bu kontrolü atlatıp
+    // "Aktif İzlenenler"e SIZIYORDU. Henüz hiç başlanmamış diziler
+    // (hasStarted=false) bu kuraldan MUAF — onlar "Henüz Başlanmadı"da
+    // görünmeye devam eder. `!!progress` şartı, arka planda ilerlemesi henüz
+    // hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor" spinner
+    // kartını göstermeye devam etmesini garanti eder.
+    if (!!progress && hasStarted && !nextReady) {
+      caughtUp.push({
+        ...base,
+        season,
+        episode,
+        title,
+        tags: [],
+        readyToWatch: false,
+      });
+      continue;
+    }
 
     // 3. Hiç başlanmamış → notStarted. completedCount/totalCount BİLİNÇLİ
     // OLARAK null'a sabitlenir — ilerleme çubuğu bu kategoride asla görünmemeli
@@ -256,6 +298,13 @@ export function categorizeShows({
     const bt = b.lastWatchedAt ? new Date(b.lastWatchedAt).getTime() : 0;
     return bt - at;
   });
+  // caughtUp da paused ile aynı mantıkla sıralanır: en yakın zamanda
+  // güncellenmiş (biten/duyurusu gelen) dizi en üstte.
+  caughtUp.sort((a, b) => {
+    const at = a.lastWatchedAt ? new Date(a.lastWatchedAt).getTime() : 0;
+    const bt = b.lastWatchedAt ? new Date(b.lastWatchedAt).getTime() : 0;
+    return bt - at;
+  });
 
-  return { upNext, paused, notStarted, hidden };
+  return { upNext, paused, notStarted, caughtUp, hidden };
 }

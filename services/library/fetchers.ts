@@ -428,37 +428,35 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     const backgroundWork = (async () => {
       const uniqueIds = Array.from(showIds);
       const CHUNK_SIZE = 6;
-      // Diske her chunk'ta değil, birkaç chunk'ta bir yaz (büyük haritayı
+      // Diske her yayında değil, birkaç yayında bir yaz (büyük haritayı
       // sürekli serileştirmemek için).
-      const PERSIST_EVERY_CHUNKS = 4;
-      let completedChunks = 0;
+      const PERSIST_EVERY_PUBLISHES = 4;
+      // ESKİ DAVRANIŞ: her ağ chunk'ı (6 dizi) bittiği ANDA store'a yazılıyordu.
+      // Büyük kütüphanelerde (ör. 300 dizi → 50 chunk) bu, art arda 50 kez
+      // "store güncellendi → kategorizasyon baştan hesaplandı → SectionList
+      // yeniden çizildi" dalgasına yol açıp senkron sırasında arayüzü
+      // kilitliyordu. ÇÖZÜM: sonuçlar bir tampona (`pendingResults`) birikir,
+      // store'a yalnızca ~400ms'de bir (ya da son chunk'ta) TEK seferde
+      // yayınlanır. Ağ isteklerinin hızı/sırası DEĞİŞMEDİ — yalnızca kaç kez
+      // render tetiklendiği azaldı.
+      const PUBLISH_INTERVAL_MS = 400;
+      let pendingResults: Record<string, any> = {};
+      let lastPublishAt = Date.now();
+      let publishCount = 0;
 
-      for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
-        const chunk = uniqueIds.slice(i, i + CHUNK_SIZE);
-        const chunkResults: Record<string, any> = {};
-        await Promise.all(chunk.map(async (id) => {
-          try {
-            chunkResults[id as number] = await requestQueue.enqueue(() => getShowProgress(id as number), 'LOW');
-          } catch(e) {
-            console.log('Progress çekilemedi: ', id);
-          }
-        }));
-
-        // KADEMELİ YAYIN: her chunk store'a ANINDA işlenir — kartlardaki
-        // "hesaplanıyor" spinner'ları 6'şarlı gruplar halinde söner. Eskiden
-        // TÜM döngü bitmeden store'a hiçbir şey yazılmadığından, yavaş ağ +
-        // büyük kütüphanede spinner'lar dakikalarca dönüyordu.
-        if (Object.keys(chunkResults).length > 0) {
-          setShowProgressMap((prev: any) => ({ ...prev, ...chunkResults }));
-        }
+      const flushPending = () => {
+        if (Object.keys(pendingResults).length === 0) return;
+        setShowProgressMap((prev: any) => ({ ...prev, ...pendingResults }));
+        pendingResults = {};
+        lastPublishAt = Date.now();
 
         // KADEMELİ KALICILIK: senkron yarıda kesilirse (kullanıcı uygulamayı
         // kapatırsa) o ana kadarki ilerleme diskte kalır; sonraki açılış delta
         // sayesinde yalnızca eksikleri çeker. Eskiden hiçbir şey kaydedilmediği
         // için her açılış sıfırdan başlıyordu — "hiç bitmeyen senkron" döngüsü.
-        completedChunks++;
-        if (completedChunks % PERSIST_EVERY_CHUNKS === 0) {
-          // silent:true — bu arka plan checkpoint'i her birkaç ağ chunk'ında bir
+        publishCount++;
+        if (publishCount % PERSIST_EVERY_PUBLISHES === 0) {
+          // silent:true — bu arka plan checkpoint'i her birkaç yayında bir
           // tetiklenir; hata durumunda kullanıcıya art arda "Depolama Dolu"
           // uyarısı spam'lenmesin diye sessizce loglanır.
           writeChunkedRecord(
@@ -467,11 +465,31 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
             { silent: true }
           ).catch(() => {});
         }
+      };
 
-        if (i + CHUNK_SIZE < uniqueIds.length) {
+      for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+        const chunk = uniqueIds.slice(i, i + CHUNK_SIZE);
+        await Promise.all(chunk.map(async (id) => {
+          try {
+            pendingResults[id as number] = await requestQueue.enqueue(() => getShowProgress(id as number), 'LOW');
+          } catch(e) {
+            console.log('Progress çekilemedi: ', id);
+          }
+        }));
+
+        const isLastChunk = i + CHUNK_SIZE >= uniqueIds.length;
+        if (isLastChunk || Date.now() - lastPublishAt >= PUBLISH_INTERVAL_MS) {
+          flushPending();
+        }
+
+        if (!isLastChunk) {
           await new Promise(resolve => setTimeout(resolve, 150));
         }
       }
+      // Güvence: döngü zaten son chunk'ta flush ediyor ama olası bir kalıntı
+      // (örn. hatalı `isLastChunk` hesaplamasına karşı) için ek çağrı zararsız
+      // (fonksiyon boş tamponda hiçbir şey yapmıyor).
+      flushPending();
 
       // Son birleşim: eski harita + store'daki güncel hali (senkron sırasında
       // kullanıcının yaptığı işaretlemeler dahil). oldProgressMap artık bir Map
@@ -532,10 +550,37 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
 
           const nowMillis = Date.now();
 
-          let seasonsChunksSincePersist = 0;
+          // Progress döngüsündeki aynı toplulaştırma tekniği: store'a her ağ
+          // chunk'ında değil, ~400ms'de bir (veya son chunk'ta) tek seferde
+          // yayınlanır — aksi halde bu döngü de progress döngüsüyle aynı anda
+          // koşarken kendi render dalgasını üstüne bindirirdi.
+          const SEASONS_PUBLISH_INTERVAL_MS = 400;
+          let pendingSeasonsEntries: Record<string, any> = {};
+          let lastSeasonsPublishAt = Date.now();
+          let seasonsPublishCount = 0;
+
+          const flushPendingSeasons = () => {
+            if (Object.keys(pendingSeasonsEntries).length === 0) return;
+            setCalendarSeasonsMap((prev: any) => ({ ...prev, ...pendingSeasonsEntries }));
+            pendingSeasonsEntries = {};
+            lastSeasonsPublishAt = Date.now();
+
+            // KADEMELİ KALICILIK: "Yaklaşanlar", 33 günlük takvimin ötesindeki
+            // bölümleri BU haritadan görür. Eskiden harita yalnızca tüm döngü
+            // bitince yazıldığından, senkronu hiç tamamlanamayan cihazlarda 33
+            // günden ötesi asla görünmüyordu — "bende 100 gün sonrası var, onda
+            // yok" farkının sebebi buydu.
+            seasonsPublishCount++;
+            if (seasonsPublishCount % 3 === 0) {
+              AsyncStorage.setItem(
+                CACHE_KEYS.calendarSeasonsMap,
+                JSON.stringify(updatedSeasonsMap)
+              ).catch(() => {});
+            }
+          };
+
           for (let i = 0; i < calUniqueIds.length; i += CHUNK_SIZE) {
             const chunk = calUniqueIds.slice(i, i + CHUNK_SIZE);
-            const chunkEntries: Record<string, any> = {};
             await Promise.all(chunk.map(async (id) => {
               const cachedData = updatedSeasonsMap[id];
               if (!cachedData || !cachedData.fetchedAt || (nowMillis - cachedData.fetchedAt > CACHE_TTL.CALENDAR_SEASONS)) {
@@ -563,7 +608,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
                     data: minimalSeasons
                   };
                   updatedSeasonsMap[id] = entry;
-                  chunkEntries[id] = entry;
+                  pendingSeasonsEntries[id] = entry;
                   fetchedAny = true;
                 } catch(e) {
                   console.log('Seasons çekilemedi: ', id);
@@ -571,26 +616,16 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
               }
             }));
 
-            // KADEMELİ YAYIN + KALICILIK: "Yaklaşanlar", 33 günlük takvimin
-            // ötesindeki bölümleri BU haritadan görür. Eskiden harita yalnızca
-            // tüm döngü bitince yazıldığından, senkronu hiç tamamlanamayan
-            // cihazlarda 33 günden ötesi asla görünmüyordu — "bende 100 gün
-            // sonrası var, onda yok" farkının sebebi buydu.
-            if (Object.keys(chunkEntries).length > 0) {
-              setCalendarSeasonsMap((prev: any) => ({ ...prev, ...chunkEntries }));
-              seasonsChunksSincePersist++;
-              if (seasonsChunksSincePersist % 3 === 0) {
-                AsyncStorage.setItem(
-                  CACHE_KEYS.calendarSeasonsMap,
-                  JSON.stringify(updatedSeasonsMap)
-                ).catch(() => {});
-              }
+            const isLastSeasonsChunk = i + CHUNK_SIZE >= calUniqueIds.length;
+            if (isLastSeasonsChunk || Date.now() - lastSeasonsPublishAt >= SEASONS_PUBLISH_INTERVAL_MS) {
+              flushPendingSeasons();
             }
 
-            if (i + CHUNK_SIZE < calUniqueIds.length) {
+            if (!isLastSeasonsChunk) {
               await new Promise(resolve => setTimeout(resolve, 150));
             }
           }
+          flushPendingSeasons();
 
           setCalendarSeasonsMap((prev: any) => ({ ...prev, ...updatedSeasonsMap }));
 
