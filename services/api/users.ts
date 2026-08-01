@@ -808,23 +808,15 @@ const assertProxyReachedTrakt = (response: any, label: string): void => {
 /**
  * Web'deki proxy yolu `getTraktClient()`'ın axios instance'ını hiç
  * KULLANMADIĞI için, o instance'a bağlı 401→token-yenileme interceptor'ından
- * da hiç geçmiyordu (bkz. docs/HISTORY.md Madde 133 — kullanıcı gerçek bir
- * `401` aldı, çünkü token süresi dolmuştu ama bu yol hiç yenilemiyordu).
- * Burada AYNI davranış elle uygulanıyor: 401 alınca `refreshAccessToken()`
- * (traktClient.ts'teki paylaşılan mutex) ile bir kez yenile, isteği TEK
- * SEFERLİK tekrar dene.
+ * da hiç geçmiyor. Burada AYNI davranış elle uygulanıyor: 401 alınca
+ * `refreshAccessToken()` (traktClient.ts'teki paylaşılan mutex) ile bir kez
+ * yenile, isteği TEK SEFERLİK tekrar dene.
  */
-const webProxyRequest = async (
-  method: 'get' | 'put',
-  params: Record<string, unknown>,
-  data?: unknown
-): Promise<any> => {
+const webProxyGet = async (params: Record<string, unknown>): Promise<any> => {
   const send = async () => {
     const accessToken = await SecureStore.getItemAsync('traktAccessToken');
     const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
-    return method === 'get'
-      ? axios.get(TRAKT_PROXY_URL, { params, headers })
-      : axios.put(TRAKT_PROXY_URL, data, { params, headers });
+    return axios.get(TRAKT_PROXY_URL, { params, headers });
   };
 
   try {
@@ -843,14 +835,12 @@ export const getUserSettings = async (): Promise<any> => {
   try {
     if (!isWeb) {
       const client = await getTraktClient();
-      // Trakt CDN'i aynı URL'yi önbelliyor (bkz. Madde 87/102/130) — yazma
-      // sonrası doğrulama okuması BAYAT olmamalı, yoksa doğru kaydedilmiş bir
-      // değer "kaydedilmedi" sanılıp yanlış hata gösterilir.
+      // Trakt CDN'i aynı URL'yi önbelliyor (bkz. Madde 87/102/130).
       const response = await client.get(`/users/settings?_=${Date.now()}`);
       return response.data;
     }
 
-    const response = await webProxyRequest('get', { endpoint: '/users/settings', _: Date.now() });
+    const response = await webProxyGet({ endpoint: '/users/settings', _: Date.now() });
     assertProxyReachedTrakt(response, 'getUserSettings');
     return response.data;
   } catch (error) {
@@ -860,64 +850,19 @@ export const getUserSettings = async (): Promise<any> => {
 };
 
 /**
- * `PUT /users/settings` — yalnızca verilen alanları gönderir (Trakt kısmi
- * güncellemeyi destekliyor: şemadaki her alan `nullish`).
+ * Hesabın Trakt'taki gizlilik durumu — SALT OKUNUR.
+ *
+ * ⛔ YAZMA FONKSİYONU EKLEMEYİN (bkz. docs/HISTORY.md Madde 134): Trakt'ın
+ * PUBLIC API'sinde `/users/settings` için YALNIZCA `GET` vardır. `PUT
+ * /users/settings` Trakt'ın KENDİ web uygulamasına ait first-party bir uç
+ * noktadır (github.com/trakt/trakt-api'de tanımlı ama public dokümantasyonda
+ * YOK) — üçüncü parti bir API anahtarıyla çağrıldığında, kullanıcının token'ı
+ * tamamen geçerli olsa bile `401 invalid_token` döner (canlı olarak
+ * doğrulandı; yanıt ayrıca `Set-Cookie: _traktsession` içeriyor, yani
+ * oturum-tabanlı first-party akıştan geçiyor). Bu yüzden ad/bio/gizlilik
+ * uygulama içinden DEĞİŞTİRİLEMEZ; kullanıcı trakt.tv'ye yönlendirilir.
  */
-const updateUserSettings = async (userPatch: Record<string, unknown>, label: string): Promise<void> => {
-  if (!isWeb) {
-    const client = await getTraktClient();
-    await client.put('/users/settings', { user: userPatch });
-    return;
-  }
-
-  const response = await webProxyRequest('put', { endpoint: '/users/settings' }, { user: userPatch });
-  assertProxyReachedTrakt(response, label);
-};
-
 export const getProfilePrivacy = async (): Promise<boolean> => {
   const settings = await getUserSettings();
   return settings?.user?.private ?? false;
-};
-
-export const updateProfilePrivacy = async (isPrivate: boolean): Promise<void> => {
-  try {
-    await updateUserSettings({ private: isPrivate }, 'updateProfilePrivacy');
-  } catch (error) {
-    console.error('Trakt API Hatası (updateProfilePrivacy):', error);
-    throw error;
-  }
-};
-
-/**
- * Profili Düzenle — Görünen Ad + Hakkında (bio).
- *
- * YAZ-SONRA-OKU DOĞRULAMASI: PUT başarılı görünse bile ardından ayarlar geri
- * okunup değerlerin GERÇEKTEN yazıldığı teyit edilir; tutmadıysa hata fırlatır.
- * Sebebi (Madde 132): kullanıcı iki kez "kaydediyorum ama olmuyor, hata da
- * vermiyor" durumu yaşadı. Artık kaydetmenin sessizce kaybolması MÜMKÜN DEĞİL —
- * ya gerçekten yazılır ya da kullanıcı görünür bir hata alır.
- *
- * NOT: `location` BİLİNÇLİ OLARAK gönderilmiyor — kullanıcı bu uygulamada
- * şehir/konum alanına gerek olmadığını belirtti. Trakt'ın kendi `location`
- * değerine de DOKUNULMAZ (kısmi güncelleme, gönderilmeyen alan korunur).
- */
-export const updateProfile = async (data: { name: string; about: string }): Promise<void> => {
-  try {
-    await updateUserSettings({ name: data.name, about: data.about }, 'updateProfile');
-
-    const settings = await getUserSettings();
-    const savedName = settings?.user?.name ?? '';
-    const savedAbout = settings?.user?.about ?? '';
-
-    if (savedName !== data.name || savedAbout !== data.about) {
-      throw new Error(
-        `[updateProfile] Trakt değişikliği kaydetmedi. ` +
-          `Gönderilen: name="${data.name}", about="${data.about}" — ` +
-          `Trakt'ta okunan: name="${savedName}", about="${savedAbout}".`
-      );
-    }
-  } catch (error) {
-    console.error('Trakt API Hatası (updateProfile):', error);
-    throw error;
-  }
 };

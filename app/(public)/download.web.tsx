@@ -28,7 +28,7 @@ import { useRouter } from 'expo-router';
 import { APK_DOWNLOAD_URL, GITHUB_RELEASES_URL } from '../../utils/constants';
 
 // APK bilgileri — Sürüm notları GitHub API'den dinamik çekilir
-const CURRENT_VERSION = 'v2.0.0';
+const CURRENT_VERSION = 'v2.0.1';
 const APK_SIZE = '~87 MB';
 
 const DESKTOP_BREAKPOINT = 868;

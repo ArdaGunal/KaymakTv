@@ -198,13 +198,17 @@ app.delete('/api/trakt-proxy', async (req, res) => {
   }
 });
 
-// Aynı köprünün PUT varyantı — `updateProfilePrivacy` (`PUT /users/settings`,
-// gizli/açık hesap değiştirme) için. `/users/*` ailesindeki diğer yazma
-// uç noktaları (follow, hidden) gerçek kullanıcı raporlarıyla CORS'a
-// takıldığından (Madde 109/120), aynı riski taşıyan bu uç nokta da baştan
-// proxy'den geçirildi — curl ile tek başına test etmenin (OPTIONS
-// preflight'ı bile) gerçek tarayıcı davranışını güvenilir şekilde
-// öngöremediği bu oturumda ayrıca doğrulandı.
+// Aynı köprünün PUT varyantı — GET/POST/DELETE ile aynı genel amaçlı desen.
+//
+// NOT (bkz. docs/HISTORY.md Madde 134): Şu anda istemci tarafında bu handler'ı
+// kullanan HİÇBİR çağrı YOK. Tek kullanıcısı `PUT /users/settings` idi (profil
+// adı/bio/gizlilik yazma) — ama Trakt'ın public API'si o uç noktaya yazmaya
+// izin vermiyor (first-party, üçüncü parti anahtarla her zaman 401), o yüzden
+// istemcideki yazma kodu tamamen kaldırıldı. Handler BİLİNÇLİ olarak duruyor:
+// GET/POST/DELETE kardeşleriyle simetrik, genel amaçlı bir köprü ve ileride
+// Trakt'ın PUT kabul eden başka bir uç noktası (ör. `PUT /users/{id}/lists/{id}`
+// liste güncelleme) proxy'den geçmek isterse hazır. Silmek yerine bırakmanın
+// maliyeti sıfır; yeniden yazmanın maliyeti bir sonraki deploy döngüsü.
 app.put('/api/trakt-proxy', async (req, res) => {
   try {
     const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;

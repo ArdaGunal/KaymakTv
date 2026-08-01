@@ -75,9 +75,10 @@ export default function ProfileScreen() {
   const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
-  // Profili Düzenle ekranından `router.back()` ile dönüldüğünde güncel
-  // isim/bio/konumun anında görünmesi için — Zustand'a taşımadan aynı sonuç
-  // (bkz. hooks/useEditProfile.ts'teki mimari gerekçe).
+  // Ekran her odağa geldiğinde profili tazeler — kullanıcı Trakt.tv'de
+  // adını/bio'sunu değiştirip uygulamaya döndüğünde (bkz. docs/HISTORY.md
+  // Madde 134: düzenleme yalnızca trakt.tv'de yapılabiliyor) değişiklik
+  // uygulamayı yeniden başlatmaya gerek kalmadan görünsün.
   useFocusEffect(
     useCallback(() => {
       refetchProfile();

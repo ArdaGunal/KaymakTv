@@ -1,9 +1,10 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, EyeOff, FileWarning, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, FileWarning, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,6 +36,8 @@ const DEV_MODE_REQUIRED_TAPS = 7;
 const DEV_MODE_TAP_WINDOW_MS = 1500;
 
 const DESKTOP_BREAKPOINT = 768;
+
+const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
 
 export default function SettingsScreen() {
   const { accessToken, isGuest } = useAuth();
@@ -86,7 +89,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const appVersion = Constants.expoConfig?.version ?? '2.0.0';
+  const appVersion = Constants.expoConfig?.version ?? '2.0.1';
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();
@@ -98,6 +101,12 @@ export default function SettingsScreen() {
   // (`/settings`) işaret ettiği için giriş akışı da TEK ekranda yaşamalı;
   // burada yalnızca o ekrana yönlendiriyoruz (bkz. TraktAccountSection).
   const goToLogin = () => router.push('/(public)/settings');
+
+  // Trakt gizlilik ayarları yalnızca trakt.tv üzerinden değiştirilebiliyor
+  // (bkz. yukarıdaki "Gizlilik" bölümündeki not / docs/HISTORY.md Madde 134).
+  const openTraktPrivacySettings = () => {
+    Linking.openURL(TRAKT_PRIVACY_SETTINGS_URL).catch((err) => console.error('URL açılamadı:', err));
+  };
 
   const handleDeleteConfirm = async () => {
     await handleDeleteAccount();
@@ -185,17 +194,39 @@ export default function SettingsScreen() {
           {/* Trakt'ın hesap düzeyindeki Gizli/Açık Hesap ayarı — KaymakTV'nin
               kendi akış gizliliğinden (yukarıdaki "Akış" bölümü) BAĞIMSIZ.
               Misafirin bir Trakt hesabı yok, bu yüzden yalnızca gerçek
-              kullanıcıya gösterilir (yukarıdaki "Akış" bölümüyle AYNI guard). */}
+              kullanıcıya gösterilir (yukarıdaki "Akış" bölümüyle AYNI guard).
+
+              ⛔ SALT OKUNUR — buraya bir Switch GERİ EKLEMEYİN (bkz.
+              docs/HISTORY.md Madde 134): Trakt'ın public API'si
+              `/users/settings`'e YAZMAYA izin vermiyor (yalnızca GET
+              belgelenmiş; PUT first-party bir uç nokta ve üçüncü parti
+              anahtarla her zaman 401 dönüyor). Eskiden burada bir Switch
+              vardı ve çalışıyormuş gibi görünüyordu — gerçekte Trakt'a HİÇ
+              yazmıyordu. Durum okunup gösteriliyor, değiştirmek için
+              kullanıcı trakt.tv'ye yönlendiriliyor. */}
           {!isGuest && accessToken && (
             <SettingsSection title={t('settings:privacySection', 'Gizlilik')}>
-              <SettingsSwitchRow
+              <SettingsRow
                 icon={<Lock size={20} color="#60a5fa" />}
-                label={t('settings:privateAccount', 'Gizli Hesap')}
-                hint={t('settings:privateAccountHint', 'Hesabınız gizliyken, sizi takip etmek isteyenlerin size istek göndermesi gerekir.')}
+                label={t('settings:privateAccount', 'Hesap Gizliliği')}
                 tintColor="#60a5fa"
-                value={profilePrivacy.isPrivate}
-                onValueChange={profilePrivacy.toggle}
-                isLoading={profilePrivacy.isLoading || profilePrivacy.isSaving}
+                value={
+                  profilePrivacy.isLoading
+                    ? t('common:loading', 'Yükleniyor...')
+                    : profilePrivacy.isPrivate
+                    ? t('settings:privateAccountPrivate', 'Gizli')
+                    : t('settings:privateAccountPublic', 'Açık')
+                }
+              />
+
+              <SettingsSectionDivider />
+
+              <SettingsRow
+                icon={<ExternalLink size={20} color="#60a5fa" />}
+                label={t('settings:privacyManageOnTrakt', "Gizlilik ayarlarını Trakt.tv'de yönet")}
+                tintColor="#60a5fa"
+                showChevron
+                onPress={openTraktPrivacySettings}
               />
             </SettingsSection>
           )}
@@ -262,7 +293,7 @@ export default function SettingsScreen() {
 
             <SettingsRow
               icon={<MessageCircle size={20} color="#60a5fa" />}
-              label={t('settings:reportIssueRowLabel', 'Bize Ulaşın / Hata Bildir')}
+              label={t('settings:feedbackRowLabel', 'İstek / Öneri / Şikayet')}
               tintColor="#60a5fa"
               showChevron
               onPress={() => setReportModalVisible(true)}

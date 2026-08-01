@@ -1,25 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getProfilePrivacy, updateProfilePrivacy } from '../services/api/users';
-import { notify } from '../utils/confirmDialog';
+import { getProfilePrivacy } from '../services/api/users';
 
 /**
  * Trakt'ın hesap düzeyindeki Gizli/Açık Hesap ayarı (`user.private`) —
- * `features/feed/hooks/useFeedPrivacy.ts`teki AYNI desen (optimistic update +
- * hata durumunda rollback), ama KaymakTV'nin kendi Supabase tabanlı akış
- * gizliliğinden (publishWatches/publishRatings) TAMAMEN BAĞIMSIZ bir Trakt
- * ayarı olduğu için ayrı bir hook. Global bir Zustand store'a KONULMADI —
- * bu proje zaten kullanıcı ayarları için bu desende (yerel hook state +
- * optimistic + rollback) çalışıyor; tek bir bayrak için paralel bir state
- * yönetimi mimarisi eklemek gereksiz karmaşıklık olurdu.
+ * **SALT OKUNUR**.
+ *
+ * ⛔ BURAYA BİR `toggle`/`setPrivate` EKLEMEYİN (bkz. docs/HISTORY.md Madde 134):
+ * Trakt'ın public API'sinde `/users/settings` için yalnızca `GET` vardır; yazma
+ * (`PUT`) first-party bir uç noktadır ve üçüncü parti anahtarla her zaman
+ * `401 invalid_token` döner. Eskiden burada iyimser (optimistic) bir `toggle`
+ * vardı ve kullanıcıya çalışıyormuş gibi görünüyordu — gerçekte Trakt'a HİÇ
+ * yazmıyordu (Madde 122'de eklenmiş, hiçbir zaman uçtan uca doğrulanmamıştı).
+ * Kullanıcı artık Ayarlar'dan durumunu GÖRÜYOR ve değiştirmek için trakt.tv'ye
+ * yönlendiriliyor.
+ *
+ * KaymakTV'nin kendi Supabase tabanlı akış gizliliğinden
+ * (publishWatches/publishRatings — `features/feed/hooks/useFeedPrivacy.ts`)
+ * TAMAMEN BAĞIMSIZDIR; o ayarlar bizim kendi backend'imizde olduğu için
+ * değiştirilebilir durumda kalmaya devam ediyor.
  */
 export function useProfilePrivacy() {
   const { accessToken, isGuest } = useAuth();
-  const { t } = useTranslation('common');
   const [isPrivate, setIsPrivate] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!accessToken || isGuest) {
@@ -42,27 +46,5 @@ export function useProfilePrivacy() {
     };
   }, [accessToken, isGuest]);
 
-  const toggle = useCallback(
-    async (value: boolean) => {
-      if (!accessToken) return;
-      const previous = isPrivate;
-      setIsPrivate(value); // iyimser (optimistic) güncelleme
-      setIsSaving(true);
-      try {
-        await updateProfilePrivacy(value);
-      } catch (error) {
-        console.warn('[useProfilePrivacy] Gizlilik ayarı kaydedilemedi:', error);
-        setIsPrivate(previous); // başarısızsa geri al (rollback)
-        notify(
-          t('error', 'Hata'),
-          t('actionFailedMessage', 'İşlem gerçekleştirilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.')
-        );
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [accessToken, isPrivate, t]
-  );
-
-  return { isPrivate, isLoading, isSaving, toggle };
+  return { isPrivate, isLoading };
 }

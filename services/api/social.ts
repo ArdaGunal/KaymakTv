@@ -25,10 +25,10 @@ const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
 // AYNI `cacheBustParam` deseni (bkz. docs/HISTORY.md Madde 87/102): sabit bir
 // URL'ye (`/users/{id}?extended=full`, her çağrıda BİREBİR AYNI) her seferinde
 // benzersiz bir `_` parametresi eklemek CDN'i "yeni bir kaynak" sanmaya
-// zorlayıp önbelleği atlatır. Kök sebep: Profili Düzenle'den `updateProfile()`
-// (PUT /users/settings) ile kaydedip hemen ardından `getUserProfile('me')` ile
-// okuyunca, CDN henüz güncellenmemiş ESKİ yanıtı dönebiliyordu — kullanıcı
-// "değişiklik kalıcı olmuyor" diye bildirdi, oysa Trakt'a yazma İŞLEMİ başarılıydı.
+// zorlayıp önbelleği atlatır. Neden gerekli: kullanıcı adını/bio'sunu
+// trakt.tv'de değiştirip uygulamaya döndüğünde (bkz. docs/HISTORY.md Madde 134
+// — düzenleme yalnızca orada yapılabiliyor), `getUserProfile('me')` CDN'de
+// duran ESKİ yanıtı döndürürse değişiklik dakikalarca görünmezdi.
 const cacheBustParam = () => `_=${Date.now()}`;
 
 export interface TraktUserProfile {
