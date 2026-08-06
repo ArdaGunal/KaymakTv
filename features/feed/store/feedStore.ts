@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { FeedActivity } from '../types';
+import type { FeedCursor, FeedPage } from '../services/feedApi';
 
 /**
  * Akış'ın PAYLAŞILAN durumu.
@@ -18,10 +19,15 @@ import { FeedActivity } from '../types';
  * yapılmalı (bkz. o dosyanın başlığı). Yeni bir aktivite geldiğinde ham
  * listeye eklenip yeniden gruplanır — böylece "3 bölüm izledi" kartı
  * kendiliğinden "4 bölüm izledi"ye dönüşür.
+ *
+ * ⚠️ ÜST SINIR YOK (eski `MAX_ACTIVITIES = 200` KALDIRILDI): o sınır,
+ * sayfalama eklenmeden önce sonsuz büyümeye karşı konmuştu. Sonsuz kaydırmayla
+ * BİRLİKTE çalışamaz — `slice(0, 200)` en eski kayıtları kırptığı için,
+ * kullanıcı 200. kayda geldiğinde eklenen her yeni sayfa aynı anda düşerdi
+ * (liste asla ilerlemez, sonsuz döngüye girerdi). Büyüme artık iki yerden
+ * doğal olarak sınırlı: sorgunun 30 günlük penceresi ve sunucudaki
+ * kullanıcı-başına-200 retention politikası (bkz. 014_feed_retention.sql).
  */
-
-/** En fazla kaç ham aktivite bellekte tutulur — sonsuz büyümeyi engeller. */
-const MAX_ACTIVITIES = 200;
 
 interface FeedState {
   activities: FeedActivity[];
@@ -30,8 +36,20 @@ interface FeedState {
   /** Kullanıcı listenin tepesinde değilken gelen, henüz görülmemiş aktivite sayısı. */
   unseenCount: number;
 
-  /** Sunucudan gelen tam liste ile değiştirir (ilk yükleme / pull-to-refresh). */
-  setActivities: (activities: FeedActivity[]) => void;
+  // ── Sayfalama ───────────────────────────────────────────────────────────
+  /** Bir sonraki sayfanın imleci; `hasMore` false ise null. */
+  nextCursor: FeedCursor | null;
+  /** Sunucuda daha eski kayıt var mı (sonsuz kaydırma devam etsin mi)? */
+  hasMore: boolean;
+  /** Alt sayfa yükleniyor mu (liste altındaki spinner bunu okur). */
+  isLoadingMore: boolean;
+  setLoadingMore: (value: boolean) => void;
+
+  /** İlk sayfa: listeyi TAMAMEN değiştirir (ilk yükleme / pull-to-refresh). */
+  setFirstPage: (page: FeedPage) => void;
+  /** Sonraki sayfa: mevcut listenin SONUNA ekler, id'ye göre tekilleştirir. */
+  appendPage: (page: FeedPage) => void;
+
   /**
    * Tek bir aktiviteyi listeye ekler (anında yayın veya Realtime).
    * Aynı id zaten varsa GÜNCELLER — Realtime, optimistic olarak eklenmiş
@@ -49,15 +67,50 @@ interface FeedState {
 }
 
 const sortDesc = (list: FeedActivity[]): FeedActivity[] =>
-  [...list].sort((a, b) => new Date(b.activityAt).getTime() - new Date(a.activityAt).getTime());
+  [...list].sort((a, b) => {
+    const diff = new Date(b.activityAt).getTime() - new Date(a.activityAt).getTime();
+    // Damga eşitliğinde (toplu sezon işaretlemesi) `id` ile kesin sıralama —
+    // sunucu sorgusunun `.order('activity_at').order('id')` sözleşmesiyle AYNI.
+    // Aksi halde yerel sıra ile sayfa sınırları kayar ve kaydırma zıplardı.
+    return diff !== 0 ? diff : (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+  });
+
+/** id'ye göre tekilleştirir; SONRAKİ kayıt öncekini ezer (taze veri kazanır). */
+const dedupeById = (list: FeedActivity[]): FeedActivity[] => {
+  const byId = new Map<string, FeedActivity>();
+  for (const item of list) byId.set(item.id, item);
+  return Array.from(byId.values());
+};
 
 export const useFeedStore = create<FeedState>((set) => ({
   activities: [],
   isHydrated: false,
   unseenCount: 0,
+  nextCursor: null,
+  hasMore: false,
+  isLoadingMore: false,
 
-  setActivities: (activities) =>
-    set({ activities: sortDesc(activities).slice(0, MAX_ACTIVITIES), isHydrated: true }),
+  setLoadingMore: (value) => set({ isLoadingMore: value }),
+
+  setFirstPage: (page) =>
+    set({
+      activities: sortDesc(dedupeById(page.items)),
+      isHydrated: true,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+      isLoadingMore: false,
+    }),
+
+  appendPage: (page) =>
+    set((state) => ({
+      // Tekilleştirme ŞART: Realtime bu sırada yeni bir kayıt eklemiş olabilir
+      // ya da imleç sınırında aynı kayıt tekrar dönebilir. `sortDesc` sunucu
+      // sıralamasıyla aynı sözleşmeyi kullandığı için sıra bozulmaz.
+      activities: sortDesc(dedupeById([...state.activities, ...page.items])),
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+      isLoadingMore: false,
+    })),
 
   upsertActivity: (activity, countAsUnseen = false) =>
     set((state) => {
@@ -70,7 +123,7 @@ export const useFeedStore = create<FeedState>((set) => ({
         return { activities: next };
       }
       return {
-        activities: sortDesc([activity, ...state.activities]).slice(0, MAX_ACTIVITIES),
+        activities: sortDesc([activity, ...state.activities]),
         unseenCount: countAsUnseen ? state.unseenCount + 1 : state.unseenCount,
       };
     }),
@@ -86,7 +139,7 @@ export const useFeedStore = create<FeedState>((set) => ({
       if (withoutTemp.some((a) => a.id === activity.id)) {
         return { activities: withoutTemp };
       }
-      return { activities: sortDesc([activity, ...withoutTemp]).slice(0, MAX_ACTIVITIES) };
+      return { activities: sortDesc([activity, ...withoutTemp]) };
     }),
 
   clearUnseen: () => set({ unseenCount: 0 }),
@@ -94,5 +147,13 @@ export const useFeedStore = create<FeedState>((set) => ({
   // Çıkışta ZORUNLU: store bir modül singleton'ı, uygulama kapatılmadan
   // hesap değiştirilirse önceki kullanıcının akışı yeni oturuma sızardı
   // (followStore.reset / clearMyTraktSlug ile aynı gerekçe).
-  reset: () => set({ activities: [], isHydrated: false, unseenCount: 0 }),
+  reset: () =>
+    set({
+      activities: [],
+      isHydrated: false,
+      unseenCount: 0,
+      nextCursor: null,
+      hasMore: false,
+      isLoadingMore: false,
+    }),
 }));

@@ -1,10 +1,11 @@
 import axios from 'axios';
 import * as SecureStore from '../../utils/secureStorage';
 import { refreshTraktToken } from './auth';
-import { logError } from '../../utils/errorLog';
+import { logError, logWarning } from '../../utils/errorLog';
 import { getCircuitBreaker, normalizeEndpointKey } from '../../utils/circuitBreaker';
 import { calculateBackoffDelay, wait } from '../../utils/exponentialBackoff';
 import { recordApiLatency } from '../../utils/metrics';
+import { recordPerfMark } from '../../utils/perfLog';
 
 export const applyTranslation = (item: any, lang: string) => {
   if (item && item.translations && Array.isArray(item.translations)) {
@@ -226,7 +227,15 @@ export const getTraktClient = async () => {
       const key = (response.config as any)?._circuitBreakerKey;
       if (key) getCircuitBreaker(key).onSuccess();
       const startTime = (response.config as any)?._metricsStartTime;
-      if (key && startTime) recordApiLatency(key, Date.now() - startTime);
+      if (key && startTime) {
+        const durationMs = Date.now() - startTime;
+        recordApiLatency(key, durationMs);
+        // Geliştirici Paneli'nin Performans sekmesi TEKİL istekleri gösterir —
+        // `recordApiLatency` (yukarıda) yalnızca saatlik histogramı besler,
+        // hangi ÇAĞRININ ne kadar sürdüğünü kaybeder. İkisi AYNI ölçümden
+        // türer, birbirini geçersiz kılmaz.
+        recordPerfMark(key, 'network', durationMs);
+      }
       return response;
     },
     async (error) => {
@@ -245,7 +254,9 @@ export const getTraktClient = async () => {
       // (timeout/DNS/bağlantı kopması) burada SAYILMAZ — o durumda ölçülen süre
       // "gerçek API gecikmesi" değil, taleple ilgisiz bir bekleme süresidir.
       if (breakerKey && originalRequest?._metricsStartTime && error.response) {
-        recordApiLatency(breakerKey, Date.now() - originalRequest._metricsStartTime);
+        const durationMs = Date.now() - originalRequest._metricsStartTime;
+        recordApiLatency(breakerKey, durationMs);
+        recordPerfMark(breakerKey, 'network', durationMs);
       }
 
       // 401 hatası ve henüz tekrar denenmemişse
@@ -355,6 +366,11 @@ export const getTraktClient = async () => {
         const retryAfter = error.response.headers?.['retry-after'];
         const delay = calculateBackoffDelay(attempt - 1, retryAfter);
         console.warn(`[Trakt API] 429 Rate Limit aşıldı (deneme ${attempt}). ${delay}ms sonra tekrar denenecek...`);
+        // Akışı bozmaz (otomatik tekrar denenir) ama Geliştirici Paneli'nin
+        // "Uyarı" sayacı için anlamlı — kalıcı hata DEĞİL, gerçek bir uyarı.
+        logWarning('traktClient.429', `Rate limit — deneme ${attempt}, ${delay}ms sonra tekrar denenecek`, {
+          endpoint: breakerKey || 'unknown',
+        });
 
         await wait(delay);
         return instance(originalRequest);

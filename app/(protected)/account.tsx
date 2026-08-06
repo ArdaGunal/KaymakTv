@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, ExternalLink, EyeOff, FileWarning, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,10 +28,11 @@ import { useSettings } from '../../hooks/useSettings';
 import { useFeedPrivacy } from '../../features/feed/hooks/useFeedPrivacy';
 import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
 
-// Sürüm numarasına bu kadar kez, aşağıdaki pencere içinde ard arda dokununca
-// gizli "Geliştirici Modu" açılır/kapanır (Android'in "Yapı Numarası"na
-// dokunma esprisiyle aynı mantık). Aynı jest tekrar uygulanınca modu
-// KAPATIR — açma/kapama tek bir dokunma dizisiyle simetrik.
+// Sürüm numarasına ard arda dokununca gizli Geliştirici Paneli açılır
+// (Android'in "Yapı Numarası"na dokunma esprisiyle aynı mantık). 5. dokunuşta
+// bir uyarı belirir ("az kaldı"), 7. dokunuşta panel DOĞRUDAN açılır — ayrı
+// bir "kilit aç" adımı yok, jest tek başına hem kilidi açar hem yönlendirir.
+const DEV_MODE_WARNING_TAPS = 5;
 const DEV_MODE_REQUIRED_TAPS = 7;
 const DEV_MODE_TAP_WINDOW_MS = 1500;
 
@@ -42,7 +43,7 @@ const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
 export default function SettingsScreen() {
   const { accessToken, isGuest } = useAuth();
   const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
-    isLoggingOut, isDeletingAccount, handleExportMetrics, isExportingMetrics } = useSettings();
+    isLoggingOut, isDeletingAccount } = useSettings();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
   const { width } = useWindowDimensions();
@@ -54,10 +55,13 @@ export default function SettingsScreen() {
   const feedPrivacy = useFeedPrivacy();
   const profilePrivacy = useProfilePrivacy();
 
-  // ── Gizli Geliştirici Modu (sürüm numarasına 7 hızlı dokunma) ────────────
+  // ── Gizli Geliştirici Paneli (sürüm numarasına ard arda dokunma) ─────────
   // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
   // sıfırlanır — bu, "gizli" bir tanılama anahtarı için bilinçli bir tercih;
   // gerçek kullanıcının yanlışlıkla bunu açık bırakması söz konusu olmasın.
+  // `isDeveloperMode` TEK YÖNLÜ açılır (bir daha gizlenmez): amaç artık "kilit
+  // aç/kapa" değil, "Ayarlar'da kalıcı bir kısayol bırak" — kullanıcı panele
+  // her dönüşte 7 kez dokunmak zorunda kalmasın.
   const [isDeveloperMode, setIsDeveloperMode] = useState(false);
   const [devModeToast, setDevModeToast] = useState<{ visible: boolean; message: string }>({
     visible: false,
@@ -76,20 +80,24 @@ export default function SettingsScreen() {
     }
     tapCountRef.current += 1;
     lastTapAtRef.current = now;
+
     if (tapCountRef.current >= DEV_MODE_REQUIRED_TAPS) {
       tapCountRef.current = 0;
-      const next = !isDeveloperMode;
-      setIsDeveloperMode(next);
+      setIsDeveloperMode(true);
+      // Panele DOĞRUDAN geçiliyor — ayrı bir "kilit açıldı" onayı beklemeye
+      // gerek yok, yönlendirmenin kendisi zaten geri bildirimdir.
+      router.push('/(protected)/dev-panel');
+    } else if (tapCountRef.current === DEV_MODE_WARNING_TAPS) {
       setDevModeToast({
         visible: true,
-        message: next
-          ? t('settings:developerModeUnlocked', '🔓 Geliştirici Konsolu Kilidi Açıldı')
-          : t('settings:developerModeLocked', '🔒 Geliştirici Konsolu Gizlendi'),
+        message: t('settings:devPanelOpeningHint', '🛠️ Geliştirici Paneli açılıyor... {{count}} dokunuş kaldı', {
+          count: DEV_MODE_REQUIRED_TAPS - DEV_MODE_WARNING_TAPS,
+        }),
       });
     }
   };
 
-  const appVersion = Constants.expoConfig?.version ?? '2.0.1';
+  const appVersion = Constants.expoConfig?.version ?? '2.0.2';
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();
@@ -262,29 +270,21 @@ export default function SettingsScreen() {
           </SettingsSection>
 
           {/* Tanılama artık HER ZAMAN görünür (eskiden yalnızca gizli
-              Geliştirici Modu açıkken görünürdü) — "Hata Bildir" satırı normal
-              kullanıcı için de burada, her zaman en altta. Performans Raporu
-              ve Hata Günlüğü satırları ise hâlâ yalnızca sürüm numarasına 7
-              hızlı dokunmayla açılan gizli Geliştirici Modu'nda belirir. */}
+              Geliştirici Modu açıkken görünürdü) — "İstek/Öneri/Şikayet"
+              satırı normal kullanıcı için de burada, her zaman en altta.
+              "Geliştirici Paneli" satırı ise hâlâ yalnızca sürüm numarasına
+              7 hızlı dokunmayla açılan gizli modda belirir (bkz. yukarıdaki
+              handleVersionTap — o jest zaten panele DOĞRUDAN yönlendirir,
+              bu satır yalnızca SONRAKİ ziyaretler için kalıcı bir kısayol). */}
           <SettingsSection title={t('settings:diagnostics', 'Destek & Geri Bildirim')}>
             {isDeveloperMode && (
               <>
                 <SettingsRow
                   icon={<Activity size={20} color="#60a5fa" />}
-                  label={t('settings:exportPerformanceReport')}
-                  tintColor="#60a5fa"
-                  onPress={handleExportMetrics}
-                  disabled={isExportingMetrics}
-                />
-
-                <SettingsSectionDivider />
-
-                <SettingsRow
-                  icon={<FileWarning size={20} color="#60a5fa" />}
-                  label={t('settings:errorLogTitle')}
+                  label={t('settings:devPanelRowLabel', 'Geliştirici Paneli')}
                   tintColor="#60a5fa"
                   showChevron
-                  onPress={() => router.push('/(protected)/error-log')}
+                  onPress={() => router.push('/(protected)/dev-panel')}
                 />
 
                 <SettingsSectionDivider />
@@ -340,6 +340,10 @@ export default function SettingsScreen() {
         message={devModeToast.message}
         onDismiss={() => setDevModeToast((prev) => ({ ...prev, visible: false }))}
         duration={2500}
+        // Sürüm etiketi ekranın EN ALTINDA — varsayılan alt konumdaki bir
+        // toast tam onun üzerine biner ve kullanıcı 6./7. dokunuşu
+        // YAPAMAZ hale gelir (bkz. docs/HISTORY.md). Üstte gösterilir.
+        position="top"
       />
     </SafeAreaView>
   );

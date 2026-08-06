@@ -59,10 +59,18 @@ const LibraryGridItem = memo(({ item, type, cardStyle, onPress }: GridItemProps)
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
-  const { type } = useLocalSearchParams();
+  const { type, status } = useLocalSearchParams();
   const router = useRouter();
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
+
+  // Web ile ORTAK sözleşme: `?status=upNext` gibi bir kategori önseçimiyle
+  // açılabilir (bkz. [type].web.tsx) — mobilde de aynı parametre çalışır ki
+  // iki platform arasında link davranışı ayrışmasın.
+  const initialStatuses = useMemo(
+    () => (typeof status === 'string' && status.length > 0 ? status.split(',') : undefined),
+    [status]
+  );
 
   // Modül seviyesinde `Dimensions.get('window')` okumak ekran döndüğünde /
   // katlanabilir cihaz açıldığında ESKİ genişlikte kalıyordu: kartlar taşıyor,
@@ -85,7 +93,7 @@ export default function LibraryScreen() {
     isFiltering,
     options: filterOptions,
     filterTitle,
-  } = useLibraryFilters(data, type);
+  } = useLibraryFilters(data, type, initialStatuses);
 
   // Hücre boyutları tam piksele yuvarlanır: yuvarlanmazsa getItemLayout'un
   // bildirdiği yükseklik ile RN'in gerçekte render ettiği (piksele yuvarlanmış)

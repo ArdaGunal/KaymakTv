@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import MediaPoster from '../../../components/MediaPoster';
 import { FeedActivity } from '../types';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { formatRating } from '../../../utils/formatRating';
 import { buildMediaHref } from '../utils/feedNavigation';
 import ActivityDeleteRow from './ActivityDeleteRow';
 
@@ -52,10 +53,19 @@ const ACTIVITY_META: Record<
   rated: {
     // Puanlama hem dizi hem film olabilir — metin `mediaType`e göre değişir,
     // eskiden her puanlama için sabit "filmine" yazıyordu (diziler için yanlış).
+    //
+    // `formatRating` ŞART: Trakt'ın API'si puanı 1-10 skalada tutar ama bu
+    // uygulamanın kendi arayüzü (StarSlider, 5 yıldız) kullanıcıya HER YERDE
+    // 5 üzerinden gösterir (bkz. ShowCard/MediaHero — ikisi de aynı
+    // yardımcıyı kullanır). ESKİ DAVRANIŞ burada ham `a.rating` ile "/10"
+    // yazıyordu — kullanıcının 5 yıldız üzerinden verdiği bir puan akışta
+    // "9/10" gibi görünüyordu, uygulamanın geri kalanıyla TUTARSIZDI.
     icon: Star,
     color: '#facc15',
     labelSuffix: (a) =>
-      a.mediaType === 'movie' ? `filmine ${a.rating}/10 puan verdi` : `dizisine ${a.rating}/10 puan verdi`,
+      a.mediaType === 'movie'
+        ? `filmine ${formatRating(a.rating)}/5 puan verdi`
+        : `dizisine ${formatRating(a.rating)}/5 puan verdi`,
   },
 };
 

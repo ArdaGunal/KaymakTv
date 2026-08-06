@@ -81,18 +81,19 @@ export default function MoviesScreenWeb() {
   );
 
   // Filmler sekmesindeki her carousel mobildeki gibi tam teşekküllü arama+filtre
-  // ekranına gider — bu ekranda yalnızca 'movies' tipi kullanıldığı için tek,
-  // parametresiz bir yönlendirme yeterli.
-  const openViewAllMovies = useCallback(() => {
-    router.push('/(protected)/library/movies' as any);
+  // ekranına gider. `/library/movies`'in varsayılan listesi İZLENENLER olduğu
+  // için "İzlenecekler" carousel'inin oku `?status=watchlist` taşır — eskiden
+  // parametresiz gidip alakasız bir liste (izlenen filmler) açıyordu.
+  const openViewAllMovies = useCallback((statusKey?: string) => {
+    router.push((statusKey ? `/(protected)/library/movies?status=${statusKey}` : '/(protected)/library/movies') as any);
   }, [router]);
 
-  const renderCarousel = (title: string, data: any[]) => (
+  const renderCarousel = (title: string, data: any[], statusKey?: string) => (
     <WebCarousel
       title={title}
       data={data}
       renderItem={renderMovieItem}
-      onViewAll={openViewAllMovies}
+      onViewAll={() => openViewAllMovies(statusKey)}
     />
   );
 
@@ -171,7 +172,7 @@ export default function MoviesScreenWeb() {
                 kullanılıyordu. O bir DİZİ terimi (takip modülünün 4 kategorisinden
                 biri) ve filmlerde hiçbir karşılığı yok; filmler kopyalanırken
                 dizilerden sızmış. Doğru terim "İzlenecekler". */}
-            {renderCarousel(t('filterWatchlist'), watchlistMoviesList)}
+            {renderCarousel(t('filterWatchlist'), watchlistMoviesList, 'watchlist')}
 
             {watchlistMoviesList.length === 0 && (
               <Text style={styles.emptyText}>{t('noWatchlistMovies')}</Text>

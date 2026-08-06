@@ -16,6 +16,7 @@ import {
   getUserStats,
   getHiddenShows,
   getHiddenMovies,
+  getUpNextProgress,
 } from '../traktApi';
 import {
   CACHE_KEYS,
@@ -428,6 +429,78 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     const backgroundWork = (async () => {
       const uniqueIds = Array.from(showIds);
       const CHUNK_SIZE = 6;
+
+      // ── FAZ 0: TOPLU TOHUMLAMA (bulk seed) ─────────────────────────────
+      // ESKİ DAVRANIŞ: ilerlemesi eksik/bayat HER dizi için tek tek
+      // `/shows/:id/progress/watched` çekiliyordu. İlk girişte (önbellek boş)
+      // bu, yüzlerce LOW öncelikli isteğe dönüşüp 2-3 DAKİKA sürüyordu; o
+      // süre boyunca progress'i henüz gelmemiş her dizi "hesaplanıyor"
+      // kartıyla Aktif İzlenenler'e düşüyor, verisi gelince gerçek kovasına
+      // (Ara Verilenler / Güncel / ...) taşınıyordu — kullanıcının gördüğü
+      // "diziler bir listeden diğerine akıyor" kargaşasının kök nedeni buydu.
+      // ÇÖZÜM: eksik sayısı eşiği aşıyorsa önce Trakt'ın TOPLU özet uç
+      // noktasından (`/sync/progress/up_next_nitro?intent=all`, ~100 dizi/istek)
+      // tüm özetler tek seferde alınıp haritaya yazılır → kategoriler birkaç
+      // saniyede doğru oturur. Sezon/bölüm kırılımı (`seasons`) özet yanıtında
+      // OLMADIĞI için, bölüm bazlı ekranların ihtiyacı olan tam çekim aşağıdaki
+      // döngüde arka planda DEVAM eder; ama artık kullanıcı bunu hissetmez.
+      // Toplu istek başarısız olursa (ağ/CORS/uç nokta) eski yol aynen çalışır.
+      const BULK_SEED_MIN_IDS = 10;
+      let remainingIds = uniqueIds;
+      if (uniqueIds.length >= BULK_SEED_MIN_IDS) {
+        try {
+          const bulk = await requestQueue.enqueue(() => getUpNextProgress(), 'NORMAL');
+          const seeded: Record<string, any> = {};
+          const currentMap = useLibraryStore.getState().showProgressMap;
+          for (const item of bulk as any[]) {
+            const id = item?.show?.ids?.trakt;
+            if (!id || !item?.progress) continue;
+            const existing = currentMap[id];
+            // Mevcut TAM kaydın sezon kırılımı korunur, özet alanları
+            // (aired/completed/next_episode/last_watched_at) tazelenir.
+            seeded[id] = existing ? { ...existing, ...item.progress } : item.progress;
+          }
+          if (Object.keys(seeded).length > 0) {
+            setShowProgressMap((prev: any) => ({ ...prev, ...seeded }));
+            // Kalıcılık: kullanıcı uygulamayı hemen kapatsa bile özetler
+            // diskte — bir sonraki açılış spinner'sız başlar.
+            writeChunkedRecord(
+              CACHE_KEYS.showProgressMap,
+              useLibraryStore.getState().showProgressMap,
+              { silent: true }
+            ).catch(() => {});
+          }
+
+          // Özet yeterli olan dizileri tam çekim kuyruğundan düş: yalnızca
+          // sezon kırılımı hiç olmayanlar (ilk giriş / yeni dizi) veya son
+          // izlemesi değişenler (kırılımı bayat) kuyrukta kalır. "Hâlâ
+          // yayında + tamamlanmış görünüyor" tedbir çekimleri (looksComplete)
+          // artık gereksiz — taze next_episode bilgisini toplu özet verdi.
+          const newWatchedAtMap = new Map<number, string>();
+          showsData?.forEach((item: any) => {
+            const id = item?.show?.ids?.trakt;
+            if (id) newWatchedAtMap.set(id, item.last_watched_at);
+          });
+          remainingIds = uniqueIds.filter((id) => {
+            const cached = oldProgressMap.get(id as number);
+            const hadSeasons = !!cached?.seasons;
+            const watchedAtUnchanged = oldWatchedShowsMap.get(id) === newWatchedAtMap.get(id as number);
+            return !(hadSeasons && watchedAtUnchanged);
+          });
+          // En yakın zamanda izlenen en önce: kullanıcının asıl etkileşime
+          // gireceği dizilerin sezon kırılımı ilk saniyelerde hazır olsun.
+          const watchedTime = (id: unknown) => {
+            const at = newWatchedAtMap.get(id as number);
+            const t = at ? new Date(at).getTime() : 0;
+            return Number.isFinite(t) ? t : 0;
+          };
+          remainingIds = [...remainingIds].sort((a, b) => watchedTime(b) - watchedTime(a));
+          console.log(`Bulk seed: ${Object.keys(seeded).length} dizi özeti tek turda yüklendi; ${remainingIds.length}/${uniqueIds.length} dizi tam (sezonlu) çekim kuyruğunda kaldı.`);
+        } catch (e) {
+          console.log('Up Next toplu özet alınamadı, tek tek çekime devam ediliyor:', e);
+          logError('fetchers.upNextBulkSeed', e);
+        }
+      }
       // Diske her yayında değil, birkaç yayında bir yaz (büyük haritayı
       // sürekli serileştirmemek için).
       const PERSIST_EVERY_PUBLISHES = 4;
@@ -467,8 +540,8 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         }
       };
 
-      for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
-        const chunk = uniqueIds.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < remainingIds.length; i += CHUNK_SIZE) {
+        const chunk = remainingIds.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk.map(async (id) => {
           try {
             pendingResults[id as number] = await requestQueue.enqueue(() => getShowProgress(id as number), 'LOW');
@@ -477,7 +550,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
           }
         }));
 
-        const isLastChunk = i + CHUNK_SIZE >= uniqueIds.length;
+        const isLastChunk = i + CHUNK_SIZE >= remainingIds.length;
         if (isLastChunk || Date.now() - lastPublishAt >= PUBLISH_INTERVAL_MS) {
           flushPending();
         }

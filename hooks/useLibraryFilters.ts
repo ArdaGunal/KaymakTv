@@ -61,15 +61,18 @@ export interface UseLibraryFiltersResult {
 
 export function useLibraryFilters(
   data: LibraryItem[],
-  type: string | string[] | undefined
+  type: string | string[] | undefined,
+  /** URL'den gelen kategori önseçimi (ör. `?status=upNext`) — yalnızca ilk
+   * mount'ta uygulanır, bilinmeyen anahtarlar alttaki hook'larca elenir. */
+  initialStatuses?: readonly string[]
 ): UseLibraryFiltersResult {
   const { t } = useTranslation(['navigation', 'media']);
 
   const isShows = type === 'shows';
   const isMovies = type === 'movies';
 
-  const showFilters = useLibraryShowFilters(data, isShows);
-  const movieFilters = useLibraryMovieFilters(data, isMovies);
+  const showFilters = useLibraryShowFilters(data, isShows, initialStatuses);
+  const movieFilters = useLibraryMovieFilters(data, isMovies, initialStatuses);
 
   const active = isMovies ? movieFilters : showFilters;
 

@@ -145,6 +145,62 @@ export const addEpisodesBulkToHistory = async (
   }
 };
 
+/**
+ * TOPLU İLERLEME ÖZETİ — `GET /sync/progress/up_next_nitro?intent=all`.
+ *
+ * Trakt, kullanıcının TÜM dizilerinin ilerleme özetini (aired, completed,
+ * last_watched_at, next_episode, last_episode) tek sayfalanmış uç noktadan
+ * verir; `intent=all` başlanmış + bitmiş + yeni başlanan dizilerin hepsini
+ * kapsar (dokümantasyon: docs.trakt.tv/reference/getsyncprogressupnextnitro).
+ * VIP şartı YOK, yalnızca OAuth. Bu, senkronun eskiden dizi başına tek tek
+ * attığı yüzlerce `/shows/:id/progress/watched` isteğinin yerine geçen toplu
+ * yoldur — İLK GİRİŞTE kategorilerin saniyeler içinde doğru oturmasını sağlar
+ * (bkz. services/library/fetchers.ts "toplu tohumlama").
+ *
+ * DİKKAT: yanıttaki `progress` nesnesi sezon/bölüm KIRILIMI (`seasons`)
+ * İÇERMEZ — bölüm bazlı işaretleme kontrolü yapan ekranlar için dizi başına
+ * tam `getShowProgress` hâlâ gereklidir; çağıran taraf bu farkı yönetir.
+ */
+export const getUpNextProgress = async () => {
+  try {
+    const client = await getTraktClient();
+    const limit = 100;
+    // Güvenlik tavanı: bozuk bir sayfa başlığı sonsuz döngüye çevirmesin
+    // (50 sayfa × 100 = 5.000 dizi, gerçekçi her kütüphaneyi kapsar).
+    const MAX_PAGES = 50;
+    const buildUrl = (page: number) =>
+      `/sync/progress/up_next_nitro?intent=all&page=${page}&limit=${limit}`;
+
+    const first = await client.get(buildUrl(1));
+    const allData: any[] = [...first.data];
+
+    const totalPagesStr = first.headers['x-pagination-page-count'];
+    const parsedPages = totalPagesStr ? parseInt(totalPagesStr, 10) : 1;
+    const totalPages = Math.min(Number.isFinite(parsedPages) && parsedPages > 0 ? parsedPages : 1, MAX_PAGES);
+
+    // Kalan sayfalar getWatchedShows ile aynı desenle (5'li paralel gruplar +
+    // gruplar arası kısa bekleme) çekilir — Trakt rate limit koruması.
+    if (totalPages > 1) {
+      for (let i = 2; i <= totalPages; i += 5) {
+        const chunkPromises = [];
+        for (let j = i; j < i + 5 && j <= totalPages; j++) {
+          chunkPromises.push(client.get(buildUrl(j)));
+        }
+        const responses = await Promise.all(chunkPromises);
+        responses.forEach((res) => allData.push(...res.data));
+        if (i + 5 <= totalPages) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+    }
+
+    return allData;
+  } catch (error) {
+    console.error('Trakt API Hatası (getUpNextProgress):', error);
+    throw error;
+  }
+};
+
 export const getShowProgress = async (showId: number) => {
   try {
     const client = await getTraktClient();

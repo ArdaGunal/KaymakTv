@@ -99,9 +99,10 @@ export type UseLibraryShowFiltersResult = UseLibraryFiltersResult<ShowStatusKey>
 
 export function useLibraryShowFilters(
   data: LibraryItem[],
-  enabled: boolean
+  enabled: boolean,
+  initialStatuses?: readonly string[]
 ): UseLibraryShowFiltersResult {
-  const state = useMediaFilterState(SHOW_STATUS_KEYS, enabled);
+  const state = useMediaFilterState(SHOW_STATUS_KEYS, enabled, initialStatuses);
   const index = useShowStatusIndex(enabled && state.activeStatuses.length > 0);
   return useFilterResult(data, enabled, state, index);
 }

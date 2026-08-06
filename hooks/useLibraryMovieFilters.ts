@@ -79,9 +79,10 @@ export type UseLibraryMovieFiltersResult = UseLibraryFiltersResult<MovieCategory
 
 export function useLibraryMovieFilters(
   data: LibraryItem[],
-  enabled: boolean
+  enabled: boolean,
+  initialStatuses?: readonly string[]
 ): UseLibraryMovieFiltersResult {
-  const state = useMediaFilterState(MOVIE_CATEGORY_KEYS, enabled);
+  const state = useMediaFilterState(MOVIE_CATEGORY_KEYS, enabled, initialStatuses);
   const index = useMovieStatusIndex(enabled && state.activeStatuses.length > 0);
   return useFilterResult(data, enabled, state, index);
 }

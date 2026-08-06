@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Inbox, SearchX } from 'lucide-react-native';
@@ -49,10 +49,18 @@ const LibraryGridItemWeb = memo(({ item, type, onPress }: GridItemProps) => (
 
 export default function LibraryScreenWeb() {
   const { isDesktop } = useResponsive();
-  const { type } = useLocalSearchParams();
+  const { type, status } = useLocalSearchParams();
   const router = useRouter();
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
+
+  // Takip panosundaki "Tümünü Gör" okları kategori bilgisini `?status=` ile
+  // taşır (ör. upNext / paused / notStarted) — ekran o kategoriyle süzülmüş
+  // açılır. Parametre yoksa eski davranış (tüm liste) değişmez.
+  const initialStatuses = useMemo(
+    () => (typeof status === 'string' && status.length > 0 ? status.split(',') : undefined),
+    [status]
+  );
 
   const { data, loading } = useLibraryTypeData(isDesktop ? type : undefined, accessToken);
 
@@ -71,7 +79,7 @@ export default function LibraryScreenWeb() {
     isFiltering,
     options: filterOptions,
     filterTitle,
-  } = useLibraryFilters(data, isDesktop ? type : undefined);
+  } = useLibraryFilters(data, isDesktop ? type : undefined, initialStatuses);
   const supportsFilters = isDesktop && filtersEnabled;
 
   const handleItemPress = useCallback((item: LibraryItem) => {

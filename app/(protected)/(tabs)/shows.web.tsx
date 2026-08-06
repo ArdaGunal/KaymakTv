@@ -127,16 +127,17 @@ export default function DizilerScreenWeb() {
     [handleShowFinished]
   );
 
-  // Mobildeki gibi tam teşekküllü arama+filtre ekranına gider — bu ekranda
-  // yalnızca 'shows' tipi kullanıldığı için tek, parametresiz bir yönlendirme
-  // yeterli (bkz. docs/HISTORY.md, Madde 95).
-  const openViewAllShows = useCallback(() => {
-    router.push('/(protected)/library/shows' as any);
+  // Mobildeki gibi tam teşekküllü arama+filtre ekranına gider. Kategori
+  // carousel'lerinin oku, ekranın o kategoriyle SÜZÜLMÜŞ açılması için
+  // `?status=` parametresini taşır (bkz. useLibraryFilters `initialStatuses`) —
+  // eskiden üç ok da parametresiz gidip TÜM dizileri gösteriyordu.
+  const openViewAllShows = useCallback((statusKey?: string) => {
+    router.push((statusKey ? `/(protected)/library/shows?status=${statusKey}` : '/(protected)/library/shows') as any);
   }, [router]);
 
-  const renderTrackCarousel = (title: string, data: any[]) =>
+  const renderTrackCarousel = (title: string, data: any[], statusKey: string) =>
     data.length > 0 ? (
-      <WebCarousel title={title} data={data} renderItem={renderTrackItem} onViewAll={openViewAllShows} />
+      <WebCarousel title={title} data={data} renderItem={renderTrackItem} onViewAll={() => openViewAllShows(statusKey)} />
     ) : null;
 
   // `showViewAll=false`: misafirin gördüğü trend dizileri carousel'i için —
@@ -144,7 +145,9 @@ export default function DizilerScreenWeb() {
   // yok, o yüzden orada "Tümünü Gör" butonu hiç gösterilmiyor (boş bir ekrana
   // düşürmek yerine).
   const renderCarousel = (title: string, data: any[], showViewAll: boolean = true) => (
-    <WebCarousel title={title} data={data} renderItem={renderEpisodeItem} onViewAll={showViewAll ? openViewAllShows : undefined} />
+    // Sarmalayıcı şart: openViewAllShows doğrudan verilirse Pressable'ın
+    // onPress event nesnesi `statusKey` parametresine sızıp URL'i bozar.
+    <WebCarousel title={title} data={data} renderItem={renderEpisodeItem} onViewAll={showViewAll ? () => openViewAllShows() : undefined} />
   );
 
   if (!isDesktop) {
@@ -223,9 +226,9 @@ export default function DizilerScreenWeb() {
           </>
         ) : (
           <>
-            {renderTrackCarousel(t('upNext'), categories.upNext)}
-            {renderTrackCarousel(t('paused'), categories.paused)}
-            {renderTrackCarousel(t('notStarted'), categories.notStarted)}
+            {renderTrackCarousel(t('upNext'), categories.upNext, 'upNext')}
+            {renderTrackCarousel(t('paused'), categories.paused, 'paused')}
+            {renderTrackCarousel(t('notStarted'), categories.notStarted, 'notStarted')}
 
             {isEmpty && <Text style={styles.emptyText}>{t('noShowsInCategory')}</Text>}
           </>

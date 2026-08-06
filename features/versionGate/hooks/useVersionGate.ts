@@ -4,6 +4,8 @@ import * as Application from 'expo-application';
 import { isVersionBelow } from '../../../utils/semver';
 import { useAppSettingsStore } from '../../../store/appSettingsStore';
 import { STORE_URL } from '../../../utils/constants';
+import { recordPerfMark } from '../../../utils/perfLog';
+import { logWarning } from '../../../utils/errorLog';
 
 export type VersionGateStatus = 'checking' | 'ok' | 'blocked';
 
@@ -43,6 +45,7 @@ export function useVersionGate(): VersionGateResult {
     if (Platform.OS === 'web') return;
 
     let cancelled = false;
+    const startedAt = Date.now();
 
     (async () => {
       try {
@@ -70,7 +73,14 @@ export function useVersionGate(): VersionGateResult {
         }
       } catch (error) {
         console.error('Sürüm kontrolü hatası (fail-open, uygulama engellenmiyor):', error);
+        // Kullanıcıyı engellemiyor (fail-open) — bu yüzden Geliştirici
+        // Paneli'nde bir HATA değil, bir UYARI olarak görünmeli.
+        logWarning('versionGate.check', error);
         if (!cancelled) setStatus('ok');
+      } finally {
+        // `cancelled` olsa bile ölçüm anlamlıdır (kontrol gerçekten bu kadar
+        // sürdü) — yalnızca state güncellemeleri iptalde atlanır, ölçüm değil.
+        recordPerfMark('Sürüm Kontrolü', 'startup', Date.now() - startedAt);
       }
     })();
 

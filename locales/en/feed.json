@@ -6,6 +6,7 @@
   "retry": "Try Again",
   "newPosts_one": "{{count}} new post",
   "newPosts_other": "{{count}} new posts",
+  "endOfFeed": "You're all caught up",
   "searchPlaceholder": "Username or Trakt profile link",
   "searchNotFound": "No one found with that username.",
   "searchError": "Something went wrong, try again.",

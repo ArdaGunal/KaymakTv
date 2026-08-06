@@ -1,7 +1,15 @@
 # KaymakTV Feed (Akış) Sistemi — Tasarım & Yol Haritası
 
-**Son Güncelleme:** 2026-08-02
+**Son Güncelleme:** 2026-08-03
 **Durum:** ✅ Phase 1 **uçtan uca canlı doğrulandı** + **ince taneli gizlilik sistemi tamamlandı**. Gerçek kullanıcı verisiyle test edildi, `feed_activities` doluyor, Profil/Feed ekranları gerçek aktiviteleri gösteriyor, Ayarlar'da 3 bağımsız gizlilik anahtarı var. Yolda ciddi bir prodüksiyon bug'ı bulunup düzeltildi — bkz. `docs/HISTORY.md` Madde 89 (kısmi unique index'ler PostgREST `on_conflict` ile hiç çalışmıyormuş).
+
+### 📄 Sayfalama & Veri Saklama (Madde 148)
+- **Sonsuz kaydırma:** sayfa başına 15 kayıt, `(activity_at, id)` **bileşik keyset imleci**. Basit imleç kullanılamaz — toplu sezon işaretlemesinde tüm bölümler aynı damgayı aldığı için sayfa sınırında kayıt kaybına yol açardı (regresyon testi mevcut).
+- **Sorgu:** `user_id IN (...)` ile filtreleniyor (takip ettiklerim + ben), böylece `idx_feed_activities_user_time` gerçekten kullanılıyor.
+- **Retention:** her gece 00:00 UTC (03:00 TR) `pg_cron` ile kullanıcı başına en yeni 200 kayıt tutulur. Zaman bazlı silme BİLİNÇLİ OLARAK tercih edilmedi (profil geçmişini yok ederdi + senkronla sonsuz döngüye girerdi).
+- Yeni indeks eklenmedi: `001_feed_schema.sql`'dekiler zaten yeterli.
+
+Detay: `docs/HISTORY.md` Madde 148.
 
 ### 🚀 Akış artık GERÇEK ZAMANLI (Madde 145)
 Akış bir PULL modelinden (yalnızca uygulama açılışında `/feed/sync`) **PUSH + canlı** bir sosyal akışa dönüştü:

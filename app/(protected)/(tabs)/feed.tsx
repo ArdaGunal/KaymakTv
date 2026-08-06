@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Rss, WifiOff, ArrowUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +16,18 @@ const DESKTOP_BREAKPOINT = 768;
 
 export default function FeedScreen() {
   const { t } = useTranslation(['navigation', 'feed']);
-  const { data, isLoading, isRefreshing, hasError, unseenCount, markSeen, refresh } = useFeed();
+  const {
+    data,
+    isLoading,
+    isRefreshing,
+    hasError,
+    isLoadingMore,
+    hasMore,
+    unseenCount,
+    markSeen,
+    refresh,
+    loadMore,
+  } = useFeed();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const search = useUserSearch();
@@ -46,6 +57,29 @@ export default function FeedScreen() {
   // "Akışın Boş — takip ettiğin kişilerin aktiviteleri burada görünecek"
   // yazısını görüyor, yani uygulama ona YANLIŞ bilgi veriyordu.
   const showError = hasError && data.length === 0;
+
+  // Sonsuz kaydırmanın alt bilgisi. Üç durum:
+  //   - yükleniyor  → spinner
+  //   - devamı yok  → "hepsi bu kadar" (liste boş değilse; boş listede
+  //                    zaten ListEmptyComponent konuşuyor)
+  //   - devamı var  → hiçbir şey (spinner yalnızca istek uçarken görünsün)
+  const renderFooter = useCallback(() => {
+    if (isLoadingMore) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator size="small" color="#38bdf8" />
+        </View>
+      );
+    }
+    if (!hasMore && data.length > 0) {
+      return (
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>{t('feed:endOfFeed', 'Hepsi bu kadar')}</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [isLoadingMore, hasMore, data.length, t]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -88,6 +122,14 @@ export default function FeedScreen() {
             }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            // Sonsuz kaydırma. 0.5 = ekranın bir boyu kadar mesafe kala
+            // tetiklenir; kullanıcı boşluğa çarpmadan sonraki sayfa gelir.
+            // Eşzamanlı tetiklemelere karşı koruma `useFeed.loadMore`'da
+            // (uçuştaki istek referansı) — bu callback güvenle birden fazla
+            // kez çağrılabilir.
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
             refreshControl={
               <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#3b82f6" />
             }
@@ -213,5 +255,16 @@ const styles = StyleSheet.create({
     color: '#0B1120',
     fontSize: 13,
     fontWeight: '800',
+  },
+  footer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });

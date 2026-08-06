@@ -15,6 +15,11 @@ export interface LoggedError {
    * "hangi mutation" bilgisini taşıyor, `tags` yalnızca ek yapısal bilgi
    * (endpoint gibi) gerektiğinde kullanılır. */
   tags?: Record<string, string>;
+  /** Geliştirici Paneli'nin "Hata"/"Uyarı" ayrımı için — belirtilmezse 'error'
+   * sayılır (mevcut ~15 çağrı noktası bu alanı hiç bilmeden çalışmaya devam
+   * eder). 'warn': akışı BOZMAYAN ama tanılama açısından anlamlı durumlar
+   * (ör. rate-limit sonrası otomatik tekrar deneme, fail-open bir kontrol). */
+  level?: 'error' | 'warn';
 }
 
 const serializeError = (error: unknown): { message: string; stack?: string } => {
@@ -45,9 +50,21 @@ let writeQueue: Promise<void> = Promise.resolve();
  * şikayetlerde), sonradan `getErrorLog()` ile son hataları geri getirebilmek
  * için. Yazma işlemi fire-and-forget'tir — ana akışı asla bloklamaz/bozmaz.
  */
-export const logError = (context: string, error: unknown, tags?: Record<string, string>): void => {
+export const logError = (
+  context: string,
+  error: unknown,
+  tags?: Record<string, string>,
+  level: 'error' | 'warn' = 'error'
+): void => {
   const { message, stack } = serializeError(error);
-  const entry: LoggedError = { timestamp: Date.now(), context, message, stack, ...(tags ? { tags } : {}) };
+  const entry: LoggedError = {
+    timestamp: Date.now(),
+    context,
+    message,
+    stack,
+    ...(tags ? { tags } : {}),
+    ...(level === 'warn' ? { level } : {}),
+  };
 
   writeQueue = writeQueue.then(async () => {
     try {
@@ -61,6 +78,11 @@ export const logError = (context: string, error: unknown, tags?: Record<string, 
     }
   });
 };
+
+/** `logError`nun 'warn' seviyesindeki kısayolu — akışı bozmayan ama Geliştirici
+ * Paneli'nde ayrı sayılması gereken durumlar için (bkz. `LoggedError.level`). */
+export const logWarning = (context: string, error: unknown, tags?: Record<string, string>): void =>
+  logError(context, error, tags, 'warn');
 
 /** En yeniden eskiye, son kaydedilen hatalar (örn. Ayarlar > "Hata Günlüğü" gibi
  * bir tanılama ekranında veya destek talebine eklenecek bir dışa aktarımda). */

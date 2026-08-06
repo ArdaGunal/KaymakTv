@@ -8,6 +8,12 @@ interface SnackbarProps {
   onAction?: () => void;
   onDismiss?: () => void;
   duration?: number;
+  /** Varsayılan 'bottom' — mevcut TÜM çağıranların görünümünü korur. 'top':
+   * ekranın altına yakın, tekrar tıklanması gereken bir hedefin (ör.
+   * account.tsx'teki sürüm numarasına ard arda dokunma) üzerini KAPATIR hale
+   * gelen toast'lar için (bkz. docs/HISTORY.md — web'de "2 dokunuş kaldı"
+   * yazısı sürüm etiketinin üzerine biniyordu, kullanıcı devam edemiyordu). */
+  position?: 'top' | 'bottom';
 }
 
 const Snackbar: React.FC<SnackbarProps> = ({
@@ -17,14 +23,20 @@ const Snackbar: React.FC<SnackbarProps> = ({
   onAction,
   onDismiss,
   duration = 4000,
+  position = 'bottom',
 }) => {
+  const isTop = position === 'top';
+  // 'top'ta yukarıdan aşağı, 'bottom'ta aşağıdan yukarı kayarak belirir —
+  // başlangıç/bitiş yönü konuma göre TERS çevrilir (aksi halde 'top'
+  // konumunda animasyon ekran dışına doğru "ters" akardı).
+  const hiddenOffset = isTop ? -20 : 20;
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+  const translateY = useRef(new Animated.Value(hiddenOffset)).current;
   const [shouldRender, setShouldRender] = useState(visible);
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
-    
+
     if (visible) {
       setShouldRender(true);
       Animated.parallel([
@@ -61,7 +73,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
         isInteraction: false,
       }),
       Animated.timing(translateY, {
-        toValue: 20,
+        toValue: hiddenOffset,
         duration: 300,
         useNativeDriver: Platform.OS !== 'web',
         isInteraction: false,
@@ -75,7 +87,13 @@ const Snackbar: React.FC<SnackbarProps> = ({
   if (!shouldRender) return null;
 
   return (
-    <Animated.View style={[styles.container, { opacity, transform: [{ translateY }] }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        isTop ? styles.containerTop : styles.containerBottom,
+        { opacity, transform: [{ translateY }] },
+      ]}
+    >
       <Text style={styles.message}>{message}</Text>
       {actionText && onAction && (
         <TouchableOpacity 
@@ -95,7 +113,6 @@ const Snackbar: React.FC<SnackbarProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 24, // above bottom tabs if any
     left: 20,
     right: 20,
     backgroundColor: '#0B1120',
@@ -112,6 +129,12 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     borderWidth: 1,
     borderColor: '#172033',
+  },
+  containerBottom: {
+    bottom: 24, // above bottom tabs if any
+  },
+  containerTop: {
+    top: 24, // safe-area/header'ın altında, ekranın en üstüne yakın
   },
   message: {
     color: '#ffffff',

@@ -1,19 +1,15 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { exportMetricsReport } from '../utils/metrics';
 import { deleteAccountData } from '../features/feed/services/accountDeletion';
 
 export interface UseSettingsResult {
   isLoggingOut: boolean;
   isDeletingAccount: boolean;
-  isExportingMetrics: boolean;
   handleLogout: () => Promise<void>;
   handleDeleteAccount: () => Promise<void>;
   handleChangeLanguage: (lng: string) => void;
-  handleExportMetrics: () => Promise<void>;
   currentLanguage: string;
 }
 
@@ -23,7 +19,6 @@ export function useSettings(): UseSettingsResult {
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [isExportingMetrics, setIsExportingMetrics] = useState(false);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
@@ -63,33 +58,12 @@ export function useSettings(): UseSettingsResult {
     i18n.changeLanguage(lng);
   }, [i18n]);
 
-  // Faz 7 — son 24 saatlik telemetri (mutation başarı/hata sayaçları, API
-  // gecikme histogramları) panoya kopyalanır. DevTools'un gerçek cihazlarda
-  // erişilemez olmasının yerini tutan minimal bir "kara kutu" dışa aktarımı;
-  // tam bir grafikli dashboard (planın "opsiyonel, düşük öncelik" dediği kısmı)
-  // bilinçli olarak kapsam dışı bırakıldı — bkz. docs/HISTORY.md.
-  const handleExportMetrics = useCallback(async () => {
-    setIsExportingMetrics(true);
-    try {
-      const report = await exportMetricsReport();
-      await Clipboard.setStringAsync(report);
-      Alert.alert(t('common:success'), t('settings:exportPerformanceReportSuccess'));
-    } catch (error) {
-      console.error('[useSettings] exportMetrics error:', error);
-      Alert.alert(t('common:error'), t('settings:exportPerformanceReportError'));
-    } finally {
-      setIsExportingMetrics(false);
-    }
-  }, [t]);
-
   return {
     isLoggingOut,
     isDeletingAccount,
-    isExportingMetrics,
     handleLogout,
     handleDeleteAccount,
     handleChangeLanguage,
-    handleExportMetrics,
     currentLanguage: i18n.language,
   };
 }

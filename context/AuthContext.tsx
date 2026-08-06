@@ -6,7 +6,8 @@ import { useFollowStore } from '../store/followStore';
 import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { useFeedStore } from '../features/feed/store/feedStore';
 import { clearFeedPublishIdentity } from '../features/feed/services/feedPublish';
-import { invalidateFeedCache } from '../features/feed/services/feedApi';
+import { invalidateFeedCache, invalidateVisibleUserIds } from '../features/feed/services/feedApi';
+import { recordPerfMark } from '../utils/perfLog';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -62,6 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const loadKeys = async () => {
+    const startedAt = Date.now();
     try {
       // Paralel: bu iki okuma birbirinden bağımsız, sıralı `await` açılışta
       // gereksiz bir round-trip kadar gecikme ekliyordu.
@@ -80,6 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error loading keys:', error);
     } finally {
       setIsLoading(false);
+      recordPerfMark('Oturum Başlatma', 'startup', Date.now() - startedAt);
     }
   };
 
@@ -128,6 +131,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       useFeedStore.getState().reset();
       clearFeedPublishIdentity();
       invalidateFeedCache();
+      // Görünür kullanıcı kümesi de sıfırlanmalı: aksi halde yeni oturumun
+      // ilk akış sorgusu ÖNCEKİ hesabın takip listesiyle filtrelenirdi.
+      invalidateVisibleUserIds();
       setAccessToken(null);
       setIsGuest(false);
     } catch (error) {

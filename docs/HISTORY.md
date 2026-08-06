@@ -2403,7 +2403,7 @@ Yeni bir throttle/debounce mekanizması, ek bir zamanlayıcı ya da ek bir state
 - TextInput alanına odaklanma (Focus) durumu state'e bağlanarak dinamik kenarlık parlaması (accent glow border) eklendi.
 - Kategori açıklamaları için accent renkli callout banner ve buton içi ikon kombinasyonları (`Send` / `Sparkles`) eklendi.
 - İstek / Öneri kategorisindeki karakter sınırı 300 karaktere güncellendi.
-- Uygulama sürümü `v2.0.1` olarak yükseltildi (`package.json`, `app.json`, `account.tsx`, `download.web.tsx`).
+- Uygulama sürümü `v2.0.2` olarak yükseltildi (`package.json`, `app.json`, `account.tsx`, `download.web.tsx`).
 
 
 ## 140. Takip Ekranı: Performans (Chunk Toplulaştırma + Lazy Dashboard) ve UX ("Güncel" Kategorisi + Zaman Girdisi)
@@ -2630,3 +2630,111 @@ Worker'ın router'ında **path kontrolü yoktu**: tanınmayan HER POST yolu `han
 `tsc --noEmit` temiz. `categorizeShows` + `filterLibraryItems`i sahte bir kütüphaneyle (aktif/ara verilen/bitmiş/başlanmamış 4 dizi) izole çalıştırıp **11 senaryo test edildi, hepsi geçti**: bitmiş dizinin yalnızca `caughtUp` kovasına düştüğü, diğer HİÇBİR kovaya (upNext/paused/notStarted/hidden) girmediği, "Bitirilenler" filtresi seçilince yalnızca bitmiş dizinin göründüğü, başka bir filtre seçiliyken bitmiş dizinin dışarıda kaldığı ve filtre hiç seçili değilken bitmiş dizinin yine de (base listede) göründüğü. Web bundle hatasız derlendi.
 
 **Doğrulanamayan:** gerçek bir Trakt kütüphanesiyle uçtan uca (Profil → Diziler/Filmler → filtre menüsünü aç → "Bitirilenler"i seç → doğru listenin gelmesi) — kullanıcının kendi cihazında denemesi gerekiyor.
+
+## 148. Akış Ölçeklenmesi: Cursor Pagination + Sonsuz Kaydırma + Veri Saklama Politikası
+
+**Kullanıcı isteği:** Akış global 30 kayıtla sınırlıydı ve sayfalama yoktu; kullanıcı sayısı arttıkça çökecekti. Pagination + Infinite Scroll + Data Retention kurulması istendi. Plan sunuldu, kullanıcı 3 kritik uyarıyı kabul edip onayladı.
+
+### Plandan sapılan 5 nokta (kullanıcı onayıyla)
+
+1. **Migration numarası `013` → `014`.** `013_realtime_feed.sql` zaten mevcuttu.
+2. **`created_at` indeksi EKLENMEDİ.** Akış `activity_at DESC`e göre okunuyor; `001_feed_schema.sql`'deki `idx_feed_activities_time` ve `idx_feed_activities_user_time` bu işi zaten yapıyor. `created_at` indeksi hiçbir okumayı hızlandırmaz, yalnızca INSERT maliyeti eklerdi.
+3. **Zaman bazlı silme (30 gün) → kullanıcı başına 200 kayıt.** İki somut gerekçe: (a) Profil › Aktiviteler sekmesi bilinçli olarak tarih penceresiz çalışıyor — zaman bazlı silme herkesin profil geçmişini yok ederdi; (b) Worker senkronu Trakt'tan son 50 kaydı çekiyor, az aktif kullanıcıda "gece sil / sabah geri ekle" sonsuz döngüsü oluşurdu. 50 < 200 olduğu için bu döngü artık yapısal olarak imkânsız.
+4. **Basit imleç → BİLEŞİK imleç `(activity_at, id)`.** Toplu sezon işaretlemesinde TÜM bölümler aynı `activity_at` damgasını alıyor (dedup hizalaması için bilinçli, bkz. Madde 145). Basit `.lt(activity_at)` imleci sayfa sınırı bir damga grubunun ortasına denk geldiğinde kalan kayıtları ATLARDI; `.lte` ise 40 bölümlük bir sezonda sonsuz döngüye girerdi.
+5. **Cron saati `0 0 * * *` (UTC).** pg_cron UTC çalışır; `0 3 * * *` yazmak TR saatiyle 06:00 demek olurdu.
+
+Ayrıca planın Aşama 3'ünün yarısı (pull-to-refresh, skeleton) Madde 145'te zaten yapılmıştı — yalnızca sonsuz kaydırma ve footer eksikti.
+
+### Yapılanlar
+
+**`supabase/schema/014_feed_retention.sql` [YENİ]** — `prune_feed_activities()` (kullanıcı başına en yeni 200; `activity_at DESC, id DESC` ile deterministik sıralama), `prune_deleted_feed_activities()` (tombstone'lar için çok daha cömert 1000 eşiği — erken silinen bir tombstone, Trakt'ta hâlâ duran aktivitenin sessizce geri gelmesine yol açardı), idempotent `cron.schedule('prune-feed', '0 0 * * *')`. Dosya sonunda doğrulama sorguları yorum olarak bırakıldı.
+
+**`features/feed/services/feedApi.ts`** — `fetchFeedActivities(cursor, force)` artık `FeedPage { items, nextCursor, hasMore }` döndürüyor. `PAGE_SIZE: 30 → 15`. Filtre `user.trakt_slug` join'i yerine **`user_id`** üzerinden (mevcut `(user_id, activity_at DESC)` composite index'i böylece gerçekten kullanılıyor; uzun takip listelerinde URL de öngörülebilir kalıyor). İmleç damgası `toISOString()` ile normalize ediliyor — Postgres'in `+00:00` eki PostgREST'in `or=` ifadesinde URL kodlama riski taşıyordu. `getVisibleUserIds` 60 sn önbelleğe alındı (aksi halde HER sayfa için fazladan bir `users` sorgusu atılırdı) + `invalidateVisibleUserIds` çıkışta çağrılıyor.
+
+**`features/feed/store/feedStore.ts`** — `setFirstPage`/`appendPage`/`nextCursor`/`hasMore`/`isLoadingMore`. **`MAX_ACTIVITIES = 200` KALDIRILDI**: sonsuz kaydırmayla birlikte çalışamaz — `slice(0,200)` en eski kayıtları kırptığı için kullanıcı 200. kayda geldiğinde eklenen her sayfa aynı anda düşer, liste asla ilerlemezdi. Büyüme artık 30 günlük pencere + sunucu retention'ı ile doğal olarak sınırlı. Yerel `sortDesc` sunucunun `activity_at DESC, id DESC` sözleşmesiyle BİREBİR aynı (aksi halde sayfa sınırlarında sıra kayardı).
+
+**`features/feed/hooks/useFeed.ts`** — `loadMore` (uçuştaki istek referansıyla eşzamanlılık koruması: `onEndReached` hızlı kaydırmada arka arkaya tetikleniyor), `isLoadingMore`, `hasMore`. Alt sayfa hatası tam ekran hata GÖSTERMEZ — liste dolu, kullanıcı okumaya devam eder.
+
+**`app/(protected)/(tabs)/feed.tsx`** — `onEndReached` + `onEndReachedThreshold={0.5}` + `ListFooterComponent` (spinner / "Hepsi bu kadar"). Tek dosya hem mobil hem web'i besliyor (responsive), ayrı web varyantı yok.
+
+### Doğrulama
+- `tsc --noEmit` temiz; web bundle hatasız derlendi.
+- **Pagination simülasyonu: 12/12 geçti** — Supabase'in sıralama + keyset filtresi birebir taklit edilerek: 40 bölümlük tek damgalı sezonun TAMAMININ çekilmesi (hiçbiri atlanmadan, tekrar etmeden, sonsuz döngüye girmeden), sayfa sınırının tie-group ortasına denk gelmesi, sıranın sunucu sırasıyla birebir aynı olması, `hasMore`'un tam bölünen sayfada doğru sonlanması. **Senaryo 3 regresyon kanıtı olarak duruyor: basit imleç kullanılsaydı 40 kayıttan yalnızca 15'i gelirdi (25 kayıp).**
+- **Store testleri: 13/13 geçti** — sayfa ekleme, imleç sınırında tekrar eden kaydın çift kart üretmemesi, Realtime ile birlikte çalışma (canlı kayıt üstte kalırken sayfa alta eklenir), damga eşitliğinde yerel sıranın sunucu sözleşmesine uyması, 300 kayda kadar birikme (eski 200 sınırı kalksaydı takılırdı), pull-to-refresh'in imleci sıfırlaması, oturum izolasyonu.
+
+**Doğrulanamayan (gerçek Supabase + Trakt hesabı gerektirir):** gerçek veriyle sonsuz kaydırma, `pg_cron` işinin gece çalışması, Realtime'ın canlı bağlanması.
+
+## 149. Akış Kartlarında Puanlama /10 Değil /5 Gösterilmeliydi
+
+**Kullanıcı bildirimi:** "Puan verince 10/10 yazıyor akışta. 5/5 yazması gerekmez mi? Puan 5 üzerinden. Buçuklu de verirse 2.5/5 gibi gösterilir."
+
+**Kök neden:** Trakt'ın API'si puanı 1-10 skalada tutuyor, ama bu uygulamanın kendi arayüzü (`StarSlider`, 5 yıldız) kullanıcıya HER YERDE 5 üzerinden gösteriyor — `ShowCard`, `MediaHero` dahil tüm ekranlar zaten `utils/formatRating.ts`'i kullanıyordu (10 → 2'ye böl, tam sayıysa ondalıksız). `FeedCard.tsx` bu ortak yardımcıyı atlayıp ham `a.rating` ile `"${a.rating}/10"` yazıyordu — akış, uygulamanın geri kalanıyla tutarsızdı.
+
+**Düzeltme:** `FeedCard.tsx`'teki `rated` etiketi artık `formatRating(a.rating)` kullanıyor, `/10` → `/5`. Tek dosyada düzeltildi; bu kart Akış, Profil › Aktiviteler ve Herkese Açık Profil'in üçü tarafından paylaşıldığı için değişiklik hepsinde otomatik geçerli.
+
+**Doğrulama:** `tsc --noEmit` temiz. `formatRating`in 6 senaryosu (10→5, 9→4.5, 5→2.5, 2→1, 1→0.5, 8→4) test edildi, hepsi geçti.
+
+## 150. Takip Kategorileri: "Tümünü Gör" Artık Kategoriyle Açılıyor + İlk Giriş Senkronu Toplu Uç Noktayla Stabilize Edildi
+
+**Kullanıcı bildirimi (iki ayrı sorun):** (1) Web'de Diziler sekmesindeki kategori carousel'lerinin ("Aktif İzlenenler" / "Ara Verilenler" / "Henüz Başlanmadı") sağındaki ok, hangi kategoriden basılırsa basılsın TÜM dizileri açıyordu. (2) İlk girişte (önbellek boşken) diziler 2-3 dakika boyunca "bir listeden diğerine akıyordu" — önce çoğu Aktif İzlenenler'e düşüyor, verisi geldikçe gerçek kovasına taşınıyordu. Kullanıcı ayrıca "filtreleme Trakt'ta zaten yapılıyorsa bizim tekrar yapmamız yavaşlatır, mümkünse Trakt'tan filtreli çekilsin" diye sordu.
+
+### Önce araştırma: Trakt sunucu tarafında ne veriyor?
+Güncel resmi dokümantasyon (docs.trakt.tv) tarandı:
+- **`GET /sync/progress/up_next_nitro?intent=all`** (ve kardeşi `/sync/progress/up_next`): kullanıcının TÜM dizilerinin ilerleme ÖZETİNİ (`aired`, `completed`, `last_watched_at`, `next_episode`, `last_episode`) sayfalanmış tek uç noktadan veriyor — `intent=all` başlanmış + bitmiş + yeni başlanan hepsini kapsıyor. VIP şartı YOK, yalnızca OAuth. ~100 dizi/istek.
+- **Uygulamanın 3'lü kategorizasyonunun (Aktif/Ara Verilen/Başlanmadı, 45 gün eşiği) Trakt'ta birebir karşılığı YOK** — nitro'nun `intent`i (continue/start/completed) farklı bir eksende ayırıyor ve "Ara Verilenler" kavramı hiç yok. Yani kategorizasyon istemcide KALMALI; ama bu zaten saf, bellek-içi, ucuz bir hesap (`categorizeShows`). Pahalı olan kategorizasyon değil, onu besleyen VERİNİN dizi başına tek tek (`/shows/:id/progress/watched`) çekilmesiydi — asıl kazanç oradaydı.
+- Özet yanıtında sezon/bölüm kırılımı (`seasons`) YOK — bölüm bazlı işaretleme kontrolleri (`EpisodeCheckButton`, `app/episode/[id].tsx`, dizi detayındaki bölüm tikleri) için dizi başına tam çekim hâlâ gerekli. Bu yüzden toplu uç nokta tam çekimin YERİNE değil, ÖNÜNE kondu (aşağıda).
+
+### (1) "Tümünü Gör" düzeltmesi — kök neden ve çözüm
+`shows.web.tsx`'teki `openViewAllShows` üç carousel için de parametresiz `/library/shows`'a gidiyordu; kütüphane ekranının zaten var olan kategori filtresi (Madde 95/147 altyapısı) hiç tetiklenmiyordu. Çözüm URL sözleşmesi: ok artık `/library/shows?status=upNext|paused|notStarted` taşıyor; `useMediaFilterState` yeni `initialStatuses` parametresiyle bu önseçimi İLK mount'ta uyguluyor (bilinmeyen anahtarlar `orderedKeys` süzgecinden geçemez, sonradan filtre değiştirmek serbest). Zincir: `[type].web.tsx` + `LibraryMobile.tsx` (aynı `?status=` sözleşmesi — platformlar ayrışmaz) → `useLibraryFilters` → `useLibraryShowFilters`/`useLibraryMovieFilters` → `libraryFilterCore`. Filmler tarafında da aynı hata vardı: "İzlenecekler" carousel'inin oku, varsayılan listesi İZLENENLER olan `/library/movies`'i parametresiz açıyordu → artık `?status=watchlist`. Ayrıca `openViewAllShows` artık parametre aldığı için trend/yaklaşan carousel'lerine doğrudan referans olarak verilemezdi (Pressable'ın event nesnesi `statusKey`e sızardı) — sarmalayıcı ok fonksiyonuyla verildi.
+
+### (2) İlk giriş kargaşası — kök neden ve çözüm
+Kök neden zinciri: ilk girişte `showProgressMap` boş → `fetchFreshData`'nın delta hesabı TÜM izlenen dizileri kuyruğa alıyor → `getShowProgress` dizi başına tek istek, 6'lık gruplar + 150ms bekleme + LOW öncelik = yüzlerce istek, 2-3 dakika → bu süre boyunca `categorizeShows`'ta `isCalculating` kuralı gereği verisi gelmemiş her izlenen dizi upNext'e ("hesaplanıyor" kartıyla) düşüyor, verisi geldikçe gerçek kovasına sıçrıyordu.
+
+**Çözüm — FAZ 0 "toplu tohumlama" (`services/library/fetchers.ts`):** eksik/bayat ilerleme sayısı eşiği (10) aşıyorsa, tek tek çekime başlamadan ÖNCE yeni `getUpNextProgress()` (`services/api/users.ts`, `up_next_nitro?intent=all`, `getWatchedShows`'la aynı sayfalama deseni, 50 sayfa tavanı) ile tüm özetler birkaç istekte alınıp haritaya TEK yayında yazılıyor ve diske kalıcılaştırılıyor → kategoriler dakikalar yerine birkaç saniyede doğru oturuyor. Birleşim kuralı: `{...mevcutTamKayıt, ...özet}` — mevcut kaydın sezon kırılımı korunur, özet alanları tazelenir. Sonra tam (sezonlu) çekim kuyruğu ŞU ŞEKİLDE budanıyor: sezon kırılımı zaten olan VE izlenme damgası değişmemiş diziler (yani yalnızca "hâlâ yayında + tamamlanmış görünüyor" tedbir çekimleri — taze `next_episode`yi artık toplu özet verdi) kuyruktan düşer; kalanlar en son izlenen en önce sıralanır (kullanıcının etkileşeceği dizinin bölüm tikleri ilk saniyelerde hazır olsun). Toplu istek başarısız olursa (`try/catch`) eski tek tek yol AYNEN devam eder — davranışsal gerileme yapısal olarak imkânsız. Yan kazanç: toplu özet HER tam senkronda değişmeyen dizilerin de `next_episode`sini tazelediği için "bitmiş sanılan dizinin yeni sezonu duyuruldu" durumu artık gecikmesiz yakalanıyor.
+
+### Doğrulama
+- `tsc --noEmit` temiz; web bundle Metro'da hatasız derlendi; `/library/shows?status=upNext` rotası tarayıcıda çökmeden açıldı (misafir, boş kütüphane — parametreli/parametresiz davranış birebir aynı).
+- **İzole mantık testi 12/12 geçti** (gerçek `categorizeShows` import edilerek): boş haritada izlenen dizilerin spinner'la upNext'e düştüğünün (eski kargaşanın) kanıtı; toplu özet yüklenince aynı dizilerin sezon kırılımı OLMADAN doğru kovalara (upNext/paused/caughtUp/notStarted, çakışmasız) oturduğu; kuyruk süzgecinin ilk-kez-görülen ve izlenmesi-değişen dizileri tutarken değişmeyen tam kayıtları düşürdüğü; özet birleşiminin sezonları koruyup `aired`/`next_episode`yi tazelediği.
+
+**Doğrulanamayan (gerçek Trakt hesabı gerekir):** `up_next_nitro`nun canlı yanıtı ve web'de CORS'a takılmadığı (takılırsa fallback devrede), gerçek büyük kütüphanede ilk giriş süresi. Kullanıcının kendi hesabıyla ilk girişte konsolda `Bulk seed: N dizi özeti tek turda yüklendi` satırını görmesi beklenir.
+
+## 151. Geliştirici Paneli: "Hata Günlüğü" Ekranı Performans Sekmesiyle Birleşip Gerçek Ölçümlerle Zenginleştirildi
+
+**Kullanıcı isteği:** Ayarlar'daki gizli tanılama ekranı (sürüm numarasına 7 kez dokunma) başka bir uygulamadaki bir "Geliştirici Paneli" tasarımına (ekran görüntüsü paylaşıldı: üstte 4 istatistik kartı — Ölçüm/Yavaş/Hata/Uyarı, Performans + Hata Günlüğü sekmeleri, kategori çipleri, renkli noktalı ölçüm satırları) göre yeniden kurulsun. Ayrıca: 5. dokunuşta bir uyarı yazısı, 7. dokunuşta panel DOĞRUDAN açılsın (ayrı bir "kilit açıldı" adımı olmadan). Son olarak, panelden logları "profesyonel bir üslupla" (kullanıcıya asla "Discord'a gönder" denmeden) hem Supabase'e hem Discord'a gönderen bir buton istendi; karakter sınırı sorun olursa ayrı bir sistem kurulması teklif edildi.
+
+### Önce mevcut altyapı incelendi — YENİ bir arka uç GEREKMEDİ
+`services/api/feedback.ts` + Cloudflare Worker (`EXPO_PUBLIC_FEEDBACK_WORKER_URL`) zaten `sendFeedback({ errorLogs, performanceReport, deviceInfo, userId, category })` ile hem Supabase'in `error_logs` tablosuna (ham veri, karakter sınırı yok — bkz. `011_error_logs_performance_report.sql`) hem Discord'a (özet embed + "kaydedildi" durumu, ham veri kasıtlı olarak yalnızca Supabase'de) yazıyordu (`hooks/useReportIssue.ts`, "İstek/Öneri/Şikayet" akışı). Bu yüzden Geliştirici Paneli'nin "Raporu Gönder" butonu YENİ bir Discord webhook'u/Supabase tablosu KURMADI — `category: 'bug'` ile AYNI boruyu ikinci bir giriş noktasından (`hooks/useSendDevReport.ts`) tetikliyor; aynı 3 dakikalık soğuma penceresini (`useFeedbackStore`) de PARANTEZSİZ paylaşıyor.
+
+### Performans verisi: iki katmanlı, TEK gerçek kaynak yok — İKİSİ DE gerekli
+`utils/metrics.ts`/`metricsStore.ts` (Faz 7'den beri var) yalnızca SAATLİK HİSTOGRAM tutuyor — "bir isteğin ortalaması" bilinir ama "hangi TEKİL çağrı ne kadar sürdü" kayboluyor, ekran görüntüsündeki "aynı isim 5 kez farklı ms'lerle" listesini üretemez. Bunun yerine yeni bir sistem İCAT EDİLMEDİ — `errorLog.ts`'teki ring buffer deseni AYNEN kopyalanıp `utils/perfLog.ts` (60 kayıtlık, `{timestamp, name, category, durationMs}`) eklendi; `recordApiLatency` (histogram, feedback raporunda hâlâ kullanılıyor) ile `recordPerfMark` (ring buffer, panelin canlı listesi) AYNI ölçüm noktasından PARALEL çağrılıyor, biri diğerinin yerini almıyor.
+
+### Gerçek ölçüm noktaları (uydurma veri YOK)
+- `services/api/traktClient.ts` — her Trakt isteğinin interceptor'ı zaten `recordApiLatency` çağırıyordu; yanına `recordPerfMark(breakerKey, 'network', ms)` eklendi (başarı VE "yanıt geldi ama hata" dallarının ikisinde de). 429 tekrar deneme dalına `logWarning` eklendi — akışı bozmaz ama panelin "Uyarı" sayacı için gerçek bir sinyal.
+- `features/versionGate/hooks/useVersionGate.ts` — kontrol süresi `'Sürüm Kontrolü'` etiketiyle ölçülüyor (`try/finally`, tüm çıkış yollarını TEK yerden kapsar); fail-open catch bloğu artık `logWarning` da çağırıyor (kullanıcı engellenmiyor, bu yüzden HATA değil UYARI).
+- `context/AuthContext.tsx` — `loadKeys()` (SecureStore'dan token okuma) `'Oturum Başlatma'` etiketiyle ölçülüyor.
+- `app/_layout.tsx` — modül değerlendirilir değerlendirilmez (`appLoadStartedAt`) damgalanıp `RootLayoutNav`'ın `isLoading` state'i `false` olduğu ANDA (VersionGate + Auth bootstrap bitmiş, ilk anlamlı ekran hazır) `'Toplam Uygulama Açılışı'` olarak kaydediliyor — `useRef` ile yalnızca BİR kez.
+- Diğer uygulamadaki 5 iç içe/örtüşen başlangıç etiketi (RootNavigator Render Hazır + Session/Profil Yükleme + Profil Yükleme ayrı ayrı) BİLİNÇLİ OLARAK birebir kopyalanmadı — bu üç net, örtüşmeyen aşama (Sürüm Kontrolü / Oturum Başlatma / Toplam Açılış) gerçek mimariye daha uygun.
+
+### Ekran: `error-log.tsx` SİLİNDİ, `dev-panel.tsx` + alt bileşenler
+`app/(protected)/error-log.tsx` kaldırıldı (`_layout.tsx`'teki `Stack.Screen` kaydı `dev-panel`e çevrildi); eski davranışının TAMAMI (kopyala/temizle/boş durum/genişleyen satır) `components/devPanel/ErrorsTab.tsx` + `ErrorEntryRow.tsx`ye BİREBİR taşındı (yalnızca `level: 'warn'` rozeti eklendi). Yeni `PerformanceTab.tsx` (kategori çipleri + renkli nokta) yanına eklendi. Dosya 400 satır kuralına uysun diye (`AGENTS.md`) ekran `dev-panel.tsx` (265 satır, orkestrasyon) + `StatCard`/`CategoryChip`/`PerfEntryRow`/`ErrorEntryRow`/`PerformanceTab`/`ErrorsTab`/`EmptyState`/`ListSkeleton`/`SendReportButton`/`formatTimestamp`/`listActionStyles` olarak bölündü. Veri tarafı: `usePerfLog.ts` (`useErrorLog.ts` ile BİREBİR iskelet) + bu ikisini istatistiklere (toplam/yavaş/hata24s/uyarı24s) ve kategori özetlerine (`ø{avg}ms` çipleri) dönüştüren `useDeveloperPanel.ts`.
+
+### Dokunuş jesti: tek yönlü açılış
+`app/(protected)/account.tsx`'teki `handleVersionTap`: eskiden 7. dokunuş bir booleanı AÇIP/KAPATIYOR, ayrı bir "Performans Raporu" (panoya kopyala, `hooks/useSettings.ts`→`handleExportMetrics`, artık SİLİNDİ) ve "Hata Günlüğü" satırı gösteriyordu. Artık: 5. dokunuşta `devPanelOpeningHint` toast'ı ("2 dokunuş kaldı"), 7. dokunuşta `isDeveloperMode` TEK YÖNLÜ `true` olup `router.push('/(protected)/dev-panel')` ile DOĞRUDAN yönlendirir. İki ayrı satır tek bir `"Geliştirici Paneli"` satırına birleşti (sonraki ziyaretler için — jestin kendisi zaten anlık yönlendiriyor).
+
+### Değişen/silinen dosyalar
+YENİ: `utils/perfLog.ts`, `hooks/usePerfLog.ts`, `hooks/useDeveloperPanel.ts`, `hooks/useSendDevReport.ts`, `app/(protected)/dev-panel.tsx`, `components/devPanel/*` (11 dosya). SİLİNDİ: `app/(protected)/error-log.tsx`. DÜZENLENDİ: `utils/errorLog.ts` (`level` alanı + `logWarning`), `services/api/traktClient.ts`, `features/versionGate/hooks/useVersionGate.ts`, `context/AuthContext.tsx`, `app/_layout.tsx`, `app/(protected)/_layout.tsx`, `app/(protected)/account.tsx`, `hooks/useSettings.ts` (ölü `handleExportMetrics`/`isExportingMetrics` kaldırıldı), `locales/tr|en/settings.json` (ölü `developerModeLocked/Unlocked`, `exportPerformanceReport*` kaldırıldı; `devPanel*` eklendi).
+
+### Doğrulama
+`tsc --noEmit` temiz. Web'de canlı doğrulama (misafir modu): sürüm etiketine 5 dokunuşta toast göründü ("🛠️ Geliştirici Paneli açılıyor... 2 dokunuş kaldı"), 7 dokunuşta `/dev-panel`e yönlendirdi; panelde GERÇEK ölçümler ("Toplam Uygulama Açılışı", "Oturum Başlatma", `startup ø43ms` çipi) doğru sayıldı/listelendi; Hata Günlüğü sekmesi boş durumu doğru gösterdi; "Raporu Kopyala" panoya yazıp "Rapor panoya kopyalandı." toast'ını tetikledi; Ayarlar'a dönünce "Geliştirici Paneli" satırı kalıcı kaldı (aynı ekran örneği React Navigation stack'inde mount'lu kaldığı sürece — sayfa tam yeniden yüklenirse `isDeveloperMode` kalıcı DEĞİL, bu bilinçli bir tercih). Konsolda yalnızca ortama özgü, önceden var olan Trakt CORS hataları görüldü, yeni koddan kaynaklanan hiçbir hata yoktu.
+
+**Doğrulanamayan:** "Raporu Gönder" butonunun gerçek bir Cloudflare Worker + Discord/Supabase ile uçtan uca teslimi (yerel ortamda `EXPO_PUBLIC_FEEDBACK_WORKER_URL` gerçek bir Worker'a bağlı değildi) — kod yolu `useReportIssue.ts`'in ZATEN PRODUCTION'DA ÇALIŞAN AYNI `sendFeedback` çağrısını birebir kullandığından yüksek güvenle çalışması beklenir, ama kullanıcının gerçek cihazda denemesi gerekir. Native (Android/iOS) tarafında `network` kategorisi ölçümleri de test edilmedi (yalnızca web'de, misafir modunda, CORS yüzünden network isteği atılamadığından `startup` ölçümleri doğrulandı).
+
+## 152. Geliştirici Paneli Toast'ı Sürüm Etiketinin Üzerine Biniyordu (Madde 151'in Bulgusu)
+
+**Kullanıcı bildirimi:** Web'de 5. dokunuşta çıkan "🛠️ ... 2 dokunuş kaldı" toast'ı, tam sürüm numarasının (dokunma hedefi) üzerine biniyor — kullanıcı 6./7. dokunuşu yapamıyor, paneli hiç açamıyor. Mobilde test edilmedi ama aynı bileşen olduğu için aynı riski taşıyor.
+
+**Kök neden:** `components/Snackbar.tsx` HER ZAMAN `position:'absolute', bottom:24` ile ekranın en altında beliriyordu. `account.tsx`'teki sürüm etiketi de (`versionRow`) ScrollView içeriğinin en altında — tam o bölgede oturuyor. Toast görünür olduğu 2,5 saniye boyunca dokunma hedefini tamamen kaplıyordu.
+
+**Çözüm:** `Snackbar`'a opsiyonel `position?: 'top' | 'bottom'` eklendi (varsayılan `'bottom'` — projedeki DİĞER tüm çağıranların görünümü DEĞİŞMEDİ). `account.tsx`'teki geliştirici modu toast'ı `position="top"` ile açılıyor; animasyon yönü de (`translateY` başlangıç/bitiş işareti) konuma göre ters çevrildi ki 'top'ta doğal biçimde yukarıdan aşağı kayarak belirsin.
+
+**Doğrulama:** `tsc --noEmit` temiz. Web'de canlı test: 5 dokunuştan sonra toast kutusunun (`getBoundingClientRect`) sürüm etiketinin dikey aralığıyla **çakışmadığı** ölçülerek doğrulandı (`overlapsVersion: false`); ardından TAM 7 dokunuşluk tek bir senkron tıklama dizisi `/dev-panel`e sorunsuz yönlendirdi (ara ölçüm çağrıları YÜZÜNDEN 1500ms'lik dokunma penceresinin aşıldığı, dolayısıyla sayacın sıfırlandığı BİR test denemesi — gerçek bir regresyon DEĞİL, kendi test metodolojimin bir artefaktıydı — ayrıştırılıp doğrulandı).

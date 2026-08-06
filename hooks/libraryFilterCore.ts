@@ -52,14 +52,25 @@ export interface MediaFilterState<TKey extends string> {
 /**
  * Arama + kategori seçimi durumu. `orderedKeys` yalnızca seçimin sırasını
  * normalize etmek için kullanılır (menüdeki tıklama sırası state'e sızmasın).
+ *
+ * `initialStatuses`: ekran bir kategori önseçimiyle açılabilir (ör. takip
+ * panosundaki "Aktif İzlenenler" carousel'inin "Tümünü Gör" oku
+ * `/library/shows?status=upNext` ile gelir). Yalnızca İLK mount'ta okunur —
+ * kullanıcı sonrasında filtreyi değiştirir/temizlerse URL'e geri yazılmaz;
+ * bilinmeyen anahtarlar `orderedKeys` süzgecinden geçemez.
  */
 export function useMediaFilterState<TKey extends string>(
   orderedKeys: readonly TKey[],
-  enabled: boolean
+  enabled: boolean,
+  initialStatuses?: readonly string[]
 ): MediaFilterState<TKey> {
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeStatuses, setActiveStatuses] = useState<TKey[]>([]);
+  const [activeStatuses, setActiveStatuses] = useState<TKey[]>(() =>
+    enabled && initialStatuses?.length
+      ? orderedKeys.filter((key) => initialStatuses.includes(key))
+      : []
+  );
 
   // Debounce: her tuş vuruşunda yüzlerce öğelik listeyi yeniden süzüp FlatList'i
   // baştan render etmek yerine kullanıcı yazmayı bıraktığında bir kez süzülür.

@@ -28,11 +28,42 @@ const timeSupabaseCall = async <T>(metricKey: string, fn: () => PromiseLike<T>):
 // yazma işlemidir.
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 
-// Feed doğası gereği "taze" olanı gösterir — docs/feed.md'de kararlaştırıldığı
-// gibi son 30 gün + sabit bir sayfa boyutu. Daha eskisi bir kullanıcının
-// profiline gidince (Phase 1.5) görülebilecek.
+// Feed doğası gereği "taze" olanı gösterir — son 30 günlük pencere.
+// Daha eskisi bir kullanıcının profiline gidince görülebilir.
 const FEED_WINDOW_DAYS = 30;
-const PAGE_SIZE = 30;
+// Sayfa başına kayıt. ESKİDEN 30'du ve TEK SEFERLİK bir tavandı (sayfalama
+// yoktu — 30. kayıttan sonrasına ulaşmanın hiçbir yolu yoktu). Artık sonsuz
+// kaydırmanın sayfa boyutu: ilk ekranı hızlı doldururken her ek isteği de
+// küçük tutan bir denge.
+const PAGE_SIZE = 15;
+
+/**
+ * BİLEŞİK (keyset) sayfalama imleci.
+ *
+ * ⚠️ NEDEN SADECE `activity_at` YETMEZ: toplu sezon işaretlemesinde TÜM
+ * bölümler AYNI damgayı alır — client, Trakt'a tek bir `watched_at` gönderip
+ * aynısını Akış'a yayınlıyor (dedup hizalaması için bilinçli, bkz.
+ * services/api/users.ts). Yani `activity_at` UNIQUE DEĞİL.
+ *
+ * Bu durumda basit `.lt('activity_at', son)` imleci, sayfa sınırı bir damga
+ * grubunun ORTASINA denk geldiğinde grubun kalan satırlarını ATLAR — akışta
+ * sessiz veri kaybı. `.lte` kullanmak ise grup sayfa boyutundan büyükse
+ * (40 bölümlük sezon) aynı sayfayı sonsuza dek döndürür.
+ *
+ * ÇÖZÜM: `(activity_at, id)` ikilisiyle sıralama ve imleç. `id` (uuid)
+ * benzersiz olduğundan toplam sıralama kesin ve deterministiktir.
+ */
+export interface FeedCursor {
+  activityAt: string;
+  id: string;
+}
+
+export interface FeedPage {
+  items: FeedActivity[];
+  /** Bir sonraki sayfa için imleç; `hasMore` false ise null. */
+  nextCursor: FeedCursor | null;
+  hasMore: boolean;
+}
 
 // Supabase'den seçilen kolonlar — TEK yerde tanımlı ki `fetchFeedActivities`,
 // `fetchUserFeedActivities` ve Realtime'ın satır tamamlama sorgusu birbirinden
@@ -82,65 +113,107 @@ export function mapRow(row: FeedActivityRow): FeedActivity {
   };
 }
 
-// Akış, `fetchUserFeedActivities` ile AYNI kısa ömürlü önbellek desenini
-// kullanır. Neden gerekli: Akış sekmesi her yeniden mount olduğunda (sekmeler
-// arası geçiş, geri/ileri gezinme) sıfırdan yükleniyor, kullanıcı boş bir
-// skeleton görüyordu. `refresh` (pull-to-refresh) `force: true` ile bunu
-// bilinçli olarak atlar — kullanıcı açıkça tazeleme istediğinde önbellek
-// asla araya girmez.
-let feedCache: { data: FeedActivity[]; fetchedAt: number } | null = null;
+// İLK SAYFA için kısa ömürlü önbellek. Neden gerekli: Akış sekmesi her
+// yeniden mount olduğunda (sekmeler arası geçiş, geri/ileri gezinme) sıfırdan
+// yükleniyor, kullanıcı boş bir skeleton görüyordu. `refresh` (pull-to-refresh)
+// `force: true` ile bunu bilinçli olarak atlar.
+//
+// YALNIZCA İLK SAYFA önbelleklenir: sonraki sayfalar imlece bağlıdır ve
+// kullanıcı zaten kaydırarak bir kez istemiştir; onları da önbelleklemek
+// bellekte anlamsız bir sayfa haritası tutmak olurdu.
+let feedCache: { page: FeedPage; fetchedAt: number } | null = null;
 
-/** Kendi aktivitem değişince (ör. senkron sonrası) bayat kalmasın diye. */
+/** Kendi aktivitem değişince (ör. senkron/yayın sonrası) bayat kalmasın diye. */
 export function invalidateFeedCache(): void {
   feedCache = null;
 }
 
-export async function fetchFeedActivities(force = false): Promise<FeedActivity[]> {
-  if (!force && feedCache && Date.now() - feedCache.fetchedAt < CACHE_TTL.SHORT) {
-    return feedCache.data;
+/**
+ * Akışın tek sayfasını çeker.
+ *
+ * @param cursor `null`/verilmezse ilk sayfa. Sonraki sayfalar için önceki
+ *   sayfanın `nextCursor`ı geçilir.
+ * @param force İlk sayfa önbelleğini atla (pull-to-refresh).
+ */
+export async function fetchFeedActivities(
+  cursor: FeedCursor | null = null,
+  force = false
+): Promise<FeedPage> {
+  const isFirstPage = cursor === null;
+
+  if (isFirstPage && !force && feedCache && Date.now() - feedCache.fetchedAt < CACHE_TTL.SHORT) {
+    return feedCache.page;
   }
 
-  // İki bağımsız okuma PARALEL: takip listesi (followStore — çoğu zaman zaten
-  // önbellekte, ağa hiç çıkmaz) ve kendi slug'ım (uygulama ömrü boyunca tek
-  // istek). ESKİDEN: `getMyFollowingSlugs()` ile HER yüklemede Trakt'a ayrı bir
-  // istek gidiyor, Supabase sorgusu onun bitmesini SIRAYLA bekliyordu.
-  const [followingSlugs, mySlug] = await Promise.all([getFollowingSlugs(), getMyTraktSlug()]);
+  // Görünür kullanıcıların Supabase `users.id` kümesi — takip ettiklerim + BEN.
+  // ESKİDEN burada `user.trakt_slug` üzerinden `!inner` join filtresi vardı;
+  // artık doğrudan `user_id` ile filtreliyoruz çünkü:
+  //   1. `idx_feed_activities_user_time (user_id, activity_at DESC)` indeksi
+  //      TAM OLARAK bu sorgu için var — join'li slug filtresi onu kullanamıyordu.
+  //   2. Uzun takip listelerinde URL'e slug yerine uuid yazmak daha öngörülebilir.
+  // Küme kısa ömürlü olarak önbelleklenir (bkz. getVisibleUserIds), böylece her
+  // sayfa için ek bir `users` sorgusu atılmaz.
+  const userIds = Array.from(await getVisibleUserIds());
 
-  // Kendi aktivitelerim de akışta görünür (kullanıcı isteği) — Profil'deki
-  // "Aktiviteler" sekmesiyle aynı veri, burada takip ettiklerimle tek bir
-  // kronolojik akışta birleşiyor. `Set` ile tekilleştirme: kendi slug'ım
-  // takip listemde olamaz ama savunmacı davranmak, olası bir çift kaydın
-  // sorguyu bozmasını engeller.
-  const slugs = Array.from(new Set(mySlug ? [...followingSlugs, mySlug] : followingSlugs));
-
-  // ESKİ DAVRANIŞ: `followingSlugs.length === 0` iken erken dönülüyordu. Artık
-  // kendi aktivitelerim de akışa girdiği için bu erken dönüş, hiç kimseyi
-  // takip etmeyen bir kullanıcının KENDİ aktivitelerini de gizlerdi.
-  if (slugs.length === 0) return [];
+  // Hiç kimse yoksa (yeni kullanıcı, kimseyi takip etmiyor ve kendi kaydı da
+  // henüz oluşmamış) sorgu hiç atılmaz.
+  if (userIds.length === 0) {
+    const empty: FeedPage = { items: [], nextCursor: null, hasMore: false };
+    if (isFirstPage) feedCache = { page: empty, fetchedAt: Date.now() };
+    return empty;
+  }
 
   const cutoff = new Date(Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  // Trakt'ta takip ettiğim herkes KaymakTV'yi kullanmış olmayabilir — `!inner`
-  // ile `users`e join edip `user.trakt_slug` üzerinden filtreliyoruz; karşılığı
-  // olmayan slug'lar join'e hiç girmediğinden sorgu doğal olarak onları eler.
-  // ESKİDEN: önce `users`den id'leri çekip SONRA `feed_activities`i o id'lerle
-  // filtreleyen 2 AYRI, SIRALI istek vardı — bu, her yüklemede gereksiz bir
-  // ağ round-trip'i ekliyordu. Tek sorguya indirildi (bkz. fetchUserFeedActivities'teki
-  // aynı düzeltme, performans şikayeti üzerine).
-  const { data, error } = await timeSupabaseCall('supabase.feed_activities.list', () =>
-    supabase
-      .from('feed_activities')
-      .select(ACTIVITY_COLUMNS)
-      .in('user.trakt_slug', slugs)
-      .gte('activity_at', cutoff)
-      .order('activity_at', { ascending: false })
-      .limit(PAGE_SIZE)
-  );
+  let query = supabase
+    .from('feed_activities')
+    .select(ACTIVITY_COLUMNS)
+    .in('user_id', userIds)
+    .gte('activity_at', cutoff)
+    // İKİ SEVİYELİ SIRALAMA imlecin sözleşmesi: `activity_at` benzersiz
+    // olmadığı için (toplu sezon işaretlemesi) `id` toplam sıralamayı kesin
+    // hale getirir. Aşağıdaki `.or(...)` filtresi bu sıralamayla BİREBİR
+    // uyumlu olmak zorunda, aksi halde sayfa sınırlarında kayıt atlanır.
+    .order('activity_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(PAGE_SIZE);
+
+  if (cursor) {
+    // Keyset koşulu: (activity_at, id) < (cursor.activityAt, cursor.id)
+    //   activity_at < X   VEYA   (activity_at = X VE id < Y)
+    //
+    // Damga `toISOString()` ile normalize ediliyor: Postgres'ten "+00:00"
+    // ekiyle dönebiliyor ve `+` karakteri PostgREST'in `or=` ifadesinde
+    // URL kodlamasına takılabilirdi. "Z" biçiminde bu risk yok.
+    // Değerler çift tırnak içinde — `:` ve `-` gibi karakterlerin ayrıştırıcı
+    // tarafından yorumlanmasını engeller.
+    const ts = new Date(cursor.activityAt).toISOString();
+    query = query.or(
+      `activity_at.lt."${ts}",and(activity_at.eq."${ts}",id.lt."${cursor.id}")`
+    );
+  }
+
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.list', () => query);
 
   if (error) throw error;
-  const mapped = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
-  feedCache = { data: mapped, fetchedAt: Date.now() };
-  return mapped;
+
+  const rows = (data ?? []) as unknown as FeedActivityRow[];
+  const items = rows.map(mapRow);
+
+  // `hasMore`: tam sayfa döndüyse muhtemelen devamı var. Son sayfa tam
+  // dolduğunda bir sonraki istek boş dönüp `hasMore`u kapatır — bir fazladan
+  // istek pahasına, "devamı var mı" için ekstra bir COUNT sorgusundan kaçınmış
+  // oluyoruz (count her sayfada tüm tabloyu taratırdı).
+  const hasMore = rows.length === PAGE_SIZE;
+  const last = rows[rows.length - 1];
+  const page: FeedPage = {
+    items,
+    hasMore,
+    nextCursor: hasMore && last ? { activityAt: last.activity_at, id: last.id } : null,
+  };
+
+  if (isFirstPage) feedCache = { page, fetchedAt: Date.now() };
+  return page;
 }
 
 /**
@@ -152,16 +225,39 @@ export async function fetchFeedActivities(force = false): Promise<FeedActivity[]
  * ediyor muyum" diye sorgu atmak yerine kümeyi bir kez çözüp bellekte
  * tutuyoruz — eleme tek bir `Set.has()` çağrısı oluyor.
  */
-export async function getVisibleUserIds(): Promise<Set<string>> {
+// Kısa ömürlü önbellek: sonsuz kaydırmada HER sayfa bu kümeye ihtiyaç duyar;
+// önbelleksiz her sayfa için fazladan bir `users` sorgusu atılırdı. Takip
+// listesi zaten `followStore`'un kendi TTL'iyle yönetiliyor, buradaki 60 sn
+// yalnızca slug→uuid çevirisini tekrarlamamak için.
+let visibleUserIdsCache: { ids: Set<string>; fetchedAt: number } | null = null;
+
+/** Takip/çıkış sonrası küme bayat kalmasın diye. */
+export function invalidateVisibleUserIds(): void {
+  visibleUserIdsCache = null;
+}
+
+export async function getVisibleUserIds(force = false): Promise<Set<string>> {
+  if (!force && visibleUserIdsCache && Date.now() - visibleUserIdsCache.fetchedAt < CACHE_TTL.SHORT) {
+    return visibleUserIdsCache.ids;
+  }
+
+  // Kendi slug'ım BİLİNÇLİ OLARAK dahil — kullanıcı kendi aktivitelerini de
+  // akışta görür (bkz. docs/HISTORY.md Madde 142). Takip ettiklerim + ben.
   const [followingSlugs, mySlug] = await Promise.all([getFollowingSlugs(), getMyTraktSlug()]);
   const slugs = Array.from(new Set(mySlug ? [...followingSlugs, mySlug] : followingSlugs));
-  if (slugs.length === 0) return new Set();
+  if (slugs.length === 0) {
+    const empty = new Set<string>();
+    visibleUserIdsCache = { ids: empty, fetchedAt: Date.now() };
+    return empty;
+  }
 
   const { data, error } = await timeSupabaseCall('supabase.users.visibleIds', () =>
     supabase.from('users').select('id').in('trakt_slug', slugs)
   );
   if (error) throw error;
-  return new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
+  const ids = new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
+  visibleUserIdsCache = { ids, fetchedAt: Date.now() };
+  return ids;
 }
 
 /**
