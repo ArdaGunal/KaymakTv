@@ -95,11 +95,14 @@ export function clearFeedPublishIdentity(): void {
  */
 export function tempActivityId(a: {
   activityType: string;
-  showId: number;
+  // Opsiyonel: 'posted' tipi yapım seçilmeden paylaşılabilir (bkz.
+  // 017_feed_posts.sql) — `?? ''` ile string'e düşer, benzersizliği zaten
+  // activityAt (ms hassasiyetinde) sağlıyor.
+  showId?: number;
   episodeNumber?: string | null;
   activityAt: string;
 }): string {
-  return `temp-${a.activityType}-${a.showId}-${a.episodeNumber ?? ''}-${new Date(a.activityAt).getTime()}`;
+  return `temp-${a.activityType}-${a.showId ?? ''}-${a.episodeNumber ?? ''}-${new Date(a.activityAt).getTime()}`;
 }
 
 function toOptimisticActivity(activity: PublishableActivity, me: FeedActivity['user']): FeedActivity {
@@ -116,6 +119,10 @@ function toOptimisticActivity(activity: PublishableActivity, me: FeedActivity['u
     rating: activity.rating,
     activityAt: activity.activityAt,
     isPending: true,
+    // Taze bir yayın — henüz kimse yorum/beğeni bırakmış olamaz. Sunucu
+    // sürümü (gerçek sayaçlarla) Realtime yankısıyla bu geçici kartı değiştirir.
+    likeCount: 0,
+    commentCount: 0,
   };
 }
 
@@ -184,6 +191,99 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
     console.warn('[Feed] Aktivite yayınlanamadı:', error);
   } finally {
     recordApiLatency('worker.feed.publish', Date.now() - start);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Bağımsız Gönderi ("Fikir Paylaş") — bkz. supabase/schema/017_feed_posts.sql
+// ═════════════════════════════════════════════════════════════════════════
+// `publishActivities`'ten (yukarı) FARKLI olarak ATEŞLE-VE-UNUT DEĞİL: bu,
+// kullanıcının bir compose ekranında AKTİF olarak beklediği bir eylem —
+// başarısız/başarılı sonucu geri döndürülür ki modal doğru geri bildirimi
+// gösterebilsin (bkz. useFeedComments.submitComment ile AYNI desen).
+
+export interface PublishablePost {
+  body: string;
+  spoiler: boolean;
+  /** OPSİYONEL — kullanıcı yapım seçmeden de genel bir gönderi paylaşabilir. */
+  show?: {
+    showId: number;
+    mediaType: FeedMediaType;
+    showTitle: string;
+    tmdbId?: number;
+  };
+}
+
+function toOptimisticPost(input: PublishablePost, me: FeedActivity['user'], activityAt: string): FeedActivity {
+  return {
+    id: tempActivityId({ activityType: 'posted', showId: input.show?.showId, activityAt }),
+    user: me,
+    activityType: 'posted',
+    showId: input.show?.showId,
+    mediaType: input.show?.mediaType,
+    tmdbId: input.show?.tmdbId,
+    showTitle: input.show?.showTitle,
+    showPosterUrl: null,
+    activityAt,
+    note: input.body,
+    noteSpoiler: input.spoiler,
+    isPending: true,
+    likeCount: 0,
+    commentCount: 0,
+  };
+}
+
+export async function publishPost(input: PublishablePost): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!KAYMAK_WORKER_URL) return { ok: false, message: 'Sunucu adresi tanımlı değil.' };
+
+  const token = await SecureStore.getItemAsync('traktAccessToken');
+  if (!token) return { ok: false, message: 'Oturum bulunamadı.' };
+
+  const me = await resolveMe();
+  if (!me) return { ok: false, message: 'Kimliğin doğrulanamadı, tekrar dene.' };
+
+  // Yalnızca YEREL, geçici karta damga basmak için — 'posted' Trakt'la hiç
+  // senkronize olmadığından (bkz. Worker handleFeedPost) sunucunun kendi
+  // ürettiği damgayla piksel hassasiyetinde eşleşmesi gerekmiyor; Realtime/
+  // yenileme geldiğinde gerçek satır bunun yerini alır.
+  const activityAt = nowStamp();
+  const optimistic = toOptimisticPost(input, me, activityAt);
+  const store = useFeedStore.getState();
+  store.upsertActivity(optimistic, false);
+
+  const start = Date.now();
+  try {
+    const response = await axios.post(
+      `${KAYMAK_WORKER_URL}/feed/post`,
+      {
+        traktAccessToken: token,
+        body: input.body,
+        spoiler: input.spoiler,
+        showId: input.show?.showId,
+        mediaType: input.show?.mediaType,
+        tmdbId: input.show?.tmdbId,
+        showTitle: input.show?.showTitle,
+      },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 12000 }
+    );
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || 'Gönderi paylaşılamadı.');
+    }
+
+    invalidateFeedCache();
+    invalidateUserFeedActivitiesCache(me.traktSlug);
+    recordMutationResult('publishPost', true);
+    return { ok: true };
+  } catch (error: any) {
+    // Yayınlanmamış bir şeyi ekranda bırakmak kullanıcıya YALAN olurdu.
+    store.removeActivity(optimistic.id);
+    recordMutationResult('publishPost', false);
+    logError('feedPublish.publishPost', error);
+    console.warn('[Feed] Gönderi paylaşılamadı:', error);
+    return { ok: false, message: error?.response?.data?.message || error?.message || 'Gönderi paylaşılamadı.' };
+  } finally {
+    recordApiLatency('worker.feed.post', Date.now() - start);
   }
 }
 

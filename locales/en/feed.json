@@ -16,5 +16,47 @@
   "publicProfileEmptyTitle": "No activity yet",
   "publicProfileEmptyText": "This user hasn't watched or rated anything yet.",
   "publicProfileNotFound": "This user couldn't be found.",
-  "publicProfileLoadError": "Couldn't load profile. Please try again."
+  "publicProfileLoadError": "Couldn't load profile. Please try again.",
+
+  "cancel": "Cancel",
+  "save": "Save",
+  "spoilerReveal": "Contains a spoiler — tap to reveal",
+  "spoilerToggle": "Contains spoiler",
+
+  "noteEditorTitle": "Quote",
+  "noteEditorTitleEdit": "Edit Quote",
+  "noteEditorPlaceholder": "What did you think of this?",
+  "quoteAction": "Quote",
+
+  "commentsTitle": "Feed Comments",
+  "commentsError": "Couldn't load comments.",
+  "commentsEmpty": "No comments yet — be the first to write one.",
+  "commentPlaceholder": "Write a comment...",
+
+  "block": "Block",
+  "unblock": "Unblock",
+  "blockConfirmTitle": "Block this user?",
+  "blockConfirmMessage": "You won't see their activity or comments anymore. This does NOT affect your follow status on Trakt.",
+  "unblockConfirmTitle": "Unblock this user?",
+  "unblockConfirmMessage": "You'll start seeing their activity again.",
+  "blockedProfileTitle": "You Can't View This Profile",
+  "blockedProfileText": "There's a block relationship between you and this user.",
+  "blockedUsersTitle": "Blocked Users",
+  "blockedUsersError": "Couldn't load the list.",
+  "blockedUsersEmptyTitle": "You haven't blocked anyone",
+  "blockedUsersEmptyText": "Users you block will be listed here.",
+
+  "readMore": "See more",
+  "fullTextTitle": "Full Text",
+
+  "composePlaceholder": "What's on your mind?",
+  "composeTitle": "Share a Thought",
+  "composeBodyPlaceholder": "What do you think about a show or movie?",
+  "composeAddMedia": "Add Show/Movie (optional)",
+  "publish": "Post",
+
+  "mediaPickerTitle": "Pick a Show or Movie",
+  "mediaPickerSearchPlaceholder": "Search shows or movies...",
+  "mediaPickerHint": "Type at least 2 characters to search.",
+  "mediaPickerEmpty": "No results found."
 }

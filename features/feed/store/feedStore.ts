@@ -62,6 +62,14 @@ interface FeedState {
   removeActivity: (id: string) => void;
   /** Optimistic kartı sunucudan dönen gerçek satırla değiştirir. */
   replaceActivity: (tempId: string, activity: FeedActivity) => void;
+  /**
+   * Var olan bir aktiviteye KISMİ bir güncelleme uygular (ör. Realtime'dan
+   * gelen like_count/comment_count değişimi) — `upsertActivity`'nin aksine
+   * TAM bir FeedActivity gerektirmez. Aktivite şu an listede yoksa no-op
+   * (ör. henüz yüklenmemiş bir sayfadaysa, bir sonraki fetch zaten güncel
+   * sayıyı getirir).
+   */
+  patchActivity: (id: string, patch: Partial<FeedActivity>) => void;
   clearUnseen: () => void;
   reset: () => void;
 }
@@ -140,6 +148,15 @@ export const useFeedStore = create<FeedState>((set) => ({
         return { activities: withoutTemp };
       }
       return { activities: sortDesc([activity, ...withoutTemp]) };
+    }),
+
+  patchActivity: (id, patch) =>
+    set((state) => {
+      const index = state.activities.findIndex((a) => a.id === id);
+      if (index === -1) return state; // listede yok, no-op
+      const next = [...state.activities];
+      next[index] = { ...next[index], ...patch };
+      return { activities: next };
     }),
 
   clearUnseen: () => set({ unseenCount: 0 }),

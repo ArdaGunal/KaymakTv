@@ -89,6 +89,32 @@ export function useFeedRealtime(enabled: boolean): void {
             }
           }
         )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'feed_activities' },
+          (payload) => {
+            // Sosyal katman: biri bir aktiviteyi beğendiğinde/yorumladığında
+            // (veya sahibi notunu değiştirdiğinde) like_count/comment_count/
+            // note DB'de değişir — bu da bir UPDATE'tir (bkz.
+            // supabase/schema/015_feed_social.sql trigger'ları). REPLICA
+            // IDENTITY FULL sayesinde (013_realtime_feed.sql) `payload.new`
+            // TAM satırı taşır, `user` join'i olmadan bile kısmi güncelleme
+            // yeterli — kart zaten listede var, yalnızca sayıları değişiyor.
+            const row: any = payload.new;
+            if (!row?.id || !row?.user_id) return;
+            if (!visibleIdsRef.current.has(row.user_id)) return;
+
+            useFeedStore.getState().patchActivity(row.id, {
+              likeCount: row.like_count ?? 0,
+              commentCount: row.comment_count ?? 0,
+              note: row.note ?? null,
+              noteSpoiler: row.note_spoiler ?? false,
+              // isLikedByMe BİLİNÇLİ OLARAK dokunulmuyor — bu satırda yok
+              // (Supabase Auth olmadığı için auth.uid() bazlı bir kolon
+              // mümkün değil), yalnızca client'ın kendi eylemiyle değişir.
+            });
+          }
+        )
         .subscribe();
 
       channelRef.current = channel;

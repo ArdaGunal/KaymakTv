@@ -6,6 +6,9 @@ export interface UseErrorLogResult {
   isLoading: boolean;
   isRefreshing: boolean;
   refresh: () => Promise<void>;
+  /** `usePerfLog.ts`teki `silentRefresh` ile AYNI gerekçe — Canlı İzleme
+   * modu için `isRefreshing`e dokunmayan sessiz yeniden yükleme. */
+  silentRefresh: () => Promise<void>;
   clear: () => Promise<void>;
 }
 
@@ -44,5 +47,5 @@ export function useErrorLog(): UseErrorLogResult {
     setEntries([]);
   }, []);
 
-  return { entries, isLoading, isRefreshing, refresh, clear };
+  return { entries, isLoading, isRefreshing, refresh, silentRefresh: load, clear };
 }

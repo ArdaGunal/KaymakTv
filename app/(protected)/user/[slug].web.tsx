@@ -15,6 +15,11 @@ import FeedCard from '../../../features/feed/components/FeedCard';
 import MarathonFeedCard from '../../../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import SkeletonLoader from '../../../components/SkeletonLoader';
+import BlockUserButton from '../../../features/feed/components/BlockUserButton';
+import BlockedProfileLock from '../../../features/feed/components/BlockedProfileLock';
+import { useBlockState } from '../../../features/feed/hooks/useBlockState';
+import { useMyTraktSlug } from '../../../features/feed/hooks/useMyTraktSlug';
+import { useAuth } from '../../../context/AuthContext';
 import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 import MediaPoster from '../../../components/MediaPoster';
 import { generateMediaSlug } from '../../../utils/slugHelper';
@@ -37,6 +42,15 @@ export default function PublicProfileScreenWeb() {
   const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
   const { data: activityData, isLoading: isActivityLoading } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
+
+  // Engelleme (bkz. docs/FEED_SOCIAL_PLAN.md §4) — dar ekran dalıyla (
+  // screens/PublicProfileMobile.tsx) AYNI mantık, ayrı bir header/layout
+  // olduğu için burada da ayrıca bağlanıyor.
+  const { accessToken, isGuest } = useAuth();
+  const myTraktSlug = useMyTraktSlug();
+  const { isBlockedEitherWay } = useBlockState(followSlug);
+  const canShowBlockButton =
+    !!accessToken && !isGuest && !!profile && !!myTraktSlug && profile.ids?.slug !== myTraktSlug;
 
   const [activeTab, setActiveTab] = useState<'activity' | 'shows' | 'movies'>('activity');
   const { width } = useWindowDimensions();
@@ -66,10 +80,13 @@ export default function PublicProfileScreenWeb() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.8}>
-          <ChevronLeft size={18} color="#cbd5e1" />
-          <Text style={styles.backButtonText}>{t('media:goBack', 'Geri Dön')}</Text>
-        </TouchableOpacity>
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.8}>
+            <ChevronLeft size={18} color="#cbd5e1" />
+            <Text style={styles.backButtonText}>{t('media:goBack', 'Geri Dön')}</Text>
+          </TouchableOpacity>
+          {canShowBlockButton && <BlockUserButton traktSlug={followSlug as string} />}
+        </View>
 
         {isProfileLoading ? (
           <View style={styles.headerCard}>
@@ -167,6 +184,10 @@ export default function PublicProfileScreenWeb() {
               </TouchableOpacity>
             </View>
 
+            {isBlockedEitherWay ? (
+              <BlockedProfileLock />
+            ) : (
+              <>
             <View style={styles.tabsContainer}>
               <TouchableOpacity style={[styles.tab, activeTab === 'activity' && styles.activeTab]} onPress={() => setActiveTab('activity')}>
                 <Text style={[styles.tabText, activeTab === 'activity' && styles.activeTabText]}>Aktiviteler</Text>
@@ -244,6 +265,8 @@ export default function PublicProfileScreenWeb() {
                 )}
               </View>
             )}
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -265,12 +288,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 'auto' as any,
     paddingHorizontal: 24,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    marginBottom: 20,
     paddingVertical: 6,
     paddingRight: 10,
     ...({ cursor: 'pointer' } as any),

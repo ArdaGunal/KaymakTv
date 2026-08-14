@@ -8,10 +8,23 @@ const MAX_ENTRIES = 60;
  * yükleme, toplam açılış — bkz. useVersionGate.ts / AuthContext.tsx / _layout.tsx). */
 export type PerfCategory = 'network' | 'startup';
 
-/** Geliştirici Paneli'nin "Yavaş" saydığı eşik — hem satır rengi hem de
- * üstteki "Yavaş (>500ms)" istatistik kartı BU sabitten türetilir, iki
- * yerde ayrı ayrı "500" yazılmaz. */
+/** Geliştirici Paneli'nin ölçüm satırlarını (nokta rengi + süre rengi) VE
+ * üstteki istatistik kartlarını sınıflandırdığı İKİ eşik — üç ayrı yerde
+ * (satır rengi, "Orta"/"Kritik" kart sayaçları) ayrı ayrı "500"/"2000"
+ * yazılmasın diye TEK kaynak burası. Bantlar AYRIKTIR (birbirini kapsamaz):
+ * yeşil ≤500ms, turuncu (500ms, 2000ms], kırmızı >2000ms. */
 export const SLOW_THRESHOLD_MS = 500;
+export const CRITICAL_THRESHOLD_MS = 2000;
+
+/** Geliştirici Paneli'ndeki mini süre çubuğunun (DurationBar) "dolu" saydığı
+ * üst sınır — TEK kaynak burası, bileşen kendi başına bir tavan icat etmez.
+ * Listedeki EN YAVAŞ isteğe göre ORANTILI ölçeklemek YERİNE sabit bir tavan
+ * seçildi: aksi halde tek bir 30sn'lik zaman aşımı, diğer TÜM çubukları
+ * görünmez kılacak kadar küçültürdü (liste her değiştiğinde de anlamı
+ * kayardı). 3000ms, kritik eşiğin (2000ms) hemen ötesinde bir nefes payı
+ * bırakır: kritik istekler bile bar'ı her zaman tam doldurmaz.
+ */
+export const BAR_MAX_MS = 3000;
 
 export interface PerfMark {
   timestamp: number;
@@ -21,6 +34,13 @@ export interface PerfMark {
   name: string;
   category: PerfCategory;
   durationMs: number;
+  /** HTTP durum kodu — yalnızca `category: 'network'` için dolu (Trakt
+   * yanıt VERDİYSE, bkz. traktClient.ts). Yanıtsız ağ hataları (timeout/DNS)
+   * zaten hiç `recordPerfMark` çağırmıyor (bkz. `recordApiLatency` ile AYNI
+   * kural) — yani bir 'network' satırında bu alan varsa her zaman gerçek bir
+   * sunucu yanıtını temsil eder, "bilinmiyor" durumu yoktur. 'startup'
+   * ölçümlerinde HİÇ yoktur (HTTP isteği değildir). */
+  statusCode?: number;
 }
 
 // errorLog.ts'teki SIRALI yazma kuyruğuyla AYNI desen: art arda hızlı gelen
@@ -36,8 +56,19 @@ let writeQueue: Promise<void> = Promise.resolve();
  * göstermesi için ayrı bir kayıt tutar. Yazma fire-and-forget'tir — ana
  * akışı asla bloklamaz/bozmaz (bkz. errorLog.ts'teki aynı gerekçe).
  */
-export const recordPerfMark = (name: string, category: PerfCategory, durationMs: number): void => {
-  const entry: PerfMark = { timestamp: Date.now(), name, category, durationMs: Math.round(durationMs) };
+export const recordPerfMark = (
+  name: string,
+  category: PerfCategory,
+  durationMs: number,
+  statusCode?: number
+): void => {
+  const entry: PerfMark = {
+    timestamp: Date.now(),
+    name,
+    category,
+    durationMs: Math.round(durationMs),
+    ...(statusCode ? { statusCode } : {}),
+  };
 
   writeQueue = writeQueue.then(async () => {
     try {

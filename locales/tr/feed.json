@@ -15,5 +15,47 @@
   "publicProfileEmptyTitle": "Henüz aktivite yok",
   "publicProfileEmptyText": "Bu kullanıcı henüz bir şey izlemedi veya puanlamadı.",
   "publicProfileNotFound": "Bu kullanıcı bulunamadı.",
-  "publicProfileLoadError": "Profil yüklenemedi. Lütfen tekrar deneyin."
+  "publicProfileLoadError": "Profil yüklenemedi. Lütfen tekrar deneyin.",
+
+  "cancel": "Vazgeç",
+  "save": "Kaydet",
+  "spoilerReveal": "Spoiler var — görmek için dokun",
+  "spoilerToggle": "Spoiler içeriyor",
+
+  "noteEditorTitle": "Alıntı Yap",
+  "noteEditorTitleEdit": "Alıntıyı Düzenle",
+  "noteEditorPlaceholder": "Bu yapım hakkında ne düşünüyorsun?",
+  "quoteAction": "Alıntı Yap",
+
+  "commentsTitle": "Akış Yorumları",
+  "commentsError": "Yorumlar yüklenemedi.",
+  "commentsEmpty": "Henüz yorum yok — ilk yorumu sen yaz.",
+  "commentPlaceholder": "Bir yorum yaz...",
+
+  "block": "Engelle",
+  "unblock": "Engeli Kaldır",
+  "blockConfirmTitle": "Kullanıcıyı Engelle?",
+  "blockConfirmMessage": "Bu kullanıcının aktivitelerini ve yorumlarını bir daha görmeyeceksin. Bu işlem Trakt hesabındaki takip durumunu ETKİLEMEZ.",
+  "unblockConfirmTitle": "Engeli Kaldır?",
+  "unblockConfirmMessage": "Bu kullanıcının aktivitelerini tekrar görmeye başlayacaksın.",
+  "blockedProfileTitle": "Bu Profili Görüntüleyemezsin",
+  "blockedProfileText": "Bu kullanıcıyla aranızda bir engelleme ilişkisi var.",
+  "blockedUsersTitle": "Engellenen Kullanıcılar",
+  "blockedUsersError": "Liste yüklenemedi.",
+  "blockedUsersEmptyTitle": "Kimseyi engellemedin",
+  "blockedUsersEmptyText": "Engellediğin kullanıcılar burada listelenir.",
+
+  "readMore": "Devamını gör",
+  "fullTextTitle": "Tam Metin",
+
+  "composePlaceholder": "Ne düşünüyorsun?",
+  "composeTitle": "Fikir Paylaş",
+  "composeBodyPlaceholder": "Bir dizi/film hakkında ne düşünüyorsun?",
+  "composeAddMedia": "Dizi/Film Ekle (opsiyonel)",
+  "publish": "Paylaş",
+
+  "mediaPickerTitle": "Bir Yapım Seç",
+  "mediaPickerSearchPlaceholder": "Dizi veya film ara...",
+  "mediaPickerHint": "Aramak için en az 2 karakter yaz.",
+  "mediaPickerEmpty": "Sonuç bulunamadı."
 }

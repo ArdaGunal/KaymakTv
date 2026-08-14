@@ -1,20 +1,23 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
-import { Copy, Activity } from 'lucide-react-native';
+import { Copy, RefreshCw, Activity, Bug } from 'lucide-react-native';
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import Snackbar from '../../components/Snackbar';
 import StatCard from '../../components/devPanel/StatCard';
 import PerformanceTab from '../../components/devPanel/PerformanceTab';
 import ErrorsTab from '../../components/devPanel/ErrorsTab';
-import SendReportButton from '../../components/devPanel/SendReportButton';
+import SendReportModal from '../../components/devPanel/SendReportModal';
+import LiveModeToggle from '../../components/devPanel/LiveModeToggle';
 import { useDeveloperPanel } from '../../hooks/useDeveloperPanel';
 import { confirmAsync } from '../../utils/confirmDialog';
 import type { PerfCategory } from '../../utils/perfLog';
+
+const LIVE_MODE_INTERVAL_MS = 4000;
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -24,6 +27,7 @@ export default function DeveloperPanelScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation(['settings', 'common']);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
   const {
@@ -34,13 +38,29 @@ export default function DeveloperPanelScreen() {
     isLoading,
     isRefreshing,
     refresh,
+    silentRefresh,
     clearPerf,
     clearErrors,
   } = useDeveloperPanel();
 
   const [activeTab, setActiveTab] = useState<DevPanelTab>('performance');
   const [selectedCategory, setSelectedCategory] = useState<PerfCategory | null>(null);
+  const [sendModalVisible, setSendModalVisible] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
+
+  // Canlı İzleme: panel bu ekrandan ÇIKINCA (unmount) veya anahtar KAPATILINCA
+  // temizlenir — arka planda sonsuza dek çalışan bir zamanlayıcı KALMAZ.
+  // `silentRefresh` kullanılır (`refresh` DEĞİL): aksi hâlde her 4 saniyede
+  // bir RefreshControl döngüsü görünür biçimde "titrerdi", kullanıcı hiçbir
+  // şeyi elle çekmediği hâlde.
+  useEffect(() => {
+    if (!liveMode) return;
+    const interval = setInterval(() => {
+      silentRefresh();
+    }, LIVE_MODE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [liveMode, silentRefresh]);
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();
@@ -97,18 +117,62 @@ export default function DeveloperPanelScreen() {
     }
   }, [errorEntries, t, showToast]);
 
+  // Başlığın sağındaki aksiyon butonları: Hata Raporu Gönder (CTA), Yenile ve Kopyala.
+  const headerActions = (
+    <View style={styles.headerActions}>
+      <TouchableOpacity
+        style={styles.sendReportHeaderBtn}
+        onPress={() => setSendModalVisible(true)}
+        activeOpacity={0.8}
+        accessibilityLabel={t('settings:devPanelSendReport', 'Teşhis Raporu Gönder')}
+      >
+        <Bug size={15} color="#ffffff" />
+        <Text style={styles.sendReportHeaderBtnText}>
+          {t('settings:devPanelSendReport', 'Teşhis Raporu Gönder')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.headerIconBtn}
+        onPress={refresh}
+        activeOpacity={0.7}
+        accessibilityLabel={t('settings:devPanelRefreshAction', 'Yenile')}
+      >
+        <RefreshCw size={15} color="#94a3b8" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.headerIconBtn}
+        onPress={handleCopyReport}
+        activeOpacity={0.7}
+        accessibilityLabel={t('settings:devPanelCopyReport', 'Raporu Kopyala')}
+      >
+        <Copy size={15} color="#94a3b8" />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <SettingsHeader title={t('settings:devPanelTitle', 'Geliştirici Paneli')} isDesktop={isDesktop} onBack={navigateBack} />
+      <SettingsHeader
+        title={t('settings:devPanelTitle', 'Geliştirici Paneli')}
+        isDesktop={isDesktop}
+        onBack={navigateBack}
+        rightSlot={headerActions}
+      />
 
       <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-        {/* Üstteki 4 istatistik kartı — her zaman görünür, sekmeden bağımsız. */}
+        {/* Üstteki 5 istatistik kartı */}
         <View style={styles.statsRow}>
           <StatCard value={stats.totalMeasurements} label={t('settings:devPanelStatMeasurements', 'Ölçüm')} />
           <StatCard
-            value={stats.slowCount}
-            label={t('settings:devPanelStatSlow', 'Yavaş (>500ms)')}
+            value={stats.moderateCount}
+            label={t('settings:devPanelStatModerate', 'Orta (500ms-2sn)')}
             accentColor="#f59e0b"
+          />
+          <StatCard
+            value={stats.criticalCount}
+            label={t('settings:devPanelStatCritical', 'Kritik (>2sn)')}
+            accentColor="#ef4444"
           />
           <StatCard
             value={stats.errorCount24h}
@@ -144,6 +208,8 @@ export default function DeveloperPanelScreen() {
           </TouchableOpacity>
         </View>
 
+        <LiveModeToggle enabled={liveMode} onToggle={setLiveMode} />
+
         {activeTab === 'performance' ? (
           <PerformanceTab
             entries={perfEntries}
@@ -167,16 +233,30 @@ export default function DeveloperPanelScreen() {
             locale={i18n.language}
           />
         )}
-
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.copyButton} onPress={handleCopyReport} activeOpacity={0.75}>
-            <Copy size={15} color="#94a3b8" />
-            <Text style={styles.copyButtonText}>{t('settings:devPanelCopyReport', 'Raporu Kopyala')}</Text>
-          </TouchableOpacity>
-
-          <SendReportButton perfEntries={perfEntries} errorEntries={errorEntries} onResult={showToast} />
-        </View>
       </View>
+
+      {/* Mobilde ekranın altındaki gezinme ve güvenli alanları gözeterek belirgin Teşhis Raporu butonu */}
+      {!isDesktop && (
+        <View style={[styles.mobileBottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <TouchableOpacity
+            style={styles.mobileReportBtn}
+            onPress={() => setSendModalVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Bug size={18} color="#ffffff" />
+            <Text style={styles.mobileReportBtnText}>
+              {t('settings:devPanelSendReportMobile', 'Hata & Teşhis Raporu Gönder')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <SendReportModal
+        visible={sendModalVisible}
+        onClose={() => setSendModalVisible(false)}
+        perfEntries={perfEntries}
+        errorEntries={errorEntries}
+      />
 
       <Snackbar
         visible={toast.visible}
@@ -203,8 +283,41 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 0,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sendReportHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sendReportHeaderBtnText: {
+    color: '#ffffff',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  headerIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 16,
   },
@@ -239,27 +352,35 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  footer: {
-    paddingTop: 12,
-    paddingBottom: 20,
-    gap: 10,
+  mobileBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(11, 17, 32, 0.95)',
+    paddingTop: 10,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  copyButton: {
+  mobileReportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    minHeight: 42,
-    borderRadius: 12,
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#dc2626',
+    borderRadius: 14,
+    paddingVertical: 14,
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  copyButtonText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
+  mobileReportBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

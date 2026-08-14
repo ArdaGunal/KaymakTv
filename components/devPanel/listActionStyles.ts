@@ -24,7 +24,8 @@ export const listActionStyles = StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    paddingBottom: 20,
+    // 80: mobil alt aksiyon çubuğu (mobileBottomBar) için yeterli alt boşluk.
+    paddingBottom: 80,
     gap: 10,
   },
 });

@@ -1,6 +1,6 @@
-import React, { useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions } from 'react-native';
-import { Rss, WifiOff, ArrowUp } from 'lucide-react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
+import { Rss, WifiOff, ArrowUp, RefreshCw } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FeedCard from '../../../features/feed/components/FeedCard';
@@ -8,8 +8,11 @@ import MarathonFeedCard from '../../../features/feed/components/MarathonFeedCard
 import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import UserSearchBar from '../../../features/feed/components/UserSearchBar';
 import UserProfileCard from '../../../features/feed/components/UserProfileCard';
+import ComposePostBar from '../../../features/feed/components/ComposePostBar';
+import ComposePostModal from '../../../features/feed/components/ComposePostModal';
 import { useFeed } from '../../../features/feed/hooks/useFeed';
 import { useUserSearch } from '../../../features/feed/hooks/useUserSearch';
+import { useAuth } from '../../../context/AuthContext';
 import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 
 const DESKTOP_BREAKPOINT = 768;
@@ -32,6 +35,8 @@ export default function FeedScreen() {
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const search = useUserSearch();
   const listRef = useRef<FlatList<FeedItem>>(null);
+  const { accessToken, isGuest } = useAuth();
+  const [composeVisible, setComposeVisible] = useState(false);
 
   const hasSearchResult = !!search.profile || !!search.error;
 
@@ -84,7 +89,36 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-        <Text style={styles.title}>{t('feed', 'Akış')}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{t('feed', 'Akış')}</Text>
+
+          {/* react-native-web'de RefreshControl bir no-op (bkz. node_modules/
+              react-native-web/src/exports/RefreshControl — onRefresh'i hiç
+              çağırmaz, sadece düz bir View render eder). Yani mobilde parmakla
+              aşağı çekip yenileyebilirken web'de bunu tetiklemenin HİÇBİR yolu
+              yoktu — realtime kısa süreliğine koparsa web kullanıcısı sekmeyi
+              kapatıp açmadan asla tazeleyemezdi. Yalnızca web'de görünen bu
+              buton aynı `refresh()`'i çağırarak parite sağlıyor. */}
+          {Platform.OS === 'web' && (
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={refresh}
+              disabled={isRefreshing}
+              activeOpacity={0.7}
+            >
+              <RefreshCw size={16} color={isRefreshing ? '#334155' : '#94a3b8'} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* "Ne düşünüyorsun?" kutusu — bağımsız gönderi ("Fikir Paylaş")
+            özelliğinin TEK giriş noktası, kullanıcının kararı: FAB değil,
+            akışın doğal bir parçası hissettiren sabit bir kutu. Misafirin
+            paylaşacak bir kimliği yok, bu yüzden yalnızca gerçek kullanıcıya
+            gösterilir (diğer feed-yazma eylemleriyle AYNI guard). */}
+        {!!accessToken && !isGuest && (
+          <ComposePostBar onPress={() => setComposeVisible(true)} />
+        )}
 
         <UserSearchBar
           query={search.query}
@@ -169,6 +203,8 @@ export default function FeedScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <ComposePostModal visible={composeVisible} onClose={() => setComposeVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -188,12 +224,27 @@ const styles = StyleSheet.create({
     maxWidth: 680,
     alignSelf: 'center',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   title: {
     color: '#f1f5f9',
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.5,
-    marginBottom: 16,
+  },
+  refreshButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#172033',
+    borderWidth: 1,
+    borderColor: '#22304A',
   },
   listContent: {
     paddingBottom: 40,

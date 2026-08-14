@@ -3,6 +3,9 @@
 **Son Güncelleme:** 2026-08-03
 **Durum:** ✅ Phase 1 **uçtan uca canlı doğrulandı** + **ince taneli gizlilik sistemi tamamlandı**. Gerçek kullanıcı verisiyle test edildi, `feed_activities` doluyor, Profil/Feed ekranları gerçek aktiviteleri gösteriyor, Ayarlar'da 3 bağımsız gizlilik anahtarı var. Yolda ciddi bir prodüksiyon bug'ı bulunup düzeltildi — bkz. `docs/HISTORY.md` Madde 89 (kısmi unique index'ler PostgREST `on_conflict` ile hiç çalışmıyormuş).
 
+### ✅ Sosyal Katman — Not/Alıntı, Yorum, Beğeni, Engelleme (Madde 155)
+Tam uygulandı: DB (`015_feed_social.sql`, `016_user_blocks.sql`) + Worker (6 uç nokta) + Client servisleri + Realtime + UI (kart altı beğeni/yorum, not editörü, yorum sheet'i, engelleme ekranları). Detaylı tasarım: [`docs/FEED_SOCIAL_PLAN.md`](FEED_SOCIAL_PLAN.md). Detay: `docs/HISTORY.md` Madde 155.
+
 ### 📄 Sayfalama & Veri Saklama (Madde 148)
 - **Sonsuz kaydırma:** sayfa başına 15 kayıt, `(activity_at, id)` **bileşik keyset imleci**. Basit imleç kullanılamaz — toplu sezon işaretlemesinde tüm bölümler aynı damgayı aldığı için sayfa sınırında kayıt kaybına yol açardı (regresyon testi mevcut).
 - **Sorgu:** `user_id IN (...)` ile filtreleniyor (takip ettiklerim + ben), böylece `idx_feed_activities_user_time` gerçekten kullanılıyor.

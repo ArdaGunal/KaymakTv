@@ -11,10 +11,15 @@ import ProfileHeaderSkeleton from '../components/profile/ProfileHeaderSkeleton';
 import FeedCard from '../features/feed/components/FeedCard';
 import MarathonFeedCard from '../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../features/feed/components/FeedSkeleton';
+import BlockUserButton from '../features/feed/components/BlockUserButton';
+import BlockedProfileLock from '../features/feed/components/BlockedProfileLock';
 import { usePublicProfile } from '../features/publicProfile/hooks/usePublicProfile';
 import { usePublicProfileActivity } from '../features/publicProfile/hooks/usePublicProfileActivity';
 import { usePublicProfileLibrary } from '../features/publicProfile/hooks/usePublicProfileLibrary';
 import { useFollowState } from '../hooks/useFollowState';
+import { useBlockState } from '../features/feed/hooks/useBlockState';
+import { useMyTraktSlug } from '../features/feed/hooks/useMyTraktSlug';
+import { useAuth } from '../context/AuthContext';
 import { FeedItem, isMarathonActivity } from '../features/feed/types';
 import MediaPoster from '../components/MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
@@ -48,6 +53,15 @@ export default function PublicProfileMobile() {
   const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
   const { data: activityData, isLoading: isActivityLoading } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
+
+  // Engelleme (bkz. docs/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel, Trakt
+  // takip durumunu hiç etkilemez. `isBlockedEitherWay` true ise sekmeler
+  // yerine kilit ekranı gösterilir.
+  const { accessToken, isGuest } = useAuth();
+  const myTraktSlug = useMyTraktSlug();
+  const { isBlockedEitherWay } = useBlockState(followSlug);
+  const canShowBlockButton =
+    !!accessToken && !isGuest && !!profile && !!myTraktSlug && profile.ids?.slug !== myTraktSlug;
 
   const NUM_COLUMNS = 3;
   const SPACING = 8;
@@ -104,7 +118,11 @@ export default function PublicProfileMobile() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {profile ? `@${profile.username}` : t('media:profile', 'Profil')}
         </Text>
-        <View style={styles.headerSpacer} />
+        {canShowBlockButton ? (
+          <BlockUserButton traktSlug={followSlug as string} />
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {isProfileLoading ? (
@@ -117,6 +135,8 @@ export default function PublicProfileMobile() {
               : t('feed:publicProfileLoadError', 'Profil yüklenemedi. Lütfen tekrar deneyin.')}
           </Text>
         </View>
+      ) : isBlockedEitherWay ? (
+        <BlockedProfileLock />
       ) : (
         <FlatList
           key={activeTab === 'activity' ? 'list-1' : `grid-${NUM_COLUMNS}`}

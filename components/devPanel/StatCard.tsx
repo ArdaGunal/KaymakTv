@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 
 interface StatCardProps {
   value: number;
@@ -9,14 +9,44 @@ interface StatCardProps {
   accentColor?: string;
 }
 
-const StatCard = memo(({ value, label, accentColor }: StatCardProps) => (
-  <View style={styles.card}>
-    <Text style={[styles.value, value > 0 && accentColor ? { color: accentColor } : null]}>
-      {value}
-    </Text>
-    <Text style={styles.label}>{label}</Text>
-  </View>
-));
+/** `#rrggbb` → `rgba(r,g,b,alpha)`. Yalnızca bu dosyada, tek bir yerde
+ * (kenarlık/ışıma rengi) kullanıldığı için ayrı bir util dosyasına
+ * çıkarılmadı — accentColor her zaman sabit bir hex palet (`#ef4444` vb.). */
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const value = parseInt(clean, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const StatCard = memo(({ value, label, accentColor }: StatCardProps) => {
+  const isActive = value > 0 && !!accentColor;
+
+  return (
+    <View
+      style={[
+        styles.card,
+        isActive && {
+          borderColor: hexToRgba(accentColor!, 0.45),
+          shadowColor: accentColor,
+          // Android'de renkli gölge (shadowColor) DESTEKLENMEZ — yalnızca gri
+          // `elevation` verir, bu da "ışıma" yerine sıradan bir kabartma
+          // gibi görünürdü. Bu yüzden Android'de ışıma KAPALI, vurgu yalnızca
+          // yukarıdaki renkli kenarlıktan gelir (zarif bir düşüş, sahte bir
+          // efekt değil). Web + iOS'ta gerçek renkli ışıma görünür.
+          shadowOpacity: Platform.OS === 'android' ? 0 : 0.5,
+          shadowOffset: { width: 0, height: 0 },
+          shadowRadius: 10,
+        },
+      ]}
+    >
+      <Text style={[styles.value, isActive && { color: accentColor }]}>{value}</Text>
+      <Text style={styles.label}>{label}</Text>
+    </View>
+  );
+});
 
 export default StatCard;
 

@@ -6,6 +6,12 @@ export interface UsePerfLogResult {
   isLoading: boolean;
   isRefreshing: boolean;
   refresh: () => Promise<void>;
+  /** `refresh` ile AYNI veri yükleme işlemi, ama `isRefreshing`i HİÇ
+   * dokunmaz — Canlı İzleme modunun arka planda birkaç saniyede bir sessizce
+   * tazelemesi için (bkz. dev-panel.tsx). `isRefreshing` her tetiklendiğinde
+   * RefreshControl döngüsü görsel olarak "titrerdi", kullanıcı hiçbir şey
+   * çekmediği hâlde. */
+  silentRefresh: () => Promise<void>;
   clear: () => Promise<void>;
 }
 
@@ -48,5 +54,5 @@ export function usePerfLog(): UsePerfLogResult {
     setEntries([]);
   }, []);
 
-  return { entries, isLoading, isRefreshing, refresh, clear };
+  return { entries, isLoading, isRefreshing, refresh, silentRefresh: load, clear };
 }

@@ -233,8 +233,9 @@ export const getTraktClient = async () => {
         // Geliştirici Paneli'nin Performans sekmesi TEKİL istekleri gösterir —
         // `recordApiLatency` (yukarıda) yalnızca saatlik histogramı besler,
         // hangi ÇAĞRININ ne kadar sürdüğünü kaybeder. İkisi AYNI ölçümden
-        // türer, birbirini geçersiz kılmaz.
-        recordPerfMark(key, 'network', durationMs);
+        // türer, birbirini geçersiz kılmaz. `response.status` burada zaten
+        // elde var — durum kodu rozetinin (StatusBadge) tek veri kaynağı.
+        recordPerfMark(key, 'network', durationMs, response.status);
       }
       return response;
     },
@@ -256,7 +257,7 @@ export const getTraktClient = async () => {
       if (breakerKey && originalRequest?._metricsStartTime && error.response) {
         const durationMs = Date.now() - originalRequest._metricsStartTime;
         recordApiLatency(breakerKey, durationMs);
-        recordPerfMark(breakerKey, 'network', durationMs);
+        recordPerfMark(breakerKey, 'network', durationMs, error.response.status);
       }
 
       // 401 hatası ve henüz tekrar denenmemişse

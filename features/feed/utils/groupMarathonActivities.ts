@@ -1,5 +1,5 @@
 /**
- * groupMarathonActivities — 12 Saatlik Kayan Pencere Gruplama Algoritması
+ * groupMarathonActivities — 24 Saatlik Kayan Pencere Gruplama Algoritması
  *
  * NEDEN BURADA, feedApi.ts'DE DEĞİL?
  * feedApi sayfalama (pagination) uyguladığında, aynı maratona ait bölümler
@@ -8,19 +8,41 @@
  *
  * NEDEN YYYY-MM-DD DEĞİL?
  * Takvim günü ile gruplama gece yarısı geçişlerinde yanlış sonuç verir.
- * Bunun yerine: "art arda izlenen iki bölüm arasındaki süre < 12 saat ise
+ * Bunun yerine: "art arda izlenen iki bölüm arasındaki süre < 24 saat ise
  * aynı maratona dahil et" kuralı kullanılır.
+ *
+ * NEDEN "FARKLI BÖLÜM SAYISI", HAM SATIR SAYISI DEĞİL:
+ * Aynı bölüm birden fazla kez işaretlenmiş olabilir (çift tıklama, tekrar
+ * izleme) — `feed_activities`'te aynı `episode_number` için birden fazla
+ * satır demektir. Ham satır sayısını saymak canlı bir bug'a yol açmıştı:
+ * tek bir bölüm iki kez işaretlenince "S03E01 - S03E01 arası izlendi ×2"
+ * gösteriyordu — aralığın aynı bölümle başlayıp bitmesi zaten "yinelenen"
+ * olduğunun kanıtıydı. Çözüm: gruptaki bölüm kodları bir `Set`e (aslında
+ * en-yeni-kazanır bir `Map`e, bkz. aşağı) indirgenir, sayaç/eşik HER ZAMAN
+ * bu tekilleştirilmiş kümeye göre hesaplanır. Yan etki: eşiğin altında kalan
+ * (maraton olmayan) gruplarda bile aynı bölümün yinelenen kayıtları TEK bir
+ * karta iner — akışta aynı "X izledi" iki kez görünmez.
  *
  * ALGORİTMA (Sliding Window, DESC):
  * 1. 'watched_episode' aktivitelerini ve diğerlerini ayır.
  * 2. Episode listesini activityAt DESC sırala (new Date().getTime() ile).
  * 3. Her episode için {userId}-{showId} anahtarlı açık bir grup ara.
- *    - Varsa ve gap < 12h → gruba ekle, lastTime'ı eski tarafa güncelle.
- *    - Varsa ama gap ≥ 12h → mevcut grubu kapat, yeni grup aç.
+ *    - Varsa ve gap < 24h → gruba ekle, lastTime'ı eski tarafa güncelle.
+ *    - Varsa ama gap ≥ 24h → mevcut grubu kapat, yeni grup aç.
  *    - Yoksa: yeni grup aç.
  * 4. Kalan açık grupları kapat.
- * 5. Boyutu ≥ 2 olan gruplar → MarathonActivity; boyutu 1 → FeedActivity.
+ * 5. Her grup için bölüm kodlarını tekilleştir (aynı koddan birden fazlası
+ *    varsa EN YENİSİ temsilci seçilir). Tekil bölüm sayısı ≥ 3 →
+ *    MarathonActivity; değilse HER farklı bölüm kendi tekil FeedActivity
+ *    kartı olarak kalır (gruplanmaz ama yine de tekilleştirilmiş olur).
  * 6. Tüm öğeleri activityAt DESC ile birleştirip döndür.
+ *
+ * İZOLASYON: Anahtar {userId}-{showId} olduğu için farklı diziler HİÇBİR
+ * ZAMAN birbirinin grubunu etkilemez. Kullanıcı aynı anda 5 diziyi paralel
+ * izleyip birini yarıda bırassa bile, o dizinin grubu kendi elindeki bölüm
+ * sayısıyla kapanır (ör. 2 bölümde kalmışsa maraton eşiğinin altında kalıp
+ * tekil kartlar olarak görünür) — diğer 4 dizinin sayacını/rozetini
+ * etkilemez, hepsi bağımsız hesaplanır.
  *
  * HATA AYIKLAMA:
  * Fonksiyonun en başında gelen ham aktivitelerin tipi ve episode numaraları
@@ -30,11 +52,26 @@
 
 import { FeedActivity, FeedItem, FeedUser, MarathonActivity } from '../types';
 
-/** 12 saat (ms cinsinden) — iki ardışık episode arasındaki max kabul edilebilir boşluk */
-const MARATHON_GAP_MS = 12 * 60 * 60 * 1000; // 43_200_000 ms
+/**
+ * `FeedActivity.showId`/`showTitle` artık opsiyonel (bkz. types.ts —
+ * `activityType === 'posted'` yapım seçilmeden paylaşılabiliyor). Maraton
+ * gruplaması yalnızca 'watched_episode' aktiviteleriyle çalışır ve bu tip
+ * için Worker showId/showTitle'ı HER ZAMAN zorunlu kılar — bu dar tip,
+ * TypeScript'e bu garantiyi ANLATIR (aşağıdaki `isGroupableEpisode` type
+ * guard'ı ile), her satırda `!` (non-null assertion) serpiştirmek yerine.
+ */
+type GroupableEpisode = FeedActivity & { showId: number; showTitle: string };
 
-/** En az kaç bölüm gruplanırsa MarathonActivity oluşturulsun */
-const MARATHON_MIN_COUNT = 2;
+function isGroupableEpisode(a: FeedActivity): a is GroupableEpisode {
+  return a.activityType === 'watched_episode' && !!a.episodeNumber && a.showId != null && a.showTitle != null;
+}
+
+/** 24 saat (ms cinsinden) — iki ardışık episode arasındaki max kabul edilebilir boşluk */
+const MARATHON_GAP_MS = 24 * 60 * 60 * 1000; // 86_400_000 ms
+
+/** En az kaç FARKLI bölüm gruplanırsa MarathonActivity oluşturulsun — 2
+ *  bölüm "maraton" sayılmayacak kadar sıradan (kullanıcı geri bildirimi). */
+const MARATHON_MIN_COUNT = 3;
 
 interface GroupAccumulator {
   userId: string;
@@ -42,7 +79,7 @@ interface GroupAccumulator {
   showTitle: string;
   showPosterUrl: string | null;
   user: FeedUser;
-  episodes: FeedActivity[];
+  episodes: GroupableEpisode[];
   /**
    * Son eklenen (= zaman olarak en eski) bölümün Unix ms timestamp'i.
    * Her zaman new Date(activityAt).getTime() ile hesaplanır — NaN riski yok.
@@ -78,21 +115,43 @@ function compareEpisodeCodes(a: string, b: string): number {
   return pa.episode - pb.episode;
 }
 
+// ── Yardımcı: Bir gruptaki bölümleri koda göre tekilleştir ──────────────────
+/**
+ * Aynı `episodeNumber`dan birden fazla ham kayıt varsa (çift tıklama/tekrar
+ * izleme) EN YENİSİ (activityAt) temsilci olarak seçilir — hangi ham satırın
+ * "kanonik" sayılacağının deterministik bir kuralı olsun diye.
+ */
+function dedupeByEpisodeCode(episodes: GroupableEpisode[]): GroupableEpisode[] {
+  const byCode = new Map<string, GroupableEpisode>();
+  for (const ep of episodes) {
+    const code = ep.episodeNumber ?? '';
+    const existing = byCode.get(code);
+    if (!existing || toMs(ep.activityAt) > toMs(existing.activityAt)) {
+      byCode.set(code, ep);
+    }
+  }
+  return Array.from(byCode.values());
+}
+
 // ── Yardımcı: Grup → MarathonActivity ────────────────────────────────────────
 
-function buildMarathon(group: GroupAccumulator): MarathonActivity {
-  // Episode kodlarına göre kronolojik ASC sırala
-  const sorted = [...group.episodes].sort((a, b) =>
+function buildMarathon(group: GroupAccumulator, distinctEpisodes: GroupableEpisode[]): MarathonActivity {
+  // Episode kodlarına göre kronolojik ASC sırala — TEKİLLEŞTİRİLMİŞ küme
+  // üzerinden (ham `group.episodes` değil, aksi halde yinelenen kayıtlar
+  // "aralığı" etkilemez ama sayaç yanlış olurdu).
+  const sorted = [...distinctEpisodes].sort((a, b) =>
     compareEpisodeCodes(a.episodeNumber ?? '', b.episodeNumber ?? '')
   );
 
   const first = sorted[0]?.episodeNumber ?? '?';
   const last  = sorted[sorted.length - 1]?.episodeNumber ?? '?';
-  const count = group.episodes.length;
+  const count = distinctEpisodes.length;
 
   // activityAt = en son izlenen bölümün zamanı — MUTLAKA .getTime() ile karşılaştır
   // (string > string karşılaştırması ISO formatta çoğunlukla çalışsa da,
-  // timezone offset içeren formatlarda yanlış sıra üretebilir)
+  // timezone offset içeren formatlarda yanlış sıra üretebilir). Ham
+  // `group.episodes` üzerinden hesaplanır — yinelenen bir kayıt daha YENİ bir
+  // damgaya sahipse (ör. tekrar izlendi) akıştaki konumu onu yansıtmalı.
   const latestActivity = group.episodes.reduce((prev, cur) =>
     toMs(cur.activityAt) > toMs(prev.activityAt) ? cur : prev
   );
@@ -112,6 +171,8 @@ function buildMarathon(group: GroupAccumulator): MarathonActivity {
     firstEpisode: first,
     lastEpisode: last,
     activityAt: latestActivity.activityAt,
+    // TÜM ham satırlar (yinelenenler DAHİL) — kart silinmek istendiğinde
+    // hepsi birlikte gitmeli, aksi halde bir "hayalet" kopya arkada kalırdı.
     originalActivityIds: group.episodes.map((e) => e.id),
   };
 }
@@ -144,11 +205,11 @@ export function groupMarathonActivities(activities: FeedActivity[]): FeedItem[] 
   // 1. Gruplama adayı: activityType === 'watched_episode' VE episodeNumber dolu
   //    Diğer tipler (started_show, completed_show, rated) ve episodeNumber'sız
   //    watched_episode'lar gruplama dışında kalır.
-  const episodeActivities: FeedActivity[] = [];
+  const episodeActivities: GroupableEpisode[] = [];
   const otherActivities:   FeedActivity[] = [];
 
   for (const a of activities) {
-    if (a.activityType === 'watched_episode' && a.episodeNumber) {
+    if (isGroupableEpisode(a)) {
       episodeActivities.push(a);
     } else {
       otherActivities.push(a);
@@ -183,11 +244,11 @@ export function groupMarathonActivities(activities: FeedActivity[]): FeedItem[] 
       const gap = existing.lastTime - actTime;
 
       if (gap < MARATHON_GAP_MS) {
-        // Boşluk < 12h → aynı maratona ekle, zaman penceresini geri uzat
+        // Boşluk < 24h → aynı maratona ekle, zaman penceresini geri uzat
         existing.episodes.push(activity);
         existing.lastTime = actTime;
       } else {
-        // 12h sınırı aşıldı → grubu kapat, yeni açık grup başlat
+        // 24h sınırı aşıldı → grubu kapat, yeni açık grup başlat
         closedGroups.push(existing);
         openGroups.set(key, {
           userId: activity.user.id,
@@ -216,15 +277,19 @@ export function groupMarathonActivities(activities: FeedActivity[]): FeedItem[] 
   // 4. Açık kalan grupları kapat
   openGroups.forEach(g => closedGroups.push(g));
 
-  // 5. Her grubu FeedItem'a dönüştür
+  // 5. Her grubu FeedItem'a dönüştür — HER ZAMAN önce tekilleştir (bkz. dosya
+  //    başlığındaki not), eşik kontrolü tekilleştirilmiş kümeye göre yapılır.
   const groupedItems: FeedItem[] = [];
   for (const group of closedGroups) {
-    if (group.episodes.length >= MARATHON_MIN_COUNT) {
-      groupedItems.push(buildMarathon(group));
+    const distinctEpisodes = dedupeByEpisodeCode(group.episodes);
+
+    if (distinctEpisodes.length >= MARATHON_MIN_COUNT) {
+      groupedItems.push(buildMarathon(group, distinctEpisodes));
     } else {
-      // Tek bölüm → maraton değil, orijinal FeedActivity olarak kalsın
-      const single = group.episodes[0];
-      if (single) groupedItems.push(single);
+      // Eşiğin altında — maraton kartı YOK, ama her FARKLI bölüm yine de
+      // TEK bir karta iner (yinelenen ham kayıtlar burada da birleşir,
+      // aksi halde aynı "X izledi" akışta iki kez görünürdü).
+      for (const ep of distinctEpisodes) groupedItems.push(ep);
     }
   }
 

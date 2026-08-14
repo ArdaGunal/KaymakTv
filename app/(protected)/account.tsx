@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, ExternalLink, EyeOff, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv, UserX } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -97,7 +97,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const appVersion = Constants.expoConfig?.version ?? '2.0.2';
+  const appVersion = Constants.expoConfig?.version ?? '2.0.3';
 
   const navigateBack = () => {
     if (router.canGoBack()) router.back();
@@ -195,6 +195,16 @@ export default function SettingsScreen() {
                 onValueChange={(v) => feedPrivacy.update('publishRatings', v)}
                 isLoading={feedPrivacy.isLoading}
                 disabled={feedPrivacy.savingKey !== null || feedPrivacy.hideAll}
+              />
+
+              <SettingsSectionDivider />
+
+              <SettingsRow
+                icon={<UserX size={20} color="#60a5fa" />}
+                label={t('settings:blockedUsers', 'Engellenen Kullanıcılar')}
+                tintColor="#60a5fa"
+                showChevron
+                onPress={() => router.push('/(protected)/blocked-users')}
               />
             </SettingsSection>
           )}

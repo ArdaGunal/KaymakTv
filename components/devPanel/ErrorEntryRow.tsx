@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import type { LoggedError } from '../../utils/errorLog';
 import { formatTimestamp } from './formatTimestamp';
+import RowCopyButton from './RowCopyButton';
 
 interface ErrorEntryRowProps {
   entry: LoggedError;
@@ -37,9 +38,12 @@ const ErrorEntryRow = memo(({ entry, locale }: ErrorEntryRowProps) => {
             {entry.message}
           </Text>
         </View>
-        {hasDetails ? (
-          expanded ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />
-        ) : null}
+        <View style={styles.rowHeaderActions}>
+          <RowCopyButton value={entry} />
+          {hasDetails ? (
+            expanded ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />
+          ) : null}
+        </View>
       </View>
 
       {expanded && (
@@ -70,6 +74,11 @@ const styles = StyleSheet.create({
   rowHeaderText: {
     flex: 1,
     gap: 3,
+  },
+  rowHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   metaRow: {
     flexDirection: 'row',

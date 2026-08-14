@@ -5,6 +5,8 @@ import { supabase } from './supabaseClient';
 import { FeedActivity, FeedActivityType } from '../types';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
+import { getBlockedUserIds, getMySupabaseUserId } from './userBlocks';
+import { getMyLikedActivityIds } from './feedSocial';
 
 // Supabase istekleri `services/api/traktClient.ts`'teki axios interceptor'ından
 // GEÇMİYOR — o yalnızca Trakt trafiğini ölçer. Bu yüzden feed_activities
@@ -69,19 +71,27 @@ export interface FeedPage {
 // `fetchUserFeedActivities` ve Realtime'ın satır tamamlama sorgusu birbirinden
 // sapmasın (biri `tmdb_id` seçmeyi unutursa o kartta poster kaybolurdu).
 const ACTIVITY_COLUMNS =
-  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, user:users!inner(id, trakt_slug, username, avatar_url)';
+  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, like_count, comment_count, user:users!inner(id, trakt_slug, username, avatar_url)';
 
 export interface FeedActivityRow {
   id: string;
   activity_type: FeedActivityType;
-  show_id: number;
+  // 017_feed_posts.sql'den ÖNCE her zaman doluydu — artık yalnızca
+  // activity_type='posted' VE yapım seçilmediyse NULL olabilir.
+  show_id: number | null;
   media_type: 'show' | 'movie' | null;
   tmdb_id: number | null;
-  show_title: string;
+  show_title: string | null;
   show_poster_url: string | null;
   episode_number: string | null;
   rating: number | null;
   activity_at: string;
+  // 015_feed_social.sql öncesi satırlarda bu üçü hiç yok — `?? null`/`?? 0`
+  // ile güvenli varsayıma düşülür (bkz. mapRow).
+  note?: string | null;
+  note_spoiler?: boolean | null;
+  like_count?: number | null;
+  comment_count?: number | null;
   user: {
     id: string;
     trakt_slug: string;
@@ -92,9 +102,15 @@ export interface FeedActivityRow {
 
 export function mapRow(row: FeedActivityRow): FeedActivity {
   return {
-    // `media_type` 013 migration'ından ÖNCEKİ satırlarda yok — 'show'a düşmek
-    // güvenli varsayılan (o dönemde film izleme aktivitesi hiç yazılmıyordu).
-    mediaType: row.media_type === 'movie' ? 'movie' : 'show',
+    // `media_type` NULL iki farklı sebepten olabilir: (a) 013 migration'ından
+    // ÖNCEKİ eski satırlar (o dönemde film izleme hiç yazılmıyordu) — 'show'a
+    // düşmek güvenli varsayılan; (b) YENİ bir 'posted' satırı, yapım
+    // seçilmeden paylaşıldı (bkz. 017_feed_posts.sql) — bu durumda gerçekten
+    // undefined kalmalı, 'show'a zorlanmamalı. `activity_type` ikisini ayırt
+    // etmeye yetiyor: yalnızca 'posted' değilse eski-satır varsayımı geçerli.
+    mediaType:
+      row.media_type === 'movie' ? 'movie' : row.media_type === 'show' ? 'show'
+      : row.activity_type === 'posted' ? undefined : 'show',
     tmdbId: row.tmdb_id ?? undefined,
     id: row.id,
     user: {
@@ -104,13 +120,39 @@ export function mapRow(row: FeedActivityRow): FeedActivity {
       avatarUrl: row.user.avatar_url,
     },
     activityType: row.activity_type,
-    showId: row.show_id,
-    showTitle: row.show_title,
+    showId: row.show_id ?? undefined,
+    showTitle: row.show_title ?? undefined,
     showPosterUrl: row.show_poster_url,
     episodeNumber: row.episode_number ?? undefined,
     rating: row.rating ?? undefined,
     activityAt: row.activity_at,
+    note: row.note ?? null,
+    noteSpoiler: row.note_spoiler ?? false,
+    likeCount: row.like_count ?? 0,
+    commentCount: row.comment_count ?? 0,
   };
+}
+
+// `isLikedByMe` satırın kendisinde YOK (Supabase Auth olmadığı için
+// auth.uid() bazlı bir kolon mümkün değil, bkz. types.ts notu) — bu sayfadaki
+// aktiviteler için AYRI, dar kapsamlı bir sorguyla (yalnızca bu sayfanın
+// id'leri) doldurulur. Kimliğim çözülemezse (misafir/oturumsuz) sessizce
+// atlanır — akışın geri kalanı yine de gösterilmeli.
+async function attachIsLikedByMe(items: FeedActivity[]): Promise<void> {
+  if (items.length === 0) return;
+  try {
+    const myId = await getMySupabaseUserId();
+    if (!myId) return;
+    const liked = await getMyLikedActivityIds(
+      myId,
+      items.map((i) => i.id)
+    );
+    for (const item of items) {
+      item.isLikedByMe = liked.has(item.id);
+    }
+  } catch (error) {
+    console.warn('[Feed] Beğeni durumu okunamadı:', error);
+  }
 }
 
 // İLK SAYFA için kısa ömürlü önbellek. Neden gerekli: Akış sekmesi her
@@ -199,6 +241,7 @@ export async function fetchFeedActivities(
 
   const rows = (data ?? []) as unknown as FeedActivityRow[];
   const items = rows.map(mapRow);
+  await attachIsLikedByMe(items);
 
   // `hasMore`: tam sayfa döndüyse muhtemelen devamı var. Son sayfa tam
   // dolduğunda bir sonraki istek boş dönüp `hasMore`u kapatır — bir fazladan
@@ -256,6 +299,18 @@ export async function getVisibleUserIds(force = false): Promise<Set<string>> {
   );
   if (error) throw error;
   const ids = new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
+
+  // Engel, Trakt takibinden HER ZAMAN üstündür (bkz. docs/FEED_SOCIAL_PLAN.md
+  // §4.2, §4.3) — takip listesinde olsalar bile engellenen/engelleyen
+  // kullanıcılar akıştan çıkarılır. Bu, Realtime'ın (useFeedRealtime.ts) ve
+  // yorum listesinin de paylaştığı AYNI kümedir — tutarsızlık riski yok.
+  try {
+    const blocked = await getBlockedUserIds();
+    for (const id of blocked) ids.delete(id);
+  } catch (error) {
+    console.warn('[Feed] Engellenen kullanıcı kümesi okunamadı:', error);
+  }
+
   visibleUserIdsCache = { ids, fetchedAt: Date.now() };
   return ids;
 }
@@ -315,6 +370,7 @@ export async function fetchUserFeedActivities(traktSlug: string, force = false):
 
   if (error) throw error;
   const mapped = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+  await attachIsLikedByMe(mapped);
   userFeedActivitiesCache.set(traktSlug, { data: mapped, fetchedAt: Date.now() });
   return mapped;
 }

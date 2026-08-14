@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,9 @@ import CategoryChip from './CategoryChip';
 import PerfEntryRow from './PerfEntryRow';
 import EmptyState from './EmptyState';
 import ListSkeleton from './ListSkeleton';
+import SearchBar from './SearchBar';
 import { listActionStyles as styles } from './listActionStyles';
+import { normalizeForSearch } from '../../hooks/libraryFilterCore';
 import type { PerfMark, PerfCategory } from '../../utils/perfLog';
 import type { CategorySummary } from '../../hooks/useDeveloperPanel';
 
@@ -38,11 +40,16 @@ export default function PerformanceTab({
   locale,
 }: PerformanceTabProps) {
   const { t } = useTranslation(['settings', 'common']);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredEntries = useMemo(
-    () => (selectedCategory ? entries.filter((e) => e.category === selectedCategory) : entries),
-    [entries, selectedCategory]
-  );
+  const filteredEntries = useMemo(() => {
+    let result = selectedCategory ? entries.filter((e) => e.category === selectedCategory) : entries;
+    const normalizedQuery = normalizeForSearch(searchQuery);
+    if (normalizedQuery) {
+      result = result.filter((e) => normalizeForSearch(e.name).includes(normalizedQuery));
+    }
+    return result;
+  }, [entries, selectedCategory, searchQuery]);
 
   const renderItem = useCallback(
     ({ item }: { item: PerfMark }) => <PerfEntryRow entry={item} locale={locale} />,
@@ -55,6 +62,14 @@ export default function PerformanceTab({
 
   return (
     <>
+      {hasEntries && (
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('settings:devPanelSearchPerfPlaceholder', 'İstek adına göre ara...')}
+        />
+      )}
+
       {categorySummaries.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           <CategoryChip
@@ -95,7 +110,11 @@ export default function PerformanceTab({
       ) : noFilteredResults ? (
         <EmptyState
           title={t('settings:devPanelEmptyPerfTitle', 'Henüz ölçüm yok')}
-          text={t('settings:devPanelNoResultsForFilter', 'Bu kategoride ölçüm yok.')}
+          text={
+            searchQuery
+              ? t('settings:devPanelNoResultsForSearch', 'Aramanla eşleşen ölçüm yok.')
+              : t('settings:devPanelNoResultsForFilter', 'Bu kategoride ölçüm yok.')
+          }
         />
       ) : (
         <FlatList

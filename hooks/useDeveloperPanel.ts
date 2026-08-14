@@ -1,14 +1,17 @@
 import { useCallback, useMemo } from 'react';
 import { usePerfLog } from './usePerfLog';
 import { useErrorLog } from './useErrorLog';
-import { SLOW_THRESHOLD_MS, type PerfCategory, type PerfMark } from '../utils/perfLog';
+import { SLOW_THRESHOLD_MS, CRITICAL_THRESHOLD_MS, type PerfCategory, type PerfMark } from '../utils/perfLog';
 import type { LoggedError } from '../utils/errorLog';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface DevPanelStats {
   totalMeasurements: number;
-  slowCount: number;
+  /** (SLOW_THRESHOLD_MS, CRITICAL_THRESHOLD_MS] aralığı — turuncu satırlar. */
+  moderateCount: number;
+  /** > CRITICAL_THRESHOLD_MS — kırmızı satırlar, ciddi performans sorunu. */
+  criticalCount: number;
   errorCount24h: number;
   warningCount24h: number;
 }
@@ -30,6 +33,9 @@ export interface UseDeveloperPanelResult {
   isLoading: boolean;
   isRefreshing: boolean;
   refresh: () => Promise<void>;
+  /** Canlı İzleme modu için — `refresh` ile AYNI veriyi yükler ama
+   * `isRefreshing`i tetiklemez (bkz. usePerfLog.ts). */
+  silentRefresh: () => Promise<void>;
   clearPerf: () => Promise<void>;
   clearErrors: () => Promise<void>;
 }
@@ -50,7 +56,10 @@ export function useDeveloperPanel(): UseDeveloperPanelResult {
     const recentErrors = err.entries.filter((e) => e.timestamp >= dayAgo);
     return {
       totalMeasurements: perf.entries.length,
-      slowCount: perf.entries.filter((e) => e.durationMs > SLOW_THRESHOLD_MS).length,
+      moderateCount: perf.entries.filter(
+        (e) => e.durationMs > SLOW_THRESHOLD_MS && e.durationMs <= CRITICAL_THRESHOLD_MS
+      ).length,
+      criticalCount: perf.entries.filter((e) => e.durationMs > CRITICAL_THRESHOLD_MS).length,
       errorCount24h: recentErrors.filter((e) => e.level !== 'warn').length,
       warningCount24h: recentErrors.filter((e) => e.level === 'warn').length,
     };
@@ -83,6 +92,10 @@ export function useDeveloperPanel(): UseDeveloperPanelResult {
     await Promise.all([perf.refresh(), err.refresh()]);
   }, [perf.refresh, err.refresh]);
 
+  const silentRefresh = useCallback(async () => {
+    await Promise.all([perf.silentRefresh(), err.silentRefresh()]);
+  }, [perf.silentRefresh, err.silentRefresh]);
+
   return {
     perfEntries: perf.entries,
     errorEntries: err.entries,
@@ -91,6 +104,7 @@ export function useDeveloperPanel(): UseDeveloperPanelResult {
     isLoading,
     isRefreshing,
     refresh,
+    silentRefresh,
     clearPerf: perf.clear,
     clearErrors: err.clear,
   };

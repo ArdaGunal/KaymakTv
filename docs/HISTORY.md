@@ -2405,6 +2405,28 @@ Yeni bir throttle/debounce mekanizması, ek bir zamanlayıcı ya da ek bir state
 - İstek / Öneri kategorisindeki karakter sınırı 300 karaktere güncellendi.
 - Uygulama sürümü `v2.0.2` olarak yükseltildi (`package.json`, `app.json`, `account.tsx`, `download.web.tsx`).
 
+## 141. Geliştirici Paneli: Profesyonel Teşhis & Hata Raporu Butonu Yenilemesi
+
+**Arka plan:** Geliştirici Paneli'ndeki (`dev-panel.tsx`) sağ alt köşedeki tekli mavi yuvarlak kâğıt uçak butonu (FAB), sohbet/Telegram ikonu algısı oluşturuyor ve panelin amacından kopuk görünüyordu.
+
+**Yapılan Değişiklikler:**
+- Sağ alt köşedeki anonim mavi kâğıt uçak daire butonu tamamen kaldırıldı.
+- Hem Web hem Mobil uyumlu, profesyonel **"Teşhis Raporu Gönder"** yapısı kuruldu:
+  - **Üst Bar (Header):** `SettingsHeader` sağ tarafında `Bug` simgeli, dikkat çekici Crimson Red vurgulu "Teşhis Raporu Gönder" CTA butonu eklendi.
+  - **Mobil Sabit Alt Çubuk (Mobile Bottom Bar):** Mobilde ekranın en altında güvenli alan çubuğu (`useSafeAreaInsets` -> `insets.bottom`) gözetilerek `Hata & Teşhis Raporu Gönder` yazan tam genişlikli, şık ve korumalı bir aksiyon barı eklendi.
+
+## 142. Yeni Uygulama Logosu & İkon Güncellemesi
+
+**Yapılan İşlem:**
+- Eski beğenilmeyen `logo.png` tamamen silindi.
+- `ikon.png` dosyası uygulamanın güncel mobil ve web uygulama ikonu olarak ayarlandı (`assets/icon.png`, `assets/favicon.png`, `assets/images/adaptive-icon.png`, `assets/images/splash-icon.png`, `public/apple-touch-icon.png`).
+- `yazı.png` (1983x763 KaymakTV logo+yazı marka görseli) ileride kullanılmak üzere korundu ve `assets/images/logo-text.png` olarak da yedeklendi.
+
+  - `assets/images/adaptive-icon.png` (Android adaptive icon)
+  - `assets/images/icon.png`
+  - `assets/images/splash-icon.png`
+  - `public/apple-touch-icon.png`
+
 
 ## 140. Takip Ekranı: Performans (Chunk Toplulaştırma + Lazy Dashboard) ve UX ("Güncel" Kategorisi + Zaman Girdisi)
 
@@ -2738,3 +2760,121 @@ YENİ: `utils/perfLog.ts`, `hooks/usePerfLog.ts`, `hooks/useDeveloperPanel.ts`, 
 **Çözüm:** `Snackbar`'a opsiyonel `position?: 'top' | 'bottom'` eklendi (varsayılan `'bottom'` — projedeki DİĞER tüm çağıranların görünümü DEĞİŞMEDİ). `account.tsx`'teki geliştirici modu toast'ı `position="top"` ile açılıyor; animasyon yönü de (`translateY` başlangıç/bitiş işareti) konuma göre ters çevrildi ki 'top'ta doğal biçimde yukarıdan aşağı kayarak belirsin.
 
 **Doğrulama:** `tsc --noEmit` temiz. Web'de canlı test: 5 dokunuştan sonra toast kutusunun (`getBoundingClientRect`) sürüm etiketinin dikey aralığıyla **çakışmadığı** ölçülerek doğrulandı (`overlapsVersion: false`); ardından TAM 7 dokunuşluk tek bir senkron tıklama dizisi `/dev-panel`e sorunsuz yönlendirdi (ara ölçüm çağrıları YÜZÜNDEN 1500ms'lik dokunma penceresinin aşıldığı, dolayısıyla sayacın sıfırlandığı BİR test denemesi — gerçek bir regresyon DEĞİL, kendi test metodolojimin bir artefaktıydı — ayrıştırılıp doğrulandı).
+
+## 153. Geliştirici Paneli İkinci Tur: Kompakt Üstbilgi Aksiyonları + Seçimli Rapor Gönderimi + 3 Renkli Ciddiyet Bandı
+
+**Kullanıcı isteği:** Madde 151'de kurulan panel için dört iyileştirme: (1) alttaki "Raporu Kopyala"/"Raporu Geliştiriciye Gönder" butonları "fazla sırıtıyor", daha az yer kaplayan modern bir tasarıma taşınsın; (2) "Gönder"e basınca NELERİN gönderileceğini (Hata Raporu / Performans) seçtiren bir ekran çıksın — ikisi de işaretliyse ikisi de gitsin, hiçbiri işaretli değilse "en az birini işaretle" uyarısı çıksın; (3) 250 karakter sınırlı, isteğe bağlı bir not alanı eklensin; (4) performans satırlarındaki yeşil/turuncu ikilisine, CİDDİ performans sorunları için üçüncü bir kırmızı renk eklensin; genel olarak paneli "profesyonel seviyeye" çıkar, gereksiz kod bırakma.
+
+### (1) Alt footer kaldırıldı — üstbilgi ikonları + yüzen tek CTA
+Eski tasarım: ekranın en altında, tam genişlikte, metinli iki buton + bir ipucu satırı (`SendReportButton.tsx`, artık SİLİNDİ) — dikeyde ciddi yer kaplıyordu ve listenin altında "yabancı" duruyordu. Yeni tasarım: `components/settings/SettingsHeader.tsx`'e additive bir `rightSlot?: React.ReactNode` prop'u eklendi (varsayılan `undefined` — mevcut 3 çağıranın (account.tsx, notifications.tsx, EditProfileMobile.tsx) hiçbiri bunu geçmiyor, görünümleri BİREBİR aynı kaldı; `title` stiline eklenen `flex:1` de aynı gerekçeyle zararsız). Geliştirici Paneli bu slot'a iki küçük ikon buton koyuyor: **Yenile** (`RefreshCw` — masaüstü web'de dokunmatik "aşağı çek" jesti olmadığından pull-to-refresh'in fonksiyonel bir alternatifi, salt kozmetik değil) ve **Kopyala** (`Copy`). "Rapor Gönder" ise ekranın sağ altında sabit duran, hiçbir düzen alanı KAPLAMAYAN yüzen bir buton (FAB, `Send` ikonu, mavi) — listelerin `paddingBottom`'u (`listActionStyles.ts`) FAB'ın son satırı örtmemesi için 20'den 90'a çıkarıldı.
+
+### (2)+(3) Seçimli gönderim + not alanı — yeni `SendReportModal.tsx`
+`ReportIssueModal.tsx`nin görsel dilinin (sheet/backdrop/switch kartı/karakter sayacı) BİREBİR devamı olarak `components/devPanel/SendReportModal.tsx` yazıldı (stiller ayrı `sendReportModalStyles.ts`e alındı — bileşen dosyası 400 satırı geçiyordu). İki `Switch` satırı ("Hata Günlüğü — N kayıt", "Performans Verileri — N ölçüm"), varsayılan olarak İKİSİ DE AÇIK (önceki davranışla aynı: "her şeyi gönder" en yaygın senaryo, kullanıcı istediğini kapatarak daraltır). İkisi de kapatılırsa turuncu bir uyarı satırı ("Göndermek için en az birini seç.") belirir VE gönder butonu `disabled` olur — sunucuya boş bir rapor GİTMEZ. 250 karakterlik not alanı (`DEV_REPORT_NOTE_MAX_LENGTH`, `useSendDevReport.ts`te export edilen tek sabit — UI ve hook AYNI sınırı kullanır) doluysa gönderilen mesajın gövdesi olur, boşsa eski sabit metne düşer.
+
+`hooks/useSendDevReport.ts` baştan yazıldı: `handleSend(perfEntries, errorEntries)` yerine artık tek bir `handleSend(options: SendDevReportOptions)` alıyor (`includeErrors`, `includePerf`, `note`, `perfEntries`, `errorEntries`). `includePerf: false` ise `performanceReport: null` gider — bu, "İstek/Öneri" akışındaki `includeLogs` kapalıyken aynı alanın `null` gitmesiyle (bkz. `011_error_logs_performance_report.sql` yorumu) BİREBİR AYNI sözleşme, yeni bir kural icat edilmedi. `includeErrors: false` ise `errorLogs: []` gider. Savunma amaçlı: hook, ikisi de false'sa `'nothing_selected'` ile REDDEDER (UI zaten butonu disabled ettiği için normal akışta hiç tetiklenmez, ama hook kendi başına da güvenli).
+
+### (4) Üçüncü renk — kırmızı "Kritik" bandı
+`utils/perfLog.ts`e `CRITICAL_THRESHOLD_MS = 2000` eklendi (`SLOW_THRESHOLD_MS = 500` yanına). `PerfEntryRow.tsx`teki `severityColor()` artık AYRIK üç bant döndürüyor: yeşil (≤500ms) / turuncu (500ms, 2000ms] / kırmızı (>2000ms) — nokta VE süre metni AYNI fonksiyondan renk aldığı için ikisinin farklı renk göstermesi YAPISAL OLARAK imkânsız (eskiden iki ayrı yerde hesaplanıyordu). `hooks/useDeveloperPanel.ts`teki `DevPanelStats.slowCount` (>500ms, kritik dahil, ÖRTÜŞEN) yerine ayrık `moderateCount` (500ms-2sn) ve `criticalCount` (>2sn) geldi — üstteki kart sayısı 4'ten 5'e çıktı (Ölçüm/Orta/Kritik/Hata/Uyarı); `statsRow` `flexWrap:'wrap'`e çevrildi (5 kart tek satırda mobilde sıkışırdı, artık 3+2 iki satır).
+
+### Temizlik
+`components/devPanel/SendReportButton.tsx` SİLİNDİ (yerini header ikonları + FAB + modal aldı). `hooks/useSendDevReport.ts`nin eski `(perfEntries, errorEntries)` imzası tamamen kaldırıldı, geriye dönük bir sarmalayıcı BIRAKILMADI (tek çağıran zaten `SendReportModal` — ölü bir uyumluluk katmanına gerek yoktu). Locale'lerden artık gösterilmeyen `devPanelSendReportHint`/`devPanelStatSlow` kaldırıldı; yerine `devPanelSendModalTitle/Subtitle`, `devPanelIncludeErrors(Hint)`, `devPanelIncludePerf(Hint)`, `devPanelSelectAtLeastOne`, `devPanelNotePlaceholder`, `devPanelRefreshAction`, `devPanelStatModerate`, `devPanelStatCritical` eklendi (tr+en).
+
+### Doğrulama
+`tsc --noEmit` temiz. Web'de canlı test: 5 istatistik kartı doğru sayıldı; üstbilgi ikonlarının (`accessibilityLabel="Yenile"`/`"Raporu Kopyala"`) ikisi de doğru tetiklendi (Kopyala → "Rapor panoya kopyalandı." toast'ı, modal AÇIKKEN bile); FAB modalı açtı; iki `Switch`i de kapatınca uyarı satırı belirdi VE gönder butonunun `aria-disabled="true"` olduğu DOM'dan doğrulandı; birini geri açınca uyarı kayboldu; not alanına 29 karakter yazılınca sayaç "29 / 250" gösterdi; backdrop'a tıklayınca modal kapandı. Konsolda yalnızca ortama özgü, önceden var olan Trakt CORS hataları görüldü.
+
+**Doğrulanamayan:** Gerçek bir gönderimin (hem "en az biri seçili" hem soğuma penceresi dolu durumda) Worker'a ulaşıp Discord/Supabase'e yazması — yerel ortamda gerçek bir Worker'a bağlı değildi, kod yolu `useReportIssue.ts` ile aynı `sendFeedback` çağrısını kullandığından yüksek güvenle çalışması beklenir.
+
+## 154. Geliştirici Paneli Üçüncü Tur: Kullanıcının Kendi Planı — Süre Çubuğu, Durum Kodu Rozeti, Tekil Kopyalama, Arama, Canlı İzleme, Işımalı Kartlar
+
+**Bağlam:** Bu turdan hemen önce kullanıcı (başka bir araçla/oturumda) `dev-panel.tsx`'e DOĞRUDAN müdahale etmişti: eski yüzen "Gönder" butonu (FAB) kaldırılmış, yerine başlıkta `Bug` ikonlu kırmızı bir "Teşhis Raporu Gönder" aksiyon çubuğu VE mobilde ekranın altında sabit duran ikinci bir kopyası eklenmişti — bu değişiklik BİLİNÇLİ kabul edilip DOKUNULMADI, üzerine inşa edildi. Kullanıcı ayrıca kendi yazdığı 5 maddelik bir geliştirme planını "hata var mı kontrol et, sonra uygula" isteğiyle paylaştı.
+
+### Plan incelemesinde bulunan gerçek sorunlar
+1. **"HTTP Status Code Badges" maddesinin veri kaynağı YOKTU.** `PerfMark` tipi yalnızca `{timestamp, name, category, durationMs}` tutuyordu — hiçbir yerde HTTP durum kodu kaydedilmiyordu. Plan bu boşluğu atlamıştı. Çözüm: `PerfMark`e opsiyonel `statusCode?: number` eklendi, `traktClient.ts`'teki interceptor'ların `recordPerfMark` çağrıldığı İKİ noktada (başarı: `response.status`, hata-ama-yanıtlı: `error.response.status`) zaten elde olan durum kodu iletildi — yeni bir istek/ölçüm türü İCAT EDİLMEDİ, var olan ölçüm noktasına tek parametre eklendi.
+2. **Süre çubuğunun (duration bar) ölçek tavanı tanımsızdı.** "Süreye ORANLA dinamik genişlesin" deniyordu ama neye oranla belirtilmemişti. Listenin o anki en yavaş kaydına oranlamak YERİNE (bu, liste her değiştiğinde çubukların anlamını kaydırır ve tek bir 30sn'lik uç değer diğer TÜM çubukları görünmez kılardı) sabit bir tavan seçildi: `BAR_MAX_MS = 3000` (kritik eşiğin — 2000ms — hemen ötesi, bir nefes payı bırakır; `utils/perfLog.ts`'te TEK kaynak).
+
+### Yapılanlar
+- **`utils/perfLog.ts`**: `statusCode?: number` alanı, `BAR_MAX_MS` sabiti, `recordPerfMark`e 4. opsiyonel parametre.
+- **`services/api/traktClient.ts`**: iki `recordPerfMark` çağrısına da durum kodu eklendi.
+- **YENİ `components/devPanel/DurationBar.tsx`**: ince, orantılı, renk-eşleşen (severity ile AYNI fonksiyondan gelen renk) çubuk.
+- **YENİ `components/devPanel/StatusBadge.tsx`**: 2xx yeşil/3xx mavi/4xx turuncu/5xx kırmızı, yalnızca `network` + `statusCode` doluyken render edilir (`startup` ölçümleri bir HTTP isteği olmadığından hiç göstermez).
+- **YENİ `components/devPanel/RowCopyButton.tsx`**: kullanıcının ek isteği — her satırda tek kaydı JSON olarak panoya kopyalayan mikro-buton. Her tıklamada AYRI bir Snackbar/toast GÖSTERMEZ (art arda birkaç satır kopyalanırsa toast yağmuru olurdu) — ikon 1200ms'liğine ✓'a döner, kendi kendine sıfırlanır. `PerfEntryRow.tsx` VE `ErrorEntryRow.tsx`de kullanılıyor (aynı bileşen, iki yerde tekrar YOK).
+- **`PerfEntryRow.tsx` yeniden düzenlendi**: satır artık üç satır — [nokta+isim+süre+kopyala] / [kategori+durum rozeti+saat] / [süre çubuğu].
+- **YENİ `components/devPanel/SearchBar.tsx`**: Performans ve Hata Günlüğü sekmelerinin PAYLAŞTIĞI arama kutusu; arama DURUMU her sekmenin kendisinde tutulur (prop drilling yok). Türkçe "İ/i" ayrımı için `hooks/libraryFilterCore.ts`'teki MEVCUT `normalizeForSearch`'ü kullanır — yeni bir normalizasyon fonksiyonu İCAT EDİLMEDİ. Performans sekmesinde arama, mevcut kategori filtresiyle BİRLİKTE (AND) çalışır.
+- **YENİ `components/devPanel/LiveModeToggle.tsx`** + `usePerfLog.ts`/`useErrorLog.ts`/`useDeveloperPanel.ts`'e `silentRefresh`: Canlı İzleme açıkken `dev-panel.tsx`'teki tek bir `setInterval` (4sn) `silentRefresh`'i çağırır — `refresh` DEĞİL, çünkü o `isRefreshing`i tetikleyip RefreshControl döngüsünü her 4 saniyede bir görünür biçimde "titretirdi" (kullanıcı hiçbir şey çekmediği hâlde). Zamanlayıcı anahtar kapanınca veya ekran unmount olunca temizlenir.
+- **`StatCard.tsx`**: değer >0 iken accentColor'a göre kenarlık+gölge "ışıması". Android'de renkli `shadowColor` DESTEKLENMEDİĞİNDEN (yalnızca gri `elevation` verir) ışıma web/iOS'ta gerçek, Android'de yalnızca renkli kenarlık vurgusuna düşer — sahte bir efekt eklenmedi, platform sınırı açıkça yorumlandı.
+- **Gerçek bir çeviri hatası bulunup düzeltildi**: `devPanelSendReport` anahtarı zaten locale JSON'da MEVCUTTU (eski değer: "Raporu Geliştiriciye Gönder"); kullanıcının header/mobil-bar kodundaki `t(key, 'farklı varsayılan metin')` çağrıları i18next'in "anahtar varsa JSON değerini kullan, fallback'i YOKSAY" kuralı yüzünden HİÇBİR ZAMAN görünmüyordu — üçü de aynı eski metni gösteriyordu. `devPanelSendReport`'un JSON değeri "Teşhis Raporu Gönder"e güncellendi, mobil çubuk için AYRI bir `devPanelSendReportMobile` anahtarı eklendi.
+
+### Doğrulama
+`tsc --noEmit` temiz. Web'de canlı test: arama kutusuna "oturum" yazınca liste doğru süzüldü (yalnızca "Oturum Başlatma" kayıtları kaldı), temizleyince geri geldi; Canlı İzleme anahtarı açılıp kapatıldı, hiçbir konsol hatası/çökme olmadı, arka planda gerçek bir yeniden yükleme (Metro reload) sonrası yeni kayıtlar RefreshControl döngüsü GÖRÜNMEDEN listeye yansıdı; satır kopyalama butonu tıklanıp 400ms sonra ikonun `#64748b`'den `#4ade80`'e (Copy→Check) döndüğü DOM'dan doğrulandı (ilk birkaç deneme, ayrı round-trip'lerin `Clipboard.setStringAsync`in async doğasıyla çakışıp yanlış negatif vermesi yüzünden yanıltıcıydı — tek bir senkron script içinde gerçek bir gecikmeyle tekrarlanınca doğrulandı).
+
+**Doğrulanamayan:** Durum kodu rozetinin VE süre çubuğunun gerçek Trakt ağ trafiğiyle görünümü — yerel web ortamında CORS engeli yüzünden hiçbir gerçek Trakt isteği tamamlanamadı (yalnızca `startup` kategorisi ölçümleri üretildi), bu yüzden yalnızca kod/tip doğruluğu (`tsc`) ile doğrulandı, kullanıcının gerçek bir hesapla (native veya CORS-proxy'li web) denemesi gerekiyor. StatCard'ın web/iOS'taki gerçek renkli ışıması da ekran görüntüsü alınamayan bu ortamda görsel olarak teyit edilemedi.
+
+## 155. Akış Sosyal Katmanı: Kişisel Not/Alıntı, Yorum, Beğeni, Kullanıcı Engelleme
+
+**Bağlam:** `docs/FEED_SOCIAL_PLAN.md`'de onaylanan planın tam uygulaması — üç oturumluk bir tasarım sürecinin (maraton sistemi denetimi → sosyal mimari tartışması → plan onayı) sonucu. Kullanıcının açık talimatı: "Kaydettikten sonra başla", "hızlı, stabil, kullanıcı dostu olsun."
+
+**Veritabanı (`supabase/schema/015_feed_social.sql` + `016_user_blocks.sql`):** Önceki oturumda yazılmıştı (bkz. plan dokümanı) — `feed_activities`'e `note`/`note_spoiler`/`like_count`/`comment_count`; dormant `comments` tablosuna (001'den beri hiç kullanılmamış) `spoiler`/`like_count`; yeni `feed_activity_likes`/`feed_comment_likes` (iki sade tablo, polymorphic değil); sayaçlar için `security definer` trigger'lar (014'teki `pg_cron` deseninin devamı); yeni `user_blocks` tablosu. Bu oturumda bu şemanın ÜZERİNE Worker + client + UI inşa edildi.
+
+**Worker (`kaymaktv-feedback-worker/src/index.js`):** 6 yeni uç nokta — `/feed/note` (yalnızca kendi aktivitene, sahiplik `fetchRowOwner` ile doğrulanır), `/feed/comment` (yalnızca notlu/puanlı aktivitelere — çıplak "izledi" logları kasıtlı olarak yorumlanamaz, spam yüzeyini daraltmak için), `/feed/comment/delete` (sahiplik WHERE koşulunda, `handleFeedDelete` ile aynı IDOR deseni), `/feed/like` (aktivite VEYA yorum, toggle, tam/partial-olmayan UNIQUE kısıt sayesinde `on_conflict` güvenle kullanılabiliyor — Madde 89'daki partial-index sorunu burada YOK), `/feed/block`, `/feed/unblock`. Ortak güvenlik katmanı: `isBlockedEitherWay()` — yorum/beğeni yazmadan önce işlemi yapanla hedef sahibi arasında blok var mı kontrol edilir, varsa jenerik bir hata döner (blok varlığı açıkça doğrulanmaz). 29 mevcut worker testi (`vitest run`) hiç bozulmadan geçti.
+
+**Client servisleri:** `features/feed/services/feedSocial.ts` (not/yorum/beğeni CRUD + "ben beğendim mi" kümeleri — Supabase Auth olmadığı için `auth.uid()` yok, bu kümeler ayrı, dar kapsamlı sorgularla çekiliyor), `features/feed/services/userBlocks.ts` (`getMySupabaseUserId`, `getBlockedUserIds` — engelleyen VEYA engellenen birleşimi, `getMyBlockedUsers`, `blockUser`/`unblockUser`). `feedApi.ts`'teki `getVisibleUserIds` artık blok kümesini çıkarıyor — akış, yorumlar ve Realtime AYNI kümeyi paylaşıyor, tutarsızlık riski yok.
+
+**Realtime (`useFeedRealtime.ts`):** `feed_activities` üzerinde artık INSERT'e ek olarak UPDATE de dinleniyor (beğeni/yorum sayacı değiştiğinde canlı güncellenir) — `feedStore.ts`'e yeni `patchActivity()` metodu eklendi (tam bir `FeedActivity` gerektirmeyen kısmi güncelleme, `user` join'i olmadan da çalışır çünkü REPLICA IDENTITY FULL sayesinde `payload.new` tam satırı taşıyor).
+
+**UI:**
+- `FeedCard.tsx`: kart altına ❤️/💬 satırı (iyimser toggle, `isPending` kartlarda gizli), kendi aktivitende kalem ikonuyla not ekleme/düzenleme (`NoteEditorModal.tsx`), notlu kartlarda alıntı görünümü (`FeedActivityNote.tsx`, spoiler blur + dokununca aç).
+- `FeedCommentSheet.tsx` + `FeedCommentItem.tsx` + `useFeedComments.ts`: Trakt'ın kendi yorum sistemiyle (`components/CommentSheet.tsx`) KARIŞTIRILMAYACAK şekilde ayrı isimlendirildi ve konumlandırıldı — 500 karakter sınırı (DB/Worker/UI üç katmanlı), spoiler switch'i, kendi yorumunu silme, yorum beğenme.
+- Engelleme: `BlockUserButton.tsx` (tek eylem olduğu için "..." menüsü yerine doğrudan ikon), `BlockedProfileLock.tsx`, `useBlockState.ts` — hem `screens/PublicProfileMobile.tsx` (native + dar web) HEM `app/(protected)/user/[slug].web.tsx` (masaüstü) ayrı ayrı entegre edildi ki iki ekran da aynı davranışı göstersin. Yeni `app/(protected)/blocked-users.tsx` ekranı + Ayarlar → "💬 Akış" bölümüne satır.
+- Trakt takip/KaymakTV engel çakışması KESİN karar: engel her zaman üstün, Trakt'a hiç dokunulmuyor (Worker `resolveUserIdBySlug` + `user_blocks`, Trakt API'sine hiçbir yazma isteği gitmiyor).
+
+**i18n:** Tüm yeni metinler `t('feed:key', 'varsayılan')` deseniyle, `locales/{tr,en}/feed.json` + `settings.json`'a (yalnızca `blockedUsers` anahtarı) toplu eklendi.
+
+**Doğrulama:** `tsc --noEmit` her aşamada temiz. Worker `vitest run` 29/29 geçti, `node --check` sözdizimi doğrulandı. Web preview'da guest modda Akış (yeni yenile butonu + boş durum), `/blocked-users` (boş liste durumu, ağ hatası zinciri sessizce yutulup zarif boş ekrana düşüyor) ve Ayarlar ekranları hatasız yüklendi, konsolda yalnızca beklenen (sandboxed ortamda Trakt API'sine ağ erişimi olmaması nedenli) CORS hataları vardı. **Doğrulanamayan:** gerçek bir hesapla uçtan uca akış — not ekleme, yorum yazma, beğenme, engelleme, canlı (Realtime) sayaç güncellemesi — bu ortamda Trakt'a ağ erişimi yok. Migration'lar (`015`/`016`) da bu ortamda gerçek bir Postgres'e karşı çalıştırılıp doğrulanamadı, yalnızca satır satır gözden geçirildi.
+
+## 156. Maraton Tekilleştirme (Set) + "Alıntı Yap" Twitter-Tarzı Yeniden Tasarım + v2.0.3
+
+**Bağlam:** Kullanıcı gerçek bir kullanım ekran görüntüsü paylaştı: "Silo S03E01 - S03E01 arası izlendi ×2" — yani TEK bir bölüm iki kez sayılıp "Hız Turu" rozetini tetiklemişti. Aralığın aynı bölümle başlayıp bitmesi (`S03E01 - S03E01`) kanıttı: gruplama ham satır sayısına bakıyordu, farklı bölüm sayısına değil. Kullanıcı ayrıca `Notu Düzenle` UI'ının "sönük" kaldığını belirtip Twitter'ın "Alıntı Yap" (Quote) modeline yakın bir tasarım istedi.
+
+**Faz 1 — Maraton düzeltmesi (`features/feed/utils/groupMarathonActivities.ts`):** Aynı bölüm kodundan (`S03E01` gibi) birden fazla ham `feed_activities` satırı olabilir (çift tıklama, tekrar izleme) — kök neden ne olursa olsun, sayaç artık HER ZAMAN `dedupeByEpisodeCode()` ile tekilleştirilmiş bölüm kümesine göre hesaplanıyor, ham dizi uzunluğuna göre DEĞİL. Yan etki (bilinçli, olumlu): eşiğin altında kalan gruplarda bile aynı bölümün yinelenen kayıtları artık TEK karta iniyor — akışta aynı "X izledi" iki kez görünmüyor. `originalActivityIds` yine TÜM ham satırları (yinelenenler dahil) taşıyor ki silme hepsini kapsasın. `MARATHON_MIN_COUNT` 2'den **3**'e çıkarıldı (kullanıcı: "2 bölüm izlemek pek maraton sayılmaz"), `marathonMessages.ts`'teki seviyeler orantılı kaydırıldı: **Hız Turu 3-4, Maratoncu 5-7, Sezon Fatihi 8+** (eskiden 2-3/4-6/7+).
+
+**Faz 2 — "Alıntı Yap" yeniden tasarımı:** Kullanıcının UX gerekçesi: ❤️/💬 BAŞKALARININ senin gönderine yaptığı eylemler, alıntı ise SANA ait bir eylem — bu yüzden alt sıradaki küçük ikonlardan koparılıp içeriğin hemen altına, belirgin bir CTA olarak taşındı.
+- `FeedCard.tsx`: alt sosyal satırdaki pencil+"Not Ekle/Notu Düzenle" girişi tamamen kaldırıldı. Alıntı yoksa: vurgu renkli çerçeveli/arkaplanlı "🔖 Alıntı Yap" pili (`Quote` ikonu). Alıntı varsa: ayrı bir "Düzenle" butonu YOK — `FeedActivityNote` bloğunun kendisi (yalnızca kendi aktivitende) tıklanınca düzenleme modalını açıyor, küçük bir kalem ikonuyla düzenlenebilir olduğu ima ediliyor.
+- `FeedActivityNote.tsx`: yeni `editable`/`onPressEdit` prop'ları. Spoiler'lı bir alıntıda İLK dokunuş HER ZAMAN spoiler'ı açar (sahibi bile olsa) — yanlışlıkla düzenleme moduna girilmesin diye ayrı bir adım.
+- `NoteEditorModal.tsx`: başlık artık duruma göre değişiyor — not yoksa "Alıntı Yap", varsa "Alıntıyı Düzenle" (`initialNote` doluluğuna göre).
+- Kullanılmayan `addNote`/`editNote` i18n anahtarları kaldırıldı, yerine `quoteAction` + `noteEditorTitleEdit` eklendi (`locales/{tr,en}/feed.json`).
+
+**Faz 3 — Kullanıcının "gizli spam" uyarısı doğrulandı (tarih sabitliği):** Kullanıcı haklı bir endişe dile getirdi: "1 ay önce izlenen bir diziye bugün alıntı eklenirse kart akışın tepesine fırlar mı?" Kod zaten DOĞRU yazılmıştı — hem Worker'ın `handleFeedNote`'u (`supabasePatch`'e yalnızca `note`/`note_spoiler` gönderiliyor, `activity_at` hiç yok) hem client'ın `patchActivity` çağrısı (yalnızca `note`/`noteSpoiler` alanlarını günceller) `activity_at`'a hiç dokunmuyordu — ama bu invaryant hiçbir yerde AÇIKÇA yazılı değildi, ileride biri "düzenlenme tarihini de göstersek" diye `activity_at`'ı ekleyebilirdi. İki yere de (Worker + FeedCard.tsx) açık uyarı yorumu eklendi. **Tek-kart kuralı da doğrulandı:** not ekleme/güncelleme hiçbir yolda yeni bir `feed_activities` satırı INSERT etmiyor — Worker `PATCH` (aynı id), client `patchActivity` (aynı id'yi bulup günceller, bulamazsa no-op) — yeni kart oluşma ihtimali yapısal olarak yok.
+
+**Bilinçli KAPSAM DIŞI bırakılan bir sınır (kullanıcıya ayrıca bildirilecek):** Bir maraton kartına (`MarathonFeedCard`) gruplanmış bölümlere şu an not eklenemiyor — not/yorum/beğeni UI'ı yalnızca `FeedCard.tsx`'te (tekil, gruplanmamış aktiviteler) var. Bir binge session'ın İÇİNDEKİ belirli bir bölüme alıntı eklemek istenirse ayrı bir tasarım gerekir, şimdilik istenmedi.
+
+**Sürüm:** `app.json` + `package.json` 2.0.2 → **2.0.3**, `account.tsx`'teki fallback güncellendi. `app/(public)/download.web.tsx`'teki `CURRENT_VERSION` BİLİNÇLİ OLARAK dokunulmadı — o, kaynak koddaki sürümü değil GitHub Releases'e gerçekten yüklenmiş APK'nın sürümünü yansıtıyor; yeni bir 2.0.3 APK derlenip yüklenmeden orayı güncellemek indirme sayfasını yanıltırdı.
+
+**Doğrulama:** `tsc --noEmit` her aşamada temiz, Worker `vitest run` 29/29 (regresyon yok), `node --check` temiz. Web preview'da guest modda Akış hatasız yüklendi. **Doğrulanamayan:** gerçek verilerle maraton eşiğinin/tekilleştirmenin canlı davranışı ve "Alıntı Yap" akışının görsel sonucu — bu ortamda Trakt'a ağ erişimi yok, kullanıcının gerçek hesabıyla test etmesi gerekiyor.
+
+**Faz 4 — Kullanıcı gerçek cihazda test etti, görsel hiyerarşi tersineymiş:** Ekran görüntüsü: "Silo S03E01 izledi" (kalın, ana metin gibi) altında küçük italik "Deneme" (kullanıcının kendi yazdığı alıntı) — kullanıcının tespiti doğruydu, alıntı "izledi" satırından daha SİLİK duruyordu, oysa alıntı kartın BİRİNCİL içeriği olmalı (Twitter'ın Alıntı Tweet modeli: senin yazdığın büyük/üstte, alıntıladığın içerik küçük/altta). Düzeltme:
+- `FeedActivityNote.tsx`: italik kaldırıldı, punto 13→15, ağırlık normal→600, renk soluk gri (`#cbd5e1`)→parlak (`#f1f5f9`), sol kenarlık rengi gri→mavi (`#3b82f6`) ve kalınlaştı, tırnak işareti büyütülüp mavi vurgu rengine çekildi — artık kartın en göz alıcı metni.
+- `FeedCard.tsx`: alıntı VARSA render sırası değişti — önce alıntı (birincil), altında "Silo S03E01 izledi" artık küçük, soluk, hafif arkaplanlı bir "bağlam çipi" (`contextChip`) olarak görünüyor (Twitter'ın gömülü alıntı kutusuna benzer). Alıntı YOKSA eski davranış (tek, birincil "izledi" satırı) korunuyor — regresyon yok.
+`tsc --noEmit` temiz, web preview'da bundler hatasız yüklendi.
+
+## 157. Bağımsız Gönderi ("Fikir Paylaş") — Twitter Tarzı "Ne Düşünüyorsun?" Kutusu
+
+**Bağlam:** Kullanıcı akışı "başlı başına bir özellik" olarak genişletmek istedi: izleme/puanlama olayına bağlı olmayan, kullanıcının istediği an bir dizi/film hakkında (ya da hiçbir yapım hakkında olmadan, genel bir soru/tartışma olarak) paylaşabileceği bağımsız gönderiler. Detaylı tasarım tartışması: giriş noktası (FAB yerine sabit "Ne düşünüyorsun?" kutusu — kullanıcının gerekçesi: FAB "teknik bir parça" gibi görünüp görmezden gelinebilir), karakter sınırı (gönderiler 1000, yorumlar 500 kalır), yapım seçimi (tek, OPSİYONEL — "Bilimkurgu önerisi olan var mı?" gibi genel sorular da sorulabilsin), gizlilik (ayrı anahtar YOK, paylaşmak zaten bilinçli bir eylem).
+
+**Mimari karar (yine yeni tablo DEĞİL):** `feed_activities`'e altıncı bir `activity_type`: `'posted'`. `FeedCard.tsx`'teki `ACTIVITY_META` map'i tam bunun için tasarlanmıştı — sayfalama, Realtime, beğeni, yorum, retention hepsi bedavaya çalıştı.
+
+**Veritabanı (`017_feed_posts.sql`):** `activity_type` CHECK'ine `'posted'` eklendi. `show_id`/`show_title`/`media_type` artık NULLABLE — yalnızca 'posted' tipi yapımsız olabilir (defense-in-depth CHECK: `activity_type = 'posted' OR show_id IS NOT NULL`). Yeni CHECK: `'posted'` tipinin `note`u HER ZAMAN dolu olmalı (bu, yorum-yapılabilirlik kuralını da otomatik sağlıyor, ek kod gerekmeden). `note` karakter sınırı 500'den **1000**'e çıkarıldı — TEK, birleşik sınır (tipe göre koşullu DEĞİL): hem kısa alıntılar hem bağımsız gönderiler aynı kolonu paylaşıyor, `comments.body` (yorumlar) AYRI ve hâlâ 500.
+
+**Worker:** Yeni `POST /feed/post` — metin (1-1000 karakter), opsiyonel yapım (ya HİÇBİRİ ya HEPSİ tutarlılığı doğrulanır), `isPrivate` kontrolü (Trakt'ta gizliyse gönderi de paylaşılamaz, sessizce değil AÇIK hatayla — kullanıcının o an bilerek bastığı bir buton). `activity_at` sunucuda üretiliyor (Trakt'la hiç senkron olmadığı için client damgasına güvenmeye gerek yok). `handleFeedDelete`: `'posted'` tipi artık tombstone'lanmıyor (Trakt bağı olmadığı için anlamsız, ayrıca `show_id` NULL olabildiğinden tombstone tablosunun NOT NULL kısıtına da takılırdı) — `/feed/note`'un 500 karakter sınırı da 1000'e güncellendi.
+
+**Tipler:** `FeedActivityType`'a `'posted'`; `showId`/`mediaType`/`showTitle` artık opsiyonel. `groupMarathonActivities.ts`'e `GroupableEpisode` dar tipi + `isGroupableEpisode` type guard eklendi — maraton gruplaması hâlâ yalnızca `watched_episode` işliyor (etkilenmedi), ama TypeScript artık showId'nin o yolda HER ZAMAN dolu olduğunu biliyor, `!` (non-null assertion) serpiştirmeye gerek kalmadı.
+
+**Client:** `feedPublish.ts`'e `publishPost()` — `publishActivities`'ten FARKLI olarak ateşle-ve-unut DEĞİL, sonucu (`{ok:true}` / `{ok:false,message}`) compose modalına döndürür ki kullanıcı hata görsün. `FeedActivityNote.tsx` genelleştirildi: hem alıntılarda hem gönderilerde AYNI bileşen — 220 karakteri aşan metinler 4 satırla kesilip küçük bir "Devamını Gör" linkiyle tam metni gösteren küçük bir modala (`NoteFullTextModal.tsx`, tüm sayfayı KAPLAMAZ) açılıyor. Kesme kararı gerçek satır sayımı DEĞİL karakter eşiği (RN Web'de `onTextLayout` tutarsız).
+
+**UI:**
+- `ComposePostBar.tsx` — Akış ekranının en üstünde sabit "Ne düşünüyorsun?" kutusu (yalnızca gerçek kullanıcıya, misafire gösterilmez), dokununca `ComposePostModal.tsx` açılır.
+- `ComposePostModal.tsx` — 1000 karakter sayaç, opsiyonel yapım chip'i (seçiliyse poster+başlık+kaldır ikonu), spoiler anahtarı, yayınla.
+- `MediaPickerModal.tsx` + `MediaPickerRow.tsx` — var olan `searchTrakt`/`SearchBar`/`SearchTabs` (Keşfet sekmesinde zaten kanıtlı) REUSE edildi; `ShowCard` BİLİNÇLİ OLARAK kullanılmadı (detay sayfasına yönlendirir + kütüphane butonları taşır, "seç" davranışına uymuyor) — amaca özel, küçük bir satır bileşeni yazıldı.
+- `FeedCard.tsx`: `posted` tipi için context chip ve sağdaki poster yalnızca yapım SEÇİLMİŞSE render ediliyor (`hasShow` kontrolü) — yapımsız bir gönderide boş gri kutu göstermek yerine metin tüm genişliği kullanıyor.
+- Diğer 3 gösterim noktası (`ProfileActivityTab.tsx`, `PublicProfileMobile.tsx`, `[slug].web.tsx`) hiç DEĞİŞMEDİ — zaten marathon-olmayan her şeyi `<FeedCard/>`'a veriyorlardı, 'posted' tipi bu sayede otomatik doğru render ediliyor.
+
+**Doğrulama:** `tsc --noEmit` her adımda temiz, Worker `vitest run` 29/29 (regresyon yok), `node --check` temiz. Web preview'da guest modda Akış ekranı (ComposePostBar doğru şekilde gizli) hatasız yüklendi, bundler hatası yok. **Doğrulanamayan:** gerçek bir hesapla uçtan uca gönderi akışı — yazma, yapım seçme/seçmeme, yayınlama, akışta görünme, "Devamını Gör" — bu ortamda Trakt'a ağ erişimi yok, migration (`017`) da gerçek bir Postgres'e karşı çalıştırılıp doğrulanamadı.
