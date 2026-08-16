@@ -16,13 +16,9 @@ import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { deleteActivitiesBulk, fetchUserFeedActivities, invalidateUserFeedActivitiesCache } from '../services/feedApi';
-import { FeedItem, isMarathonActivity } from '../types';
+import { FeedItem } from '../types';
+import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { useActivityFeed } from './useActivityFeed';
-
-// Maraton kartı için TÜM gruplanan ham satırlar; tekil aktivite için kendi id'si.
-function resolveRawActivityIds(item: FeedItem): string[] {
-  return isMarathonActivity(item) ? item.originalActivityIds : [item.id];
-}
 
 export function useUserActivity(traktSlug: string | null) {
   const { accessToken, isGuest } = useAuth();

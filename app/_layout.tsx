@@ -6,7 +6,24 @@ import { View, StyleSheet } from 'react-native';
 import { LibraryProvider } from '../context/LibraryContext';
 import VersionGate from '../features/versionGate/components/VersionGate';
 import SoftUpdateBanner from '../components/SoftUpdateBanner';
+import OfflineBanner from '../components/OfflineBanner';
+import ErrorFallback from '../components/ErrorFallback';
 import { recordPerfMark } from '../utils/perfLog';
+import { logError } from '../utils/errorLog';
+
+// expo-router'ın kök segmentindeki (bu dosya) BÜTÜN alt ağacı kapsayan
+// çökme yakalayıcısı — bir render hatası eskiden beyaz/boş bir ekranda
+// SESSİZCE takılıp kalıyordu (bkz. google_play_eksikler.md Aşama 3: Google
+// Play'in Pre-launch report botları tam olarak bunu arıyor). `retry()`
+// expo-router tarafından veriliyor — render ağacını sıfırlayıp yeniden
+// dener, hatanın kaynağı geçiciyse bu genelde yeterli olur.
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  useEffect(() => {
+    logError('RootLayout.ErrorBoundary', error);
+  }, [error]);
+
+  return <ErrorFallback onRetry={retry} />;
+}
 
 // Modül değerlendirilir değerlendirilmez (JS bundle'ı çalışmaya başlar
 // başlamaz) damgalanır — "Toplam Uygulama Açılışı" ölçümünün başlangıç
@@ -41,6 +58,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(protected)" />
       </Stack>
       <SoftUpdateBanner />
+      <OfflineBanner />
     </>
   );
 }

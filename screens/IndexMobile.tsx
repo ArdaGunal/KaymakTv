@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import SkeletonLoader from '../components/SkeletonLoader';
 import LoginPaywall from '../components/LoginPaywall';
+import SyncErrorState from '../components/SyncErrorState';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,13 +39,14 @@ export default function DizilerScreen() {
   }, [hydrateCollapsed]);
 
   // ── Yaklaşan (takvim) sekmesi eski, sağlam hattı kullanmaya devam eder.
-  const { calendarShows, calendarSeasonsMap, watchedShows, watchlistShows, showProgressMap, hiddenShowIds } = useLibrarySelector((s) => ({
+  const { calendarShows, calendarSeasonsMap, watchedShows, watchlistShows, showProgressMap, hiddenShowIds, hasSyncError } = useLibrarySelector((s) => ({
     calendarShows: s.calendarShows,
     calendarSeasonsMap: s.calendarSeasonsMap,
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
     showProgressMap: s.showProgressMap,
     hiddenShowIds: s.hiddenShowIds,
+    hasSyncError: s.hasSyncError,
   }));
   // `rateMedia`: Trakt'a yazar VE aynı damgayla Akış'a yayınlar — dizi
   // bitirme kutlamasında verilen puan da anında akışa düşsün diye
@@ -102,6 +104,13 @@ export default function DizilerScreen() {
   }
 
   const showSkeleton = renderedTab === 'izleme' && trackingLoading && isEmpty;
+  // "Boş" ile "senkron başarısız oldu" ayrımı — bkz. SyncErrorState.tsx.
+  // `trackingLoading` bittikten SONRA hâlâ boşsa VE son senkron tamamen
+  // başarısız olduysa (internet yok vb.), gerçek bir boş durum yerine hata +
+  // "Tekrar Dene" gösterilir.
+  const showTrackingSyncError = renderedTab === 'izleme' && !trackingLoading && isEmpty && hasSyncError;
+  const showUpcomingSyncError =
+    renderedTab === 'yaklasan' && groupedUpcomingShows.length === 0 && hasSyncError;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -123,6 +132,8 @@ export default function DizilerScreen() {
             </View>
           </View>
         </ScrollView>
+      ) : showUpcomingSyncError ? (
+        <SyncErrorState onRetry={onRefresh} />
       ) : renderedTab === 'yaklasan' ? (
         <UpcomingSectionList
           sections={groupedUpcomingShows}
@@ -132,6 +143,8 @@ export default function DizilerScreen() {
           insets={insets}
           emptyLabel={t('noUpcomingShows')}
         />
+      ) : showTrackingSyncError ? (
+        <SyncErrorState onRetry={onRefresh} />
       ) : (
         <TrackingAccordionList
           categories={categories}

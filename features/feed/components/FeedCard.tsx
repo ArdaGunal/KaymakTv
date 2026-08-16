@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Quote, MessageSquarePlus } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';
@@ -8,23 +8,24 @@ import { FeedActivity } from '../types';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
 import { formatRating } from '../../../utils/formatRating';
 import { buildMediaHref } from '../utils/feedNavigation';
-import ActivityDeleteRow from './ActivityDeleteRow';
+import CardMenu from './CardMenu';
 import FeedActivityNote from './FeedActivityNote';
 import NoteEditorModal from './NoteEditorModal';
 import FeedCommentSheet from './FeedCommentSheet';
+import ReportContentModal from './ReportContentModal';
 import { useAuth } from '../../../context/AuthContext';
 import { useMyTraktSlug } from '../hooks/useMyTraktSlug';
+import { useQuickBlock } from '../hooks/useQuickBlock';
 import { useFeedStore } from '../store/feedStore';
 import { setLike, setActivityNote } from '../services/feedSocial';
 
 interface FeedCardProps {
   activity: FeedActivity;
-  /** Yalnızca Profil › Aktiviteler'de kullanılır — Akış (feed.tsx) sekmesinde
-   *  hiçbiri geçilmez, bu yüzden `onDelete` yoksa kart eskisi gibi davranır. */
-  isSelectionMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: () => void;
-  onDelete?: () => void;
+  /** Akış (feed.tsx) VE Profil › Aktiviteler'in İKİSİ de geçer — hangi
+   *  ekranda olduğuna göre farklı bir silme yolu (feedStore vs. yerel liste)
+   *  çağırırlar, kart bunu bilmek zorunda değil. Verilmezse (ör. Public
+   *  Profile — başkasının aktivitesi) 3-nokta menüsünde "Sil" hiç görünmez. */
+  onDeleteActivity?: () => void | Promise<void>;
 }
 
 // Her aktivite tipi kendi ikonunu, vurgu rengini ve metin şablonunu taşır —
@@ -85,13 +86,7 @@ const ACTIVITY_META: Record<
   },
 };
 
-export default function FeedCard({
-  activity,
-  isSelectionMode = false,
-  isSelected = false,
-  onToggleSelect,
-  onDelete,
-}: FeedCardProps) {
+export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) {
   const { t } = useTranslation('feed');
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
@@ -99,6 +94,7 @@ export default function FeedCard({
   const router = useRouter();
   const { accessToken, isGuest } = useAuth();
   const myTraktSlug = useMyTraktSlug();
+  const { blockUserQuick } = useQuickBlock();
 
   // Sosyal katman (bkz. docs/FEED_SOCIAL_PLAN.md) — henüz sunucu onayı
   // gelmemiş (iyimser) kartlarda GEÇİCİ bir id var, gerçek bir like/comment
@@ -113,7 +109,9 @@ export default function FeedCard({
   const [isLiking, setIsLiking] = useState(false);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
 
   const handleToggleLike = async () => {
     if (!accessToken || isGuest || isLiking || !isInteractive) return;
@@ -136,8 +134,14 @@ export default function FeedCard({
   };
 
   const handleSaveNote = async (note: string, spoiler: boolean) => {
-    if (!accessToken) return;
+    // Oturum yoksa SESSİZCE dönmek "buton çalışmıyor" hissi veriyordu —
+    // görünür bir sebep göster (bkz. docs/AI_RULES.md § Sessiz başarısızlık).
+    if (!accessToken) {
+      setNoteError(t('noteSaveAuthError', 'Oturumun bulunamadı, tekrar giriş yap.'));
+      return;
+    }
     setIsSavingNote(true);
+    setNoteError(null);
     try {
       const saved = await setActivityNote(accessToken, activity.id, note || null, spoiler);
       // ⚠️ activityAt BİLİNÇLİ OLARAK patch'lenmiyor — kart akıştaki
@@ -148,10 +152,27 @@ export default function FeedCard({
         noteSpoiler: saved.noteSpoiler,
       });
       setNoteModalVisible(false);
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[Feed] Not kaydedilemedi:', error);
+      // ESKİDEN yalnızca konsola yazılıyordu: modal açık kalıyor ama kullanıcı
+      // NEDEN kapanmadığını göremiyordu — "Kaydet çalışmıyor" izlenimi.
+      setNoteError(
+        error?.response?.data?.message || error?.message || t('noteSaveError', 'Alıntı kaydedilemedi, tekrar dene.')
+      );
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  // Paylaşım linki — TrackingCardMenu.tsx/OptionsModal.tsx/episode/[id].tsx
+  // ile AYNI desen (Share.share + kaymaktv.com URL'i). Hedef `app/activity/
+  // [id].tsx` — herkese açık, tek bu aktiviteyi gösteren kalıcı bağlantı.
+  const handleShare = async () => {
+    try {
+      const url = `https://kaymaktv.com/activity/${activity.id}`;
+      await Share.share({ message: `${t('shareActivityMsg')}\n${url}` });
+    } catch (error) {
+      console.log(error);
     }
   };
 
@@ -185,10 +206,27 @@ export default function FeedCard({
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
-            <Text style={styles.username}>{activity.user.username}</Text>
-          </TouchableOpacity>
-          <Icon size={14} color={meta.color} />
+          <View style={styles.headerLeft}>
+            <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
+              <Text style={styles.username}>{activity.user.username}</Text>
+            </TouchableOpacity>
+            <Icon size={14} color={meta.color} />
+          </View>
+          {/* Geçici/optimistic (isPending) kartlarda hiç render edilmez —
+              henüz gerçek bir id'si yok, silinemez/paylaşılamaz. */}
+          {isInteractive && (
+            <CardMenu
+              onEdit={isOwnActivity ? () => setNoteModalVisible(true) : undefined}
+              onDelete={isOwnActivity && onDeleteActivity ? onDeleteActivity : undefined}
+              onShare={handleShare}
+              onReport={!isOwnActivity ? () => setReportModalVisible(true) : undefined}
+              onBlock={
+                !isOwnActivity && accessToken && !isGuest
+                  ? () => blockUserQuick(activity.user.traktSlug)
+                  : undefined
+              }
+            />
+          )}
         </View>
 
         {/* Görsel hiyerarşi (kullanıcı geri bildirimi): alıntı VARSA o
@@ -240,17 +278,6 @@ export default function FeedCard({
               {' '}
               {meta.labelSuffix(activity)}
             </Text>
-
-            {isOwnActivity && (
-              <TouchableOpacity
-                style={styles.quoteCta}
-                onPress={() => setNoteModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Quote size={13} color="#60a5fa" />
-                <Text style={styles.quoteCtaText}>{t('quoteAction', 'Alıntı Yap')}</Text>
-              </TouchableOpacity>
-            )}
           </>
         )}
 
@@ -291,6 +318,23 @@ export default function FeedCard({
                 {activity.commentCount > 0 && <Text style={styles.socialCount}>{activity.commentCount}</Text>}
               </TouchableOpacity>
             )}
+
+            {/* Alıntı ekle — yalnızca kendi aktivitene ve henüz alıntın yokken
+                (varsa düzenleme zaten notun kendisine tıklanınca açılıyor).
+                Twitter'ın "retweet" ikonuna yakın, iki dönen ok — beğeni/
+                yorumla BİREBİR aynı stil: salt gri ikon, etiket metni yok,
+                vurgu rengi yok (önceki mor + "Alıntı" yazısı denemesi
+                kullanıcı geri bildirimiyle geri alındı). */}
+            {isOwnActivity && !activity.note && (
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={() => setNoteModalVisible(true)}
+                activeOpacity={0.7}
+                hitSlop={6}
+              >
+                <Repeat size={15} color="#64748b" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -315,9 +359,8 @@ export default function FeedCard({
     </View>
   );
 
-  // Modaller kartın DIŞINDA, koşulsuz render edilir — `onDelete` olsun
-  // olmasın (Akış sekmesi VEYA Profil › Aktiviteler, ikisinde de aynı sosyal
-  // etkileşim çalışmalı).
+  // Modaller kartın DIŞINDA, koşulsuz render edilir (Akış sekmesi VEYA
+  // Profil › Aktiviteler, ikisinde de aynı sosyal etkileşim çalışmalı).
   const modals = (
     <>
       {isOwnActivity && (
@@ -326,8 +369,12 @@ export default function FeedCard({
           initialNote={activity.note ?? ''}
           initialSpoiler={!!activity.noteSpoiler}
           saving={isSavingNote}
+          error={noteError}
           onSave={handleSaveNote}
-          onCancel={() => setNoteModalVisible(false)}
+          onCancel={() => {
+            setNoteError(null);
+            setNoteModalVisible(false);
+          }}
         />
       )}
       {canComment && (
@@ -337,28 +384,20 @@ export default function FeedCard({
           onClose={() => setCommentSheetVisible(false)}
         />
       )}
+      {!isOwnActivity && (
+        <ReportContentModal
+          visible={reportModalVisible}
+          targetType="activity"
+          targetId={activity.id}
+          onClose={() => setReportModalVisible(false)}
+        />
+      )}
     </>
   );
 
-  if (!onDelete) {
-    return (
-      <>
-        {card}
-        {modals}
-      </>
-    );
-  }
-
   return (
     <>
-      <ActivityDeleteRow
-        isSelectionMode={isSelectionMode}
-        isSelected={isSelected}
-        onToggleSelect={onToggleSelect ?? (() => {})}
-        onDelete={onDelete}
-      >
-        {card}
-      </ActivityDeleteRow>
+      {card}
       {modals}
     </>
   );
@@ -402,6 +441,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -471,26 +515,5 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 11,
     fontWeight: '600',
-  },
-  // "Alıntı Yap" CTA'sı — kendi aktivitene, henüz alıntın yokken. Bilinçli
-  // olarak vurgu renkli/çerçeveli: alt sıradaki soluk gri ikonlarla
-  // karışmasın, kendi eylemin olduğu belli olsun.
-  quoteCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
-  },
-  quoteCtaText: {
-    color: '#60a5fa',
-    fontSize: 12,
-    fontWeight: '700',
   },
 });

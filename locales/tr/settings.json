@@ -1,5 +1,8 @@
 {
   "accountOptions": "Hesap Seçenekleri",
+  "legalSection": "Yasal",
+  "termsOfUseRowLabel": "Kullanım Koşulları",
+  "privacyPolicyRowLabel": "Gizlilik Politikası",
   "accountSettings": "Hesap Ayarları",
   "appPreferences": "Uygulama Tercihleri",
   "appVersion": "Sürüm {{version}}",

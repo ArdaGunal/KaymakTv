@@ -40,6 +40,7 @@ import {
   setHiddenMovieIds,
   setIsLoading,
   setIsMoviesLoading,
+  setHasSyncError,
   readChunkedRecord,
   writeChunkedRecord,
 } from './utils';
@@ -256,6 +257,15 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // ARKA PLAN (İKİNCİL) İSTEKLER - Aşağıda ayrı ele alınacak
 
     const [showsData, wlistShows, calShows] = await Promise.all([pShowsData, pWlistShows, pCalShows]);
+
+    // Üçü de null ise (her biri kendi .catch'iyle null'a düştüyse) kritik
+    // Tier-1 isteklerinin TAMAMI başarısız demektir — ağ/sunucu sorunu. Kısmi
+    // başarı (en az biri döndüyse) hata bayrağını temizler: elimizdeki veri
+    // güvenilir sayılır, eski (stale ama geçerli) önbellek de aynı şekilde
+    // güvenilir kabul edilir (bkz. aşağıdaki `if (x !== null) setX(x)` —
+    // başarısız olan dilimler önbellekteki son bilinen değerini KORUR, asla
+    // boşla ezilmez).
+    setHasSyncError(showsData === null && wlistShows === null && calShows === null);
 
     const deltaCache = await safeMultiGet([
       CACHE_KEYS.watchedShows,
@@ -717,6 +727,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     console.log('Trakt veri çekme hatası:', error);
     logError('fetchFreshData', error);
     setIsLoading(false);
+    setHasSyncError(true);
     releaseFetchLock();
   }
 };

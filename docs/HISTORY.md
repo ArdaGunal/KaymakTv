@@ -2878,3 +2878,173 @@ Eski tasarım: ekranın en altında, tam genişlikte, metinli iki buton + bir ip
 - Diğer 3 gösterim noktası (`ProfileActivityTab.tsx`, `PublicProfileMobile.tsx`, `[slug].web.tsx`) hiç DEĞİŞMEDİ — zaten marathon-olmayan her şeyi `<FeedCard/>`'a veriyorlardı, 'posted' tipi bu sayede otomatik doğru render ediliyor.
 
 **Doğrulama:** `tsc --noEmit` her adımda temiz, Worker `vitest run` 29/29 (regresyon yok), `node --check` temiz. Web preview'da guest modda Akış ekranı (ComposePostBar doğru şekilde gizli) hatasız yüklendi, bundler hatası yok. **Doğrulanamayan:** gerçek bir hesapla uçtan uca gönderi akışı — yazma, yapım seçme/seçmeme, yayınlama, akışta görünme, "Devamını Gör" — bu ortamda Trakt'a ağ erişimi yok, migration (`017`) da gerçek bir Postgres'e karşı çalıştırılıp doğrulanamadı.
+
+## 158. "Alıntı Yap" Sosyal Satıra Taşındı — 3 Turlu İterasyon
+
+**Bağlam:** Kullanıcı Madde 156'da tasarlanan vurgu renkli/çerçeveli "🔖 Alıntı Yap" pilini "çok saçma" buldu, beğeni/yorum ikonlarıyla aynı satırda aynı görsel dilde olmasını istedi. Üç tur geri bildirimle son hâline ulaştı:
+
+1. **1. tur:** `Quote` ikonu `socialRow`'a taşındı, `socialBtn` stiliyle (çerçevesiz/arkaplansız, `#64748b` gri) — ama metin etiketi yok, kullanıcı "kimse alıntı olduğunu anlamaz, akademik kalmış" dedi.
+2. **2. tur:** `MessageSquareQuote` ikonu + mor (`#c084fc`) vurgu rengi + "Alıntı" metin etiketi eklendi — kullanıcı hem yazıyı hem moru beğenmedi.
+3. **3. tur (son hâl):** Metin etiketi tamamen kaldırıldı, ikon `Repeat`e (lucide — Spotify/YouTube'daki yuvarlak köşeli "tekrarla" ikonuna yakın, Twitter'ın "retweet"ine benzer ama kare değil) çevrildi, renk beğeni/yorumla **birebir aynı** `#64748b`. Buton artık yalnızca kendi aktivitende ve henüz alıntın yokken `socialRow` içinde, diğer ikonlarla görsel olarak ayırt edilemez duruyor.
+
+**Temizlik:** Her turda bir önceki turun kalıntıları (stil, import, i18n anahtarı) aynı düzenlemede silindi — `quoteCta`/`quoteCtaText`/`quoteLabel` stilleri, `Quote`/`MessageSquareQuote` importları, `quoteAction` çeviri anahtarı (`locales/{tr,en}/feed.json`) son hâlde HİÇBİRİ kalmadı çünkü nihai tasarımda metin/vurgu renk hiç yok. `useTranslation`/`t` de `FeedCard.tsx`'te başka hiçbir yerde kullanılmadığından kaldırıldı.
+
+**Doğrulama:** Her turda `tsc --noEmit` temiz, web bundle (3400+ modül) hatasız derlendi. Görsel sonuç bu ortamda doğrulanamadı (gerçek bir aktivite kartı için Trakt girişi gerekiyor, guest modda akış boş) — kullanıcının gerçek hesabıyla kontrol etmesi gerekiyor.
+
+## 159. Akış ↔ Profil Aktiviteleri Denetimi: Sessiz Hata Yutma + Eksik Önbellek Geçersiz Kılma Düzeltildi
+
+**Kullanıcı isteği:** "Akışı uzun zamandır güncelliyorum (farklı oturumlarda da) ama profilimdeki aktiviteleri aksattım. İkisini denetle, uyumlu hale getir, gereksiz kod varsa sil, Akış ile profildeki aktiviteler senkron olsun."
+
+### Denetim yöntemi
+Feed'in veri/UI katmanı (`useFeed.ts`, `feed.tsx`, `feedStore.ts`, `useFeedRealtime.ts`) ile Profil'in aktivite katmanı (`useUserActivity.ts` → paylaşılan `useActivityFeed.ts`, `ProfileActivityTab.tsx`) satır satır karşılaştırıldı; `docs/HISTORY.md`'deki Madde 142/145/148/155/156/157 (Feed'in son büyük değişiklikleri) tek tek okunup HANGİLERİNİN kasıtlı olarak yalnızca Feed'e mi (`activity_type` filtresi gerektirmeyenler zaten `<FeedCard/>` üzerinden otomatik paylaşılıyor), hangilerinin gerçekten Profil'de EKSİK kaldığı ayrıştırıldı. `npx tsc --noEmit --noUnusedLocals --noUnusedParameters -p .` ile proje genelinde gerçek ölü kod taraması yapıldı.
+
+### Kasıtlı farklar — DOKUNULMADI (gerçek bir "aksama" değil)
+- **Sonsuz kaydırma + Realtime yalnızca Feed'de** (Madde 148): Profil bilinçli olarak tarih penceresiz/sabit-20-kayıt çalışıyor — Madde 148'in kendi metninde gerekçesi açık ("zaman bazlı silme herkesin profil geçmişini yok ederdi"). Bu bir eksiklik değil, tasarım kararı.
+- **Not/Alıntı/Yorum/Beğeni/"Fikir Paylaş" (Madde 155-157):** Hepsi `FeedCard.tsx`/`MarathonFeedCard.tsx` üzerinden paylaşılıyor, Profil hiç değişmeden otomatik destekliyor (Madde 157'nin kendi notu bunu doğruluyor). Bu oturumun başında `FeedCard.tsx`'te yapılan "Alıntı Yap" buton redesign'ı (Madde 158) da bu sayede Profil'e otomatik yansıdı.
+- Ayrı bir `.claude/worktrees/intelligent-mclaren-7b32d5` klasörü bulundu ama `git merge-base` ile `main`'in zaten bir ATASI olduğu (main..HEAD boş) doğrulandı — kayıp/unmerged bir iş DEĞİL, dokunulmadı.
+
+### Gerçek bulgular — düzeltildi
+1. **Sessiz hata yutma (`docs/AI_RULES.md` § "Sessiz başarısızlık YASAKTIR" ihlali).** `useUserActivity.ts` zaten paylaşılan `useActivityFeed`'den `hasError`/`refresh` döndürüyordu ama `ProfileActivityTab.tsx` bunları HİÇ tüketmiyordu — gerçek bir ağ/Supabase hatasında bile ekranda sessizce "Henüz aktivite yok" yazıyordu (Feed tarafı bu TAM SORUNU Madde 142'de zaten çözmüştü, Profil'e hiç taşınmamıştı). Düzeltme: Feed'in `showError = hasError && data.length === 0` deseni birebir kopyalandı — `WifiOff` ikonu + "Aktiviteler Yüklenemedi" + `common:retry` butonu (`refresh()` çağırır). Yeni `profileActivityErrorTitle`/`profileActivityErrorText` anahtarları `locales/{tr,en}/media.json`'a eklendi (var olan `profileActivityEmpty*` adlandırma deseniyle birebir), buton metni için yeni anahtar İCAT EDİLMEDİ — zaten var olan `common:retry` reuse edildi.
+2. **Geri alma (un-watch/un-rate) Profil önbelleğini geçersiz kılmıyordu.** `feedPublish.ts`'teki `retractLocalActivity` (bölüm/puan geri alındığında `progress.ts`/`ratings.ts`'ten çağrılır) yalnızca `invalidateFeedCache()` çağırıyordu — Akış canlı `feedStore`'dan okuduğu için zaten anında düşüyordu, ama Profil AYRI bir fetch+kısa-ömürlü-önbellek (`userFeedActivitiesCache`, bkz. `fetchUserFeedActivities`) kullandığından geri alınan aktivite TTL (60sn) dolana kadar orada görünmeye devam edebilirdi. `publishActivities`/`publishPost` zaten HER İKİ önbelleği de geçersiz kılıyordu (`invalidateFeedCache` + `invalidateUserFeedActivitiesCache`) — `retractLocalActivity`'ye eksik olan tek satır eklendi (modül içi `cachedMe` üzerinden, yalnızca kendi aktivitelerim için çağrıldığından güvenli — çağıranlar hep kendi izleme/puanlama mutasyonları).
+
+### Gerçek ölü kod — BULUNAMADI
+`tsc --noUnusedLocals --noUnusedParameters` taraması Feed/Profil katmanında hiçbir kullanılmayan sembol göstermedi (bu oturumun başındaki Madde 158 temizliği zaten kendi kalıntılarını temizlemişti). Taramanın bulduğu 7 kullanılmayan sembol tamamen ilgisiz dosyalardaydı (`blocked-users.tsx`, `ReportIssueModal.tsx`, `useNotifications.ts`, `PublicProfileMobile.tsx`'te tek bir `FeedItem` importu) — bu görevin kapsamı dışında bırakıldı, silinmedi.
+
+### Kapsam dışı bırakılan, aynı desendeki bir üçüncü nokta
+`usePublicProfileActivity.ts` (BAŞKASININ profiline bakarken) de `hasError` döndürüyor ama `PublicProfileMobile.tsx`/`[slug].web.tsx` bunu tüketmiyor — Madde 1'deki AYNI hata. Kullanıcı açıkça "Akış" ve "profilimdeki aktiviteler" (kendi profili) dedi, başkasının profili bu isteğin kapsamında değildi; ayrı bir arka plan görevi olarak flag'lendi (spawn_task), bu oturumda DEĞİŞTİRİLMEDİ.
+
+### Değişen dosyalar
+`components/profile/ProfileActivityTab.tsx`, `features/feed/services/feedPublish.ts`, `locales/{tr,en}/media.json`.
+
+### Doğrulama
+`npx tsc --noEmit` (hem normal hem `--noUnusedLocals --noUnusedParameters`) temiz. Web bundle hatasız derlendi, guest modda konsol hatasız (yalnızca ortama özgü Trakt CORS hataları). **Doğrulanamayan:** Profil ekranı bu sandbox'ta guest kullanıcıya kapalı ("Profilinizi görmek için giriş yapın" duvarı) — yeni hata durumunun (WifiOff + "Tekrar Dene") VE geri alma sonrası Profil'in gerçekten tazelendiğinin görsel/canlı doğrulaması için gerçek bir Trakt hesabıyla cihazda test gerekiyor.
+
+## 160. Madde 159'da Flag'lenen Üçüncü Nokta Kapatıldı: Public Profile'da da Sessiz Hata Yutma
+
+**Bağlam:** Madde 159'da kapsam dışı bırakılıp `spawn_task` ile arka plana flag'lenen bulgu ("başkasının profiline bakarken de AYNI sessiz hata yutma var") kullanıcı tarafından bu turda işleme alındı — Madde 159'un kendi metnindeki teşhis ve önerilen çözüm birebir uygulandı.
+
+**Kapsam:** `usePublicProfileActivity.ts` zaten paylaşılan `useActivityFeed`'den `hasError` döndürüyordu ama hiç `refresh` döndürmüyordu (yalnızca `useUserActivity.ts` döndürüyordu) VE iki tüketici ekran da `hasError`'ı hiç almıyordu:
+- `usePublicProfileActivity.ts`: dönüş değerine `refresh` eklendi (tek satır, `useActivityFeed`'den doğrudan geçiliyor).
+- `screens/PublicProfileMobile.tsx` (+ native `[slug].tsx` — doğrudan bunu render ediyor, ayrı değişiklik gerekmedi): `FlatList`'in `ListEmptyComponent`'ine `activeTab === 'activity' && isActivityError` dalı eklendi (yükleniyor/hata/boş üç-yollu ayrım) — `WifiOff` ikonu + yeni `publicProfileActivityErrorTitle/Text` + `common:retry` butonu (`refreshActivity()` çağırır). Diziler/Filmler sekmeleri AYNI `ListEmptyComponent`i paylaştığı için dal açıkça `activeTab === 'activity'` ile sınırlandı, diğer ikisi etkilenmedi.
+- `app/(protected)/user/[slug].web.tsx` (masaüstü dalı, FlatList değil düz JSX): aynı üç-yollu ayrım (`isActivityLoading` → `isActivityError && activityData.length === 0` → `activityData.length === 0` → liste) elle eklendi — burada FlatList'in "ListEmptyComponent yalnızca data boşken çağrılır" garantisi olmadığı için `data.length === 0` kontrolü AÇIKÇA yazıldı.
+- Kullanılmayan `FeedItem` importu (`PublicProfileMobile.tsx`, `tsc --noUnusedLocals` taramasının Madde 159'da flag'lediği) temizlendi — bu dosyada tip yalnızca `isMarathonActivity`'nin parametre çıkarımıyla kullanılıyordu, ayrı bir import gerekmiyordu. `[slug].web.tsx`'te `FeedItem` GERÇEKTEN kullanıldığından (`activityData.map((item: FeedItem) => ...)`) dokunulmadı.
+
+**i18n:** `publicProfileLoadError` (profil BAŞLIĞININ yüklenemediği, farklı ve daha ciddi bir durum için var olan anahtar) kasıtlı olarak REUSE EDİLMEDİ — metni ("Profil yüklenemedi") bu bağlamda yanıltıcı olurdu (profil başlığı aslında yüklenmiş olabilir, yalnızca aktivite listesi başarısız olmuş olabilir). Bunun yerine `profileActivityErrorTitle/Text` (Madde 159, `media.json`) ile aynı adlandırma desenini izleyen `publicProfileActivityErrorTitle/Text` çifti `locales/{tr,en}/feed.json`'a eklendi. Retry buton metni için yeni anahtar İCAT EDİLMEDİ — `common:retry` reuse edildi (her iki ekran da `useTranslation` dizisine `'common'` eklendi, teknik olarak gerekmese de — `locales/resources.ts` TÜM namespace'leri önden yüklüyor, isim alanı önekiyle çağrı zaten çalışırdı — kod tabanının kendi konvansiyonuyla tutarlılık için eklendi).
+
+**Belgeleme hijyeni notu:** Bu maddeyi eklerken önceki bir hata fark edilip düzeltildi: Madde 159 eklenirken dosyanın gerçek son satırı (Madde 157'nin kendi "Doğrulama" paragrafı) okunmadan, ondan BİR ÖNCEKİ satıra yeni içerik eklenmişti — bu, Madde 157'nin doğrulama paragrafını kendi başlığından koparıp Madde 159'un ALTINA, başlıksız/öksüz bırakmıştı. Fark edilince paragraf doğru yerine (Madde 157'nin gövdesinin hemen altına) taşındı, kopya silindi.
+
+### Değişen dosyalar
+`features/publicProfile/hooks/usePublicProfileActivity.ts`, `screens/PublicProfileMobile.tsx`, `app/(protected)/user/[slug].web.tsx`, `locales/{tr,en}/feed.json`.
+
+### Doğrulama
+`npx tsc --noEmit` (hem normal hem `--noUnusedLocals --noUnusedParameters`) temiz — `noUnusedLocals` taramasında `PublicProfileMobile.tsx`'in `FeedItem` bulgusu artık YOK, kalan 7 bulgu tamamen ilgisiz dosyalarda (görev kapsamı dışı, dokunulmadı). Web bundle (3377 modül) hatasız derlendi. Guest modda `/user/{slug}` rotası (auth duvarı YOK, herkese açık) canlı denendi: `usePublicProfile` Trakt'a gidip CORS'a takıldığı için üstteki profil-başlığı hata dalı (`publicProfileLoadError`, ÖNCEDEN VAR olan, bu oturumda değişmeyen kod yolu) devreye girdi — bu, aktivite sekmesine hiç ulaşılamadığı, dolayısıyla yeni `isActivityError` dalının bu sandbox'ta DOĞRUDAN görsel olarak tetiklenemediği anlamına geliyor (profil başlığı önce başarısız oluyor, aktivite listesi hiç render edilmiyor). Konsolda yalnızca beklenen Trakt CORS hataları vardı, yeni koddan kaynaklanan bir hata/çökme yoktu. **Doğrulanamayan:** yeni aktivite-hata durumunun (WifiOff + "Tekrar Dene") gerçek görünümü — profil başlığının başarıyla yüklenip yalnızca aktivite listesinin başarısız olduğu bir senaryo bu ortamda üretilemiyor (Trakt'a hiç ağ erişimi yok); gerçek bir hesap/cihazda test gerekiyor.
+
+## 161. Aktivite Kartlarına 3-Nokta Menü: Düzenle / Sil / Paylaş (Link)
+
+**Kullanıcı bildirimi:** "Silme özelliğini unuttuğumuzu farkettim. Kullanıcı yazabiliyor, paylaşabiliyor ama silemiyor. Silerse DB'den de silinmeli, her yerden silinmeli — boşa saklamaya gerek yok. Her karta 3 nokta koyarız, basınca Düzenle/Sil/Paylaş (link olarak) açılır." Plan önce sunuldu (`EnterPlanMode`), 4 net soruyla (`AskUserQuestion`) kapsam netleştirildi, kullanıcı onayladı, sonra uygulandı.
+
+### Keşif: "mimari karar" aslında çoktan verilmişti
+`ProfileActivityTab.tsx`'teki `ACTIVITY_DELETE_ENABLED = false` bayrağı "mimari karar netleşene kadar" notuyla silme UI'ını tamamen gizliyordu. Ama Worker'da (`kaymaktv-feedback-worker/src/index.js` → `handleFeedDelete`) o karar ÇOKTAN verilmiş ve TAM ÇALIŞIR durumdaydı: gerçek `DELETE` (hard delete) + `deleted_feed_activities` tombstone tablosuna kayıt (010 migration — sonraki Trakt senkronunun sildiğini sessizce geri getirmemesi için). Yani backend hazırdı, yalnızca kullanıcı arayüzü kapalıydı — bu oturumda yeni bir silme mekanizması İCAT EDİLMEDİ, var olanın önüne modern bir arayüz kondu.
+
+### Kullanıcıyla netleşen kapsam (4 soru)
+1. Menü **hem Akış hem Profil › Aktiviteler'de**, yalnızca **kendi** kartlarında.
+2. "Paylaş" **o aktiviteye özel yeni bir kalıcı sayfa** açar (`kaymaktv.com/activity/{id}`) — `/show`/`/movie`/`/episode` ile AYNI, zaten var olan paylaşım deseni.
+3. Eski kaydırarak-sil/checkbox/toplu-silme arayüzü (`ActivityDeleteRow.tsx`, hiç kullanıcıya gösterilmemişti) **tamamen kaldırıldı**.
+4. Sosyal satırdaki "alıntı ekle" `Repeat` butonu (Madde 158) **kaldı** — 3-nokta menüsündeki "Düzenle" aynı ekranı açan ikinci bir yol.
+
+### Yapılanlar
+
+**Yeni `features/feed/components/CardMenu.tsx`:** `components/tracking/TrackingCardMenu.tsx`'in konumlandırma iskeleti (trigger'ı `measureInWindow` ile ölçüp safe-area'ya göre kırpılan, `Modal`+`Pressable` backdrop'lu bir açılır menü) BİREBİR tekrarlandı — afiş kartlarına özel favori/listeye-ekle mantığı taşımayan, yalnızca `onEdit?`/`onDelete?`/`onShare?` alan genel bir versiyon. Hiçbiri verilmezse `null` döner. "Sil" satırı ONAYI kendi içinde alır (`confirmAsync`, yeni `media:activityDeleteConfirmTitle/Message` anahtarları) — eskiden bu onay hem `ActivityDeleteRow` hem `ProfileActivityTab.handleBulkDelete`'te AYRI AYRI vardı, artık TEK yerde. Etiketler yeni anahtar İCAT EDİLMEDEN reuse edildi: `common:edit` (yeni), `common:delete` (vardı), `media:share` (vardı).
+
+**Yeni `features/feed/utils/resolveRawActivityIds.ts`:** `useUserActivity.ts` içine gömülü olan maraton-ham-id çözümleyici paylaşılan bir util'e taşındı — Akış'ın yeni silme yolu da aynı mantığı kullanıyor, kopyalanmadı.
+
+**`FeedCard.tsx`/`MarathonFeedCard.tsx`:** `ActivityDeleteRow` sarmalayıcısı + `isSelectionMode`/`isSelected`/`onToggleSelect` prop'ları tamamen kaldırıldı, yerine tek bir `onDeleteActivity?: () => void | Promise<void>` prop'u geldi (Akış'ta `feedStore`'a, Profil'de yerel listeye bağlanır — kart HANGİSİ olduğunu bilmek zorunda değil). `FeedCard`'ın `headerRow`'u `justifyContent:'space-between'` oldu, sağ üstte `CardMenu` (`onEdit` → var olan `setNoteModalVisible(true)`, `onShare` → yeni `handleShare`, ikisi de `isOwnActivity`/`isInteractive`'e göre koşullu). `MarathonFeedCard`'da yalnızca "Sil" var (Madde 156'daki "maraton kartına not eklenemez" kararıyla tutarlı — tek bir notu/kalıcı linki olmayan sentetik bir gruplama), kartın sağ üst köşesinde `position:'absolute'` bir trigger.
+
+**Silme — Akış tarafına yeni bağlandı:** `useFeed.ts`'e `deleteActivity(item)` eklendi — `resolveRawActivityIds` ile ham id'leri bulur, `feedStore`'dan İYİMSER kaldırır (rollback için tam nesneleri saklar), `deleteActivitiesBulk` çağırır (Worker, YENİ bir uç nokta DEĞİL — Profil'in zaten kullandığı `/feed/delete`), başarısızsa `upsertActivity` ile geri ekler + `Alert`, başarılıysa `invalidateUserFeedActivitiesCache` (Madde 159'daki `retractLocalActivity` ile BİREBİR AYNI çapraz-senkron deseni — Akış'tan silinen Profil'de de düşsün diye). `feed.tsx` her karta `onDeleteActivity={() => deleteActivity(item)}` geçiyor.
+
+**`ProfileActivityTab.tsx` sadeleşti:** `ACTIVITY_DELETE_ENABLED` bayrağı, `isSelectionMode`/`selectedIds` state'i, "Düzenle/Bitti" başlık butonu, floating toplu-silme `Modal`'ı TAMAMEN kaldırıldı — artık koşulsuz `onDeleteActivity={() => deleteItem(item)}`. `useUserActivity.ts`'in `deleteItem`/`deleteItems`'ı DEĞİŞMEDİ (zaten çalışıyordu), yalnızca kendi `resolveRawActivityIds` kopyası silinip paylaşılan util'e yönlendirildi.
+
+**Yeni `app/activity/[id].tsx` + `features/feed/hooks/useActivityDetail.ts`:** Paylaşım linkinin hedefi — `app/episode/[id].tsx` ile AYNI konum deseni (`(protected)`/`(public)` gruplarının DIŞINDA, tek dosya, herkese açık). Hook, ŞİMDİYE KADAR yalnızca Realtime'ın satır tamamlama yolunda kullanılan `fetchActivityById`'yi doğrudan çağırıyor (herkese açık RLS sayesinde yeni bir yetkilendirme kodu gerekmedi). Sayfa tek bir `<FeedCard/>` render ediyor (kendi `CardMenu`'sü zaten doğru davranır, ekstra prop gerekmez). Bulunamadı/silinmiş durumu BİLİNÇLİ OLARAK `WifiOff`+"Tekrar Dene" değil, sıradan bir boş durum (`SearchX` + "Bu Gönderi Artık Yok") — eski bir paylaşım linkine tıklamak (aktivite sahibi silmiş olabilir) NORMAL bir senaryo, hata değil.
+
+**Silinen dosya:** `features/feed/components/ActivityDeleteRow.tsx` (hiçbir yerden çağrılmıyordu). `confirmDialog.ts`'teki ona atıfta bulunan yorum güncellendi.
+
+**Temizlik:** Bulk-silme UI'ına özel, artık kullanılmayan 5 çeviri anahtarı (`activityBulkDeleteTitle/Text`, `activityDeleteSelectedButton`, `activityDoneAction`, `activityEditAction`) `locales/{tr,en}/media.json`'dan kaldırıldı — grep ile TEK kalan referanslarının `.claude/worktrees/intelligent-mclaren-7b32d5` (donmuş, zaten `main`'in bir atası, canlı kod DEĞİL — bkz. Madde 159) altında olduğu doğrulandı.
+
+### Değişen/Yeni/Silinen dosyalar
+YENİ: `app/activity/[id].tsx`, `features/feed/hooks/useActivityDetail.ts`, `features/feed/components/CardMenu.tsx`, `features/feed/utils/resolveRawActivityIds.ts`. DEĞİŞTİ: `FeedCard.tsx`, `MarathonFeedCard.tsx`, `useFeed.ts`, `useUserActivity.ts`, `ProfileActivityTab.tsx`, `feed.tsx`, `confirmDialog.ts`, `locales/{tr,en}/{feed,media,common}.json`. SİLİNDİ: `ActivityDeleteRow.tsx`.
+
+### Doğrulama
+`npx tsc --noEmit` (hem normal hem `--noUnusedLocals --noUnusedParameters`) temiz — dead-code taraması `ActivityDeleteRow`'a ait HİÇBİR kalıntı göstermedi, kalan 7 bulgu bu görevle ilgisiz dosyalarda (dokunulmadı). Web bundle (3407 modül) hatasız derlendi. Guest modda canlı test: `/activity/{geçersiz-uuid}` ve `/activity/{var-olmayan-gerçek-uuid}` ikisi de doğru "Bu Gönderi Artık Yok" boş durumunu gösterdi (Supabase isteği bu sandbox'ta 400 dönse bile `useActivityDetail`'in `catch`'i çökmeden zarif bir boş duruma düşüyor); Akış guest modda hatasız yüklendi ("Akışın Boş"); Profil'in misafir duvarı (önceki oturumlardan, bu oturumda değişmedi) sağlam. Konsolda yalnızca ortama özgü Trakt/Supabase ağ hataları vardı. **Doğrulanamayan:** gerçek bir Trakt hesabıyla uçtan uca — 3-nokta menüsünün gerçek bir kartta açılıp doğru konumlanması, "Sil"in gerçekten Supabase'den + bir sonraki senkronda geri gelmeyecek şekilde silmesi, "Paylaş"ın OS paylaşım sayfasını açması ve paylaşılan linkin gerçek bir tarayıcıda o kartı göstermesi — bu ortamda Trakt/Supabase'e gerçek ağ erişimi yok, kullanıcının kendi hesabıyla/cihazında test etmesi gerekiyor.
+
+## 162. Denetim Turu: Realtime'da Eksik DELETE Aboneliği + Alıntı Düzenleyicide Bayat 500 Karakter Sınırı
+
+**Kullanıcı isteği:** "Şu an sorunsuz çalışıyor gibi. Öncelikle ölü kod var mı buna bak, varsa sil. Daha stabil hale getirebiliyorsan bunu yap. Başka hata bulursan bildir." Madde 161'in üzerinden hedefli bir denetim turu — tüm `features/feed/` ağacı okunup iki katmanda kontrol edildi: (1) ölü kod — `tsc --noUnusedLocals --noUnusedParameters` taraması + her dosyanın başka bir yerden import edilip edilmediğinin (orphan dosya) manuel kontrolü, (2) mantık/stabilite — özellikle Madde 161'de yeni bağlanan silme yolunun geri kalan sistemle (Realtime, karakter sınırları) tutarlılığı.
+
+### Ölü kod — BULUNAMADI
+`tsc --noUnusedLocals --noUnusedParameters` taraması `features/feed/`+`features/publicProfile/` içinde SIFIR bulgu verdi (yalnızca bu görevle ilgisiz 7 önceden bilinen bulgu — `blocked-users.tsx`, `ReportIssueModal.tsx`, `useNotifications.ts` — hâlâ duruyor, dokunulmadı). Her dosyanın en az bir yerden import edildiği doğrulandı (orphan/hiç kullanılmayan dosya yok) — Madde 161'in kendi temizliği (ActivityDeleteRow.tsx silinmesi + 5 ölü çeviri anahtarı) zaten bu ağacı temiz bırakmıştı.
+
+### Gerçek bulgu 1 — Realtime'da DELETE aboneliği hiç yoktu (düzeltildi)
+`useFeedRealtime.ts` yalnızca `INSERT`/`UPDATE` `postgres_changes` olaylarına abone oluyordu. Madde 161'e kadar bu sorun DEĞİLDİ çünkü silme hiçbir yerden tetiklenemiyordu (`ACTIVITY_DELETE_ENABLED=false`) — ama artık gerçek bir silme (Akış VEYA Profil'den) yalnızca SİLEN KİŞİNİN kendi ekranından anında kayboluyor, akışı o an açık olan BAŞKA kullanıcılar kartı hâlâ görmeye devam ediyordu (yalnızca bir sonraki tazelemede düşerdi) — kullanıcının "her yerden silinmeli" isteğiyle doğrudan çelişen bir boşluk. Düzeltme: yeni bir `DELETE` handler eklendi, `payload.old.id`'yi (REPLICA IDENTITY FULL sayesinde — 013_realtime_feed.sql'de zaten ayarlıydı, `payload.old` TAM satırı taşır) `feedStore.removeActivity()`'ye geçiyor — INSERT/UPDATE handler'larıyla BİREBİR aynı desen, yeni bir mekanizma icat edilmedi.
+
+### Gerçek bulgu 2 — NoteEditorModal hâlâ 500 karakterde kilitliydi (düzeltildi)
+Madde 157'de `note` alanının karakter sınırı Worker/DB'de 500'den **1000**'e çıkarılmıştı ("hem kısa alıntıları hem bağımsız gönderileri taşıyor" gerekçesiyle, `ComposePostModal.tsx`'in `POST_MAX_LENGTH`i de doğru şekilde 1000). Ama `NoteEditorModal.tsx`'teki `NOTE_MAX_LENGTH` sabiti hiç güncellenmemiş, 500'de kalmıştı — bu modal hem "alıntı ekle/düzenle" (Repeat butonu, 3-nokta menüsündeki Düzenle) hem de bir "Fikir Paylaş" gönderisinin gövdesini düzenlemek için AYNI bileşen (bkz. FeedCard.tsx). Sonuç: 501-1000 karakter arası (ComposePostModal ile oluşturulmuş, backend'in kabul ettiği GEÇERLİ) bir gönderiyi kullanıcı tekrar düzenlemeye çalıştığında — hatta hiç değiştirmeden yalnızca yeniden kaydetmeye çalışsa bile — sayaç "800/500" gösterip Kaydet butonu SESSİZCE devre dışı kalıyordu. `TextInput`'un sert `maxLength` sınırı da (`NOTE_MAX_LENGTH + 50` = 550) yeni bir alıntının hiçbir zaman 550 karakteri aşmasına izin vermiyordu. Düzeltme: sabit 1000'e çıkarıldı, Worker'daki (`handleFeedNote`, satır ~1435) gerçek kaynakla hizalandı.
+
+**Dokunulmayan (bilinçli, ayrı repo):** `kaymaktv-feedback-worker/src/index.js`'te `handleFeedNote`'un hemen üstünde stale bir yorum var ("DB'deki 500 sınırı gerçek kaynak") — kodun kendisi doğru (1000 kontrol ediyor), yalnızca yorum eski. Bu Worker AYRI bir repo/deploy döngüsüne sahip (`kaymaktv-feedback-worker`), bu oturumun kapsamı KaymakTV app repo'suydu — kullanıcıya bildirilecek, düzenlenmedi.
+
+### Değişen dosyalar
+`features/feed/hooks/useFeedRealtime.ts`, `features/feed/components/NoteEditorModal.tsx`.
+
+### Doğrulama
+`npx tsc --noEmit` temiz. Web bundle hatasız derlendi. Guest modda Akış hatasız yüklendi, konsolda yeni koddan kaynaklanan hata yoktu (yalnızca ortama özgü Trakt CORS gürültüsü). **Doğrulanamayan:** guest modda `useFeedRealtime` hiç subscribe OLMUYOR (`canLoad=false` iken kanal kurulmuyor) — yeni `DELETE` handler'ının gerçek bir Supabase kanalına karşı çalıştığı bu ortamda doğrulanamadı; `NOTE_MAX_LENGTH` değişikliği yalnızca statik/tip doğruluğuyla teyit edildi. İkisi de gerçek bir hesapla cihazda test edilmeli.
+
+## 163. Güvenlik Denetimi (`/security-review`) + "Hayalet Silme" Düzeltmesi + Akış Ekranı Sıralaması
+
+**Bağlam:** Kullanıcı Madde 161-162'nin (3-nokta menü + denetim) ardından `/security-review` skill'iyle güvenlik denetimi istedi.
+
+### Güvenlik denetimi sonucu
+İki aşamalı, ajan tabanlı denetim (önce olası açıkları tara, sonra her adayı bağımsız bir ajanla doğrula/çürüt) `features/feed/` ağacındaki tüm bekleyen değişiklikleri (Madde 158-162'nin diff'i) taradı. **Yüksek güvenilirlikli (≥8/10) bir güvenlik açığı BULUNAMADI.** Tek aday — `MarathonFeedCard.tsx`'te "Sil" seçeneğinin sahiplik kontrolü olmadan gösterilmesi — doğrulama turunda 2/10 güvenle ELENDİ: Worker'ın `handleFeedDelete`'i (`deleteFeedActivitiesForUser`) gerçek SQL DELETE'i HEM `id` HEM `user_id=eq.<doğrulanmış çağıran>` şartıyla filtreliyor, yani başkasının aktivite id'leri gönderilse bile sunucu tarafında sıfır satır eşleşiyor — hiçbir veri gerçekten silinmiyor. Yetkilendirme sınırı (IDOR'a karşı) sağlam.
+
+### Gerçek bulgu — "Hayalet Silme" (Phantom Delete), güvenlik değil UX hatası (düzeltildi)
+Güvenlik açığı olmasa da gerçek bir kullanıcı deneyimi sorunuydu: `MarathonFeedCard.tsx`, `FeedCard.tsx`'in aksine, `CardMenu`'nün "Sil" satırını `isOwnActivity` kontrolü olmadan gösteriyordu — takip ettiğin birinin maraton kartında da "Sil" çıkıyordu. Sunucu isteği reddetmese de (sessizce 0 satır silip `success:true` dönüyor), istemci bunu iyimser olarak YİNE DE kendi ekranından kaldırıyordu — kullanıcı gerçekte hiçbir şey silmediği hâlde "sildim" sanıyordu (kart yalnızca kendi cihazında, geçici olarak kayboluyordu, DB'de dokunulmamış durumdaydı). Düzeltme: `FeedCard.tsx`'teki `isOwnActivity = myTraktSlug === activity.user.traktSlug` kontrolü `MarathonFeedCard.tsx`'e birebir taşındı (`useMyTraktSlug` hook'u eklendi), `CardMenu`'ye `onDelete={isOwnActivity ? onDeleteActivity : undefined}` geçiliyor artık.
+
+### UI — "Ne düşünüyorsun?" kutusu arama çubuğunun altına indi
+Kullanıcı isteği: Akış ekranının en üstünde arama çubuğunun ÜSTÜNDE duran "Ne düşünüyorsun?" (Fikir Paylaş giriş noktası) kutusu, kullanıcıların gözünden kaçıyordu. `app/(protected)/(tabs)/feed.tsx`'te iki blok yer değiştirdi — `UserSearchBar` üstte sabit kalıyor, `ComposePostBar` onun altına indi. Salt sıralama değişikliği, iki bileşenin kendisi DOKUNULMADI.
+
+### Değişen dosyalar
+`features/feed/components/MarathonFeedCard.tsx`, `app/(protected)/(tabs)/feed.tsx`.
+
+### Doğrulama
+`npx tsc --noEmit` temiz. Web bundle hatasız derlendi, guest modda Akış hatasız yüklendi (konsolda yalnızca ortama özgü Trakt CORS gürültüsü). **Doğrulanamayan:** `ComposePostBar` yalnızca gerçek (misafir olmayan) kullanıcıya gösterildiğinden yeni sıralama bu sandbox'ta GÖRSEL olarak doğrulanamadı (guest modda hiç render edilmiyor) — kod değişikliği salt iki JSX bloğunun yer değiştirmesi, düşük risk, ama kullanıcının gerçek hesabıyla görsel teyidi gerekiyor. "Hayalet silme" düzeltmesi de gerçek bir maraton kartı ve iki farklı hesap gerektirdiğinden bu ortamda uçtan uca test edilemedi.
+
+## 164. Akış Sisteminin Tam Denetimi: Oturum Sızıntısı + 3 Sessiz Başarısızlık + Doküman Temizliği
+
+**Kullanıcı isteği:** "Akışı komple her yerini denetlemeni istiyorum çünkü burayı oluşturdum, başka özelliklere geçeceğim. Denetleme planı oluştur ve denetle. Sorunlar varsa bildir. Sorun yoksa bu alanla alakalı gereksiz .md dosyası varsa temizleyelim ya da güncelleyelim."
+
+### Denetim planı (6 eksen)
+`features/feed/` (44 dosya) + `features/publicProfile/` + tüketici ekranlar + Worker + şema + dokümanlar şu eksenlerde tarandı: (1) veri katmanı/servisler — önbellek geçersiz kılma tutarlılığı, (2) hook'lar — yarış durumu/stale closure/unmount, (3) UI bileşenleri — guest guard, sessiz hata, (4) oturum izolasyonu, (5) Worker sözleşmesi + DB şeması uyumu, (6) doküman güncelliği.
+
+### 🔴 Bulgu 1 — Hesap değişiminde kimlik önbelleği sızıntısı (düzeltildi)
+`AuthContext.removeKeys()` (çıkış) altı önbelleği temizliyordu (followStore, myTraktSlug, feedStore, feedPublish kimliği, feedCache, visibleUserIds) ama `features/feed/services/userBlocks.ts`'teki **İKİ modül seviyesi önbelleği atlıyordu**: `myUserIdCache` (benim Supabase `users.id`'im) ve `blockedIdsCache` (engel kümem). İkisinin de `invalidate*` fonksiyonu ZATEN VARDI ama hiçbir yerden çağrılmıyordu. Sonuç: uygulama kapatılmadan hesap değiştirilirse (çıkış → farklı hesapla giriş) TTL (60sn) dolana kadar ÖNCEKİ kullanıcının kimliği kullanılırdı — `attachIsLikedByMe` başkasının beğenilerini "benim" gösterir, `useFeedComments.myUserId` yanlış yorumlarda "sil" butonu çıkarır (kendi yorumunda çıkarmaz), engel filtresi önceki hesabın listesiyle çalışırdı. Düzeltme: iki `invalidate` çağrısı `removeKeys`'e eklendi + `docs/feed.md`'ye "yeni önbellek eklersen buraya da ekle" uyarısı yazıldı.
+
+### 🟡 Bulgu 2-4 — Üç sessiz başarısızlık (`docs/AI_RULES.md` ihlali, düzeltildi)
+Kural: *"Kullanıcının başlattığı bir eylem başarısız olduğunda ekranda görünür bir geri bildirim OLMAK ZORUNDADIR."* Tüm `catch` blokları tarandı; iyimser geri alması OLAN yollar (beğeni, yorum silme, gizlilik anahtarı — durum görünür şekilde geri döner) kabul edildi, geri bildirimi HİÇ olmayan üç yol düzeltildi:
+1. **Alıntı kaydetme** (`FeedCard.handleSaveNote`): hata yalnızca `console.warn`'a düşüyordu — modal açık kalıyor ama kullanıcı NEDEN kapanmadığını göremiyordu ("Kaydet çalışmıyor" izlenimi). `NoteEditorModal`'a `error?: string | null` prop'u eklendi (`ComposePostModal`'daki AYNI desen/stil), `FeedCard` sunucu mesajını oraya geçiriyor. `if (!accessToken) return;` sessiz dönüşü de görünür bir mesaja çevrildi.
+2. **Engelle/engeli kaldır** (`BlockUserButton`): `catch {}` tamamen boştu ("hata zaten hook'ta loglanıyor" notuyla) — artık `Alert`.
+3. **Engeli kaldır** (`app/(protected)/blocked-users.tsx`): aynı desen, satır listede kalıyor ama sebep gösterilmiyordu — artık `Alert`.
+
+### ✅ Temiz çıkan eksenler
+- **Worker sözleşmesi:** client'ın çağırdığı 12 uç noktanın HEPSİ Worker'ın router'ıyla birebir eşleşiyor (`/feed/{sync,publish,privacy,delete,note,comment,comment/delete,like,post,block,unblock}` + `/account/delete`) — eşleşmeyen/ölü uç nokta yok.
+- **Ölü kod:** `tsc --noUnusedLocals --noUnusedParameters` akış kapsamında SIFIR bulgu. Tek bulgu `blocked-users.tsx`'teki kullanılmayan `UserX` importuydu (otopsi: `Ban` ile değiştirilmiş, kalıntı) — silindi. Kalan 6 bulgu akış dışı dosyalarda (`ReportIssueModal`, `useNotifications`), dokunulmadı.
+- **Yarış korumaları:** `useActivityFeed` (runId sayacı), `MediaPickerModal` (searchSeq), `useFeed.loadMore` (isFetchingRef), `useActivityDetail`/`useFeedPrivacy` (cancelled bayrağı) — hepsi doğru kurulmuş.
+- **İyimser UI geri almaları:** yayın, gönderi, silme, beğeni, yorum, gizlilik — hepsinin rollback'i var.
+
+### 📄 Doküman temizliği
+- **`docs/feed.md`** (asıl temizlik): tamamlanmış işleri "⏳ Yapılmadı" gösteren yol haritası tablosu, iki ayrı **bayat "Kullanıcının Yapması Gerekenler"** listesi (aylar önceki oturumlardan kalma, 006/007/008 migration'ları çalıştırma talimatları), "Phase 1/Phase 1.5/Phase 2" kapsam listeleri, artık geçersiz **"Status Tracker"** ve eksik/yanlış **DB şeması bloğu** (013/015/017'nin eklediği `media_type`/`tmdb_id`/`note`/`like_count` kolonları yoktu, `show_id NOT NULL` yazıyordu ama 017'de NULLABLE olmuştu) güncellendi. Yerine: gerçek durum özeti, güncel şema, migration tablosu (010-017 eklendi), kalan-işler tablosu ve "yeni migration/Worker değişikliği yaptıysan" adımları.
+- **`docs/FEED_SOCIAL_PLAN.md`:** SİLİNMEDİ (kod yorumlarının onlarcası `§` numarasıyla buraya atıf yapıyor, tasarım gerekçesi hâlâ değerli) ama başlığı "Plan" → "TASARIM KAYDI" yapıldı ve §7 düzeltildi — tamamlanmış işleri ("Worker uç noktaları, RN UI, Realtime genişletmesi — sonraki tur") hâlâ yapılmamış gibi listeliyordu. Sonradan değişen üç madde (not sınırı 500→1000, silme, Realtime DELETE) başa not düşüldü.
+- `docs/HISTORY.md`'ye DOKUNULMADI (tarihsel kayıt, geriye dönük düzeltilmez).
+
+### Değişen dosyalar
+`context/AuthContext.tsx`, `features/feed/components/{FeedCard,NoteEditorModal,BlockUserButton}.tsx`, `app/(protected)/blocked-users.tsx`, `locales/{tr,en}/feed.json`, `docs/{feed,FEED_SOCIAL_PLAN}.md`.
+
+### Doğrulama
+`npx tsc --noEmit` temiz; `--noUnusedLocals --noUnusedParameters` taramasında akış kapsamında hiç bulgu yok. Web bundle hatasız derlendi; guest modda Akış ("Akışın Boş") ve `/blocked-users` ("Kimseyi engellemedin") ekranları hatasız yüklendi, konsolda yalnızca ortama özgü Trakt CORS gürültüsü vardı. **Doğrulanamayan:** oturum sızıntısı düzeltmesi iki farklı Trakt hesabıyla çıkış-giriş döngüsü gerektiriyor; üç yeni hata mesajının görünümü gerçek bir ağ hatası gerektiriyor — ikisi de bu ortamda üretilemedi, gerçek cihazda test edilmeli.

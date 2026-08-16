@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, useWindo
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Rss } from 'lucide-react-native';
+import { ChevronLeft, Rss, WifiOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import ProfileHeader from '../components/profile/ProfileHeader';
@@ -20,7 +20,7 @@ import { useFollowState } from '../hooks/useFollowState';
 import { useBlockState } from '../features/feed/hooks/useBlockState';
 import { useMyTraktSlug } from '../features/feed/hooks/useMyTraktSlug';
 import { useAuth } from '../context/AuthContext';
-import { FeedItem, isMarathonActivity } from '../features/feed/types';
+import { isMarathonActivity } from '../features/feed/types';
 import MediaPoster from '../components/MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
 
@@ -38,7 +38,7 @@ export default function PublicProfileMobile() {
   const slug = (Array.isArray(rawSlug) ? rawSlug[0] : rawSlug) ?? null;
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['feed', 'media']);
+  const { t } = useTranslation(['feed', 'media', 'common']);
 
   const { width } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<'activity' | 'shows' | 'movies'>('activity');
@@ -51,7 +51,7 @@ export default function PublicProfileMobile() {
   // biri profilinde 'Takip Et' görünüyor" hatasına karşı ikinci bir güvence.
   const followSlug = profile?.ids?.slug || slug;
   const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
-  const { data: activityData, isLoading: isActivityLoading } = usePublicProfileActivity(slug);
+  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
 
   // Engelleme (bkz. docs/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel, Trakt
@@ -182,11 +182,26 @@ export default function PublicProfileMobile() {
             </View>
           }
           ListEmptyComponent={
-            (activeTab === 'activity' && isActivityLoading) || 
-            (activeTab === 'shows' && isLoadingShows) || 
+            (activeTab === 'activity' && isActivityLoading) ||
+            (activeTab === 'shows' && isLoadingShows) ||
             (activeTab === 'movies' && isLoadingMovies) ? (
               <View style={styles.skeletonWrap}>
                 {activeTab === 'activity' ? <FeedSkeleton /> : <ActivityIndicator size="large" color="#3b82f6" style={{marginTop: 40}} />}
+              </View>
+            ) : activeTab === 'activity' && isActivityError ? (
+              // "Veri yok" ile "yüklenemedi" AYRI durumlar (bkz. ProfileActivityTab.tsx'teki
+              // AYNI ayrım, docs/AI_RULES.md § Sessiz başarısızlık YASAKTIR) — eskiden
+              // gerçek bir ağ/veritabanı hatasında da bu kullanıcı hiçbir şey izlememiş
+              // gibi "Henüz aktivite yok" gösteriliyordu.
+              <View style={styles.emptyState}>
+                <WifiOff size={36} color="#334155" />
+                <Text style={styles.emptyTitle}>{t('feed:publicProfileActivityErrorTitle', 'Aktiviteler Yüklenemedi')}</Text>
+                <Text style={styles.emptyText}>
+                  {t('feed:publicProfileActivityErrorText', 'Bağlantını kontrol edip tekrar dene.')}
+                </Text>
+                <TouchableOpacity style={styles.retryButton} onPress={refreshActivity} activeOpacity={0.8}>
+                  <Text style={styles.retryButtonText}>{t('common:retry')}</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.emptyState}>
@@ -195,7 +210,7 @@ export default function PublicProfileMobile() {
                   {activeTab === 'activity' ? t('feed:publicProfileEmptyTitle', 'Henüz aktivite yok') : t('feed:publicProfileEmptyTitle', 'Henüz içerik yok')}
                 </Text>
                 <Text style={styles.emptyText}>
-                  {activeTab === 'activity' 
+                  {activeTab === 'activity'
                     ? t('feed:publicProfileEmptyText', 'Bu kullanıcı henüz bir şey izlemedi veya puanlamadı.')
                     : t('feed:publicProfileEmptyText', 'Bu listede henüz içerik bulunmuyor.')}
                 </Text>
@@ -275,6 +290,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  // Akış/Profil ekranlarındaki hata durumu retry butonuyla AYNI görsel dil.
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor: '#172033',
+    borderWidth: 1,
+    borderColor: '#22304A',
+  },
+  retryButtonText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',

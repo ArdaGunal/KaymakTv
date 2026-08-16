@@ -1,15 +1,17 @@
 import axios from 'axios';
 import i18n from '../locales/index';
-import { Platform } from 'react-native';
 import { cacheManager } from '../utils/cacheManager';
 import { CACHE_TTL } from '../utils/cacheTTL';
 
-const TMDB_API_URL = 'https://api.themoviedb.org/3';
-
-const API_KEY = process.env.EXPO_PUBLIC_TMDB_API_KEY;
-
-const isWeb = Platform.OS === 'web';
-const TMDB_PROXY_URL = process.env.EXPO_PUBLIC_TMDB_PROXY_URL || '/api/tmdb';
+// TMDB anahtarı istemciye ASLA gömülmez (`EXPO_PUBLIC_TMDB_API_KEY` KALDIRILDI
+// — bkz. google_play_eksikler.md Aşama 5). `services/api/auth.ts`'teki
+// TRAKT_PROXY_URL ile AYNI desen: `EXPO_PUBLIC_API_URL` tanımlıysa mutlak
+// adres (native VE üretim web — API ayrı bir makinede, bkz. auth.ts'teki
+// "Platform.OS kontrolü EKLEMEYİN" uyarısı, aynı gerekçe burada da geçerli),
+// tanımlı değilse (uygulama API ile aynı origin'den sunuluyorsa) göreli yol.
+const TMDB_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/tmdb`
+  : '/api/tmdb';
 
 // LRU Cache Sınıfı (Memory Leak Çözümü)
 class LRUCache {
@@ -85,29 +87,13 @@ export const peekPosterCache = (type: 'show' | 'movie', tmdbId: number): { hit: 
   return { hit: false, url: null };
 };
 
-/**
- * Helper to fetch data from TMDB. 
- * On Mobile & Local Web: Uses direct TMDB API with API_KEY
- * On Production Web: Routes through Netlify proxy to hide API_KEY
- */
+// TMDB'ye HER ZAMAN proxy üzerinden gidilir (native dahil) — anahtar yalnızca
+// sunucu tarafında (`server.js` → `TMDB_API_KEY`) tutulur.
 const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
-  // Misafirlerde ve normal kullanıcılarda ortak sorunu çözmek için
-  // Proxy yerine doğrudan TMDB'ye bağlanıyoruz (eğer API anahtarı varsa)
-  if (API_KEY) {
-    return axios.get(`${TMDB_API_URL}${endpoint}`, { params: { ...params, api_key: API_KEY } });
-  } else if (isWeb) {
-    return axios.get(TMDB_PROXY_URL, { params: { ...params, endpoint } });
-  } else {
-    throw new Error('TMDB API Key missing');
-  }
+  return axios.get(TMDB_PROXY_URL, { params: { ...params, endpoint } });
 };
 
 export const getShowPoster = async (tmdbId: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) {
-    console.warn('TMDB API Key eksik!');
-    return null;
-  }
-
   const cacheKey = `@tmdb_poster_cache_show_${tmdbId}`;
 
   const cached = await getCachedData(cacheKey);
@@ -136,11 +122,6 @@ export const getShowPoster = async (tmdbId: number): Promise<string | null> => {
 };
 
 export const getMoviePoster = async (tmdbId: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) {
-    console.warn('TMDB API Key eksik!');
-    return null;
-  }
-
   const cacheKey = `@tmdb_poster_cache_movie_${tmdbId}`;
 
   const cached = await getCachedData(cacheKey);
@@ -173,8 +154,6 @@ export const getMoviePoster = async (tmdbId: number): Promise<string | null> => 
 };
 
 export const getShowBackdrop = async (tmdbId: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) return null;
-
   const cacheKey = `@tmdb_backdrop_cache_${tmdbId}`;
 
   if (memoryCache.has(cacheKey)) {
@@ -201,8 +180,6 @@ export const getShowBackdrop = async (tmdbId: number): Promise<string | null> =>
 };
 
 export const getShowTrailer = async (tmdbId: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) return null;
-
   const cacheKey = `@tmdb_trailer_cache_${tmdbId}`;
 
   if (memoryCache.has(cacheKey)) {
@@ -236,7 +213,6 @@ export const getPersonPhoto = (profilePath: string | null): string | null => {
 };
 
 export const getEpisodeStill = async (tmdbId: number, season: number, episode: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) return null;
   if (!tmdbId || isNaN(tmdbId)) return null;
 
   const cacheKey = `@tmdb_still_cache_${tmdbId}_${season}_${episode}`;
@@ -267,8 +243,6 @@ export const getEpisodeStill = async (tmdbId: number, season: number, episode: n
 };
 
 export const getMovieBackdrop = async (tmdbId: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) return null;
-
   const cacheKey = `@tmdb_backdrop_cache_movie_${tmdbId}`;
 
   if (memoryCache.has(cacheKey)) {
@@ -297,8 +271,6 @@ export const getMovieBackdrop = async (tmdbId: number): Promise<string | null> =
 };
 
 export const getMovieTrailer = async (tmdbId: number): Promise<string | null> => {
-  if (!isWeb && !API_KEY) return null;
-
   const cacheKey = `@tmdb_trailer_cache_movie_${tmdbId}`;
 
   if (memoryCache.has(cacheKey)) {
@@ -335,8 +307,6 @@ export const getMovieTrailer = async (tmdbId: number): Promise<string | null> =>
 };
 
 export const getTmdbCast = async (tmdbId: number, type: 'tv' | 'movie'): Promise<any[]> => {
-  if (!isWeb && !API_KEY) return [];
-  
   const cacheKey = `@tmdb_cast_cache_${type}_${tmdbId}`;
   
   if (memoryCache.has(cacheKey)) {
@@ -368,7 +338,6 @@ export const getTmdbCast = async (tmdbId: number, type: 'tv' | 'movie'): Promise
 };
 
 export const getEpisodeTmdbCast = async (tmdbId: number, season: number, episode: number): Promise<any[]> => {
-  if (!isWeb && !API_KEY) return [];
   if (!tmdbId || isNaN(tmdbId)) return [];
   
   const cacheKey = `@tmdb_cast_cache_ep_${tmdbId}_${season}_${episode}`;

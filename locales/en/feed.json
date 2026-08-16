@@ -15,6 +15,8 @@
   "pending": "Pending Approval",
   "publicProfileEmptyTitle": "No activity yet",
   "publicProfileEmptyText": "This user hasn't watched or rated anything yet.",
+  "publicProfileActivityErrorTitle": "Couldn't Load Activity",
+  "publicProfileActivityErrorText": "Check your connection and try again.",
   "publicProfileNotFound": "This user couldn't be found.",
   "publicProfileLoadError": "Couldn't load profile. Please try again.",
 
@@ -26,7 +28,8 @@
   "noteEditorTitle": "Quote",
   "noteEditorTitleEdit": "Edit Quote",
   "noteEditorPlaceholder": "What did you think of this?",
-  "quoteAction": "Quote",
+  "noteSaveError": "Couldn't save your quote, please try again.",
+  "noteSaveAuthError": "Your session wasn't found, please sign in again.",
 
   "commentsTitle": "Feed Comments",
   "commentsError": "Couldn't load comments.",
@@ -58,5 +61,25 @@
   "mediaPickerTitle": "Pick a Show or Movie",
   "mediaPickerSearchPlaceholder": "Search shows or movies...",
   "mediaPickerHint": "Type at least 2 characters to search.",
-  "mediaPickerEmpty": "No results found."
+  "mediaPickerEmpty": "No results found.",
+
+  "activityPageTitle": "Post",
+  "activityNotFoundTitle": "This Post is Gone",
+  "activityNotFoundText": "It may have been deleted, or never existed.",
+  "shareActivityMsg": "Check out this post on KaymakTV:",
+
+  "reportContentMenuLabel": "Report Content",
+  "blockUserMenuLabel": "Block User",
+  "reportModalTitle": "Report Content",
+  "reportModalSubtitle": "Let us know what's wrong with this content and we'll take a look.",
+  "reportReasonSpam": "Spam or misleading content",
+  "reportReasonHarassment": "Harassment or bullying",
+  "reportReasonHateSpeech": "Hate speech",
+  "reportReasonSpoiler": "Unmarked spoiler",
+  "reportReasonIllegal": "Illegal content",
+  "reportReasonOther": "Other",
+  "reportDetailPlaceholder": "Add a short note if you'd like (optional)",
+  "reportSubmit": "Report",
+  "reportSuccess": "✅ Report received, thank you.",
+  "reportError": "❌ Couldn't send the report, please try again."
 }

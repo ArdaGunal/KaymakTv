@@ -11,6 +11,11 @@ import { Heart, EyeOff, Eye } from 'lucide-react-native';
 import type { CommentData } from '../../hooks/useComments';
 import CommentReplies from './CommentReplies';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
+import { useAuth } from '../../context/AuthContext';
+import { useMyTraktSlug } from '../../features/feed/hooks/useMyTraktSlug';
+import { useQuickBlock } from '../../features/feed/hooks/useQuickBlock';
+import CardMenu from '../../features/feed/components/CardMenu';
+import ReportContentModal from '../../features/feed/components/ReportContentModal';
 
 function getInitials(username?: string): string {
   if (!username) return '?';
@@ -90,10 +95,18 @@ interface CommentItemProps {
 
 const CommentItem = memo(({ item }: CommentItemProps) => {
   const { t } = useTranslation('common');
+  const { accessToken, isGuest } = useAuth();
+  const myTraktSlug = useMyTraktSlug();
+  const { blockUserQuick } = useQuickBlock();
+  const [reportModalVisible, setReportModalVisible] = useState(false);
   const username = item.user?.username || item.user?.name || 'Anonim';
   const initials = getInitials(username);
   const color = avatarColor(username);
   const relDate = formatRelativeTime(item.created_at, t);
+  const traktSlug = item.user?.ids?.slug;
+  // Kendi yorumunu bildirmek/engellemek anlamsız — ayrıca slug hiç yoksa
+  // (Trakt'ın bazı eski/anonim yorumlarında olabiliyor) engelleme çalışamaz.
+  const isOwnComment = !!myTraktSlug && !!traktSlug && myTraktSlug === traktSlug;
 
   return (
     <View style={styles.card}>
@@ -125,6 +138,15 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
               <Text style={styles.statText}>{item.likes}</Text>
             </View>
           )}
+
+          {!isOwnComment && (
+            <CardMenu
+              onReport={() => setReportModalVisible(true)}
+              onBlock={
+                traktSlug && accessToken && !isGuest ? () => blockUserQuick(traktSlug) : undefined
+              }
+            />
+          )}
         </View>
       </View>
 
@@ -141,6 +163,15 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
           <CommentReplies commentId={item.id} initialCount={item.replies || 0} />
         ) : null}
       </View>
+
+      {!isOwnComment && (
+        <ReportContentModal
+          visible={reportModalVisible}
+          targetType="trakt_comment"
+          targetId={String(item.id)}
+          onClose={() => setReportModalVisible(false)}
+        />
+      )}
     </View>
   );
 });

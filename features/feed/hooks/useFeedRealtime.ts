@@ -1,10 +1,12 @@
 /**
- * useFeedRealtime — başkalarının aktiviteleri CANLI düşsün.
+ * useFeedRealtime — başkalarının aktiviteleri CANLI düşsün (eklenince,
+ * güncellenince VE silinince).
  *
  * Supabase Realtime (`postgres_changes`) ile `feed_activities` tablosundaki
- * INSERT olaylarına abone olunur. Yeni bir satır geldiğinde, gönderen kişi
- * takip ettiklerimden biriyse (ya da benim) kart akışa anında eklenir —
- * sayfa yenilemeye gerek yok.
+ * INSERT/UPDATE/DELETE olaylarına abone olunur. Yeni bir satır geldiğinde,
+ * gönderen kişi takip ettiklerimden biriyse (ya da benim) kart akışa anında
+ * eklenir; biri kendi kartını silerse (bkz. useFeed.ts deleteActivity)
+ * BAŞKALARININ ekranından da anında düşer — sayfa yenilemeye gerek yok.
  *
  * GÜVENLİK: Realtime `postgres_changes` için RLS'e uyar; bu tablonun SELECT
  * politikası zaten `USING (true)` (bkz. 001_feed_schema.sql — akış verisi
@@ -113,6 +115,24 @@ export function useFeedRealtime(enabled: boolean): void {
               // (Supabase Auth olmadığı için auth.uid() bazlı bir kolon
               // mümkün değil), yalnızca client'ın kendi eylemiyle değişir.
             });
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'feed_activities' },
+          (payload) => {
+            // Silme artık gerçek (bkz. features/feed/hooks/useFeed.ts
+            // deleteActivity, docs/HISTORY.md Madde 161) — ÖNCEDEN yalnızca
+            // INSERT/UPDATE dinleniyordu, birinin kendi kartını silmesi
+            // BAŞKALARININ ekranında hiç yansımıyordu (yalnızca tazelemede
+            // düşerdi). `payload.old` REPLICA IDENTITY FULL sayesinde
+            // (013_realtime_feed.sql) TAM satırı taşır, `id` her zaman dolu.
+            const row: any = payload.old;
+            if (!row?.id) return;
+            // `removeActivity` id listede yoksa zaten no-op — görünürlük
+            // kontrolüne gerek yok, kaldırma yalnızca kendi store'umda
+            // gerçekten var olan bir satırı etkiler.
+            useFeedStore.getState().removeActivity(row.id);
           }
         )
         .subscribe();

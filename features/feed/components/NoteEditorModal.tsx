@@ -14,13 +14,25 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 
-const NOTE_MAX_LENGTH = 500;
+// 500 DEĞİL 1000: Worker'ın `/feed/note`si (handleFeedNote) ve DB kısıtı
+// (`feed_activities_note_length`, 017_feed_posts.sql) 1000'e çıkarıldı —
+// bu alan artık hem kısa alıntıları hem "Fikir Paylaş" gönderilerinin ana
+// metnini taşıyor (bkz. FeedActivityNote.tsx, ComposePostModal.tsx'in AYNI
+// POST_MAX_LENGTH'i). Bu sabit eskiden 500'de kalmıştı — 501-1000 karakter
+// arası bir gönderiyi (ComposePostModal ile oluşturulmuş, geçerli) buradan
+// tekrar kaydetmeye çalışmak "limit aşıldı" diye SESSİZCE engelleniyordu.
+const NOTE_MAX_LENGTH = 1000;
 
 interface NoteEditorModalProps {
   visible: boolean;
   initialNote: string;
   initialSpoiler: boolean;
   saving: boolean;
+  /** Kaydetme başarısız olduysa gösterilecek mesaj — ComposePostModal'daki
+   *  AYNI desen. Olmadan kaydetme hatası SESSİZ kalıyordu: modal açık kalıyor
+   *  ama kullanıcı neden kapanmadığını göremiyordu (bkz. docs/AI_RULES.md
+   *  § Sessiz başarısızlık YASAKTIR). */
+  error?: string | null;
   onSave: (note: string, spoiler: boolean) => void;
   onCancel: () => void;
 }
@@ -36,6 +48,7 @@ export default function NoteEditorModal({
   initialNote,
   initialSpoiler,
   saving,
+  error,
   onSave,
   onCancel,
 }: NoteEditorModalProps) {
@@ -107,6 +120,8 @@ export default function NoteEditorModal({
                   thumbColor="#f1f5f9"
                 />
               </View>
+
+              {!!error && <Text style={styles.error}>{error}</Text>}
 
               <View style={styles.actions}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} disabled={saving}>
@@ -190,6 +205,12 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     fontSize: 14,
     fontWeight: '500',
+  },
+  // ComposePostModal.tsx'teki hata satırıyla AYNI görsel dil.
+  error: {
+    color: '#f87171',
+    fontSize: 12,
+    marginTop: 12,
   },
   actions: {
     flexDirection: 'row',

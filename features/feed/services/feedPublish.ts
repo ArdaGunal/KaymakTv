@@ -297,4 +297,13 @@ export function retractLocalActivity(predicate: (a: FeedActivity) => boolean): v
   const { activities, removeActivity } = useFeedStore.getState();
   activities.filter(predicate).forEach((a) => removeActivity(a.id));
   invalidateFeedCache();
+  // Geri alınan (un-watch/un-rate) aktivite HER ZAMAN kendi aktivitemdir (bkz.
+  // çağıranlar: progress.ts/ratings.ts) — Profil › Aktiviteler'in kısa ömürlü
+  // önbelleği de geçersiz kılınmazsa, oraya dönen kullanıcı geri alınmış
+  // aktiviteyi TTL dolana kadar hâlâ orada görürdü (Akış zaten canlı
+  // `feedStore`'dan okuduğu için anında düşüyor, Profil ayrı bir fetch+cache
+  // kullanıyor — bkz. useUserActivity.ts). `cachedMe` henüz hiç çözülmediyse
+  // (bu oturumda bir yayın/gönderi olmadıysa) sessizce atlanır — zararı yok,
+  // önbellek kendi TTL'iyle zaten kısa sürede tazelenir.
+  if (cachedMe) invalidateUserFeedActivitiesCache(cachedMe.traktSlug);
 }

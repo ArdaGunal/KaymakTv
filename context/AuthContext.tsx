@@ -7,6 +7,7 @@ import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { useFeedStore } from '../features/feed/store/feedStore';
 import { clearFeedPublishIdentity } from '../features/feed/services/feedPublish';
 import { invalidateFeedCache, invalidateVisibleUserIds } from '../features/feed/services/feedApi';
+import { invalidateMySupabaseUserId, invalidateBlockedUserIds } from '../features/feed/services/userBlocks';
 import { recordPerfMark } from '../utils/perfLog';
 
 type AuthContextType = {
@@ -134,6 +135,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Görünür kullanıcı kümesi de sıfırlanmalı: aksi halde yeni oturumun
       // ilk akış sorgusu ÖNCEKİ hesabın takip listesiyle filtrelenirdi.
       invalidateVisibleUserIds();
+      // features/feed/services/userBlocks.ts'teki İKİ modül seviyesi önbellek
+      // de aynı gerekçeyle temizlenmeli — bunlar KİMLİĞE bağlı:
+      //   • myUserIdCache   → benim Supabase users.id'im
+      //   • blockedIdsCache → benim engel kümem
+      // Temizlenmezse (uygulama kapatılmadan hesap değiştirilirse) TTL dolana
+      // kadar ÖNCEKİ hesabın kimliği yeni oturumda kullanılırdı: "bu kartı ben
+      // beğendim mi" (attachIsLikedByMe), hangi yorumda "sil" butonu çıkacağı
+      // (useFeedComments.myUserId) ve engel filtresi hep yanlış kişiye göre
+      // hesaplanırdı.
+      invalidateMySupabaseUserId();
+      invalidateBlockedUserIds();
       setAccessToken(null);
       setIsGuest(false);
     } catch (error) {

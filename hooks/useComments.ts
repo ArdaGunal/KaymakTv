@@ -11,7 +11,7 @@ export interface CommentData {
   spoiler: boolean;
   likes: number;
   replies: number;
-  user?: { username?: string; name?: string };
+  user?: { username?: string; name?: string; ids?: { slug?: string } };
   created_at?: string;
 }
 

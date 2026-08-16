@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Heart, EyeOff, Trash2 } from 'lucide-react-native';
+import { Heart, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { FeedComment } from '../services/feedSocial';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { useAuth } from '../../../context/AuthContext';
+import { useQuickBlock } from '../hooks/useQuickBlock';
+import CardMenu from './CardMenu';
+import ReportContentModal from './ReportContentModal';
 
 interface FeedCommentItemProps {
   comment: FeedComment;
@@ -15,7 +19,10 @@ interface FeedCommentItemProps {
 
 export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike, onDelete }: FeedCommentItemProps) {
   const { t } = useTranslation('feed');
+  const { accessToken, isGuest } = useAuth();
+  const { blockUserQuick } = useQuickBlock();
   const [revealed, setRevealed] = useState(!comment.spoiler);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
   const initial = comment.username.charAt(0).toUpperCase();
 
   return (
@@ -45,13 +52,24 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
             {comment.likeCount > 0 && <Text style={styles.likeCount}>{comment.likeCount}</Text>}
           </TouchableOpacity>
 
-          {isOwn && (
-            <TouchableOpacity onPress={onDelete} activeOpacity={0.7} hitSlop={6}>
-              <Trash2 size={13} color="#64748b" />
-            </TouchableOpacity>
-          )}
+          <CardMenu
+            onDelete={isOwn ? onDelete : undefined}
+            onReport={!isOwn ? () => setReportModalVisible(true) : undefined}
+            onBlock={
+              !isOwn && accessToken && !isGuest ? () => blockUserQuick(comment.traktSlug) : undefined
+            }
+          />
         </View>
       </View>
+
+      {!isOwn && (
+        <ReportContentModal
+          visible={reportModalVisible}
+          targetType="comment"
+          targetId={comment.id}
+          onClose={() => setReportModalVisible(false)}
+        />
+      )}
     </View>
   );
 }

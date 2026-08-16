@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Rss, Check, Clock, UserPlus, Lock } from 'lucide-react-native';
+import { ChevronLeft, Rss, Check, Clock, UserPlus, Lock, WifiOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,14 +33,14 @@ export default function PublicProfileScreenWeb() {
   const slug = (Array.isArray(rawSlug) ? rawSlug[0] : rawSlug) ?? null;
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['feed', 'media']);
+  const { t } = useTranslation(['feed', 'media', 'common']);
 
   const { profile, followersCount, followingCount, isLoading: isProfileLoading, error } = usePublicProfile(slug);
   // bkz. screens/PublicProfileMobile.tsx'teki AYNI düzeltme notu — rota
   // parametresi username olabilir, followStore kanonik slug bekliyor.
   const followSlug = profile?.ids?.slug || slug;
   const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
-  const { data: activityData, isLoading: isActivityLoading } = usePublicProfileActivity(slug);
+  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
 
   // Engelleme (bkz. docs/FEED_SOCIAL_PLAN.md §4) — dar ekran dalıyla (
@@ -204,6 +204,20 @@ export default function PublicProfileScreenWeb() {
               <View style={styles.feedColumn}>
                 {isActivityLoading ? (
                   <FeedSkeleton />
+                ) : isActivityError && activityData.length === 0 ? (
+                  // "Veri yok" ile "yüklenemedi" AYRI durumlar (bkz. ProfileActivityTab.tsx/
+                  // PublicProfileMobile.tsx'teki AYNI ayrım, docs/AI_RULES.md § Sessiz
+                  // başarısızlık YASAKTIR).
+                  <View style={styles.emptyState}>
+                    <WifiOff size={36} color="#334155" />
+                    <Text style={styles.emptyTitle}>{t('feed:publicProfileActivityErrorTitle', 'Aktiviteler Yüklenemedi')}</Text>
+                    <Text style={styles.emptyText}>
+                      {t('feed:publicProfileActivityErrorText', 'Bağlantını kontrol edip tekrar dene.')}
+                    </Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={refreshActivity} activeOpacity={0.8}>
+                      <Text style={styles.retryButtonText}>{t('common:retry')}</Text>
+                    </TouchableOpacity>
+                  </View>
                 ) : activityData.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Rss size={36} color="#334155" />
@@ -467,6 +481,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  // Akış/Profil ekranlarındaki hata durumu retry butonuyla AYNI görsel dil.
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor: '#172033',
+    borderWidth: 1,
+    borderColor: '#22304A',
+  },
+  retryButtonText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',

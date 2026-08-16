@@ -7,6 +7,15 @@ import { STORE_URL } from '../../../utils/constants';
 import { recordPerfMark } from '../../../utils/perfLog';
 import { logWarning } from '../../../utils/errorLog';
 
+// `getAppSettings()`'te (bkz. appSettingsApi.ts) hiçbir ağ katmanı zaman
+// aşımı uygulamıyordu — istek hata DÖNMEDEN asılı kalırsa (captive portal,
+// DNS zaman aşımı, çok yavaş bağlantı) `VersionGate` kullanıcıyı SÜRESİZ
+// `status === 'checking'` (boş koyu ekran) durumunda bırakırdı; aşağıdaki
+// `catch` bloğu hiç tetiklenmezdi çünkü ortada bir hata YOK, yalnızca bitmeyen
+// bir Promise var. Bu süre dolunca da fail-open ilkesi (yukarıdaki dosya başı
+// notu) aynen uygulanır — `settings` `null` sayılır, kullanıcı engellenmez.
+const VERSION_GATE_TIMEOUT_MS = 5000;
+
 export type VersionGateStatus = 'checking' | 'ok' | 'blocked';
 
 export interface VersionGateResult {
@@ -57,7 +66,13 @@ export function useVersionGate(): VersionGateResult {
           return;
         }
 
-        const settings = await useAppSettingsStore.getState().fetchSettings();
+        // `fetchSettings()` arka planda devam etmeye bırakılır (iptal
+        // edilmez) — yarışı zaman aşımı kazansa bile istek bitince store'u
+        // günceller, bir sonraki açılışta tekrar beklemeye gerek kalmaz.
+        const settings = await Promise.race([
+          useAppSettingsStore.getState().fetchSettings(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), VERSION_GATE_TIMEOUT_MS)),
+        ]);
         if (cancelled) return;
 
         if (!settings) {

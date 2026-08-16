@@ -33,5 +33,14 @@
       "heading": "8. Koşullarda Değişiklik Hakkı",
       "text": "Geliştirici ekip, bu Kullanım Koşulları ve Gizlilik Politikası metnini önceden haber vermeksizin değiştirme hakkını saklı tutar. Yapılan değişiklikler Uygulama üzerinden yayınlandığı an yürürlüğe girer."
     }
-  ]
+  ],
+  "deleteAccountPageTitle": "Hesabımı ve Verilerimi Sil",
+  "deleteAccountHowTitle": "Nasıl silinir?",
+  "deleteAccountHowText": "1) Aşağıdaki \"Giriş Yap\" butonuyla Trakt hesabınla giriş yap.\n2) Ayarlar ekranına git.\n3) \"Hesap Seçenekleri\" altında \"Hesabı Sil\"e dokun ve onayla.",
+  "deleteAccountWhatTitle": "Ne silinir?",
+  "deleteAccountWhatText": "KaymakTV sunucusundaki kullanıcı kaydın, akış aktivitelerin (izleme/puanlama paylaşımların) ve yorumların kalıcı olarak silinir.",
+  "deleteAccountWhatNotTitle": "Ne silinmez?",
+  "deleteAccountWhatNotText": "Trakt.tv hesabına HİÇ dokunulmaz — KaymakTV, Trakt hesabını silme yetkisine sahip değildir. Trakt hesabını silmek istersen bunu trakt.tv üzerinden ayrıca yapmalısın.",
+  "deleteAccountCta": "Giriş Yap ve Devam Et",
+  "deleteAccountFootnote": "Uygulamayı yüklemene gerek yok — bu işlem tarayıcıdan da tamamlanabilir."
 }

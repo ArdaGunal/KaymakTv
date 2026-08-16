@@ -30,6 +30,7 @@ export default function FeedScreen() {
     markSeen,
     refresh,
     loadMore,
+    deleteActivity,
   } = useFeed();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -111,15 +112,9 @@ export default function FeedScreen() {
           )}
         </View>
 
-        {/* "Ne düşünüyorsun?" kutusu — bağımsız gönderi ("Fikir Paylaş")
-            özelliğinin TEK giriş noktası, kullanıcının kararı: FAB değil,
-            akışın doğal bir parçası hissettiren sabit bir kutu. Misafirin
-            paylaşacak bir kimliği yok, bu yüzden yalnızca gerçek kullanıcıya
-            gösterilir (diğer feed-yazma eylemleriyle AYNI guard). */}
-        {!!accessToken && !isGuest && (
-          <ComposePostBar onPress={() => setComposeVisible(true)} />
-        )}
-
+        {/* Arama çubuğu ÜSTTE sabit kalıyor — kullanıcı kararı: "Ne
+            düşünüyorsun?" kutusu arama çubuğunun üstündeyken daha az fark
+            ediliyordu, altına alınınca daha görünür oluyor. */}
         <UserSearchBar
           query={search.query}
           onChangeQuery={search.setQuery}
@@ -128,6 +123,15 @@ export default function FeedScreen() {
           isSearching={search.isSearching}
           hasResult={hasSearchResult}
         />
+
+        {/* "Ne düşünüyorsun?" kutusu — bağımsız gönderi ("Fikir Paylaş")
+            özelliğinin TEK giriş noktası, kullanıcının kararı: FAB değil,
+            akışın doğal bir parçası hissettiren sabit bir kutu. Misafirin
+            paylaşacak bir kimliği yok, bu yüzden yalnızca gerçek kullanıcıya
+            gösterilir (diğer feed-yazma eylemleriyle AYNI guard). */}
+        {!!accessToken && !isGuest && (
+          <ComposePostBar onPress={() => setComposeVisible(true)} />
+        )}
 
         {hasSearchResult && (
           <UserProfileCard
@@ -151,8 +155,8 @@ export default function FeedScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) =>
               isMarathonActivity(item)
-                ? <MarathonFeedCard activity={item} />
-                : <FeedCard activity={item} />
+                ? <MarathonFeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />
+                : <FeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />
             }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}

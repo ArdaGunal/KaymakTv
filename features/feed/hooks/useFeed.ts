@@ -13,11 +13,15 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchFeedActivities } from '../services/feedApi';
+import { fetchFeedActivities, deleteActivitiesBulk, invalidateUserFeedActivitiesCache } from '../services/feedApi';
 import { useFeedStore } from '../store/feedStore';
 import { useFeedRealtime } from './useFeedRealtime';
+import { useMyTraktSlug } from './useMyTraktSlug';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
+import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { FeedItem } from '../types';
 
 export interface UseFeedResult {
@@ -35,10 +39,18 @@ export interface UseFeedResult {
   refresh: () => Promise<void>;
   /** Listenin sonuna yaklaşıldığında çağrılır. */
   loadMore: () => void;
+  /** Bir aktiviteyi (yalnızca kendi kartın — CardMenu bunu isOwnActivity'e
+   *  göre zaten filtreler) kalıcı olarak siler. Worker `/feed/delete` hard
+   *  delete + tombstone yapıyor (bkz. deleteActivitiesBulk) — burada yeni bir
+   *  silme mekanizması İCAT EDİLMİYOR, yalnızca `useUserActivity.ts`'in
+   *  Profil tarafında zaten yaptığını Akış'ın canlı `feedStore`'una bağlıyor. */
+  deleteActivity: (item: FeedItem) => Promise<void>;
 }
 
 export function useFeed(): UseFeedResult {
   const { accessToken, isGuest } = useAuth();
+  const myTraktSlug = useMyTraktSlug();
+  const { t } = useTranslation(['media', 'common']);
   const canLoad = !!accessToken && !isGuest;
 
   const activities = useFeedStore((s) => s.activities);
@@ -130,6 +142,45 @@ export function useFeed(): UseFeedResult {
   // (aynı dizinin bölümleri iki sayfaya bölünmüş) TEK kartta birleşir.
   const data = useMemo(() => groupMarathonActivities(activities), [activities]);
 
+  const deleteActivity = useCallback(
+    async (item: FeedItem) => {
+      // Misafirin Trakt token'ı yok — pratikte CardMenu zaten yalnızca kendi
+      // aktivitene "Sil" gösteriyor (misafirin kendi aktivitesi olamaz), ama
+      // useUserActivity.ts'teki AYNI savunma burada da duruyor.
+      if (!accessToken || isGuest) {
+        Alert.alert(
+          t('activityDeleteGuestTitle', 'Giriş Gerekli'),
+          t('activityDeleteGuestText', 'Bu işlem için Trakt hesabınızla giriş yapmış olmanız gerekir.')
+        );
+        return;
+      }
+
+      const rawIds = resolveRawActivityIds(item);
+      // Geri alma (rollback) için ham FeedActivity nesnelerini sakla —
+      // `removeActivity` yalnızca id alır, geri eklemek TAM nesne gerektirir.
+      const removed = useFeedStore.getState().activities.filter((a) => rawIds.includes(a.id));
+      removed.forEach((a) => useFeedStore.getState().removeActivity(a.id));
+
+      try {
+        await deleteActivitiesBulk(accessToken, rawIds);
+        // Profil › Aktiviteler ayrı bir fetch+önbellek kullanıyor (bkz.
+        // useUserActivity.ts) — Akış'tan silinince o da güncel kalsın diye
+        // AYNI çapraz-senkron deseni (docs/HISTORY.md Madde 159'daki
+        // retractLocalActivity ile birebir aynı gerekçe).
+        if (myTraktSlug) invalidateUserFeedActivitiesCache(myTraktSlug);
+      } catch (error) {
+        console.warn('[Feed] Aktivite silinemedi:', error);
+        // Sunucu başarısız oldu — iyimser kaldırmayı geri al.
+        removed.forEach((a) => useFeedStore.getState().upsertActivity(a, false));
+        Alert.alert(
+          t('common:error'),
+          t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.')
+        );
+      }
+    },
+    [accessToken, isGuest, myTraktSlug, t]
+  );
+
   return {
     data,
     isLoading,
@@ -141,5 +192,6 @@ export function useFeed(): UseFeedResult {
     markSeen,
     refresh,
     loadMore,
+    deleteActivity,
   };
 }

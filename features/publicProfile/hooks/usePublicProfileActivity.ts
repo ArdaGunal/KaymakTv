@@ -23,7 +23,7 @@ export function usePublicProfileActivity(slug: string | null) {
     [slug]
   );
 
-  const { data, isLoading, hasError } = useActivityFeed(slug ? fetcher : null, 'PublicProfile');
+  const { data, isLoading, hasError, refresh } = useActivityFeed(slug ? fetcher : null, 'PublicProfile');
 
-  return { data, isLoading, hasError };
+  return { data, isLoading, hasError, refresh };
 }

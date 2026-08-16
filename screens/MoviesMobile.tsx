@@ -5,6 +5,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import MovieCard from '../components/movies/MovieCard';
 import LoginPaywall from '../components/LoginPaywall';
 import SkeletonLoader from '../components/SkeletonLoader';
+import SyncErrorState from '../components/SyncErrorState';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,18 +28,19 @@ export default function MoviesScreen() {
   const { accessToken, isGuest } = useAuth();
 
   // Katı seçici: yalnızca film dilimleri okunur; dizi/progress güncellemeleri bu ekranı render etmez.
-  const { watchlistMovies, calendarMovies, isMoviesLoading, hiddenMovieIds } = useLibrarySelector(s => ({
+  const { watchlistMovies, calendarMovies, isMoviesLoading, hiddenMovieIds, hasSyncError } = useLibrarySelector(s => ({
     watchlistMovies: s.watchlistMovies,
     calendarMovies: s.calendarMovies,
     isMoviesLoading: s.isMoviesLoading,
     hiddenMovieIds: s.hiddenMovieIds,
+    hasSyncError: s.hasSyncError,
   }));
 
   // Dizi kartlarındaki 3-nokta menüsüyle (Bırak/Listeye Ekle/Favorile/Paylaş)
   // aynı özellik film kartlarında da var — "Bırak" doğrudan Trakt'ın
   // "İlerlemeyi Gizle" uç noktasına bağlıdır (bkz. toggleHiddenFromProgress),
   // dizilerle birebir aynı mekanizma.
-  const { toggleHiddenFromProgress } = useLibraryActions();
+  const { toggleHiddenFromProgress, refreshLibrary } = useLibraryActions();
 
   const { watchlistMoviesList, upcomingMovies } = useMoviesDashboardData(
     accessToken ? watchlistMovies : [],
@@ -48,6 +50,13 @@ export default function MoviesScreen() {
   );
 
   const groupedUpcomingMovies = useMemo(() => groupByDateGroup(upcomingMovies), [upcomingMovies]);
+
+  // "Boş" ile "senkron başarısız oldu" ayrımı — bkz. SyncErrorState.tsx /
+  // screens/IndexMobile.tsx'teki AYNI mantık.
+  const showWatchlistSyncError =
+    renderedTab === 'izleme' && !isMoviesLoading && watchlistMoviesList.length === 0 && hasSyncError;
+  const showUpcomingSyncError =
+    renderedTab === 'yaklasan' && groupedUpcomingMovies.length === 0 && hasSyncError;
 
   const handleMovieFinished = useCallback((movieName: string) => {
     setFinishedMovieName(movieName);
@@ -100,6 +109,8 @@ export default function MoviesScreen() {
             </View>
           </View>
         </ScrollView>
+      ) : showUpcomingSyncError ? (
+        <SyncErrorState onRetry={refreshLibrary} />
       ) : renderedTab === 'yaklasan' ? (
         <SectionList
           sections={groupedUpcomingMovies}
@@ -118,6 +129,8 @@ export default function MoviesScreen() {
             <Text style={styles.emptyText}>{t('noUpcomingMovies')}</Text>
           }
         />
+      ) : showWatchlistSyncError ? (
+        <SyncErrorState onRetry={refreshLibrary} />
       ) : (
         <FlatList
           data={watchlistMoviesList}

@@ -239,3 +239,8 @@ export const setIsMoviesLoading = (val: any) => {
   const nextVal = typeof val === 'function' ? val(state.isMoviesLoading) : val;
   state.setIsMoviesLoading(nextVal);
 };
+export const setHasSyncError = (val: any) => {
+  const state = useLibraryStore.getState();
+  const nextVal = typeof val === 'function' ? val(state.hasSyncError) : val;
+  state.setHasSyncError(nextVal);
+};

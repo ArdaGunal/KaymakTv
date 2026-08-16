@@ -14,6 +14,8 @@
   "pending": "Onay Bekleniyor",
   "publicProfileEmptyTitle": "Henüz aktivite yok",
   "publicProfileEmptyText": "Bu kullanıcı henüz bir şey izlemedi veya puanlamadı.",
+  "publicProfileActivityErrorTitle": "Aktiviteler Yüklenemedi",
+  "publicProfileActivityErrorText": "Bağlantını kontrol edip tekrar dene.",
   "publicProfileNotFound": "Bu kullanıcı bulunamadı.",
   "publicProfileLoadError": "Profil yüklenemedi. Lütfen tekrar deneyin.",
 
@@ -25,7 +27,8 @@
   "noteEditorTitle": "Alıntı Yap",
   "noteEditorTitleEdit": "Alıntıyı Düzenle",
   "noteEditorPlaceholder": "Bu yapım hakkında ne düşünüyorsun?",
-  "quoteAction": "Alıntı Yap",
+  "noteSaveError": "Alıntı kaydedilemedi, tekrar dene.",
+  "noteSaveAuthError": "Oturumun bulunamadı, tekrar giriş yap.",
 
   "commentsTitle": "Akış Yorumları",
   "commentsError": "Yorumlar yüklenemedi.",
@@ -57,5 +60,25 @@
   "mediaPickerTitle": "Bir Yapım Seç",
   "mediaPickerSearchPlaceholder": "Dizi veya film ara...",
   "mediaPickerHint": "Aramak için en az 2 karakter yaz.",
-  "mediaPickerEmpty": "Sonuç bulunamadı."
+  "mediaPickerEmpty": "Sonuç bulunamadı.",
+
+  "activityPageTitle": "Gönderi",
+  "activityNotFoundTitle": "Bu Gönderi Artık Yok",
+  "activityNotFoundText": "Silinmiş olabilir ya da hiç var olmadı.",
+  "shareActivityMsg": "KaymakTV'de bu gönderiye göz at:",
+
+  "reportContentMenuLabel": "İçeriği Bildir",
+  "blockUserMenuLabel": "Kullanıcıyı Engelle",
+  "reportModalTitle": "İçeriği Bildir",
+  "reportModalSubtitle": "Bu içerikle ilgili sorunu bize bildir, inceleyelim.",
+  "reportReasonSpam": "Spam veya yanıltıcı içerik",
+  "reportReasonHarassment": "Taciz veya zorbalık",
+  "reportReasonHateSpeech": "Nefret söylemi",
+  "reportReasonSpoiler": "İşaretlenmemiş spoiler",
+  "reportReasonIllegal": "Yasa dışı içerik",
+  "reportReasonOther": "Diğer",
+  "reportDetailPlaceholder": "İstersen kısaca açıkla (opsiyonel)",
+  "reportSubmit": "Bildir",
+  "reportSuccess": "✅ Bildirimin alındı, teşekkürler.",
+  "reportError": "❌ Bildirim gönderilemedi, tekrar dene."
 }

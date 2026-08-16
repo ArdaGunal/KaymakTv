@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { UserX, UserCheck } from 'lucide-react-native';
 import { useBlockState } from '../hooks/useBlockState';
@@ -16,7 +16,7 @@ interface BlockUserButtonProps {
  * kendisinden okunur.
  */
 export default function BlockUserButton({ traktSlug }: BlockUserButtonProps) {
-  const { t } = useTranslation('feed');
+  const { t } = useTranslation(['feed', 'common']);
   const { didIBlockThem, isMutating, isLoading, toggleBlock } = useBlockState(traktSlug);
 
   // Durum netleşmeden yanlış aksiyon (ör. engelliyken "Engelle" göstermek)
@@ -39,8 +39,11 @@ export default function BlockUserButton({ traktSlug }: BlockUserButtonProps) {
     try {
       await toggleBlock();
     } catch {
-      // Hata zaten hook içinde loglanıyor — buton eski durumuna döner,
-      // kullanıcı tekrar deneyebilir.
+      // ESKİDEN burada HİÇBİR ŞEY yapılmıyordu ("hata zaten hook'ta loglanıyor"
+      // notuyla) — kullanıcı "Engelle"ye basıp onaylıyor, istek başarısız
+      // oluyor ve ekranda hiçbir şey değişmiyordu: buton "çalışmıyor" gibi
+      // görünüyordu. docs/AI_RULES.md § "Sessiz başarısızlık YASAKTIR" ihlali.
+      Alert.alert(t('common:error'), t('common:actionFailedMessage'));
     }
   };
 

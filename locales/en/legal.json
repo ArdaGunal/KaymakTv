@@ -33,5 +33,14 @@
       "heading": "8. Right to Modify Terms",
       "text": "The developer team reserves the right to change these Terms of Use and Privacy Policy texts without prior notice. The changes will take effect as soon as they are published via the App."
     }
-  ]
+  ],
+  "deleteAccountPageTitle": "Delete My Account and Data",
+  "deleteAccountHowTitle": "How to delete",
+  "deleteAccountHowText": "1) Log in with your Trakt account using the \"Log In\" button below.\n2) Go to the Settings screen.\n3) Under \"Account Options\", tap \"Delete Account\" and confirm.",
+  "deleteAccountWhatTitle": "What gets deleted?",
+  "deleteAccountWhatText": "Your user record on the KaymakTV server, your feed activities (watch/rating shares), and your comments are permanently deleted.",
+  "deleteAccountWhatNotTitle": "What is not deleted?",
+  "deleteAccountWhatNotText": "Your Trakt.tv account is NOT touched — KaymakTV has no authority to delete a Trakt account. If you also want to delete your Trakt account, you must do that separately on trakt.tv.",
+  "deleteAccountCta": "Log In and Continue",
+  "deleteAccountFootnote": "You don't need to install the app — this can also be completed from a browser."
 }

@@ -1,5 +1,8 @@
 {
   "accountOptions": "Account Options",
+  "legalSection": "Legal",
+  "termsOfUseRowLabel": "Terms of Use",
+  "privacyPolicyRowLabel": "Privacy Policy",
   "accountSettings": "Account Settings",
   "appPreferences": "App Preferences",
   "appVersion": "Version {{version}}",

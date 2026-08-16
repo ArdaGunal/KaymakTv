@@ -20,25 +20,32 @@ import { MarathonActivity } from '../types';
 import { getMarathonMessage } from '../utils/marathonMessages';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
 import { buildMediaHref } from '../utils/feedNavigation';
-import ActivityDeleteRow from './ActivityDeleteRow';
+import { useMyTraktSlug } from '../hooks/useMyTraktSlug';
+import { useQuickBlock } from '../hooks/useQuickBlock';
+import { useAuth } from '../../../context/AuthContext';
+import CardMenu from './CardMenu';
 
 interface MarathonFeedCardProps {
   activity: MarathonActivity;
-  /** Yalnızca Profil › Aktiviteler'de kullanılır — bkz. FeedCard.tsx'teki not. */
-  isSelectionMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: () => void;
-  onDelete?: () => void;
+  /** Akış VE Profil › Aktiviteler'in İKİSİ de geçer — bkz. FeedCard.tsx'teki
+   *  aynı prop. Yalnızca "Sil" — maraton kartının tek bir notu/kalıcı linki
+   *  olmadığı için (sentetik bir gruplama, gerçek bir feed_activities satırı
+   *  değil) Düzenle/Paylaş burada hiç YOK, bkz. docs/HISTORY.md Madde 156. */
+  onDeleteActivity?: () => void | Promise<void>;
 }
 
-export default function MarathonFeedCard({
-  activity,
-  isSelectionMode = false,
-  isSelected = false,
-  onToggleSelect,
-  onDelete,
-}: MarathonFeedCardProps) {
+export default function MarathonFeedCard({ activity, onDeleteActivity }: MarathonFeedCardProps) {
   const router = useRouter();
+  const myTraktSlug = useMyTraktSlug();
+  const { accessToken, isGuest } = useAuth();
+  const { blockUserQuick } = useQuickBlock();
+  // "Hayalet silme" düzeltmesi (bkz. docs/HISTORY.md) — FeedCard.tsx'teki
+  // AYNI kontrol, buradan hiç kopyalanmamıştı: "Sil" yalnızca kendi
+  // maratonunda görünmeli. Sunucu tarafı (Worker `handleFeedDelete`, WHERE
+  // user_id = doğrulanan kullanıcı) başkasının satırını zaten SİLEMİYORDU —
+  // ama istemci iyimser olarak kartı yine de kendi ekranından kaldırıyordu,
+  // "sildim" yanılsaması yaratıyordu.
+  const isOwnActivity = !!myTraktSlug && myTraktSlug === activity.user.traktSlug;
   const message = getMarathonMessage(activity.user.username, activity.episodeCount);
   const initial = activity.user.username.charAt(0).toUpperCase();
 
@@ -57,6 +64,20 @@ export default function MarathonFeedCard({
 
   const card = (
     <View style={[styles.card, { borderColor: colorAlpha(message.color, '2e') }]}>
+      <CardMenu
+        onDelete={isOwnActivity ? onDeleteActivity : undefined}
+        // Rapor YOK: maraton kartı gerçek bir feed_activities satırı değil,
+        // birden çok bölüm-izlemenin sentetik gruplaması (bkz. yukarıdaki
+        // dosya başı notu) — tek bir target_id'ye bildirilemez. Engelleme ise
+        // kullanıcı KİMLİĞİ üzerinden çalıştığı için sorunsuz.
+        onBlock={
+          !isOwnActivity && accessToken && !isGuest
+            ? () => blockUserQuick(activity.user.traktSlug)
+            : undefined
+        }
+        style={styles.menuTrigger}
+      />
+
       {/* ── Sol: Avatar ──────────────────────────────────────────────────── */}
       <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
         <View style={[styles.avatar, { borderColor: colorAlpha(message.color, '55') }]}>
@@ -111,18 +132,7 @@ export default function MarathonFeedCard({
     </View>
   );
 
-  if (!onDelete) return card;
-
-  return (
-    <ActivityDeleteRow
-      isSelectionMode={isSelectionMode}
-      isSelected={isSelected}
-      onToggleSelect={onToggleSelect ?? (() => {})}
-      onDelete={onDelete}
-    >
-      {card}
-    </ActivityDeleteRow>
-  );
+  return card;
 }
 
 const styles = StyleSheet.create({
@@ -191,6 +201,12 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 11,
     marginTop: 2,
+  },
+  menuTrigger: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
   },
   // ── Sağ: Poster + sayaç rozeti ───────────────────────────────────────────
   posterWrap: {

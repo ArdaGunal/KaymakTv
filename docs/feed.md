@@ -1,7 +1,24 @@
 # KaymakTV Feed (Akış) Sistemi — Tasarım & Yol Haritası
 
-**Son Güncelleme:** 2026-08-03
-**Durum:** ✅ Phase 1 **uçtan uca canlı doğrulandı** + **ince taneli gizlilik sistemi tamamlandı**. Gerçek kullanıcı verisiyle test edildi, `feed_activities` doluyor, Profil/Feed ekranları gerçek aktiviteleri gösteriyor, Ayarlar'da 3 bağımsız gizlilik anahtarı var. Yolda ciddi bir prodüksiyon bug'ı bulunup düzeltildi — bkz. `docs/HISTORY.md` Madde 89 (kısmi unique index'ler PostgREST `on_conflict` ile hiç çalışmıyormuş).
+**Son Güncelleme:** 2026-08-15
+**Durum:** ✅ **Özellik tamamlandı ve canlıda.** Gerçek zamanlı sosyal akış (anında yayın + Realtime), sonsuz kaydırma, sosyal katman (alıntı/yorum/beğeni/engelleme), bağımsız gönderiler, aktivite silme ve ince taneli gizlilik hepsi çalışıyor. Kalan işler bilinçli olarak ertelenmiş durumda (bkz. aşağıdaki Yol Haritası).
+
+> **Bu doküman ne İÇİN var:** Akış'ın MİMARİ KARARLARINI ve gerekçelerini saklar
+> ("neden Trakt'ın follow API'si?", "neden bileşik imleç?", "neden tombstone?").
+> Kronolojik değişiklik kaydı `docs/HISTORY.md`'de (Madde 89-163), sosyal katmanın
+> ayrıntılı tasarım gerekçesi `docs/FEED_SOCIAL_PLAN.md`'de.
+
+### ✅ Aktivite Kartlarına 3-Nokta Menü: Düzenle / Sil / Paylaş (Madde 161)
+Silme özelliği hep vardı ama kapalıydı: Worker (`handleFeedDelete`) çoktan hard delete + tombstone (`deleted_feed_activities`) yapıyordu, yalnızca `ProfileActivityTab.tsx`'teki `ACTIVITY_DELETE_ENABLED = false` bayrağı UI'ı gizliyordu. Eski kaydırarak-sil/checkbox/toplu-silme arayüzü (`ActivityDeleteRow.tsx`) tamamen kaldırılıp yerine her kartın (Akış + Profil, yalnızca kendi kartların) sağ üstünde bir "⋯" menüsü kondu — `components/tracking/TrackingCardMenu.tsx`'in konumlandırma deseninden türetilen yeni `CardMenu.tsx`. Üç eylem: **Düzenle** (var olan alıntı/not düzenleyiciyi açar), **Sil** (onaydan sonra gerçek Worker silmesi — DB'den de kalkar, "boşa saklama" yok), **Paylaş** (yeni `kaymaktv.com/activity/{id}` kalıcı sayfası — `/show`/`/movie`/`/episode` ile aynı paylaşım deseni). Maraton kartlarında yalnızca Sil var (tek bir notu/linki olmayan sentetik gruplama). Detay: `docs/HISTORY.md` Madde 161.
+
+### ✅ Akış ↔ Profil Aktiviteleri Denetimi + "Alıntı Yap" Butonu Sadeleşti (Madde 158-160)
+İki ayrı istekti: (1) "Alıntı Yap" pili beğeni/yorum ikonlarıyla aynı satıra, aynı sade görsel dile taşındı — üç iterasyon sonunda son hâli: metinsiz, vurgu renksiz, `Repeat` ikonu (Twitter'ın "retweet"ine yakın ama köşeleri yuvarlak), beğeni/yorumla birebir aynı gri. (2) Kullanıcı Akış'ı uzun süredir güncellerken Profil › Aktiviteler'in geride kaldığından şüphelenip iki tarafın denetlenmesini istedi. Sonuç: not/alıntı/yorum/beğeni/"Fikir Paylaş" zaten `FeedCard.tsx` üzerinden paylaşıldığı için otomatik senkron; sonsuz kaydırma/Realtime bilinçli olarak yalnızca Akış'ta (Madde 148). Ama üç GERÇEK boşluk bulundu ve düzeltildi: hem kendi profilin (Madde 159) hem başkasının profili (Madde 160, önce arka plana flag'lenip sonra aynı oturumda kapatıldı) gerçek bir ağ hatasında da sessizce "Henüz aktivite yok" gösteriyordu (Akış'ın Madde 142'de çözdüğü sorunun aynısı, Profil ekranlarına hiç taşınmamıştı) — üçü de artık Akış'la aynı hata/"Tekrar Dene" deseninde. Ayrıca bir bölüm/puanı geri almak (`retractLocalActivity`) yalnızca Akış önbelleğini geçersiz kılıyordu, kendi profilinkini değil — düzeltildi. Detay: `docs/HISTORY.md` Madde 158-160.
+
+### ✅ Bağımsız Gönderi — "Fikir Paylaş" (Madde 157)
+Akışta artık izleme/puanlama olayına bağlı olmayan, tamamen bağımsız gönderiler var — kullanıcı istediği an, istediği (opsiyonel) bir dizi/film hakkında ya da hiç yapım seçmeden serbest metin paylaşabiliyor. Yeni tablo AÇILMADI: `feed_activities`'e altıncı bir `activity_type` (`'posted'`) eklendi (`017_feed_posts.sql`), böylece sayfalama/Realtime/beğeni/yorum/retention hepsi bedavaya çalıştı. Giriş noktası Akış'ın en üstündeki sabit "Ne düşünüyorsun?" kutusu (FAB değil — kullanıcı kararı: "teknik bir parça gibi görünüp görmezden gelinebilir"). Yapım seçimi tamamen opsiyonel, var olan arama altyapısı (`searchTrakt`/`SearchBar`/`SearchTabs`) reuse edildi. `note` karakter sınırı 500'den 1000'e çıktı (yorumlar hâlâ 500). Detay: `docs/HISTORY.md` Madde 157.
+
+### ✅ Maraton Tekilleştirme + "Alıntı Yap" Twitter Tasarımı (Madde 156)
+Gerçek kullanıcı testinde bulunan bir bug: aynı bölüm iki kez işaretlenince maraton gruplaması bunu "2 farklı bölüm" sanıp yanlışlıkla rozet veriyordu. Çözüm: sayaç artık HER ZAMAN tekilleştirilmiş (Set benzeri) bölüm koduna göre hesaplanıyor, ham satır sayısına göre DEĞİL — eşik de 2'den 3'e çıktı (Hız Turu 3-4, Maratoncu 5-7, Sezon Fatihi 8+). Ayrıca "Alıntı Yap" görsel hiyerarşisi tersine çevrildi: kullanıcının yazdığı alıntı artık kartın BİRİNCİL içeriği (büyük/parlak/üstte), "X izledi" satırı küçük bir bağlam çipine indi (Twitter'ın Alıntı Tweet modeli). Detay: `docs/HISTORY.md` Madde 156.
 
 ### ✅ Sosyal Katman — Not/Alıntı, Yorum, Beğeni, Engelleme (Madde 155)
 Tam uygulandı: DB (`015_feed_social.sql`, `016_user_blocks.sql`) + Worker (6 uç nokta) + Client servisleri + Realtime + UI (kart altı beğeni/yorum, not editörü, yorum sheet'i, engelleme ekranları). Detaylı tasarım: [`docs/FEED_SOCIAL_PLAN.md`](FEED_SOCIAL_PLAN.md). Detay: `docs/HISTORY.md` Madde 155.
@@ -39,37 +56,34 @@ Detay: `docs/HISTORY.md` Madde 142.
 ### 🔴 KRİTİK BUG BULUNUP DÜZELTİLDİ: Token yenilenince React state güncellenmiyordu
 Kullanıcı gerçek cihazda anahtarın "açılmayıp geri kapandığını" bildirdi. Canlı `wrangler tail` loglarıyla kök nedene inildi: `traktClient.ts`'teki interceptor token'ı arka planda sessizce yeniliyor ama yalnızca `SecureStore`'a yazıyor, `AuthContext`'teki React state'i hiç güncellemiyordu. Worker'a giden çağrılarımız (`feedSync.ts`, `feedPrivacy.ts`) `useAuth().accessToken`'ı (React state) okuyup gönderdiği için, arka planda bir yenileme olduktan SONRA bu çağrılar hâlâ ESKİ/geçersiz token'ı gönderip gerçek bir 401 alıyordu — **bu yalnızca gizlilik anahtarını değil, feed sync'i de etkileyen genel bir sorundu**. Detay: `docs/HISTORY.md` Madde 93. Düzeltme: `onSessionExpired`'ın simetriği `onTokenRefreshed` pub/sub'ı eklendi, `AuthContext` artık buna da abone.
 
-### 🔴 Bu Oturumun Sonunda Kullanıcının Yapması Gerekenler (henüz doğrulanmadı)
-1. `supabase/schema/007_add_publish_toggles.sql` VE `008_drop_feed_hidden.sql`'i SQL Editor'de sırayla çalıştır (006'yı zaten çalıştırmıştı — 006 artık tarihsel bir kayıt, 008 onu geri alıyor)
-2. Worker'ı deploy et (zaten deploy edilmişti — teşhis loglaması da dahil): `cd "C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker" && npx wrangler deploy`
-3. **Uygulamayı tamamen kapatıp yeniden aç** (Madde 93 düzeltmesi client kodunda — mevcut oturumdaki React state'i zaten bozuk kalmaya devam eder, taze bir açılış SecureStore'dan güncel token'ı okur)
-4. Ayarlar → "💬 Akış"taki 3 anahtarı test et: (a) yalnızca birini kapatıp diğerinin akışta kalmaya devam ettiğini, (b) ikisini de kapatınca üstteki "Her Şeyi Gizle"nin otomatik açık göründüğünü, (c) üstteki "Her Şeyi Gizle"yi açınca alttaki ikisinin otomatik kapanıp gri/basılamaz olduğunu doğrula
-5. Sertay'ın senkron/takip durumu hâlâ doğrulanmadı (Madde 89 bug'ı öncesinden kalma, uygulamayı yeniden açması gerekiyor)
-
 ---
 
 ## 📌 Özet
 
-KaymakTV sosyal ağına **Feed (Akış)** özelliği ekliyoruz. Kullanıcılar Trakt'ta takip ettikleri kişilerin dizi/film izleme aktivitelerini bir akışta görebilecekler. Sistem iki fazda inşa ediliyor:
-- **Phase 1:** İzleme aktivitesi akışı (temel sosyal ağ, takip ilişkisi Trakt'tan)
-- **Phase 2:** Yorum/Review sistemi + Bildirim + Real-time
+KaymakTV'nin **Akış (Feed)** sistemi — Trakt'ta takip ettiğin kişilerin (ve kendinin) izleme/puanlama aktivitelerini ve serbest gönderilerini gösteren, gerçek zamanlı bir sosyal akış.
 
 ---
 
-## 🎯 Amaç & Kapsam
+## 🎯 Bugün Neler Var (hepsi canlıda)
 
-### Phase 1: Temel Sosyal Ağ
-- ✅ Trakt'ta takip ettiğin kişilerin **2 aktivite tipini** feed'de görebilme:
-  - `watched_episode` — Bölüm izledi
-  - `rated` — Dizi/film'e puan verdi (1-10)
-- ✅ Son **30 gün** aktiviteleri görmek (sabit sayfa boyutu, pagination Phase 1.5)
-- ⏳ `started_show` / `completed_show` — **Phase 1.1'e ertelendi** (aşağıya bak, neden)
+**Aktivite tipleri** (`feed_activities.activity_type` — 6 tip):
+- `watched_episode` — bölüm izledi
+- `watched_movie` — film izledi
+- `rated` — dizi/filme puan verdi
+- `posted` — bağımsız gönderi ("Fikir Paylaş", yapım seçimi opsiyonel)
+- `started_show` / `completed_show` — şemada tanımlı ama **hiç üretilmiyor** (Trakt'ta gerçek bir olay değil, çıkarsama gerektiriyor — bkz. aşağıda "Activity Tipleri")
 
-### Phase 1 Dışı (Sonraki Fazlara Ertelenenler)
-- ❌ Yorum/Review sistemi (Phase 2)
-- ❌ Kullanıcı profiline tıklayıp geçmiş görüntüleme (Phase 1.5)
-- ❌ Real-time WebSocket bildirimleri (Phase 2)
-- ❌ Like/Reply sistemi (Phase 2)
+**Yetenekler:**
+- Anında yayın (PUSH) + Supabase Realtime ile canlı akış (INSERT/UPDATE/DELETE)
+- Sonsuz kaydırma (bileşik keyset imleci), 30 günlük pencere, gece retention (kullanıcı başına 200)
+- Sosyal katman: kişisel not/alıntı, yorum, beğeni, kullanıcı engelleme
+- Aktivite silme (hard delete + tombstone) + kart başına "⋯" menüsü (Düzenle/Sil/Paylaş)
+- Paylaşım için kalıcı bağlantı sayfası: `/activity/{id}`
+- İnce taneli gizlilik: "izlediklerimi paylaş" / "puanlarımı paylaş" (+ türetilmiş "her şeyi gizle")
+
+**Bilinçli olarak YOK:**
+- Yanıt (nested comment), push bildirimi, tür bazlı gizlilik, maraton kartına not/yorum
+- `started_show`/`completed_show` üretimi (aşağıda gerekçesi)
 
 ---
 
@@ -149,61 +163,45 @@ Migration dosyaları `supabase/schema/` altında, sırayla Supabase SQL Editor'd
 | `003_feed_activity_upsert_constraints.sql` | `feed_activities` için partial unique index'ler — **artık Worker tarafından kullanılmıyor** (bkz. HISTORY.md Madde 89: PostgREST'in `on_conflict`'ı kısmi index'lerle çalışmıyor), ama zararsız/dursun diye kaldırılmadı |
 | `004_drop_user_follows.sql` | Mimari pivot: `user_follows` tablosunu tamamen kaldırır |
 | `005_ensure_feed_activity_indexes.sql` | (Artık gereksiz — teşhis sürecinde 003'ün gerçekten uygulanıp uygulanmadığını netleştirmek için yazılmıştı, asıl sorun index eksikliği değil on_conflict uyumsuzluğuydu) |
+| `006` → `008` | `feed_hidden` eklendi (006/007), sonra TÜRETİLMİŞ duruma çevrilip sütun kaldırıldı (008 — bkz. yukarıdaki "Her Şeyi Gizle" notu) |
+| `010_deleted_feed_activities.sql` | Tombstone tablosu — kullanıcının kalıcı sildiği aktivite, sonraki Trakt senkronunda SESSİZCE geri gelmesin diye |
+| `013_realtime_feed.sql` | `media_type` + `tmdb_id` kolonları, `watched_movie` tipi, Realtime publication + `REPLICA IDENTITY FULL` |
+| `014_feed_retention.sql` | `pg_cron` ile her gece kullanıcı başına en yeni 200 kayıt (tombstone'lar için 1000) |
+| `015_feed_social.sql` | `note`/`note_spoiler`/`like_count`/`comment_count`, dormant `comments` tablosunun canlandırılması, beğeni tabloları + sayaç trigger'ları |
+| `016_user_blocks.sql` | Kullanıcı engelleme tablosu |
+| `017_feed_posts.sql` | `'posted'` tipi, `show_id`/`show_title`/`media_type` NULLABLE, `note` sınırı 500 → 1000 |
 
-**Güncel şema (004 sonrası):**
+**Güncel `feed_activities` şeması (017 sonrası):**
 
 ```sql
--- users: Trakt kullanıcısının "aynası" — yalnızca sync sırasında kendi
--- satırını yazar, feed_activities'e FK vermek için gerekli.
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  trakt_slug TEXT UNIQUE NOT NULL,
-  username TEXT NOT NULL,
-  avatar_url TEXT,
-  is_private BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- feed_activities: İzleme aktivitesi önbelleği (Phase 1: watched_episode + rated)
 CREATE TABLE feed_activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  activity_type TEXT NOT NULL CHECK (
-    activity_type IN ('watched_episode', 'started_show', 'completed_show', 'rated')
-  ),
-  show_id BIGINT NOT NULL,
-  show_title TEXT NOT NULL,
-  show_poster_url TEXT,
-  episode_number TEXT,
+  activity_type TEXT NOT NULL CHECK (activity_type IN (
+    'watched_episode', 'watched_movie', 'started_show', 'completed_show', 'rated', 'posted'
+  )),
+  -- ⚠️ NULLABLE (017): yalnızca 'posted' tipi yapımsız olabilir.
+  show_id BIGINT,
+  show_title TEXT,
+  media_type TEXT,              -- 'show' | 'movie' (013) — doğru detay rotası için ŞART
+  tmdb_id BIGINT,               -- poster (013); show_poster_url artık yazılmıyor
+  show_poster_url TEXT,         -- tarihsel, hep NULL
+  episode_number TEXT,          -- "S03E04" — yalnızca watched_episode
   rating SMALLINT CHECK (rating BETWEEN 1 AND 10),
+  note TEXT,                    -- alıntı VEYA 'posted' gövdesi, ≤1000 (015+017)
+  note_spoiler BOOLEAN,
+  like_count INT DEFAULT 0,     -- trigger ile (015)
+  comment_count INT DEFAULT 0,  -- trigger ile (015)
   activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- comments: Phase 2 için şimdiden hazır, boş
 ```
 
-**RLS:** Her iki tabloda da yalnızca `SELECT` politikası var (herkese açık okuma). `INSERT`/`UPDATE`/`DELETE` için hiç politika yok — yazma yalnızca Worker'ın `service_role` anahtarıyla (RLS'i bypass ederek) yapılıyor, çünkü Supabase Auth kullanmadığımız için `auth.uid()` tabanlı satır sahipliği kontrolü çalışmıyor.
+Diğer tablolar: `users` (Trakt aynası), `comments` (yorumlar, `body` ≤500), `feed_activity_likes`, `feed_comment_likes`, `user_blocks`, `deleted_feed_activities`.
+
+**RLS:** Tüm feed tablolarında yalnızca `SELECT` politikası var (herkese açık okuma). `INSERT`/`UPDATE`/`DELETE` için hiç politika yok — yazma yalnızca Worker'ın `service_role` anahtarıyla (RLS'i bypass ederek) yapılıyor, çünkü Supabase Auth kullanmadığımız için `auth.uid()` tabanlı satır sahipliği kontrolü çalışmıyor. **Sahiplik her zaman Worker'ın sorgusundaki `WHERE user_id = <doğrulanan çağıran>` koşuluyla zorlanır** (IDOR koruması — bkz. `handleFeedDelete`/`handleFeedNote`).
 
 ---
-
-## 📊 Status Tracker
-
-| Adım | Durum |
-|------|-------|
-| Veritabanı Şeması | ✅ TAMAMLANDI |
-| Senkronizasyon Servisi (Worker `/feed/sync`) | ✅ TAMAMLANDI (kod) — **deploy edilmesi gerekiyor**, aşağıya bak |
-| UI İskeleti (`features/feed/`) | ✅ TAMAMLANDI |
-| Gerçek Veriye Bağlama | ✅ TAMAMLANDI (`useFeed.ts` → `feedApi.ts` → Trakt following + Supabase) |
-| ~~Follow Sistemi (kendi DB'miz)~~ | ❌ TERK EDİLDİ — bkz. Mimari Pivot |
-| Uygulama İçi Arama + Takip (Trakt-native) | ✅ TAMAMLANDI (kod) — gerçek ağ testi bu sandboxed tarayıcı ortamında yapılamadı, bkz. aşağı |
-| Polish (pagination, boş durum ayrımı) | ⏳ YAPILACAK |
-| Phase 1.1 (`started_show`/`completed_show`) | ⏳ YAPILACAK |
-
-### Bilinçli Kapsam Daraltması: Şimdilik yalnızca `watched_episode` + `rated`
-
-`started_show`/`completed_show` Trakt'ta gerçek bir olay değil — bkz. yukarıda "Activity Tipleri". Kullanıcıyla konuşulup ayrı bir adıma (Phase 1.1) ertelendi.
 
 ### Kurulan Altyapı (Genel)
 - `@supabase/supabase-js` + `react-native-url-polyfill` (RN'de `URL` API'si eksik, polyfill şart)
@@ -222,21 +220,18 @@ CREATE TABLE feed_activities (
 
 Kullanıcı ve arkadaşı gerçek Trakt hesaplarıyla test etti: takip etme (`POST /users/{id}/follow`), senkronizasyon (`/feed/sync`) ve `feed_activities`'e yazma hepsi canlıda doğrulandı. Süreçte ciddi bir bug bulunup düzeltildi — detay için `docs/HISTORY.md` Madde 89.
 
-## 🗺️ Yol Haritası (Kullanıcı ile 2026-07-25'te belirlendi)
+## 🗺️ Yol Haritası
 
-Uçtan uca çalışan sistemi gerçek kullanıcılarla test ederken iki gerçek soru ortaya çıktı: depolama büyümesi ve gizlilik. Aşağıdaki tablo önceliklendirilmiş plan:
+Orijinal yol haritası (2026-07-25) **tamamlandı** — gizlilik (1/1b/1c), saklama politikası (3 → `014_feed_retention.sql`), pagination (4 → bileşik keyset imleci), gerçek posterler (5 → `tmdb_id`) hepsi canlıda. Ayrıntılar `docs/HISTORY.md` Madde 145-163'te.
 
-| # | Ne | Öncelik | Durum |
-|---|-----|---------|-------|
-| 1 | **Gizlilik (Trakt-kaynaklı):** Worker, Trakt'ta `private:true` olan hesapların aktivitesini `feed_activities`'e hiç yazmasın | 🔴 Kritik | ✅ Tamamlandı |
-| 1b | **Gizlilik (KaymakTV-özel, ince taneli):** Ayarlar ekranında Trakt'tan bağımsız üç anahtar — "her şeyi gizle" + tür bazında "izlediklerimi paylaş" / "puanlarımı paylaş" | 🔴 Kritik | ✅ Tamamlandı |
-| 1c | **Geri alma (retraction):** Trakt'ta geri alınan (un-watch/un-rate) bir aktivite bizde de kalksın | 🔴 Kritik | ✅ Tamamlandı |
-| 2 | Sertay'ın (test kullanıcısı) uygulamayı bug düzeltmesinden sonra yeniden açıp senkronize olması + karşılıklı takip durumunun (public/private onay) doğrulanması | 🔴 Kritik | ⏳ Kullanıcı test ediyor |
-| 3 | **Saklama politikası:** `feed_activities`'te belirli bir süreden (öneri: 90 gün) eski satırları periyodik silen bir iş. Feed zaten son 30 günü, Profil son 20 kaydı gösteriyor — daha eskisinin ürün değeri yok, yalnızca disk kaplıyor. Şu anki ölçekte acil değil (büyüme, kullanım hızıyla orantılı — tekrar senkronla çoğalmıyor, bkz. Madde 89 düzeltmesi) | 🟡 Planlı | ⏳ Yapılmadı |
-| 4 | Feed pagination / "daha fazla yükle" (şu an sabit 30 kayıt limiti) | 🟡 Planlı | ⏳ Yapılmadı |
-| 5 | Aktivite kartlarında gerçek poster görseli (şu an `show_poster_url` hep `null`, placeholder film ikonu gösteriliyor) | 🟢 Kozmetik | ⏳ Yapılmadı |
-| 6 | Phase 1.1 — `started_show`/`completed_show` (Trakt'ta gerçek bir olay değil, progress API + çıkarsama gerektiriyor) | 🟢 Ertelendi | ⏳ Yapılmadı |
-| 7 | Bildirimler (yeni push/token altyapısı + tetikleme mekanizması gerektiriyor — Trakt'ın webhook'u yok) | 🟢 Ertelendi | ⏳ Yapılmadı |
+**Kalan (bilinçli ertelenmiş):**
+
+| # | Ne | Öncelik | Neden ertelendi |
+|---|-----|---------|-----------------|
+| 1 | `started_show` / `completed_show` üretimi | 🟢 Ertelendi | Trakt'ta gerçek bir olay değil — her dizi için ayrı `/shows/{id}/progress/watched` çağrısı (rate-limit riski) + önceki-senkronla-kıyaslama gerektiriyor. Şema tipi taşıyor ama hiç yazılmıyor. |
+| 2 | Bildirimler (beğeni/yorum geldiğinde push) | 🟢 Ertelendi | Yeni push/token altyapısı + tetikleme mekanizması gerektiriyor. |
+| 3 | Yanıt (nested comment) | 🟢 Ertelendi | Yorumlar tek seviyeli; iç içe yapı ayrı bir veri/UI tasarımı gerektirir. |
+| 4 | Maraton kartına not/yorum/beğeni | 🟢 Ertelendi | Maraton sentetik bir gruplama — "hangi bölüme" yorum yapıldığı belirsiz olurdu (bkz. Madde 156). |
 
 ### ✅ Madde 1 — Gizlilik (Trakt-kaynaklı)
 
@@ -259,37 +254,38 @@ Eskiden sync yalnızca EKLEME yapıyordu — Trakt'ta bir izleme/puanı geri al�
 - **Puanlar:** Trakt her seferinde TÜM güncel puanları döndürdüğü için (limitsiz) tam karşılaştırma güvenli — bizde olup Trakt'ın güncel listesinde olmayan puan silinir.
 - **İzlenen bölümler:** Trakt'tan yalnızca son 50 kayıt çekildiği için (limit var) tam karşılaştırma GÜVENLİ DEĞİL — limit dışı kalan eski gerçek geçmişi yanlışlıkla silerdi. Bunun yerine yalnızca o senkronda ÇEKİLEN pencerenin zaman aralığındaki mevcut kayıtlar karşılaştırılıp o pencere içinde kalıp artık gelmeyenler silinir; pencere dışına hiç dokunulmaz. Fetch boş dönerse (örn. geçici API hatası) hiç silme yapılmaz.
 
-## ⏭️ Sıradaki Adım
+---
 
-Sonraki oturumda: Madde 3 (saklama politikası) veya Madde 4 (pagination) — hangisi önce, kullanıcıyla konuşulacak. Ayrıca Madde 2'nin (sertay testi) sonucu bekleniyor.
+## 🔧 Yeni Bir Migration/Worker Değişikliği Yaptıysan
 
-## ⚠️ Kullanıcının Yapması Gerekenler (Bu Oturum Sonu)
+Akış'ın iki elle adımı var — kod tek başına yetmez:
 
-1. **`supabase/schema/006_add_feed_hidden.sql`'i SQL Editor'de çalıştır**
-2. **Worker'ı deploy et:**
+1. **Migration:** yeni `supabase/schema/NNN_*.sql` dosyasını Supabase SQL Editor'de çalıştır.
+2. **Worker deploy:**
    ```bash
-   cd "C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker"
-   npx wrangler deploy
+   cd "C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker" && npx wrangler deploy
    ```
-3. Ayarlar → "💬 Akış" → "Aktivitemi Akışta Gizle" anahtarının göründüğünü ve açılıp kapandığını doğrula
-4. Sertay uyanınca: uygulamayı yeniden açması + karşılıklı takip/senkron durumunun kontrolü
+
+Atlanırsa sistem SESSİZCE yanlış davranmaz, gürültülü şekilde başarısız olur (bkz. Madde 146 — tanınmayan yol artık 404 döner, client `published` alanı yoksa yayını başarısız sayar).
 
 ---
 
 ## 🚀 Teknoloji Stack
 
 - **Frontend:** React Native + Expo Router
-- **Backend:** Supabase (PostgreSQL, yalnızca `users` aynası + `feed_activities` önbelleği)
+- **Backend:** Supabase (PostgreSQL — `users` aynası, `feed_activities`, `comments`, beğeni/engel tabloları)
 - **Sosyal Grafik:** Trakt.tv (kendi Follow/Following/Friends API'si)
-- **Senkronizasyon:** Cloudflare Worker (`kaymaktv-feedback-worker`)
+- **Yazma katmanı:** Cloudflare Worker (`kaymaktv-feedback-worker`) — tüm yazmalar buradan, `service_role` ile
+- **Gerçek zamanlı:** Supabase Realtime (`postgres_changes`)
 
 ---
 
-## 📝 Notlar & Devam Edilecek
+## 📝 Dikkat Edilecek Noktalar
 
 - **Trakt API Rate Limiting:** Feed açılışında following listesi tek bir çağrı — ölçek sorunu değil. Sync (watch history + ratings) app açılışında bir kez, mevcut circuit-breaker/backoff altyapısıyla korunuyor.
-- **Notification:** Phase 2
-- **Kullanıcı profiline tıklayıp geçmiş görme:** Phase 1.5
+- **Zaman damgası hizalaması bu mimarinin temel taşı:** client damgayı kendisi üretip Trakt'a `watched_at`/`rated_at` olarak AÇIKÇA gönderir ve AYNISINI akışa yayınlar. Bozulursa çift kayıt/sessiz silinme başlar (bkz. Madde 145).
+- **Oturum izolasyonu:** hesap değiştirildiğinde `AuthContext.removeKeys()` TÜM modül seviyesi önbellekleri temizlemeli (feedStore, myTraktSlug, feedPublish kimliği, feedCache, visibleUserIds, myUserId, blockedIds). Yeni bir önbellek eklersen buraya da ekle — aksi halde önceki hesabın verisi yeni oturuma sızar.
+- **Sahiplik kontrolü iki katmanlı:** UI (`isOwnActivity`) yalnızca kazara tıklamayı önler; GERÇEK koruma Worker'ın `WHERE user_id = <doğrulanan çağıran>` koşuludur. UI kontrolünü atlarsan güvenlik açığı olmaz ama "hayalet silme" UX hatası oluşur (bkz. Madde 163).
 
 ---
 
@@ -305,6 +301,15 @@ Sonraki oturumda: Madde 3 (saklama politikası) veya Madde 4 (pagination) — ha
 - `features/feed/components/FeedCard.tsx` — Aktivite kartı
 - `features/feed/components/FeedSkeleton.tsx` — Yükleniyor state'i
 - `features/feed/components/UserSearchBar.tsx` + `UserProfileCard.tsx` — Arama UI'ı
-- `kaymaktv-feedback-worker/src/index.js` (`C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker`) — `/feed/sync` uç noktası
-- `supabase/schema/*.sql` — Veritabanı migration'ları
+- `kaymaktv-feedback-worker/src/index.js` (`C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker`) — `/feed/sync`, `/feed/publish`, `/feed/post`, sosyal katman (not/yorum/beğeni/engel) uç noktaları
+- `supabase/schema/*.sql` — Veritabanı migration'ları (`015`-`017`: sosyal katman + engelleme + bağımsız gönderi)
+- `features/feed/utils/groupMarathonActivities.ts` — Maraton gruplama (Set tabanlı bölüm tekilleştirme)
+- `features/feed/components/FeedActivityNote.tsx` — Alıntı/gönderi metni (birincil içerik, "Devamını Gör")
+- `features/feed/components/ComposePostBar.tsx` + `ComposePostModal.tsx` — "Fikir Paylaş" giriş noktası ve compose ekranı
+- `features/feed/components/MediaPickerModal.tsx` + `MediaPickerRow.tsx` — Gönderi için opsiyonel yapım seçici
+- `features/feed/components/FeedCommentSheet.tsx` + `BlockUserButton.tsx` + `BlockedProfileLock.tsx` — Sosyal katman UI'ı
+- `features/feed/components/CardMenu.tsx` — Kartların "⋯" menüsü (Düzenle/Sil/Paylaş)
+- `app/activity/[id].tsx` + `features/feed/hooks/useActivityDetail.ts` — Paylaşım linkinin hedefi, tek aktivite sayfası
+- `features/feed/utils/resolveRawActivityIds.ts` — Silme için maraton→ham-id çözümü (Akış + Profil paylaşır)
+- `docs/FEED_SOCIAL_PLAN.md` — Sosyal katmanın (not/yorum/beğeni/engel) detaylı tasarım kaydı
 - `docs/HISTORY.md` — Tamamlanan her adımın kaydı

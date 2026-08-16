@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, ExternalLink, EyeOff, Globe, Lock, LogOut, MessageCircle, Star, Trash2, Tv, UserX } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, ShieldCheck, Star, Trash2, Tv, UserX } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
+import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import ReportIssueModal from '../../components/settings/ReportIssueModal';
 import SettingsRow from '../../components/settings/SettingsRow';
 import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [legalModalVisible, setLegalModalVisible] = useState(false);
   const feedPrivacy = useFeedPrivacy();
   const profilePrivacy = useProfilePrivacy();
 
@@ -279,6 +281,34 @@ export default function SettingsScreen() {
             )}
           </SettingsSection>
 
+          {/* Google Play "Uygulama içeriği" gereksinimi: giriş yapmış bir
+              kullanıcının onayladığı metne bir daha ulaşabilmesi gerekir —
+              eskiden `LegalTermsModal` yalnızca (public)/settings.tsx'teki
+              giriş ekranında vardı, Ayarlar'da hiç yoktu. Kullanım Koşulları
+              in-app modal olarak kalıyor (mevcut bileşen); Gizlilik
+              Politikası ise KENDİ URL'i olan (public)/gizlilik.tsx'e
+              yönlendiriyor — Play Console'un istediği bağımsız, girişsiz
+              erişilebilen bağlantı budur. */}
+          <SettingsSection title={t('settings:legalSection', 'Yasal')}>
+            <SettingsRow
+              icon={<FileText size={20} color="#60a5fa" />}
+              label={t('settings:termsOfUseRowLabel', 'Kullanım Koşulları')}
+              tintColor="#60a5fa"
+              showChevron
+              onPress={() => setLegalModalVisible(true)}
+            />
+
+            <SettingsSectionDivider />
+
+            <SettingsRow
+              icon={<ShieldCheck size={20} color="#60a5fa" />}
+              label={t('settings:privacyPolicyRowLabel', 'Gizlilik Politikası')}
+              tintColor="#60a5fa"
+              showChevron
+              onPress={() => router.push('/(public)/gizlilik')}
+            />
+          </SettingsSection>
+
           {/* Tanılama artık HER ZAMAN görünür (eskiden yalnızca gizli
               Geliştirici Modu açıkken görünürdü) — "İstek/Öneri/Şikayet"
               satırı normal kullanıcı için de burada, her zaman en altta.
@@ -336,6 +366,11 @@ export default function SettingsScreen() {
       <ReportIssueModal
         visible={reportModalVisible}
         onClose={() => setReportModalVisible(false)}
+      />
+
+      <LegalTermsModal
+        visible={legalModalVisible}
+        onClose={() => setLegalModalVisible(false)}
       />
 
       <LanguagePickerModal

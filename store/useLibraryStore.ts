@@ -19,8 +19,15 @@ export interface LibraryState extends
   HiddenShowsSlice {
     isLoading: boolean;
     isMoviesLoading: boolean;
+    /** Son `fetchFreshData` denemesinde TÜM kritik istekler (izleme geçmişi,
+     *  izleme listesi, takvim) başarısız oldu mu — bkz. fetchers.ts. Yalnızca
+     *  ağ/sunucu hatasında true olur; kullanıcının GERÇEKTEN hiç dizisi/filmi
+     *  olmaması (boş ama başarılı yanıt) bunu tetiklemez. Ekranlar bunu
+     *  "boş" ile "yüklenemedi" durumunu ayırt etmek için kullanır. */
+    hasSyncError: boolean;
     setIsLoading: (val: boolean) => void;
     setIsMoviesLoading: (val: boolean) => void;
+    setHasSyncError: (val: boolean) => void;
     clearAll: () => void;
 }
 
@@ -36,9 +43,11 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
 
   isLoading: true,
   isMoviesLoading: true,
+  hasSyncError: false,
   setIsLoading: (val) => a[0]({ isLoading: val }),
   setIsMoviesLoading: (val) => a[0]({ isMoviesLoading: val }),
-  
+  setHasSyncError: (val) => a[0]({ hasSyncError: val }),
+
   clearAll: () => a[0]({
     watchedShows: [],
     watchedMovies: [],
@@ -59,5 +68,6 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
     hiddenMovieIds: [],
     isLoading: true,
     isMoviesLoading: true,
+    hasSyncError: false,
   }),
 }));

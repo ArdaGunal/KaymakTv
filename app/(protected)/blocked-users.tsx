@@ -8,11 +8,12 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { UserX, Ban } from 'lucide-react-native';
+import { Ban } from 'lucide-react-native';
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { useAuth } from '../../context/AuthContext';
@@ -63,7 +64,7 @@ function BlockedUserRow({ user, isRemoving, onUnblock }: BlockedUserRowProps) {
 export default function BlockedUsersScreen() {
   const { accessToken } = useAuth();
   const router = useRouter();
-  const { t } = useTranslation(['feed', 'settings']);
+  const { t } = useTranslation(['feed', 'settings', 'common']);
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
@@ -108,6 +109,9 @@ export default function BlockedUsersScreen() {
       setUsers((list) => list.filter((u) => u.id !== user.id));
     } catch (error) {
       console.warn('[Feed] Engel kaldırılamadı:', error);
+      // ESKİDEN sessizdi: satır listede kalıyor ama kullanıcı NEDEN
+      // kalktığını göremiyordu (bkz. docs/AI_RULES.md § Sessiz başarısızlık).
+      Alert.alert(t('common:error'), t('common:actionFailedMessage'));
     } finally {
       setRemovingId(null);
     }

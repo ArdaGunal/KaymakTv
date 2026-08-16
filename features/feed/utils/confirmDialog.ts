@@ -1,8 +1,8 @@
 import { Alert, Platform } from 'react-native';
 
 // Silme gibi geri alınamaz eylemler için tek, platforma uygun onay noktası.
-// Web'de Swipeable/Alert.alert yerine window.confirm doğal davranıştır (fare
-// ile "sola kaydırma" zaten devre dışı — bkz. ActivityDeleteRow).
+// Web'de `Alert.alert` yerine `window.confirm` doğal davranıştır (RN'in
+// `Alert.alert`i web'de görsel olarak native diyaloğa benzemez).
 export function confirmAsync(
   title: string,
   message: string,

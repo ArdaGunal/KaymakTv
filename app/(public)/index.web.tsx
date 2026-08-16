@@ -726,8 +726,8 @@ export default function WebLandingPage() {
               </div>
               <div className="foot-col">
                 <h5>Yasal</h5>
-                <a href="#">Gizlilik Politikası</a>
-                <a href="#">Kullanım Şartları</a>
+                <a onClick={() => router.push('/gizlilik')}>Gizlilik Politikası</a>
+                <a onClick={() => router.push('/kullanim-kosullari')}>Kullanım Şartları</a>
               </div>
             </div>
           </div>
