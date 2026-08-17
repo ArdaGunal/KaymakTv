@@ -51,6 +51,7 @@
   "readMore": "Devamını gör",
   "reportContentMenuLabel": "İçeriği Bildir",
   "reportDetailPlaceholder": "İstersen kısaca açıkla (opsiyonel)",
+  "reportDuplicate": "Bu içeriği zaten bildirmiştin.",
   "reportError": "❌ Bildirim gönderilemedi, tekrar dene.",
   "reportModalSubtitle": "Bu içerikle ilgili sorunu bize bildir, inceleyelim.",
   "reportModalTitle": "İçeriği Bildir",

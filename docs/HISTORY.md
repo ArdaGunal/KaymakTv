@@ -4127,4 +4127,42 @@ Tam tasarım: **[`docs/FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md)** (yen
 ### Doğrulama
 `tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ · çeviri senkronu ✅ (yalnızca bilinen `newPosts`) · Worker `node --check` ✅ · `vitest` ✅ 34/34.
 
-**Doğrulanamayan:** istemci sertleştirmesi cihazda test edilmedi — özellikle T3 (uçak modu soğuk açılış: takip ettiklerin **ve kendin** görünmeli) ve T4 (sahte token: snapshot değişmemeli).
+**Cihaz testi:** kullanıcı sorunsuz raporladı → **F6 ✅ KAPANDI.**
+
+---
+
+## 187. F9 — Moderasyon Altyapısı: Sansür Vektörü Kapatıldı (S15)
+
+**Bağlam:** `MASTER_PLAN` F9. **F10'un ön koşulu** — sıra ihlal edilirse canlı bir sansür aracı doğar.
+
+### Sorun
+`018_content_reports.sql` ile gelen tabloda `UNIQUE(reporter_user_id, target_type, target_id)` yoktu ve `reporter_user_id` nullable'dı. Bugün zararsızdı çünkü otomatik gizleme kapalı — ama F10 (N rapor alan içerik akıştan düşer) bu düzeltme olmadan açılsaydı **tek kişi aynı içeriği N kez raporlayıp istediği yorumu sansürleyebilirdi.**
+
+### 🔑 Üç değişiklik neden AYRILAMAZ
+`UNIQUE` tek başına **hiçbir işe yaramazdı**: Postgres'te `NULL != NULL` olduğu için `reporter_user_id` nullable kaldığı sürece aynı kişi kimliksiz olarak sınırsız satır ekleyebilir ve kısıt hiç devreye girmezdi. NOT NULL yapmak için kimlik doğrulaması gerekiyor, o da yazmanın Worker'a taşınması demek. Üçü tek bir düzeltmenin parçaları.
+
+### `023_content_reports_integrity.sql`
+Migration **kendini durdurabiliyor**: NULL `reporter_user_id` veya UNIQUE'i ihlal edecek tekrar satır bulursa `RAISE EXCEPTION` ile duruyor ve ne yapılacağını (hazır SQL ile) söylüyor. **Bilinçli olarak veri silmiyor** — moderasyon sinyali sessizce yok edilmemeli, karar insana ait.
+
+> ⚠️ **Yakalanan çelişki:** `reporter_user_id` `ON DELETE SET NULL` idi. `NOT NULL` ile birlikte bu, kullanıcı silindiğinde Postgres'in kolonu NULL yapmaya çalışıp kısıta takılması — yani **hesap silme işleminin başarısız olması** demekti. FK `ON DELETE CASCADE`'e çevrildi; `handleAccountDelete`'in mevcut davranışıyla da tutarlı (hesap silme = tüm verinin silinmesi).
+
+Bölüm B (anon INSERT politikasını düşürme) **ayrı tutuldu**: Bölüm A güvenle hemen çalıştırılabilir, B bir dağıtım penceresi ister — erken çalıştırılırsa güncellenmemiş istemcilerde bildirme kırılır.
+
+### Worker `/feed/report`
+`reporter_user_id` **istekten değil, doğrulanan token'dan** geliyor (diğer 13 ucun IDOR deseni). Rate limit diğer sosyal uçlardan **daha sıkı** (10/dk vs 20/dk) — F10 sonrası bu uç bir moderasyon kaldıracı olacak. `status` gönderilmiyor (DB DEFAULT `'open'`); istemcinin moderasyon durumuna yazma yetkisi hiçbir zaman olmamalı.
+
+`ignore-duplicates` + `return=representation` ile tekrar bildirim **sessizce "başarılı" sayılmıyor**: boş dizi dönerse `duplicate: true` bayrağı istemciye geçiyor ve kullanıcı *"Bu içeriği zaten bildirmiştin."* görüyor. Sessizce teşekkür etmek yalan olurdu ve kullanıcı tekrar tekrar denemeye devam ederdi.
+
+### 018'in mimari sapması kapandı
+O migration anon INSERT'e izin verirken gerekçesini yazmıştı: *"bu tablonun Worker'ı YOK, kaynak kodu bu repoda değil… ileride ayrı bir Worker endpoint'i eklenirse bu INSERT politikası kaldırılıp yazma da Worker'a taşınabilir."* Gerekçe yazılı olduğu için bugün ne zaman kapanacağı belliydi.
+
+### ⚠️ Davranış değişikliği: misafir artık bildiremez
+Bilinçli. 018 *"kim olduğu bilinmese bile bildirim değerlidir"* diyordu; o gün doğruydu ama kimliksiz bildirim kabul etmek UNIQUE kısıtının tamamını işlevsiz bırakıyor. Beğeni, yorum ve engelleme de giriş gerektiriyor — bildirme tek istisnaydı.
+
+### Doğrulama
+`tsc` ✅ · Worker `node --check` ✅ · `vitest` ✅ 34/34 · çeviri senkronu ✅.
+
+**Doğrulanamayan:** `023` çalıştırılmadı, Worker deploy edilmedi, bildirme akışı canlıda denenmedi. Elle adımların sırası `MASTER_PLAN` §0'da.
+
+### Sıradaki
+**F10** — rapor sayacı + otomatik gizleme. Artık güvenli: eşik ve itiraz yolu orada kararlaştırılacak.

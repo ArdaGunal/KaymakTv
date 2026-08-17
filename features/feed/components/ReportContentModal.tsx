@@ -67,8 +67,17 @@ export default function ReportContentModal({
     if (!reason || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await reportContent(targetType, targetId, reason, detail);
-      setToast({ visible: true, message: t('feed:reportSuccess', '✅ Bildirimin alındı, teşekkürler.') });
+      const result = await reportContent(targetType, targetId, reason, detail);
+      // `duplicate` = kullanıcı bu içeriği DAHA ÖNCE bildirmiş (023'teki UNIQUE
+      // kısıtı yeni satırı yok saydı). Bunu "alındı, teşekkürler" diye
+      // göstermek yalan olurdu — aynı zamanda kullanıcının tekrar tekrar
+      // bildirmeye çalışmasının bir işe yaramadığını da anlatıyor.
+      setToast({
+        visible: true,
+        message: result.duplicate
+          ? t('feed:reportDuplicate', 'Bu içeriği zaten bildirmiştin.')
+          : t('feed:reportSuccess', '✅ Bildirimin alındı, teşekkürler.'),
+      });
       reset();
       setTimeout(onClose, 900);
     } catch (error) {

@@ -47,12 +47,19 @@
 > kullanıcının tüm puan kartları siliniyor ve o kartlara yapılmış
 > beğeni/yorumlar CASCADE ile **kalıcı olarak** gidiyor. `npx wrangler deploy`.
 
-> 🧪 **F6 CİHAZ TESTİ BEKLİYOR** (istemci sertleştirmesi doğrulanmadı):
-> **T3** uçak modu + soğuk açılış → takip ettiklerin **ve KENDİN** akışta
-> görünmeli (bu düzeltmeden önce kendin kaybolurdun) ·
-> **T4** Trakt erişilemezken akışta amber "takip listesi güncellenemedi" notu ·
-> **T5** ikinci senkron `following: skipped` (12sa TTL) ·
-> **T6** çıkış → başka hesap → önceki takip listesi SIZMAMALI (disk temizliği).
+> 🔴 **F9 ELLE ADIMLARI — SIRA ZORUNLU:**
+>
+> | # | Adım | Not |
+> |---|---|---|
+> | 1 | **`023` Bölüm A** çalıştır | UNIQUE + NOT NULL + FK CASCADE. Migration NULL/tekrar satır bulursa **kendini durdurur** ve ne yapılacağını söyler (veri silmez) |
+> | 2 | `npx wrangler deploy` | `/feed/report` ucu. ⚠️ Adım 1'siz çalışmaz: `on_conflict` hedefi olan UNIQUE orada oluşuyor |
+> | 3 | İstemciyi yeniden yükle | Bildirme artık Worker'a gidiyor |
+> | 4 | Bildirme akışını test et | Aynı içeriği **iki kez** bildir → ikincide *"Bu içeriği zaten bildirmiştin."* |
+> | 5 | **`023` Bölüm B** (yorumu kaldır, çalıştır) | Anon INSERT politikasını düşürür. **Adım 3'ten önce yapılırsa güncellenmemiş istemcilerde bildirme kırılır** |
+>
+> ⚠️ **Davranış değişikliği:** misafir artık bildirim gönderemiyor. Bilinçli —
+> beğeni/yorum/engelleme de giriş gerektiriyor; kimliksiz bildirim kabul etmek
+> UNIQUE kısıtının tamamını işlevsiz bırakıyordu (`NULL != NULL`).
 
 > 📌 **SONRAKİ İŞ (kullanıcı kararı, 2026-08-17): F6 → F9.**
 > F6 tasarımı bir alt ajana hazırlatıldı ve **ön tasarım çürütüldü** —
@@ -98,12 +105,12 @@
 | **G1** | 🔒 **Güvenlik denetimi #1** — yazma yüzeyi | ✅ **BİTTİ** |
 | **F4** | Uçtan uca doğrulama + **ilk build** (kilit kalkar) | ✅ **BİTTİ** 🔓 — 13 adım geçti, 3 kusur bulundu ve düzeltildi |
 | **F5** | `tmdb_id` tüm aktivite tiplerine | 🟡 **DEPLOY EDİLDİ** — backfill zinciri (3 adım) kaldı |
-| **F6** | Takip listesi snapshot'ı — [`FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md) | 🟡 **KOD BİTTİ** — `022` + Worker canlıda doğrulandı; istemci sertleştirme cihaz testi bekliyor |
+| **F6** | Takip listesi snapshot'ı — [`FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md) | ✅ **BİTTİ** — `022` + Worker canlıda doğrulandı, istemci sertleştirme cihazda sorunsuz |
 | **K2** | 🧹 **Kalite denetimi #2** | ✅ **BİTTİ** — kimliğe bağlı 2 önbellek çıkışta temizlenmiyordu (bulundu+düzeltildi) |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
-| **F9** | Moderasyon altyapı düzeltmesi (S15) | ⬜ |
+| **F9** | Moderasyon altyapı düzeltmesi (S15) | 🟡 **KOD BİTTİ** — `023` + Worker `/feed/report`. Elle adımlar bekliyor (aşağıda) |
 | **F10** | Rapor sayacı + otomatik gizleme | ⬜ |
 | **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ |
 | **F11** | S11: kullanıcı sayımı / gizlilik ayarı sızıntısı | ⬜ |

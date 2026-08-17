@@ -52,6 +52,7 @@
   "readMore": "See more",
   "reportContentMenuLabel": "Report Content",
   "reportDetailPlaceholder": "Add a short note if you'd like (optional)",
+  "reportDuplicate": "You already reported this content.",
   "reportError": "❌ Couldn't send the report, please try again.",
   "reportModalSubtitle": "Let us know what's wrong with this content and we'll take a look.",
   "reportModalTitle": "Report Content",
