@@ -3958,3 +3958,72 @@ Etkileşim saf mantık olduğu için 8 senaryoluk bir simülasyon yazılıp çal
 
 ### Sıradaki
 `MASTER_PLAN` §0'daki 5 adımlı sıra. Kritik: **önce migration, sonra deploy** — ters sırada `publish_manual` kolonu bulunamaz.
+
+---
+
+## 183. Y8 + K2 — Kalite Denetimi #2: Çıkışta Temizlenmeyen İki Kimlik Önbelleği
+
+**Bağlam:** F14 cihazda doğrulandıktan sonra kullanıcı sıradaki işi sordu; Y8 (engel filtresi) + K2 (kalite denetimi) birlikte seçildi. Öncesinde bu turun tamamı commit edildi (`72cab42`).
+
+### 🔴 K2'nin bulduğu gerçek kusur — kimliğe bağlı önbellekler
+`AuthContext.removeKeys()` çıkışta 8 şeyi temizliyordu (follow store · trakt slug · feed store · publish kimliği · akış önbelleği · görünür kullanıcılar · Supabase user id · engel kümesi). **İkisi listede yoktu:**
+
+- `userFeedActivitiesCache` (profil aktiviteleri)
+- `mediaReviewsCache` (yapım sayfası incelemeleri)
+
+İkisi de `attachIsLikedByMe` ile doldurulan **`isLikedByMe`** alanını taşıyor — yani içerikleri kimliğe bağlı. Uygulama kapatılmadan hesap değiştirilirse (çıkış → başka hesapla giriş) 60 saniyelik TTL boyunca **önceki hesabın beğeni durumu yeni oturumda görünürdü.**
+
+Bu, `myIdentity`/`userBlocks`/`feedPublish` için zaten çözülmüş olan hata sınıfının aynısı; o üçü `removeKeys`'e bağlıydı ama bu ikisi inceleme sistemi turunda (F1/F2) eklendiği için gözden kaçmıştı. Tam olarak `MASTER_PLAN` §4.1'in *"her K fazında elle bak: yeni eklenen modül seviyesi önbellek removeKeys()'e eklendi mi?"* maddesinin yakalamak için var olduğu şey.
+
+**Düzeltme:** `invalidateIdentityScopedFeedCaches()` eklendi, `removeKeys()` çağırıyor. Fonksiyonun başına, bu dosyaya yeni bir kimliğe bağlı önbellek eklendiğinde buraya da eklenmesi gerektiği yazıldı.
+
+### Y8 — engel filtresi profil aktivitelerine eklendi (ama ilk rapor abartılıydı)
+Akış (`getVisibleUserIds`) ve yapım sayfası (`fetchMediaReviews`) engellenen kullanıcıları eliyordu; `fetchUserFeedActivities` elemiyordu.
+
+> ⚠️ **Kendi yanlış alarmımın düzeltmesi:** bunu ilk raporlarken *"engellediğin birinin profiline girip aktivitelerini görebiliyorsun"* demiştim. **Yanlıştı.** `PublicProfileMobile.tsx:138` ve `user/[slug].web.tsx:187` engellenmiş profilde listeyi hiç çizmiyor, `<BlockedProfileLock />` gösteriyor — görsel sızıntı yoktu. Bağımsız taramanın bulgusunu doğrulamadan aktarmıştım.
+>
+> **Gerçek kusur daha ılımlı ama yine de geçerli:** engel kuralının TEK katmanı UI'daydı ve o ekranlar hook'u koşulsuz çağırdığı için sorgu yine de gidiyordu. Eklenen filtre ikinci katman: yeni bir ekran bu fonksiyonu kilit kontrolü olmadan tüketirse veri yine sızmaz. Fail-soft davranış akış/inceleme listesindeki kararla aynı.
+
+### 📋 K2 kontrol listesi sonuçları
+| Kontrol | Sonuç |
+|---|---|
+| Ölü kod (`--noUnusedLocals --noUnusedParameters`) | ✅ **SIFIR** |
+| Worker `node --check` | ✅ |
+| Çeviri senkronu | ✅ yalnızca bilinen `newPosts` çoğul farkı |
+| Boş `catch` | ✅ 4 bulgu, **hepsi bilinen** (önbellek ayrıştırma); **yeni eklenen yok** |
+| Modül önbelleği ↔ `removeKeys` | 🔴 **2 eksik → düzeltildi** |
+| 400 satır kuralı | 🟡 **13 dosya** — F12'ye |
+| Migration numara çakışması | 🟡 `010`/`012` — eski, ikisi de çalıştırılmış, dokunulmadı |
+| Bayat worktree | 🟡 `intelligent-mclaren-7b32d5` hâlâ duruyor — silme kararı kullanıcıya ait |
+| `console.log` kalıntısı | 🟡 47 adet (20'si `progress.ts`, 14'ü `fetchers.ts` — eski kod, akış dışı) |
+
+> **400 satır notu:** iki dosya BU turlarda sınırı aştı — `feedApi.ts` (522, F14+Y8 ile) ve `account.tsx` (415, yeni anahtarla). Sessizce geçilmedi: F12'nin kapsamına açıkça yazıldı. `feedApi.ts` bölünmesi akış sorgusuna dokunacağı için ayrı ve dikkatli bir tur ister.
+
+### Değişen dosyalar
+`features/feed/services/feedApi.ts` (engel filtresi + `invalidateIdentityScopedFeedCaches`) · `context/AuthContext.tsx` · `docs/{MASTER_PLAN,HISTORY}.md`.
+
+### Doğrulama
+`tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ temiz. **Doğrulanamayan:** hesap değiştirme senaryosu cihazda test edilmedi (iki farklı Trakt hesabı gerekiyor).
+
+### Sıradaki
+Build kilidi hâlâ yürürlükte — **T9 tekrar testi** ve **F5 backfill zinciri** kaldı (bkz. §0).
+
+---
+
+## 184. 🔓 F4 KAPANDI — Build Kilidi Kalktı
+
+**T9 tekrar testi geçti** (kullanıcı, web): wifi kapalıyken akıştan gönderi paylaşma denemesi artık **"Network Error"** veriyor, Madde 181'de düzeltilen yanlış teşhis (*"Kimliğin doğrulanamadı"*) geri gelmiyor.
+
+Bununla F4'ün tüm çıkış kriterleri karşılandı: 13 test adımı geçti, bulunan 3 kusur (yanlış teşhis · gizleme ekrana yansımıyor · `fetchActivityById` filtresiz) düzeltildi ve düzeltmeler doğrulandı.
+
+**🔓 Build dağıtma kilidi KALKTI.** Madde 172'de konulmuştu (v2 pivotu), gerekçesi: *"dağıtıldıktan sonra kullanıcıda oluşan veri temizlenemez; şu anki '0 satır' temiz sayfası kaybolur."* İnceleme sistemi artık uçtan uca doğrulandığı için oluşacak veri **beklenen** veri.
+
+> 🔴 **Düzeltilen bir plan hatası:** `MASTER_PLAN` §0'a bir ara "kilit F5 backfill zincirine de bağlı" yazılmıştı. **Yanlıştı.** Kilidin gerekçesi dağıtım güvenliğiydi; backfill ise mevcut satırların veri kalitesi — ikisi farklı şeyler. Backfill açık iş olarak duruyor ama kilidi bloke etmiyor.
+
+**Not:** T9 gerçek cihazda değil **web'de** doğrulandı. Kabul edilebilir sayıldı çünkü test edilen şey ağ hatası dalının mesajı ve o kod yolu platformdan bağımsız; T1-T13'ün tamamı zaten gerçek cihazda çalıştırılmıştı.
+
+### Açık kalan elle iş
+**F5 backfill zinciri** — 57 satırda `tmdb_id` eksik (47 `watched_episode` + 10 `rated`, 12 diziye ait). Üç adımlı zincir `MASTER_PLAN` F5 bölümünde. Trakt kapanma senaryosunda o kartlar poster çizemez.
+
+### Sıradaki
+**F6** — takip listesi snapshot'ı (Kol B). `getVisibleUserIds` bugün Trakt'ın `/users/me/following` ucuna bağlı; Trakt giderse akış tamamen boşalır.

@@ -25,16 +25,12 @@
 > cd ../kaymaktv-feedback-worker && npx vitest run   # 29/29
 > ```
 
-> ✅ **021 çalıştırıldı · Worker deploy edildi · F14 cihazda doğrulandı.**
+> ✅ **021 çalıştırıldı · Worker deploy edildi · F14 doğrulandı · T9 tekrar
+> testi geçti (web) · 🔓 kilit kalktı.**
 >
-> 🔴 **KALAN İKİ İŞ — build kilidi bunlara bağlı:**
->
-> | # | İş | Neden bekliyor |
-> |---|---|---|
-> | 1 | **T9 tekrar testi** (uçak modu → akıştan gönderi paylaş) | F4 sırasında `publishPost` düzeltildi (ağ hatası artık "Kimliğin doğrulanamadı" demiyor) ama düzeltme **cihazda hiç denenmedi**. Protokol: düzeltilen her hata için ilgili adım baştan çalıştırılır. |
-> | 2 | **F5 backfill zinciri** (3 SQL adımı) | Deploy edildi ama 57 eksik `tmdb_id` satırı için zincir hiç çalıştırılmadı. Ayrıntı: F5 bölümü. |
->
-> İkisi de bitince 🔓 kilit kalkar.
+> 🟡 **AÇIK ELLE İŞ:** F5 backfill zinciri (3 SQL adımı) hiç çalıştırılmadı —
+> 57 satırda `tmdb_id` eksik. Kilidi bloke etmiyor ama Trakt kapanma
+> senaryosunda o kartlar poster çizemez. Adımlar: F5 bölümü.
 
 
 **Son güncelleme:** 2026-08-17 · **Aktif faz:** F4 (uçtan uca doğrulama + ilk build)
@@ -42,7 +38,15 @@
 
 | Kilit | Durum |
 |---|---|
-| 🔒 **BUILD DAĞITMA** | **YÜRÜRLÜKTE** — F4'e kadar. Sebep: inceleme UI'ı yarım; dağıtılırsa Trakt'ta/DB'de temizlenmesi gereken gerçek veri oluşur. |
+| 🔓 **BUILD DAĞITMA** | **KALKTI — 2026-08-17.** F4'ün 13 adımı da geçti, bulunan 3 kusur düzeltildi ve düzeltmeler doğrulandı. Ayrıntı: `HISTORY.md` Madde 181-184. |
+
+> **Kilit neden kalktı:** gerekçesi *"dağıtılan build'de temizlenemeyecek
+> gerçek veri oluşur"* idi (§3, kritik nokta 3). İnceleme sistemi artık uçtan
+> uca doğrulandı; oluşacak veri beklenen veri.
+>
+> ⚠️ **F5 backfill zinciri kilidi BLOKE ETMEZ** (önceki bir notta yanlışlıkla
+> öyle yazılmıştı). O, mevcut satırların veri kalitesiyle ilgili — dağıtım
+> güvenliğiyle değil. Yine de açık iş: bkz. F5 bölümü.
 
 | Faz | Ad | Durum |
 |---|---|---|
@@ -53,10 +57,10 @@
 | **K1** | 🧹 **Kalite denetimi #1** — ölü kod zinciri | ✅ **BİTTİ** — 4 dosya silindi, ~800 satır |
 | **F3** | Doküman senkronizasyonu | ✅ **BİTTİ** |
 | **G1** | 🔒 **Güvenlik denetimi #1** — yazma yüzeyi | ✅ **BİTTİ** |
-| **F4** | Uçtan uca doğrulama + **ilk build** (kilit kalkar) | 🟡 **T1-T13 GEÇTİ** — 2 düzeltmenin cihaz doğrulaması kaldı |
+| **F4** | Uçtan uca doğrulama + **ilk build** (kilit kalkar) | ✅ **BİTTİ** 🔓 — 13 adım geçti, 3 kusur bulundu ve düzeltildi |
 | **F5** | `tmdb_id` tüm aktivite tiplerine | 🟡 **DEPLOY EDİLDİ** — backfill zinciri (3 adım) kaldı |
-| **F6** | Takip listesi snapshot'ı | ⬜ |
-| **K2** | 🧹 **Kalite denetimi #2** | ⬜ |
+| **F6** | Takip listesi snapshot'ı | ⬜ **SIRADAKİ** |
+| **K2** | 🧹 **Kalite denetimi #2** | ✅ **BİTTİ** — kimliğe bağlı 2 önbellek çıkışta temizlenmiyordu (bulundu+düzeltildi) |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
@@ -416,7 +420,7 @@ mu · gizlenen içerik gerçekten okunamıyor mu (yoksa yalnızca UI'da mı sakl
 | Faz | İş | Not |
 |---|---|---|
 | **F11** | **S11:** `users` anon key ile tamamen okunabiliyor; `is_private`/`publish_watches` dahil. Postgres RLS kolon seviyesinde çalışmadığı için çözüm ayrı `user_settings` tablosu (önerilen) veya kısıtlı VIEW. | `001`'den beri var |
-| **F12** | **S10:** 400 satır kuralı — 17 dosya. En büyükler: `services/api/users.ts` (**963**), `download.web.tsx` (861), `index.web.tsx` (753), `library/fetchers.ts` (733). | `users.ts` öncelikli |
+| **F12** | **S10:** 400 satır kuralı — **13 dosya** (K2'de yeniden sayıldı). En büyükler: `services/api/users.ts` (**897**), `download.web.tsx` (814), `index.web.tsx` (695), `library/fetchers.ts` (662), `MediaHero.tsx` (571), `ReportIssueModal.tsx` (542), `user/[slug].web.tsx` (523), **`features/feed/services/feedApi.ts` (522)**, `FeedCard.tsx` (505), `progress.ts` (498), `episode/[id].tsx` (470), `profile.web.tsx` (455), `account.tsx` (415). | `users.ts` öncelikli. ⚠️ `feedApi.ts` ve `account.tsx` F14/Y8 turlarında 400'ü AŞTI — bölünmeleri artık bu fazın kapsamında |
 | **F14** | **Elle yazılan içerik için akış görünürlüğü** — `publish_manual` (021). Tasarım: [`FEED_VISIBILITY_PLAN.md`](FEED_VISIBILITY_PLAN.md). F4 sırasında kullanıcı buldu: "Aktivitemi Akışta Gizle" incelemeleri kapsamıyordu. | ✅ **BİTTİ** — 021 çalıştırıldı, deploy edildi, cihazda doğrulandı |
 | **F13** | **S16:** `expo-image` yalnızca 4 dosyada, `cachePolicy="disk"` 2 yerde; 12 dosya hâlâ RN `Image`. TMDB'ye giden tekrar isteklerini azaltır. | Yeni altyapı gerekmiyor |
 
@@ -632,25 +636,12 @@ Yorum yolu ayrı bir yüzey (`comments` tablosu + ayrı Worker ucu) ve
 gönderindeki mevcut konuşmayı okuyabilmen makul olabilir.
 **Faz:** G2 veya F9/F10 (moderasyon turu) — yazma yüzeyi zaten orada denetleniyor.
 
-## Y8 · Profil aktivitelerinde engellenen kullanıcı filtresi YOK
-**Nerede:** `features/feed/services/feedApi.ts` → `fetchUserFeedActivities`
-**Bulundu:** 021 turunda, bağımsız tarama (2026-08-17).
-
-Akış sorgusu (`getVisibleUserIds`) ve yapım sayfası inceleme listesi
-(`.not('user_id','in',...)`) engellenen kullanıcıları eliyor. Profil aktivite
-listesi **elemiyor** — `in_feed` filtresi var ama engel kontrolü hiç yok.
-
-Aynı fonksiyon hem kendi profilim hem BAŞKASININ profili için kullanılıyor
-(`useUserActivity` vs `usePublicProfileActivity`), dolayısıyla engellediğin bir
-kullanıcının profiline girip aktivitelerini görebiliyorsun. Engelleme
-sisteminin diğer iki yüzeyde uygulanıp burada atlanmış olması, kuralın
-tutarsız uygulandığı anlamına geliyor.
-
-**Neden 021'de yapılmadı:** 021 bir görünürlük AYARI ekliyordu; bu ise mevcut
-**engelleme** sisteminin eksik bir yüzeyi — farklı bir kural, farklı bir
-gerekçe zinciri (`FEED_SOCIAL_PLAN` §4.2). Aynı turda karıştırmak ikisinin de
-denetimini zorlaştırırdı.
-**Faz:** G2 (güvenlik denetimi #2) veya ayrı küçük bir düzeltme turu.
+## ✅ Kapananlar (K2 turu)
+**Y8** (profil aktivitelerinde engel filtresi yok) — kapatıldı. Not: ilk
+raporda "engellediğin kişinin aktivitelerini görebiliyorsun" denmişti,
+**yanlıştı** — profil ekranları `isBlockedEitherWay` ile `<BlockedProfileLock />`
+gösteriyor, görsel sızıntı yoktu. Gerçek kusur korumanın TEK katmanının UI
+olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
 
 ## Y7 · Trakt 429'u kullanıcıya "token geçersiz" diye gösteriliyor
 **Nerede:** Worker `verifyAndUpsertUser` (`index.js:474-484`) → 13 yazma ucunun

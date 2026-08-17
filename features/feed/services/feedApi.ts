@@ -381,6 +381,28 @@ export function invalidateUserFeedActivitiesCache(traktSlug: string): void {
   userFeedActivitiesCache.delete(traktSlug);
 }
 
+/**
+ * ÇIKIŞTA ZORUNLU — `AuthContext.removeKeys()` çağırır.
+ *
+ * Bu dosyadaki İKİ Map önbelleği (`userFeedActivitiesCache`,
+ * `mediaReviewsCache`) `attachIsLikedByMe` ile doldurulan **`isLikedByMe`**
+ * alanını taşıyor, yani içerikleri KİMLİĞE BAĞLI. Uygulama kapatılmadan
+ * hesap değiştirilirse (çıkış → başka hesapla giriş) TTL dolana kadar
+ * önceki hesabın beğeni durumu yeni oturumda görünürdü.
+ *
+ * K2 denetiminde bulundu (2026-08-17): ikisi de inceleme sistemi turunda
+ * eklenmiş ama `removeKeys()`'e hiç bağlanmamıştı. `myIdentity`,
+ * `userBlocks` ve `feedPublish`'teki modül önbellekleri aynı gerekçeyle
+ * zaten oraya bağlıydı — bu ikisi gözden kaçmıştı.
+ *
+ * ⚠️ Bu dosyaya YENİ bir modül seviyesi önbellek eklersen ve içinde
+ * kullanıcıya özel bir alan varsa, buraya da eklemen gerekir.
+ */
+export function invalidateIdentityScopedFeedCaches(): void {
+  userFeedActivitiesCache.clear();
+  mediaReviewsCache.clear();
+}
+
 // Takip ettiklerim değil, TEK bir kullanıcının TÜM izleme aktivitesi, tarih
 // penceresi olmadan (profilde "son 30 gün" kısıtı anlamlı değil).
 export async function fetchUserFeedActivities(traktSlug: string, force = false): Promise<FeedActivity[]> {
@@ -394,17 +416,39 @@ export async function fetchUserFeedActivities(traktSlug: string, force = false):
   // `user.trakt_slug` filtresiyle TEK isteğe indirildi — eşleşen `users`
   // satırı yoksa join hiç satır döndürmediğinden sonuç zaten doğal olarak
   // boş dizi olur, ayrı bir "bulunamadı" dalına gerek kalmadı.
-  const { data, error } = await timeSupabaseCall('supabase.feed_activities.byUser', () =>
-    supabase
-      .from('feed_activities')
-      .select(ACTIVITY_COLUMNS)
-      .eq('user.trakt_slug', traktSlug)
-      // Bölüm incelemeleri profilde de listelenmez — kullanıcı kararı
-      // "sadece o bölümün kendi sayfasında görünecek" (bkz. ana akış notu).
-      .eq('in_feed', true)
-      .order('activity_at', { ascending: false })
-      .limit(PROFILE_ACTIVITY_LIMIT)
-  );
+  let query = supabase
+    .from('feed_activities')
+    .select(ACTIVITY_COLUMNS)
+    .eq('user.trakt_slug', traktSlug)
+    // Bölüm incelemeleri profilde de listelenmez — kullanıcı kararı
+    // "sadece o bölümün kendi sayfasında görünecek" (bkz. ana akış notu).
+    .eq('in_feed', true)
+    .order('activity_at', { ascending: false })
+    .limit(PROFILE_ACTIVITY_LIMIT);
+
+  // ── Engellenen kullanıcılar (Y8) ──────────────────────────────────────
+  // Bu filtre eskiden BURADA YOKTU; akış (`getVisibleUserIds`) ve yapım
+  // sayfası (`fetchMediaReviews`) uyguluyordu ama profil aktiviteleri
+  // uygulamıyordu — aynı kural üç yüzeyin ikisinde geçerliydi.
+  //
+  // ⚠️ Bu bir GÖRSEL AÇIK DEĞİLDİ: `PublicProfileMobile.tsx` ve
+  // `user/[slug].web.tsx` engellenmiş profilde listeyi hiç çizmiyor,
+  // `<BlockedProfileLock />` gösteriyor. Ama korumanın TEK katmanı UI'daydı
+  // ve o ekranlar hook'u KOŞULSUZ çağırdığı için sorgu yine de gidiyordu.
+  // Buradaki filtre ikinci katman: yeni bir ekran bu fonksiyonu kilit
+  // kontrolü olmadan tüketirse veri yine sızmaz.
+  try {
+    const blocked = await getBlockedUserIds();
+    if (blocked.size > 0) {
+      query = query.not('user_id', 'in', `(${Array.from(blocked).join(',')})`);
+    }
+  } catch (error) {
+    // Fail-soft — akış ve inceleme listesindeki AYNI karar: engel kümesi
+    // okunamadıysa listeyi tamamen kaybetmektense filtresiz göster.
+    console.warn('[Feed] Profil aktiviteleri için engel kümesi okunamadı:', error);
+  }
+
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.byUser', () => query);
 
   if (error) throw error;
   const mapped = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);

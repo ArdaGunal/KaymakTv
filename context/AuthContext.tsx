@@ -6,7 +6,11 @@ import { useFollowStore } from '../store/followStore';
 import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { useFeedStore } from '../features/feed/store/feedStore';
 import { clearFeedPublishIdentity } from '../features/feed/services/feedPublish';
-import { invalidateFeedCache, invalidateVisibleUserIds } from '../features/feed/services/feedApi';
+import {
+  invalidateFeedCache,
+  invalidateVisibleUserIds,
+  invalidateIdentityScopedFeedCaches,
+} from '../features/feed/services/feedApi';
 import { invalidateMySupabaseUserId, invalidateBlockedUserIds } from '../features/feed/services/userBlocks';
 import { recordPerfMark } from '../utils/perfLog';
 
@@ -146,6 +150,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // hesaplanırdı.
       invalidateMySupabaseUserId();
       invalidateBlockedUserIds();
+      // K2 denetiminde bulundu: `feedApi.ts`'teki İKİ Map önbelleği
+      // (profil aktiviteleri + yapım incelemeleri) buraya hiç bağlanmamıştı.
+      // İkisi de `isLikedByMe` taşıyor, yani KİMLİĞE BAĞLI — temizlenmezse
+      // hesap değiştirildiğinde 60sn'lik TTL boyunca önceki hesabın beğeni
+      // durumu yeni oturumda görünürdü (yukarıdaki üç önbellekle AYNI hata
+      // sınıfı, yalnızca daha sonra eklendikleri için gözden kaçmışlar).
+      invalidateIdentityScopedFeedCaches();
       setAccessToken(null);
       setIsGuest(false);
     } catch (error) {
