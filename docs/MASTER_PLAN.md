@@ -47,6 +47,13 @@
 > kullanıcının tüm puan kartları siliniyor ve o kartlara yapılmış
 > beğeni/yorumlar CASCADE ile **kalıcı olarak** gidiyor. `npx wrangler deploy`.
 
+> 🧪 **F6 CİHAZ TESTİ BEKLİYOR** (istemci sertleştirmesi doğrulanmadı):
+> **T3** uçak modu + soğuk açılış → takip ettiklerin **ve KENDİN** akışta
+> görünmeli (bu düzeltmeden önce kendin kaybolurdun) ·
+> **T4** Trakt erişilemezken akışta amber "takip listesi güncellenemedi" notu ·
+> **T5** ikinci senkron `following: skipped` (12sa TTL) ·
+> **T6** çıkış → başka hesap → önceki takip listesi SIZMAMALI (disk temizliği).
+
 > 📌 **SONRAKİ İŞ (kullanıcı kararı, 2026-08-17): F6 → F9.**
 > F6 tasarımı bir alt ajana hazırlatıldı ve **ön tasarım çürütüldü** —
 > yeni model: snapshot F6'da yalnızca YAZILIR, hiç okunmaz; RLS politikası
@@ -91,7 +98,7 @@
 | **G1** | 🔒 **Güvenlik denetimi #1** — yazma yüzeyi | ✅ **BİTTİ** |
 | **F4** | Uçtan uca doğrulama + **ilk build** (kilit kalkar) | ✅ **BİTTİ** 🔓 — 13 adım geçti, 3 kusur bulundu ve düzeltildi |
 | **F5** | `tmdb_id` tüm aktivite tiplerine | 🟡 **DEPLOY EDİLDİ** — backfill zinciri (3 adım) kaldı |
-| **F6** | Takip listesi snapshot'ı — [`FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md) | 🟡 **SUNUCU TARAFI BİTTİ** — `022` + Worker yakalama. İstemci sertleştirme (Adım 5) kaldı |
+| **F6** | Takip listesi snapshot'ı — [`FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md) | 🟡 **KOD BİTTİ** — `022` + Worker canlıda doğrulandı; istemci sertleştirme cihaz testi bekliyor |
 | **K2** | 🧹 **Kalite denetimi #2** | ✅ **BİTTİ** — kimliğe bağlı 2 önbellek çıkışta temizlenmiyordu (bulundu+düzeltildi) |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ |

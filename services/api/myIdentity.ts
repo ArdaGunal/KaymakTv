@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserProfile } from './social';
 
 /**
@@ -16,7 +17,22 @@ import { getUserProfile } from './social';
  *     Trakt'a yalnızca 1 istek gider.
  *   - BAŞARISIZLIK ÖNBELLEĞE ALINMAZ — geçici bir ağ hatası, slug'ı oturumun
  *     geri kalanında kalıcı olarak `null` yapmamalı; bir sonraki çağrı yeniden dener.
+ *   - **DİSK KOPYASI (F6):** başarılı slug AsyncStorage'a yazılır ve Trakt
+ *     erişilemediğinde oradan okunur — aşağıdaki gerekçe.
+ *
+ * 🔴 NEDEN DİSK KOPYASI ŞART (F6 ön koşulu, bkz. docs/FOLLOW_SNAPSHOT_PLAN.md):
+ * `getVisibleUserIds` akışta gösterilecek kullanıcı kümesini kurarken kendi
+ * slug'ımı da ekliyor — "kullanıcı kendi aktivitelerini de görür" kuralı.
+ * Bu fonksiyon Trakt'a gidiyor ve hatada `null` dönüyordu, dolayısıyla
+ * **Trakt kesintisinde kullanıcı akışta KENDİNİ kaybediyordu.** Takip
+ * ettiklerinin kartları `followStore`'un yerel kopyasından gelmeye devam
+ * ederken kendi kartları kayboluyordu — ters ve fark edilmesi zor bir durum.
+ *
+ * Slug oturumlar arası da sabit olduğu için (yalnızca kullanıcı trakt.tv'de
+ * kullanıcı adını değiştirirse değişir) diske yazmak güvenli.
  */
+const SLUG_STORAGE_KEY = 'myIdentity.traktSlug';
+
 let cachedSlug: string | null = null;
 let inFlight: Promise<string | null> | null = null;
 
@@ -28,10 +44,31 @@ export async function getMyTraktSlug(): Promise<string | null> {
     try {
       const profile = await getUserProfile('me');
       const slug = profile?.ids?.slug ?? null;
-      if (slug) cachedSlug = slug;
+      if (slug) {
+        cachedSlug = slug;
+        // Ateşle-ve-unut: yazma gecikmesi çağıranı bekletmemeli. Başarısız
+        // olursa yalnızca gelecekteki bir kesintide fallback kaybedilir —
+        // o yüzden sessizce yutulmuyor, uyarı düşüyor.
+        AsyncStorage.setItem(SLUG_STORAGE_KEY, slug).catch((error) =>
+          console.warn('[myIdentity] Slug diske yazılamadı:', error)
+        );
+      }
       return slug;
     } catch (error) {
       console.warn('[myIdentity] Kendi Trakt profilim okunamadı:', error);
+      // Trakt erişilemiyor → son bilinen slug'a düş. `cachedSlug`'a da
+      // yazıyoruz ki oturumun geri kalanında her çağrı diski yeniden
+      // okumasın; slug zaten değişmeyen bir değer.
+      try {
+        const stored = await AsyncStorage.getItem(SLUG_STORAGE_KEY);
+        if (stored) {
+          cachedSlug = stored;
+          console.warn('[myIdentity] Slug diskten okundu (Trakt erişilemedi).');
+          return stored;
+        }
+      } catch (storageError) {
+        console.warn('[myIdentity] Slug diskten okunamadı:', storageError);
+      }
       return null;
     } finally {
       inFlight = null;
@@ -51,4 +88,11 @@ export async function getMyTraktSlug(): Promise<string | null> {
 export function clearMyTraktSlug(): void {
   cachedSlug = null;
   inFlight = null;
+  // Disk kopyası da gitmeli — aksi halde çıkış yapıp BAŞKA bir hesapla
+  // girildiğinde, yeni hesabın ilk Trakt isteği başarısız olursa fallback
+  // ÖNCEKİ kullanıcının slug'ını döndürürdü. Ateşle-ve-unut: bu fonksiyon
+  // senkron sözleşmesini koruyor (çağıranı `AuthContext.removeKeys`).
+  AsyncStorage.removeItem(SLUG_STORAGE_KEY).catch((error) =>
+    console.warn('[myIdentity] Slug diskten silinemedi:', error)
+  );
 }

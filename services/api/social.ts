@@ -72,10 +72,31 @@ export const getFollowing = async (username: string, page?: number, limit?: numb
   return (response.data ?? []).map((item: any) => item?.user).filter(Boolean);
 };
 
+/**
+ * Takip ettiklerimin slug listesi — akışın görünürlük kümesinin kaynağı.
+ *
+ * ⚠️ BİLİNÇLİ OLARAK `page`/`limit` GÖNDERİLMİYOR. Canlı ölçümle doğrulandı
+ * (2026-08-17): bu uç `x-pagination-*` başlığı döndürmüyor ve tüm listeyi tek
+ * yanıtta veriyor. AMA `?limit=N` parametresini **kabul ediyor** — buraya bir
+ * gün `limit` eklenirse liste SESSİZCE kırpılır ve kimse fark etmez.
+ *
+ * ⚠️ `Array.isArray` GUARD'I SİLİNMEMELİ: `[]` (kullanıcı gerçekten kimseyi
+ * takip etmiyor) ile "yanıt kabul edilemez" ayrımı, takip snapshot'ının
+ * tamamının dayandığı ayrım (bkz. docs/FOLLOW_SNAPSHOT_PLAN.md ve Worker'daki
+ * `normalizeFollowingSlugs`). Trakt bir gün 200 + HTML gövde döndürürse
+ * (kapanış duyurusu, proxy sayfası) bugün `.map is not a function` TypeError'ı
+ * TESADÜFEN doğru davranıyor — reject ediyor. Guard bunu niyetli ve teşhis
+ * edilebilir hâle getiriyor.
+ */
 export const getMyFollowingSlugs = async (): Promise<string[]> => {
   const client = await getTraktClient();
   const response = await client.get('/users/me/following');
-  return (response.data ?? [])
+  if (!Array.isArray(response.data)) {
+    throw new Error(
+      `[social] /users/me/following beklenmeyen yanıt türü: ${typeof response.data}`
+    );
+  }
+  return response.data
     .map((item: any) => item?.user?.ids?.slug)
     .filter((slug: unknown): slug is string => typeof slug === 'string');
 };

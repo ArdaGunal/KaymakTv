@@ -4106,5 +4106,25 @@ Tam tasarım: **[`docs/FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md)** (yen
 
 **Doğrulanamayan:** `022` çalıştırılmadı, Worker deploy edilmedi, canlı yakalama görülmedi.
 
-### Kalan (Adım 5 — istemci sertleştirme)
-`myIdentity.ts` slug kalıcılığı (**ön koşul** — bugün Trakt kesintisinde kullanıcı kendini kaybediyor) · `social.ts` `Array.isArray` guard · `followStore.ts` `fetchedAt` kalıcılığı + backoff + bayatlık sinyali · akış ekranında bayat rozeti. **`feedApi.ts` ve `useFeedRealtime.ts` DEĞİŞMEYECEK.**
+### ✅ Canlı doğrulama (sunucu tarafı)
+`022` çalıştırıldı, Worker deploy edildi. Snapshot yazıldı: **3 slug**, `synced_at 23:07:23Z` — `wrangler tail`'deki `02:07:22` senkronuyla birebir uyumlu. Hata/uyarı logu yok.
+
+### Adım 5 — istemci sertleştirme (tamamlandı)
+> **Değişmez korundu: `feedApi.ts` ve `useFeedRealtime.ts`'e HİÇ DOKUNULMADI.** Tüm iş `getFollowingSlugs()`/`getMyTraktSlug()`'ın arkasında yapıldı — bu, keyset `.or(...)` kırılganlığını ve Realtime senkronu gereğini yapısal olarak devre dışı bıraktı.
+
+**`myIdentity.ts` — slug disk kopyası (fazın ön koşuluydu).** `getMyTraktSlug()` Trakt'a gidiyor ve hatada `null` dönüyordu; `getVisibleUserIds` kendi slug'ımı kümeye eklediği için **Trakt kesintisinde kullanıcı akışta KENDİNİ kaybediyordu.** Takip ettiklerinin kartları yerel kopyadan gelmeye devam ederken kendi kartları yok oluyordu — ters ve fark edilmesi zor. Artık başarılı slug AsyncStorage'a yazılıyor, hatada oradan okunuyor. `clearMyTraktSlug()` diski de siliyor (yoksa başka hesapla girişte önceki kullanıcının slug'ı fallback olarak dönerdi).
+
+**`social.ts` — `Array.isArray` guard.** Trakt bir gün 200 + HTML gövde döndürürse (kapanış duyurusu, proxy sayfası) bugün `.map is not a function` TypeError'ı **tesadüfen** doğru davranıyordu. Artık niyetli ve teşhis edilebilir. Ayrıca `page`/`limit` göndermeme kararı yorumla korundu.
+
+**`followStore.ts` — dört değişiklik:**
+1. `fetchedAt` **diske yazılıyor.** Eskiden yalnızca RAM'deydi, yani her soğuk açılışta zaten kabul edilmiş 10 dakikalık tazelik sözleşmesi çöpe atılıyor ve akış ağı bekliyordu. Yeni bayatlık penceresi icat edilmedi — var olan sözleşme soğuk açılışa taşındı.
+2. **`FAILURE_BACKOFF_MS = 60sn`.** Hata dalı `isFetched:false`, `fetchedAt:0` bırakıyordu → `isStale` hep `true` → **her `getFollowingSlugs()` çağrısı ölü Trakt isteğini yeniden deniyordu.** Sonsuz kaydırmada her sayfa `traktClient` timeout'una (20sn) kadar bloke olabiliyordu.
+3. **`lastFailedAt`** + `selectIsFollowingListStale` — hata dalı `connectionStates`'e hâlâ dokunmuyor (mevcut doğru davranış), yalnızca damga koyuyor.
+4. 🔴 **`reset()` artık diski de siliyor.** Eskiden yalnızca RAM temizleniyordu; AsyncStorage'daki liste duruyordu ve uygulama yeniden başlatıldığında hidrasyon **önceki hesabın takip listesini** yüklerdi. `fetchedAt` de diske yazıldığı için bu artık daha tehlikeli olurdu: liste "taze" görünüp ağa hiç çıkılmadan kullanılabilirdi. `hydrationPromise` da sıfırlanıyor.
+
+**Akış ekranı** — `selectIsFollowingListStale` doğruyken satır içi amber not: *"Takip listesi güncellenemedi — son bilinen hâli gösteriliyor."* Alert değil, blocker değil. AI_RULES §2: akış çalışmaya devam ediyor ama kullanıcının "bu liste güncel olmayabilir" bilgisine hakkı var (o sırada takip ettiği yeni biri akışında görünmez).
+
+### Doğrulama
+`tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ · çeviri senkronu ✅ (yalnızca bilinen `newPosts`) · Worker `node --check` ✅ · `vitest` ✅ 34/34.
+
+**Doğrulanamayan:** istemci sertleştirmesi cihazda test edilmedi — özellikle T3 (uçak modu soğuk açılış: takip ettiklerin **ve kendin** görünmeli) ve T4 (sahte token: snapshot değişmemeli).

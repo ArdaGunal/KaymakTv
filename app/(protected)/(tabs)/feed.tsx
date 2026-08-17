@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
-import { Rss, WifiOff, ArrowUp, RefreshCw } from 'lucide-react-native';
+import { Rss, WifiOff, ArrowUp, RefreshCw, CloudOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FeedCard from '../../../features/feed/components/FeedCard';
@@ -13,6 +13,7 @@ import ComposePostModal from '../../../features/feed/components/ComposePostModal
 import { useFeed } from '../../../features/feed/hooks/useFeed';
 import { useUserSearch } from '../../../features/feed/hooks/useUserSearch';
 import { useAuth } from '../../../context/AuthContext';
+import { useFollowStore, selectIsFollowingListStale } from '../../../store/followStore';
 import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 
 const DESKTOP_BREAKPOINT = 768;
@@ -49,6 +50,11 @@ export default function FeedScreen() {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
     markSeen();
   }, [markSeen]);
+
+  // Takip listesi bayat mı (F6). Zustand selector'ü olduğu için store
+  // değiştiğinde otomatik yeniden değerlendirilir; boolean döndüğü için
+  // gereksiz render tetiklemez.
+  const isFollowingListStale = useFollowStore(selectIsFollowingListStale);
 
   // Kullanıcı listenin tepesine geldiyse rozet anlamını yitirir — otomatik sıfırla.
   const handleScroll = useCallback(
@@ -131,6 +137,24 @@ export default function FeedScreen() {
             gösterilir (diğer feed-yazma eylemleriyle AYNI guard). */}
         {!!accessToken && !isGuest && (
           <ComposePostBar onPress={() => setComposeVisible(true)} />
+        )}
+
+        {/* Takip listesi tazelenemedi (F6) — AI_RULES §2: sessiz başarısızlık
+            YASAK. Akış çalışmaya devam ediyor çünkü `followStore` son bilinen
+            listeyi diskten koruyor, ama kullanıcının "bu liste güncel
+            olmayabilir" bilgisine hakkı var: bu sırada takip ettiği yeni biri
+            akışında görünmez.
+
+            Blocker DEĞİL, Alert DEĞİL — sadece satır içi bir not. Yalnızca
+            son deneme BAŞARISIZ *ve* eldeki liste TTL'i geçmişse görünür
+            (bkz. selectIsFollowingListStale). */}
+        {isFollowingListStale && (
+          <View style={styles.staleNotice}>
+            <CloudOff size={13} color="#f59e0b" />
+            <Text style={styles.staleNoticeText}>
+              {t('feed:followListStale', 'Takip listesi güncellenemedi — son bilinen hâli gösteriliyor.')}
+            </Text>
+          </View>
         )}
 
         {hasSearchResult && (
@@ -217,6 +241,26 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#0B1120',
+  },
+  // Takip listesi bayat uyarısı (F6) — hata değil, bilgi. Bu yüzden kırmızı
+  // değil amber ve kutunun kendisi düşük kontrastlı: akışı gölgelemeden
+  // görünsün.
+  staleNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.2)',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  staleNoticeText: {
+    color: '#fbbf24',
+    fontSize: 11,
+    flex: 1,
   },
   content: {
     flex: 1,

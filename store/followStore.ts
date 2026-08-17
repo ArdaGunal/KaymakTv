@@ -14,18 +14,38 @@ import { logError } from '../utils/errorLog';
 
 const STORAGE_KEY = 'kaymak-follow-storage';
 
+/**
+ * Trakt isteği BAŞARISIZ olduktan sonra yeniden denemeden önce beklenecek süre.
+ *
+ * NEDEN VAR (F6): hata dalı `isFetched`'i `false`, `fetchedAt`'i `0` bırakıyor
+ * → `isStale` her zaman `true` → **her `getFollowingSlugs()` çağrısı ölü Trakt
+ * isteğini yeniden deniyordu.** Akış sonsuz kaydırmada her sayfa için bu kümeye
+ * ihtiyaç duyduğundan, Trakt erişilemezken her sayfa `traktClient` timeout'una
+ * (20sn'ye kadar) kadar bloke olabiliyordu. Backoff bu döngüyü kırıyor.
+ */
+const FAILURE_BACKOFF_MS = 60 * 1000;
+
 interface FollowState {
   connectionStates: Record<string, ConnectionState>;
   isFetched: boolean;
   isLoading: boolean;
   fetchedAt: number;
+  /** Son BAŞARISIZ denemenin zamanı; 0 = son deneme başarılı. */
+  lastFailedAt: number;
   fetchFollowingSlugs: (force?: boolean) => Promise<void>;
   setOptimisticState: (slug: string, state: ConnectionState) => void;
   reset: () => void;
 }
 
-const persistState = (connectionStates: Record<string, ConnectionState>): void => {
-  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ connectionStates })).catch((error) => {
+// `fetchedAt` de diske yazılıyor (F6). NEDEN: eskiden yalnızca RAM'deydi, yani
+// her SOĞUK AÇILIŞTA zaten kabul edilmiş olan 10 dakikalık tazelik sözleşmesi
+// çöpe atılıyor ve akış ağı beklemek zorunda kalıyordu. Diske yazmak yeni bir
+// bayatlık penceresi icat etmiyor — var olan sözleşmeyi soğuk açılışa taşıyor.
+const persistState = (
+  connectionStates: Record<string, ConnectionState>,
+  fetchedAt: number
+): void => {
+  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ connectionStates, fetchedAt })).catch((error) => {
     // Diskte kalıcılık başarısız olsa bile RAM'deki state doğru — kullanıcıyı
     // bir Alert'le rahatsız etmeye gerek yok, ama sessizce yutmak yerine
     // teşhis edilebilir olsun diye kalıcı hata günlüğüne düşer (bkz.
@@ -50,7 +70,16 @@ const hydrate = async (): Promise<void> => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.connectionStates) {
-        useFollowStore.setState({ connectionStates: parsed.connectionStates });
+        // `fetchedAt` diskten geliyorsa liste "çekilmiş" sayılır — TTL'i hâlâ
+        // tazeyse `fetchFollowingSlugs` ağa HİÇ çıkmaz. Eski kayıtlarda
+        // (F6 öncesi yazılmış) bu alan yok; o durumda 0 kalır ve davranış
+        // eskisi gibi olur (her açılışta tazele).
+        const storedFetchedAt = typeof parsed.fetchedAt === 'number' ? parsed.fetchedAt : 0;
+        useFollowStore.setState({
+          connectionStates: parsed.connectionStates,
+          fetchedAt: storedFetchedAt,
+          isFetched: storedFetchedAt > 0,
+        });
       }
     }
   } catch (error) {
@@ -73,6 +102,7 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
   isFetched: false,
   isLoading: false,
   fetchedAt: 0,
+  lastFailedAt: 0,
 
   fetchFollowingSlugs: async (force = false) => {
     // Hidrasyon bitmeden ağdan gelen sonuç birleştirilmeye BAŞLANAMAZ —
@@ -81,6 +111,13 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
 
     const isStale = Date.now() - get().fetchedAt >= CACHE_TTL.SYNC_INTERVAL;
     if (get().isFetched && !force && !isStale) return;
+
+    // HATA BACKOFF'U — az önce başarısız olduysak hemen tekrar deneme.
+    // `force` bunu aşar (kullanıcının açık bir eylemi, ör. pull-to-refresh).
+    // Bu olmadan Trakt erişilemezken akışın her sayfası ölü isteği yeniden
+    // deniyor ve timeout süresince bloke oluyordu.
+    const { lastFailedAt } = get();
+    if (!force && lastFailedAt > 0 && Date.now() - lastFailedAt < FAILURE_BACKOFF_MS) return;
 
     // ESKİ DAVRANIŞ: `|| get().isLoading` koşuluyla, o an başka bir çağrı
     // uçuştaysa bu çağrı BEKLEMEDEN anında dönüyordu. `await
@@ -113,12 +150,20 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
             newState[slug] = 'following';
           });
 
-          persistState(newState);
-          return { connectionStates: newState, isFetched: true, fetchedAt: Date.now() };
+          const now = Date.now();
+          persistState(newState, now);
+          // `lastFailedAt: 0` → başarı backoff'u temizler.
+          return { connectionStates: newState, isFetched: true, fetchedAt: now, lastFailedAt: 0 };
         });
       } catch (error) {
         console.warn('[followStore] Takip durumu okunamadı:', error);
         logError('followStore.fetchFollowingSlugs', error);
+        // ⚠️ `connectionStates`'e DOKUNULMUYOR — mevcut (diskten gelen) liste
+        // korunur. Trakt kesintisinde akışın çalışmaya devam etmesinin sebebi
+        // bu; F6'nın istemci tarafındaki dayanıklılığı buraya yaslanıyor.
+        // Kaydedilen tek şey başarısızlık damgası: backoff ve "bayat" rozeti
+        // bunu okuyor.
+        set({ lastFailedAt: Date.now() });
       } finally {
         set({ isLoading: false });
         inFlightFetch = null;
@@ -137,7 +182,7 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
       } else {
         newState[slug] = state;
       }
-      persistState(newState);
+      persistState(newState, prev.fetchedAt);
       return { connectionStates: newState };
     });
   },
@@ -146,9 +191,42 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
     // Uçuştaki istek de bırakılmalı: aksi halde çıkış sonrası tamamlanan eski
     // hesabın isteği, az önce temizlenen store'u yeniden doldururdu.
     inFlightFetch = null;
-    set({ connectionStates: {}, isFetched: false, isLoading: false, fetchedAt: 0 });
+    set({
+      connectionStates: {},
+      isFetched: false,
+      isLoading: false,
+      fetchedAt: 0,
+      lastFailedAt: 0,
+    });
+    // 🔴 DİSK KOPYASI DA SİLİNMELİ (F6'da fark edildi). Eskiden yalnızca RAM
+    // temizleniyordu; AsyncStorage'daki liste duruyordu. Uygulama yeniden
+    // başlatıldığında hidrasyon ÖNCEKİ hesabın takip listesini yüklerdi.
+    // F6 ile `fetchedAt` de diske yazıldığı için bu artık daha da tehlikeli:
+    // liste "taze" görünüp ağa hiç çıkılmadan kullanılabilirdi.
+    // Ayrıca `hydrationPromise` sıfırlanıyor ki bir sonraki `ensureHydrated()`
+    // yeni oturum için baştan çalışsın.
+    hydrationPromise = null;
+    AsyncStorage.removeItem(STORAGE_KEY).catch((error) =>
+      logError('followStore.reset.clearStorage', error)
+    );
   }
 }));
+
+/**
+ * Takip listesi "bayat" mı — yani son tazeleme denemesi BAŞARISIZ oldu ve
+ * elimizdeki liste TTL'i geçmiş mi?
+ *
+ * UI bunu okuyup kullanıcıya görünür bir not gösteriyor (AI_RULES §2: sessiz
+ * başarısızlık yasak). Liste ekranda çalışmaya devam ediyor ama kullanıcının
+ * "bu liste güncel olmayabilir" bilgisine hakkı var.
+ *
+ * ⚠️ Yalnızca `lastFailedAt` yetmez: 60 saniye önce başarısız olup 3 dakika
+ * önce başarıyla çekilmiş bir liste hâlâ tazedir, rozet gösterilmemeli.
+ */
+export function selectIsFollowingListStale(state: FollowState): boolean {
+  if (state.lastFailedAt === 0) return false;
+  return Date.now() - state.fetchedAt >= CACHE_TTL.SYNC_INTERVAL;
+}
 
 /**
  * Takip edilen kullanıcıların slug listesi — bu store'un zaten tuttuğu
