@@ -91,7 +91,7 @@
 | **G1** | 🔒 **Güvenlik denetimi #1** — yazma yüzeyi | ✅ **BİTTİ** |
 | **F4** | Uçtan uca doğrulama + **ilk build** (kilit kalkar) | ✅ **BİTTİ** 🔓 — 13 adım geçti, 3 kusur bulundu ve düzeltildi |
 | **F5** | `tmdb_id` tüm aktivite tiplerine | 🟡 **DEPLOY EDİLDİ** — backfill zinciri (3 adım) kaldı |
-| **F6** | Takip listesi snapshot'ı | ⬜ **SIRADAKİ** |
+| **F6** | Takip listesi snapshot'ı — [`FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md) | 🟡 **SUNUCU TARAFI BİTTİ** — `022` + Worker yakalama. İstemci sertleştirme (Adım 5) kaldı |
 | **K2** | 🧹 **Kalite denetimi #2** | ✅ **BİTTİ** — kimliğe bağlı 2 önbellek çıkışta temizlenmiyordu (bulundu+düzeltildi) |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ |

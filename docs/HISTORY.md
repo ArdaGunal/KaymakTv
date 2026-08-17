@@ -4071,3 +4071,40 @@ Kontrol testi bilinçliydi: "başlık yok" sonucunun gerçekten "sayfalanmıyor"
 
 ### Değişen dosyalar
 `kaymaktv-feedback-worker/src/index.js`. **Deploy EDİLMEDİ.**
+
+---
+
+## 186. F6 — Takip Listesi Snapshot'ı (sunucu tarafı)
+
+Tam tasarım: **[`docs/FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md)** (yeni).
+
+### 🔄 Faz yeniden çerçevelendi — ön tasarım çürütüldü
+İlk tasarım *"Trakt başarısız olursa istemci snapshot'ı okur"* diyordu. Alt ajan taraması üç gerekçeyle çürüttü ve kabul edildi:
+
+1. **Okuma yolu döngüsel.** Snapshot'ı okumak `users.id` gerektirir → o `trakt_slug`'dan gelir → slug **yalnızca Trakt'tan** gelir. Worker üzerinden okumak da imkânsız (`verifyAndUpsertUser` de Trakt'a gidiyor). **Fallback, tam ihtiyaç duyulduğu anda çalışmazdı.**
+2. **Anon okuma = takip grafiği herkese açık.** Auth olmadığı için politika `USING(true)` olmak zorundaydı. Üstelik Trakt'ta gizli hesapların following listesi dışarıdan görünmezken `/users/me/following` kendi token'ıyla onu da getirir → **Trakt'ta olmayan bir sızıntı**.
+3. **F8'den önce marjinal değeri sıfır.** Yerel kopya zaten var.
+
+**Yeni model: snapshot F6'da YALNIZCA YAZILIR.** RLS açık, politika yok. Okuma yolu F7/F8'de açılacak. *Kapalı RLS sonradan açılabilir; açık RLS geri kapatılamaz.*
+
+### 🔍 Üç yanlış varsayım ölçümle düzeltildi
+| Varsayım | Gerçek |
+|---|---|
+| "Trakt giderse akış tamamen boşalır" | ❌ `followStore` listeyi **AsyncStorage'a kalıcılaştırıyor** — cihazda zaten çalışan bir yerel snapshot var |
+| "Kendi aktivitelerin kalır" | ❌ **Tam tersi** — `getMyTraktSlug()` de Trakt'a bağlı, hatada `null` döner. Kaybolan **kullanıcının kendisi** |
+| "Sayfalama riski olabilir" | ❌ Ölçüldü: `x-pagination` yok, tüm liste tek yanıtta (Madde 185) |
+
+### Uygulanan (sunucu tarafı)
+**`022_user_following_snapshot.sql`** — tek satır + `TEXT[]` dizi. Kenar tablosu reddedildi: N satır + diff döngüsü gerektirirdi ve **boş liste temsil edilemezdi** ("hiç senkron olmadı" ile "kimseyi takip etmiyor" ayrılamazdı). Slug saklanıyor, `users.id` FK'si değil — henüz katılmamış kişileri sessizce düşürmemek için (fazın amacı tam olarak onları saklamak).
+
+**Worker `captureFollowingSnapshot`** — `handleFeedSync` içinde, **gizlilik erken dönüşünden ÖNCE** (gizlilik "senin aktiviten görünmesin" der; bu tablo "sen kimi görebilirsin" sorusudur). 12 saatlik tazelik kapısı Trakt maliyetini `+1/senkron`'dan `~1/kullanıcı/gün`'e indiriyor.
+
+> ⛔ **Bu fonksiyonda `res.ok ? … : []` deseni YASAK** ve yorumla işaretlendi. O desen, bu dosyada hâkim olmasına rağmen tam olarak Madde 185'teki veri kaybına yol açtı. Snapshot'ta aynı hata, korumak için var olduğumuz veriyi silerdi. `normalizeFollowingSlugs` `null` (kabul edilemez yanıt) ile `[]` (gerçekten boş) ayrımını yapıyor.
+
+### Doğrulama
+`node --check` ✅ · `npx vitest run` ✅ **34/34** (29 mevcut + 5 yeni: geçerli yanıt · boş dizi · dizi olmayan · bozuk kayıtlar · tekilleştirme).
+
+**Doğrulanamayan:** `022` çalıştırılmadı, Worker deploy edilmedi, canlı yakalama görülmedi.
+
+### Kalan (Adım 5 — istemci sertleştirme)
+`myIdentity.ts` slug kalıcılığı (**ön koşul** — bugün Trakt kesintisinde kullanıcı kendini kaybediyor) · `social.ts` `Array.isArray` guard · `followStore.ts` `fetchedAt` kalıcılığı + backoff + bayatlık sinyali · akış ekranında bayat rozeti. **`feedApi.ts` ve `useFeedRealtime.ts` DEĞİŞMEYECEK.**
