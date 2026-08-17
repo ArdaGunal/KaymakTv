@@ -28,9 +28,41 @@
 > ✅ **021 çalıştırıldı · Worker deploy edildi · F14 doğrulandı · T9 tekrar
 > testi geçti (web) · 🔓 kilit kalktı.**
 >
-> 🟡 **AÇIK ELLE İŞ:** F5 backfill zinciri (3 SQL adımı) hiç çalıştırılmadı —
-> 57 satırda `tmdb_id` eksik. Kilidi bloke etmiyor ama Trakt kapanma
-> senaryosunda o kartlar poster çizemez. Adımlar: F5 bölümü.
+> 🟡 **AÇIK ELLE İŞ — F5 backfill zinciri, 1/3 adım bitti:**
+>
+> | Adım | Durum |
+> |---|---|
+> | 1. self-join UPDATE | ✅ **çalıştırıldı** — 57 → 51 (6 satır, öngörüldüğü gibi) |
+> | 2. uygulamayı aç, senkron `rated`'i doldursun | ⬜ |
+> | 3. self-join UPDATE **tekrar** | ⬜ — ~31 satır daha çözmeli |
+>
+> Kalan: `watched_episode` 43 · `rated` 8. (`watched_movie`, `posted`,
+> `reviewed` → **0 eksik** ✅)
+>
+> **Sıra bozulmamalı:** adım 3, adım 2'den sonra gelmezse kopyalanacak kaynak
+> tabloda olmaz.
+
+> 🔴 **BEKLEYEN DEPLOY:** `rated` geri-alma koruması (Madde 185) Worker'da
+> düzeltildi ama **deploy edilmedi**. Trakt puan uçları 429/5xx dönerse
+> kullanıcının tüm puan kartları siliniyor ve o kartlara yapılmış
+> beğeni/yorumlar CASCADE ile **kalıcı olarak** gidiyor. `npx wrangler deploy`.
+
+> 📌 **SONRAKİ İŞ (kullanıcı kararı, 2026-08-17): F6 → F9.**
+> F6 tasarımı bir alt ajana hazırlatıldı ve **ön tasarım çürütüldü** —
+> yeni model: snapshot F6'da yalnızca YAZILIR, hiç okunmaz; RLS politikası
+> verilmez; istemci dayanıklılığı YEREL kopyayla çözülür. Gerekçeler ve
+> 7 adımlı plan bir sonraki turda `docs/FOLLOW_SNAPSHOT_PLAN.md`'ye yazılacak.
+>
+> ✅ **F6 Adım 0 KAPANDI — sayfalama riski YOK (canlıda ölçüldü, 2026-08-17).**
+> `/users/{id}/following` `x-pagination-*` başlığı **döndürmüyor** ve tüm
+> listeyi tek yanıtta veriyor. Kontrol testi: aynı yöntemle `/movies/popular`
+> çağrıldığında başlıklar geliyor (`item-count=488, limit=100, page-count=5`),
+> yani ölçüm yöntemi doğru. `getMyFollowingSlugs()` `limit` göndermediği için
+> tam listeyi alıyor — sessiz kırpma yok.
+>
+> ⚠️ Tek kalan incelik: uç `?limit=N` parametresini **kabul ediyor**. Koda
+> bir gün `limit` eklenirse liste sessizce kırpılır. `social.ts`'te
+> `getMyFollowingSlugs` bilinçli olarak parametresiz çağırıyor — öyle kalmalı.
 
 
 **Son güncelleme:** 2026-08-17 · **Aktif faz:** F4 (uçtan uca doğrulama + ilk build)

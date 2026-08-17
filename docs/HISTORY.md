@@ -4027,3 +4027,47 @@ Bununla F4'ün tüm çıkış kriterleri karşılandı: 13 test adımı geçti, 
 
 ### Sıradaki
 **F6** — takip listesi snapshot'ı (Kol B). `getVisibleUserIds` bugün Trakt'ın `/users/me/following` ucuna bağlı; Trakt giderse akış tamamen boşalır.
+
+---
+
+## 185. 🔴 `rated` Geri-Alma Koruması — Trakt Kesintisi Beğeni/Yorumları Siliyordu
+
+**Bulan:** F6 tasarımı için görevlendirilen alt ajan, yol boyunca. **F6'nın kapsamı dışında ama F6'nın gerekçesini çürütecek kadar ciddiydi:** faz "Trakt gittiğinde veri yaşasın" derken, mevcut kod aynı senaryoda veri siliyordu.
+
+### Hata
+`handleFeedSync` içinde `watchedToDelete` bir kapıyla korunuyordu:
+```js
+let watchedToDelete = [];
+if (watchedRows.length > 0) { ... }   // "history boşsa hiç silme yapma"
+```
+Yanındaki `ratedToDelete` **korunmuyordu**. Üstündeki yorum varsayımı açıkça yazıyordu — *"Trakt her seferinde TÜM güncel puanları döndürüyor, bu yüzden tam karşılaştırma güvenli"* — ama **isteğin başarılı olduğu hiçbir yerde kontrol edilmiyordu.**
+
+`ratingsShowsRes.ok ? await ratingsShowsRes.json() : []` deseni yüzünden bir 429/5xx sessizce `ratedRows = []`'e dönüşüyor, kod bunu "kullanıcının hiç puanı yok" diye okuyor ve grace penceresi dışındaki **tüm `rated` satırlarını siliyordu.** Kısmi hata bile yetiyordu: shows OK + movies 429 → tüm film puanları gider.
+
+**Teorik değil:** Y7'de Trakt'ın 429'u canlıda gözlenmişti.
+
+### Neden ciddi — asıl kayıp puanlar değil
+Silinen satırlar bir sonraki BAŞARILI senkronda geri gelir (sync silmesi tombstone yazmıyor, doğrulandı) — ama **yeni bir `id` ile**. `feed_activity_likes` ve `comments` satıra `ON DELETE CASCADE` bağlı olduğu için o kartlara yapılmış **beğeniler ve yorumlar kalıcı olarak kaybolur.** Puan geri gelir, altındaki sosyal etkileşim gelmez.
+
+> Alt ajan bunu "kalıcı veri kaybı" diye raporladı; doğrulandığında tablo daha ayrıntılı çıktı — puanlar için geçici, sosyal etkileşim için kalıcı. Fark, düzeltmenin gerekliliğini değiştirmiyor.
+
+### Düzeltme
+`ratedFetchOk = ratingsShowsRes.ok && ratingsMoviesRes.ok` bayrağı eklendi; geri alma yalnızca **ikisi birden başarılıysa** çalışıyor. Başarısızlıkta `console.error` ile durum kodları loglanıyor (sessiz atlama yok). `watchedToDelete`'in yanındaki koruma ilkesinin aynısı: *riskli bir varsayımda bulunmaktansa bayat veriyi olduğu gibi bırak.*
+
+### Doğrulama
+`node --check` ✅ · `npx vitest run` ✅ **29/29**. **Doğrulanamayan:** canlı 429 senaryosu simüle edilmedi (Trakt'ı kasten hata verdirmek gerekir).
+
+### ✅ Yan doğrulama: `/users/me/following` sayfalanmıyor (F6 Adım 0)
+Alt ajan, F6'nın ön koşulu olarak şunu uyarmıştı: *"Trakt'ın varsayılan sayfa boyutu 10 ise `getMyFollowingSlugs()` bugün yalnızca ilk 10 takibi görüyor ve akış zaten sessizce kırık demektir."* Spekülasyondu; **canlıda ölçüldü ve çürütüldü.**
+
+| Uç | `x-pagination` | Dönen |
+|---|---|---|
+| `/movies/popular` (kontrol — sayfalandığı kesin) | ✅ `item-count=488, limit=100, page-count=5` | 100 |
+| `/users/ardagnl/following` | ❌ **yok** | 3 (tamamı) |
+
+Kontrol testi bilinçliydi: "başlık yok" sonucunun gerçekten "sayfalanmıyor" mu yoksa *ölçüm hatası* mı olduğunu ayırmak için. Bu oturumda üç kez ölçüm yöntemi yanıltmıştı (G1 HTTP 204 · `git check-ignore` · `user_id` filtresiz `count(*)`); dördüncüsü bu şekilde önlendi.
+
+**Sonuç:** `getMyFollowingSlugs()` `limit` göndermediği için tam listeyi alıyor, sessiz kırpma yok. ⚠️ Uç `?limit=N`'i **kabul ediyor** — koda bir gün `limit` eklenirse liste sessizce kırpılır; parametresiz çağrı bilinçli korunmalı.
+
+### Değişen dosyalar
+`kaymaktv-feedback-worker/src/index.js`. **Deploy EDİLMEDİ.**
