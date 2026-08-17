@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
-import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus } from 'lucide-react-native';
+import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus, PenLine } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';
@@ -83,6 +83,14 @@ const ACTIVITY_META: Record<
     icon: MessageSquarePlus,
     color: '#22d3ee',
     labelSuffix: () => 'bir gönderi paylaştı',
+  },
+  // İnceleme — bkz. 018_feed_reviews.sql, docs/REVIEWS_PLAN.md. `posted`tan
+  // farklı olarak yapım HER ZAMAN var, bu yüzden `labelSuffix` gerçekten
+  // kullanılıyor (yapım adı JSX'te ayrı render edilir, bu yalnızca sonrası).
+  reviewed: {
+    icon: PenLine,
+    color: '#fb923c',
+    labelSuffix: (a) => (a.mediaType === 'movie' ? 'filmini inceledi' : 'dizisini inceledi'),
   },
 };
 

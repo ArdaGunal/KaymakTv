@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getFollowingSlugs } from '../../../store/followStore';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
 import { supabase } from './supabaseClient';
-import { FeedActivity, FeedActivityType } from '../types';
+import { FeedActivity, FeedActivityType, FeedMediaType } from '../types';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { getBlockedUserIds, getMySupabaseUserId } from './userBlocks';
@@ -71,7 +71,7 @@ export interface FeedPage {
 // `fetchUserFeedActivities` ve Realtime'ın satır tamamlama sorgusu birbirinden
 // sapmasın (biri `tmdb_id` seçmeyi unutursa o kartta poster kaybolurdu).
 const ACTIVITY_COLUMNS =
-  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, like_count, comment_count, user:users!inner(id, trakt_slug, username, avatar_url)';
+  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, trakt_comment_id, like_count, comment_count, user:users!inner(id, trakt_slug, username, avatar_url)';
 
 export interface FeedActivityRow {
   id: string;
@@ -90,6 +90,9 @@ export interface FeedActivityRow {
   // ile güvenli varsayıma düşülür (bkz. mapRow).
   note?: string | null;
   note_spoiler?: boolean | null;
+  // 019_feed_reviews.sql öncesi satırlarda bu kolon hiç yok — yalnızca
+  // 'reviewed' tipinde dolu (bkz. types.ts traktCommentId).
+  trakt_comment_id?: number | null;
   like_count?: number | null;
   comment_count?: number | null;
   user: {
@@ -128,6 +131,7 @@ export function mapRow(row: FeedActivityRow): FeedActivity {
     activityAt: row.activity_at,
     note: row.note ?? null,
     noteSpoiler: row.note_spoiler ?? false,
+    traktCommentId: row.trakt_comment_id ?? undefined,
     likeCount: row.like_count ?? 0,
     commentCount: row.comment_count ?? 0,
   };
@@ -211,6 +215,15 @@ export async function fetchFeedActivities(
     .from('feed_activities')
     .select(ACTIVITY_COLUMNS)
     .in('user_id', userIds)
+    // ⚠️ BÖLÜM İNCELEMELERİNİ ELE (020 `in_feed` türetilmiş kolonu).
+    // Kullanıcı kararı: bölüm incelemesi yalnızca o bölümün sayfasında
+    // görünür, akışı doldurmaz. Kolon satırdan HESAPLANIR
+    // (`NOT (activity_type='reviewed' AND episode_number IS NOT NULL)`),
+    // yani elle bayrak yönetmiyoruz ve senkron dışı kalması imkânsız.
+    //
+    // 🔴 SERT BAĞIMLILIK: `020_reviews_local_only.sql` çalıştırılmadan bu
+    // filtre PostgREST'te "kolon yok" hatası verir ve AKIŞIN TAMAMI kırılır.
+    .eq('in_feed', true)
     .gte('activity_at', cutoff)
     // İKİ SEVİYELİ SIRALAMA imlecin sözleşmesi: `activity_at` benzersiz
     // olmadığı için (toplu sezon işaretlemesi) `id` toplam sıralamayı kesin
@@ -364,6 +377,9 @@ export async function fetchUserFeedActivities(traktSlug: string, force = false):
       .from('feed_activities')
       .select(ACTIVITY_COLUMNS)
       .eq('user.trakt_slug', traktSlug)
+      // Bölüm incelemeleri profilde de listelenmez — kullanıcı kararı
+      // "sadece o bölümün kendi sayfasında görünecek" (bkz. ana akış notu).
+      .eq('in_feed', true)
       .order('activity_at', { ascending: false })
       .limit(PROFILE_ACTIVITY_LIMIT)
   );
@@ -373,6 +389,103 @@ export async function fetchUserFeedActivities(traktSlug: string, force = false):
   await attachIsLikedByMe(mapped);
   userFeedActivitiesCache.set(traktSlug, { data: mapped, fetchedAt: Date.now() });
   return mapped;
+}
+
+// ── Yapıma Ait İncelemeler (Dizi/Film Detay Sayfası) ────────────────────────
+// Akışın bugüne kadar HİÇ yapmadığı bir okuma deseni: kullanıcıya göre DEĞİL,
+// YAPIMA göre filtreleme. Bu yüzden 018'de kendi kısmi indeksi var
+// (idx_feed_reviews_by_media) — mevcut iki indeks bu sorguya hizmet etmiyordu.
+//
+// ⚠️ TAKİP FİLTRESİ YOK — BİLİNÇLİ. Akış "takip ettiklerim + ben" ile
+// sınırlıyken, bir yapımın inceleme listesi HERKESE açıktır (Letterboxd
+// mantığı: bir filmin sayfasında o filmi kimin ne yazdığını görürsün).
+// Farklı bir görünürlük modeli, aynı tabloyu okuyor.
+
+const MEDIA_REVIEWS_LIMIT = 20;
+
+// `fetchUserFeedActivities`'teki AYNI gerekçe: dizi detay sayfası sekmeler
+// arası geçişte tekrar tekrar mount oluyor, her seferinde sıfırdan yükleme
+// "yorumlar geç geliyor" hissi veriyordu.
+const mediaReviewsCache = new Map<string, { data: FeedActivity[]; fetchedAt: number }>();
+
+// `episodeNumber` anahtarın PARÇASI: aynı dizinin genel incelemeleri ile
+// S01E02'nin incelemeleri AYRI listelerdir, aynı önbellek kutusunu
+// paylaşamazlar.
+const mediaReviewsKey = (showId: number, mediaType: FeedMediaType, episodeNumber?: string) =>
+  `${mediaType}:${showId}:${episodeNumber ?? ''}`;
+
+/** Kendi incelemem değişince (yayın/silme) bayat kalmasın diye. */
+export function invalidateMediaReviewsCache(
+  showId: number,
+  mediaType: FeedMediaType,
+  episodeNumber?: string
+): void {
+  mediaReviewsCache.delete(mediaReviewsKey(showId, mediaType, episodeNumber));
+}
+
+/**
+ * @param episodeNumber "S01E02" verilirse O BÖLÜMÜN incelemeleri; verilmezse
+ *   dizinin/filmin GENEL incelemeleri.
+ *
+ * ⚠️ `episode_number` FİLTRESİ ATLANAMAZ. Atlanırsa dizi sayfası, o dizinin
+ * TÜM bölüm incelemelerini de listeler — kullanıcının "bölüm incelemeleri
+ * ayrı kalsın" kararının tam tersi. Bölüm incelemeleri var olmadan önce bu
+ * filtre gereksiz görünüyordu; F2 ile birlikte ŞART oldu.
+ *
+ * ⚠️ NULL KARŞILAŞTIRMASI: PostgREST'te NULL için `eq.` ÇALIŞMAZ (SQL'de
+ * NULL != NULL) — `is.null` gerekir. Worker'daki `fetchExistingReview`'de de
+ * aynı tuzak var, aynı şekilde çözülüyor.
+ */
+export async function fetchMediaReviews(
+  showId: number,
+  mediaType: FeedMediaType,
+  episodeNumber?: string,
+  force = false
+): Promise<FeedActivity[]> {
+  const key = mediaReviewsKey(showId, mediaType, episodeNumber);
+  const cached = mediaReviewsCache.get(key);
+  if (!force && cached && Date.now() - cached.fetchedAt < CACHE_TTL.SHORT) {
+    return cached.data;
+  }
+
+  let query = supabase
+    .from('feed_activities')
+    .select(ACTIVITY_COLUMNS)
+    .eq('activity_type', 'reviewed')
+    .eq('show_id', showId)
+    .eq('media_type', mediaType)
+    .order('activity_at', { ascending: false })
+    .limit(MEDIA_REVIEWS_LIMIT);
+
+  // Bkz. yukarıdaki NULL karşılaştırması notu.
+  query = episodeNumber ? query.eq('episode_number', episodeNumber) : query.is('episode_number', null);
+
+  // Engel, BEŞİNCİ okuma noktası (bkz. docs/FEED_SOCIAL_PLAN.md §4.3 — orada
+  // dört tane sayılıyordu, bu liste beşincisi). Atlanırsa engellediğin kişinin
+  // incelemesi akışta görünmez ama HER dizi sayfasında karşına çıkardı.
+  //
+  // Akıştan FARKLI olarak küme çıkarma (Set.delete) yapılamıyor: burada
+  // "görünür kullanıcılar" diye sonlu bir liste yok, herkes görünür. Bu yüzden
+  // dışlama sorguya taşınıyor — bellekte filtrelemek sayfa kotasını (20)
+  // engellenen kayıtlarla harcardı.
+  try {
+    const blocked = await getBlockedUserIds();
+    if (blocked.size > 0) {
+      query = query.not('user_id', 'in', `(${Array.from(blocked).join(',')})`);
+    }
+  } catch (error) {
+    // Engel kümesi okunamadıysa listeyi HİÇ göstermemek yerine filtresiz
+    // gösteriyoruz — akıştaki (getVisibleUserIds) aynı fail-soft kararı.
+    console.warn('[Feed] İnceleme listesi için engel kümesi okunamadı:', error);
+  }
+
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.reviews', () => query);
+  if (error) throw error;
+
+  const items = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+  await attachIsLikedByMe(items);
+  mediaReviewsCache.set(key, { data: items, fetchedAt: Date.now() });
+  return items;
 }
 
 // ── Aktivite Silme (Hard Delete) ────────────────────────────────────────────

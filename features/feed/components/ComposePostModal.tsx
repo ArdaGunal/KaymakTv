@@ -12,7 +12,9 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Plus } from 'lucide-react-native';
 import MediaPoster from '../../../components/MediaPoster';
 import MediaPickerModal from './MediaPickerModal';
@@ -34,12 +36,14 @@ interface ComposePostModalProps {
  */
 export default function ComposePostModal({ visible, onClose }: ComposePostModalProps) {
   const { t } = useTranslation('feed');
+  const insets = useSafeAreaInsets();
   const [body, setBody] = useState('');
   const [spoiler, setSpoiler] = useState(false);
   const [media, setMedia] = useState<PickedMedia | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const trimmedLength = body.trim().length;
   const overLimit = trimmedLength > POST_MAX_LENGTH;
@@ -78,9 +82,28 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose} statusBarTranslucent={Platform.OS === 'android'}>
       <TouchableWithoutFeedback onPress={resetAndClose}>
-        <View style={styles.overlay}>
+        {/* `behavior="height"` Android'de eskiden `undefined`'dı — yani klavye
+            açılınca içerik HİÇ küçülmüyordu, yazı alanı klavyenin altında
+            kalıp görünmez oluyordu (bkz. kullanıcı bildirimi). iOS'ta
+            `padding` zaten doğruydu, Android'e de karşılığı eklendi
+            (ReportIssueModal.tsx'teki AYNI desen). */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.overlay}
+        >
           <TouchableWithoutFeedback>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheet}>
+            <View
+              style={[
+                styles.sheet,
+                // `insets.bottom` EKLENMEMİŞTİ — Paylaş butonu Android'in
+                // gezinme çubuğunun (gesture bar) ALTINDA kalıyordu. Diğer
+                // sheet'lerdeki (DeleteAccountModal, ReportContentModal vb.)
+                // AYNI güvenli alan deseni burada da uygulandı.
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}
+            >
+              <View style={styles.grabber} />
+
               <View style={styles.header}>
                 <Text style={styles.title}>{t('composeTitle', 'Fikir Paylaş')}</Text>
                 <TouchableOpacity onPress={resetAndClose} hitSlop={8}>
@@ -88,51 +111,74 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
                 </TouchableOpacity>
               </View>
 
-              <TextInput
-                style={styles.input}
-                value={body}
-                onChangeText={setBody}
-                placeholder={t('composeBodyPlaceholder', 'Bir dizi/film hakkında ne düşünüyorsun?')}
-                placeholderTextColor="#475569"
-                multiline
-                autoFocus
-                maxLength={POST_MAX_LENGTH + 100}
-                editable={!isSubmitting}
-              />
-              <Text style={[styles.counter, overLimit && styles.counterOver]}>
-                {trimmedLength}/{POST_MAX_LENGTH}
-              </Text>
-
-              {media ? (
-                <View style={styles.mediaChip}>
-                  <MediaPoster tmdbId={media.tmdbId} type={media.mediaType} title={media.showTitle} style={styles.mediaChipPoster} />
-                  <Text style={styles.mediaChipText} numberOfLines={1}>
-                    {media.showTitle}
-                  </Text>
-                  <TouchableOpacity onPress={() => setMedia(null)} hitSlop={8}>
-                    <X size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity style={styles.addMediaBtn} onPress={() => setPickerVisible(true)} activeOpacity={0.7}>
-                  <Plus size={14} color="#60a5fa" />
-                  <Text style={styles.addMediaBtnText}>{t('composeAddMedia', 'Dizi/Film Ekle (opsiyonel)')}</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.spoilerRow}>
-                <Text style={styles.spoilerLabel}>{t('spoilerToggle', 'Spoiler içeriyor')}</Text>
-                <Switch
-                  value={spoiler}
-                  onValueChange={setSpoiler}
-                  disabled={isSubmitting}
-                  trackColor={{ false: '#334155', true: '#3b82f6' }}
-                  thumbColor="#f1f5f9"
+              {/* Tüm gövde (yazı alanı + medya + spoiler + hata) TEK bir
+                  kaydırılabilir alan — 1000 karaktere kadar büyüyebilen bir
+                  metin için kullanıcı kolayca yukarı/aşağı gezinebilsin diye
+                  (bkz. kullanıcı isteği). Yazı alanının kendi iç scroll'u
+                  YOK artık (aşağıdaki `input` stiline bkz.) — iç içe iki ayrı
+                  kaydırma alanı Android'de dokunuş çakışması yaratırdı, tek
+                  kaynaktan kaydırma daha sağlam ve daha "modern" (Twitter/X
+                  compose ekranıyla aynı desen). */}
+              <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator
+              >
+                <TextInput
+                  style={[styles.input, isInputFocused && styles.inputFocused]}
+                  value={body}
+                  onChangeText={setBody}
+                  placeholder={t('composeBodyPlaceholder', 'Bir dizi/film hakkında ne düşünüyorsun?')}
+                  placeholderTextColor="#475569"
+                  multiline
+                  autoFocus
+                  maxLength={POST_MAX_LENGTH + 100}
+                  editable={!isSubmitting}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                 />
-              </View>
+                <View style={styles.counterRow}>
+                  <View style={styles.counterBadge}>
+                    <Text style={[styles.counterText, overLimit && styles.counterOver]}>
+                      {trimmedLength}/{POST_MAX_LENGTH}
+                    </Text>
+                  </View>
+                </View>
 
-              {error && <Text style={styles.error}>{error}</Text>}
+                {media ? (
+                  <View style={styles.mediaChip}>
+                    <MediaPoster tmdbId={media.tmdbId} type={media.mediaType} title={media.showTitle} style={styles.mediaChipPoster} />
+                    <Text style={styles.mediaChipText} numberOfLines={1}>
+                      {media.showTitle}
+                    </Text>
+                    <TouchableOpacity onPress={() => setMedia(null)} hitSlop={8}>
+                      <X size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.addMediaBtn} onPress={() => setPickerVisible(true)} activeOpacity={0.7}>
+                    <Plus size={14} color="#60a5fa" />
+                    <Text style={styles.addMediaBtnText}>{t('composeAddMedia', 'Dizi/Film Ekle (opsiyonel)')}</Text>
+                  </TouchableOpacity>
+                )}
 
+                <View style={styles.spoilerRow}>
+                  <Text style={styles.spoilerLabel}>{t('spoilerToggle', 'Spoiler içeriyor')}</Text>
+                  <Switch
+                    value={spoiler}
+                    onValueChange={setSpoiler}
+                    disabled={isSubmitting}
+                    trackColor={{ false: '#334155', true: '#3b82f6' }}
+                    thumbColor="#f1f5f9"
+                  />
+                </View>
+
+                {error && <Text style={styles.error}>{error}</Text>}
+              </ScrollView>
+
+              {/* Paylaş butonu BİLİNÇLİ OLARAK ScrollView'ın DIŞINDA — sabit
+                  bir alt bar, kaydırma sırasında asla kaybolmaz/gizlenmez. */}
               <TouchableOpacity
                 style={[styles.publishBtn, !canPublish && styles.publishBtnDisabled]}
                 onPress={handlePublish}
@@ -145,9 +191,9 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
                   <Text style={styles.publishBtnText}>{t('publish', 'Paylaş')}</Text>
                 )}
               </TouchableOpacity>
-            </KeyboardAvoidingView>
+            </View>
           </TouchableWithoutFeedback>
-        </View>
+        </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
 
       <MediaPickerModal visible={pickerVisible} onSelect={setMedia} onClose={() => setPickerVisible(false)} />
@@ -167,8 +213,20 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     borderWidth: 1,
     borderColor: '#22304A',
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+    // Ekranın tamamını kaplamasın diye üst sınır — geri kalan boşluk
+    // ScrollView'a kalır, klavye açıkken de sheet'in tamamı ekranda görünür
+    // kalır (KeyboardAvoidingView bu yüksekliği klavye kadar küçültür).
+    maxHeight: '88%',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   header: {
     flexDirection: 'row',
@@ -181,23 +239,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  scroll: {
+    flexShrink: 1,
+  },
+  scrollContent: {
+    paddingBottom: 4,
+  },
   input: {
-    minHeight: 100,
-    maxHeight: 220,
+    // Sabit bir maxHeight YOK — dış ScrollView tek kaydırma kaynağı (bkz.
+    // yukarıdaki JSX notu). Yazı alanı yazdıkça doğal olarak büyür, uzun bir
+    // gönderide sheet'in tamamı (input + medya + spoiler + buton) birlikte
+    // kayar; kullanıcı üste/alta rahatça gezinebilir.
+    minHeight: 140,
     backgroundColor: '#172033',
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: '#22304A',
     color: '#e2e8f0',
     fontSize: 15,
-    padding: 12,
+    lineHeight: 22,
+    padding: 14,
     textAlignVertical: 'top',
   },
-  counter: {
-    alignSelf: 'flex-end',
-    color: '#475569',
+  inputFocused: {
+    borderColor: '#3b82f6',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+  },
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 6,
+  },
+  counterBadge: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  counterText: {
+    color: '#64748b',
     fontSize: 11,
-    marginTop: 4,
+    fontWeight: '600',
   },
   counterOver: {
     color: '#f87171',

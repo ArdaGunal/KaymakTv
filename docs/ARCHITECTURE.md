@@ -31,6 +31,12 @@ KaymakTV, **React Native (Expo SDK 54)** tabanlı ve **Cross-Platform (iOS, Andr
 ├── components/           # Yeniden kullanılabilir UI Bileşenleri
 │   ├── modals/           # Uygulamadaki tüm pop-up ve alt çekmeceler (RatingModal, OptionsModal, vb.)
 │   └── EpisodeCard.web.tsx # Platform Splitting örneği (bkz. aşağıda)
+├── features/             # Dikey (feature-based) modüller — kendi types/components/
+│   │                     # hooks/services'ini TAŞIYAN, ortak klasörlerden İZOLE alanlar
+│   ├── feed/             # Sosyal akış (bkz. docs/feed.md)
+│   ├── notifications/    # Aktivite bildirimleri (istemci-tarafı, push YOK)
+│   ├── publicProfile/    # Başkasının profili
+│   └── versionGate/      # Zorunlu güncelleme kapısı
 ├── context/              # Küresel Context yapıları (Zustand Proxy'leri)
 │   ├── AuthContext.tsx   # Kimlik doğrulama / token yönetimi
 │   └── LibraryContext.tsx# Kütüphane / İzleme durumları proxy'si (eski God Context, artık Proxy Hook)
@@ -67,7 +73,22 @@ Eski devasa `LibraryContext.tsx` yerine Zustand'a geçilmiş, ancak onlarca ekra
 ### C. UI ve Modalların Ayrılması
 Ekranların şişmesini engellemek için tüm Modal pencereleri (`RatingModal`, `OptionsModal`, `EpisodeOptionsModal`, `EpisodeRatingModal`) `components/modals/` klasörü altına bağımsız bileşenler olarak taşınmıştır. Ekranlar sadece bu modalları import edip render eder.
 
-### D. Platform Splitting (.web.tsx)
+### D. Yatay Katman mı, Dikey Feature mı?
+Proje ikisini birlikte kullanıyor ve ayrım bilinçli: **birden fazla ekranın paylaştığı**
+şeyler yatay klasörlerde (`components/`, `hooks/`, `services/`), **tek bir özelliğe ait
+olan ve dışarıdan kullanılmayan** her şey `features/<özellik>/` altında kendi
+`types/components/hooks/services` üçlüsüyle izole durur. Örnek: akışın kart bileşeni
+`features/feed/components/FeedCard.tsx`'te yaşar, ama inceleme metni sınırları
+(`utils/reviewLimits.ts`) yatayda — çünkü dizi/film/bölüm ekranları da inceleme
+yazma sheet'i de aynı sayıyı paylaşıyor.
+
+**Sınırda kalan durumlar için kural:** ikinci bir tüketici ortaya çıktığı AN yatay
+klasöre taşınır — ve tüketici KALMADIĞI an silinir. `hooks/useMyMediaComment.ts`
+bu döngünün iki ucunu da yaşadı: iki bileşende kopyalanmış mantığı tek kaynağa
+çıkarmak için doğdu, sonra Trakt'a yazma kaldırılınca iki tüketicisi de ölünce
+kendisi de silindi (bkz. `docs/HISTORY.md` Madde 165 ve 177).
+
+### E. Platform Splitting (.web.tsx)
 Mobil (iOS/Android) arayüzüne dokunulmadan Web'e özel masaüstü tasarımları sunmak için Expo/Metro bundler'ın dosya uzantısı bazlı otomatik ayrıştırması kullanılır: `import EpisodeCard from './EpisodeCard'` ifadesi Web derlemesinde otomatik olarak `EpisodeCard.web.tsx` dosyasını, mobilde ise `EpisodeCard.tsx` dosyasını çözer. Örnekler: `index.web.tsx`, `shows.web.tsx`, `EpisodeCard.web.tsx`, `MovieCard.web.tsx`. Bu ikilinin iş mantığı (veri çekme/dönüştürme) aynı olmalı — yalnızca görsel katman farklılaşmalıdır; ortak mantık `hooks/` veya `utils/` içine çıkarılmalıdır.
 
 ---

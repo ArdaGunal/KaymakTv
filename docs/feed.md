@@ -1,7 +1,14 @@
 # KaymakTV Feed (Akış) Sistemi — Tasarım & Yol Haritası
 
-**Son Güncelleme:** 2026-08-15
+**Son Güncelleme:** 2026-08-16
 **Durum:** ✅ **Özellik tamamlandı ve canlıda.** Gerçek zamanlı sosyal akış (anında yayın + Realtime), sonsuz kaydırma, sosyal katman (alıntı/yorum/beğeni/engelleme), bağımsız gönderiler, aktivite silme ve ince taneli gizlilik hepsi çalışıyor. Kalan işler bilinçli olarak ertelenmiş durumda (bkz. aşağıdaki Yol Haritası).
+
+### 🆕 İnceleme (Review) — 7. aktivite tipi + TRAKT'TAN KOPUŞ (Madde 165-177)
+Kullanıcı dizi/film/bölüm sayfasından inceleme yazabiliyor. **İnceleme YALNIZCA bizim veritabanımıza yazılır** — Trakt'a hiçbir şey gitmez.
+
+> ⚠️ **Bu iki aşamada gelişti.** İlk sürüm (v1) "dual-write"tı: kayıt hem Trakt'a hem bize gidiyordu. Trakt API'nin ücretlendirmeye geçmesiyle mimari değiştirildi ve **Trakt'a yazma tamamen söküldü** (v2). Güncel karar: **Trakt salt okuma kaynağıdır.**
+
+Dizi/film/bölüm sayfası **tek kesintisiz liste** gösteriyor: üstte etkileşimli KaymakTV incelemeleri, yumuşak bir ayraçtan sonra salt okunur Trakt yorumları. Bu turlarda **iki veri kaybı açığı** kapatıldı (gece temizliği elle yazılmış içeriği siliyordu; Trakt gizliliği açılınca gönderiler/incelemeler yok oluyordu) ve **bir performans hatası** düzeltildi (detay sayfaları Trakt yorumlarını bekliyordu). Tasarım kaydı: [`docs/REVIEWS_PLAN.md`](REVIEWS_PLAN.md) · yol haritası: [`docs/MASTER_PLAN.md`](MASTER_PLAN.md).
 
 > **Bu doküman ne İÇİN var:** Akış'ın MİMARİ KARARLARINI ve gerekçelerini saklar
 > ("neden Trakt'ın follow API'si?", "neden bileşik imleç?", "neden tombstone?").
@@ -66,23 +73,28 @@ KaymakTV'nin **Akış (Feed)** sistemi — Trakt'ta takip ettiğin kişilerin (v
 
 ## 🎯 Bugün Neler Var (hepsi canlıda)
 
-**Aktivite tipleri** (`feed_activities.activity_type` — 6 tip):
+**Aktivite tipleri** (`feed_activities.activity_type` — 7 tip):
 - `watched_episode` — bölüm izledi
 - `watched_movie` — film izledi
 - `rated` — dizi/filme puan verdi
 - `posted` — bağımsız gönderi ("Fikir Paylaş", yapım seçimi opsiyonel)
+- `reviewed` — dizi/film/bölüme inceleme yazdı (**yalnızca bizde yaşar**; bölüm incelemeleri akışa DÜŞMEZ — `in_feed`, bkz. 020)
 - `started_show` / `completed_show` — şemada tanımlı ama **hiç üretilmiyor** (Trakt'ta gerçek bir olay değil, çıkarsama gerektiriyor — bkz. aşağıda "Activity Tipleri")
 
 **Yetenekler:**
 - Anında yayın (PUSH) + Supabase Realtime ile canlı akış (INSERT/UPDATE/DELETE)
-- Sonsuz kaydırma (bileşik keyset imleci), 30 günlük pencere, gece retention (kullanıcı başına 200)
+- Sonsuz kaydırma (bileşik keyset imleci), 30 günlük pencere, gece retention (kullanıcı başına 200 — **`posted`/`reviewed` MUAF**, bkz. 018)
 - Sosyal katman: kişisel not/alıntı, yorum, beğeni, kullanıcı engelleme
+- İnceleme (yalnızca Supabase): dizi/film/bölüm sayfasında **tek kesintisiz liste** — üstte bizimkiler (beğeni/yanıt), altta salt okunur Trakt kuyruğu
 - Aktivite silme (hard delete + tombstone) + kart başına "⋯" menüsü (Düzenle/Sil/Paylaş)
 - Paylaşım için kalıcı bağlantı sayfası: `/activity/{id}`
 - İnce taneli gizlilik: "izlediklerimi paylaş" / "puanlarımı paylaş" (+ türetilmiş "her şeyi gizle")
 
 **Bilinçli olarak YOK:**
 - Yanıt (nested comment), push bildirimi, tür bazlı gizlilik, maraton kartına not/yorum
+- **Trakt'a YAZMA** — inceleme, yorum, yanıt: hiçbiri Trakt'a gitmez (v2 kararı)
+- **Trakt'tan inceleme İÇERİ ALMA** — Trakt web'den yazılan yorum bizim akışımıza düşmez
+- **Trakt yorumlarına yanıt** — Trakt kuyruğu salt okunur (yanıtlar yalnızca görüntülenir)
 - `started_show`/`completed_show` üretimi (aşağıda gerekçesi)
 
 ---
@@ -97,6 +109,40 @@ KaymakTV'nin **Akış (Feed)** sistemi — Trakt'ta takip ettiğin kişilerin (v
 | **Takip ilişkisi (kim kimi takip ediyor)** | **Trakt'ın kendi API'si** (`GET /users/me/following`) | Bkz. "Mimari Pivot" aşağıda |
 | Aktivite loglama (feed_activities) | Supabase | Trakt'a her feed açılışında N kişinin geçmişini sormak rate-limit'e çarpardı — bu yüzden sync ile önbelleğe alınıyor |
 | İzleme detayları (kaynak veri) | Trakt | Gerçek veri, source of truth |
+| **İnceleme (`reviewed`)** | **Yalnızca Supabase** | Trakt'a yazma tamamen kaldırıldı (v2, bkz. 2️⃣.5); `tmdb_id` zorunlu olduğu için Trakt'sız da anlamlı |
+| Yanıtlar (`comments`) | Supabase | Trakt'a HİÇ gitmez — bilinçli, bkz. `docs/REVIEWS_PLAN.md` §5 |
+
+### 2️⃣.5 İnceleme: Trakt'a YAZMA YOK (v2 — Trakt'tan kopuş)
+
+**Tetikleyici:** Trakt API'nin ücretlendirmeye geçmesi (2026-08).
+
+İlk sürümde (`019_feed_reviews.sql`) inceleme **dual-write**'tı: Worker hem
+Trakt'a hem `feed_activities`'e yazıyordu. `020_reviews_local_only.sql` ile bu
+tamamen söküldü — **Worker artık Trakt'a hiçbir şey yazmaz.**
+
+**Neden pivot:** ücretlendirme, yazma bağımlılığını bir riske çevirdi. Kullanıcının
+ürettiği içerik, dışarıdaki bir platformun fiyat/erişim kararına bağlı olmamalı.
+
+**Nasıl garanti altına alındı:** Worker'daki `traktFetch` **GET-only** hâline geri
+döndürüldü — `method`/`body` parametresi bilinçli olarak YOK. Biri Trakt'a
+yazmak isterse bu kısıtla karşılaşıp önce mimari kararı okumak zorunda kalır;
+sessizce yeni bir bağımlılık oluşamaz.
+
+**Pivotta korunanlar (hâlâ doğru kararlar):**
+- **`tmdb_id` `reviewed` için ZORUNLU** — pivotun tüm mantığı bu; Trakt gittiğinde
+  incelemenin hangi yapıma ait olduğu TMDB üzerinden bilinsin diye. *Bu karar
+  dual-write döneminde tam da bu senaryo için alınmıştı ve karşılığını verdi.*
+- Yapım başına tek inceleme unique'i (artık Trakt kuralı değil, UX kararımız)
+- `trakt_comment_id` kolonu **kullanılmıyor ama duruyor** — Trakt API kapanırsa
+  "Trakt kuyruğu" içeriğini önbelleğe almanın dedup anahtarı olur.
+
+**Sayfada iki blok, tek liste:** kullanıcı sekme görmez; üstte etkileşimli
+KaymakTV incelemeleri, ince bir ayraçtan sonra salt okunur Trakt yorumları. Aynı
+kişi iki listede birden çıkmasın diye `users.trakt_slug` ↔ `comment.user.ids.slug`
+eşleşmesiyle tekilleştirme yapılır. Trakt bloğu veri hatasında da render hatasında
+da **sessizce kaybolur**, sayfa çalışmaya devam eder (kademeli çöküş).
+
+Tam gerekçe: [`docs/REVIEWS_PLAN.md`](REVIEWS_PLAN.md).
 
 ### 2️⃣ Mimari Pivot: Follow Sistemi Trakt'a Taşındı
 
@@ -170,6 +216,8 @@ Migration dosyaları `supabase/schema/` altında, sırayla Supabase SQL Editor'd
 | `015_feed_social.sql` | `note`/`note_spoiler`/`like_count`/`comment_count`, dormant `comments` tablosunun canlandırılması, beğeni tabloları + sayaç trigger'ları |
 | `016_user_blocks.sql` | Kullanıcı engelleme tablosu |
 | `017_feed_posts.sql` | `'posted'` tipi, `show_id`/`show_title`/`media_type` NULLABLE, `note` sınırı 500 → 1000 |
+| `020_reviews_local_only.sql` | **Trakt'tan kopuş:** `note` sınırı 1000 → 5000, `in_feed` türetilmiş kolonu (bölüm incelemeleri akıştan elenir). Bölüm incelemesi için ek şema GEREKMEDİ — 019'daki unique index zaten `COALESCE(episode_number,'')` içeriyordu |
+| `019_feed_reviews.sql` | `'reviewed'` tipi, `trakt_comment_id` (dedup anahtarı) + kısmi unique'ler, yapım bazlı okuma indeksi, `note`/`tmdb_id` zorunlulukları, tombstone CHECK'i — **ve `prune_feed_activities()`'e `posted`/`reviewed` MUAFİYETİ** (elle yazılmış içerik artık gece silinmiyor) |
 
 **Güncel `feed_activities` şeması (017 sonrası):**
 
@@ -178,24 +226,41 @@ CREATE TABLE feed_activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   activity_type TEXT NOT NULL CHECK (activity_type IN (
-    'watched_episode', 'watched_movie', 'started_show', 'completed_show', 'rated', 'posted'
+    'watched_episode', 'watched_movie', 'started_show', 'completed_show',
+    'rated', 'posted', 'reviewed'
   )),
   -- ⚠️ NULLABLE (017): yalnızca 'posted' tipi yapımsız olabilir.
   show_id BIGINT,
   show_title TEXT,
   media_type TEXT,              -- 'show' | 'movie' (013) — doğru detay rotası için ŞART
-  tmdb_id BIGINT,               -- poster (013); show_poster_url artık yazılmıyor
+  tmdb_id BIGINT,               -- poster (013); 'reviewed' için ZORUNLU (018, CHECK)
   show_poster_url TEXT,         -- tarihsel, hep NULL
   episode_number TEXT,          -- "S03E04" — yalnızca watched_episode
   rating SMALLINT CHECK (rating BETWEEN 1 AND 10),
-  note TEXT,                    -- alıntı VEYA 'posted' gövdesi, ≤1000 (015+017)
+  note TEXT,                    -- alıntı / 'posted' gövdesi / 'reviewed' metni, ≤5000 (020)
   note_spoiler BOOLEAN,
+  trakt_comment_id BIGINT,      -- yalnızca 'reviewed' (018) — dedup'ın GERÇEK anahtarı
   like_count INT DEFAULT 0,     -- trigger ile (015)
   comment_count INT DEFAULT 0,  -- trigger ile (015)
   activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- TÜRETİLMİŞ (020): bölüm incelemeleri akışa düşmesin diye. Elle YAZILAMAZ.
+  in_feed BOOLEAN GENERATED ALWAYS AS
+    (NOT (activity_type = 'reviewed' AND episode_number IS NOT NULL)) STORED
 );
 ```
+
+**`reviewed` tipinin ek kuralları (018):** `note` ve `tmdb_id` ZORUNLU (CHECK) ·
+`(trakt_comment_id)` kısmi unique · `(user_id, show_id, media_type,
+COALESCE(episode_number,''))` kısmi unique — yapım başına tek inceleme ·
+`(show_id, media_type, activity_at DESC)` kısmi indeks — dizi/film sayfasının
+"yapıma göre" okuması için (akışın `user_id` bazlı indeksleri bu sorguya
+hizmet etmiyor).
+
+> ⚠️ **`prune_feed_activities()` artık tip ayrımı yapıyor (018).** Elle yazılmış
+> içerik (`posted`, `reviewed`) gece temizliğinden MUAF — ne silinir ne de
+> 200'lük kotadan yer kaplar. Öncesinde bir inceleme/gönderi, altındaki tüm
+> yanıtlarla (CASCADE) birlikte sessizce yok olabiliyordu.
 
 Diğer tablolar: `users` (Trakt aynası), `comments` (yorumlar, `body` ≤500), `feed_activity_likes`, `feed_comment_likes`, `user_blocks`, `deleted_feed_activities`.
 
@@ -212,7 +277,8 @@ Diğer tablolar: `users` (Trakt aynası), `comments` (yorumlar, `body` ≤500), 
 - `services/api/social.ts` — Trakt'ın kendi sosyal API'si: `getUserProfile`, `getMyFollowingSlugs`, `followTraktUser`, `unfollowTraktUser` (hepsi client'ın kendi token'ıyla, doğrudan — Worker'a hiç gerek yok)
 - `features/feed/utils/extractTraktUsername.ts` — kullanıcı adı ya da yapıştırılan Trakt profil linkinden (`trakt.tv/users/{slug}`, `app.trakt.tv/profile/{slug}`) regex ile kullanıcı adı çıkarma (clipboard izni yok)
 - `features/feed/hooks/useUserSearch.ts` + `components/UserSearchBar.tsx` + `components/UserProfileCard.tsx` — Feed ekranındaki arama çubuğu + profil kartı + takip et/bırak butonu (pending/following ayrımı dahil)
-- `kaymaktv-feedback-worker/src/index.js` — path-bazlı routing (`/` = feedback, değişmedi; `/feed/sync` = yeni), yalnızca sync için kullanılıyor — follow/unfollow artık Worker'a hiç uğramıyor
+- `kaymaktv-feedback-worker/src/index.js` — path-bazlı routing (`/` = feedback, değişmedi; `/feed/*` = akış uçları). Follow/unfollow Worker'a hiç uğramıyor. **`/feed/review` + `/feed/review/delete`, Worker'ın Trakt'a YAZDIĞI tek uç çifti** (bkz. 2️⃣.5)
+- `components/reviews/{MediaCommentsSection,ReviewItem,TraktCommentsBlock,TraktCommentRow,WriteReviewSheet}.tsx` + `hooks/useMediaReviews.ts` + `features/feed/services/feedReviews.ts` — yorumlar katmanı (dizi/film/bölüm detay sayfası)
 - Klasör yapısı: `features/feed/{types.ts, components/, hooks/, services/, utils/}` — ortak `components/`/`hooks/`/`services/` klasörlerinden izole
 - Tab sırası (mobil + web sidebar): Diziler → Filmler → **Akış** → Keşfet → Profil
 
@@ -232,6 +298,13 @@ Orijinal yol haritası (2026-07-25) **tamamlandı** — gizlilik (1/1b/1c), sakl
 | 2 | Bildirimler (beğeni/yorum geldiğinde push) | 🟢 Ertelendi | Yeni push/token altyapısı + tetikleme mekanizması gerektiriyor. |
 | 3 | Yanıt (nested comment) | 🟢 Ertelendi | Yorumlar tek seviyeli; iç içe yapı ayrı bir veri/UI tasarımı gerektirir. |
 | 4 | Maraton kartına not/yorum/beğeni | 🟢 Ertelendi | Maraton sentetik bir gruplama — "hangi bölüme" yorum yapıldığı belirsiz olurdu (bkz. Madde 156). |
+| 5 | **Trakt yorumlarını ÖNBELLEĞE alma** (API kapanırsa içerik yaşasın) | 🟡 Ertelendi | `/feed/sync` `/users/me/comments`'i hiç çekmiyor. Anahtar (`trakt_comment_id`) ve dedup deseni HAZIR — eklenirken `on_conflict` DEĞİL "oku-karşılaştır-yaz" kullanılmalı (Madde 89). Bugün yalnızca 409-kurtarmasıyla içeri alınıyor. |
+| 6 | ~~Bölüm (episode) incelemesi~~ | ✅ **YAPILDI** | Bölüm sayfası da yerel incelemeye geçti; `in_feed` sayesinde akışa düşmüyor (Madde 176). |
+
+> 📌 İnceleme özelliğinin **açık kalan kararları ve yan sorunları** (karakter
+> sınırı, kendi incelemenin iki bölümde görünmesi vb.)
+> [`docs/REVIEWS_PLAN.md`](REVIEWS_PLAN.md) sonundaki "SONRA BAKILACAKLAR"
+> bölümünde toplanıyor.
 
 ### ✅ Madde 1 — Gizlilik (Trakt-kaynaklı)
 
@@ -311,5 +384,8 @@ Atlanırsa sistem SESSİZCE yanlış davranmaz, gürültülü şekilde başarıs
 - `features/feed/components/CardMenu.tsx` — Kartların "⋯" menüsü (Düzenle/Sil/Paylaş)
 - `app/activity/[id].tsx` + `features/feed/hooks/useActivityDetail.ts` — Paylaşım linkinin hedefi, tek aktivite sayfası
 - `features/feed/utils/resolveRawActivityIds.ts` — Silme için maraton→ham-id çözümü (Akış + Profil paylaşır)
+- `features/feed/services/feedReviews.ts` — İnceleme yayınla/sil + **`deleteFeedItemsRouted`** (silmeyi tipe göre doğru uca yönlendirir: `reviewed` → Trakt'tan da siler, diğerleri → `/feed/delete`)
+- `hooks/useMediaReviews.ts` + `components/reviews/` — Dizi/film sayfasının "KaymakTV İncelemeleri" bölümü
+- `docs/REVIEWS_PLAN.md` — İnceleme entegrasyonunun tasarım kaydı + açık kalan kararlar
 - `docs/FEED_SOCIAL_PLAN.md` — Sosyal katmanın (not/yorum/beğeni/engel) detaylı tasarım kaydı
 - `docs/HISTORY.md` — Tamamlanan her adımın kaydı

@@ -1,5 +1,18 @@
 import { getTraktClient } from './traktClient';
-import { CACHE_TTL } from '../../utils/cacheTTL';
+
+/**
+ * Trakt yorumlarını **OKUMA** servisi.
+ *
+ * ⚠️ v2 (Trakt'tan kopuş): bu dosya eskiden Trakt'a YAZIYORDU da
+ * (`addComment`, `updateComment`, `deleteComment`, `addCommentReply`) ve
+ * kullanıcının kendi yorumlarını önbellekliyordu (`getUserComments`). Trakt
+ * API ücretlendirmeye geçtiği için yazma tamamen kaldırıldı — kullanıcının
+ * ürettiği içerik artık yalnızca kendi veritabanımıza gidiyor
+ * (bkz. docs/REVIEWS_PLAN.md v2, `features/feed/services/feedReviews.ts`).
+ *
+ * Geriye kalan üç fonksiyon yalnızca dizi/film/bölüm sayfalarındaki "Trakt
+ * topluluğu" bloğunu besliyor.
+ */
 
 // Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor (bkz. docs/HISTORY.md
 // Madde 9 — aynı sınıf sorun, eski prototipte de görülmüştü). Sonuç: bir
@@ -14,61 +27,8 @@ import { CACHE_TTL } from '../../utils/cacheTTL';
 // (bkz. Trakt API tartışmaları, cache-busting query param önerisi).
 const cacheBustParam = () => `_=${Date.now()}`;
 
-export const addComment = async (id: number, type: 'show' | 'movie' | 'episode', comment: string, spoiler: boolean = true) => {
-  try {
-    const client = await getTraktClient();
-    const body: any = {
-      comment,
-      spoiler
-    };
 
-    if (type === 'show') {
-      body.show = { ids: { trakt: id } };
-    } else if (type === 'movie') {
-      body.movie = { ids: { trakt: id } };
-    } else if (type === 'episode') {
-      body.episode = { ids: { trakt: id } };
-    }
 
-    const response = await client.post('/comments', body);
-    invalidateUserCommentsCache();
-    return response.data;
-  } catch (error: any) {
-    // Trakt reddetme sebebini yanıt GÖVDESİNDE döndürür (örn. 422 →
-    // "comment must be at least 5 words"). Eskiden yalnızca AxiosError
-    // basılıyordu; gövde hiç görünmediği için 422'nin sebebi tahmin ediliyordu.
-    console.error('Trakt API Hatası (addComment):', error?.response?.status, error?.response?.data ?? error);
-    throw error;
-  }
-};
-
-export const updateComment = async (commentId: number, comment: string, spoiler: boolean = true) => {
-  try {
-    const client = await getTraktClient();
-    const body = {
-      comment,
-      spoiler
-    };
-    const response = await client.put(`/comments/${commentId}`, body);
-    invalidateUserCommentsCache();
-    return response.data;
-  } catch (error: any) {
-    console.error('Trakt API Hatası (updateComment):', error?.response?.status, error?.response?.data ?? error);
-    throw error;
-  }
-};
-
-export const deleteComment = async (commentId: number) => {
-  try {
-    const client = await getTraktClient();
-    const response = await client.delete(`/comments/${commentId}`);
-    invalidateUserCommentsCache();
-    return response.data;
-  } catch (error) {
-    console.error('Trakt API Hatası (deleteComment):', error);
-    throw error;
-  }
-};
 
 export const getMediaComments = async (id: number, type: 'show' | 'movie' | 'episode', sort: 'likes' | 'newest' | 'oldest' = 'likes', page: number = 1, limit: number = 10, season?: number, episode?: number) => {
   try {
@@ -98,51 +58,6 @@ export const getMediaComments = async (id: number, type: 'show' | 'movie' | 'epi
   }
 };
 
-// `MyInlineComment` (yorum önizleme) ve `WriteCommentSheet` (yazma sheet'i)
-// her dizi/film/bölüm sayfası mount olduğunda BAĞIMSIZ olarak bu 200 kayıtlık
-// listeyi baştan çekip client-side `.find()` yapıyordu — aynı sayfada ikisi
-// birden açıksa aynı veri iki kez, farklı sayfalar gezilince her seferinde
-// yeniden isteniyordu (bkz. performans raporu: `users/me/comments/all/newest`
-// tek oturumda 38 çağrı, en yüksek sayılardan biri). Kısa TTL'li paylaşımlı
-// önbellek + uçuştaki (in-flight) isteği tekilleştirme bunu ortadan kaldırır;
-// yorum ekleme/güncelleme/silme sonrası `invalidateUserCommentsCache` ile
-// bozulur ki kullanıcı kendi yeni yorumunu hemen görsün.
-let userCommentsCache: { data: any[]; fetchedAt: number } | null = null;
-let userCommentsInFlight: Promise<any[]> | null = null;
-
-export const invalidateUserCommentsCache = (): void => {
-  userCommentsCache = null;
-};
-
-export const getUserComments = async (force = false): Promise<any[]> => {
-  if (!force && userCommentsCache && Date.now() - userCommentsCache.fetchedAt < CACHE_TTL.SHORT) {
-    return userCommentsCache.data;
-  }
-  if (!force && userCommentsInFlight) {
-    return userCommentsInFlight;
-  }
-
-  const request = (async () => {
-    try {
-      const client = await getTraktClient();
-      // limit şart: Trakt varsayılanı 10 kayıttır — limitsiz istekte 10'dan fazla
-      // yorumu olan kullanıcının eski yorumları bulunamıyor ve "zaten yorum var"
-      // tespiti kaçtığı için tekrar gönderimde 409 (duplicate) hatası oluşuyordu.
-      const response = await client.get(`/users/me/comments/all/newest?include_replies=false&extended=full&limit=200&${cacheBustParam()}`);
-      userCommentsCache = { data: response.data, fetchedAt: Date.now() };
-      return response.data;
-    } catch (error) {
-      console.error('Trakt API Hatası (getUserComments):', error);
-      throw error;
-    } finally {
-      userCommentsInFlight = null;
-    }
-  })();
-
-  userCommentsInFlight = request;
-  return request;
-};
-
 export const getCommentReplies = async (commentId: number, page: number = 1, limit: number = 25) => {
   try {
     const client = await getTraktClient();
@@ -154,16 +69,6 @@ export const getCommentReplies = async (commentId: number, page: number = 1, lim
   }
 };
 
-export const addCommentReply = async (commentId: number, comment: string, spoiler: boolean = false) => {
-  try {
-    const client = await getTraktClient();
-    const response = await client.post(`/comments/${commentId}/replies`, { comment, spoiler });
-    return response.data;
-  } catch (error: any) {
-    console.error('Trakt API Hatası (addCommentReply):', error?.response?.status, error?.response?.data ?? error);
-    throw error;
-  }
-};
 
 export const getEpisodeComments = async (showId: number, season: number, episode: number) => {
   try {

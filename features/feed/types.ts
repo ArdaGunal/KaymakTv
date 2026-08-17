@@ -9,7 +9,11 @@ export type FeedActivityType =
   | 'rated'
   // Bağımsız gönderi ("Fikir Paylaş") — bkz. supabase/schema/017_feed_posts.sql.
   // İzleme/puanlama olayına BAĞLI DEĞİL, kullanıcı istediği an paylaşır.
-  | 'posted';
+  | 'posted'
+  // İnceleme — bkz. supabase/schema/019_feed_reviews.sql, docs/REVIEWS_PLAN.md.
+  // `posted`tan FARKI: Trakt'ta da yaşar (dual-write). Metin yine `note`
+  // alanında; ayırt edici alan `traktCommentId`.
+  | 'reviewed';
 
 /** Yapımın türü. `showId` hem dizi hem film trakt id'sini taşıdığı için
  *  (bkz. supabase şeması `show_id`), doğru detay sayfasına yönlendirmenin
@@ -49,6 +53,11 @@ export interface FeedActivity {
    *  aktivitesinde, features/feed/services/feedSocial.ts ile düzenlenir. */
   note?: string | null;
   noteSpoiler?: boolean;
+  /** YALNIZCA `activityType === 'reviewed'` satırlarında dolu — Trakt'taki
+   *  karşılığının kimliği. Hem dedup'ın anahtarı (bkz. docs/REVIEWS_PLAN.md
+   *  §3.1) hem de "bu incelemeyi Trakt'tan da sil/güncelle" işlemlerinin
+   *  hedefi. Diğer tiplerde HER ZAMAN undefined. */
+  traktCommentId?: number;
   likeCount: number;
   commentCount: number;
   /** Ben bu aktiviteyi beğendim mi — client'ta AYRI bir sorguyla doldurulur
@@ -109,4 +118,11 @@ export function isMarathonActivity(item: FeedItem): item is MarathonActivity {
  *  opsiyonel — bkz. FeedCard.tsx içindeki dal). */
 export function isPostActivity(item: FeedItem): item is FeedActivity {
   return !isMarathonActivity(item) && item.activityType === 'posted';
+}
+
+/** İnceleme kartı mı? `posted` ile aynı görsel dili paylaşır (metin birincil
+ *  içerik) ama silme/düzenleme yolu FARKLIDIR — Trakt'a da gider, bu yüzden
+ *  `CardMenu` bu ayrımı bilmek zorunda (bkz. docs/REVIEWS_PLAN.md §6.1). */
+export function isReviewActivity(item: FeedItem): item is FeedActivity {
+  return !isMarathonActivity(item) && item.activityType === 'reviewed';
 }

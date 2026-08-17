@@ -14,8 +14,7 @@ import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import Snackbar from '../../components/Snackbar';
 import CommentSheet from '../../components/CommentSheet';
-import WriteCommentSheet from '../../components/WriteCommentSheet';
-import MyInlineComment from '../../components/MyInlineComment';
+import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
 import { useTranslation } from 'react-i18next';
 import SeasonAccordion from '../../components/SeasonAccordion';
 import EpisodeRatingModal from '../../components/modals/EpisodeRatingModal';
@@ -58,7 +57,11 @@ export default function ShowDetailScreen() {
   // bu satırlar yüzünden ekstra render tetiklemez.
   const { toggleWatchlistStatus, toggleFavoriteStatus, toggleHiddenFromProgress, deleteMediaFromHistory } = useLibraryActions();
 
-  const { mediaData, computedSeasons, isLoading, refreshData, refreshComments } = useShowDetail(traktIdNum, tmdbId, showProgress);
+  // NOT: hook `refreshData` de döndürüyor ama bu ekran şu an KULLANMIYOR —
+  // tek tüketicisi inceleme yayını sonrası tazelemeydi, o da gereksiz olduğu
+  // için kaldırıldı (bkz. MASTER_PLAN "SONRADAN BULUNANLAR" Y1). Hook'ta
+  // duruyor: pull-to-refresh eklenirse doğrudan bağlanacak.
+  const { mediaData, computedSeasons, isLoading, isLoadingComments } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
@@ -71,8 +74,6 @@ export default function ShowDetailScreen() {
 
   const [expandedSeasons, setExpandedSeasons] = useState<any>({});
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
-  const [writeCommentVisible, setWriteCommentVisible] = useState(false);
-  const [commentVersion, setCommentVersion] = useState(0);
   const [selectedEpisode, setSelectedEpisode] = useState<{season: number, episode: number, title: string, traktId?: number} | null>(null);
   const [episodeRatingModalVisible, setEpisodeRatingModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -217,67 +218,31 @@ export default function ShowDetailScreen() {
         <View style={styles.contentArea}>
           <MediaCast cast={castData} />
 
-          {/* Comments */}
-          {commentsData && commentsData.length > 0 && (() => {
-            const nonSpoilerComments = commentsData.filter(c => !c.spoiler);
-            const teaserComments = nonSpoilerComments.slice(0, 2);
+          {/* ── KaymakTV İncelemeleri ──────────────────────────────────
+              Kendi sosyal evrenimiz: yanıt/beğeni burada yaşar, yazma işlemi
+              Trakt'a DA gider (dual-write). Aşağıdaki "Trakt Topluluğu"
+              bölümünden BİLİNÇLİ olarak ayrı — birleşik liste reddedildi
+              (bkz. docs/REVIEWS_PLAN.md §4.2). */}
+          <View style={styles.section}>
+            <MediaCommentsSection
+              mediaId={traktIdNum}
+              mediaType="show"
+              mediaTitle={showData?.title ?? ''}
+              // URL'de tmdbId yoksa Trakt özetinden gelen değeri kullan —
+              // `tmdb_id` inceleme satırında ZORUNLU (bkz. REVIEWS_PLAN §1.2).
+              tmdbId={Number(showData?.ids?.tmdb ?? tmdbId) || undefined}
+              // İnceleme Trakt'a da yazıldığı için aşağıdaki "Trakt Topluluğu"
+              // listesi de bayatlar — eski WriteCommentSheet.onSuccess'in
+              // yaptığı tazelemenin aynısı.
+              // ── Trakt bloğu (salt okunur kuyruk) ─────────────────
+              // Artık AYRI bir bölüm değil: tek kesintisiz listenin
+              // altında akıyor (bkz. MediaCommentsSection başlığı).
+              traktComments={commentsData}
+              isLoadingTraktComments={isLoadingComments}
+              onSeeAllTrakt={() => setCommentSheetVisible(true)}
+            />
+          </View>
 
-            return (
-              <View style={styles.section}>
-                {/* Write Comment Button */}
-                <MyInlineComment
-                  mediaId={traktIdNum}
-                  mediaType="show"
-                  onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={commentVersion}
-                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshData(); }}
-                />
-
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-                  <Text style={styles.sectionTitle}>{t('comments')}</Text>
-                  {commentsData.length > 0 && (
-                    <TouchableOpacity onPress={() => setCommentSheetVisible(true)}>
-                      <Text style={{color: '#3b82f6', fontSize: 12, fontWeight: 'bold'}}>{t('seeAllCount', { count: commentsData.length })}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {teaserComments.length > 0 ? (
-                  teaserComments.map((c: any) => (
-                    <View key={c.id} style={styles.commentBox}>
-                      <View style={styles.commentHeader}>
-                        <Text style={styles.commentUser}>{c.user?.username || 'Kullanıcı'}</Text>
-                        <Text style={styles.commentLikes}>♥ {c.likes || 0}</Text>
-                      </View>
-                      <Text style={styles.commentText} numberOfLines={3}>{c.comment}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.commentBox}>
-                    <Text style={[styles.commentText, {fontStyle: 'italic', color: '#737373'}]}>{t('allSpoilers')}</Text>
-                  </View>
-                )}
-
-                {commentsData.length > teaserComments.length && (
-                  <TouchableOpacity style={{ marginTop: 8, paddingVertical: 12, backgroundColor: '#172033', borderRadius: 8, alignItems: 'center' }} onPress={() => setCommentSheetVisible(true)}>
-                    <Text style={{ color: '#e5e5e5', fontWeight: 'bold' }}>{t('seeMore')}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })()}
-
-          {(!commentsData || commentsData.length === 0) && (
-             <View style={[styles.section, { paddingBottom: 20 }]}>
-                <MyInlineComment
-                  mediaId={traktIdNum}
-                  mediaType="show"
-                  onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={commentVersion}
-                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshData(); }}
-                />
-             </View>
-          )}
 
           {computedSeasons && computedSeasons.length > 0 && (
             <View style={styles.section}>
@@ -337,19 +302,6 @@ export default function ShowDetailScreen() {
         onClose={() => setCommentSheetVisible(false)} 
         mediaId={traktIdNum} 
         mediaType="show" 
-      />
-
-      {/* Yorum Yazma Modal */}
-      <WriteCommentSheet
-        visible={writeCommentVisible}
-        onClose={() => setWriteCommentVisible(false)}
-        mediaId={traktIdNum}
-        mediaType="show"
-        onSuccess={() => {
-          setCommentVersion(v => v + 1);
-          refreshComments();
-          refreshData();
-        }}
       />
 
       <Snackbar

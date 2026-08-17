@@ -68,7 +68,7 @@ export default function FeedActivityNote({ note, spoiler, editable = false, onPr
   // gerekmiyor.
   const textBlock = (
     <View style={styles.wrap}>
-      <Text style={styles.note} numberOfLines={isLong ? 4 : undefined}>
+      <Text style={styles.note} numberOfLines={isLong ? 4 : undefined} selectable>
         {note}
       </Text>
       {editable && <Pencil size={11} color="#475569" style={styles.editIcon} />}

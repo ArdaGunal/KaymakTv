@@ -41,7 +41,7 @@ export default function NoteFullTextModal({ visible, text, onClose }: NoteFullTe
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-                <Text style={styles.text}>{text}</Text>
+                <Text style={styles.text} selectable>{text}</Text>
               </ScrollView>
             </View>
           </TouchableWithoutFeedback>

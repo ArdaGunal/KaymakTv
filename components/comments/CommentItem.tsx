@@ -51,7 +51,7 @@ const SpoilerOverlay = memo(({ text }: SpoilerOverlayProps) => {
   if (revealed) {
     return (
       <View>
-        <Text style={styles.commentText}>{text}</Text>
+        <Text style={styles.commentText} selectable>{text}</Text>
         <TouchableOpacity
           onPress={() => setRevealed(false)}
           style={styles.hideSpoilerBtn}
@@ -155,7 +155,7 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
         {item.spoiler ? (
           <SpoilerOverlay text={item.comment} />
         ) : (
-          <Text style={styles.commentText}>{item.comment}</Text>
+          <Text style={styles.commentText} selectable>{item.comment}</Text>
         )}
 
         {/* Cevaplar: sayıya tıklayınca yüklenir, her yoruma cevap yazılabilir */}

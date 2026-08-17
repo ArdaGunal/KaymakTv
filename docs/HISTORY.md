@@ -3048,3 +3048,685 @@ Kural: *"Kullanıcının başlattığı bir eylem başarısız olduğunda ekrand
 
 ### Doğrulama
 `npx tsc --noEmit` temiz; `--noUnusedLocals --noUnusedParameters` taramasında akış kapsamında hiç bulgu yok. Web bundle hatasız derlendi; guest modda Akış ("Akışın Boş") ve `/blocked-users` ("Kimseyi engellemedin") ekranları hatasız yüklendi, konsolda yalnızca ortama özgü Trakt CORS gürültüsü vardı. **Doğrulanamayan:** oturum sızıntısı düzeltmesi iki farklı Trakt hesabıyla çıkış-giriş döngüsü gerektiriyor; üç yeni hata mesajının görünümü gerçek bir ağ hatası gerektiriyor — ikisi de bu ortamda üretilemedi, gerçek cihazda test edilmeli.
+
+---
+
+## 165. İnceleme (Review) Entegrasyonu — Mimari Plan + Ölü Kod Temizliği + Faz 1 (DB)
+
+**Kullanıcı isteği:** "Sosyal akışa Trakt incelemelerini (Type 1 yorumları) Letterboxd mantığıyla entegre etmek istiyoruz. Dual-write: hem Trakt'a hem Supabase'e, `tmdb_id` ile birlikte. Yanıtlar Trakt'a GİTMEYECEK. Önce kod yazmadan mimari plan ve risk analizi çıkar." Plan onaylandıktan sonra: "Gereksiz kodu sil ve tekrarlayan kodları düzelt, ardından Faz 1 ile başla."
+
+### 📐 Plan: `docs/REVIEWS_PLAN.md` (yeni)
+`FEED_SOCIAL_PLAN.md` ile aynı rol: önce tasarım kararları + gerekçe, sonra katman katman uygulama (DB → Worker → Client → UI), her faz ayrı onay. Kullanıcının iki sorusuna verilen cevaplar:
+
+- **Çift görünme:** Worker senkronu bugün `/users/me/comments`'i HİÇ çekmiyor (yalnızca `/sync/history/episodes` + `/sync/ratings/*`), yani manuel yazmayla çakışma **bugün yok**. Ama "Trakt web'den yazdığım inceleme de akışımda görünsün" istendiği gün çakışacak. Yapısal çözüm: **`trakt_comment_id`** — Trakt yorumun kendisine kalıcı sayısal bir id verip POST yanıtında döndürüyor; izleme/puanlamadaki kırılgan *zaman damgası hizalamasından* kat kat güçlü bir dedup anahtarı. Toplam **5 ayrı çift-görünme ekseni** tespit edilip her biri ayrı ayrı kapatıldı.
+- **Dizi detay sayfası:** **İki ayrı bölüm** ("KaymakTV İncelemeleri" + "Trakt Topluluğu"), birleşik liste **reddedildi**. Belirleyici gerekçe: birleşik listede kullanıcı bir Trakt yorumunun altında yanıt kutusu görür; o kutu ya "yanıtlar Trakt'a gitmez" kuralını bozar ya da Trakt'ta hiç görünmeyen yanıt biriktirip kullanıcıyı yanıltır. Ayrıca Trakt beğenisi ile bizim `like_count`'umuz farklı evrenlerden geldiği için "beğeniye göre sırala" birleşik listede anlamını yitirirdi.
+
+### 🔴 Plan sırasında bulunan iki MEVCUT veri kaybı açığı
+İkisi de `'posted'` tipini **bugün** etkiliyor, `'reviewed'` aynısını miras alacaktı. Kullanıcı kararı: "bekletmeden bu fazın içinde düzelt."
+1. **Retention elle yazılmış içeriği siliyordu (R1).** `prune_feed_activities()` her gece kullanıcı başına en yeni 200 satırı `activity_type` ayrımı yapmadan tutuyordu. Ayda 200+ `watched_episode` üreten aktif bir kullanıcının elle yazdığı gönderisi/incelemesi, altındaki tüm yanıtlarla (CASCADE) sessizce yok olurdu — `FEED_SOCIAL_PLAN.md` §5'teki açık kararla ("kullanıcının bilerek yazdığı içerik zaman bazlı SİLİNMEZ") doğrudan çelişiyordu. 018'de düzeltildi.
+2. **İyimser kart + Realtime yankısı çift kart üretiyor (R6).** `useFeedRealtime` gelen INSERT'i `tempActivityId` ile eşleştiriyor ve bu id `activityAt`'i içeriyor. `publishActivities` damgayı Worker'a gönderiyor (eşleşme tutuyor ✅) ama `publishPost` göndermiyor; `handleFeedPost:1763` kendi `new Date()`'ini yazıyor → eşleşme tutmuyor → ikinci kart ekleniyor ❌. Kök neden, oradaki *"istemcinin damgasına güvenmeye gerek yok"* yorumu: dedup için gerçekten gerek yok, ama **Realtime yankı eşleşmesi için gerekli**. Faz 2'de düzeltilecek (Worker turu).
+
+Ayrıca: gizlilik anahtarı `publishWatches=false` yalnızca `watched_episode` siliyor, `watched_movie` kalıyor (`handleFeedPrivacy:1140` vs `handleFeedSync:623-624`) — incelemelerle ilgisiz, ayrı düzeltme olarak not düşüldü.
+
+### 🧹 Ölü kod + yinelenme temizliği (`docs/AI_RULES.md` §2.5)
+Madde 164'ün "kalan 6 bulgu akış dışı dosyalarda, dokunulmadı" dediği kalıntılar bu turda kapatıldı. Her biri için **otopsi yapıldı**, körlemesine silme yok:
+
+- **Yinelenen mantık → `hooks/useMyMediaComment.ts` (yeni).** `MyInlineComment` ve `WriteCommentSheet` "bu yapıma ben yorum yazmış mıyım?" mantığını **birbirinden bağımsız** kopyalıyordu: ikisi de `getUserComments()` çağırıp aynı 4 satırlık `.find()` eşleştirmesini yapıyordu (`services/api/comments.ts`'teki paylaşımlı önbellek ağ maliyetini çözmüştü ama mantık yinelenmesi duruyordu) ve hata yönetimleri şimdiden ıraksamıştı. Otopsi: **(a) taşınmalı** — ortak hook'a çıkarıldı, iki kopya da AYNI değişiklikte silindi. Bonus: eski kopyaların ikisinde de olmayan **yarış koruması** eklendi (A dizisinden B'ye hızlı geçişte A'nın geç dönen yanıtı B'nin durumunu eziyordu). `getUserComments` artık tek yerden çağrılıyor.
+- **`app/show/[id].tsx` + `app/movie/[id].tsx` — `MyInlineComment` iki kez.** İki karşılıklı dışlayan dalda (`commentsData.length > 0` / `=== 0`) birebir aynı 5 prop'la render ediliyordu. Otopsi: **kopyala-yapıştır**, bilinçli değil. Tek render'a indirildi; dal artık yalnızca *Trakt yorumları bloğunu* sarmalıyor. (`app/episode/[id].tsx` zaten tekti.)
+- **`features/notifications/` push-token iskelesi — 5 dosya silindi.** `hooks/useNotifications.ts` (gövdesi tamamen yorum satırı, 0 kullanım), `services/{expoPush,webPush,notificationApi}.ts` (`return null` / `console.log` TODO stub'ları) ve artık hiçbir tüketicisi kalmayan `types.ts`. Otopsi: **hiç bağlanmamış iskele** — kayıp özellik DEĞİL (kodun kendisi "TODO: İleride yazılacak" diyor, `docs/feed.md` yol haritasında bildirimler "Ertelendi"), `AI_RULES` §2.5'in açık yasağı olan *"ileride lazım olur diye bağlanmamış kod"*. Tasarım `docs/notifications.md`'de duruyor, bilgi kaybı yok. ⚠️ **Klasör silinmedi:** `NotificationBadge` CANLI (`screens/ProfileMobile.tsx:113`, `app/(protected)/(tabs)/profile.web.tsx:241`) ve beslendiği `store/notificationStore.ts` tamamen bağımsız (istemci-tarafı, push'suz).
+- **`components/settings/ReportIssueModal.tsx`** — kullanılmayan `Check` importu ve `FeedbackCategory` tipi.
+
+### 🗄️ Faz 1 — `supabase/schema/018_feed_reviews.sql` (yeni, HENÜZ ÇALIŞTIRILMADI)
+Yeni tablo AÇILMADI; `'posted'`de kanıtlanmış desen tekrarlandı — `feed_activities`'e 7. tip (`'reviewed'`), böylece sayfalama/Realtime/beğeni/yorum/engelleme/`/activity/{id}` bedavaya çalışıyor. İçerik: `activity_type` CHECK genişletmesi · `trakt_comment_id` kolonu + kısmi unique · yapım başına tek inceleme kısmi unique'i (`COALESCE(episode_number,'')` ile — Postgres'te `NULL != NULL` olduğu için bu şart, aksi halde v1'de kısıt hiç çalışmazdı) · dizi sayfası sorgusu için kısmi indeks · `note` ve **`tmdb_id` zorunluluğu** (bağımsızlık garantisi) · tombstone CHECK'ine `'reviewed'` · **retention muafiyeti (R1)**.
+
+Kararlar (kullanıcı, 2026-08-16): Trakt'a **Worker** yazar (tek işlem sınırı) · dizi sayfasında **iki ayrı bölüm** · bölüm incelemeleri **v1'de yok** (spam) · Trakt gizliliği açılınca elle yazılmış içerik **KESİNLİKLE SİLİNMEZ** (hard delete yasak; otomatik loglar silinebilir) · `tmdb_id` **zorunlu** · R1+R6 bu turda.
+
+### Değişen dosyalar
+**Yeni:** `docs/REVIEWS_PLAN.md`, `hooks/useMyMediaComment.ts`, `supabase/schema/018_feed_reviews.sql`.
+**Değişen:** `components/{MyInlineComment,WriteCommentSheet}.tsx`, `components/settings/ReportIssueModal.tsx`, `app/show/[id].tsx`, `app/movie/[id].tsx`.
+**Silinen:** `features/notifications/{types.ts, hooks/useNotifications.ts, services/expoPush.ts, services/webPush.ts, services/notificationApi.ts}`.
+
+### Doğrulama
+`npx tsc --noEmit --noUnusedLocals --noUnusedParameters -p .` → **SIFIR bulgu** (temizlik öncesi 8 bulgu vardı, hepsi kapandı). `npx tsc --noEmit` temiz. Kopan import taraması boş; `getUserComments` artık tek çağrı noktasından geliyor. **Doğrulanamayan:** 018 migration'ı Supabase SQL Editor'de ELLE çalıştırılmalı (bu ortamdan production DB'ye erişim yok); `MyInlineComment`/`WriteCommentSheet` davranış eşdeğerliği gerçek Trakt oturumu gerektirdiği için gerçek cihazda test edilmeli.
+
+---
+
+## 166. İnceleme Entegrasyonu Faz 2 — Worker: Trakt'a İlk Yazma Ucu + R6/R11 Düzeltmeleri
+
+**Bağlam:** `docs/REVIEWS_PLAN.md` Faz 2. Faz 1 (`018_feed_reviews.sql`) Madde 165'te yazılmıştı.
+
+### 🔑 Worker artık Trakt'a YAZIYOR — bir ilk
+`traktFetch` bugüne kadar yalnızca GET yapabilen bir sarmalayıcıydı (`method`/`body` parametresi yoktu); Worker Trakt'ı sadece OKUYORDU. Dual-write'ın iki bacağını tek yere koymak için genişletildi (geriye dönük uyumlu — `init` verilmezse davranış birebir aynı). Gerekçe: client Trakt'a yazıp Supabase'e yazamazsa "hayalet inceleme" oluşur; tek işlem sınırı bunu yapısal olarak imkânsız kılıyor.
+
+### `POST /feed/review` — yaz/güncelle
+Sıra **pazarlığa kapalı: önce Trakt, sonra Supabase.** Ters sırada Trakt reddettiğinde (5 kelime kuralı, 409, ağ hatası) `trakt_comment_id`'si NULL, sonsuza dek dedup edilemeyen bir hayalet satır kalırdı. Öne çıkanlar:
+- **409 kurtarması:** Trakt "zaten yorum var" diyor ama bizde satır yok (kullanıcı Trakt web'den yazmış) → `/users/me/comments`'ten bulunup `PUT`'a düşülüyor. Olmasaydı kullanıcı **kalıcı olarak tıkanırdı** — her denemede 409, incelemesini KaymakTV'ye hiç taşıyamazdı.
+- **PUT 404 kurtarması:** yorum Trakt'ta silinmiş ama bizde duruyor (öksüz satır) → hata değil, POST dalına düşüp yeniden oluşturuluyor.
+- **`tmdb_id` ZORUNLU** — diğer 6 tipte nullable, incelemede değil (bağımsızlık garantisi, DB CHECK'iyle birlikte üç katmanlı doğrulama).
+- **TARİH SABİTLİĞİ:** düzenlemede `activity_at` PATCH'e eklenmiyor — `handleFeedNote`'takiyle aynı kural; aksi halde 6 ay önceki bir incelemede yazım hatası düzeltmek kartı akışın tepesine fırlatırdı ("gizli spam").
+- Supabase adımı başarısız olursa `traktOk: true` dönülüyor ki client doğru mesajı gösterebilsin; bir sonraki deneme 409→PUT ile aynı adımı tekrarlayıp **sistemi kendi kendine onarıyor**.
+
+### `POST /feed/review/delete`
+`/feed/delete` KULLANILAMAZ (yalnızca Supabase'i siler, yorum Trakt'ta kalır ve senkron eklendiğinde geri gelir). Yine **önce Trakt**: DELETE başarısızsa yerel satıra dokunulmuyor. Trakt 404'ü hata sayılmıyor (zaten silinmiş = istenen son durum; hata saymak kullanıcının kendi kartını hiç silememesi demekti). Tombstone `trakt_comment_id` ile yazılıyor — `'posted'`dan farklı olarak inceleme tombstone'lanıyor çünkü Trakt'ta karşılığı var.
+
+### R11 — gizlilikte manuel içerik artık silinmiyor
+`deleteUserActivities` (`activity_type` ayrımı yapmadan o kullanıcının TÜM satırlarını siliyordu) → **`deleteUserAutoLogActivities`**: yalnızca `AUTO_LOG_ACTIVITY_TYPES` (Trakt aynası olan 5 tip) siliniyor, `'posted'`/`'reviewed'` korunuyor. Fonksiyon adı da değişti — "TÜM aktiviteleri sil" artık doğru olmayan, bir sonraki okuyanı yanıltacak bir isimdi. Kullanıcı kararı: *"emek verip yazdığı içeriği, sırf dışarıdaki bir platformun ayarı değişti diye silmek kabul edilemez."*
+
+### R6 — `posted` çift kart hatası düzeltildi
+`handleFeedPost` sunucunun kendi zamanını yazıyordu; client'ın iyimser kartının `tempActivityId`'si damgayı içerdiği için Realtime yankısı eşleşmiyor ve **aynı gönderi iki kart** görünüyordu. Artık `resolveClientStamp(body.activityAt)`. Damga körü körüne kabul edilmiyor: geleceğe dönük (saati ileri cihaz akışa çakılır) ve 10 dakikadan eski (gönderiyi akışın dibine gömerek "sessizce paylaşma") damgalar sunucu zamanına düşürülüyor. Koddaki *"istemcinin damgasına güvenmeye gerek yok"* yorumu — hatanın kök nedeni — düzeltildi: dedup için gerek yok, ama **Realtime yankı eşleşmesi için gerekli**.
+
+### Yan temizlik (AI_RULES §2.5)
+- **`MAX_NOTE_LENGTH`** — `feed_activities.note`'un 1000 sınırı üç yerde ayrı ayrı yazılıydı (`handleFeedNote`'ta çıplak literal, `MAX_POST_LENGTH` sabiti, ve yeni inceleme ucu). Tek sabite indirildi.
+- **`supabaseInsertReturning`** — `handleFeedPost`'un inline INSERT bloğu paylaşılan yardımcıya çıkarıldı; inceleme ucu ikinci kopya üretmek yerine onu kullanıyor.
+
+### Değişen dosyalar
+`kaymaktv-feedback-worker/src/index.js` (tek dosya), `docs/REVIEWS_PLAN.md`.
+
+### Doğrulama
+`node --check src/index.js` temiz. Router↔handler çapraz kontrolü: 15 rotanın tamamı tanımlı fonksiyona bağlı. Kalıntı referans taraması (`deleteUserActivities(`, `MAX_POST_LENGTH`) boş. **Doğrulanamayan:** uçlar canlı Trakt token'ı + deploy gerektirdiği için bu ortamda çalıştırılamadı; `wrangler tail` ile gerçek cihazda test edilmeli. **İki elle adım bekliyor:** (1) `018_feed_reviews.sql` Supabase'de çalıştırılmalı, (2) `npx wrangler deploy` — bu SIRAYLA, çünkü Worker `trakt_comment_id` kolonuna yazıyor.
+
+### Sonraya bırakılanlar
+Faz 2 sırasında çıkan 5 yan sorun `docs/REVIEWS_PLAN.md`'nin sonundaki **"SONRA BAKILACAKLAR"** bölümüne kaydedildi (en kritiği S1: `note`'un 1000 karakter sınırı, Trakt'ın 200 kelimelik "review" eşiğinin altında kaldığı için KaymakTV'den yazılan bir inceleme Trakt tarafından hiçbir zaman "review" sayılamıyor — karar bekliyor).
+
+---
+
+## 167. İnceleme Entegrasyonu Faz 3 — Client Servis/Hook Katmanı
+
+**Bağlam:** `docs/REVIEWS_PLAN.md` Faz 3. Faz 1 (DB) Madde 165, Faz 2 (Worker) Madde 166.
+
+### Yeni: `features/feed/services/feedReviews.ts`
+`publishReview` / `deleteReview` — Worker'ın `/feed/review` ve `/feed/review/delete` uçlarını sarar. `services/api/comments.ts` (Trakt'ın kendi yorum sistemi) ile karıştırılmasın diye ayrı dosya: oradaki `addComment` Trakt'a DOĞRUDAN yazar ve akıştan haberi yoktur, buradaki iki sistemi birden değiştirir.
+
+İki nokta özellikle önemli:
+- **S2 kapatıldı (önbellek tuzağı):** Trakt'a artık Worker yazdığı için `services/api/comments.ts` içindeki `invalidateUserCommentsCache()` HİÇ çalışmıyor. Bu satır olmadan `MyInlineComment`/`WriteCommentSheet` 60 saniye boyunca incelemeyi göremez ve kullanıcı "yazdım ama görünmüyor" derdi. Tek bir `invalidateAfterReviewChange` yardımcısında toplandı (yorum önbelleği + yapım incelemeleri + akış + profil).
+- **`traktOk` sinyali UI'a taşınıyor:** Worker "Trakt'a yazıldı ama Supabase'e yazılamadı" durumunu ayrı bildiriyor; hook bunu *"İncelemen Trakt'a kaydedildi ama akışa düşürülemedi, tekrar dener misin?"* mesajına çeviriyor. Kullanıcıya "hiçbir şey olmadı" demek yalan olurdu.
+
+### 🔴 Uygulama sırasında yakalanan tuzak: silme yanlış uca gidiyordu
+`useFeed` ve `useUserActivity`, "⋯ → Sil" için HER öğeyi `deleteActivitiesBulk` (`/feed/delete`) ile siliyordu. Bir `reviewed` kartında bu, satırı bizden kaldırıp **yorumu Trakt'ta bırakırdı** — Madde 161'deki kullanıcı beklentisinin ("sildiğimde her yerden silinmeli, bize güveniyor") tam tersi, üstelik inceleme senkronu eklendiği gün kayıt geri gelirdi.
+
+Karar **iki ekranda birden** verilmek zorunda olduğu için UI'a değil servise kondu: `deleteFeedItemsRouted` öğeleri tipine göre ayırıp doğru uca gönderiyor, iki hook da onu çağırıyor. Kopyalansaydı biri güncellenip diğeri unutulurdu (`AI_RULES` §2.5). Bu, planda Faz 4'e yazılmıştı; mantık katmanı kararı olduğu için Faz 3'e alındı.
+
+### Yeni: `hooks/useMediaReviews.ts`
+Dizi/film detay sayfasının "KaymakTV İncelemeleri" bölümünün veri hook'u — `hooks/useComments.ts` (Trakt Topluluğu bölümü) ile aynı ekranda YAN YANA çalışacak. Liste + kendi incelemem ayrımı, beğeni toggle'ı (iyimser + geri alma), yaz/güncelle/sil, yarış koruması, hata durumu ("Tekrar Dene", sessiz boş liste YOK).
+
+`canSubmit`, `tmdbId` çözülene kadar false — `tmdb_id` olmadan Worker da DB CHECK'i de reddederdi; kullanıcıyı butona bastırıp hata göstermek yerine erkenden pasif tutmak doğrusu (üç katmanlı doğrulama). **Plandan sapma:** hook adı `useShowReviews` yerine `useMediaReviews` — hem dizi hem filme hizmet ediyor, "show" yanıltıcı olurdu.
+
+### `feedApi.ts` — yeni okuma deseni
+`fetchMediaReviews(showId, mediaType)`: akışın bugüne kadar hiç yapmadığı "kullanıcıya göre değil YAPIMA göre" filtreleme (018'deki `idx_feed_reviews_by_media` tam bunun için). **Takip filtresi bilinçli olarak YOK** — bir yapımın inceleme listesi herkese açık (Letterboxd mantığı), akıştan farklı bir görünürlük modeli.
+
+**Engel filtresi beşinci okuma noktası olarak eklendi** (`FEED_SOCIAL_PLAN` §4.3 dördünü sayıyordu). Akıştan farklı olarak küme çıkarma yapılamıyor (burada sonlu bir "görünür kullanıcılar" listesi yok), bu yüzden dışlama sorguya taşındı — bellekte filtrelemek 20'lik sayfa kotasını engellenen kayıtlarla harcardı.
+
+### `types.ts` + `FeedCard`
+`'reviewed'` tipi, `traktCommentId` alanı, `isReviewActivity` guard'ı. `FeedCard.ACTIVITY_META`'ya bir satır — dosyanın kendi yorumunun ("yeni bir tip eklemek bu map'e bir satır eklemek kadar basit olacak şekilde tasarlandı") doğrulandığı yer; tip sistemi eksik satırı derleme hatasıyla yakaladı.
+
+### Değişen dosyalar
+**Yeni:** `features/feed/services/feedReviews.ts`, `hooks/useMediaReviews.ts`.
+**Değişen:** `features/feed/types.ts`, `features/feed/services/feedApi.ts`, `features/feed/hooks/{useFeed,useUserActivity}.ts`, `features/feed/components/FeedCard.tsx`, `docs/REVIEWS_PLAN.md`.
+
+### Doğrulama
+`npx tsc --noEmit` temiz; `--noUnusedLocals --noUnusedParameters` SIFIR bulgu. Döngüsel import kontrolü: `feedApi` → `feedReviews` bağı YOK (tek yön). **Doğrulanamayan:** uçlar canlı Trakt token'ı + deploy edilmiş Worker + çalıştırılmış 018 migration'ı gerektiriyor; ayrıca henüz bu hook'ları çağıran bir ekran yok (Faz 4). Gerçek doğrulama Faz 4'ten sonra cihazda yapılacak.
+
+### Sonraya bırakılan
+S6 `docs/REVIEWS_PLAN.md` "SONRA BAKILACAKLAR"a eklendi: `deleteFeedItemsRouted` karışık listede kısmi başarısızlık bırakabilir — bugün erişilemez (Madde 161'de toplu silme arayüzü kaldırıldı, `deleteItems` yalnızca tek öğeyle çağrılıyor), ama toplu silme geri gelirse canlanır.
+
+---
+
+## 168. İnceleme Entegrasyonu Faz 4 — UI: Dizi/Film Sayfasında İki Bölümlü Yapı
+
+**Bağlam:** `docs/REVIEWS_PLAN.md` Faz 4. Faz 1-3: Madde 165-167.
+
+### Üç yeni bileşen — `components/reviews/`
+- **`MediaReviewsSection.tsx`** — "KaymakTV İncelemeleri" bölümü. Kendi incelemem her zaman en üstte (kullanıcı kendi yazdığını listede aramasın), altında başkalarınınki. Dört ayrı durum: yükleniyor / hata+"Tekrar Dene" / boş / dolu — "yüklenemedi" ile "henüz yok" **ayrı** gösteriliyor (Madde 142'de Akış için çözülen aynı sessiz-yalan sorunu).
+- **`ReviewItem.tsx`** — tek inceleme satırı. Görsel dil `FeedCommentItem` ile bilinçli olarak aynı (ikisi de "birinin yazdığı metin" birimi); ayrı bileşen olmalarının tek sebebi veri tipi (`FeedActivity` vs `FeedComment`). Spoiler perdesi, beğeni, "⋯" menüsü (kendi incelemende Düzenle/Sil, başkasınınkinde Bildir/Engelle).
+- **`WriteReviewSheet.tsx`** — yazma/düzenleme. Mevcut metni **Trakt'tan** okuyor (`useMyMediaComment`), Supabase'den değil: kullanıcı incelemesini Trakt web'den yazmış olabilir, o durumda bizde satır yok ama Trakt'ta metin var — boş kutuyla üzerine yazmasını önlüyor.
+
+### 🔀 Plandan sapma: `WriteCommentSheet` "uyarlanmadı", DEĞİŞTİRİLDİ
+Plan "inceleme moduna uyarlanması" diyordu. Dosya 380 satır ve kendi Trakt yükleme/gönderme/silme mantığını taşıyor; içine ikinci bir yazma hedefi, ikinci bir silme hedefi ve ikinci bir karakter sınırı koymak koşullu bir yumak üretirdi (`AI_RULES` §1). Bunun yerine ekrana göre ayrıldı:
+- **Dizi/film sayfaları** → `WriteReviewSheet` (dual-write, Trakt + Supabase)
+- **Bölüm sayfaları** → `WriteCommentSheet` (Trakt-only, DEĞİŞMEDİ)
+
+Bölüm incelemeleri zaten v1 kapsamı dışında (karar 3), yani ayrım kapsam kararıyla birebir örtüşüyor ve "iki kapı" sorunu oluşmuyor. `MyInlineComment` de dizi/film sayfalarından kaldırıldı — işlevini `MediaReviewsSection` üstlendi. **İkisi de ölü kod DEĞİL**, bölüm sayfasında yaşamaya devam ediyor (doğrulandı).
+
+### ⚠️ Kopan bağlantı yakalandı (`AI_RULES` §2.5 durum c)
+`WriteCommentSheet` kaldırılınca `refreshComments`/`refreshData` boşta kaldı ve `--noUnusedLocals` bunları "ölü" gösterdi. **Silinmedi:** otopsi, bunun kazara kopmuş GERÇEK bir bağlantı olduğunu gösterdi — inceleme Trakt'a da yazıldığı için aynı ekrandaki "Trakt Topluluğu" listesi de bayatlıyor, eskiden `onSuccess` bunu tazeliyordu. Silmek sessiz bir gerileme olurdu. `MediaReviewsSection`'a `onPublished` prop'u eklenip yeniden bağlandı ("önce bağla, sonra temizle").
+
+### Ekran yapısı
+`app/show/[id].tsx` + `app/movie/[id].tsx`: "KaymakTV İncelemeleri" (yeni, sosyal) → "Trakt Topluluğu" (mevcut önizleme, yalnızca başlığı değişti). Birleşik liste reddedildi (REVIEWS_PLAN §4.2). `tmdbId` artık `showData?.ids?.tmdb ?? URL param` ile çözülüyor — inceleme satırında zorunlu olduğu için (018 CHECK) URL'de yoksa Trakt özetinden alınıyor; çözülene kadar yazma butonu pasif + "Yapım bilgisi yükleniyor…" notu.
+
+### Değişen dosyalar
+**Yeni:** `components/reviews/{MediaReviewsSection,ReviewItem,WriteReviewSheet}.tsx`.
+**Değişen:** `app/{show,movie}/[id].tsx`, `utils/commentValidation.ts` (`MAX_REVIEW_CHARS`), `locales/{tr,en}/media.json` (14 anahtar, ikisi de senkron — doğrulandı), `docs/REVIEWS_PLAN.md`.
+
+### Doğrulama
+`npx tsc --noEmit` temiz; `--noUnusedLocals --noUnusedParameters` SIFIR bulgu. Web bundle derlendi, `/show/1388` ekranı **JS hatası olmadan mount oldu** (konsoldaki hatalar yalnızca bu ortama özgü Trakt CORS engeli — Madde 164'teki aynı sınırlama; bu yüzden ekran "Dizi bilgisi bulunamadı" durumunda kaldı ve inceleme bölümü render EDİLEMEDİ).
+
+**Canlı Supabase'e karşı sorgu doğrulaması yapıldı** (asıl riskli kısım): (A) `fetchMediaReviews`'in ürettiği sorgu → 200, (B) `user_id=not.in.(...)` blok filtresi sözdizimi → 200, (C) **yeni `trakt_comment_id` kolonuyla ana akış sorgusu → 200, 3 satır** — yani `ACTIVITY_COLUMNS` değişikliği mevcut akışı BOZMUYOR. 018 migration'ının canlıda çalıştırılmış olduğu da bu sayede doğrulandı.
+
+**Doğrulanamayan:** inceleme yazma/silme akışının uçtan uca çalışması, Worker deploy'u + gerçek Trakt oturumu gerektiriyor — gerçek cihazda test edilmeli.
+
+### Sonraya bırakılanlar
+`docs/REVIEWS_PLAN.md` "SONRA BAKILACAKLAR"a iki madde eklendi: **S7** (kendi incelemen aynı ekranda iki bölümde birden görünüyor — çözüm önerisi: Trakt bölümünden `trakt_comment_id` ile ele) ve **S8** 🔴 (dizi/film sayfasında yorum karakter sınırı 10000→1000 daraldı; bölüm sayfası hâlâ 10000, **tutarsız** — S1 kararına bağlı).
+
+---
+
+## 169. İnceleme Entegrasyonu Faz 5 — Dokümantasyon Senkronizasyonu
+
+**Bağlam:** `docs/REVIEWS_PLAN.md` Faz 5, son faz. Faz 1-4: Madde 165-168. `AI_RULES` §3'ün "her özellik sonrası `docs/` güncellenmeli" kuralının gereği.
+
+### `docs/feed.md` — akışın ana dokümanı
+Aktivite tipleri 6 → **7** (`reviewed`), şema bloğuna `trakt_comment_id` + 018'in kısıt/indeks özeti, migration tablosuna 018 satırı, "İlgili Dosyalar"a inceleme katmanı. İki yeni "bilinçli olarak YOK" maddesi eklendi (bölüm incelemesi, inceleme senkronu) — ikisi de kapsam kararıydı, eksiklik değil.
+
+**Yeni mimari karar bölümü — "2️⃣.5 Worker artık Trakt'a YAZIYOR":** Worker'ın bugüne kadar Trakt'ı yalnızca okuduğu, incelemeyle birlikte ilk kez yazdığı, sıranın (önce Trakt sonra Supabase) neden pazarlığa kapalı olduğu ve dedup anahtarının neden damga değil `trakt_comment_id` olduğu kaydedildi. Veri kaynağı tablosuna iki satır: inceleme = dual-write, yanıtlar = yalnızca Supabase.
+
+Yol haritasına iki ertelenmiş madde: **inceleme senkronu** (anahtar ve desen hazır; eklenirken `on_conflict` DEĞİL "oku-karşılaştır-yaz" kullanılmalı — Madde 89 tuzağı) ve **bölüm incelemesi**.
+
+### `docs/FEED_SOCIAL_PLAN.md` — engel filtresi 4 → 5 okuma noktası
+§4.3'e beşinci nokta (dizi/film sayfasındaki inceleme listesi) eklendi. Sadece sayı artışı değil: bu noktanın diğer dördünden **yapısal olarak farklı** olduğu da yazıldı — orada "görünür kullanıcılar" sonlu bir kümedir ve engellenenler çıkarılır (`Set.delete`), burada herkes görünür olduğu için dışlama SORGUYA taşınmak zorunda (`user_id=not.in.(...)`). §7'ye "sonradan değişenler" notu: dokümanın "yorumlar Trakt'la karışmaz" ifadesi artık YANITLAR için geçerli, çünkü akışta Trakt'ta da yaşayan bir tip var.
+
+### `docs/ARCHITECTURE.md` — iki eksik kapatıldı
+Klasör ağacında **`features/` hiç yoktu** (proje aylardır kullanıyor) — dört alt modülüyle eklendi. Yeni "D. Yatay Katman mı, Dikey Feature mı?" bölümü: ayrımın kuralı (birden fazla ekranın paylaştığı → yatay, tek özelliğe ait → `features/`) ve sınırda kalan durumlar için karar ölçütü ("ikinci tüketici çıktığı AN yatay klasöre taşınır" — `useMyMediaComment` bu şekilde doğdu).
+
+### 🔴 `docs/notifications.md` — kendi değişikliğimin yarattığı bayatlama
+Madde 165'te silinen beş push-token stub'ı bu dokümanda **"mevcut iskelet, içi doldurulacak"** diye 7 ayrı yerde anılıyordu. Düzeltilmeseydi bir sonraki geliştirici olmayan dosyaları arayacaktı. Başa açık bir uyarı bloğu eklendi: hangi dosyaların silindiği, NEDEN silindiği (`AI_RULES` §2.5 — bağlanmamış kod), neyin hâlâ CANLI olduğu (`NotificationBadge` + `notificationStore` + `/notifications` ekranı — push'suz aktivite bildirimleri, bu işe hiç bağlı değil) ve dokümanın geri kalanının nasıl okunması gerektiği. Tasarımın kendisi geçerli olduğu için içerik yeniden yazılmadı.
+
+### `docs/REVIEWS_PLAN.md` — plandan tasarım kaydına
+`FEED_SOCIAL_PLAN.md`'nin geçtiği dönüşümün aynısı: başlık "MİMARİ PLAN" → "TASARIM KAYDI", durum bloğu güncellendi, kalan tek elle adım (`wrangler deploy`) ve açık kalan kararların (S1-S8) yeri başa taşındı.
+
+### Değişen dosyalar
+`docs/{feed,FEED_SOCIAL_PLAN,ARCHITECTURE,notifications,REVIEWS_PLAN}.md`. Kod DEĞİŞMEDİ.
+
+### Doğrulama
+`npx tsc --noEmit` temiz (kod değişmediği için beklenen). Dokümanlar arası dahili bağlantılar tarandı — REVIEWS_PLAN/feed.md/FEED_SOCIAL_PLAN çapraz atıfları geçerli (HISTORY'deki iki "kopuk" sonuç, parantezli yol ve `:37` satır soneki yüzünden regex artefaktı, gerçek bağlantı değil).
+
+### İnceleme özelliğinin genel durumu
+Faz 1-5 tamamlandı. **Kalan tek elle adım: `npx wrangler deploy`** — bu yapılmadan `/feed/review` uçları canlıda yok ve inceleme yazma çalışmaz. 018 migration'ı canlı Supabase'de doğrulandı (Madde 168). Uçtan uca test (gerçek Trakt oturumu + cihaz) hâlâ yapılmadı. Açık kararlar: `docs/REVIEWS_PLAN.md` "SONRA BAKILACAKLAR" S1-S8, en kritiği **S8** (karakter sınırı tutarsızlığı).
+
+---
+
+## 170. STRATEJİK PİVOT — Trakt'a Yazmayı Bırakma Kararı (analiz + yeni plan, kod yazılmadı)
+
+**Tetikleyici:** Kullanıcı bildirdi — Trakt API ücretlendirmeye geçiyor. Soru: "devam mı edelim, yoksa git'ten geri dönüp baştan mı yazalım?"
+
+### Ölçüm önce, tavsiye sonra
+Karar vermeden önce canlı sistem ölçüldü; üçü de sonucu değiştirdi:
+- **Canlı `reviewed` satırı: 0** → pivotun veri göçü maliyeti YOK
+- **Worker `/feed/review`: deploy edilmiş ama hiç kullanılmamış** (boş gövdeyle probe → 400 "traktAccessToken zorunlu", yani yeni sürüm canlıda)
+- **Faz 4 UI: commit edilmemiş, build alınmamış** → hiçbir kullanıcı ulaşamıyor
+
+Sonuç: **mümkün olan en temiz pivot anı.** Buradan çıkan tek acil operasyonel karar — pivot bitene kadar build DAĞITILMAMALI, aksi halde Trakt'ta gerçek yorumlar oluşur ve temiz sayfa kaybolur.
+
+### Tavsiye: devam, baştan yazma
+Pivot bir yeniden yazım değil **çıkarma** işlemi — yazılanın ~%70'i aynen kalıyor. Git'ten geri dönmenin somut bedeli: **R1** (retention elle yazılmış içeriği siliyordu), **R11** (gizlilik açılınca gönderiler yok oluyordu) ve **R6** (`posted` çift kart) düzeltmelerini geri getirmek. Üçünün de Trakt'la ilgisi yok; ikisi canlı veri kaybı hatasıydı. Kullanıcı bu gerekçeyle geri dönüşü reddetti.
+
+### 🔴 Ana uyarı: pivot sistemi KURTARMIYOR
+Kod tabanındaki Trakt kullanımı sayıldı: **30+ uç nokta.** Yorumlar en küçük dilim (~5). Gerçek kritik bağımlılıklar: kimlik/giriş (OAuth tek yol), `/users/me/following` (akışın görünürlük modelinin tamamı), `/sync/*` (dizi takibinin kendisi). İncelemeleri koparmak doğru bir ilk adım ama tek başına yetmiyor — bağımsızlık için öncelik sırası plana yazıldı (en üstte: `tmdb_id`'yi tüm aktivite tiplerine yaymak; incelemede zorunlu tutma kararı tam da bu senaryo içindi ve karşılığını verdi).
+
+### Kullanıcının planındaki iki kör nokta bulundu ve kabul edildi
+1. **Bölüm sayfası sızıntısı:** "Trakt'a yazmıyoruz" deniyordu ama `app/episode/[id].tsx` hâlâ `WriteCommentSheet` ile doğrudan Trakt'a yazıyordu. → Bölüm incelemeleri de Supabase'e alınacak, **ama ana akışa düşmeyecek** (spam kuralı korunuyor).
+2. **Birleşik listenin yarattığı YENİ çift kayıt:** aynı kişinin hem KaymakTV incelemesi hem Trakt yorumu varsa tek listede yan yana çıkar. → `users.trakt_slug` ↔ `comment.user.ids.slug` eşleşmesiyle tekilleştirme (tek `Set.has()`, ek istek yok).
+
+### Sayfalama/sıralama — karmaşıklık ölçekle çözüldü
+Gerçek interleave iki imleçli merge-sort ister (kırılgan, test edilmesi zor). Ölçek bunu gereksiz kılıyor: bir yapımda bizim inceleme sayımız uzun süre 0-2, Trakt'ınki yüzlerce olacak. Çözüm **"tek akış, iki blok"**: kullanıcı kesintisiz tek liste görür, teknik olarak üstte bizim blok (sayfalama gerekmiyor), altta Trakt bloğu mevcut sayfa-bazlı sayfalamasıyla — `useComments.loadMore` hiç değişmiyor. Birleşik "beğeniye göre sırala" matematiksel olarak anlamsız olduğu için (iki farklı evrenin sayıları) `CommentSortBar` yalnızca Trakt bloğunu yönetecek.
+
+### 🆕 Google girişi bilgisi → en kritik bulguyu açtı (S9)
+Kullanıcı "yakında Google ile giriş ekleyeceğim" dedi. Tarama sonucu: `002_fix_user_identity.sql` → `users.trakt_slug TEXT UNIQUE NOT NULL` ve Worker'daki **13 uç noktanın hepsi** `traktAccessToken` zorunlu tutuyor. **Google ile giren kullanıcı bugün hiçbir şey yazamaz — satırı bile oluşturulamaz.** Çözüm yönü plana yazıldı (trakt_slug nullable + `auth_provider`/`google_sub` + Worker'da `verifyAndUpsertUser` → sağlayıcıdan bağımsız `resolveCaller`; 13 ucun gövdesi değişmez çünkü hepsi zaten dönen `userId`'yi kullanıyor). İyi haber: istemcide `getMySupabaseUserId()` zaten var, altyapı yarı hazır.
+
+### Temizlik zinciri haritalandı
+Trakt'a yazmayı bırakmak bir ölü kod zinciri bırakıyor: `WriteCommentSheet.tsx` (~370), `MyInlineComment.tsx` (227), `hooks/useMyMediaComment.ts` (~115) tamamen ölüyor; `services/api/comments.ts`'in yazma yarısı (`addComment`/`updateComment`/`deleteComment`/`addCommentReply`/`getUserComments`) siliniyor, dosya salt-okuma servisine iniyor; Worker'da `traktFetch` GET-only'ye geri dönüyor; istemcide `deleteFeedItemsRouted` gereksizleşiyor. **İroni:** `useMyMediaComment` Madde 165'te yinelenmeyi gidermek için oluşturulmuştu, pivot iki tüketicisini de öldürdüğü için kendisi de ölüyor.
+
+### Yeni: `in_feed` türetilmiş kolon
+"Bölüm incelemeleri akışa düşmesin" kuralı için elle bayrak yerine
+`GENERATED ALWAYS AS (NOT (activity_type='reviewed' AND episode_number IS NOT NULL)) STORED`.
+Gerekçe `008_drop_feed_hidden.sql`'in dersi: elle yönetilen bayrak senkron dışı kalıp çelişir. Ayrıca akış sorgusundaki hassas keyset `.or(...)` ifadesine ikinci bir bileşik koşul eklemek onu kırma riski taşıyordu; tek `.eq('in_feed', true)` hem güvenli hem okunur.
+
+### Denetim (kullanıcı "her şeyi dahil et, iyice araştır" dedi)
+**Temiz:** `.env` ve `dist/` git dışı, kodda kalıntı TODO/FIXME yok, `tsc` sıfır bulgu.
+**🟠 S10:** 400 satır kuralını **17 dosya** ihlal ediyor — en büyükleri `services/api/users.ts` (963), `app/(public)/download.web.tsx` (861), `index.web.tsx` (753), `services/library/fetchers.ts` (733). Bu turun yolunda olanlar: `app/episode/[id].tsx` (551), `FeedCard.tsx` (527), `feedApi.ts` (494), `app/show/[id].tsx` (412). Ayrı bir refactor turu hak ediyorlar.
+
+### Doküman
+`docs/REVIEWS_PLAN.md` **baştan yazıldı** (v2 — Trakt'tan Kopuş): 13 bölüm + 8 fazlık eylem planı + güncellenmiş SONRA BAKILACAKLAR (S1-S10). Ara belge olarak oluşturulan `docs/REVIEWS_PIVOT.md` içeriği plana katılıp **silindi** — iki ayrı doküman hangisinin geçerli olduğunu belirsizleştirirdi (`AI_RULES` §2.5'in "iki kopya bırakma" ilkesi dokümanlar için de geçerli).
+
+**Pivotun yan kazancı:** S2, S3, S4, S6 kendiliğinden kapanıyor; S1, S7, S8 plandaki fazlarda çözülüyor. Açık kalanlar: S5 (pivotla ilgisiz), S9 (Google kimlik), S10 (dosya boyutları).
+
+### Kod DEĞİŞMEDİ
+Bu madde yalnızca analiz ve plan. Uygulama P0'dan (build dağıtmama) başlayacak.
+
+---
+
+## 171. v2 P1 — Worker Sadeleştirme + `019` Migration + S5 Düzeltmesi
+
+**Bağlam:** `docs/REVIEWS_PLAN.md` v2, P1. Trakt'a yazma tamamen sökülüyor.
+
+### Kullanıcının sorusu: "Trakt bloğu çökerse sayfa beyaz ekran olur mu?"
+Doğrulandı, iddia edilmedi:
+- **Veri hatası korunuyor.** `useShowDetail`/`useMovieDetail` yorumları `Promise.allSettled` ile çekiyor, tazeleme yollarında ayrı `.catch(() => {})` var. Faz 4 doğrulamasında bu ortamda TÜM Trakt çağrıları CORS'a takıldı ve sayfa beyaz ekran vermedi — canlı kanıt. UI'da blok zaten `if (!commentsData || length === 0) return null` ile sessizce gizleniyor (Karar 4 bugün de sağlanıyor).
+- **🟡 Render hatası korunmuyor.** Projede Error Boundary VAR (`app/_layout.tsx`, Expo Router konvansiyonu) ama **kök seviyede** — bir render istisnası tüm ekranı fallback'e düşürür, "sadece o blok kaybolsun" olmaz. P3'te blok bazlı `SectionErrorBoundary` eklenecek. Plandaki "kademeli çöküş" iddiası şu an veri katmanı için doğru, render katmanı için değildi; düzeltildi.
+
+### `019_reviews_local_only.sql`
+- **`note` sınırı 1000 → 5000** (S1 + S8). Trakt'ın 5 kelime minimumu kalktığı gibi maksimum da tamamen bizim kararımız oldu. Üç yer aynı turda senkronlandı: DB CHECK, Worker `MAX_NOTE_LENGTH`, istemci `MAX_REVIEW_CHARS`.
+- **`in_feed` TÜRETİLMİŞ kolon** — `GENERATED ALWAYS AS (NOT (activity_type='reviewed' AND episode_number IS NOT NULL)) STORED`. Bölüm incelemeleri ana akışa düşmez. Elle bayrak yerine türetilmiş kolon seçilme gerekçesi `008_drop_feed_hidden.sql`'in dersi; ayrıca akış sorgusundaki hassas keyset `.or(...)` ifadesine ikinci bileşik koşul eklemek onu kırma riski taşıyordu.
+- Bölüm incelemeleri için **ek şema değişikliği gerekmedi** — 018'deki unique index zaten `COALESCE(episode_number,'')` içeriyordu ("ileride açılmak istendiğinde migration gerekmesin" diye bilinçli konmuştu; o gün geldi ve gerçekten gerekmedi).
+
+### Worker: 2495 → 2323 satır
+- `handleFeedReview` **yeniden yazıldı**: Trakt POST/PUT, 409 kurtarma, `findMyTraktComment`, `traktWriteErrorMessage`, `traktOk` modeli ve `MIN_REVIEW_WORDS` **söküldü**. Kazanç: tek yazma hedefi = kısmi başarısızlık durumu YOK.
+- **`handleFeedReviewDelete` + `/feed/review/delete` rotası KALDIRILDI** — silme artık sıradan `/feed/delete`.
+- **`traktFetch` GET-only'ye geri döndürüldü.** `method`/`body` parametresi bilerek yok: biri Trakt'a yazma ihtiyacı duyarsa bu kısıtla karşılaşıp önce mimari kararı okusun, sessizce yeniden bağımlılık oluşmasın.
+- **Bölüm incelemesi desteği:** opsiyonel `episodeNumber` (`S01E02` regex + film ise reddet). `fetchExistingReview` artık `episode_number` ayrımı yapıyor — **NULL için `is.null`, dolu için `eq.`**; bu ayrım atlanırsa genel inceleme hiç bulunamaz ve her düzenleme unique index'e çarpardı.
+- Rate limit 10 → 20/dk (artık Trakt kotasını korumuyor).
+- Tombstone filtresi `'posted'` → `['posted','reviewed']`: inceleme artık yalnızca bizde yaşadığı için geri getirebilecek senkron yolu yok.
+
+### ✅ S5 düzeltildi (kullanıcı isteği: "uygun bir aralıkta eritilsin")
+`handleFeedPrivacy`, `publishWatches=false` olduğunda yalnızca `watched_episode` siliyordu; `watched_movie` akışta kalıyordu. Oysa `handleFeedSync` AYNI bayrağı okuyup ikisini birden siliyor — iki kod yolu aynı kullanıcı ayarını farklı yorumluyordu. Sonuç: "izlediklerimi paylaşma" diyen kullanıcının izlediği FİLMLER akışta görünmeye devam ediyordu. Artık döngüyle iki tip birden siliniyor.
+
+### 🔒 Güvenlik denetimi (kullanıcı sordu)
+**Sağlam çıkanlar (canlı test dahil):**
+- **Anon key ile YAZMA denemesi → HTTP 401, reddedildi.** RLS modeli çalışıyor.
+- **PostgREST enjeksiyonu yok:** URL'e gömülen her kullanıcı girdisi önce doğrulanıyor (UUID'ler `UUID_RE`, `showId` `Number.isFinite && >0`, `mediaType` beyaz liste, yeni `episodeNumber` regex **+ `encodeURIComponent`**). `table`/`ownerColumn`/`onConflict` kod içi sabit.
+- IDOR: sahiplik her zaman `WHERE user_id = <doğrulanan çağıran>`.
+- `service_role` anahtarı yalnızca Worker ortamında; `.env`/`dist` git dışı.
+- **Trakt yazma yüzeyi tamamen kapandı** — Worker artık Trakt'ta hiçbir şeyi değiştiremez.
+
+**🟠 S11 (YENİ, açık):** `users_select_all USING (true)` nedeniyle anon key'i olan herkes (anahtar istemci bundle'ında olduğundan: herkes) tüm kullanıcı listesini çekebiliyor. Canlı doğrulandı — 5 kullanıcının `trakt_slug`, `username`, **`is_private`, `publish_watches`** alanları döndü. Kritik nokta: **gizlilik AYARLARININ kendisi herkese açık.** Şiddet düşük-orta (yazma yok, Trakt kullanıcı adları zaten public) ama ölçek büyüdükçe kim-KaymakTV-kullanıyor ve kim-ne-gizliyor çıkarılabilir. Postgres RLS kolon seviyesinde çalışmadığı için çözüm ya ayrı `user_settings` tablosu (önerilen) ya kısıtlı VIEW. **Pivotun yarattığı bir açık değil — `001`'den beri var**, P1 taramasında ortaya çıktı.
+
+### Doğrulama
+Worker `node --check` temiz; 14 rotanın tamamı tanımlı fonksiyona bağlı; kalıntı referans taraması boş (`handleFeedReviewDelete`, `findMyTraktComment`, `traktWriteErrorMessage`, `MIN_REVIEW_WORDS`, `traktOk` — yalnızca açıklayıcı yorumlarda geçiyor); tüm `traktFetch` çağrıları 3 argümanlı (GET). İstemci `npx tsc --noEmit` temiz.
+
+**⚠️ Beklenen geçici tutarsızlık:** istemcideki `feedReviews.deleteReview` hâlâ kaldırılan `/feed/review/delete` ucunu çağırıyor. P2 bunu düzeltecek. Kullanıcıya ulaşan bir build olmadığı için (Faz 4 UI commit edilmemiş) canlıda etkisi yok — ama **P2 tamamlanmadan build alınmamalı.**
+
+### Elle adımlar (bu sırayla)
+1. `supabase/schema/019_reviews_local_only.sql` → Supabase SQL Editor
+2. `cd "C:\Yapay_Zeka_Uygulamalar\kaymaktv-feedback-worker" && npx wrangler deploy`
+
+---
+
+## 172. Plan v2 Genişletildi — 4 Yeni Risk, Migration Çakışması Düzeltmesi, Oturumlar-Arası Devir Formatı
+
+**Kullanıcı isteği:** Kendi tespit ettiği 4 riski plana dahil etmek + *"Büyük ihtimal çok fazla oturum kullanacağım, tek oturumun süresi yetmeyecek — o yüzden plan dosyasını detaylıca oluştur."*
+
+### Format değişikliği: plan artık bir DEVİR belgesi
+`docs/REVIEWS_PLAN.md` yeniden yapılandırıldı. Yeni oturum (veya başka bir geliştirici/asistan) sıfır bağlamla devam edebilsin diye başa iki bölüm kondu: **§0 Durum Panosu** (faz tablosu + bekleyen elle adımlar + bilinen geçici tutarsızlık) ve **§0.1 Yeni Oturuma Nasıl Devam Edilir** (doğrulama komutları + "bu projede kolay unutulan 6 şey": migration'ların elle çalıştırılması, `on_conflict` tuzağı, Supabase Auth'un olmayışı, karakter sınırının üç yerde senkron olması, oturum izolasyonu, `activity_at` sabitliği).
+
+### 🔴 Kendi hatam yakalandı: MIGRATION NUMARA ÇAKIŞMASI
+Madde 165'te oluşturduğum `018_feed_reviews.sql`, projede zaten var olan **`018_content_reports.sql`** ile çakışıyordu — aynı numara, belirsiz çalıştırma sırası. Yeniden adlandırıldı:
+- `018_feed_reviews.sql` → **`019_feed_reviews.sql`** (canlıda ZATEN çalıştırılmış; dosya başına numara-düzeltme + "yeniden çalıştırma gerekmiyor" notu eklendi)
+- `019_reviews_local_only.sql` → **`020_reviews_local_only.sql`** (henüz çalıştırılmadı)
+
+Koddaki atıflar da güncellendi (`feedApi.ts`, `types.ts`, `feed.md`). **`HISTORY.md`'ye dokunulmadı** — tarihsel kayıt geriye dönük düzeltilmez (Madde 164'teki kural); eski maddelerde `018_feed_reviews` adı geçmeye devam ediyor, bu madde bağlantıyı kuruyor. Repoda `010` ve `012`'de de eski çakışmalar var (dokunulmadı, ikisi de çalıştırılmış) — plana "yeni migration eklerken son numarayı kontrol et" uyarısı yazıldı.
+
+### Kullanıcının 4 riski — hepsi doğrulandı, ikisi tahminden İYİ, biri KÖTÜ çıktı
+
+**1. 🔴 Senkron yükleme tuzağı — RİSK DEĞİL, MEVCUT HATA (S12).**
+Kullanıcı "`Promise.all` kurulursa Trakt yavaşlığı bizi de bekletir" diye uyardı. Kod okundu: `hooks/useShowDetail.ts:66` **zaten** `getMediaComments`'i bloklayan `Promise.allSettled` batch'inin içinde tutuyor — yani dizi sayfasının özeti, sezonları ve tüm ekranı bugün Trakt'ın yorum ucunu bekliyor. `useMovieDetail`'de aynı desen. Yani sorun gelecekte değil, şu an yaşanıyor. İyi haber: bizim taraf zaten bağımsız (`useMediaReviews` kendi isteğini atıyor) ve aynı dosyada satır ~128'de doğru desen (`.then().catch()`) tazeleme için ZATEN var. P3'e alındı.
+
+**2. 🔴 Hesap birleştirme (S14) — en pahalı gelecek hatası.**
+Spotify/Facebook örneği yerinde. Plana detaylı akış yazıldı. Kritik tasarım kuralları: tek `users` satırı = tek kimlik, `trakt_slug`/`google_sub` iki **bağlantı kolonu** → birleştirme = bağlantıyı taşımak, içeriği taşımak değil · **asla yalnızca e-postaya bakıp otomatik birleştirme** (Trakt e-postası bizce doğrulanmamış → hesap ele geçirme riski) · köprü **ilk girişte** gösterilmeli, kullanıcı içerik üretmeden önce · yine de iki satır oluşursa birleştirmede **unique kısıt çakışmaları** (aynı yapıma iki hesaptan inceleme) önceden karara bağlanmalı.
+
+**3. 🟢 Moderasyon — tahmin edilenden ÇOK daha iyi durumda.**
+Kullanıcı "V2'de rapor butonu koymalıyız" dedi; keşif: **altyapı zaten var.** `018_content_reports.sql` tam bir şema kuruyor (target_type `activity`/`comment`/**`trakt_comment`**, reason enum'u, status akışı, iki indeks) ve RLS'te **INSERT politikası var** — projede istemcinin doğrudan yazabildiği tek tablo. UI **7 bileşene bağlı** (yeni `ReviewItem` dahil). Eksik olan tek şey **otomatik gizleme**.
+
+**⚠️ Ama otomatik gizlemeden önce kapatılması gereken bir açık bulundu (S15):** `content_reports`'ta `UNIQUE(reporter_user_id, target_type, target_id)` YOK ve `reporter_user_id` nullable. Bugün "5 rapor alan gizlensin" eklenirse **tek kişi aynı içeriği 5 kez raporlayıp istediği yorumu sansürleyebilir.** Sıra şart: UNIQUE + reporter zorunlu → sayaç → otomatik gizleme.
+
+**4. 🟡 TMDB görsel bağımlılığı (S16) — azaltıcı önlem yarı kurulu.**
+`expo-image@~3.0.11` **zaten kurulu** ama yalnızca 4 dosyada kullanılıyor; **12 dosya** hâlâ React Native `Image` (önbelleksiz) ve `cachePolicy="disk"` sadece 2 yerde. Kullanıcı "acil değil" dedi, ertelendi — ama ucuz önlem net: görsel gösteren yolları `expo-image` + disk önbelleğine çevirmek yeni altyapı gerektirmiyor.
+
+### Plan yapısı
+13 bölüm + 16 maddelik açık listesi (S1-S16) + 8 fazlık yol haritası. Fazlar arası **sıra bağımlılıkları** açıkça işaretlendi (en kritiği: `WriteCommentSheet`/`MyInlineComment`/`useMyMediaComment` **P4'ten önce silinemez**, bölüm sayfası hâlâ kullanıyor).
+
+### Kod değişmedi
+Bu madde plan + migration yeniden adlandırma + atıf düzeltmeleri. `npx tsc --noEmit` temiz.
+
+---
+
+## 173. S12 (Performans) + P2 (İstemci Sadeleştirme) + Tünel Problemi
+
+**Kullanıcı kararı:** S12'yi P2'nin önüne al; ayrıca 5000 karaktere çıkan sınır nedeniyle "emek kaybolmasın" mekanizmasının korunduğundan emin ol.
+
+### 🔴 S12 — Trakt yorumları artık ekranı BLOKLAMIYOR
+**Hata neydi:** `useShowDetail`/`useMovieDetail`'in önbellek-**ıska** yolu `getMediaComments`'i bloklayan `Promise.allSettled` batch'inin İÇİNDE tutuyordu. `allSettled` hepsinin bitmesini beklediği için, Trakt'ın yorum ucu yavaşladığında dizinin ÖZETİ, SEZONLARI, BENZER YAPIMLARI ve tüm ekran onu bekliyordu.
+
+**Çelişki:** önbellek-**isabet** yolu bunu ZATEN doğru yapıyordu (fire-and-forget). Yani aynı dosyada doğru ve yanlış desen yan yana duruyordu; ilk kez açılan sayfa yavaş, ikinci açılış hızlıydı.
+
+**Düzeltme:** yorum çekimi tek bir `loadCommentsInBackground`/`fetchCommentsInBackground` yardımcısına alındı ve **`loadData`'nın en başında, önbellek okumasıyla PARALEL** başlatılıyor. Her iki yol da artık aynı yardımcıyı kullanıyor (film hook'unda yardımcı zaten vardı ama yalnızca bir dalda kullanılıyordu — mantığın iki kopyası da böylece kalktı).
+
+**Yakalanan yarış durumu:** dizi hook'u önbellek-ıska sonunda `setMediaData({...})` ile nesneyi KOMPLE değiştiriyordu. Yorumlar artık paralel geldiği için bu, o sırada gelmiş yorumları SİLERDİ. Fonksiyonel güncellemeye (`prev => ({...prev, ...})`) çevrildi.
+
+**Yeni:** `isLoadingComments` durumu iki hook'tan da dönüyor — P3'te Trakt bloğu kendi spinner'ını gösterebilsin diye. İlk yüklemede hata olursa boş listeye düşülüyor (blok gizlenir, Karar 10); `refreshComments` hatasında ise MEVCUT yorumlar korunuyor (orada gösterilecek veri var, silmek yanlış olurdu).
+
+### P2 — İstemci sadeleştirme
+- **`feedReviews.ts`:** `traktOk` kısmi-başarısızlık modeli **kalktı** (tek yazma hedefi = "ya olur ya olmaz", ara durum yok) · `deleteFeedItemsRouted` **silindi** · `deleteReview` artık `/feed/review/delete` yerine `deleteActivitiesBulk` (`/feed/delete`) çağırıyor, yalnızca yapım-bazlı önbelleği ek olarak temizleyen ince bir sarmalayıcı · `invalidateUserCommentsCache` çağrısı kaldırıldı (o önbellek Trakt'ın yorum listesinindi; inceleme akışı ona artık hiç dokunmuyor — **S2 böylece konusuz kaldı**).
+- **`useFeed` / `useUserActivity`:** tipe göre yönlendirme kalktı, ikisi de `deleteActivitiesBulk`'a döndü → **S6 kapandı**.
+- **`useMediaReviews`:** `traktOk` dalı kalktı.
+- **`WriteReviewSheet`:** Trakt ön-doldurma (`useMyMediaComment`) **söküldü** — tek gerçek kaynak artık kendi satırımız, çağıran `initialBody`/`initialSpoiler` ile geçiyor. Doğrulama `validateComment` (Trakt'ın 5 kelime kuralı) yerine kendi `MIN_REVIEW_CHARS = 3` / `MAX_REVIEW_CHARS = 5000` sınırlarımıza geçti.
+- **Çeviriler:** 6 yeni anahtar; `reviewPublishNote` düzeltildi ("hem Trakt'ta hem KaymakTV'de" → artık yalnız KaymakTV — **yanlış bilgi veriyordu**); kullanılmayan `reviewHintValid` ve `reviewLoadedFromTrakt` iki dilden birlikte silindi (`AI_RULES` §2.5). tr/en senkron: 277 anahtar.
+
+### ✅ S17 — Tünel problemi (kullanıcı isteği)
+Hata yolu zaten doğruydu ve korundu: `handleSend` başarısızlıkta sheet'i **kapatmıyor**, metni kutuda **bırakıyor**, sebebi ekranda gösteriyor.
+
+**Ama emeğin kaybolduğu İKİNCİ bir yol daha vardı:** kullanıcının yanlışlıkla kapatması (X'e dokunma / Android geri tuşu). 5000 karakterlik bir metin için bu, ağ hatası kadar can sıkıcı. `handleRequestClose` eklendi — yazılmış ve kaydedilmemiş metin varsa önce onay ister; `Modal.onRequestClose` (Android geri tuşu) da bu akıştan geçiyor. Sheet sıfırlaması bilinçli olarak **açılışta** çalışıyor (kapanışta değil) ki hata sonrası state'i temizleyen bir yan etki olmasın.
+
+### Değişen dosyalar
+`hooks/{useShowDetail,useMovieDetail,useMediaReviews}.ts` · `features/feed/services/feedReviews.ts` · `features/feed/hooks/{useFeed,useUserActivity}.ts` · `components/reviews/{WriteReviewSheet,MediaReviewsSection}.tsx` · `utils/commentValidation.ts` (`MIN_REVIEW_CHARS`) · `locales/{tr,en}/media.json`.
+
+### Doğrulama
+`npx tsc --noEmit` temiz · `--noUnusedLocals --noUnusedParameters` **SIFIR bulgu** · `deleteFeedItemsRouted`/`traktOk` kalıntı taraması temiz (yalnızca açıklayıcı yorumlarda) · çeviri anahtarları tr/en senkron. **Doğrulanamayan:** uçtan uca akış hâlâ gerçek cihaz + `020` migration + Worker deploy gerektiriyor.
+
+### Sıradaki
+P3: tek akış iki blok · slug tekilleştirme (S7) · `SectionErrorBoundary` (S13). Asenkron yükleme P3'ten çıkarıldı çünkü S12 olarak erken çözüldü.
+
+---
+
+## 174. Ana Plan (MASTER_PLAN.md) — Program Fazlara Bölündü
+
+**Kullanıcı isteği:** "Yapacağımız her şeyi fazlara böl · kritik yerler ayrıca ele alınsın · belli adımlarda ölü/spagetti/hatalı kod kontrolü yapılsın · bazı adımlarda güvenlik açıkları tespit edilsin."
+
+### Yeni doküman: `docs/MASTER_PLAN.md`
+Doküman rolleri netleştirildi: **MASTER_PLAN = "hangi sırayla ve nasıl doğrulayarak"**, diğerleri = "neden böyle tasarlandı". `AGENTS.md`'ye 4. madde olarak eklendi (yeni oturumlar önce oradan geçiyor), `REVIEWS_PLAN.md`'ye çapraz atıf kondu.
+
+### Yapı: 4 iş kolu, 17 faz
+- **Kol A — İnceleme sistemini bitir** (F1→F2→K1→F3→G1→F4): build kilidini açan kol
+- **Kol B — Trakt'tan bağımsızlık** (F5→F6→K2→F7→F8→G2): stratejik kol
+- **Kol C — Moderasyon/UGC** (F9→F10→G3): App Store gerekliliği
+- **Kol D — Teknik borç** (F11·F12·F13): paralel
+
+A önce bitmeli (kilit ona bağlı); B ve C paralel yürüyebilir.
+
+### Denetim fazları ayrı birer FAZ yapıldı
+K (kalite) ve G (güvenlik) denetimleri bir alışkanlık değil, programın içinde numaralı adımlar. Gerekçe plana yazıldı: bu projede her özellik turu arkasında ölü kod zinciri bırakıyor (v1→v2 pivotu bunun kanıtı) ve yazma yüzeyi her turda değişiyor. `useMyMediaComment` örneği somut: bir turda yinelenmeyi gidermek için oluşturuldu, bir sonraki turda tamamen öldü.
+
+**Kontrol listeleri kopyala-çalıştır komutlarla verildi** — 7 kalite, 4 güvenlik kontrolü + her fazda elle bakılacaklar (IDOR, rate limit, RLS, "yeni kolon mahrem mi").
+
+### Bilinen yanlış alarmlar kaydedildi
+Denetim komutlarının her çalıştırmada üreteceği iki **hata olmayan** bulgu, tekrar tekrar araştırılmasın diye plana yazıldı:
+1. `feed.json` → `newPosts` (tr) vs `newPosts_one`/`newPosts_other` (en) — **i18next çoğul biçimleri**, Türkçe tek biçim kullanır. Doğru davranış.
+2. `tmdbApi.ts` + `library/fetchers.ts`'teki 4 boş `catch` — önbellek ayrıştırma yolları, hata = "önbellek yok". Sessizlik kasıtlı.
+
+### 🟠 Yeni güvenlik bulgusu (G1'de kapatılacak)
+`server.js:33` → `process.env.TMDB_API_KEY || process.env.EXPO_PUBLIC_TMDB_API_KEY`
+
+`.env` bugün doğru adı (öneksiz `TMDB_API_KEY`) kullanıyor, yani **aktif sızıntı YOK.** Ama bu fallback birinin `.env`'e `EXPO_PUBLIC_` önekli adı yazmasını davet ediyor — o önek değeri Expo'nun istemci bundle'ına gömmesi demek. **Trakt için aynı fallback Madde 25'te bilinçli olarak kaldırılmıştı** (`ARCHITECTURE.md` §4); TMDB'de gözden kaçmış. Silinecek.
+
+### 4 kritik nokta ayrı başlıkta
+Yanlış yapılırsa geri dönüşü pahalı olanlar, her biri **tek başına** ele alınacak şekilde işaretlendi: (1) hesap birleştirme — kullanıcı ikinci hesapta içerik ürettikten sonra iş "iki içerik kümesini birleştirme"ye dönüşür · (2) otomatik gizleme sırası — F9 öncesi F10 canlı bir sansür aracı olur · (3) ilk build dağıtımı — "0 satır" temiz sayfası geri gelmez · (4) kimlik refactor — 13 yazma ucunun tamamı aynı fonksiyondan geçiyor.
+
+### İhlal edilemez sıra bağımlılıkları
+`020 → deploy` · `F2 → K1` (bölüm sayfası taşınmadan `WriteCommentSheet` silinemez) · `F1..G1 → F4` · `F7 → F8` · **`F9 → F10`**.
+
+### Kod değişmedi
+Bu madde yalnızca plan + doküman bağlantıları. Sıradaki iş: **F1** (inceleme UI: tek akış iki blok).
+
+---
+
+## 175. F1 — İnceleme UI: Tek Akış İki Blok
+
+**Bağlam:** `docs/MASTER_PLAN.md` F1. Kullanıcı ayrıca "plan dosyasının altına yeni bulgular için alan aç" dedi.
+
+### Tek kesintisiz liste
+Dizi/film sayfasında Trakt yorumları AYRI bir bölüm olmaktan çıktı; artık `MediaReviewsSection`'ın içinde, kendi incelemelerimizin altında yumuşak bir ayraçla akıyor. Sekme yok, ayrı alan yok.
+
+**Gerçek "interleave" bilinçli olarak YAPILMADI:** iki kaynağı tarihe göre iç içe harmanlamak iki imleçli merge-sort ister. Ölçek gereksiz kılıyor (bir yapımda bizim sayımız uzun süre 0-2, Trakt'ınki yüzlerce) ve bloklar sıralı olunca Trakt'ın mevcut sayfalaması **hiç değişmeden** çalışıyor.
+
+**Kapsam sapması — kayıt için:** Plan `CommentSortBar`'ın ayracın altına taşınmasını öngörüyordu. Yapılmadı: sayfadaki Trakt bloğu bir **önizleme** (3 satır + "Tümünü Gör"), tam sayfalama ve sıralama zaten `CommentSheet`'te. Sıralama çubuğunu önizlemeye taşımak çalışan bir özelliği bozma riski taşıyordu, kazancı yoktu.
+
+### Yeni bileşenler
+- **`components/SectionErrorBoundary.tsx` (S13):** blok bazlı hata sınırı. Projede Error Boundary vardı ama **kök seviyede** (`app/_layout.tsx`) — bir render istisnası tüm ekranı fallback'e düşürüyordu. Bu sınıf yalnızca sardığı ağacı yakalıyor. `silent` modunda hiçbir şey çizmiyor (Trakt bloğu için — Karar 10) ama **kayıt yine tutuluyor** (`logError`), aksi halde sürekli çöken bir bölümü kimse fark etmezdi.
+- **`components/reviews/TraktCommentRow.tsx`:** salt okunur Trakt satırı. `ReviewItem`'dan ayrı bileşen çünkü etkileşim yüzeyleri tamamen ayrık (beğeni Trakt'ta yaşıyor, yanıt Trakt'a gitmiyor) — tek bileşende `variant` ile birleştirmek aksiyon satırının tamamını koşullu yapıp ikisini de okunmaz kılardı. Emsal: `FeedCommentItem` ↔ `ReviewItem`. **Buton yokluğu bilinçli bir sinyal**; disabled/gri buton gösterilmiyor (bozuk sanılırdı).
+
+### S7 — slug tekilleştirmesi
+Aynı kişinin hem KaymakTV incelemesi hem Trakt yorumu varsa tek listede yan yana çıkıyordu. Eşleştirme anahtarı iki tarafta da hazırdı (`users.trakt_slug` ↔ `comment.user.ids.slug`) — eleme tek `Set.has()`, ek istek yok. Yan fayda: kullanıcı KaymakTV'den yazdığı an Trakt'taki eski yorumu listeden düşüyor, "hangisi güncel" belirsizliği oluşmuyor.
+
+### 🧹 Yol üstünde ölü kod yakalandı: `refreshComments`
+F1, `refreshComments`'ın son tüketicisini (`onPublished`) kaldırdı. `--noUnusedLocals` bunu **yakalayamaz** (hook'un dönüş nesnesinde olduğu için "kullanılmış" sayılıyor) — elle fark edildi.
+
+**Otopsi:** durum (b), bilinçli olarak değiştirilmiş. İki gerekçe: (1) v2'de Trakt'a yazmadığımız için yayın sonrası Trakt listesi bayatlamıyor, (2) S12'den beri `refreshData` zaten yorumları da tazeliyor (effect yeniden çalışınca `loadCommentsInBackground` koşuyor — ikisi de doğrulandı). Yani gerçekten gereksiz. `AI_RULES` §2.5 "aynı değişiklikte sil" gereği K1'e ertelenmeden silindi.
+
+### 📥 Plana yeni bölüm: "SONRADAN BULUNANLAR"
+Kullanıcı isteği üzerine `MASTER_PLAN.md`'nin en altına, faz kapsamı dışında kalan bulguların birikeceği bir alan açıldı. Kural: her madde (a) nerede bulunduğu, (b) neden şimdi düzeltilmediği, (c) hangi faza ait olduğu ile yazılır. F1'in bıraktığı 4 madde girildi:
+- **Y1:** `onPublished` gereksiz tam tazeleme yapıyor (özet+sezon+benzerleri yeniden çekiyor, oysa inceleme bunları değiştirmiyor) → K1
+- **Y2:** `MediaReviewsSection` 400 satır sınırına yaklaşıyor → K1 (F2 tekrar dokunacağı için ondan sonra bölünmeli)
+- **Y3:** bileşen adı artık içeriğini anlatmıyor → K1 (Y2 ile birlikte)
+- **Y4:** Trakt yorumları sayfada ve sheet'te iki farklı görsel dille çiziliyor → K1 / ayrı UI turu
+
+### Doğrulama
+`tsc --noEmit` temiz · `--noUnusedLocals --noUnusedParameters` SIFIR bulgu · web bundle derlendi, `/show/1388` **JS hatası olmadan mount oldu** (konsolda yalnızca bu ortama özgü Trakt CORS gürültüsü). **Doğrulanamayan:** bu ortamda Trakt özeti çekilemediği için ekran "Dizi bilgisi bulunamadı" durumunda kalıyor ve inceleme bölümü render EDİLEMİYOR — görsel doğrulama gerçek cihazda F4'te yapılacak.
+
+---
+
+## 176. F2 — Bölüm Sayfası Yerel İncelemeye Geçti + `in_feed` Bağlandı
+
+**Bağlam:** `docs/MASTER_PLAN.md` F2.
+
+### Bölüm sayfası artık Trakt'a yazmıyor
+`app/episode/[id].tsx`, `MyInlineComment` + `WriteCommentSheet` ikilisini bırakıp dizi/film sayfalarıyla **aynı** `MediaReviewsSection`'ı kullanıyor. Tek fark `episodeNumber` prop'u (`formatEpisodeCode` ile "S01E02" biçiminde — Worker'ın beklediği regex). Böylece pivotun "Trakt'a yazma tamamen kalkıyor" iddiası artık gerçekten doğru: uygulamada Trakt'a yazan başka yorum yolu kalmadı.
+
+### 🔴 `in_feed` kolonu oluşturulmuş ama HİÇ BAĞLANMAMIŞ — yakalandı
+`020` migration'ında `in_feed` türetilmiş kolonunu oluşturmuştum ama **hiçbir sorguya bağlamamışım.** Bu hâliyle F2'nin çıkış kriteri ("bölüm incelemesi ana akışa düşmeyecek") sağlanmıyordu — bölüm incelemeleri doğrudan akışa düşecekti.
+
+Üç yere birden bağlandı:
+1. **`fetchFeedActivities`** — ana akış
+2. **`fetchUserFeedActivities`** — profil aktiviteleri (kullanıcı kararı "sadece o bölümün kendi sayfasında görünecek" dediği için profil de dahil)
+3. **`useFeedRealtime`** — ⚠️ **atlanması en kolay yer.** Realtime sorgudan GEÇMEZ; canlı INSERT doğrudan store'a girer. Bu kontrol olmadan bölüm incelemesi "yenilemede kaybolan ama WebSocket'ten canlı sızan" bir kart olurdu — engel filtresinde yaşanan aynı sınıf hata (`FEED_SOCIAL_PLAN` §4.3, 4. madde). `REPLICA IDENTITY FULL` (013) sayesinde payload `in_feed`'i taşıyor.
+
+### 🔴 İkinci sızıntı yolu: dizi sayfası
+`fetchMediaReviews` `episode_number`'a hiç bakmıyordu. Bölüm incelemeleri var olmadan önce zararsızdı; F2 ile birlikte dizi sayfası o dizinin TÜM bölüm incelemelerini listeler hale gelecekti. Filtre eklendi — **NULL için `is.null`, dolu için `eq.`** (Worker'daki `fetchExistingReview` ile aynı tuzak: PostgREST'te NULL için `eq.` çalışmaz). Önbellek anahtarına da `episodeNumber` eklendi, yoksa dizi ve bölüm listeleri aynı kutuyu paylaşırdı.
+
+### S12 eksik kalmış — `useEpisodeDetail` de düzeltildi
+S12 turunda `useShowDetail`/`useMovieDetail` düzeltilmiş ama **`useEpisodeDetail` gözden kaçmıştı**: `getEpisodeComments` orada da bloklayan `Promise.allSettled` batch'inin içindeydi, yani bölümün detayı ve görseli Trakt'ın yorum ucunu bekliyordu. Aynı desenle düzeltildi + `setMediaData` fonksiyonel güncellemeye çevrildi (yorumlar paralel geldiği için nesneyi komple değiştirmek onları silerdi — `useShowDetail`'de yakalanan aynı yarış durumu).
+
+### Canlı doğrulama (4 sorgu + 1 probe)
+| Kontrol | Sonuç |
+|---|---|
+| `in_feed` kolonu var mı | ✅ HTTP 200 → **`020` migration çalıştırılmış** |
+| Dizi sayfası sorgusu (`episode_number=is.null`) | ✅ 200 |
+| Bölüm sayfası sorgusu (`episode_number=eq.S01E02`) | ✅ 200 |
+| Akış sorgusu (`in_feed=true`) | ✅ 200, **3 satır** → mevcut akış BOZULMADI |
+| Worker `/feed/review/delete` | ✅ HTTP **404** → **P1 deploy edilmiş** |
+
+> 🔴 Kayıt: akış sorgusu artık `in_feed`'e bağımlı. `020` çalıştırılmamış bir ortamda filtre "kolon yok" hatası verir ve **akışın tamamı kırılır**. Prod'da çalıştırıldı; yeni ortam kurulumunda migration ÖNCE gelmeli.
+
+### Ölü kod zinciri hazır (K1'e devir)
+`WriteCommentSheet`, `MyInlineComment`, `useMyMediaComment` artık **tüketicisiz** — kalan referansların hepsi açıklayıcı yorum (doğrulandı). `AI_RULES` §2.5 "aynı değişiklikte sil" der ama bu silme K1'de planlanmış bir FAZ: `services/api/comments.ts`'in yazma yarısı + `CommentReplies` yazma kısmı + tam denetim taraması aynı turda yapılacak. Yarısını şimdi yapmak K1'i kafa karıştırıcı bir ara durumda bırakırdı. **Unutulma riski yok:** hem plan panosunda hem burada kayıtlı.
+
+### Doğrulama
+`tsc --noEmit` temiz · `--noUnusedLocals --noUnusedParameters` SIFIR bulgu.
+**Doğrulanamayan:** bölüm incelemesi yazma akışının uçtan uca çalışması — gerçek Trakt oturumu gerektiriyor, F4'te cihazda.
+
+---
+
+## 177. K1 — Kalite Denetimi #1: Pivotun Bıraktığı Ölü Kod Zinciri Temizlendi
+
+**Bağlam:** `docs/MASTER_PLAN.md` K1. v1→v2 pivotu (Trakt'a yazmayı bırakma) arkasında bir ölü kod zinciri bırakmıştı; F2 son tüketicileri de kaldırınca zincir tamamen koptu.
+
+### Silinen dosyalar (~800 satır)
+| Dosya | Otopsi |
+|---|---|
+| `components/WriteCommentSheet.tsx` (~370) | (b) bilinçli değiştirildi → `WriteReviewSheet` |
+| `components/MyInlineComment.tsx` (227) | (b) → `MediaCommentsSection` |
+| `hooks/useMyMediaComment.ts` (~115) | (b) — iki tüketicisi de öldü |
+| `utils/commentValidation.ts` (~95) | (b) → `utils/reviewLimits.ts` |
+
+Silmeden önce her biri için **gerçek import taraması** yapıldı (yorum içi atıflar hariç tutularak) — üçünün de sıfır tüketicisi olduğu doğrulandı.
+
+### `services/api/comments.ts`: 177 → 82 satır
+Yazma yarısı komple gitti: `addComment`, `updateComment`, `deleteComment`, `addCommentReply`, `getUserComments` + 200 kayıtlık önbelleği. Kalan üç fonksiyon (`getMediaComments`, `getCommentReplies`, `getEpisodeComments`) yalnızca "Trakt topluluğu" bloğunu besliyor. Dosya başlığı da güncellendi — artık adı gibi bir **okuma servisi**.
+
+> Dikkat gerektiren nokta: `addComment`/`deleteComment` adları `features/feed/services/feedSocial.ts`'te de VAR (bizim Supabase yorumlarımız). Silmeden önce her çağrı yerinin hangisine ait olduğu tek tek ayrıştırıldı — kör bir `grep` sayımı yanlış sonuç verirdi.
+
+### `utils/commentValidation.ts` → `utils/reviewLimits.ts`
+Dosyanın tamamı Trakt'ın SUNUCU kurallarını kodluyordu (`validateComment`, `MIN_COMMENT_WORDS = 5`, `REVIEW_WORD_THRESHOLD = 200`, `MAX_COMMENT_CHARS`) — hiçbiri artık bizi bağlamıyor. Yalnızca kendi seçtiğimiz iki sınır kaldı, dolayısıyla dosya adı da yalan söylüyordu (içinde "validation" yok). Yeniden adlandırıldı.
+
+### `CommentReplies.tsx` — yazma kısmı söküldü (Karar 9)
+`TextInput` + `addCommentReply` + `handleSendReply` + misafir kontrolü + doğrulama ipucu kaldırıldı; cevap **görüntüleme** kaldı. Kullanıcı kararıydı: bir Trakt yorumuna dokununca cevaplarını görebilmek değer katıyor, yazma kutusu ise gidecek yer olmadığı için yanıltıcı olurdu. `localCount` state'i de gitti (cevap eklenmediği için değişmiyor, prop doğrudan okunuyor); cevabı olmayan yorumlar için "Henüz cevap yok" notu eklendi — eskiden orayı yazma kutusu dolduruyordu.
+
+### Y1 — gereksiz tam tazeleme kaldırıldı
+İnceleme yayınlandıktan sonra ekran `refreshData()` çağırıyordu: dizi detay **önbelleğini geçersiz kılıp özet + sezonlar + benzer yapımları yeniden çekiyordu.** Oysa inceleme bunların hiçbirini değiştirmiyor. `onPublished` prop'u tamamen kaldırıldı (bileşen + 3 ekran).
+
+### Y5 — nerede DURULDUĞU da bir karar
+Y1 sonrası `refreshData` üç hook'ta tüketicisiz kaldı. Ekranların destructuring'inden kaldırıldı (orası gerçekten ölüydü) ama **hook'larda bırakıldı**: silmek `refreshData` → `invalidate*DetailCache` → `services/library/mutations/invalidation.ts` şeklinde üç seviyeli bir zincire dönüşüyordu, yani çalışan bir önbellek katmanını yerine bir şey koymadan budamak olurdu. Hiçbir ekranda pull-to-refresh olmadığı doğrulandı; eklendiği gün doğrudan buraya bağlanacak. `MASTER_PLAN` "SONRADAN BULUNANLAR"a Y5 olarak kaydedildi.
+
+### Y2 + Y3 — bölme ve yeniden adlandırma
+`MediaReviewsSection` 441 satıra çıkmıştı (400 kuralı ihlali). Trakt kuyruğu `components/reviews/TraktCommentsBlock.tsx`'e taşındı — bölme çizgisi boyut değil **sorumluluk**: o dosyanın tek işi "başka kaynaktan gelen yorumları göster ve kendi listemizle çakışanları ele" (S7 slug tekilleştirmesi de oraya taşındı). Sonuç: 441 → **339**.
+
+Ardından `MediaReviewsSection` → **`MediaCommentsSection`**: bileşen artık yalnızca incelemeleri değil TÜM yorumlar bölümünü çiziyor, eski ad yanıltıcıydı. 3 ekranın import'u + `docs/feed.md` atfı güncellendi. `HISTORY.md`'ye dokunulmadı (tarihsel kayıt).
+
+### Y4 — bilinçli olarak YAPILMADI
+Trakt yorumları sayfada (`TraktCommentRow`) ve "Tümünü Gör" sheet'inde (`CommentItem`) farklı görsel dille çiziliyor. K1 bir **ölü kod** turuydu; bu ise saf tasarım kararı ve "hangi tasarım kazanacak" sorusunun cevabı yok. `CommentItem`'a dokunmak `CommentSheet` + `CommentReplies`'ı da kapsayıp K1'i UI yeniden tasarımına genişletirdi. Ayrı bir UI turuna bırakıldı.
+
+### Kapanış denetimi (§4.1 kontrol listesi)
+| Kontrol | Sonuç |
+|---|---|
+| `tsc --noEmit` | ✅ temiz |
+| `--noUnusedLocals --noUnusedParameters` | ✅ **SIFIR bulgu** |
+| Worker `node --check` | ✅ |
+| `components/reviews/` 400 satır | ✅ ihlal yok (en büyük 358) |
+| Çeviri senkronu | ✅ yalnızca bilinen `newPosts` çoğul farkı (i18next, hata değil) |
+| Migration çakışması | 🟡 `010`/`012` — eski, ikisi de çalıştırılmış, dokunulmadı |
+| Bayat worktree | 🟡 `intelligent-mclaren-7b32d5` duruyor — silme kararı kullanıcıya ait |
+
+### Değişen dosyalar
+**Silinen:** `components/{WriteCommentSheet,MyInlineComment}.tsx`, `hooks/useMyMediaComment.ts`, `utils/commentValidation.ts`
+**Yeni:** `utils/reviewLimits.ts`, `components/reviews/TraktCommentsBlock.tsx`
+**Yeniden adlandırılan:** `MediaReviewsSection.tsx` → `MediaCommentsSection.tsx`
+**Değişen:** `services/api/comments.ts`, `components/comments/CommentReplies.tsx`, `components/reviews/{MediaCommentsSection,WriteReviewSheet}.tsx`, `app/{show,movie,episode}/[id].tsx`, `docs/{MASTER_PLAN,feed}.md`
+
+---
+
+## 178. F3 — Doküman Senkronizasyonu: v1'den Kalan Yanlış İfadeler Temizlendi
+
+**Bağlam:** `docs/MASTER_PLAN.md` F3. Pivot (v1 dual-write → v2 Trakt'tan kopuş) ve K1 temizliği sonrası dokümanların bir kısmı **artık yanlış olan şeyler anlatıyordu.**
+
+### `docs/feed.md` — en çok bayatlayan doküman
+- **§2️⃣.5 tamamen yeniden yazıldı.** Başlığı "Worker artık Trakt'a YAZIYOR (dual-write)" idi — yani mimarinin tam TERSİNİ anlatıyordu. Yeni hâli pivotu, gerekçesini ve `traktFetch`'in GET-only'ye döndürülerek bunun nasıl garanti altına alındığını açıklıyor.
+- Aktivite tipi satırı: `reviewed` için "**Trakt'ta DA yaşar**" → "**yalnızca bizde yaşar**"
+- Veri kaynağı tablosu: "İKİSİ BİRDEN (dual-write)" → "Yalnızca Supabase"
+- "Bilinçli olarak YOK" listesi yeniden yazıldı: **bölüm incelemesi artık VAR** (yapıldı), yerine "Trakt'a yazma", "Trakt'tan içeri alma", "Trakt yorumlarına yanıt" kondu
+- Şema bloğu: `note ≤1000` → `≤5000`, **`in_feed` türetilmiş kolonu eklendi**
+- Migration tablosuna `020` satırı
+- Yol haritası: 5. madde "inceleme senkronu" → "Trakt yorumlarını önbelleğe alma" (senkron artık istenmiyor, önbellekleme ise API kapanma senaryosunun cevabı); 6. madde (bölüm incelemesi) ✅ YAPILDI olarak işaretlendi
+- **Silinmiş bir dosyaya atıf kaldırıldı:** "İlgili Dosyalar" hâlâ `hooks/useMyMediaComment.ts`'i mevcut gibi listeliyordu
+
+> Üst özete bilinçli bir not kondu: dokümanda "dual-write" geçen yerler v1'e ait; okuyan kişi kafası karışmadan tarihsel bağlamı ayırt edebilsin diye. Bu ifadeler tamamen silinmedi — özelliğin NASIL evrildiğini anlatıyorlar.
+
+### `docs/REVIEWS_PLAN.md` — ikinci durum panosu kaldırıldı
+Bu dosyada MASTER_PLAN'dakine PARALEL bir §0 Durum Panosu vardı ve **ıraksamıştı**: "Aktif faz: P3", "020 bekliyor", "P1 elle adım bekliyor" — üçü de yanlıştı (F1/F2/K1 bitmiş, 020 çalıştırılmış, Worker deploy edilmişti).
+
+Bu tam olarak `AI_RULES` §2.5'in kod için uyardığı "iki kopya sessizce ıraksar" durumunun **doküman karşılığı**. Pano kaldırıldı; faz takibi artık TEK yerde (MASTER_PLAN). Dosya saf bir **tasarım gerekçesi kaydına** dönüştü ve başına bunun neden yapıldığı yazıldı.
+
+Ayrıca faz atıfları düzeltildi (`P1'de tamamlandı` → `uygulandı`), temizlik bölümü "silinecek" → "silindi", `MediaReviewsSection` → `MediaCommentsSection`.
+
+### `docs/ARCHITECTURE.md` — örnekler silinmiş dosyalara dayanıyordu
+"Yatay katman mı, dikey feature mı?" bölümü kuralı `utils/commentValidation.ts` ve `useMyMediaComment` üzerinden anlatıyordu — **ikisi de K1'de silinmişti.** Canlı örnekle (`utils/reviewLimits.ts`) değiştirildi.
+
+`useMyMediaComment` örneği ise **silinmedi, tamamlandı**: kuralın iki ucunu birden gösteren nadir bir vaka olduğu için ("ikinci tüketici çıktığı an yatayda doğdu, tüketici kalmadığı an silindi") anlatıya dönüştürüldü.
+
+### `docs/FEED_SOCIAL_PLAN.md`
+§7'deki "inceleme iki sistemde birden (dual-write), yanıtlar yalnızca bizde" notu düzeltildi: artık **her şey** yalnızca bizde. Kısa dual-write dönemi parantez içinde tarihsel not olarak bırakıldı.
+
+### Değişen dosyalar
+`docs/{feed,REVIEWS_PLAN,ARCHITECTURE,FEED_SOCIAL_PLAN,MASTER_PLAN}.md`. **Kod değişmedi.**
+
+### Sıradaki
+**G1** — güvenlik denetimi #1. Özel odağı: Trakt yazma yüzeyinin gerçekten kapalı olduğu, `in_feed` GENERATED kolonuna yazma denemesinin reddedildiği, `episodeNumber` girdisinin güvenli gittiği + `server.js`'teki TMDB fallback'inin silinmesi.
+
+---
+
+## 179. G1 — Güvenlik Denetimi #1: Yazma Yüzeyi + İki Denetim Yöntemi Hatası
+
+**Bağlam:** `docs/MASTER_PLAN.md` G1. Pivot sonrası yazma yüzeyinin son hâli denetlendi.
+
+### ✅ Canlı enjeksiyon testi — 9/9 reddedildi
+Worker'ın girdi doğrulaması **token doğrulamasından ÖNCE** çalıştığı fark edildi; bu sayede sahte bir token'la, hiçbir şey yazmadan gerçek saldırı girdileri denenebildi:
+
+| Deneme | Sonuç |
+|---|---|
+| `showId` = `1&user_id=neq.0` (PostgREST enjeksiyonu) | 400 |
+| `showId` = `1' OR '1'='1` | 400 |
+| `mediaType` = beyaz liste dışı (`episode`) | 400 |
+| `episodeNumber` = `S01E02&select=*` | 400 |
+| `episodeNumber` = biçim dışı (`1x02`) | 400 |
+| film + `episodeNumber` (tutarsız kombinasyon) | 400 |
+| `tmdbId` eksik | 400 |
+| metin 5001 karakter / 2 karakter | 400 |
+| **geçerli girdi** | **401** (token doğrulamasına doğru şekilde ilerledi) |
+
+### ✅ Trakt yazma yüzeyi kapalı — kanıtlandı
+`traktFetch` içinde `method` geçişi **0**; kodda `traktFetch(..., {method: ...})` çağrısı **yok**. `in_feed` GENERATED kolonuna Worker hiç dokunmuyor (yalnızca iki açıklama satırında geçiyor).
+
+### 🔴 DENETİM YÖNTEMİ HATASI #1 — yanlış alarm üretiyordu
+Kontrol listesindeki "anon key ile yazma → 401/403 bekle" testi çalıştırıldığında **UPDATE ve DELETE HTTP 204 döndü** — yani "izin verildi" gibi göründü. İlk okumada gerçek bir açık gibi durdu.
+
+**Kanıtlanmadan rapor edilmedi.** `Prefer: return=representation` ile tekrar denendi:
+- PATCH → **0 satır etkilendi**
+- DELETE → **0 satır etkilendi**
+- Hedef satır işlem sonrası tekrar okundu → **hâlâ duruyor, değişmemiş**
+
+**Açıklama:** RLS'te UPDATE/DELETE için politika yoksa satırlar o işleme *görünmez* olur; PostgREST "0 satır etkilendi" anlamında 204 döner. INSERT ise doğrudan politika ihlali verdiği için 401 + `42501` döner. Yani **sistem güvenli, test yöntemi yanıltıcıydı.**
+
+Kontrol listesi düzeltildi: artık "sadece HTTP koduna bakma, ETKİLENEN SATIR SAYISINI ölç" uyarısı ve doğru yöntem yazılı. Bu hata düzeltilmeseydi her G fazında aynı yanlış panik yaşanacaktı.
+
+### 🔴 DENETİM YÖNTEMİ HATASI #2 — gerçek bir kör nokta
+Enjeksiyon taraması yapan `grep`, F2'de eklenen `fetchExistingReview` sorgusunu **hiç görmüyordu**: o sorgu URL'i `+` ile ÇOK SATIRLI kuruluyor, regex ise tek satır bekliyor. Yani yeni eklenen kod sessizce denetim dışında kalmıştı.
+
+Elle kontrol edildi ve güvenli çıktı (`showId` → `Number.isFinite`, `mediaType` → beyaz liste, `episodeNumber` → regex **+** `encodeURIComponent`, `userId` → kendi DB'mizden). Ama kontrol listesine "grep tek başına yeterli DEĞİL, her yeni sorgu elle de bakılmalı" uyarısı eklendi.
+
+### ✅ TMDB anahtar fallback'i kapatıldı
+`server.js:33` → `process.env.TMDB_API_KEY || process.env.EXPO_PUBLIC_TMDB_API_KEY` fallback'i kaldırıldı. Aktif sızıntı hiç olmamıştı (üç kontrolle doğrulanmıştı: `.env`'de o ad yok, istemci okumuyor, `dist` temiz) ama `EXPO_PUBLIC_` öneki Expo'da "bundle'a göm" demek — o adla yapılacak ilk yanlış tanımda sessizce sızardı. Trakt'ta aynı fallback Madde 25'te kaldırılmıştı, TMDB'de gözden kaçmıştı.
+
+### Denetim özeti
+| Kontrol | Sonuç |
+|---|---|
+| Anon INSERT (feed_activities / comments / user_blocks) | ✅ 401 + `42501` |
+| Anon UPDATE / DELETE | ✅ 0 satır etkilendi (RLS çalışıyor) |
+| Enjeksiyon (9 canlı deneme) | ✅ hepsi 400 |
+| Trakt yazma yüzeyi | ✅ kapalı (`traktFetch` GET-only) |
+| `in_feed` GENERATED | ✅ Worker hiç yazmıyor |
+| IDOR | ✅ sahiplik `WHERE user_id = <doğrulanan>` |
+| `EXPO_PUBLIC_*` sırları | ✅ TMDB fallback'i kaldırıldı; kalan 6 değişken gerçekten public |
+| `.env` / `dist` | ✅ git dışı |
+
+### Açık kalan (değişmedi)
+**S11** — `users_select_all USING (true)` yüzünden anon key'le tüm kullanıcı listesi + `is_private`/`publish_watches` okunabiliyor. Postgres RLS kolon seviyesinde çalışmadığı için çözüm ayrı `user_settings` tablosu. F11'de.
+
+### Değişen dosyalar
+`server.js` (fallback kaldırıldı), `docs/MASTER_PLAN.md` (§4.2 kontrol listesi düzeltildi + G1 bulgusu kapatıldı).
+
+### Sıradaki
+**F4** — uçtan uca doğrulama + ilk build. **Bu faz gerçek cihaz gerektiriyor**, bu ortamda yapılamaz: inceleme yaz → akışa düş → yanıt yaz → beğen → düzenle → sil; bölüm incelemesinin akışa düşmediğinin teyidi; `wrangler tail` ile Worker logları. Geçerse 🔓 build kilidi kalkar.
+
+---
+
+## 180. Oturum Devri — Kol A Tamamlandı, Durum Kaydı
+
+**Bu madde bir özellik kaydı değil, oturum sonu devir notudur.**
+
+### Bu oturumda yapılanlar (Madde 165-179)
+İnceleme sistemi sıfırdan kuruldu (v1: Trakt dual-write), Trakt API'nin ücretlendirmeye geçmesi üzerine **stratejik pivot** yapıldı (v2: yalnızca Supabase), ve MASTER_PLAN Kol A'nın tamamı bitirildi:
+
+| | |
+|---|---|
+| **165** | Plan + ölü kod temizliği + Faz 1 (DB) |
+| **166-169** | Worker · Client · UI · Doküman (v1 dual-write) |
+| **170-172** | 🔀 **PİVOT:** analiz, karar, plan v2, ana plan (MASTER_PLAN) |
+| **173** | S12 (performans) + P2 + tünel problemi |
+| **175-176** | F1 (tek akış iki blok) + F2 (bölüm sayfası) |
+| **177** | K1 — ~800 satır ölü kod silindi |
+| **178** | F3 — doküman senkronizasyonu |
+| **179** | G1 — güvenlik denetimi + 2 denetim yöntemi hatası |
+
+### ⚠️ COMMIT DURUMU
+**Hiç commit atılmadı.** 42 dosya değişik/yeni/silinmiş halde çalışma ağacında. Son commit `368b127` bu oturumdan ÖNCE. Yeni oturumun ilk işi bunu ele almak olmalı.
+
+### Canlıda doğrulanmış durum
+- `019_feed_reviews.sql` + `020_reviews_local_only.sql` → **çalıştırıldı**
+- Worker → **deploy edildi** (`/feed/review/delete` 404 veriyor = yeni sürüm)
+- `in_feed` kolonu mevcut, akış sorgusu bozulmadı (3 satır döndü)
+- Canlı `reviewed` satırı: **0** (özellik henüz kullanıcıya ulaşmadı)
+
+### 🔒 BUILD KİLİDİ HÂLÂ YÜRÜRLÜKTE
+F4 (uçtan uca cihaz testi) yapılmadan build dağıtılmamalı. Sebep artık "kod yarım" değil — **hiç uçtan uca test edilmedi.** Trakt CORS engeli yüzünden bu ortamda dizi sayfası render edilemiyor, dolayısıyla inceleme akışının çalıştığı hiç görülmedi.
+
+### Sıradaki iki seçenek
+1. **F4** — cihazda uçtan uca test (kilidi kaldırır). Cihaz gerektirir.
+2. **F5** — `tmdb_id`'yi tüm aktivite tiplerine yay (Kol B). Cihaz gerektirmez, Trakt'tan bağımsızlığın en yüksek getirili adımı.
+
+### Açık kalan maddeler
+`MASTER_PLAN` → "AÇIK MADDELER" (S5, S9-S11, S14-S16) ve "SONRADAN BULUNANLAR" (Y4, Y5). En kritik ikisi: **S9/S14** (Google girişi hiçbir şey yazamaz + hesap birleştirme köprüsü yok) ve **S15** (moderasyonda UNIQUE yok → tek kişi 5 raporla sansürleyebilir).

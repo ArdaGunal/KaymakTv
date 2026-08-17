@@ -5,6 +5,7 @@ Hoş geldin! Bu proje **KaymakTV** — Trakt.tv veritabanıyla senkronize çalı
 1. **Çalışma Kuralları:** [AI Çalışma Kuralları](docs/AI_RULES.md)
 2. **Proje Mimarisi:** [Uygulama Mimarisi (Architecture)](docs/ARCHITECTURE.md)
 3. **Geçmiş Kayıtlar:** [Proje Geliştirme Geçmişi (History)](docs/HISTORY.md)
+4. **Aktif Yol Haritası:** [Ana Plan (Master Plan)](docs/MASTER_PLAN.md) — hangi fazdayız, sıradaki iş ne, hangi denetimler ne zaman yapılıyor. **Yeni bir oturuma başlarken önce buranın §0 Durum bölümünü oku.**
 
 ## Temel Kurallar Özeti
 - **Spagetti kod yazmak kesinlikle yasaktır.** Kodlar her zaman modüler, UI ve Logic ayrılmış şekilde yazılmalıdır. Bir dosya 400 satırı geçmeye başladığında mutlaka mantıklı parçalara bölünmelidir.

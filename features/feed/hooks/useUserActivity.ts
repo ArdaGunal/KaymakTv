@@ -58,6 +58,7 @@ export function useUserActivity(traktSlug: string | null) {
       setData((current) => current.filter((item) => !idsToRemove.has(item.id)));
 
       try {
+        // v2: TEK silme yolu — bkz. useFeed.ts'teki aynı not.
         const rawIds = items.flatMap(resolveRawActivityIds);
         await deleteActivitiesBulk(accessToken, rawIds);
         // Silinenler bir sonraki mount'ta önbellekten (bkz. feedApi.ts

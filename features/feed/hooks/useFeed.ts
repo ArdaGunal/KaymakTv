@@ -162,6 +162,10 @@ export function useFeed(): UseFeedResult {
       removed.forEach((a) => useFeedStore.getState().removeActivity(a.id));
 
       try {
+        // v2: TEK silme yolu. Eskiden burada tipe göre bir yönlendirme vardı
+        // (`deleteFeedItemsRouted`) çünkü incelemenin Trakt'tan da silinmesi
+        // gerekiyordu. Trakt'a yazmayı bıraktığımız için o ayrım kalktı —
+        // inceleme dahil her aktivite aynı uçtan siliniyor.
         await deleteActivitiesBulk(accessToken, rawIds);
         // Profil › Aktiviteler ayrı bir fetch+önbellek kullanıyor (bkz.
         // useUserActivity.ts) — Akış'tan silinince o da güncel kalsın diye

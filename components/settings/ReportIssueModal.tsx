@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Clock, Info, Lightbulb, Send, Sparkles, X } from 'lucide-react-native';
+import { AlertTriangle, Clock, Info, Lightbulb, Send, Sparkles, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FeedbackCategory } from '../../services/api/feedback';
 import { useReportIssue } from '../../hooks/useReportIssue';
 import Snackbar from '../Snackbar';
 

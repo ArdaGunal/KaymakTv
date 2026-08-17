@@ -27,14 +27,52 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     comments: []
   });
   const [isLoading, setIsLoading] = useState(true);
+  // Yorumlar AYRI bir yükleme durumu taşır — bkz. aşağıdaki S12 notu. Ekranın
+  // geri kalanı açıldıktan sonra Trakt bloğu kendi spinner'ıyla gelebilsin diye.
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     if (!traktIdNum) return;
 
+    /**
+     * ⚠️ S12 — YORUMLAR EKRANI BLOKLAMAZ.
+     *
+     * ESKİ DAVRANIŞ (hata): `getMediaComments`, önbellek-ıska yolundaki
+     * `Promise.allSettled([summary, seasons, related, comments])` batch'inin
+     * İÇİNDEYDİ. `allSettled` HEPSİNİN bitmesini beklediği için, Trakt'ın
+     * yorum uç noktası yavaşladığında dizinin ÖZETİ, SEZONLARI ve tüm ekran
+     * onu bekliyordu — kendi Supabase verimiz hazır olsa bile.
+     *
+     * Önbellek-İSABET yolu bunu zaten doğru yapıyordu (fire-and-forget); iki
+     * yol arasındaki bu tutarsızlık düzeltildi. Artık yorumlar HER İKİ yolda da
+     * bağımsız yükleniyor ve istek en başta, önbellek okumasıyla PARALEL
+     * başlıyor.
+     *
+     * Trakt tamamen çökerse: `catch` boş listeye düşer, ekran açık kalır
+     * (bkz. docs/REVIEWS_PLAN.md §4.1).
+     */
+    const loadCommentsInBackground = () => {
+      setIsLoadingComments(true);
+      getMediaComments(traktIdNum, 'show')
+        .then((commRes) => {
+          if (isMounted) setMediaData(prev => ({ ...prev, comments: commRes?.data || [] }));
+        })
+        .catch(() => {
+          // Sessizce boş liste — Trakt bloğu gizlenir, sayfa çalışmaya devam
+          // eder (kullanıcı kararı: "Trakt bloğu yoksa sessizce gizlensin").
+          if (isMounted) setMediaData(prev => ({ ...prev, comments: [] }));
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingComments(false);
+        });
+    };
+
     const loadData = async () => {
       setIsLoading(true);
+      // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
+      loadCommentsInBackground();
       const cacheKey = `@show_detail_v3_${traktIdNum}`;
       
       let cachedContent = await cacheManager.get<any>(cacheKey);
@@ -63,17 +101,16 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
           ? getTmdbCast(knownTmdbId, 'tv').catch(() => [])
           : null;
 
+        // Yorumlar bu batch'te DEĞİL — bilinçli (S12, yukarıdaki not).
         const results = await Promise.allSettled([
           getShowSummary(traktIdNum),
           getShowSeasons(traktIdNum),
-          getRelatedShows(traktIdNum),
-          getMediaComments(traktIdNum, 'show')
+          getRelatedShows(traktIdNum)
         ]);
 
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         seasons = results[1].status === 'fulfilled' ? results[1].value : [];
         related = results[2].status === 'fulfilled' ? results[2].value : [];
-        const comments = results[3].status === 'fulfilled' ? results[3].value?.data || [] : [];
 
         if (eagerCastPromise) {
           cast = await eagerCastPromise;
@@ -116,20 +153,18 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         cacheManager.set(cacheKey, { summary, seasons: slimSeasons, cast: slimCast, related: slimRelated });
 
         if (isMounted) {
-          setMediaData({ summary, seasons: slimSeasons, cast: slimCast, related: slimRelated, comments });
+          // ⚠️ FONKSİYONEL GÜNCELLEME ŞART: yorumlar artık PARALEL yükleniyor ve
+          // bu satırdan ÖNCE gelmiş olabilir. Nesneyi komple değiştirmek
+          // (`setMediaData({...})`) o sırada gelmiş yorumları SİLERDİ — yarış
+          // durumu. `prev` üzerinden yazınca yorumlar korunur.
+          setMediaData(prev => ({ ...prev, summary, seasons: slimSeasons, cast: slimCast, related: slimRelated }));
         }
       } else {
-        // CACHE HIT: sayfa anında açılır. Yorumlar önbelleğe alınmadığı için
-        // her zaman tazelenir ama artık ekranı BEKLETMİYOR (fire-and-forget) —
-        // eskiden isLoading, yorumlar bitene kadar true kalıyordu.
+        // CACHE HIT: sayfa anında açılır. Yorumlar zaten yukarıda,
+        // `loadCommentsInBackground` ile paralel başlatıldı.
         if (isMounted) {
           setMediaData(prev => ({ ...prev, summary, seasons, cast, related }));
         }
-        getMediaComments(traktIdNum, 'show').then((commRes) => {
-          if (isMounted && commRes?.data) {
-            setMediaData(prev => ({ ...prev, comments: commRes.data }));
-          }
-        }).catch(() => {});
       }
 
       if (isMounted) setIsLoading(false);
@@ -177,25 +212,25 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     });
   }, [mediaData.seasons, showProgress]);
 
-  const refreshComments = async () => {
-    try {
-      const commRes = await getMediaComments(traktIdNum, 'show');
-      setMediaData(prev => ({ ...prev, comments: commRes?.data || [] }));
-    } catch (e) {}
-  };
 
   return {
     mediaData,
     computedSeasons,
     isLoading,
+    isLoadingComments,
     // ESKİ DAVRANIŞ: yalnızca refreshTrigger'ı artırıyordu — loadData() diskteki
     // önbelleği (TTL dolmadıysa) hâlâ HIT sayıp aynı bayat veriyi döndürüyordu,
     // yani bu bir no-op'tu. Artık önce disk önbelleği açıkça temizleniyor,
     // böylece bir sonraki loadData() gerçek bir ağ isteği atmak zorunda kalıyor.
+    // NOT: Ayrı bir `refreshComments` YOK. S12'den beri yorumlar her effect
+    // çalışmasında `loadCommentsInBackground` ile zaten tazeleniyor, yani
+    // `refreshData` onları da kapsıyor. (Eski `refreshComments`'ın tek
+    // tüketicisi `MediaReviewsSection.onPublished`'di — inceleme Trakt'a DA
+    // yazıldığı dönemde Trakt listesi bayatladığı için gerekiyordu; v2'de
+    // Trakt'a yazmadığımız için o gerekçe düştü.)
     refreshData: async () => {
       await invalidateShowDetailCache(traktIdNum);
       setRefreshTrigger(prev => prev + 1);
     },
-    refreshComments
   };
 };

@@ -19,6 +19,9 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
   }>({ backdrop: null, poster: null, trailerId: null });
 
   const [isLoading, setIsLoading] = useState(true);
+  // Yorumlar AYRI bir yükleme durumu taşır (S12) — ekranın geri kalanı
+  // açıldıktan sonra Trakt bloğu kendi spinner'ıyla gelebilsin diye.
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
 
   const tmdbIdNum = tmdbIdStr ? parseInt(tmdbIdStr as string, 10) : null;
   const safeTmdbId = tmdbIdNum && !isNaN(tmdbIdNum) ? tmdbIdNum : null;
@@ -39,15 +42,37 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
       }).catch(() => {});
     };
 
-    // Yorumlar da bloklamaz (önbelleğe alınmadıkları için her açılışta tazelenir).
+    /**
+     * ⚠️ S12 — YORUMLAR EKRANI BLOKLAMAZ.
+     *
+     * Bu yardımcı ZATEN vardı ama YALNIZCA önbellek-isabet yolunda
+     * kullanılıyordu; önbellek-ıska yolu `getMediaComments`'i bloklayan
+     * `Promise.allSettled` batch'inin içinde tekrar çağırıyordu. Yani ilk kez
+     * açılan bir film sayfası, Trakt'ın yorum ucu yavaşladığında ÖZET ve
+     * BENZER FİLMLERLE birlikte tümden bekliyordu.
+     *
+     * Artık her iki yol da bu tek yardımcıyı kullanıyor (aynı mantığın iki
+     * kopyası da böylece kalktı — bkz. docs/AI_RULES.md §2.5).
+     */
     const fetchCommentsInBackground = () => {
-      getMediaComments(traktIdNum, 'movie').then((commRes) => {
-        if (alive()) setMediaData(prev => ({ ...prev, comments: commRes.data || [] }));
-      }).catch(() => {});
+      setIsLoadingComments(true);
+      getMediaComments(traktIdNum, 'movie')
+        .then((commRes) => {
+          if (alive()) setMediaData(prev => ({ ...prev, comments: commRes.data || [] }));
+        })
+        .catch(() => {
+          // Sessizce boş liste — Trakt bloğu gizlenir, sayfa çalışır.
+          if (alive()) setMediaData(prev => ({ ...prev, comments: [] }));
+        })
+        .finally(() => {
+          if (alive()) setIsLoadingComments(false);
+        });
     };
 
     try {
       setIsLoading(true);
+      // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
+      fetchCommentsInBackground();
 
       const cacheKey = `@movie_detail_v4_cache_${traktIdNum}`;
       const cached = await AsyncStorage.getItem(cacheKey);
@@ -64,8 +89,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
       }
 
       if (summary) {
-        // CACHE HIT: sayfa anında açılır; yorumlar arka planda gelir.
-        fetchCommentsInBackground();
+        // CACHE HIT: sayfa anında açılır; yorumlar zaten yukarıda başlatıldı.
       } else {
         // CACHE MISS: tmdbId genelde URL'den (liste kartından) zaten biliniyor —
         // eskiden cast isteği Trakt verisi bittikten SONRA atılıyordu (fazladan
@@ -75,17 +99,14 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
           ? getTmdbCast(safeTmdbId, 'movie').catch(() => [])
           : null;
 
+        // Yorumlar bu batch'te DEĞİL — bilinçli (S12, yukarıdaki not).
         const results = await Promise.allSettled([
           getMovieSummary(traktIdNum),
-          getRelatedMovies(traktIdNum),
-          getMediaComments(traktIdNum, 'movie')
+          getRelatedMovies(traktIdNum)
         ]);
 
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         related = results[1].status === 'fulfilled' ? results[1].value : [];
-        const comments = results[2].status === 'fulfilled' ? results[2].value?.data || [] : [];
-
-        if (alive()) setMediaData(prev => ({ ...prev, comments }));
 
         if (eagerCastPromise) {
           cast = await eagerCastPromise;
@@ -173,12 +194,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
     fetchDetails();
   };
 
-  const refreshComments = async () => {
-    try {
-      const commRes = await getMediaComments(traktIdNum, 'movie');
-      setMediaData(prev => ({ ...prev, comments: commRes.data || [] }));
-    } catch(e) {}
-  };
 
-  return { mediaData, images, isLoading, refreshData, refreshComments };
+  // Ayrı bir `refreshComments` YOK — bkz. useShowDetail.ts'teki aynı not.
+  return { mediaData, images, isLoading, isLoadingComments, refreshData };
 }

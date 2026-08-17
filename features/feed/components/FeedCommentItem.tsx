@@ -38,7 +38,7 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
         </View>
 
         {revealed ? (
-          <Text style={styles.text}>{comment.body}</Text>
+          <Text style={styles.text} selectable>{comment.body}</Text>
         ) : (
           <TouchableOpacity activeOpacity={0.7} onPress={() => setRevealed(true)} style={styles.spoilerWrap}>
             <EyeOff size={11} color="#64748b" />

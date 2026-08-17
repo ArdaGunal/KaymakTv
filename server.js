@@ -30,7 +30,18 @@ if (missingEnvVars.length > 0) {
 // ==========================================
 app.get('/api/tmdb', async (req, res) => {
   try {
-    const tmdbApiKey = process.env.TMDB_API_KEY || process.env.EXPO_PUBLIC_TMDB_API_KEY;
+    // ⚠️ `EXPO_PUBLIC_TMDB_API_KEY` FALLBACK'İ BİLİNÇLİ OLARAK KALDIRILDI.
+    //
+    // Expo'da `EXPO_PUBLIC_` önekli HER değişken build zamanında istemci
+    // bundle'ına GÖMÜLÜR (bkz. docs/AI_RULES.md §2) — yani o adla tanımlanmış
+    // bir TMDB anahtarı, uygulamayı indiren herkes tarafından okunabilir olurdu.
+    // Fallback bir sızıntı DEĞİLDİ ama birinin `.env`'e o adı yazmasını DAVET
+    // ediyordu; ilk yanlış tanımda sessizce sızardı.
+    //
+    // Trakt için aynı fallback `ARCHITECTURE.md` §4'te zaten kaldırılmıştı
+    // (Madde 25); TMDB'de gözden kaçmıştı. Anahtar YALNIZCA öneksiz
+    // `TMDB_API_KEY` ile, yalnızca sunucuda okunur.
+    const tmdbApiKey = process.env.TMDB_API_KEY;
     if (!tmdbApiKey) {
       return res.status(500).json({ error: 'Server configuration error (missing TMDB_API_KEY)' });
     }

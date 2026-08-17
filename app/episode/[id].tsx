@@ -12,8 +12,8 @@ import { useEpisodeDetail } from '../../hooks/useEpisodeDetail';
 import { formatRating } from '../../utils/formatRating';
 import RatingModal from '../../components/RatingModal';
 import CommentSheet from '../../components/CommentSheet';
-import WriteCommentSheet from '../../components/WriteCommentSheet';
-import MyInlineComment from '../../components/MyInlineComment';
+import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
+import { formatEpisodeCode } from '../../features/feed/services/feedPublish';
 import MediaCast from '../../components/MediaCast';
 import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
@@ -46,7 +46,8 @@ export default function EpisodeDetailScreen() {
   } = useLibrary();
   const { isGuest } = useAuth();
   const { t } = useTranslation('media');
-  const { mediaData, isLoading, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
+  // bkz. app/show/[id].tsx'teki aynı not — `refreshData` şu an tüketilmiyor.
+  const { mediaData, isLoading, isLoadingComments } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
   const stillUrl = mediaData.stillUrl;
@@ -59,9 +60,7 @@ export default function EpisodeDetailScreen() {
 
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
-  const [writeCommentVisible, setWriteCommentVisible] = useState(false);
-  // Yorum yazma/silme sonrası MyInlineComment'in kendini tazelemesi için sayaç
-  const [commentVersion, setCommentVersion] = useState(0);
+
   const [isCheckLoading, setIsCheckLoading] = useState(false);
 
   const handleBack = () => {
@@ -363,54 +362,24 @@ export default function EpisodeDetailScreen() {
             <MediaCast cast={epCast} onActorPress={voteActor} />
           )}
 
-          {commentsData && commentsData.length > 0 && (() => {
-            const nonSpoilerComments = commentsData.filter((c: any) => !c.spoiler);
-            const teaserComments = nonSpoilerComments.slice(0, 2);
-
-            return (
-              <View style={styles.section}>
-                <MyInlineComment
-                  mediaId={showId as number}
-                  mediaType="episode"
-                  episodeTraktId={episodeData?.ids?.trakt}
-                  onPressWrite={() => setWriteCommentVisible(true)}
-                  refreshTrigger={commentVersion}
-                  onDeleteSuccess={() => { setCommentVersion(v => v + 1); refreshData(); }}
-                />
-
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-                  <Text style={styles.sectionTitle}>{t('comments')}</Text>
-                  {commentsData.length > 0 && (
-                    <TouchableOpacity onPress={() => setCommentSheetVisible(true)}>
-                      <Text style={{color: '#3b82f6', fontSize: 12, fontWeight: 'bold'}}>{t('seeAllCount', { count: commentsData.length })}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {teaserComments.length > 0 ? (
-                  teaserComments.map((c: any) => (
-                    <View key={c.id} style={styles.commentBox}>
-                      <View style={styles.commentHeader}>
-                        <Text style={styles.commentUser}>{c.user?.username || 'Kullanıcı'}</Text>
-                        <Text style={styles.commentLikes}>♥ {c.likes || 0}</Text>
-                      </View>
-                      <Text style={styles.commentText} numberOfLines={3}>{c.comment}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.commentBox}>
-                    <Text style={[styles.commentText, {fontStyle: 'italic', color: '#737373'}]}>{t('allSpoilers')}</Text>
-                  </View>
-                )}
-
-                {commentsData.length > teaserComments.length && (
-                  <TouchableOpacity style={{ marginTop: 8, paddingVertical: 12, backgroundColor: '#172033', borderRadius: 8, alignItems: 'center' }} onPress={() => setCommentSheetVisible(true)}>
-                    <Text style={{ color: '#e5e5e5', fontWeight: 'bold' }}>{t('seeMore')}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })()}
+          {/* ── Yorumlar: tek akış, iki blok ────────────────────────────
+              Dizi/film sayfalarıyla AYNI bileşen. Tek farkı `episodeNumber`:
+              yazılan inceleme BU BÖLÜME bağlanıyor ve `in_feed` türetilmiş
+              kolonu (020) sayesinde ANA AKIŞA DÜŞMÜYOR — kullanıcı kararı:
+              bir sezonu maratonlayan kişi akışı 20 inceleme kartıyla
+              doldurmasın (bkz. docs/REVIEWS_PLAN.md §8). */}
+          <View style={styles.section}>
+            <MediaCommentsSection
+              mediaId={showId as number}
+              mediaType="show"
+              mediaTitle={`${showName} ${formatEpisodeCode(Number(season), Number(episode))}`}
+              tmdbId={Number(showTmdbId) || undefined}
+              episodeNumber={formatEpisodeCode(Number(season), Number(episode))}
+              traktComments={commentsData}
+              isLoadingTraktComments={isLoadingComments}
+              onSeeAllTrakt={() => setCommentSheetVisible(true)}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -432,17 +401,6 @@ export default function EpisodeDetailScreen() {
         episode={episode}
       />
 
-      <WriteCommentSheet
-        visible={writeCommentVisible}
-        onClose={() => setWriteCommentVisible(false)}
-        mediaId={showId as number}
-        mediaType="episode"
-        episodeTraktId={episodeData?.ids?.trakt}
-        onSuccess={() => {
-          setCommentVersion(v => v + 1);
-          refreshData();
-        }}
-      />
 
     </View>
   );

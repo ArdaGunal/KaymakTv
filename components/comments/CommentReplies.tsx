@@ -1,18 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { CornerDownRight, Send, MessageCircle, ChevronUp } from 'lucide-react-native';
-import { getCommentReplies, addCommentReply } from '../../services/traktApi';
-import { useAuth } from '../../context/AuthContext';
-import { notify } from '../../utils/confirmDialog';
-import { validateComment, MAX_COMMENT_CHARS, MIN_COMMENT_WORDS } from '../../utils/commentValidation';
+import { CornerDownRight, MessageCircle, ChevronUp } from 'lucide-react-native';
+import { getCommentReplies } from '../../services/traktApi';
 
 interface CommentRepliesProps {
   commentId: number;
@@ -20,23 +16,28 @@ interface CommentRepliesProps {
 }
 
 /**
- * Bir yorumun altındaki cevaplar bölümü: tıklayınca cevapları yükler,
- * altındaki inline kutudan yeni cevap yazılabilir. Cevap sayısı 0 olsa da
- * "Cevapla" ile açılabilir. Doğrulama kuralı `utils/commentValidation.ts`'te
- * (Trakt cevaplara da yorumlarla aynı "en az 5 kelime" kuralını uygular).
+ * Bir Trakt yorumunun altındaki cevaplar — **SALT OKUNUR**.
+ *
+ * ⚠️ v2 DEĞİŞİKLİĞİ: Burada eskiden bir cevap YAZMA kutusu vardı
+ * (`addCommentReply` → Trakt'a POST). Trakt'a yazmayı tamamen bıraktığımız
+ * için (bkz. docs/REVIEWS_PLAN.md v2) o kısım kaldırıldı; cevaplar yalnızca
+ * GÖRÜNTÜLENİYOR.
+ *
+ * Kullanıcı kararı (Karar 9): "CommentReplies kalsın, Trakt yanıtları salt
+ * okunur olarak görünebilsin" — bir Trakt yorumuna dokununca cevaplarını
+ * görebilmek değer katıyor, yazma kutusu ise artık gidecek bir yer olmadığı
+ * için yanıltıcı olurdu.
+ *
+ * KaymakTV incelemelerine yazılan yanıtlar BAŞKA bir yerde yaşıyor:
+ * `comments` tablosu + `features/feed/hooks/useFeedComments.ts`.
  */
 export default function CommentReplies({ commentId, initialCount }: CommentRepliesProps) {
   const { t } = useTranslation(['common', 'media']);
-  const { isGuest } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [replies, setReplies] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [sending, setSending] = useState(false);
-  const [localCount, setLocalCount] = useState(initialCount);
-
-  const validation = useMemo(() => validateComment(replyText), [replyText]);
-  const canSend = validation.isValid && !sending;
+  // `initialCount` artık DEĞİŞMİYOR (cevap eklenmiyor) — bu yüzden yerel bir
+  // sayaç state'i yok, prop doğrudan okunuyor.
 
   const toggleExpanded = async () => {
     if (expanded) {
@@ -44,7 +45,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
       return;
     }
     setExpanded(true);
-    if (replies === null && localCount > 0) {
+    if (replies === null && initialCount > 0) {
       setLoading(true);
       try {
         const data = await getCommentReplies(commentId);
@@ -59,32 +60,6 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
     }
   };
 
-  const handleSendReply = async () => {
-    if (isGuest) {
-      // `Alert.alert` react-native-web'de no-op — web'de bu uyarılar SESSİZCE
-      // hiç görünmüyordu. `notify` web'de `window.alert`e düşer.
-      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-    // Buton zaten pasif — son savunma katmanı.
-    if (!canSend) return;
-
-    setSending(true);
-    try {
-      const newReply = await addCommentReply(commentId, replyText.trim());
-      setReplies(prev => [...(prev || []), newReply]);
-      setLocalCount(c => c + 1);
-      setReplyText('');
-    } catch (e: any) {
-      console.error('[CommentReplies] handleSendReply:', e?.response?.data ?? e);
-      const msg = e?.response?.status === 422
-        ? t('media:commentRejectedError')
-        : t('common:replyError');
-      notify(t('common:error'), msg);
-    } finally {
-      setSending(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -102,9 +77,7 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
         <Text style={[styles.toggleText, expanded && styles.toggleTextMuted]}>
           {expanded
             ? t('media:hideReplies')
-            : localCount > 0
-              ? t('common:viewReplies', { count: localCount })
-              : t('media:reply')}
+            : t('common:viewReplies', { count: initialCount })}
         </Text>
       </TouchableOpacity>
 
@@ -115,50 +88,19 @@ export default function CommentReplies({ commentId, initialCount }: CommentRepli
               <ActivityIndicator size="small" />
             </View>
           ) : (
-            (replies || []).map((r: any, idx: number) => (
+            (replies || []).length === 0 ? (
+              <Text style={styles.guestNote}>{t('media:noRepliesYet', 'Henüz cevap yok.')}</Text>
+            ) : (replies || []).map((r: any, idx: number) => (
               <View key={r.id ?? idx} style={styles.replyRow}>
                 <CornerDownRight size={13} color="#334155" style={styles.replyIcon} />
                 <View style={styles.replyBody}>
                   <Text style={styles.replyUser}>{r.user?.username || r.user?.name || 'Anonim'}</Text>
-                  <Text style={styles.replyText}>{r.comment}</Text>
+                  <Text style={styles.replyText} selectable>{r.comment}</Text>
                 </View>
               </View>
             ))
           )}
 
-          {/* Cevap yazma kutusu */}
-          {!isGuest ? (
-            <>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.input}
-                  placeholder={t('media:replyPlaceholder', { min: MIN_COMMENT_WORDS })}
-                  placeholderTextColor="#475569"
-                  value={replyText}
-                  onChangeText={setReplyText}
-                  multiline
-                  maxLength={MAX_COMMENT_CHARS}
-                />
-                <TouchableOpacity
-                  style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
-                  onPress={handleSendReply}
-                  disabled={!canSend}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  {sending ? <ActivityIndicator size="small" /> : <Send size={16} color={canSend ? '#3b82f6' : '#475569'} />}
-                </TouchableOpacity>
-              </View>
-              {/* Yalnızca yazmaya başlayınca göster — boş kutunun altında
-                  sürekli kırmızı uyarı durmasın. */}
-              {validation.reason !== null && validation.reason !== 'empty' && (
-                <Text style={styles.replyHint}>
-                  {t('media:commentHintTooFewWords', { count: validation.wordCount, min: MIN_COMMENT_WORDS })}
-                </Text>
-              )}
-            </>
-          ) : (
-            <Text style={styles.guestNote}>{t('common:loginToReply')}</Text>
-          )}
         </View>
       )}
     </View>
