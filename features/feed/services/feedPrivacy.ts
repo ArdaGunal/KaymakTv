@@ -6,27 +6,43 @@ import { supabase } from './supabaseClient';
 // RLS SELECT, salt okunur, kimlik doğrulama gerekmiyor); yazma Worker
 // üzerinden (kimlik doğrulamalı, /feed/privacy).
 //
-// NOT: Bilinçli olarak yalnızca İKİ alan — ayrı bir "her şeyi gizle" sütunu
-// yok. "Her Şeyi Gizle" UI'da bu ikisinden TÜRETİLİR (bkz. useFeedPrivacy.ts)
-// — üçüncü bir DB bayrağı, ikisiyle senkron dışı kalıp çelişkili bir duruma
-// (ör. "gizle" açık ama "izlediklerimi paylaş" da açık) yol açabilirdi.
+// NOT: ÜÇ alan var, ayrı bir "her şeyi gizle" sütunu YOK. "Her Şeyi Gizle"
+// UI'da bu üçünden TÜRETİLİR (bkz. useFeedPrivacy.ts) — ayrı bir DB bayrağı,
+// diğerleriyle senkron dışı kalıp çelişkili bir duruma (ör. "gizle" açık ama
+// "izlediklerimi paylaş" da açık) yol açardı. Bu, `008_drop_feed_hidden.sql`
+// ile alınan kararın aynısıdır ve korunuyor.
+//
+// Üçü AYRIK kümeleri yönetir — hiçbiri diğerinin gerçeğini tutmaz:
+//   publishWatches → watched_episode, watched_movie   (kapatılınca SİLİNİR)
+//   publishRatings → rated                            (kapatılınca SİLİNİR)
+//   publishManual  → reviewed, posted                 (kapatılınca GİZLENİR)
+//
+// Üçüncüsünün silme YERİNE gizleme olmasının gerekçesi: elle yazılan içerik
+// hiçbir yerden yeniden üretilemez (Madde 165). Ayrıntı ve mekanizma:
+// docs/FEED_VISIBILITY_PLAN.md.
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 
 export interface FeedPrivacySettings {
   publishWatches: boolean;
   publishRatings: boolean;
+  /** İnceleme ve gönderiler akışta görünsün mü (021). */
+  publishManual: boolean;
 }
 
 export async function getFeedPrivacySettings(traktSlug: string): Promise<FeedPrivacySettings> {
   const { data, error } = await supabase
     .from('users')
-    .select('publish_watches, publish_ratings')
+    .select('publish_watches, publish_ratings, publish_manual')
     .eq('trakt_slug', traktSlug)
     .maybeSingle();
   if (error) throw error;
   return {
+    // `?? true`: kolon henüz yoksa (021 çalıştırılmadıysa) veya satır
+    // okunamadıysa GÖRÜNÜR varsay — bir kullanıcının içeriğini, ayarını hiç
+    // vermediği hâlde gizlemek yanlış olurdu.
     publishWatches: data?.publish_watches ?? true,
     publishRatings: data?.publish_ratings ?? true,
+    publishManual: data?.publish_manual ?? true,
   };
 }
 

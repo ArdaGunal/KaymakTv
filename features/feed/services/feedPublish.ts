@@ -239,17 +239,33 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
   const token = await SecureStore.getItemAsync('traktAccessToken');
   if (!token) return { ok: false, message: 'Oturum bulunamadı.' };
 
+  // ⚠️ `me` YOKLUĞU ARTIK YAYINI ENGELLEMEZ (F4-T9'da bulundu, 2026-08-17).
+  //
+  // ESKİ DAVRANIŞ: `if (!me) return { ok: false, message: 'Kimliğin
+  // doğrulanamadı, tekrar dene.' }`. Sorun şuydu: `resolveMe()` İKİ AĞ ÇAĞRISI
+  // yapıyor (`getMyTraktSlug` + `getUserProfile`). Bağlantı yokken ikisi de
+  // düşüyor, fonksiyon null dönüyor ve kullanıcı "Kimliğin doğrulanamadı"
+  // görüyordu. Görünür geri bildirim VARDI ama YANLIŞ TEŞHİS koyuyordu —
+  // sorun kimlikte değil ağdaydı; kullanıcı hesabının bozulduğunu sanıyor,
+  // tekrar denemek yerine oturumunu kurcalıyordu.
+  //
+  // Kimliği zaten Worker token'dan çözüyor (`verifyAndUpsertUser`); `me`
+  // BURADA yalnızca iyimser kartı çizmek için. Çizilemiyorsa kart atlanır,
+  // gönderi yine de gönderilir ve gerçek hata kendi DOĞRU mesajıyla
+  // aşağıdaki catch'ten döner ("Network Error" vb.).
+  //
+  // Yan fayda: geçici bir Trakt kesintisinde (ağ varken profil ucu düşerse)
+  // kullanıcı artık gönderisini kaybetmiyor — eskiden bu da bloke ediyordu.
   const me = await resolveMe();
-  if (!me) return { ok: false, message: 'Kimliğin doğrulanamadı, tekrar dene.' };
 
   // Yalnızca YEREL, geçici karta damga basmak için — 'posted' Trakt'la hiç
   // senkronize olmadığından (bkz. Worker handleFeedPost) sunucunun kendi
   // ürettiği damgayla piksel hassasiyetinde eşleşmesi gerekmiyor; Realtime/
   // yenileme geldiğinde gerçek satır bunun yerini alır.
   const activityAt = nowStamp();
-  const optimistic = toOptimisticPost(input, me, activityAt);
   const store = useFeedStore.getState();
-  store.upsertActivity(optimistic, false);
+  const optimistic = me ? toOptimisticPost(input, me, activityAt) : null;
+  if (optimistic) store.upsertActivity(optimistic, false);
 
   const start = Date.now();
   try {
@@ -272,12 +288,13 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
     }
 
     invalidateFeedCache();
-    invalidateUserFeedActivitiesCache(me.traktSlug);
+    // `me` çözülemediyse profil önbelleği atlanır — kendi TTL'iyle tazelenir.
+    if (me) invalidateUserFeedActivitiesCache(me.traktSlug);
     recordMutationResult('publishPost', true);
     return { ok: true };
   } catch (error: any) {
     // Yayınlanmamış bir şeyi ekranda bırakmak kullanıcıya YALAN olurdu.
-    store.removeActivity(optimistic.id);
+    if (optimistic) store.removeActivity(optimistic.id);
     recordMutationResult('publishPost', false);
     logError('feedPublish.publishPost', error);
     console.warn('[Feed] Gönderi paylaşılamadı:', error);

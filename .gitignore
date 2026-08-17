@@ -78,6 +78,21 @@ firebase.json
 !docs/HISTORY.md
 !docs/ARCHITECTURE.md
 !docs/AI_RULES.md
+# Planlama ve tasarım kayıtları (2026-08-17'de eklendi).
+# NEDEN: yukarıdaki `*.md` kuralı bunları git DIŞINDA bırakıyordu. En kritiği
+# MASTER_PLAN.md — oturumlar arası devir belgesi ve AGENTS.md yeni bir oturuma
+# oradan başlamayı şart koşuyor. Git'te olmaması, tek bir disk hatasının tüm
+# planlama geçmişini silmesi demekti.
+!docs/MASTER_PLAN.md
+!docs/REVIEWS_PLAN.md
+!docs/FEED_SOCIAL_PLAN.md
+!docs/notifications.md
+!docs/F4_TEST_PROTOCOL.md
+!docs/FEED_VISIBILITY_PLAN.md
+# NOT: docs/{feed,ui,PROJECT_VISION,TODO,README}.md bu listede YOK ama yine de
+# takip ediliyor — `*.md` kuralı eklenmeden ÖNCE commit edilmişlerdi (git zaten
+# takip ettiği dosyayı ignore etmez). Biri silinip yeniden oluşturulursa
+# sessizce git dışında kalır; o gün buraya da eklenmeli.
 
 # IDEs and AI tools
 .vscode/

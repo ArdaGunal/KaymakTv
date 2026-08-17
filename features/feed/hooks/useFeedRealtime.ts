@@ -69,6 +69,14 @@ export function useFeedRealtime(enabled: boolean): void {
             // hata — bkz. docs/FEED_SOCIAL_PLAN.md §4.3, 4. madde).
             // `REPLICA IDENTITY FULL` (013) sayesinde payload TAM satırı
             // taşıyor, `in_feed` de dahil.
+            //
+            // ⚠️ Bu yalnızca UCUZ BİR ÖN ELEME — asıl kilit değil. Bilinçli
+            // olarak `=== false` (fail-open): alan bir gün yükte hiç gelmezse
+            // `!== true` yazmak TÜM canlı akışı sessizce öldürürdü, ki bu
+            // gizli bir kartın görünmesinden daha kötü bir başarısızlık modu.
+            // Kesin kilit sunucuda: `fetchActivityById` de `in_feed=true`
+            // filtresi uyguluyor, dolayısıyla yük bozuk gelse bile gizli satır
+            // `null` döner ve aşağıda elenir.
             if (row.in_feed === false) return;
 
             // Realtime yükü YALNIZCA `feed_activities` satırını taşır —
@@ -114,6 +122,28 @@ export function useFeedRealtime(enabled: boolean): void {
             const row: any = payload.new;
             if (!row?.id || !row?.user_id) return;
             if (!visibleIdsRef.current.has(row.user_id)) return;
+
+            // 🔴 GÖRÜNÜRLÜK ARTIK UPDATE İLE DEĞİŞEBİLİR (021).
+            // `in_feed` eskiden yalnızca satırın KENDİ alanlarından
+            // hesaplanıyordu (activity_type + episode_number), yani bir satır
+            // ömrü boyunca aynı görünürlükte kalıyordu ve burada kontrol
+            // etmeye gerek yoktu. 021'den sonra yazarın `publish_manual`
+            // ayarı da ifadeye girdi: kullanıcı "incelemelerimi gizle"ye
+            // bastığında trigger satırları güncelliyor ve bu buraya UPDATE
+            // olarak düşüyor.
+            //
+            // Kartı GÜNCELLEMEK yetmez, LİSTEDEN DÜŞÜRMEK gerekir — aksi
+            // halde "gizle"ye basan kullanıcının kartı ekranda kalmaya devam
+            // eder (F4-T12'de aynı sınıf hatanın önbellek tarafı bulunmuştu).
+            if (row.in_feed === false) {
+              useFeedStore.getState().removeActivity(row.id);
+              return;
+            }
+            // NOT: ters yön (gizli → görünür) burada ele ALINMIYOR. Kart
+            // listede olmadığı için `patchActivity` zaten no-op olur ve onu
+            // eklemek her UPDATE'te (beğeni/yorum sayacı dahil) bir
+            // `fetchActivityById` isteği demek olurdu. Ayar geri açıldığında
+            // kartlar bir sonraki akış yüklemesinde gelir.
 
             useFeedStore.getState().patchActivity(row.id, {
               likeCount: row.like_count ?? 0,

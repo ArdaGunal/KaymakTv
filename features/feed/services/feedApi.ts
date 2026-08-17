@@ -330,13 +330,35 @@ export async function getVisibleUserIds(force = false): Promise<Set<string>> {
 
 /**
  * Tek bir aktiviteyi kullanıcı bilgisiyle birlikte çeker.
- * Realtime yükü `users` join'ini içermediği için (kart çizmek adı/avatarı
- * gerektirir) yeni satır geldiğinde bu tek sorgu atılır — yalnızca takip
- * ettiğim biri bir şey yaptığında, yani nadiren.
+ *
+ * İKİ tüketicisi var ve ikisi de akış görünürlüğüne tabidir:
+ *  1. Realtime INSERT işleyicisi — yük `users` join'ini içermediği için
+ *     (kart çizmek adı/avatarı gerektirir) satır burada tamamlanır.
+ *  2. `/activity/{id}` KALICI BAĞLANTISI (`app/activity/[id].tsx`) — kart
+ *     paylaşıldığında açılan sayfa.
+ *
+ * 🔴 BURADA `in_feed` FİLTRESİ ŞART (2026-08-17'de eklendi).
+ * Eskiden bu sorgu HİÇBİR filtre uygulamıyordu ve bu, akışın görünürlük
+ * sözleşmesinde gerçek bir delikti:
+ *  - `020`'den beri bölüm incelemeleri akışa düşmüyor, ama id'sini bilen
+ *    biri bu yoldan tam kartı açabiliyordu;
+ *  - `021` ile gelen "elle yazılan içeriği gizle" ayarı da aynı yoldan
+ *    delinirdi.
+ * `app/activity/[id].tsx` `(protected)` grubunun DIŞINDA olduğu için bu yol
+ * oturum bile gerektirmiyor — filtrenin en çok gerektiği yer tam olarak burası.
+ *
+ * Yan fayda: Realtime INSERT işleyicisi için ikinci bir kilit. Oradaki
+ * `in_feed` ön elemesi WebSocket yüküne güveniyor; bu sorgu ise SUNUCUDA
+ * doğruluyor — yük eksik/bozuk gelse bile gizli bir kart listeye giremez.
  */
 export async function fetchActivityById(id: string): Promise<FeedActivity | null> {
   const { data, error } = await timeSupabaseCall('supabase.feed_activities.byId', () =>
-    supabase.from('feed_activities').select(ACTIVITY_COLUMNS).eq('id', id).maybeSingle()
+    supabase
+      .from('feed_activities')
+      .select(ACTIVITY_COLUMNS)
+      .eq('id', id)
+      .eq('in_feed', true)
+      .maybeSingle()
   );
   if (error) throw error;
   return data ? mapRow(data as unknown as FeedActivityRow) : null;

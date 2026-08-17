@@ -3730,3 +3730,231 @@ F4 (uçtan uca cihaz testi) yapılmadan build dağıtılmamalı. Sebep artık "k
 
 ### Açık kalan maddeler
 `MASTER_PLAN` → "AÇIK MADDELER" (S5, S9-S11, S14-S16) ve "SONRADAN BULUNANLAR" (Y4, Y5). En kritik ikisi: **S9/S14** (Google girişi hiçbir şey yazamaz + hesap birleştirme köprüsü yok) ve **S15** (moderasyonda UNIQUE yok → tek kişi 5 raporla sansürleyebilir).
+
+---
+
+## 181. Kol A Commit Edildi · F4 Test Protokolü · F5 — Planın Bayat Çıktığı Faz
+
+**Bağlam:** Madde 180'in devir notuyla açılan oturum. İlk iş commit, sonra F4/F5.
+
+### ✅ Kol A tek commit'te kayıt altına alındı — `93aa678`
+Madde 165-179'un tamamı (46 dosya, +1375/−1316). **Tek commit tercih edildi**, mantıksal parçalara bölünmedi: Madde 165-179 birbirine bağlı ilerlediği için ara noktalarda `tsc`'nin temiz olduğu garanti değildi (ör. K1 öncesi hâlâ silinmiş dosyalara referans vardı). Amaç okunur bir git geçmişi değil, **kesin çalışan bir geri dönüş noktası**ydı.
+
+Commit öncesi üç doğrulama da tekrar çalıştırıldı (`tsc --noUnusedLocals --noUnusedParameters`, Worker `node --check`, `server.js node --check`) — üçü de temiz. Stage edilen 46 dosya tek tek gözden geçirildi; `.env`/`dist`/sır dosyası yok. **Push YAPILMADI** (istenmedi) — `origin` hâlâ `368b127`'de.
+
+> **Otopsi doğrulaması:** `git status`'ta HISTORY'de kaydı olmayan gibi görünen 5 silme vardı (`features/notifications/{types,hooks/useNotifications,services/expoPush,services/webPush,services/notificationApi}`). Kör commit atmak yerine arandı ve **Madde 165'te otopsili olarak kayıtlı** oldukları görüldü: hiç bağlanmamış push-token iskelesi, kayıp özellik değil. `NotificationBadge` canlı olduğu için klasör bilinçli olarak silinmemişti.
+
+### 📋 F4 test protokolü — `docs/F4_TEST_PROTOCOL.md` (yeni)
+F4 cihaz gerektiriyor ve bu ortamda yapılamıyor (Trakt CORS). Faz bekletilmek yerine **yazılı protokole dönüştürüldü**: 13 test adımı (T1-T13) + 5 doğrulama sorgusu (S1-S5), her adımda "cihazda gör / Worker logunda gör / DB'de gör" üçlemesi.
+
+Protokol **uydurulmadı, koddan çıkarıldı** — gerçek buton metinleri, gerçek hata mesajları, gerçek sınırlar (`MIN_REVIEW_CHARS=3`, `MAX_NOTE_LENGTH=5000`) okunarak yazıldı. Özellikle yakalanması zor iki adım: **T5** (düzenlemede `activity_at` sabit kalmalı — kart tepeye fırlamamalı) ve **T6** (bölüm incelemesi `in_feed=false` ile ana akışa düşmemeli).
+
+Dosyanın başına "bu bir durum panosu DEĞİLDİR" uyarısı kondu — Madde 178'de ikinci panonun ıraksaması yaşanmıştı.
+
+### 🔴 F5 — planın kendisi bayat çıktı
+`MASTER_PLAN`'ın F5 kapsamı şunu diyordu: *"Worker `normalizePublishActivity` + `handleFeedSync` tmdb_id yazsın."* Kod okununca **o işin zaten yapılmış olduğu** görüldü. Plana güvenip körlemesine yazılsaydı var olan mantık tekrarlanacaktı.
+
+Doğrulanan mevcut durum: anlık yayının **5 istemci çağrı noktasının hepsi** `tmdbId` gönderiyor (`ratings.ts:86`, `progress.ts:148,399,469,558`), `resolveMediaMeta` onu döndürüyor, Worker `normalizePublishActivity` okuyup yazıyor, tam senkron **dört map'in hepsinde** yazıyor.
+
+**Gerçek boşluk başka yerdeydi:** kolon eklenmeden önce yazılmış satırlarda `tmdb_id` NULL ve **hiçbir yol onlara dokunmuyordu** — INSERT'ler yalnızca "bizde olmayan" satırlar için, `ratedToUpdate` ise yalnızca puan/tarih değişince çalışıyordu. Yani eski satırlar kendiliğinden ASLA dolmayacaktı.
+
+**Uygulanan çözüm (Worker):** senkron, o turda Trakt'tan **zaten çekilmiş** veriyi kullanarak eksikleri tamamlıyor — ek Trakt isteği yok, kota harcanmıyor. Eşleştirme yeni mantık icat etmiyor, sync/publish'in paylaştığı dedup anahtarlarını kullanıyor. Yalnızca NULL satırlara dokunuluyor. `activity_at` patch'e **girmiyor** (handleFeedReview/handleFeedNote ile aynı "gizli spam" kuralı). `ratedToUpdate`'e giren satıra `tmdb_id` aynı PATCH'e bindiriliyor — ikinci istek atılmıyor.
+
+Yan düzeltme: `fetchExistingActivities`'in select listesinde **`tmdb_id` yoktu** — onsuz hangi satırın eksik olduğu bilinemez, her satır gereksiz PATCH alırdı. Eklendi. Yanıta `tmdbBackfilled` sayacı kondu (`wrangler tail` ile izlenebilir; sıfıra inmesi işin bittiğini gösterir).
+
+> **⚠️ Kabul edilen sınır, gizlenmiyor:** `watched_*` için Trakt yalnızca son 50 kaydı döndürüyor → o pencerenin dışındaki eski izleme satırları bu yolla dolmaz. `rated` için sınır yok → orada doldurma TAM. Pencere dışı satırların sayısı **ölçülmedi** (canlı DB erişimi gerekiyor); ölçüm sorgusu `MASTER_PLAN` F5 bölümünde.
+
+### 🧹 F3'ün kaçırdığı üç kalıntı
+F3 doküman turu `docs/` dosyalarına baktı, **kod içi yorumlara ve kullanıcıya görünen metne bakmadı**:
+1. `WriteReviewSheet.tsx` JSDoc başlığı hâlâ v1 anlatıyordu — *"Worker hem Trakt'a hem `feed_activities`'e yazar (dual-write)"* ve *"bölüm incelemeleri v1 kapsamı dışında"*. İkisi de yanlış; ayrıca K1'de silinmiş `WriteCommentSheet.tsx`'e canlıymış gibi atıf yapıyordu.
+2. Aynı dosyada `t()` **fallback** metni: *"İncelemen hem Trakt'ta hem KaymakTV akışında yayınlanır."*
+3. `020_reviews_local_only.sql:37` → silinmiş `utils/commentValidation.ts`'e atıf (artık `reviewLimits.ts`).
+
+> **Yanlış alarm düzeltildi:** (2) ilk bakışta "kullanıcıya yalan söyleniyor" gibi göründü. Çeviri dosyaları kontrol edilince **ikisi de doğru** çıktı (`tr`: "İncelemen KaymakTV akışında yayınlanır.", `en`: "…in the KaymakTV feed."). Yani metin yalnızca i18n yüklenemezse görünürdü. Rapor edilmeden önce doğrulandığı için yanlış panik yaşanmadı — G1'deki "sadece HTTP koduna bakma" dersinin aynısı.
+
+### 🔴 `.gitignore`'daki `*.md` — beş döküman git DIŞINDAYDI
+Commit sonrası `git status` kontrolünde `docs/MASTER_PLAN.md`'nin hiç görünmediği fark edildi. Sebep: `.gitignore:74` → **`*.md`**, altında yalnızca beş istisna (`README`, `AGENTS`, `HISTORY`, `ARCHITECTURE`, `AI_RULES`).
+
+Git dışında kalanlar: **`MASTER_PLAN.md`** (oturumlar arası devir belgesi — `AGENTS.md` yeni oturuma oradan başlamayı şart koşuyor), `REVIEWS_PLAN.md`, `FEED_SOCIAL_PLAN.md`, `notifications.md`, `F4_TEST_PROTOCOL.md`. Tek bir disk hatası tüm planlama geçmişini silerdi.
+
+`docs/{feed,ui,PROJECT_VISION,TODO,README}.md` istisna listesinde OLMADIĞI hâlde takip ediliyor — kural eklenmeden önce commit edildikleri için (git, takip ettiği dosyayı ignore etmez). Bu tuzak `.gitignore`'a not olarak yazıldı: biri silinip yeniden oluşturulursa sessizce git dışında kalır.
+
+Kullanıcı kararı: beşi de istisna listesine eklendi.
+
+> **Kontrol yöntemi hatası (üçüncüsü, G1'deki ikisinin ardından):** doğrulama için `git check-ignore -v` kullanıldı ve beş dosya için de satır numarası döndürdü — "hâlâ ignore ediliyor" gibi göründü. Yanlış: `check-ignore` **eşleşen kuralı** gösteriyor, o da negatif (`!`) kuralın kendisiydi. Gerçek kanıt `git status`'tı — beşi de `??` (untracked) olarak listelendi, yani ignore edilmiyorlar. **Rapor edilmeden önce ikinci yöntemle doğrulandığı için yanlış alarm verilmedi.** Ders G1'dekiyle aynı: tek bir komutun çıktısını "kanıt" saymak yerine, ölçtüğü şeyin gerçekten sorduğun soru olduğunu kontrol et.
+
+### Doğrulama
+| Kontrol | Sonuç |
+|---|---|
+| `tsc --noEmit --noUnusedLocals --noUnusedParameters` | ✅ temiz |
+| Worker `node --check` | ✅ temiz |
+| Worker `vitest run` | ✅ **29/29 geçti** |
+| `server.js node --check` | ✅ temiz |
+| `.gitignore` istisnaları | ✅ 5 döküman `git status`'ta görünür oldu |
+
+**Doğrulanamayan:** F5 canlıda test edilmedi (deploy yapılmadı, bilinçli).
+
+### 📊 F5 canlı ölçümü + zincir planı (aynı gün, kullanıcı çalıştırdı)
+**57 satırda `tmdb_id` eksik** (47 `watched_episode` + 10 `rated`; `watched_movie` **0/200** — o yol hep doğru yazmış). Eksikler **yalnızca 12 diziye** ait.
+
+Bir varsayım kuruldu ve **ölçümle çürütüldü:** "eksik satırın dizisi başka bir satırda doludur, saf SQL self-join hepsini çözer." Gerçek: **6/57**. Sebep geriye dönük açık — bir dizinin `tmdb_id`'si hiç yazılmamışsa o dizinin TÜM satırları eksiktir, kopyalanacak kaynak yoktur.
+
+Ölçüm bunun yerine daha iyi bir şey gösterdi: `rated` listesindeki diziler `watched_episode` listesiyle **örtüşüyor**. Sıralı bir zincir kuruldu (ayrıntı + SQL: `MASTER_PLAN` F5): self-join (6) → **F5 deploy + senkron** (10 `rated`, Trakt tüm puanları döndürdüğü için TAM) → self-join TEKRAR (**31**). Kalan yalnızca 16, sonra 10. Hiç ek Trakt isteği yazılmıyor. Sıra bozulursa 31 satır çözülmeden kalır.
+
+### 🎬 F4-T1…T9 CANLIDA GEÇTİ (ilk uçtan uca doğrulama)
+İnceleme sistemi kurulduğundan beri ilk kez gerçek cihazda çalıştı.
+
+| Adım | Sonuç |
+|---|---|
+| **T1** yaz | ✅ `tmdb_id=125988` dolu, `in_feed=true`, `episode_number=null` |
+| **T2** akış | ✅ tek kart — **R6 regresyonu yok** |
+| **T3** yanıt · **T4** beğeni | ✅ |
+| **T5** düzenle | ✅ **tarih sabit kaldı**, kart tepeye fırlamadı |
+| **T6** bölüm incelemesi | ✅ bölüm sayfasında var, **ana akışta YOK** (`in_feed` çalışıyor) |
+| **T7** film | ✅ akışta görünüyor (**beklenen** — akıştan hariç tutulan yalnızca *bölüm* incelemeleri) |
+| **T8** sil | ✅ |
+| **T9** uçak modu | ✅ **sheet açık kaldı, metin korundu**, hata görünür kutuda — "tünel problemi" koruması canlıda çalışıyor |
+
+Bonus kanıt (T1): `activity_at` (10:17:06.877) `created_at`'ten (10:17:10.622) **3.7 sn ÖNCE** — Worker sunucu zamanını değil **istemcinin damgasını** yazmış. R6'nın (Realtime yankısı çift kart üretmesin) dayandığı mekanizmanın canlıda çalıştığı ilk gözlem; T2'de sonucu da doğrulandı.
+
+| **T10** sınırlar · **T11** misafir | ✅ |
+| **T12** gizlilik anahtarı | ✅ **veri kaybı YOK** — aşağıya bak |
+| **T13** Trakt bloğu | ✅ görünüyor (ama Y6 bulundu) |
+
+### ✅ T12 — S5 canlıda kanıtlandı, ama önce YANLIŞ ALARM verildi
+Ayar kapatıldıktan sonra kullanıcının satırları: `reviewed 3` · `posted 1` · **`watched_episode`/`watched_movie`/`rated` HİÇ YOK**. `users` → `publish_watches=false, publish_ratings=false`. Yani otomatik loglar silindi, **elle yazılan içerik korundu** — S5 düzeltmesi (film izlemelerinin de temizlenmesi) canlıda doğrulandı.
+
+> 🔴 **ÖLÇÜM HATASI (bu turun ikinci yöntem hatası):** Kullanıcıya verilen sayım sorgusunda **`user_id` filtresi yoktu**. Filtresiz `count(*)` TÜM kullanıcıları topluyor; gizlilik anahtarı ise yalnızca o kullanıcının satırlarını siliyor. Sonuç 511→468 ve 200→150 göründü ve **"kısmi silme, T12 BAŞARISIZ" diye raporlandı** — oysa silinen 43+50 satır o kullanıcının TAMAMIydı. `user_id` filtreli sorgu gerçeği gösterdi. Protokole kalıcı uyarı eklendi. Ders G1/gitignore vakalarıyla aynı: **ölçtüğün şeyin sorduğun soru olduğunu doğrula.**
+
+### 🔧 T12'nin ortaya çıkardığı GERÇEK hata: gizleme ekrana yansımıyordu
+Kullanıcı bildirdi: *"aktiviteni akışta gizle açıktı ama aktiviteler hâlâ akışta."* DB'de o satırlar **yoktu** (yukarıda kanıtlı), ekranda **vardı**.
+
+Kök neden: `useFeedPrivacy` ayarı kaydettikten sonra **hiçbir önbelleği geçersiz kılmıyor, feed store'a da dokunmuyordu**. Worker DB'yi temizliyor, istemci eski kartları göstermeye devam ediyordu. Eylem başarılı ama sonucu kullanıcıya YANSIMIYOR — `AI_RULES` §2'nin ters yönü ve bir **gizlilik** özelliğinde bu, kullanıcının gizlediğini sandığı şeyin ekranda durması demek.
+
+**Düzeltme:** `applyPrivacyToFeed()` — `invalidateFeedCache()` + `invalidateUserFeedActivitiesCache(mySlug)` + store'dan yalnızca KENDİ ilgili kartlarını çıkarma. Bunun için `feedStore`'a `removeActivitiesWhere(predicate)` eklendi.
+
+> ⚠️ **`feedStore.reset()` bilinçli olarak KULLANILMADI.** İlk akla gelen çözüm oydu ama `useFeed`'in yükleme efekti yalnızca **mount'ta** çalışıyor (`useFeed.ts:98-103`) ve sekmeler bellekte kaldığı için store'u boşaltmak akışı **BOŞ bırakırdı** — hatayı düzeltmek yerine büyütürdü. Kod okunmadan uygulansaydı bu tuzağa düşülecekti.
+
+**Kapsam sınırı (gizlenmiyor):** düzeltme yalnızca GİZLEME yönünde anında etki eder. Ayar tekrar açıldığında satırlar sunucuda da hemen geri gelmiyor (bir sonraki `/feed/sync` gerekiyor), bu yüzden orada yalnızca önbellek geçersiz kılınıyor.
+
+### ℹ️ "Trakt token geçersiz" — hata değil, Trakt rate limit
+Test sırasında bir inceleme denemesi bu mesajı verdi. Yeni bir `wrangler tail` ile tekrarlandığında **sorunsuz geçti** ve `[verifyAndUpsertUser]` hata logu hiç basılmadı. Sebep: kısa sürede çok sayıda `/feed/sync` → Trakt'ın kendi 429'u. Kod bunu zaten biliyor (`verifyAndUpsertUser:477-482` durum kodunu logluyor) ama **kullanıcıya 401 ile 429 aynı mesajı gösteriyor** — yanlış teşhis sınıfı, ayrı bir iyileştirme.
+
+### 🔧 T9'un yan ürünü: `publishPost` yanlış teşhis koyuyordu
+Akıştaki "ne düşünüyorsun" alanı bağlantı yokken **"Kimliğin doğrulanamadı, tekrar dene."** gösteriyordu (`feedPublish.ts:243`).
+
+Kök neden: `resolveMe()` İKİ AĞ ÇAĞRISI yapıyor (`getMyTraktSlug` + `getUserProfile`); ağ yokken ikisi de düşüyor, fonksiyon `null` dönüyor ve erken çıkış bu mesajı basıyordu. Görünür geri bildirim VARDI (yani `AI_RULES` §2 ihlali değil) ama **yanlış yere işaret ediyordu** — kullanıcı hesabının bozulduğunu sanıp oturumunu kurcalamaya yöneliyordu.
+
+**Düzeltme:** `me` yokluğu artık yayını engellemiyor. Kimliği zaten Worker token'dan çözüyor; `me` burada YALNIZCA iyimser kartı çizmek için. Çizilemiyorsa kart atlanır, gönderi gönderilir, gerçek hata kendi doğru mesajıyla (`Network Error`) catch'ten döner. **Yan fayda:** ağ varken Trakt profil ucu geçici düşerse kullanıcı artık gönderisini kaybetmiyor — eskiden o durum da bloke ediyordu.
+
+### 📌 Y6 kaydedildi — "Tümünü Gör" kendi incelemeleri göstermiyor
+Kullanıcı T13 sırasında buldu. Sheet yalnızca Trakt yorumlarını içeriyor; teknik olarak doğru (buton `TraktCommentsBlock`'a ait) ama F1 listeyi kasten tek parça gösterdiği için kullanıcı "tümü"nün eksilmesini kayıp olarak algılıyor. **Y4 ile aynı kök**, ikisi birlikte çözülmeli. Bir ürün kararı gerektirdiği ve `CommentSheet`+`CommentReplies`'a dokunacağı için F4'te düzeltilmedi — üç seçenekle `MASTER_PLAN` → SONRADAN BULUNANLAR'a yazıldı.
+
+> **Yöntem notu:** `wrangler tail` bu turda hiçbir hata logu basmadı ama iki gerçek kusur vardı. Tail'in sessizliği "sorun yok" demek değil — 400/401 dalları log basmıyor, tail'deki `Ok` de yalnızca "istisna atılmadı" demek. Bulguların ikisi de **kullanıcının cihazda gördüğünden** çıktı.
+
+> 🔴 **Protokol hatası bulundu ve düzeltildi:** `F4_TEST_PROTOCOL.md` T1'de "`wrangler tail` → 200" yazıyordu. Yanlış — tail'deki **`Ok` bir HTTP durumu değil**, Cloudflare'in *outcome* alanı ("Worker istisna atmadan bitti"). 400/401/403/502 dönse de aynen `Ok` görünür. Bu hâliyle protokol, sessizce reddedilmiş bir isteği "geçti" saydırabilirdi. Tek geçerli kanıtın DB olduğu uyarısı eklendi.
+
+### Değişen dosyalar
+**Yeni:** `docs/F4_TEST_PROTOCOL.md`.
+**Değişen:** `kaymaktv-feedback-worker/src/index.js` (F5), `components/reviews/WriteReviewSheet.tsx`, `supabase/schema/020_reviews_local_only.sql` (yorum), `docs/MASTER_PLAN.md`, `.gitignore`.
+
+> ⚠️ **Bu maddedeki değişiklikler COMMIT EDİLMEDİ** (kullanıcı kararı: F4 sonucunu görüp hepsi tek commit'te toplanacak). Commit edilmiş tek şey Kol A: `93aa678`.
+>
+> ⚠️ **`kaymaktv-feedback-worker` bir git reposu DEĞİL** — hiç versiyon kontrolü yok, bugünkü F5 değişikliğinin de geri dönüş noktası yok. Ayrı bir iş olarak ele alınmalı.
+
+### Sıradaki
+1. **F4** — cihazda `F4_TEST_PROTOCOL.md` uygulanır (mevcut canlı Worker sürümüyle). Geçerse 🔓 build kilidi kalkar.
+2. Ardından `npx wrangler deploy` → F5 canlıya çıkar → `tmdbBackfilled` sayacı izlenir.
+
+> **Deploy neden F4'ten SONRA:** F5 şimdi deploy edilseydi ve F4'te bir hata çıksaydı, hatanın inceleme sisteminden mi F5'ten mi geldiği karışırdı.
+
+---
+
+## 182. F14 — Elle Yazılan İçerik İçin Akış Görünürlüğü (`publish_manual`)
+
+**Kullanıcı isteği:** *"Elimiz değmişken sistemi düzgünce kuralım, gerekli ne varsa yapalım, daha sonra başımıza iş çıkarmasın."* Yani etiket yaması değil, gerçek çözüm.
+
+**Bulan:** kullanıcı, F4 testi sırasında — *"İzlediklerimi ve puanlamaları akışta paylaşabiliyorum, aç-kapa var. Yorumlar için buton yapmamışız ki?"*
+
+Tam tasarım gerekçesi: **[`docs/FEED_VISIBILITY_PLAN.md`](FEED_VISIBILITY_PLAN.md)** (yeni).
+
+### Sorun
+`reviewed` ve `posted` hiçbir gizlilik ayarının kapsamında değildi. "Aktivitemi Akışta Gizle" adını taşıyan anahtar yalnızca izleme ve puanları kapsıyordu — kullanıcı "her şeyi gizledim" sanırken incelemeleri ve gönderileri akışta kalmaya devam ediyordu. Canlı kanıt: ayar açıkken kullanıcının satırları `reviewed 3` + `posted 1`.
+
+### 🔍 `008`'in kararı çürütüldü (silinmedi)
+`008_drop_feed_hidden.sql` `users.feed_hidden`'ı kaldırmıştı çünkü o gün `feed_hidden=true` ile `publish_watches=false AND publish_ratings=false` **birebir aynı şeydi** — iki gerçeği tutan üç sütun.
+
+**O gün doğruydu.** Ama sonra `posted` (017) ve `reviewed` (019) geldi ve o denklik sessizce bozuldu: bugün "izleme kapalı + puan kapalı" artık "her şey gizli" ANLAMINA GELMİYOR.
+
+008'in **ilkesi korundu**: üç ayar AYRIK kümeleri yönetiyor (hiçbiri diğerinin gerçeğini tutmuyor) ve "Her Şeyi Gizle" hâlâ DB'de değil, üçünden TÜRETİLİYOR.
+
+> Bu, bu projede tekrar eden bir hata sınıfının örneği: **doğru bir karar, dayandığı koşullar değişince sessizce yanlışa döner.** 008'in gerekçesi yazılı olduğu için çürütülebildi — kararın kendisi değil, dayanağı denetlendi.
+
+### Mekanizma — neden trigger
+`in_feed` bir GENERATED kolon ve Postgres'te GENERATED ifadesi yalnızca **aynı satırdaki** kolonlara bakabilir, `users`'a JOIN yapamaz. Değerlendirilip ELENEN yollar (gerekçeleriyle plan dosyasında): koşulsuz `.eq('users.publish_manual', true)` (tip ayrımı yapamaz) · PostgREST `or(...)` (keyset ifadesini kırma riski, 020'de zaten uyarılmış) · VIEW (`users!inner` embed'i view üzerinde güvenilir değil) · elle yönetilen bayrak (**tam olarak 008'in tuzağı**).
+
+Seçilen: **denormalize kolon + İKİ TRIGGER.**
+```
+users.publish_manual → (trigger) → author_hides_manual → (GENERATED) → in_feed → akış sorgusu
+```
+Bayrak elle yazılmıyor, Postgres türetiyor → senkron dışı kalması imkânsız. **Akış sorgusu hiç değişmedi** (`in_feed` zaten tek kapı).
+
+### ⚠️ Silme DEĞİL, gizleme
+Diğer iki anahtar kapatılınca satırlar siliniyor (Trakt'ın aynası, senkron geri getirir). `reviewed`/`posted` **silinmiyor** — Madde 165 kararı. Worker'ın `/feed/privacy` ucuna bu alan için **hiç silme kodu eklenmedi**; users PATCH'i yeterli, gerisini trigger yapıyor.
+
+### 🔬 Bağımsız tarama — kendi tasarımımda 3 boşluk buldu
+Kullanıcının önerisiyle, akışın TÜM okuma yollarını bulmak için ayrı bir tarama yapıldı. Sonuç, işin en değerli kısmı oldu:
+
+- 🔴 **`fetchActivityById` HİÇBİR filtre uygulamıyordu** ve `/activity/{id}` sayfası `(protected)` grubunun **DIŞINDA**. Bu yalnızca yeni ayarı değil, **mevcut `in_feed` sözleşmesini de deliyordu**: F4-T6'da "akışa düşmüyor" diye doğruladığımız bölüm incelemeleri, id'si bilinen herkese tam kart olarak açılabiliyormuş. `.eq('in_feed', true)` eklendi.
+- 🔴 **Realtime UPDATE'te görünürlük kontrolü yoktu.** 021 öncesi `in_feed` satır ömrü boyunca sabitti, gerek yoktu. Artık gizleme tam olarak bir UPDATE olarak geliyor — kart güncellenmek yerine **düşürülmeli**. Eklendi.
+- 🟠 **`fetchUserFeedActivities` hem kendi hem başkasının profilini besliyor.**
+
+**İki öneri bilinçli olarak UYGULANMADI:**
+1. *Realtime INSERT'i `!== true` yap (fail-closed).* Alan bir gün yükte hiç gelmezse bu **tüm canlı akışı sessizce öldürür** — gizli bir kartın görünmesinden daha kötü bir başarısızlık modu. Asıl kilit sunucuya taşındı (yukarıdaki `fetchActivityById`), buradaki kontrol "ucuz ön eleme" olarak belgelendi.
+2. *`isOwnProfile` parametresi ekle.* `in_feed` iki kuralı birleştiriyor ve ayırmak keyset `.or(...)` ifadesini riske atardı. Seçilen davranış daha tutarlı: **"gizle" dedinse her akış görünümünde gizli, kendi profilin dahil.** İçerik silinmiyor, yapım sayfasında duruyor.
+
+### 📥 Kapsam dışı iki bulgu kaydedildi
+**Y8** — `fetchUserFeedActivities`'te **engellenen kullanıcı filtresi YOK** (akışta ve yapım sayfasında var). Engellediğin kullanıcının profilindeki aktiviteleri görebiliyorsun. **Y9** — yorum yolunda (istemci `fetchComments` + Worker `fetchActivityForComment`) görünürlük hiç kontrol edilmiyor. İkisi de `MASTER_PLAN` → SONRADAN BULUNANLAR'da, gerekçe ve faz atamalarıyla.
+
+### 🔄 UI yön tutarlılığı — dört anahtar da "GİZLE" oldu
+**Bulan:** kullanıcı, F14'ü cihazda denerken — *"Çalışıyor ama ters. Buton kapalıyken paylaşmıyor, açıkken paylaşıyor."*
+
+Davranış aslında doğruydu, ama aynı ekranda **iki ZIT yön** vardı: üstteki anahtar "Gizle" (açık = gizli), alttaki üçü "Paylaş" (açık = görünür). Daha kötüsü: "Gizle"yi açınca alttaki üç anahtar `false`'a düşüp **KAPALI** görünüyordu — kullanıcı "her şeyi gizledim" derken üç anahtarın kapandığını görüyordu.
+
+**Kullanıcı kararı:** veri modeli doğru, metin değişsin. Dördü de "Gizle" yönüne çevrildi (AÇIK = GİZLİ). DB alanları `publish_*` (true = paylaş) olarak **kaldı** — dönüşüm yalnızca `account.tsx`'te, tek yerde. Çeviri anahtarları `publishX` → `hideX` olarak yenilendi, eskiler silindi (ölü anahtar bırakılmadı).
+
+### 🧪 Anahtar mantığı simülasyonla test edildi — 1 gerçek kusur buldu
+Etkileşim saf mantık olduğu için 8 senaryoluk bir simülasyon yazılıp çalıştırıldı (hideAll türetimi · hide↔publish dönüşümü · kilit durumu · regresyon).
+
+🔴 **S6 — KİLİTLENME (test bulundu, düzeltildi):** alt üç anahtar `hideAll` iken `disabled` yapılıyordu. Kullanıcı üçünü **tek tek** gizlerse `hideAll` türetilmiş olarak `true` olur ve üçü birden **kilitlenir** — artık yalnızca birini geri açamaz, önce üst anahtarı kapatması gerekir, o da üçünü birden açar. Tuzak eskiden de vardı (iki anahtarla), üçüncüsüyle kolay tetiklenir hâle geldi.
+
+**Düzeltme:** `disabled`'dan `|| hideAll` kaldırıldı. `hideAll` türetilmiş bir **kısayol**, kilit değil; alt anahtarlardan biri açılırsa kendiliğinden `false` olur, tutarlılık zaten korunuyor.
+
+| Senaryo | Sonuç |
+|---|---|
+| S1 başlangıç · S3 hepsini geri aç | ✅ |
+| S2 "Tümünü Gizle" → dördü de AÇIK görünür | ✅ görsel çelişki bitti |
+| S4 yalnızca inceleme gizle → üst anahtar KAPALI kalır | ✅ |
+| S5 üçünü tek tek gizle → üst anahtar kendiliğinden açılır | ✅ türetim doğru |
+| **S6 kilitlenme** | 🔴 → ✅ düzeltildi |
+| S7 gizle/geri göster yön doğruluğu · S8 ters davranış regresyonu | ✅ |
+
+> Simülasyon `scratchpad/privacy-switch-test.js`'te; projede istemci tarafı test altyapısı olmadığı için **kalıcı bir teste dönüştürülmedi**. Mantık değişirse elle tekrar çalıştırılmalı.
+
+### Değişen dosyalar
+**Yeni:** `docs/FEED_VISIBILITY_PLAN.md`, `supabase/schema/021_feed_manual_visibility.sql`.
+**Değişen:** `kaymaktv-feedback-worker/src/index.js` (`PRIVACY_FIELDS` + silme YOK gerekçesi) · `features/feed/services/{feedPrivacy,feedApi}.ts` · `features/feed/hooks/{useFeedPrivacy,useFeedRealtime}.ts` · `app/(protected)/account.tsx` · `locales/{tr,en}/settings.json` · `docs/{MASTER_PLAN,HISTORY}.md`.
+
+### Doğrulama
+| Kontrol | Sonuç |
+|---|---|
+| `tsc --noEmit --noUnusedLocals --noUnusedParameters` | ✅ temiz |
+| Worker `node --check` | ✅ temiz |
+| Worker `vitest run` | ✅ **29/29** |
+| Çeviri senkronu (tr ↔ en) | ✅ yalnızca bilinen `newPosts` çoğul farkı |
+| Migration numara çakışması | ✅ `021` boştu (010/012 eski ve bilinen) |
+
+**Doğrulanamayan:** hiçbiri canlıda test edilmedi — `021` çalıştırılmadı, Worker deploy edilmedi. Trigger zinciri yalnızca SQL olarak yazıldı; `021`'in sonundaki "CANLI ZİNCİR TESTİ" bloğu bunun içindir.
+
+### Sıradaki
+`MASTER_PLAN` §0'daki 5 adımlı sıra. Kritik: **önce migration, sonra deploy** — ters sırada `publish_manual` kolonu bulunamaz.

@@ -34,7 +34,9 @@
 -- ⚠️ Bu sayı ÜÇ yerde birden geçerli olmalı, üçü de aynı turda güncellendi:
 --   1. Burası (DB CHECK — GERÇEK KAYNAK, son savunma hattı)
 --   2. Worker `MAX_NOTE_LENGTH`
---   3. İstemci `utils/commentValidation.ts` → `MAX_REVIEW_CHARS`
+--   3. İstemci `utils/reviewLimits.ts` → `MAX_REVIEW_CHARS`
+--      (bu migration yazılırken dosyanın adı `utils/commentValidation.ts`'ti;
+--       K1'de o dosya silinip yerine `reviewLimits.ts` kondu)
 ALTER TABLE feed_activities DROP CONSTRAINT IF EXISTS feed_activities_note_length;
 ALTER TABLE feed_activities
   ADD CONSTRAINT feed_activities_note_length CHECK (note IS NULL OR char_length(note) <= 5000);

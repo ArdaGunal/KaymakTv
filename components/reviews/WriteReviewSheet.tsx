@@ -19,12 +19,15 @@ import { confirmAsync } from '../../utils/confirmDialog';
 /**
  * İnceleme yazma/düzenleme ekranı.
  *
- * ⚠️ `components/WriteCommentSheet.tsx` ile FARKI: o, Trakt'a DOĞRUDAN yazar
- * ve akıştan haberi yoktur; bu, Worker'ın `/feed/review` ucuna yazar ve Worker
- * hem Trakt'a hem `feed_activities`'e yazar (dual-write). İkisi aynı ekranda
- * ASLA birlikte kullanılmaz — dizi/film sayfaları bunu, bölüm sayfaları
- * diğerini kullanır (bölüm incelemeleri v1 kapsamı dışında, bkz.
- * docs/REVIEWS_PLAN.md §3.2). Bu yüzden "iki kapı" sorunu oluşmuyor.
+ * ⚠️ v2: TEK yazma hedefi var. Worker'ın `/feed/review` ucuna yazılır, o da
+ * yalnızca `feed_activities`'e yazar — **Trakt'a hiçbir şey gitmez**
+ * (bkz. docs/REVIEWS_PLAN.md v2 §1). Artık "iki kapı" sorunu yapısal olarak
+ * imkânsız: dizi, film VE bölüm sayfalarının üçü de bu sheet'i kullanıyor
+ * (bölüm incelemeleri F2'de açıldı, `episodeNumber` ile ayrışıyor ve `in_feed`
+ * türetilmiş kolonu sayesinde ana akışa düşmüyor).
+ *
+ * Eskiden bu satırda `components/WriteCommentSheet.tsx` ile karşılaştırma
+ * vardı — o dosya K1'de silindi (Trakt'a doğrudan yazan v1 yolu).
  *
  * Gönderme mantığı BURADA DEĞİL: `onSubmit` prop'u `useMediaReviews`
  * hook'undan gelir (docs/AI_RULES.md §1 — UI yalnızca gösterir).
@@ -216,7 +219,10 @@ export default function WriteReviewSheet({
               )}
 
               <Text style={styles.footnote}>
-                {t('reviewPublishNote', 'İncelemen hem Trakt\'ta hem KaymakTV akışında yayınlanır.')}
+                {/* Fallback metni çeviri anahtarıyla AYNI şeyi söylemeli:
+                    v2'de inceleme Trakt'a GİTMİYOR. (Bayat fallback yalnızca
+                    i18n yüklenemediğinde görünürdü ama yine de yalan olurdu.) */}
+                {t('reviewPublishNote', 'İncelemen KaymakTV akışında yayınlanır.')}
               </Text>
           </View>
         </View>

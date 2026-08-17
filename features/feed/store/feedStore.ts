@@ -60,6 +60,17 @@ interface FeedState {
   upsertActivity: (activity: FeedActivity, countAsUnseen?: boolean) => void;
   /** Yayın başarısız olduğunda optimistic kartı geri alır. */
   removeActivity: (id: string) => void;
+  /**
+   * Koşula uyan aktiviteleri listeden çıkarır.
+   *
+   * NEDEN VAR: kullanıcı bir gizlilik anahtarını kapattığında Worker o
+   * satırları DB'den siliyor, ama ekrandaki liste eski hâliyle kalıyordu —
+   * yani "gizle"ye basan kullanıcı gizlemek istediği kartları görmeye devam
+   * ediyordu (F4-T12'de bulundu). `reset()` burada YANLIŞ araç: `useFeed`'in
+   * yükleme efekti yalnızca mount'ta çalışıyor (sekmeler bellekte kalıyor),
+   * dolayısıyla store'u boşaltmak akışı boş bırakırdı.
+   */
+  removeActivitiesWhere: (predicate: (activity: FeedActivity) => boolean) => void;
   /** Optimistic kartı sunucudan dönen gerçek satırla değiştirir. */
   replaceActivity: (tempId: string, activity: FeedActivity) => void;
   /**
@@ -138,6 +149,14 @@ export const useFeedStore = create<FeedState>((set) => ({
 
   removeActivity: (id) =>
     set((state) => ({ activities: state.activities.filter((a) => a.id !== id) })),
+
+  removeActivitiesWhere: (predicate) =>
+    set((state) => {
+      const next = state.activities.filter((a) => !predicate(a));
+      // Hiçbir şey eşleşmediyse yeni dizi döndürme — gereksiz yeniden render
+      // (`activities` referansı değişirse tüm liste yeniden çizilir).
+      return next.length === state.activities.length ? {} : { activities: next };
+    }),
 
   replaceActivity: (tempId, activity) =>
     set((state) => {

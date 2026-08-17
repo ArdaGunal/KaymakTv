@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, ShieldCheck, Star, Trash2, Tv, UserX } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, ShieldCheck, Star, Trash2, Tv, UserX } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -158,14 +158,28 @@ export default function SettingsScreen() {
               anlamı yok, bu yüzden yalnızca gerçek kullanıcıya gösterilir. */}
           {!isGuest && accessToken && (
             <SettingsSection title={t('settings:feedSection', 'Akış')}>
-              {/* DB'de ayrı bir sütun DEĞİL — ikisi de kapalıysa türetilmiş
-                  olarak açık görünür (bkz. useFeedPrivacy.ts: hideAll).
-                  Açılınca ikisini birden kapatır, kapanınca ikisini birden
-                  açar; alttaki ikisi bu açıkken devre dışı/soluk kalır. */}
+              {/* ⚠️ BU BÖLÜMDEKİ DÖRT ANAHTAR DA "GİZLE" YÖNÜNDE:
+                  AÇIK = GİZLİ. Bu bilinçli bir tutarlılık kararı.
+
+                  ESKİDEN karışıktı: üstteki anahtar "Gizle" (açık=gizli),
+                  alttaki üçü "Paylaş" (açık=görünür) idi — yani aynı ekranda
+                  iki ZIT yön vardı. Daha kötüsü, "Gizle"yi açınca alttaki üç
+                  anahtar `false`'a düşüp KAPALI görünüyordu: kullanıcı "her
+                  şeyi gizledim" derken üç anahtarın kapanmasını görüyordu.
+                  Kullanıcı bunu test sırasında bildirdi.
+
+                  DB alanları hâlâ `publish_*` (true = paylaş) — veri modeli
+                  DOĞRU ve DEĞİŞMEDİ, yalnızca UI onu tersine çevirip
+                  gösteriyor (dönüşüm tam olarak bu dosyada, tek yerde).
+                  Artık "Tüm Aktivitemi Gizle" açıkken alt üçü de AÇIK ve
+                  soluk görünüyor — gördüğün şey anlatılan şeyle aynı.
+
+                  DB'de ayrı bir "hepsini gizle" sütunu YOK — ÜÇÜ de kapalıysa
+                  türetiliyor (bkz. useFeedPrivacy.ts: hideAll). */}
               <SettingsSwitchRow
                 icon={<EyeOff size={20} color="#60a5fa" />}
-                label={t('settings:hideFromFeed', 'Aktivitemi Akışta Gizle')}
-                hint={t('settings:hideFromFeedHint', 'Açıkken izlediklerin ve puanladıkların kimsenin akışında görünmez.')}
+                label={t('settings:hideFromFeed', 'Tüm Aktivitemi Gizle')}
+                hint={t('settings:hideFromFeedHint', 'Açıkken izlediklerin, puanladıkların ve incelemelerin kimsenin akışında görünmez.')}
                 tintColor="#60a5fa"
                 value={feedPrivacy.hideAll}
                 onValueChange={feedPrivacy.setHideAll}
@@ -175,28 +189,47 @@ export default function SettingsScreen() {
 
               <SettingsSectionDivider />
 
+              {/* `hide` ↔ `publish` dönüşümü: switch AÇIK = gizli = publish false. */}
               <SettingsSwitchRow
                 icon={<Tv size={20} color="#60a5fa" />}
-                label={t('settings:publishWatches', 'İzlediklerimi Akışta Paylaş')}
-                hint={t('settings:publishWatchesHint', 'Kapatırsan izleme aktiviten kimsenin akışında görünmez.')}
+                label={t('settings:hideWatches', 'İzlediklerimi Gizle')}
+                hint={t('settings:hideWatchesHint', 'Açıkken izleme aktiviten kimsenin akışında görünmez.')}
                 tintColor="#60a5fa"
-                value={feedPrivacy.settings.publishWatches}
-                onValueChange={(v) => feedPrivacy.update('publishWatches', v)}
+                value={!feedPrivacy.settings.publishWatches}
+                onValueChange={(hide) => feedPrivacy.update('publishWatches', !hide)}
                 isLoading={feedPrivacy.isLoading}
-                disabled={feedPrivacy.savingKey !== null || feedPrivacy.hideAll}
+                disabled={feedPrivacy.savingKey !== null}
               />
 
               <SettingsSectionDivider />
 
               <SettingsSwitchRow
                 icon={<Star size={20} color="#60a5fa" />}
-                label={t('settings:publishRatings', 'Puanlarımı Akışta Paylaş')}
-                hint={t('settings:publishRatingsHint', 'Kapatırsan verdiğin puanlar kimsenin akışında görünmez.')}
+                label={t('settings:hideRatings', 'Puanlarımı Gizle')}
+                hint={t('settings:hideRatingsHint', 'Açıkken verdiğin puanlar kimsenin akışında görünmez.')}
                 tintColor="#60a5fa"
-                value={feedPrivacy.settings.publishRatings}
-                onValueChange={(v) => feedPrivacy.update('publishRatings', v)}
+                value={!feedPrivacy.settings.publishRatings}
+                onValueChange={(hide) => feedPrivacy.update('publishRatings', !hide)}
                 isLoading={feedPrivacy.isLoading}
-                disabled={feedPrivacy.savingKey !== null || feedPrivacy.hideAll}
+                disabled={feedPrivacy.savingKey !== null}
+              />
+
+              <SettingsSectionDivider />
+
+              {/* 021 — üstteki ikisinden ÖNEMLİ BİR FARKI var ve hint bunu
+                  açıkça söylüyor: kapatmak içeriği SİLMEZ, yalnızca akıştan
+                  gizler. İzleme/puan kapatılınca satırlar gerçekten siliniyor
+                  (Trakt'ın aynası, senkron geri getirir); inceleme ise elle
+                  yazılmış, geri getirilemez içerik (Madde 165). */}
+              <SettingsSwitchRow
+                icon={<PenLine size={20} color="#60a5fa" />}
+                label={t('settings:hideManual', 'İncelemelerimi Gizle')}
+                hint={t('settings:hideManualHint', 'Açıkken incelemelerin ve gönderilerin akışta görünmez. Silinmezler — dizi ve film sayfalarında kalmaya devam eder.')}
+                tintColor="#60a5fa"
+                value={!feedPrivacy.settings.publishManual}
+                onValueChange={(hide) => feedPrivacy.update('publishManual', !hide)}
+                isLoading={feedPrivacy.isLoading}
+                disabled={feedPrivacy.savingKey !== null}
               />
 
               <SettingsSectionDivider />
