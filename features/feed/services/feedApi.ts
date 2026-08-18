@@ -520,6 +520,23 @@ export async function fetchMediaReviews(
     .eq('activity_type', 'reviewed')
     .eq('show_id', showId)
     .eq('media_type', mediaType)
+    // ── MODERASYON GİZLEMESİ (025) ──────────────────────────────────────
+    // ⚠️ Burada `in_feed` KULLANILAMAZ ve bu bilinçli. O kolon ÜÇ kural
+    // taşıyor ama kuralların görünürlük KAPSAMLARI farklı:
+    //   (a) 020 bölüm incelemesi → akışta gizli, BU SAYFADA görünmeli
+    //   (b) 021 yazar gizliyor   → akışta gizli, BU SAYFADA görünmeli
+    //   (c) 024 3+ bildirim      → HER YERDE gizlenmeli
+    // `in_feed` filtrelenseydi (a) ve (b) de elenir, ikisinin varlık sebebi
+    // yok olurdu — bu yüzden burada tarihsel olarak HİÇ filtre yoktu.
+    //
+    // Ama 024 aynı kapıya daha GENİŞ kapsamlı bir kural bindirince, bildirilen
+    // içerik akıştan düşerken bu sayfada durmaya devam etti (sistem denetimi
+    // bulgusu B3). Üstelik burada takip filtresi de yok — yani uygulamadaki
+    // EN GENİŞ kitleye açık kalıyordu.
+    //
+    // `is_visible` YALNIZCA (c)'yi taşıyor: `report_count < 3`. (a) ve (b)
+    // etkilenmiyor. `comments.is_visible` ile birebir simetrik.
+    .eq('is_visible', true)
     .order('activity_at', { ascending: false })
     .limit(MEDIA_REVIEWS_LIMIT);
 

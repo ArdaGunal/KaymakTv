@@ -689,6 +689,97 @@ raporda "engellediğin kişinin aktivitelerini görebiliyorsun" denmişti,
 gösteriyor, görsel sızıntı yoktu. Gerçek kusur korumanın TEK katmanının UI
 olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
 
+## 🔍 SİSTEM DENETİMİ BULGULARI (2026-08-18, 4 alt ajan)
+Ayrıntı: `HISTORY.md` Madde 190. Kapatılanlar: **K1** (anon sansür açığı),
+**B1/B3/B4** (`025`). Aşağıdakiler açık:
+
+### 🔴 Y12 · `kaymaktv.com` açık proxy — kimliksiz, rate-limit yok
+`server.js` → `/api/tmdb` ve `/api/trakt-proxy` kimlik doğrulaması, Origin
+kontrolü ve rate limit olmadan çalışıyor; `app.use(cors())` ile herkese açık.
+Canlıda doğrulandı: `GET kaymaktv.com/api/tmdb?endpoint=/configuration` → 200.
+**Trakt ücretlendirmeye geçti** — bu doğrudan fatura ve anahtar banlanma riski.
+`Authorization` başlığı olduğu gibi iletiliyor.
+**Not:** SSRF YOK (host değiştirilemiyor, `api_key` ezilemiyor) — sorun
+kimliksiz kota tüketimi.
+**Çözüm sırası:** (1) Cloudflare WAF rate-limit `/api/*` — kodsuz, anında ·
+(2) `cors({origin})` + `express-rate-limit` + Trakt uç beyaz listesi.
+
+### 🟠 Y13 · `watched_movie` için unique kısıt YOK
+`003`/`005` yalnızca `watched_episode` ve `rated` için kısıt tanımlıyor;
+`watched_movie` (013'te eklendi) korumasız. `/feed/publish` ile `/feed/sync`
+yarışında kalıcı çift kayıt oluşabilir ve **kendini onarmaz** (`Set` iki satırı
+tek anahtara indirger). Canlıda çift kayıt yok — kapatmak için doğru an.
+**Neden `025`'e girmedi:** kısıt eklenince senkronun TOPLU INSERT'i tek
+çakışan satır yüzünden tüm partiyi düşürür → 502. Önce Worker tek-tek INSERT
++ 23505 yutma desenine geçmeli. **Faz:** Worker turu.
+
+### 🟠 Y14 · Gizlenen içerik anon key ile hâlâ okunabiliyor
+`in_feed`/`is_visible` yalnızca istemci sorgusunun filtresi; RLS karşılığı yok
+(`feed_activities_select_all USING(true)`). `?in_feed=eq.false` ile moderasyon
+gizlemesi dahil tüm gizli içerik tam metniyle okunuyor (canlıda doğrulandı).
+Bu, **G3'ün sorduğu sorunun** cevabı: gizleme kozmetik.
+**Çözüm:** `report_count < 3` satır-seviyesi bir kural, RLS'e taşınabilir
+(kullanıcı-seviyesi değil, `auth.uid()` gerekmiyor). ⚠️ `feedReviews.ts`'in
+bölüm sayfası yolunu kırabilir — önce doğrulanmalı. **Faz:** G3.
+
+### 🟠 Y15 · S11 — ayar sızıntısı kolon GRANT'ı ile kapatılabilir
+MASTER_PLAN'daki *"RLS kolon seviyesinde çalışmadığı için çözüm ayrı
+`user_settings` tablosu"* önermesi **eksik**: RLS satır seviyesindedir ama
+**kolon seviyesinde `GRANT` vardır ve PostgREST ona uyar.**
+```sql
+REVOKE SELECT ON public.users FROM anon, authenticated;
+GRANT  SELECT (id, username, avatar_url, trakt_slug) ON public.users TO anon, authenticated;
+```
+Tek ifade; `is_private`/`publish_*`/`created_at` anon'a kapanır. Trigger
+zinciri, `verifyCaller` upsert'i, `handleFeedPrivacy` — hiçbiri değişmez
+(hepsi `service_role`). **Sınırı dürüstçe:** üye listesi (`id`, `trakt_slug`)
+açık kalır — onu kapatmak akışı Worker'a taşımak demek (F7/F8).
+**F11 yeniden çerçevelenmeli:** "S11'i çöz" değil → "ayar yarısını GRANT ile
+kapat, üye listesi yarısını F7'ye devret".
+⚠️ `feedPrivacy.ts` `users`'tan okuyor — Worker'a taşınmalı.
+
+### 🟠 Y16 · Yazma yüzeylerinde onaysız metin kaybı
+`ComposePostModal` · `FeedCommentSheet` · `NoteEditorModal`: arka plana
+dokunma / X / Android geri tuşu metni **onaysız siliyor**. `WriteReviewSheet`
+bunu `confirmAsync` ile çözmüş (F4-T9'da doğrulandı) — kapatma tarafı diğer
+üçüne hiç taşınmamış. 1000 karakterlik bir gönderi tek dokunuşla gidiyor.
+**Çözüm:** `WriteReviewSheet`'teki `handleRequestClose` deseni.
+
+### 🟠 Y17 · `episode/[id].tsx` hata durumunda SAHTE VERİ çiziyor
+`useEpisodeDetail` `hasError` tutmuyor; Trakt 500/timeout'ta sayfa "Bölüm 5 ·
+Henüz özet yok · Tarih yok" diye **başarıyla açılmış gibi** görünüyor. Dahası
+`first_aired` boş olduğu için **"TBA" rozeti** çiziliyor ve **"İzledim" butonu
+kayboluyor** — kullanıcıya "bu bölüm yayınlanmadı" deniyor. Boş ekrandan kötü:
+uygulama yalan söylüyor. `show`/`movie` ekranları da "bulunamadı" diyor (yanlış
+teşhis) ve "Tekrar Dene" sunmuyor. Üç hook'ta da `refreshData` var, **üçünde de
+kullanılmıyor** (Y5 ile aynı kök).
+
+### 🟠 Y18 · Gizlilik anahtarı sessizce başarısız oluyor
+`useFeedPrivacy` catch'i yalnızca `console.warn` + switch'i geri alıyor.
+Kullanıcı "gizle" der, Worker 401/429 döner, anahtar sessizce geri açılır →
+**gizlediğini sanır.** Bir gizlilik kontrolünde sessizlik kabul edilemez
+(AI_RULES §2). `ReportContentModal`'daki `notice` deseni yeniden kullanılmalı.
+
+### 🟡 Y19 · İki modülün iki kopyası ıraksamış
+`formatRelativeTime`: `utils/` (i18n'li, yıla kadar) vs `features/feed/utils/`
+(**Türkçe sabit kodlu**, günde duruyor) → İngilizce arayüzde akış Türkçe zaman
+gösteriyor; `ReviewItem` ile `CommentItem` yan yana farklı dil kullanıyor.
+`confirmAsync`: `utils/` sürümünde `onDismiss` yok → Android'de diyalog dışına
+dokunulunca **promise sonsuza dek askıda**.
+Ayrıca `utils/confirmDialog.ts`'in başlığı **yalan** (patch'ten beri) ve bu,
+denetimde bir ajanı yanılttı — önce o düzeltilmeli.
+
+### 🟡 Y20 · `SectionErrorBoundary` tüm projede TEK yerde
+`MediaCommentsSection`'da, üstelik `silent`. `MediaHero`, `MediaCast`,
+`SeasonAccordion`, `FeedCard` korumasız → tek render istisnası tüm ekranı
+`ErrorFallback`'e düşürüyor. S13'ün gerekçesi pratikte uygulanmamış.
+
+### 🟡 Y21 · Akışta "devamı yüklenemedi" çıkmazı
+`useFeed` `loadMore` hatasında yalnızca `console.warn`; kullanıcı zaten en
+alttadır, `onEndReached` yeniden tetiklenmez, footer `null` döner. Spinner
+kaybolur ve **hiçbir şey olmaz**. Aynı sınıf: liste doluyken `refresh()`
+başarısızlığı tamamen görünmez.
+
 ## Y11 · Gizlenen yorumlar `comment_count`'ta sayılmaya devam ediyor
 **Nerede:** `015_feed_social.sql` → `bump_activity_comment_count` trigger'ı ·
 `024` ile gelen `comments.is_visible`

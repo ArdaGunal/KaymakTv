@@ -4279,3 +4279,58 @@ Gizlenen yorumlar kartın `comment_count` sayacında sayılmaya devam ediyor ("3
 
 ### Sıradaki
 Kol C tamamlandı (F9 → F10). Kalan büyük iş **F7 → F8** (kimlik katmanı + Google giriş). Google altyapısı kullanıcı tarafından hazırlanmış durumda; `verifyCaller` (Madde 188) F7'nin ilk adımıydı.
+
+---
+
+## 190. 🔍 SİSTEM DENETİMİ — 4 Alt Ajan + Canlı Doğrulama
+
+**Kullanıcı isteği:** *"Şu ana kadar yaptığımız her şeyi alt ajanlara denetlettir. Yeni özelliklere geçmeden önce sistemi acımasızca test etmeni istiyorum."* Dört uzmanlık alanı: güvenlik/RLS · ölü kod · veri bütünlüğü · performans/UX.
+
+**Yöntem notu:** her ajana **bilinen yanlış alarmların listesi** verildi (S11, 400 satır borcu, `newPosts` çoğulu, kasıtlı boş `catch`'ler, silinmiş dosyalar, `010/012` çakışması). Bu olmadan dördü de aynı bilinen şeyleri raporlar ve gerçek bulgular gürültüde kaybolurdu.
+
+---
+
+### 🔴 K1 — CANLI SÖMÜRÜLEBİLİR AÇIK (kapatıldı)
+
+**Zincirin dört halkası da canlıda ölçüldü:**
+
+| Halka | Doğrulama |
+|---|---|
+| `users.id` anon'a açık | ✅ `GET /users?select=id` → gerçek UUID'ler |
+| `content_reports` anon INSERT açık | ✅ `status:'open'` ile **23503 FK** → RLS geçti |
+| `024` canlıda | ✅ `report_count`, `in_feed`, `is_visible` kolonları mevcut |
+| Eşik 3 → otomatik gizleme | ✅ |
+
+**İstismar:** Uygulamayı indiren herhangi biri, Trakt hesabı olmadan, 3 gerçek `users.id` alıp tek istekte 3 sahte bildirim yazar → `report_count=3` → istediği içerik herkesin akışından kaybolur. Moderatör tabloda **masum üç kullanıcıyı** görür; Discord'a uyarı gitmez (o yalnızca Worker yolunda).
+
+> 🔴 **Bu benim hatamdı.** `023` Bölüm B'yi *"istemci deploy'undan sonra"* diye ertelemiştim. İstemci deploy edildi ve `/feed/report` canlıda çalışmaya başladı — erteleme gerekçesi o an geçersizleşti ama kapatmayı hatırlatmadım. Sonra `024` üzerine geldi ve boşluk teorik bir eksiklikten **gerçek bir sansür aracına** dönüştü.
+
+**Çözüm:** `DROP POLICY "content_reports_insert_anon"`. Kullanıcı çalıştırdı, **kapandığı doğrulandı** (aynı test artık `42501`) ve Worker yolunun sağlam kaldığı da test edildi (`/feed/report` token'sız → 400).
+
+---
+
+### 🔬 Ölçüm yöntemi ders verdi (iki kez)
+
+**1. İlk K1 testim beni yanılttı.** `status` alanını göndermeden yaptığım INSERT `42501` (RLS ihlali) döndü — "kapalı" diye yorumlayacaktım. Ama politika `WITH CHECK (status = 'open')` ve PostgREST DEFAULT uygulanmadan değerlendiriyor. `status:'open'` açıkça gönderilince **23503 (FK)** döndü — yani RLS geçmişti. Kıyas testi (`feed_activities` INSERT → `42501`) gerçekten kapalı bir tablonun nasıl göründüğünü doğruladı.
+
+**2. Ajan 4'ün 1 numaralı bulgusu çürüdü.** *"Web'de `Alert.alert` no-op, 60 çağrı bozuk"* dedi. `patches/react-native-web+0.21.2.patch` mevcut ve `node_modules`'daki kod `window.alert`/`window.confirm`'e düşüyor — bulgu geçersiz.
+
+> **Ajanı yanıltan şey bir BAYAT YORUMDU:** `utils/confirmDialog.ts`'in başlığında hâlâ *"Alert.alert TAM BİR NO-OP'tur"* yazıyor. Patch geldiğinden beri o cümle yalan ve bir denetçiyi 60 çağrı noktası boyunca yanlış yöne sürükledi. Yanlış doküman, yanlış koddan daha pahalıya mal olabiliyor.
+
+**3. Benim de bir varsayımım yanlıştı:** ajanlara *"024 hariç hepsi canlıda"* dedim. İki ajan bağımsız olarak `024`'ün uygulanmış olduğunu ölçtü; doğruladım, haklılar. `HISTORY` Madde 189'daki "çalıştırılmadı" notu bayatmış.
+
+---
+
+### `025_integrity_fixes.sql` — üç düzeltme
+
+**B1 · `uq_feed_rated`'da `media_type` eksikti.** Trakt id'leri dizi ve film için ayrı uzaylardan; aynı sayı ikisinde de geçerli ve ikisi de `show_id` kolonunda. Proje bunu **üç yerde doğru tespit etmiş** (`ratedKeyOf`, `013`, Worker yorumları), kısıtı hiç düzeltmemiş. Tetiklenirse o kullanıcının senkronu **kalıcı olarak** 502'ye düşer ve kendini onarmaz. Canlıda ölçüldü: çakışma **yok**, yani henüz tetiklenmemiş.
+
+**B4 · Retention `rated`'i her gece silip geri ekliyor.** `014`'ün *"döngü yapısal olarak imkânsız"* gerekçesi (senkron penceresi 50 < korunan 200) **yalnızca `watched_*` için doğru** — `rated` için Trakt limitsiz döndürüyor. Silinen satır ertesi gün **yeni id** ile geri gelir → o karta yapılmış beğeni/yorumlar `CASCADE` ile kalıcı gider (Madde 185'in birebir aynısı). Canlıda ölçüldü: **bir kullanıcı tam 200/200 satırda.**
+
+**B3 · Moderasyon gizlemesi yapım sayfasında etkisizdi.** `in_feed` üç kural taşıyor ama kapsamları farklı: bölüm incelemesi ve yazar gizlemesi yapım sayfasında *görünmeli*, moderasyon gizlemesi **her yerde** gizlenmeli. Üçü `AND`'lendiği için `fetchMediaReviews` filtreyi bilinçli olarak uygulamıyordu — 021 için doğruydu, 024 gelince delik açtı. Ayrı `is_visible` kolonu eklendi (`comments.is_visible` ile simetrik).
+
+> **`watched_movie` unique kısıtı (B2) BİLİNÇLİ OLARAK EKLENMEDİ.** Kısıt eklenirse senkronun toplu INSERT'i tek çakışan satır yüzünden tüm partiyi düşürür ve 502 döner. Önce Worker'ın tek-tek INSERT + 23505 yutma desenine geçmesi gerekiyor. Migration'ın başına yazıldı.
+
+### Doğrulama
+`tsc` ✅ · migration çakışması ✅ yok · K1 kapanışı canlıda ✅ · Worker yolu sağlam ✅.
+**Doğrulanamayan:** `025` henüz çalıştırılmadı.
