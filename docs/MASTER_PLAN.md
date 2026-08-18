@@ -690,6 +690,17 @@ gösteriyor, görsel sızıntı yoktu. Gerçek kusur korumanın TEK katmanının
 olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
 
 ## Y7 · Trakt 429'u kullanıcıya "token geçersiz" diye gösteriliyor
+> 🔴 **İKİNCİ KEZ ISIRDI (F9 testi, 2026-08-18).** Bildirme akışında birkaç
+> `401 "Trakt token geçersiz"` görüldü, sonra kendiliğinden geçti — token
+> sağlamdı. Artık ertelenmemeli: kullanıcıyı yanlış eyleme (çıkış/giriş)
+> yönlendiriyor ve teşhisi zorlaştırıyor.
+>
+> **Kademeli çözüm (F7'yi beklemeden):** `verifyAndUpsertUser`'ın imzasını
+> değiştirmek 13 ucu birden etkiliyor. Bunun yerine `{ user, errorKind }`
+> döndüren yeni bir sarmalayıcı yazılıp **yalnızca yeni/dokunulan uçlar** ona
+> geçirilebilir; eski imza bozulmadan kalır ve F7'nin `resolveCaller`'ı
+> tohumlanmış olur.
+
 **Nerede:** Worker `verifyAndUpsertUser` (`index.js:474-484`) → 13 yazma ucunun
 tamamının döndüğü `"Trakt token geçersiz veya süresi dolmuş."` mesajı.
 **Bulundu:** F4 sırasında canlıda (2026-08-17).

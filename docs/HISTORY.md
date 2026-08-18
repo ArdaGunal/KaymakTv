@@ -4164,5 +4164,28 @@ Bilinçli. 018 *"kim olduğu bilinmese bile bildirim değerlidir"* diyordu; o g�
 
 **Doğrulanamayan:** `023` çalıştırılmadı, Worker deploy edilmedi, bildirme akışı canlıda denenmedi. Elle adımların sırası `MASTER_PLAN` §0'da.
 
+### ✅ Canlı doğrulama
+`023` Bölüm A çalıştırıldı, Worker deploy edildi. `wrangler tail`:
+```
+[feed/report] yeni — hedef: activity/56893ec0…, sebep: spam
+[feed/report] TEKRAR (yok sayıldı) — aynı hedef, sebep: harassment
+[feed/report] TEKRAR (yok sayıldı) — aynı hedef, sebep: spoiler
+```
+**UNIQUE kısıtı canlıda çalışıyor** — ve sebep değiştirmenin kısıtı atlatmadığı da doğrulandı (kısıt `(kullanıcı, hedef)` üzerinde, sebep dahil değil).
+
+> Test sırasında birkaç `401 "Trakt token geçersiz"` görüldü, sonra kendiliğinden geçti. Token sağlamdı (ilk istek başarılıydı) — **Y7'nin ikinci kez ısırması**: `verifyAndUpsertUser` her çağrıda Trakt `/users/settings`'e gidiyor ve Trakt'ın 429'u ile gerçekten geçersiz token aynı mesajı üretiyor. Y7 artık ertelenmemeli; ayrıntı SONRADAN BULUNANLAR.
+
+### 🔧 Kullanıcı bildirimi: "zaten bildirdin" mesajı görünmüyordu
+Mesaj `Snackbar` ile gösteriliyordu ama modal açık kalınca **toast modalın arkasında eziliyordu** — kullanıcı mesajı hiç görmüyor, tekrar tekrar deniyordu.
+
+**Düzeltme:** başarı dışındaki tüm durumlar (duplicate + hata) artık **modal İÇİNDE**, butonların hemen üstünde kalıcı bir kutuda gösteriliyor (`WriteReviewSheet`'teki `errorMessage` deseni). Toast yalnızca başarıda kalıyor — orada modal zaten kapanıyor, mesajın gidecek bir yeri var. "Zaten bildirdin" bir hata değil bilgi olduğu için amber, gerçek hata kırmızı.
+
+Metin de genişletildi: *"Sebebi değiştirmek yeni bir bildirim oluşturmaz."* — kullanıcının ilk refleksi tam olarak sebebi değiştirip tekrar denemekti (tail'de görüldü: spam → harassment → spoiler).
+
+Ayrıca hata dalında artık sunucudan gelen gerçek mesaj gösteriliyor; genel "tekrar dene" metni oturum/ağ/kota gibi farklı sebepleri aynı kutuya tıkıyordu.
+
+### 📖 `docs/MODERATION.md` (yeni)
+Kullanıcı sordu: *"bildirilen içerikler nereye gidiyor, kaldırmadan önce nerden görürüm?"* — cevabın kalıcı hâli. Bildirimleri **içerikleriyle birlikte** getiren SQL (activity/comment join'li), en çok bildirilenler sorgusu, moderasyon eylemleri (sil/kapat/reddet) ve yetki tablosu. Uygulama içi panel bilinçli olarak yok: `content_reports`'ta `SELECT` politikası hiç verilmedi, yalnızca `service_role` okuyabiliyor.
+
 ### Sıradaki
-**F10** — rapor sayacı + otomatik gizleme. Artık güvenli: eşik ve itiraz yolu orada kararlaştırılacak.
+**F10** — rapor sayacı + otomatik gizleme. Artık güvenli: `023` sonrası bir hedefe ait bildirim sayısı **gerçek kişi sayısı**, eşik ona güvenebilir. Orada iki ürün kararı var: **eşik** ve **itiraz yolu** (gizleme geri alınabilir, silme alınamaz).

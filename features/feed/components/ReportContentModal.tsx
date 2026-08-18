@@ -52,9 +52,20 @@ export default function ReportContentModal({
     message: '',
   });
 
+  /**
+   * Modal İÇİNDE gösterilen kalıcı uyarı.
+   *
+   * NEDEN TOAST DEĞİL: başarı dışındaki durumlarda modal AÇIK kalıyor ve
+   * `Snackbar` modalın arkasında eziliyordu — kullanıcı mesajı hiç göremiyordu
+   * (canlıda bildirildi). Toast yalnızca BAŞARI için kalıyor, çünkü orada
+   * modal zaten kapanıyor ve mesajın gidecek bir yeri var.
+   */
+  const [notice, setNotice] = useState<{ kind: 'duplicate' | 'error'; text: string } | null>(null);
+
   const reset = () => {
     setReason(null);
     setDetail('');
+    setNotice(null);
   };
 
   const handleClose = () => {
@@ -66,23 +77,39 @@ export default function ReportContentModal({
   const handleSubmit = async () => {
     if (!reason || isSubmitting) return;
     setIsSubmitting(true);
+    setNotice(null);
     try {
       const result = await reportContent(targetType, targetId, reason, detail);
+
       // `duplicate` = kullanıcı bu içeriği DAHA ÖNCE bildirmiş (023'teki UNIQUE
       // kısıtı yeni satırı yok saydı). Bunu "alındı, teşekkürler" diye
-      // göstermek yalan olurdu — aynı zamanda kullanıcının tekrar tekrar
-      // bildirmeye çalışmasının bir işe yaramadığını da anlatıyor.
-      setToast({
-        visible: true,
-        message: result.duplicate
-          ? t('feed:reportDuplicate', 'Bu içeriği zaten bildirmiştin.')
-          : t('feed:reportSuccess', '✅ Bildirimin alındı, teşekkürler.'),
-      });
+      // göstermek YALAN olurdu.
+      //
+      // Modal KAPATILMIYOR: mesaj görülmeden kaybolmasın. Ayrıca kullanıcının
+      // "sebebi değiştirip tekrar denerim" refleksinin işe yaramayacağını da
+      // söylüyoruz — kısıt (kullanıcı, hedef) üzerinde, sebep dahil değil.
+      if (result.duplicate) {
+        setNotice({
+          kind: 'duplicate',
+          text: t(
+            'feed:reportDuplicate',
+            'Bu içeriği zaten bildirmiştin. Sebebi değiştirmek yeni bir bildirim oluşturmaz.'
+          ),
+        });
+        return;
+      }
+
+      setToast({ visible: true, message: t('feed:reportSuccess', '✅ Bildirimin alındı, teşekkürler.') });
       reset();
       setTimeout(onClose, 900);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[ReportContentModal] gönderim hatası:', error);
-      setToast({ visible: true, message: t('feed:reportError', '❌ Bildirim gönderilemedi, tekrar dene.') });
+      // Sunucudan gelen gerçek mesaj varsa onu göster — "tekrar dene" genel
+      // metni, oturum/ağ gibi farklı sebepleri aynı kutuya tıkıyordu.
+      setNotice({
+        kind: 'error',
+        text: error?.message || t('feed:reportError', '❌ Bildirim gönderilemedi, tekrar dene.'),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -146,6 +173,26 @@ export default function ReportContentModal({
                   editable={!isSubmitting}
                 />
 
+                {/* Uyarı kutusu — butonların HEMEN ÜSTÜNDE, yani kullanıcının
+                    baktığı yerde. Modal açık kaldığı için mesaj kaybolmuyor. */}
+                {notice && (
+                  <View
+                    style={[
+                      styles.notice,
+                      notice.kind === 'error' ? styles.noticeError : styles.noticeDuplicate,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.noticeText,
+                        notice.kind === 'error' ? styles.noticeTextError : styles.noticeTextDuplicate,
+                      ]}
+                    >
+                      {notice.text}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.actions}>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleClose} disabled={isSubmitting}>
                     <Text style={styles.cancelText}>{t('common:cancel', 'Vazgeç')}</Text>
@@ -180,6 +227,32 @@ export default function ReportContentModal({
 }
 
 const styles = StyleSheet.create({
+  // "Zaten bildirdin" bir HATA değil, bilgi → amber. Gerçek hata → kırmızı.
+  notice: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+    marginTop: 12,
+  },
+  noticeDuplicate: {
+    backgroundColor: 'rgba(245,158,11,0.1)',
+    borderColor: 'rgba(245,158,11,0.28)',
+  },
+  noticeError: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderColor: 'rgba(239,68,68,0.28)',
+  },
+  noticeText: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  noticeTextDuplicate: {
+    color: '#fbbf24',
+  },
+  noticeTextError: {
+    color: '#fca5a5',
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',

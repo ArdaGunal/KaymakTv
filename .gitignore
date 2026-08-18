@@ -90,6 +90,7 @@ firebase.json
 !docs/F4_TEST_PROTOCOL.md
 !docs/FEED_VISIBILITY_PLAN.md
 !docs/FOLLOW_SNAPSHOT_PLAN.md
+!docs/MODERATION.md
 # NOT: docs/{feed,ui,PROJECT_VISION,TODO,README}.md bu listede YOK ama yine de
 # takip ediliyor — `*.md` kuralı eklenmeden ÖNCE commit edilmişlerdi (git zaten
 # takip ettiği dosyayı ignore etmez). Biri silinip yeniden oluşturulursa
