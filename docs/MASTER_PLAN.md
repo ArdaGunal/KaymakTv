@@ -689,17 +689,21 @@ raporda "engellediğin kişinin aktivitelerini görebiliyorsun" denmişti,
 gösteriyor, görsel sızıntı yoktu. Gerçek kusur korumanın TEK katmanının UI
 olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
 
-## Y7 · Trakt 429'u kullanıcıya "token geçersiz" diye gösteriliyor
-> 🔴 **İKİNCİ KEZ ISIRDI (F9 testi, 2026-08-18).** Bildirme akışında birkaç
-> `401 "Trakt token geçersiz"` görüldü, sonra kendiliğinden geçti — token
-> sağlamdı. Artık ertelenmemeli: kullanıcıyı yanlış eyleme (çıkış/giriş)
-> yönlendiriyor ve teşhisi zorlaştırıyor.
->
-> **Kademeli çözüm (F7'yi beklemeden):** `verifyAndUpsertUser`'ın imzasını
-> değiştirmek 13 ucu birden etkiliyor. Bunun yerine `{ user, errorKind }`
-> döndüren yeni bir sarmalayıcı yazılıp **yalnızca yeni/dokunulan uçlar** ona
-> geçirilebilir; eski imza bozulmadan kalır ve F7'nin `resolveCaller`'ı
-> tohumlanmış olur.
+## Y7 · Trakt hata sebepleri tek mesaja düşüyordu — 🟡 KISMEN KAPANDI
+**Durum:** `verifyCaller` + `authErrorResponse` eklendi (Madde 188).
+`/feed/sync` ve `/feed/report` geçirildi; **kalan ~11 uç hâlâ eski
+sarmalayıcıyı** kullanıyor ve tek mesaj gösteriyor.
+
+Sebep artık HER durumda **loglanıyor** (`[verifyCaller] …`), yani teşhis için
+`wrangler tail` yeterli. Geçirilen iki uçta kullanıcı da doğru mesajı
+görüyor: 429 → *"birkaç dakika sonra dene, oturununda sorun yok"*,
+401 → *"çıkış yapıp tekrar giriş yap"*, 5xx → *"sorun senin hesabında değil"*.
+
+**Kalan iş:** diğer uçlar dokunuldukça `verifyCaller` + `authErrorResponse`
+ikilisine geçirilecek. Toplu bir refactor **bilinçli olarak yapılmadı** —
+13 yazma ucunu tek seferde değiştirmek `MASTER_PLAN` §3'teki "kimlik
+refactoru" riskinin ta kendisi. **Faz:** F7 (`resolveCaller`) bunu tamamlar;
+bugünkü `verifyCaller` onun tohumu.
 
 **Nerede:** Worker `verifyAndUpsertUser` (`index.js:474-484`) → 13 yazma ucunun
 tamamının döndüğü `"Trakt token geçersiz veya süresi dolmuş."` mesajı.

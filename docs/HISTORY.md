@@ -4189,3 +4189,34 @@ Kullanıcı sordu: *"bildirilen içerikler nereye gidiyor, kaldırmadan önce ne
 
 ### Sıradaki
 **F10** — rapor sayacı + otomatik gizleme. Artık güvenli: `023` sonrası bir hedefe ait bildirim sayısı **gerçek kişi sayısı**, eşik ona güvenebilir. Orada iki ürün kararı var: **eşik** ve **itiraz yolu** (gizleme geri alınabilir, silme alınamaz).
+
+---
+
+## 188. Y7 Kısmen Kapandı — Kimlik Hatalarının Sebebi Yüzeye Çıktı
+
+**Tetikleyici:** kullanıcı `/feed/report` VE `/feed/sync` uçlarında `401 "Trakt token geçersiz veya süresi dolmuş."` aldı. Token sağlamdı (aynı oturumda başka istekler geçiyordu). **Y7'nin üçüncü ısırması** ve ilk kez `/feed/report` dışında bir uçta.
+
+### Sorun: dört farklı sebep, tek mesaj
+`verifyAndUpsertUser` başarısızlıkta `null` dönüyordu ve 13 ucun tamamı bunu aynı cümleye çeviriyordu. Oysa:
+
+| Gerçek sebep | Kullanıcının yapması gereken | Gördüğü mesaj |
+|---|---|---|
+| Trakt **429** | Birkaç dakika beklemek | "token geçersiz" |
+| Trakt **401** | Yeniden giriş | "token geçersiz" |
+| Trakt **5xx** | Hiçbir şey (bizde sorun yok) | "token geçersiz" |
+| **Supabase** hatası | Hiçbir şey (sunucu sorunu) | "token geçersiz" |
+
+En kötüsü 429: kullanıcı "token geçersiz" görüp çıkış/giriş deniyor, bu da **daha çok Trakt isteği** demek — yani mesaj, sorunu büyütüyordu.
+
+### Çözüm: `verifyCaller` + `authErrorResponse`
+`verifyCaller` `{ user, errorKind }` döndürüyor (`rate_limited` · `invalid_token` · `trakt_unavailable` · `trakt_unreachable` · `trakt_bad_response` · `db_error`). `authErrorResponse` her birini doğru HTTP koduna ve **kullanıcının o durumda ne yapması gerektiğini söyleyen** bir mesaja çeviriyor. 429 mesajında *"oturununda bir sorun yok"* cümlesi bilinçli — yanlış refleksi baştan kesiyor.
+
+> ⚠️ **TOPLU REFACTOR BİLİNÇLİ OLARAK YAPILMADI.** `verifyAndUpsertUser` ince bir sarmalayıcı olarak korundu; 13 ucun hiçbiri değişmek zorunda kalmadı. Yalnızca sorunun yaşandığı iki uç (`/feed/sync`, `/feed/report`) geçirildi. Gerekçe: 13 yazma ucunu tek seferde değiştirmek `MASTER_PLAN` §3'ün "kimlik refactoru — hata hepsini birden kırar" dediği riskin ta kendisi. Bu, F7'deki `resolveCaller`'ın **tohumu**; kalan uçlar dokunuldukça geçecek.
+
+**Yan kazanç:** sebep artık HER durumda loglanıyor (`[verifyCaller] …`), yani geçirilmemiş uçlarda bile `wrangler tail` ile teşhis mümkün. Ayrıca `traktFetch` çağrısı try/catch'e alındı — ağ seviyesindeki hata eskiden isteği tamamen düşürüyordu.
+
+### Doğrulama
+`node --check` ✅ · `vitest` ✅ **34/34** (geriye uyumluluk korundu). **Doğrulanamayan:** deploy edilmedi; 401'in gerçek sebebi hâlâ bilinmiyor — bir sonraki denemede `[verifyCaller]` logu veya kullanıcının gördüğü yeni mesaj söyleyecek.
+
+### 📌 Kayda geçen: Google girişi altyapısı hazır
+Kullanıcı bildirdi: Supabase ↔ Google Cloud entegrasyonu **yapılmış**, kimlik bilgileri hazır. **Henüz kullanılmıyor.** Sıra bağımlılığı değişmedi ve kritik: **F7 (kimlik katmanı) → F8 (Google giriş + hesap birleştirme) → G2.** S9 (`users.trakt_slug` NOT NULL + 13 uç `traktAccessToken` zorunlu) ve S14 (birleştirme köprüsü yok) çözülmeden Google girişi açılırsa mevcut kullanıcıların hesabı ikiye bölünür. Kullanıcı da aceleci olmadığını belirtti.
