@@ -111,7 +111,7 @@
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
 | **F9** | Moderasyon altyapı düzeltmesi (S15) | 🟡 **KOD BİTTİ** — `023` + Worker `/feed/report`. Elle adımlar bekliyor (aşağıda) |
-| **F10** | Rapor sayacı + otomatik gizleme | ⬜ |
+| **F10** | Rapor sayacı + otomatik gizleme | 🟡 **KOD BİTTİ** — `024` + istemci filtresi. Eşik **3 kişi**, itiraz yolu = raporu `dismissed` yapmak. Migration bekliyor |
 | **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ |
 | **F11** | S11: kullanıcı sayımı / gizlilik ayarı sızıntısı | ⬜ |
 | **F12** | S10: 400 satır kuralı borcu | ⬜ |
@@ -688,6 +688,25 @@ raporda "engellediğin kişinin aktivitelerini görebiliyorsun" denmişti,
 **yanlıştı** — profil ekranları `isBlockedEitherWay` ile `<BlockedProfileLock />`
 gösteriyor, görsel sızıntı yoktu. Gerçek kusur korumanın TEK katmanının UI
 olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
+
+## Y11 · Gizlenen yorumlar `comment_count`'ta sayılmaya devam ediyor
+**Nerede:** `015_feed_social.sql` → `bump_activity_comment_count` trigger'ı ·
+`024` ile gelen `comments.is_visible`
+**Bulundu:** F10 uygulanırken (2026-08-18).
+
+`comment_count` trigger'ı `comments` INSERT/DELETE'ini sayıyor, görünürlüğe
+bakmıyor. 3+ bildirim alan bir yorum gizlendiğinde kart hâlâ *"3 yorum"*
+gösterir ama açınca 2 yorum görünür.
+
+**Neden F10'da düzeltilmedi:** düzeltmek `015`'teki artırma/azaltma trigger'ını
+yeniden hesaplamaya çevirmeyi gerektiriyor (görünürlük değişimi artırma
+mantığına sığmıyor — `024`'ün `sync_report_count`'ta aynı sebeple yeniden
+hesaplama seçmesiyle aynı gerekçe). Bu, çalışan bir sayaç trigger'ına dokunmak
+demek ve F10'un kapsamını genişletirdi.
+
+**Bugün tetiklenmiyor:** eşik 3 farklı kişi; mevcut ölçekte (10'dan az
+kullanıcı) hiç gizlenme olmayacak. Ölçek büyümeden önce kapatılmalı.
+**Faz:** F10 sonrası küçük bir düzeltme turu ya da bir sonraki K fazı.
 
 ## Y10 · "İçeriği Bildir" metin içermeyen kartlarda da görünüyor
 **Nerede:** `features/feed/components/FeedCard.tsx` → `onReport={!isOwnActivity ? … }`

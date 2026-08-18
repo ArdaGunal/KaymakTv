@@ -55,6 +55,16 @@ export async function fetchComments(activityId: string): Promise<FeedComment[]> 
     .from('comments')
     .select(COMMENT_COLUMNS)
     .eq('activity_id', activityId)
+    // ⚠️ OTOMATİK GİZLEME (024). `is_visible` TÜRETİLMİŞ bir kolon
+    // (`report_count < 3`) — elle yönetilmiyor, senkron dışı kalamaz.
+    // Akış tarafındaki `.eq('in_feed', true)` ile aynı rol; isimlendirme de
+    // bilinçli olarak aynı yönde (pozitif), ters isim F14'teki "iki zıt yön"
+    // karışıklığını tekrarlardı.
+    //
+    // 🔴 SERT BAĞIMLILIK: `024` çalıştırılmamış bir ortamda bu filtre
+    // "kolon yok" hatası verir ve YORUMLARIN TAMAMI kırılır (`020`'deki
+    // `in_feed` ile aynı sınıf bağımlılık).
+    .eq('is_visible', true)
     .order('created_at', { ascending: true });
   if (error) throw error;
   return ((data ?? []) as unknown as CommentRow[]).map(mapCommentRow);

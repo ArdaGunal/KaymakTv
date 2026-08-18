@@ -4239,5 +4239,43 @@ Kullanıcı fark etti: *"şu kişi X sezonu izledi"* gibi sistem loglarında bil
 
 Doğru koşul tipe değil içeriğe bakmak olurdu (`!!activity.note`). **Uygulanmadı — kullanıcı kararı:** Google Play UGC politikası açısından menüden bildirme seçeneği kaldırmak, gereksiz bir seçenek bırakmaktan daha riskli. `MASTER_PLAN` → Y10.
 
-### 📌 Kayda geçen: Google girişi altyapısı hazır
+### 📌 Kayda geçen (F10 sonrası okunacak): Google girişi altyapısı hazır
 Kullanıcı bildirdi: Supabase ↔ Google Cloud entegrasyonu **yapılmış**, kimlik bilgileri hazır. **Henüz kullanılmıyor.** Sıra bağımlılığı değişmedi ve kritik: **F7 (kimlik katmanı) → F8 (Google giriş + hesap birleştirme) → G2.** S9 (`users.trakt_slug` NOT NULL + 13 uç `traktAccessToken` zorunlu) ve S14 (birleştirme köprüsü yok) çözülmeden Google girişi açılırsa mevcut kullanıcıların hesabı ikiye bölünür. Kullanıcı da aceleci olmadığını belirtti.
+
+---
+
+## 189. F10 — Rapor Sayacı + Otomatik Gizleme
+
+**Bağlam:** `MASTER_PLAN` F10. `023` (F9) ön koşuldu ve tamamlandı. Kullanıcı kararları: **eşik 3 farklı kişi**, **kapsam akış kartları + yorumlar**.
+
+### 🔑 İtiraz yolu tasarımdan doğdu
+Sayaç "toplam bildirim" değil **"açık (`open`) bildirim"** olarak tanımlandı. Bu tek karar itiraz yolunu kendiliğinden üretti: moderatör bir bildirimi `dismissed` yaptığında sayaç düşer ve **içerik otomatik geri gelir.** Ek bir mekanizma, "geri al" butonu, geri yükleme işi yok.
+
+Bu, F10'un en riskli sorusuna (*"yanlış gizlenen içerik ne olacak?"*) yapısal bir cevap: gizleme **silme değil**, dolayısıyla geri dönüş bedava.
+
+### Mekanizma
+`feed_activities.report_count` + `comments.report_count`, `content_reports` üzerindeki bir trigger'la güncelleniyor. Sonra:
+- `in_feed` GENERATED ifadesine **üçüncü kural** eklendi (`report_count < 3`) — 020'nin bölüm incelemesi ve 021'in yazar gizlemesi kurallarının yanına. **Akış sorgusu yine hiç değişmedi**; `in_feed` üç turdur tek kapı olmayı sürdürüyor.
+- `comments.is_visible` (yeni, türetilmiş) + istemci filtresi.
+
+> ⚠️ **Trigger artırma/azaltma DEĞİL, YENİDEN HESAPLAMA yapıyor** — `015`'teki `bump_activity_like_count` deseninden bilinçli sapma. Gerekçe: orada "beğeni" iki durumlu (var/yok), burada üçüncü bir eksen var — `status`. Bir bildirimin durumu değiştiğinde artırma/azaltma hangi yöne gideceğini bilemez ve sayaç zamanla ıraksar. Yeniden hesaplama INSERT/DELETE/status-UPDATE'in üçünü de tek yoldan doğru sonuca götürüyor.
+
+> **Eşik neden `app_settings`'te değil:** GENERATED ifadeleri sabit gerektiriyor. Bu bilinçli bir kısıt olarak kabul edildi — eşiğin çalışma zamanında değişebilmesi, moderasyon davranışını sessizce kaydırabilecek bir kaldıraç olurdu. Değiştirmek küçük bir migration.
+
+> **`is_visible` POZİTİF isimlendirildi** (`is_hidden` değil), `in_feed` ile aynı yönde okunsun diye. Ters isimlendirme F14'te canlıda yaşanan "aynı ekranda iki zıt yön" karışıklığını tekrarlardı.
+
+### 🔴 Dürüst tespit: bugün tetiklenmeyecek
+Kullanıcının bildirdiği ölçek 10'dan az kullanıcı (3 kişi takip ediliyor). "3 farklı kişinin aynı içeriği bildirmesi" bugün imkânsıza yakın. **F10'un bugünkü değeri işlevsel değil ALTYAPISAL:** Google Play/App Store'un UGC moderasyonu beklentisi ve ölçek büyüdüğünde hazır olmak. Bunu "şu an bir sorunu çözüyoruz" diye sunmak yanlış olurdu; migration'ın başına da yazıldı.
+
+### 📥 Y11 kaydedildi
+Gizlenen yorumlar kartın `comment_count` sayacında sayılmaya devam ediyor ("3 yorum" der, 2 görünür). Düzeltmek `015`'teki artırma trigger'ını yeniden hesaplamaya çevirmeyi gerektiriyor — çalışan bir sayaca dokunmak F10'un kapsamını genişletirdi. Bugün tetiklenmiyor; ölçek büyümeden önce kapatılmalı.
+
+### Değişen dosyalar
+**Yeni:** `supabase/schema/024_report_auto_hide.sql`.
+**Değişen:** `features/feed/services/feedSocial.ts` (`is_visible` filtresi) · `docs/{MODERATION,MASTER_PLAN,HISTORY}.md`.
+
+### Doğrulama
+`tsc` ✅ · migration numara çakışması ✅ yok. **Doğrulanamayan:** `024` çalıştırılmadı; sayaç, otomatik gizleme ve itiraz yolu canlıda denenmedi (migration sonundaki "CANLI ZİNCİR TESTİ" bunun için).
+
+### Sıradaki
+Kol C tamamlandı (F9 → F10). Kalan büyük iş **F7 → F8** (kimlik katmanı + Google giriş). Google altyapısı kullanıcı tarafından hazırlanmış durumda; `verifyCaller` (Madde 188) F7'nin ilk adımıydı.

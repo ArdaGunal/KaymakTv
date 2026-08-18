@@ -93,6 +93,55 @@ order by bildirim_sayisi desc;
 
 ---
 
+## 2.5 Otomatik gizleme (F10)
+
+**3 FARKLI kişi** aynı içeriği bildirdiğinde içerik akıştan/yorum listesinden
+**kendiliğinden düşer.** Silinmez — gizlenir.
+
+- Akış kartları: `feed_activities.in_feed` → `false`
+- Yorumlar: `comments.is_visible` → `false`
+
+Her iki kolon da **türetilmiş** (`report_count < 3`); elle yönetilmiyor,
+senkron dışı kalamaz.
+
+> `023`'teki `UNIQUE` sayesinde sayaç **gerçek kişi sayısıdır** — bir kişi
+> aynı içeriği tek kez bildirebiliyor. O kısıt olmadan bu özellik doğrudan bir
+> sansür aracı olurdu.
+
+### İTİRAZ YOLU — gizlemeyi geri alma
+
+Sayaç yalnızca **`open`** durumdaki bildirimleri sayar. Yani bir bildirimi
+reddetmek içeriği **otomatik geri getirir**:
+
+```sql
+-- Bu hedefe ait bildirimlerden birini (veya hepsini) reddet
+update content_reports set status = 'dismissed'
+where target_type = 'activity' and target_id = '<target_id>';
+```
+
+Sayaç 3'ün altına düştüğü anda `in_feed` yeniden `true` olur, içerik geri
+gelir. Ek bir işlem gerekmez.
+
+**Şu an gizlenmiş olanları listele:**
+```sql
+select id, activity_type, report_count, in_feed, left(note, 60) as icerik
+from feed_activities where report_count > 0 order by report_count desc;
+
+select id, activity_id, report_count, is_visible, left(body, 60) as icerik
+from comments where report_count > 0 order by report_count desc;
+```
+
+> ⚠️ **Bilinen sınır (Y11):** gizlenen yorumlar kartın `comment_count`
+> sayacında sayılmaya devam ediyor — kart "3 yorum" derken 2 yorum görünür.
+> Ölçek büyümeden önce kapatılacak.
+
+> 🔴 **Eşiği değiştirmek küçük bir migration ister.** GENERATED ifadeleri sabit
+> gerektirdiği için `app_settings`'ten okunamıyor — bu bilinçli: eşiğin
+> çalışma zamanında değişebilmesi, moderasyon davranışını sessizce kaydıran
+> bir kaldıraç olurdu.
+
+---
+
 ## 3. Moderasyon eylemleri
 
 Hepsi elle, SQL Editor'den. **Otomatik gizleme F10'da gelecek.**
