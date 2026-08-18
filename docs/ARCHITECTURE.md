@@ -104,6 +104,19 @@ Mobil (iOS/Android) arayüzüne dokunulmadan Web'e özel masaüstü tasarımlar�
 
 > ✅ **2026-07-18 güncellemesi:** Bu bölümde önceden "Bilinen Güvenlik Sorunu" olarak işaretlenen açık (Trakt Client Secret'ın `EXPO_PUBLIC_TRAKT_CLIENT_SECRET` ile client bundle'ına gömülmesi) kapatıldı. `server.js`'te zaten var olan ama frontend tarafından hiç kullanılmayan `POST /api/trakt` uç noktası sertleştirildi (artık `EXPO_PUBLIC_TRAKT_CLIENT_SECRET`'a fallback yapmıyor) ve hem `exchangeAuthCode` hem de token yenileme akışı bu uç noktaya yönlendirildi. Detay için `docs/HISTORY.md` Madde 25.
 
+### 4.1 Proxy koruma katmanı — `server/security.js`
+
+BFF proxy'sinin üç uç noktası (`/api/tmdb`, `/api/trakt-proxy`, `/api/trakt`) uzun süre **kimliksiz, rate-limit'siz ve `Access-Control-Allow-Origin: *`** ile çalıştı. Sırlar sızmıyordu (SSRF de yok — host sabit, `api_key` ezilemiyor) ama uçlar herkesin kullanabileceği ücretsiz bir TMDB/Trakt geçidiydi: **kimliksiz kota tüketimi**, Trakt tarafında doğrudan fatura riski. Koruma `server/security.js`'e toplandı (`server.js` 400 satır sınırına yakındı):
+
+| Katman | Ne yapar |
+|---|---|
+| **CORS beyaz listesi** | Yalnızca `https://kaymaktv.com` (geliştirmede `localhost`/`exp://`) CORS başlığı alır. `Origin` göndermeyen native istekler **etkilenmez** — CORS bir kota koruması değil, üçüncü parti web sitelerine karşıdır |
+| **Rate limit** | TMDB 300/dk · Trakt proxy 120/dk · auth 20/dk. Anahtar `CF-Connecting-IP` — `req.ip` Cloudflare arkasında herkesi tek anahtarda toplar, `trust proxy` ise `X-Forwarded-For` spoof'una açıktır |
+| **Trakt uç beyaz listesi** | `/api/trakt-proxy` genel amaçlı bir köprüydü; artık yalnızca tarayıcının CORS'a taktığı 13 çağrı geçer. Tam eşleşme olduğu için yol geçişi de kapanır |
+| **`redirect_uri` beyaz listesi** | `/api/trakt` için. ⚠️ `urn:ietf:wg:oauth:2.0:oob` listeden **çıkarılamaz** — token yenileme onu kullanır, düşerse tüm oturumlar yenilenemez |
+
+Gerekçelerin tamamı dosyanın kendi yorumlarında; kronoloji `docs/HISTORY.md` Madde 192.
+
 ---
 
 ## 5. Kullanılan Teknolojiler

@@ -4384,3 +4384,69 @@ Eski yorum *"tekrar kaydırınca yeniden denenir"* diyordu — **ama kullanıcı
 
 ### Sıradaki
 **F16** — açık proxy güvenliği (Y12). Cloudflare WAF rate-limit `/api/*` kodsuz ve anında; ardından `server.js`'te `cors({origin})` + `express-rate-limit` + Trakt uç beyaz listesi.
+
+---
+
+## 192. F16 — Açık Proxy Güvenliği (Y12): CORS + Rate Limit + Uç Beyaz Listesi
+
+**Bağlam:** `MASTER_PLAN` Kol E, denetimin en acil güvenlik bulgusu. `kaymaktv.com/api/tmdb` ve `/api/trakt-proxy` kimliksiz, rate-limit'siz ve `Access-Control-Allow-Origin: *` ile herkese açıktı. SSRF yok — sorun **kimliksiz kota tüketimi**: Trakt ücretlendirmeye geçtiği için doğrudan fatura riski, TMDB tarafında anahtarın kota aşımıyla askıya alınması.
+
+Oturumun başında canlıda tekrar ölçüldü ve açık doğrulandı: `curl -sI https://kaymaktv.com/` → `access-control-allow-origin: *`, `x-powered-by: Express`, `Server: cloudflare`.
+
+### 🔴 Beyaz liste TAHMİNLE yazılsaydı iki şey kırılırdı
+
+Proxy'nin dört handler'ı (`GET`/`POST`/`DELETE`/`PUT`) **genel amaçlıydı**: `endpoint` query parametresine ne yazılırsa `api.trakt.tv`'nin o yoluna gidiliyordu. Yani Trakt'ın TÜM API'si kimliksiz olarak dışarıdaydı. Daraltmak için "hangi uçlar gerçekten kullanılıyor" sorusunun cevabı gerekiyordu ve bu **tahmin edilecek bir şey değildi**:
+
+**1. `urn:ietf:wg:oauth:2.0:oob`** — `redirect_uri` beyaz listesi yazarken makul liste "`kaymak://settings` + `https://kaymaktv.com/settings`" gibi görünüyor. Ama `services/api/traktClient.ts`'te **iki çağrı noktası** token yenilemeyi `refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob')` ile yapıyor. Bu değer listeden düşseydi hiçbir kullanıcının oturumu yenilenemez, **herkes oturumdan düşerdi** — üstelik hata deploy'dan saatler sonra, token'lar dolmaya başlayınca ortaya çıkardı.
+
+**2. `/users/settings`** — `services/api/users.ts`'teki `webProxyGet` yolundan geçiyor ve grep'te doğrudan `endpoint:` deseniyle görünmüyor (değişken üzerinden geliyor).
+
+Liste `services/api/{social,users}.ts` okunarak çıkarıldı, sonra **derlenmiş `dist` bundle'ıyla karşılaştırılarak** doğrulandı — iki bağımsız kaynak aynı 13 çağrıyı gösterdi.
+
+> **Yanlış alarm da elendi:** `services/api/traktClient.ts:100`'deki bir yorum *"CORS yüzünden Trakt'a doğrudan değil `/api/trakt-proxy` üzerinden gidiyor"* diyor. Bu okununca "tüm Trakt trafiği proxy'den geçiyor, beyaz liste her şeyi kırar" sanılabilirdi. Dosya açılınca görüldü ki yorum `users.ts`'teki dar yolu tarif ediyor; `getTraktClient()` doğrudan Trakt'a gidiyor.
+
+### Ölçülen beyaz liste (13 çağrı, 4 metod)
+`GET`: `/users/hidden/{progress_watched,calendar}` · `/users/requests` · `/users/settings`
+`POST`: `/users/hidden/{...}` · `/users/hidden/{...}/remove` · `/users/{slug}/follow` · `/users/requests/{id}`
+`DELETE`: `/users/{slug}/follow` · `/users/requests/{id}`
+`PUT`: **boş** — handler ayakta (HISTORY Madde 134'te bilinçli bırakılmıştı) ama bugün hiçbir istemci çağrısı yok.
+
+Desenler tam eşleşme (`^...$`) olduğu için yol geçişi (`/users/settings/../../oauth/token`) ve `endpoint`'e query iliştirme de kendiliğinden kapandı.
+
+### 🔬 `trust proxy` açmak yanlış cevaptı
+
+Rate limit anahtarı Cloudflare arkasında ince bir tuzak: `req.ip` edge sunucusunun IP'sini verir, yani **tüm kullanıcılar tek anahtar altında toplanır** ve limit hepsini birlikte keser. Refleks çözüm `app.set('trust proxy', true)` ama o da yanlış: Cloudflare `X-Forwarded-For`'a ziyaretçi IP'sini **ekler** (üzerine yazmaz), dolayısıyla saldırganın gönderdiği sahte değer en solda kalır ve limit atlatılır. Doğrusu `CF-Connecting-IP` — onu Cloudflare her zaman üzerine yazar.
+
+### Sessiz yanlış yapılandırmaya karşı
+Geliştirme kaynakları (`localhost`, `exp://`) `NODE_ENV !== 'production'` ile açılıyor ve sunucu açılışında hangi modda olduğu **terminale basılıyor**. Tercih bilinçli olarak "kırılmama yönünde": prod'da `NODE_ENV` set edilmemişse localhost kaynakları kabul edilir (ciddi bir açık değil — saldırgan kendi localhost'una yönlendirebilir ama Trakt `code`/`redirect_uri` eşleşmesini kendisi doğrular), tersi tüm geliştirme ortamını sessizce kırardı.
+
+### Doğrulama
+**33 birim testi** (beyaz liste + `redirect_uri`, geçmesi ve düşmesi gerekenler ayrı ayrı) ✅ · **7 canlı HTTP senaryosu** yerel sunucuda ✅:
+
+| Senaryo | Sonuç |
+|---|---|
+| Liste dışı uçlar (`/sync/watched/shows`, `/users/me/stats`, `/oauth/token`, yol geçişi, `PUT`) | 403 |
+| Listedeki uçlar | 401 (Trakt'tan — guard'ı geçip Trakt'a ulaştılar) |
+| `Origin: evil.example` | ACAO başlığı **yok** |
+| `Origin: kaymaktv.com` | `ACAO: https://kaymaktv.com` |
+| `Origin` yok (native taklidi) | 200 — **etkilenmiyor** |
+| `redirect_uri: evil.example` | 400 `Invalid redirect_uri` |
+| `redirect_uri: urn:...:oob` | Trakt'ın `invalid_grant`'i — guard'ı geçti |
+| Auth limiti (20/dk) | 20. istekten sonra 429 + `Retry-After` |
+| CORS preflight (OPTIONS) | 204 + izin başlıkları — guard'a takılmıyor |
+
+`tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ · `node --check` ✅ (iki dosya).
+
+> **Ölçüm aracı yine yanılttı (bu oturumda 5. kez).** İlk HTTP turunda *listedeki* uçlar da 403 döndü — beyaz liste bozuk sanılacaktı. Sebep kodda değildi: Git Bash'in MSYS yol dönüşümü `endpoint=/users/settings` argümanını `endpoint=/C:/Program Files/Git/users/settings`'e çeviriyordu. `MSYS_NO_PATHCONV=1` ile tekrarlanınca gerçek tablo çıktı. Aynı turda ikinci bir tuzak: izinli ve izinsiz `redirect_uri` **ikisi de HTTP 400** dönüyor — ayrım yalnızca gövdede (`Invalid redirect_uri` vs Trakt'ın `invalid_grant`'i). Sadece durum koduna bakılsaydı guard "her şeyi reddediyor" sanılırdı.
+
+### 🔴 Doğrulanamayan — canlıda hiçbir şey değişmedi
+Kod **deploy edilmedi**; `kaymaktv.com` hâlâ `Access-Control-Allow-Origin: *` ile açık. Cloudflare WAF kuralı da girilmedi. F16 ancak bu iki elle adımdan sonra kapanır (`MASTER_PLAN` §0 adım 3-4). Deploy `npm ci` gerektiriyor — yeni bağımlılık `express-rate-limit@8`.
+
+### Değişen dosyalar
+**Yeni:** `server/security.js` (243 satır).
+**Değişen:** `server.js` (361 → 383 satır; `cors()` → beyaz listeli middleware, üç limiter, iki guard) · `package.json` + `package-lock.json` (`express-rate-limit`) · `docs/{MASTER_PLAN,HISTORY}.md`.
+
+> Güvenlik mantığı `server.js`'e gömülmedi: dosya zaten 361 satırdı ve AI_RULES §1'in 400 satır sınırını aşardı.
+
+### Sıradaki
+**F17** — kopya birleştirme (`formatRelativeTime`, `confirmAsync`) ve `utils/confirmDialog.ts`'in patch'ten beri yalan söyleyen başlığı. Alternatif: F15'in cihaz testi (hâlâ yapılmadı).

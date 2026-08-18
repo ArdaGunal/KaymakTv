@@ -1,14 +1,35 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
+
+// Açık proxy koruması (MASTER_PLAN F16 / Y12) — gerekçeler ve beyaz listeler
+// `server/security.js` içinde. Ayrı modül olmasının sebebi AI_RULES §1'in
+// 400 satır sınırı; bu dosya zaten 361 satırdı.
+const {
+  corsMiddleware,
+  tmdbLimiter,
+  traktProxyLimiter,
+  traktAuthLimiter,
+  traktProxyGuard,
+  redirectUriGuard,
+  logSecurityMode,
+} = require('./server/security');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
 
-app.use(cors());
+// ⚠️ ESKİDEN `cors()` idi — yani `Access-Control-Allow-Origin: *`. Artık
+// yalnızca kaymaktv.com (ve geliştirmede localhost/exp://) kaynaklı tarayıcı
+// istekleri CORS başlığı alır. Native istekler `Origin` göndermediği için
+// bundan ETKİLENMEZ (bkz. server/security.js).
+app.use(corsMiddleware);
 app.use(express.json());
+
+// `/api/trakt-proxy`'nin dört handler'ı da (GET/POST/DELETE/PUT) aynı kapıdan
+// geçer: önce dakikalık istek limiti, sonra Trakt uç noktası beyaz listesi.
+// Handler tanımlarından ÖNCE bağlanması zorunlu.
+app.use('/api/trakt-proxy', traktProxyLimiter, traktProxyGuard);
 
 // ==========================================
 // BAŞLANGIÇ ORTAM DEĞİŞKENİ KONTROLÜ
@@ -28,7 +49,7 @@ if (missingEnvVars.length > 0) {
 // ==========================================
 // TMDB PROXY ENDPOINT
 // ==========================================
-app.get('/api/tmdb', async (req, res) => {
+app.get('/api/tmdb', tmdbLimiter, async (req, res) => {
   try {
     // ⚠️ `EXPO_PUBLIC_TMDB_API_KEY` FALLBACK'İ BİLİNÇLİ OLARAK KALDIRILDI.
     //
@@ -258,7 +279,7 @@ app.put('/api/trakt-proxy', async (req, res) => {
 // ==========================================
 // TRAKT AUTH ENDPOINT
 // ==========================================
-app.post('/api/trakt', async (req, res) => {
+app.post('/api/trakt', traktAuthLimiter, redirectUriGuard, async (req, res) => {
   try {
     const { code, refresh_token, redirect_uri } = req.body;
 
@@ -357,5 +378,6 @@ app.listen(PORT, () => {
   console.log(`==========================================`);
   console.log(`🚀 Kaymak Server is running on port ${PORT}`);
   console.log(`🌐 Local URL: http://localhost:${PORT}`);
+  logSecurityMode();
   console.log(`==========================================`);
 });

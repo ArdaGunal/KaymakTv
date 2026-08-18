@@ -13,8 +13,8 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-18 · **Aktif faz:** F15 (denetim düzeltmeleri)
-**Son commit:** `56a1b29` · **Push YAPILMADI** — `origin` hâlâ `368b127`'de.
+**Son güncelleme:** 2026-08-18 · **Aktif faz:** F16 (açık proxy güvenliği)
+**Son commit:** `b2a5e3a` · **Push YAPILMADI** — `origin` hâlâ `368b127`'de.
 
 ### 🔴 BEKLEYEN ELLE ADIMLAR — sıra önemli
 
@@ -22,8 +22,9 @@
 |---|---|---|
 | 1 | **`025_integrity_fixes.sql` çalıştır** | B1 (`uq_feed_rated`+`media_type`) · B4 (retention `rated` muafiyeti) · B3 (`is_visible`). Ön kontrol içeriyor, çakışma bulursa kendini durdurur |
 | 2 | **İstemciyi yeniden yükle** | ⚠️ **1'den SONRA.** `fetchMediaReviews` `.eq('is_visible', true)` kullanıyor; migration olmadan yapım sayfası inceleme listesi kırılır |
-| 3 | **Cloudflare WAF: `/api/*` rate limit** | Y12 — açık proxy. Kodsuz, ~10 dk. Trakt ücretli olduğu için fatura riski |
-| 4 | *(ops.)* F5 backfill 2-3. adım | `watched_episode` 43 · `rated` 8 eksik `tmdb_id`. Uygulamayı aç → self-join UPDATE'i tekrar çalıştır (F5 bölümü) |
+| 3 | **Cloudflare WAF: `/api/*` rate limit** | Y12 — açık proxy. Kodsuz, ~10 dk. Trakt ücretli olduğu için fatura riski. **F16 kodu bunu GEREKSİZ KILMAZ** — origin IP biliniyorsa Cloudflare atlanabilir, WAF ilk hat |
+| 4 | **`server.js` + `server/security.js` deploy** | F16 kod tarafı yazıldı ve yerelde HTTP ile test edildi, **canlıda DEĞİL**. `npm ci` gerekiyor (yeni bağımlılık: `express-rate-limit`). ⚠️ Deploy sonrası web'de **giriş + takip et + gizle** akışlarını bir kez dene |
+| 5 | *(ops.)* F5 backfill 2-3. adım | `watched_episode` 43 · `rated` 8 eksik `tmdb_id`. Uygulamayı aç → self-join UPDATE'i tekrar çalıştır (F5 bölümü) |
 
 ### ✅ Tamamlananlar (ayrıntı `HISTORY.md`)
 Kol A (F1-F4) · F5 · F6 · F9 · F10 · F14 · K1 · K2 · G1 · Y7(kısmi) · Y8 ·
@@ -70,7 +71,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F10** | Rapor sayacı + otomatik gizleme — [`MODERATION.md`](MODERATION.md) | ✅ **BİTTİ** — `024` canlıda. Eşik **3 kişi**, itiraz = raporu `dismissed` yapmak |
 | **D0** | 🔍 **Sistem denetimi** (4 alt ajan) | ✅ **BİTTİ** — K1 açığı bulundu+kapatıldı, `025` yazıldı, Y12-Y21 kaydedildi |
 | **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟢 **4/5 BİTTİ** — Y17·Y16·Y18·Y21 kapandı, Y20 kısmi. Cihaz testi bekliyor |
-| **F16** | 🔒 Açık proxy güvenliği (Y12) | ⬜ **SIRADAKİ** — WAF önce (kodsuz), sonra `server.js` |
+| **F16** | 🔒 Açık proxy güvenliği (Y12) | 🟢 **KOD BİTTİ** — `server/security.js`: CORS beyaz listesi + rate limit + Trakt uç beyaz listesi + `redirect_uri` beyaz listesi. Yerelde HTTP ile doğrulandı. **Kalan: WAF kuralı + deploy** (elle adım 3-4) |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ⬜ — küçük, ama denetimde bir ajanı yanılttı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — altyapı hazır (kullanıcı kurdu), S9+S14 bekliyor |
@@ -715,16 +716,19 @@ olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
 Ayrıntı: `HISTORY.md` Madde 190. Kapatılanlar: **K1** (anon sansür açığı),
 **B1/B3/B4** (`025`). Aşağıdakiler açık:
 
-### 🔴 Y12 · `kaymaktv.com` açık proxy — kimliksiz, rate-limit yok
+### 🟢 Y12 · `kaymaktv.com` açık proxy — KOD TARAFI KAPANDI, DEPLOY BEKLİYOR
 `server.js` → `/api/tmdb` ve `/api/trakt-proxy` kimlik doğrulaması, Origin
 kontrolü ve rate limit olmadan çalışıyor; `app.use(cors())` ile herkese açık.
 Canlıda doğrulandı: `GET kaymaktv.com/api/tmdb?endpoint=/configuration` → 200.
 **Trakt ücretlendirmeye geçti** — bu doğrudan fatura ve anahtar banlanma riski.
-`Authorization` başlığı olduğu gibi iletiliyor.
 **Not:** SSRF YOK (host değiştirilemiyor, `api_key` ezilemiyor) — sorun
 kimliksiz kota tüketimi.
-**Çözüm sırası:** (1) Cloudflare WAF rate-limit `/api/*` — kodsuz, anında ·
-(2) `cors({origin})` + `express-rate-limit` + Trakt uç beyaz listesi.
+
+**Durum (F16, HISTORY Madde 192):** `server/security.js` yazıldı — CORS beyaz
+listesi, üç ayrı rate limit, Trakt uç beyaz listesi, `redirect_uri` beyaz
+listesi. 33 birim + 7 canlı HTTP senaryosu yerelde geçti.
+**Kalan iki elle adım:** Cloudflare WAF kuralı (§0 adım 3) ve deploy (§0 adım 4).
+**Deploy edilene kadar canlıda hiçbir şey değişmedi** — açık hâlâ açık.
 
 ### 🟠 Y13 · `watched_movie` için unique kısıt YOK
 `003`/`005` yalnızca `watched_episode` ve `rated` için kısıt tanımlıyor;
