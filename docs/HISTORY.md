@@ -4334,3 +4334,53 @@ Kol C tamamlandı (F9 → F10). Kalan büyük iş **F7 → F8** (kimlik katmanı
 ### Doğrulama
 `tsc` ✅ · migration çakışması ✅ yok · K1 kapanışı canlıda ✅ · Worker yolu sağlam ✅.
 **Doğrulanamayan:** `025` henüz çalıştırılmadı.
+
+---
+
+## 191. F15 — Kullanıcıya Dokunan Denetim Düzeltmeleri
+
+**Bağlam:** `MASTER_PLAN` Kol E, sistem denetiminden (Madde 190) çıkan bulgular. **Seçim ölçütü bilinçli olarak dar tutuldu:** bugün gerçek bir kullanıcıyı *yanıltan* veya *emeğini kaybettiren* kusurlar. Performans ve mimari borcu bu faza alınmadı.
+
+### 🔴 Y17 — Uygulama hata durumunda YALAN söylüyordu (en ağırı)
+
+`useEpisodeDetail` `hasError` **hiç tutmuyordu.** Trakt düştüğünde `episode/[id].tsx` fallback zinciriyle (`episodeData?.title || t('episodeNum')`) sayfayı **başarıyla açılmış gibi** çiziyordu: *"Bölüm 5 · Henüz özet yok · Tarih yok"*.
+
+Daha kötüsü: `first_aired` boş kaldığı için `isFutureOrTBA` **true** oluyor, **"TBA" rozeti** basılıyor ve **"İzledim" butonu tamamen kayboluyordu**. Yani Trakt çöktüğü için kullanıcıya *"bu bölüm henüz yayınlanmadı"* deniyordu. Bu boş ekrandan kötü — uygulama yanlış bilgi veriyordu.
+
+`show`/`movie` ekranlarında bir dal vardı ama **yanlış teşhis** koyuyordu: *"Dizi bulunamadı"*. Dizi duruyor; yalnızca yüklenemedi. Üstelik **"Tekrar Dene" yoktu**, sadece "Geri Dön" — geçici bir ağ hatası kullanıcıyı sayfadan tamamen kovuyordu.
+
+**Düzeltme:** üç hook'a da `hasError` eklendi (ölçüt: yapımın/bölümün **kendi** verisi gelmediyse hata; `related`/`cast`/`still` eksikliği hata **değil**, fallback'leri var). Ortak `components/LoadFailedState.tsx` yazıldı.
+
+> **Yan kazanç:** üç hook da `refreshData` döndürüyordu ve **üçünde de kullanılmıyordu** (Y5 ile aynı kök). "Tekrar Dene" butonu onu nihayet bağladı.
+
+### 🔴 Y16 — Üç yazma yüzeyinde onaysız metin kaybı
+`ComposePostModal` · `FeedCommentSheet` · `NoteEditorModal`: arka plana dokunma, X ve Android geri tuşu metni **onaysız** siliyordu. Klavyeyi kapatmak için sheet'in üstündeki karartılmış alana dokunmak mobilde en doğal refleks — yani uzun bir metin tek dokunuşla, geri alınamaz şekilde gidiyordu.
+
+`WriteReviewSheet` bu korumayı F4-T9'da kazanmıştı; **kapatma tarafı diğer üçüne hiç taşınmamıştı.** `requestClose` deseni eklendi.
+
+> `NoteEditorModal`'da ölçüt *"metin var mı"* değil **"değişti mi"** — düzenleme modunda not zaten dolu geliyor; hiçbir şey değiştirmeden çıkana onay sormak gereksiz sürtünme olurdu.
+
+### 🔴 Y18 — Gizlilik anahtarı sessizce başarısız oluyordu
+`catch` yalnızca `console.warn` atıp anahtarı eski hâline döndürüyordu. Kullanıcı "gizle" der, Worker 401/429 döner, anahtar **sessizce geri açılır** — fark etmezse aktiviteleri paylaşılmaya devam eder ve **gizlediğini sanır.** Bir beğeni değil, bir **gizlilik kontrolü**; burada sessizlik kabul edilemez. `saveError` + ayarlar ekranında görünür uyarı (bölümün en üstünde, hangi anahtarın başarısız olduğundan bağımsız görülsün diye).
+
+> **İlke:** optimistic UI'ın geri alınması **geri bildirim değildir** — `AI_RULES` §2 bunu açıkça söylüyor.
+
+### 🟠 Y21 — Akışta "devamı yüklenemedi" çıkmazı
+Eski yorum *"tekrar kaydırınca yeniden denenir"* diyordu — **ama kullanıcı zaten en alttadır ve kaydıracak yer yoktur**, yani `onEndReached` bir daha tetiklenmez. Spinner kaybolur, hiçbir şey gelmez, hiçbir mesaj çıkmazdı: akışın bittiğini mi bozulduğunu mu anlamanın yolu yoktu. `loadMoreFailed` + footer'da görünür "Tekrar Dene". Çelişen eski yorum da kaldırıldı.
+
+### 🟢 Y20 — `SectionErrorBoundary` yayılımı (KISMİ)
+**Yapıldı:** akış kartları (`renderItem`, `silent` — bozuk **tek** kart artık tüm akışı `ErrorFallback`'e düşürmüyor) ve `show/[id].tsx` → `MediaCast`.
+**Kalan:** `MediaHero` (595 satır, Trakt ham verisini okuyor — en değerlisi), `SeasonAccordion`, `HorizontalMediaList`, `movie` blokları. Çok satırlı JSX oldukları için script ile sarmalamak riskliydi; elle yapılmalı.
+
+### Doğrulama
+`tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ temiz · çeviri senkronu ✅ (yalnızca bilinen `newPosts`).
+**Doğrulanamayan:** hiçbiri cihazda test edilmedi.
+
+> **Yöntem notu:** bu tur `sed`/`node` ile yapıldı ve üç kez bash **backtick'i komut olarak yorumlayıp** eklenen yorumları bozdu; bir kez de fonksiyon `import` satırının ortasına yazıldı (`git checkout` ile geri alınıp düzeltildi). Çok satırlı JSX/TS düzenlemesinde satır-numarası tabanlı yaklaşım ve `<< 'EOF'` heredoc (bash genişletmesi kapalı) güvenilir olan; ham `node -e "..."` içinde backtick ve `$1` kullanmak değil.
+
+### Değişen dosyalar
+**Yeni:** `components/LoadFailedState.tsx`.
+**Değişen:** `hooks/{useEpisodeDetail,useShowDetail,useMovieDetail}.ts` · `app/{episode,show,movie}/[id].tsx` · `features/feed/components/{ComposePostModal,FeedCommentSheet,NoteEditorModal}.tsx` · `features/feed/hooks/{useFeed,useFeedPrivacy}.ts` · `app/(protected)/{account,(tabs)/feed}.tsx` · `locales/{tr,en}/{feed,media}.json`.
+
+### Sıradaki
+**F16** — açık proxy güvenliği (Y12). Cloudflare WAF rate-limit `/api/*` kodsuz ve anında; ardından `server.js`'te `cors({origin})` + `express-rate-limit` + Trakt uç beyaz listesi.

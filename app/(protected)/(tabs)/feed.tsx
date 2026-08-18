@@ -10,6 +10,7 @@ import UserSearchBar from '../../../features/feed/components/UserSearchBar';
 import UserProfileCard from '../../../features/feed/components/UserProfileCard';
 import ComposePostBar from '../../../features/feed/components/ComposePostBar';
 import ComposePostModal from '../../../features/feed/components/ComposePostModal';
+import SectionErrorBoundary from '../../../components/SectionErrorBoundary';
 import { useFeed } from '../../../features/feed/hooks/useFeed';
 import { useUserSearch } from '../../../features/feed/hooks/useUserSearch';
 import { useAuth } from '../../../context/AuthContext';
@@ -196,11 +197,19 @@ export default function FeedScreen() {
             scrollEventThrottle={64}
             data={data}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) =>
-              isMarathonActivity(item)
-                ? <MarathonFeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />
-                : <FeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />
-            }
+            /* Y20: her kart KENDİ hata sınırında. Bir kartın render istisnası
+               (bozuk veya eksik alanlı bir satır) eskiden kök ErrorBoundary'ye
+               kadar çıkıp TÜM AKIŞI ErrorFallback ekranına düşürüyordu.
+               silent: bozuk kart sessizce atlanır, akış akmaya devam eder —
+               hata logError ile kaydedildiği için bu sessizlik kayıp değil
+               (Geliştirici Paneli hata kaydını görüyor). */
+            renderItem={({ item }) => (
+              <SectionErrorBoundary label={"feed-card:" + item.id} silent>
+                {isMarathonActivity(item)
+                  ? <MarathonFeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />
+                  : <FeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />}
+              </SectionErrorBoundary>
+            )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             // Sonsuz kaydırma. 0.5 = ekranın bir boyu kadar mesafe kala

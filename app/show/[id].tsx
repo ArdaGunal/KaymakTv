@@ -5,6 +5,7 @@ import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
 import LoadFailedState from '../../components/LoadFailedState';
+import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
@@ -213,7 +214,13 @@ export default function ShowDetailScreen() {
         />
 
         <View style={styles.contentArea}>
-          <MediaCast cast={castData} />
+          {/* Y20: Trakt/TMDB ham verisini okuyan bloklar kendi hata
+              sınırlarında. Eskiden tek bir render istisnası kök
+              ErrorBoundary'ye çıkıp TÜM SAYFAYI düşürüyordu — S13'ün
+              gerekçesi buydu ama pratikte yalnızca bir yerde uygulanmıştı. */}
+          <SectionErrorBoundary label="show-cast">
+            <MediaCast cast={castData} />
+          </SectionErrorBoundary>
 
           {/* ── KaymakTV İncelemeleri ──────────────────────────────────
               Kendi sosyal evrenimiz: yanıt/beğeni burada yaşar, yazma işlemi

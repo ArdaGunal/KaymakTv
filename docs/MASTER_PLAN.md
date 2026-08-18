@@ -69,8 +69,8 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F9** | Moderasyon altyapı düzeltmesi (S15) | ✅ **BİTTİ** — `023` + `/feed/report`, canlıda doğrulandı (`yeni` → `TEKRAR`) |
 | **F10** | Rapor sayacı + otomatik gizleme — [`MODERATION.md`](MODERATION.md) | ✅ **BİTTİ** — `024` canlıda. Eşik **3 kişi**, itiraz = raporu `dismissed` yapmak |
 | **D0** | 🔍 **Sistem denetimi** (4 alt ajan) | ✅ **BİTTİ** — K1 açığı bulundu+kapatıldı, `025` yazıldı, Y12-Y21 kaydedildi |
-| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | ⬜ **SIRADAKİ** — aşağıya bak |
-| **F16** | 🔒 Açık proxy güvenliği (Y12) | ⬜ — WAF önce (kodsuz), sonra `server.js` |
+| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟢 **4/5 BİTTİ** — Y17·Y16·Y18·Y21 kapandı, Y20 kısmi. Cihaz testi bekliyor |
+| **F16** | 🔒 Açık proxy güvenliği (Y12) | ⬜ **SIRADAKİ** — WAF önce (kodsuz), sonra `server.js` |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ⬜ — küçük, ama denetimde bir ajanı yanılttı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — altyapı hazır (kullanıcı kurdu), S9+S14 bekliyor |
@@ -760,14 +760,14 @@ açık kalır — onu kapatmak akışı Worker'a taşımak demek (F7/F8).
 kapat, üye listesi yarısını F7'ye devret".
 ⚠️ `feedPrivacy.ts` `users`'tan okuyor — Worker'a taşınmalı.
 
-### 🟠 Y16 · Yazma yüzeylerinde onaysız metin kaybı
+### ✅ Y16 · Yazma yüzeylerinde onaysız metin kaybı — KAPANDI (F15)
 `ComposePostModal` · `FeedCommentSheet` · `NoteEditorModal`: arka plana
 dokunma / X / Android geri tuşu metni **onaysız siliyor**. `WriteReviewSheet`
 bunu `confirmAsync` ile çözmüş (F4-T9'da doğrulandı) — kapatma tarafı diğer
 üçüne hiç taşınmamış. 1000 karakterlik bir gönderi tek dokunuşla gidiyor.
 **Çözüm:** `WriteReviewSheet`'teki `handleRequestClose` deseni.
 
-### 🟠 Y17 · `episode/[id].tsx` hata durumunda SAHTE VERİ çiziyor
+### ✅ Y17 · Hata durumunda sahte veri — KAPANDI (F15, üç ekran birden)
 `useEpisodeDetail` `hasError` tutmuyor; Trakt 500/timeout'ta sayfa "Bölüm 5 ·
 Henüz özet yok · Tarih yok" diye **başarıyla açılmış gibi** görünüyor. Dahası
 `first_aired` boş olduğu için **"TBA" rozeti** çiziliyor ve **"İzledim" butonu
@@ -776,7 +776,7 @@ uygulama yalan söylüyor. `show`/`movie` ekranları da "bulunamadı" diyor (yan
 teşhis) ve "Tekrar Dene" sunmuyor. Üç hook'ta da `refreshData` var, **üçünde de
 kullanılmıyor** (Y5 ile aynı kök).
 
-### 🟠 Y18 · Gizlilik anahtarı sessizce başarısız oluyor
+### ✅ Y18 · Gizlilik anahtarı sessizce başarısız — KAPANDI (F15)
 `useFeedPrivacy` catch'i yalnızca `console.warn` + switch'i geri alıyor.
 Kullanıcı "gizle" der, Worker 401/429 döner, anahtar sessizce geri açılır →
 **gizlediğini sanır.** Bir gizlilik kontrolünde sessizlik kabul edilemez
@@ -791,12 +791,24 @@ dokunulunca **promise sonsuza dek askıda**.
 Ayrıca `utils/confirmDialog.ts`'in başlığı **yalan** (patch'ten beri) ve bu,
 denetimde bir ajanı yanılttı — önce o düzeltilmeli.
 
-### 🟡 Y20 · `SectionErrorBoundary` tüm projede TEK yerde
+### 🟡 Y20 · `SectionErrorBoundary` yayılımı — 🟢 KISMEN KAPANDI (F15)
+**Yapıldı:** akış kartları (`feed.tsx` renderItem, `silent` — bozuk tek kart
+artık tüm akışı düşürmüyor) · `show/[id].tsx` → `MediaCast`.
+**Kalan:** `MediaHero` (595 satır, Trakt ham verisini okuyor — en değerlisi) ·
+`SeasonAccordion` · `HorizontalMediaList` · `movie/[id].tsx` blokları.
+**Neden kısmi:** kalanlar çok satırlı JSX blokları; script ile sarmalamak
+riskliydi, elle ve tek tek yapılmalı.
+
+<details><summary>özgün bulgu</summary>
+
+### `SectionErrorBoundary` tüm projede TEK yerde
 `MediaCommentsSection`'da, üstelik `silent`. `MediaHero`, `MediaCast`,
 `SeasonAccordion`, `FeedCard` korumasız → tek render istisnası tüm ekranı
 `ErrorFallback`'e düşürüyor. S13'ün gerekçesi pratikte uygulanmamış.
 
-### 🟡 Y21 · Akışta "devamı yüklenemedi" çıkmazı
+</details>
+
+### ✅ Y21 · Akışta "devamı yüklenemedi" çıkmazı — KAPANDI (F15)
 `useFeed` `loadMore` hatasında yalnızca `console.warn`; kullanıcı zaten en
 alttadır, `onEndReached` yeniden tetiklenmez, footer `null` döner. Spinner
 kaybolur ve **hiçbir şey olmaz**. Aynı sınıf: liste doluyken `refresh()`
