@@ -14,7 +14,12 @@
 ## 0. DURUM
 
 **Son güncelleme:** 2026-08-18 · **Aktif faz:** F16 (açık proxy güvenliği)
-**Son commit:** `b2a5e3a` · **Push YAPILMADI** — `origin` hâlâ `368b127`'de.
+**Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
+Yereldeki fark: `git log --oneline origin/main..HEAD`.
+
+> Buraya son commit hash'i ve commit SAYISI yazılmıyor: ikisi de her faz
+> sonunda bayatlıyor (hash iki oturum üst üste yanlış bilgi verdi, sayı ise
+> yazıldığı commit'te bile hatalı oluyor). Tek doğru kaynak `git log`.
 
 ### 🔴 BEKLEYEN ELLE ADIMLAR — sıra önemli
 
