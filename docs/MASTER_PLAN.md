@@ -13,74 +13,32 @@
 
 ## 0. DURUM
 
-> ✅ **COMMIT DURUMU ÇÖZÜLDÜ — 2026-08-17.** Kol A'nın tamamı (Madde 165-179,
-> 46 dosya) tek commit'te kayıt altına alındı: **`93aa678`**. Geri dönüş
-> noktası artık VAR. **Push YAPILMADI** — `origin` (GitHub) hâlâ `368b127`'de.
->
-> Doğrulama komutları (dördü de şu an TEMİZ):
-> ```bash
-> npx tsc --noEmit --noUnusedLocals --noUnusedParameters -p .
-> node --check "C:/Yapay_Zeka_Uygulamalar/kaymaktv-feedback-worker/src/index.js"
-> node --check server.js
-> cd ../kaymaktv-feedback-worker && npx vitest run   # 29/29
-> ```
+**Son güncelleme:** 2026-08-18 · **Aktif faz:** F15 (denetim düzeltmeleri)
+**Son commit:** `56a1b29` · **Push YAPILMADI** — `origin` hâlâ `368b127`'de.
 
-> ✅ **021 çalıştırıldı · Worker deploy edildi · F14 doğrulandı · T9 tekrar
-> testi geçti (web) · 🔓 kilit kalktı.**
->
-> 🟡 **AÇIK ELLE İŞ — F5 backfill zinciri, 1/3 adım bitti:**
->
-> | Adım | Durum |
-> |---|---|
-> | 1. self-join UPDATE | ✅ **çalıştırıldı** — 57 → 51 (6 satır, öngörüldüğü gibi) |
-> | 2. uygulamayı aç, senkron `rated`'i doldursun | ⬜ |
-> | 3. self-join UPDATE **tekrar** | ⬜ — ~31 satır daha çözmeli |
->
-> Kalan: `watched_episode` 43 · `rated` 8. (`watched_movie`, `posted`,
-> `reviewed` → **0 eksik** ✅)
->
-> **Sıra bozulmamalı:** adım 3, adım 2'den sonra gelmezse kopyalanacak kaynak
-> tabloda olmaz.
+### 🔴 BEKLEYEN ELLE ADIMLAR — sıra önemli
 
-> 🔴 **BEKLEYEN DEPLOY:** `rated` geri-alma koruması (Madde 185) Worker'da
-> düzeltildi ama **deploy edilmedi**. Trakt puan uçları 429/5xx dönerse
-> kullanıcının tüm puan kartları siliniyor ve o kartlara yapılmış
-> beğeni/yorumlar CASCADE ile **kalıcı olarak** gidiyor. `npx wrangler deploy`.
+| # | İş | Not |
+|---|---|---|
+| 1 | **`025_integrity_fixes.sql` çalıştır** | B1 (`uq_feed_rated`+`media_type`) · B4 (retention `rated` muafiyeti) · B3 (`is_visible`). Ön kontrol içeriyor, çakışma bulursa kendini durdurur |
+| 2 | **İstemciyi yeniden yükle** | ⚠️ **1'den SONRA.** `fetchMediaReviews` `.eq('is_visible', true)` kullanıyor; migration olmadan yapım sayfası inceleme listesi kırılır |
+| 3 | **Cloudflare WAF: `/api/*` rate limit** | Y12 — açık proxy. Kodsuz, ~10 dk. Trakt ücretli olduğu için fatura riski |
+| 4 | *(ops.)* F5 backfill 2-3. adım | `watched_episode` 43 · `rated` 8 eksik `tmdb_id`. Uygulamayı aç → self-join UPDATE'i tekrar çalıştır (F5 bölümü) |
 
-> 🔴 **F9 ELLE ADIMLARI — SIRA ZORUNLU:**
->
-> | # | Adım | Not |
-> |---|---|---|
-> | 1 | **`023` Bölüm A** çalıştır | UNIQUE + NOT NULL + FK CASCADE. Migration NULL/tekrar satır bulursa **kendini durdurur** ve ne yapılacağını söyler (veri silmez) |
-> | 2 | `npx wrangler deploy` | `/feed/report` ucu. ⚠️ Adım 1'siz çalışmaz: `on_conflict` hedefi olan UNIQUE orada oluşuyor |
-> | 3 | İstemciyi yeniden yükle | Bildirme artık Worker'a gidiyor |
-> | 4 | Bildirme akışını test et | Aynı içeriği **iki kez** bildir → ikincide *"Bu içeriği zaten bildirmiştin."* |
-> | 5 | **`023` Bölüm B** (yorumu kaldır, çalıştır) | Anon INSERT politikasını düşürür. **Adım 3'ten önce yapılırsa güncellenmemiş istemcilerde bildirme kırılır** |
->
-> ⚠️ **Davranış değişikliği:** misafir artık bildirim gönderemiyor. Bilinçli —
-> beğeni/yorum/engelleme de giriş gerektiriyor; kimliksiz bildirim kabul etmek
-> UNIQUE kısıtının tamamını işlevsiz bırakıyordu (`NULL != NULL`).
+### ✅ Tamamlananlar (ayrıntı `HISTORY.md`)
+Kol A (F1-F4) · F5 · F6 · F9 · F10 · F14 · K1 · K2 · G1 · Y7(kısmi) · Y8 ·
+🔓 build kilidi kalktı (Madde 184) · sistem denetimi + K1 açığı kapatıldı (Madde 190).
 
-> 📌 **SONRAKİ İŞ (kullanıcı kararı, 2026-08-17): F6 → F9.**
-> F6 tasarımı bir alt ajana hazırlatıldı ve **ön tasarım çürütüldü** —
-> yeni model: snapshot F6'da yalnızca YAZILIR, hiç okunmaz; RLS politikası
-> verilmez; istemci dayanıklılığı YEREL kopyayla çözülür. Gerekçeler ve
-> 7 adımlı plan bir sonraki turda `docs/FOLLOW_SNAPSHOT_PLAN.md`'ye yazılacak.
->
-> ✅ **F6 Adım 0 KAPANDI — sayfalama riski YOK (canlıda ölçüldü, 2026-08-17).**
-> `/users/{id}/following` `x-pagination-*` başlığı **döndürmüyor** ve tüm
-> listeyi tek yanıtta veriyor. Kontrol testi: aynı yöntemle `/movies/popular`
-> çağrıldığında başlıklar geliyor (`item-count=488, limit=100, page-count=5`),
-> yani ölçüm yöntemi doğru. `getMyFollowingSlugs()` `limit` göndermediği için
-> tam listeyi alıyor — sessiz kırpma yok.
->
-> ⚠️ Tek kalan incelik: uç `?limit=N` parametresini **kabul ediyor**. Koda
-> bir gün `limit` eklenirse liste sessizce kırpılır. `social.ts`'te
-> `getMyFollowingSlugs` bilinçli olarak parametresiz çağırıyor — öyle kalmalı.
+### Doğrulama komutları
+```bash
+npx tsc --noEmit --noUnusedLocals --noUnusedParameters -p .
+node --check "C:/Yapay_Zeka_Uygulamalar/kaymaktv-feedback-worker/src/index.js"
+node --check server.js
+cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
+```
 
-
-**Son güncelleme:** 2026-08-17 · **Aktif faz:** F4 (uçtan uca doğrulama + ilk build)
-**F4 test protokolü:** [`F4_TEST_PROTOCOL.md`](F4_TEST_PROTOCOL.md) — cihazda adım adım uygulanacak
+> ⚠️ **`kaymaktv-feedback-worker` bir git reposu DEĞİL.** Worker kodunun tek
+> kopyası diskte; F5/F6/F9/Y7 değişikliklerinin geri dönüş noktası yok.
 
 | Kilit | Durum |
 |---|---|
@@ -104,18 +62,24 @@
 | **F3** | Doküman senkronizasyonu | ✅ **BİTTİ** |
 | **G1** | 🔒 **Güvenlik denetimi #1** — yazma yüzeyi | ✅ **BİTTİ** |
 | **F4** | Uçtan uca doğrulama + **ilk build** (kilit kalkar) | ✅ **BİTTİ** 🔓 — 13 adım geçti, 3 kusur bulundu ve düzeltildi |
-| **F5** | `tmdb_id` tüm aktivite tiplerine | 🟡 **DEPLOY EDİLDİ** — backfill zinciri (3 adım) kaldı |
+| **F5** | `tmdb_id` tüm aktivite tiplerine | 🟡 **DEPLOY EDİLDİ** — backfill zinciri 1/3 adım (51 satır kaldı, kilitleyici değil) |
 | **F6** | Takip listesi snapshot'ı — [`FOLLOW_SNAPSHOT_PLAN.md`](FOLLOW_SNAPSHOT_PLAN.md) | ✅ **BİTTİ** — `022` + Worker canlıda doğrulandı, istemci sertleştirme cihazda sorunsuz |
-| **K2** | 🧹 **Kalite denetimi #2** | ✅ **BİTTİ** — kimliğe bağlı 2 önbellek çıkışta temizlenmiyordu (bulundu+düzeltildi) |
-| **F7** | ⚠️ Kimlik katmanı refactor | ⬜ |
-| **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ |
+| **K2** | 🧹 **Kalite denetimi #2** | ✅ **BİTTİ** — kimliğe bağlı 2 önbellek çıkışta temizlenmiyordu |
+| **F14** | Elle yazılan içerik için akış görünürlüğü — [`FEED_VISIBILITY_PLAN.md`](FEED_VISIBILITY_PLAN.md) | ✅ **BİTTİ** — `021`, cihazda doğrulandı |
+| **F9** | Moderasyon altyapı düzeltmesi (S15) | ✅ **BİTTİ** — `023` + `/feed/report`, canlıda doğrulandı (`yeni` → `TEKRAR`) |
+| **F10** | Rapor sayacı + otomatik gizleme — [`MODERATION.md`](MODERATION.md) | ✅ **BİTTİ** — `024` canlıda. Eşik **3 kişi**, itiraz = raporu `dismissed` yapmak |
+| **D0** | 🔍 **Sistem denetimi** (4 alt ajan) | ✅ **BİTTİ** — K1 açığı bulundu+kapatıldı, `025` yazıldı, Y12-Y21 kaydedildi |
+| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | ⬜ **SIRADAKİ** — aşağıya bak |
+| **F16** | 🔒 Açık proxy güvenliği (Y12) | ⬜ — WAF önce (kodsuz), sonra `server.js` |
+| **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ⬜ — küçük, ama denetimde bir ajanı yanılttı |
+| **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
+| **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — altyapı hazır (kullanıcı kurdu), S9+S14 bekliyor |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
-| **F9** | Moderasyon altyapı düzeltmesi (S15) | 🟡 **KOD BİTTİ** — `023` + Worker `/feed/report`. Elle adımlar bekliyor (aşağıda) |
-| **F10** | Rapor sayacı + otomatik gizleme | 🟡 **KOD BİTTİ** — `024` + istemci filtresi. Eşik **3 kişi**, itiraz yolu = raporu `dismissed` yapmak. Migration bekliyor |
-| **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ |
-| **F11** | S11: kullanıcı sayımı / gizlilik ayarı sızıntısı | ⬜ |
-| **F12** | S10: 400 satır kuralı borcu | ⬜ |
+| **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ — Y14 (RLS'siz gizleme) buraya |
+| **F11** | S11 — **yeniden çerçevelendi** (Y15) | ⬜ — ayar yarısı kolon `GRANT`'ı ile, üye listesi yarısı F7'ye |
+| **F12** | S10: 400 satır kuralı borcu | ⬜ — **16 dosyaya çıktı**, `users.ts` 963 |
 | **F13** | S16: `expo-image` yayılımı | ⬜ |
+| **F18** | Worker'ı git'e al | ⬜ — tek kopya diskte, geri dönüş noktası yok |
 
 ### ✅ Elle adımlar TAMAMLANDI (canlı doğrulandı — F2 turunda)
 | Adım | Doğrulama |
@@ -130,24 +94,34 @@
 
 ---
 
-## 1. Program Haritası — 4 iş kolu
+## 1. Program Haritası — 5 iş kolu
 
 ```
-A. İNCELEME SİSTEMİNİ BİTİR        F1 → F2 → K1 → F3 → G1 → F4 🔓
-   (kilidi açan kol)                                          │
-                                                              ▼
-B. TRAKT'TAN BAĞIMSIZLIK           F5 → F6 → K2 → F7 → F8 → G2
-   (stratejik kol)                                 ⚠️    ⚠️
+A. İNCELEME SİSTEMİNİ BİTİR        F1 ✅ F2 ✅ K1 ✅ F3 ✅ G1 ✅ F4 ✅🔓
+   (kilidi açan kol)                        ── KOL TAMAMLANDI ──
 
-C. MODERASYON / UGC                F9 → F10 → G3
-   (App Store gerekliliği)         ⚠️ sıra kritik
+B. TRAKT'TAN BAĞIMSIZLIK           F5 🟡  F6 ✅  K2 ✅ → F7 → F8 → G2
+   (stratejik kol)                                       ⚠️    ⚠️
 
-D. TEKNİK BORÇ                     F11 · F12 · F13
+C. MODERASYON / UGC                F9 ✅ → F10 ✅ → G3
+   (App Store gerekliliği)         ── altyapı TAMAM, G3 kaldı ──
+
+D. TEKNİK BORÇ                     F11 · F12 · F13 · F18
    (paralel, fırsat buldukça)
+
+E. DENETİM DÜZELTMELERİ  🆕        F15 → F16 → F17
+   (2026-08-18 sistem denetimi)    ⚡ F15 kullanıcıya dokunuyor
 ```
 
-**Kol A önce bitmeli** — build kilidi ona bağlı. B ve C paralel yürüyebilir.
-D herhangi bir zamanda araya sıkıştırılabilir.
+**Kol A bitti** — build kilidi kalktı. **Kol C'nin altyapısı bitti** (F9+F10).
+**Kol E yeni:** 4 alt ajanlı sistem denetiminden (D0) çıktı; bulguların tamamı
+`SONRADAN BULUNANLAR` bölümünde Y12-Y21 olarak kayıtlı.
+
+**Sıra tavsiyem:** E → B. Gerekçe: F15'teki kusurlar bugün **gerçek
+kullanıcıya** dokunuyor (uygulama hata durumunda yalan söylüyor, yazılan metin
+onaysız siliniyor, gizlilik anahtarı sessizce başarısız oluyor). F7/F8 ise
+büyük, riskli ve tek başına yapılması gereken bir iş — üstüne bilinen kusurlarla
+gitmek yanlış.
 
 ### Denetim fazları neden ayrı
 Kalite (K) ve güvenlik (G) denetimleri **birer faz**, bir alışkanlık değil.
@@ -465,10 +439,58 @@ mu · gizlenen içerik gerçekten okunamıyor mu (yoksa yalnızca UI'da mı sakl
 
 | Faz | İş | Not |
 |---|---|---|
-| **F11** | **S11:** `users` anon key ile tamamen okunabiliyor; `is_private`/`publish_watches` dahil. Postgres RLS kolon seviyesinde çalışmadığı için çözüm ayrı `user_settings` tablosu (önerilen) veya kısıtlı VIEW. | `001`'den beri var |
-| **F12** | **S10:** 400 satır kuralı — **13 dosya** (K2'de yeniden sayıldı). En büyükler: `services/api/users.ts` (**897**), `download.web.tsx` (814), `index.web.tsx` (695), `library/fetchers.ts` (662), `MediaHero.tsx` (571), `ReportIssueModal.tsx` (542), `user/[slug].web.tsx` (523), **`features/feed/services/feedApi.ts` (522)**, `FeedCard.tsx` (505), `progress.ts` (498), `episode/[id].tsx` (470), `profile.web.tsx` (455), `account.tsx` (415). | `users.ts` öncelikli. ⚠️ `feedApi.ts` ve `account.tsx` F14/Y8 turlarında 400'ü AŞTI — bölünmeleri artık bu fazın kapsamında |
+| **F11** | **S11 — YENİDEN ÇERÇEVELENDİ (Y15).** Eski not *"RLS kolon seviyesinde çalışmadığı için çözüm ayrı `user_settings` tablosu"* diyordu — **eksik bir önerme**: RLS satır seviyesindedir ama **kolon seviyesinde `GRANT` vardır ve PostgREST ona uyar.** Yeni plan: (a) ayar yarısını tek `GRANT` ifadesiyle kapat, (b) üye listesi yarısını F7'ye devret. | ⚠️ `feedPrivacy.ts` `users`'tan okuyor, Worker'a taşınmalı. Ayrıntı: Y15 |
+| **F12** | **S10:** 400 satır kuralı — **16 dosyaya ÇIKTI** (denetimde yeniden sayıldı; K2'de 13'tü). `users.ts` **963** (897'den), `download.web.tsx` 861, `index.web.tsx` 753, `fetchers.ts` 733, `feedApi.ts` 597. Sınırı YENİ geçenler: `traktClient.ts` 402, `AddToListModal.tsx` 406, `explore.tsx` 408. | 🔴 **Borç büyüyor.** `users.ts` öncelikli ve bölme çizgisi boyut değil SORUMLULUK olmalı: `users/{sync,lists,calendar,settings}.ts`. `traktApi.ts` barrel'ı `export *` kullandığı için **hiçbir tüketici import'u değişmez** — bu, bölünmeyi en ucuz yapan şey |
 | **F14** | **Elle yazılan içerik için akış görünürlüğü** — `publish_manual` (021). Tasarım: [`FEED_VISIBILITY_PLAN.md`](FEED_VISIBILITY_PLAN.md). F4 sırasında kullanıcı buldu: "Aktivitemi Akışta Gizle" incelemeleri kapsamıyordu. | ✅ **BİTTİ** — 021 çalıştırıldı, deploy edildi, cihazda doğrulandı |
 | **F13** | **S16:** `expo-image` yalnızca 4 dosyada, `cachePolicy="disk"` 2 yerde; 12 dosya hâlâ RN `Image`. TMDB'ye giden tekrar isteklerini azaltır. | Yeni altyapı gerekmiyor |
+| **F18** | **Worker git'te değil.** `kaymaktv-feedback-worker` hiç versiyon kontrolünde değil; F5/F6/F9/Y7 değişikliklerinin tek kopyası diskte. `git init` + `.gitignore` + ilk commit. | Kısa iş, yüksek sigorta değeri |
+
+---
+
+### KOL E — Denetim Düzeltmeleri 🆕
+
+> 2026-08-18 sistem denetiminden (D0) çıktı. Bulguların tamamı
+> "SONRADAN BULUNANLAR"da **Y12-Y21** olarak kayıtlı; buradaki fazlar onları
+> gruplandırıyor.
+
+#### F15 · 🩹 Kullanıcıya dokunan düzeltmeler — **SIRADAKİ**
+
+Bu fazın seçim ölçütü: **bugün gerçek bir kullanıcıyı yanıltan veya emeğini
+kaybettiren** kusurlar. Performans/mimari borcu buraya girmez.
+
+| # | Bulgu | Kullanıcı ne yaşıyor |
+|---|---|---|
+| **Y17** | `episode/[id].tsx` hata durumunda sahte veri | Trakt düşünce sayfa "Bölüm 5 · Henüz özet yok" diye **başarıyla açılmış gibi** görünüyor; `first_aired` boş olduğu için **"TBA" rozeti** çiziliyor ve **"İzledim" butonu kayboluyor** → uygulama *"bu bölüm yayınlanmadı"* diyor. **Uygulama yalan söylüyor.** |
+| **Y16** | 3 yazma yüzeyinde onaysız metin kaybı | 1000 karakterlik gönderi, klavyeyi kapatmak için arka plana dokununca **tek dokunuşla, onaysız** gidiyor. `WriteReviewSheet` bunu çözmüş; kapatma tarafı diğer üçüne taşınmamış |
+| **Y18** | Gizlilik anahtarı sessizce başarısız | "Gizle" der, Worker 401/429 döner, anahtar sessizce geri açılır → **gizlediğini sanır.** Gizlilik kontrolünde sessizlik kabul edilemez |
+| **Y21** | Akışta "devamı yüklenemedi" çıkmazı | En altta spinner kaybolur, hiçbir şey gelmez, hiçbir mesaj yok. `onEndReached` tekrar tetiklenmez — kullanıcı akışın bittiğini mi bozulduğunu mu anlayamaz |
+| **Y20** | `SectionErrorBoundary` tek yerde | Tek render istisnası tüm ekranı düşürüyor. S13'ün gerekçesi pratikte uygulanmamış |
+
+**Ortak desen:** dördü de `AI_RULES` §2 (sessiz başarısızlık yasağı) ihlali.
+Y17 ve Y18 daha ağır — orada sessizlik değil, **yanlış bilgi** var.
+
+**Çıkış kriteri:** her düzeltme için "kullanıcı ne görüyor" senaryosu cihazda
+doğrulanmış olmalı.
+
+#### F16 · 🔒 Açık proxy güvenliği (Y12)
+`kaymaktv.com/api/tmdb` ve `/api/trakt-proxy` kimliksiz, rate-limit'siz,
+CORS `*`. Canlıda doğrulandı. **Trakt ücretlendirmeye geçtiği için doğrudan
+fatura riski** + TMDB anahtarının kota aşımıyla askıya alınması.
+
+**Sıra:** (1) Cloudflare WAF rate-limit `/api/*` — **kodsuz, anında, önce bu**
+· (2) `cors({origin})` + `express-rate-limit` + Trakt uç beyaz listesi.
+**Not:** SSRF yok (host değiştirilemiyor, `api_key` ezilemiyor) — sorun
+kimliksiz kota tüketimi.
+
+#### F17 · 🧹 Kopya birleştirme + bayat doküman (Y19)
+`formatRelativeTime` ve `confirmAsync`'in ikişer kopyası ıraksamış.
+İlkinde İngilizce arayüz Türkçe zaman gösteriyor; ikincisinde Android'de
+diyalog dışına dokunulunca promise sonsuza dek askıda kalıyor.
+
+> **Neden önemsiz görünüp önemli:** `utils/confirmDialog.ts`'in başlığı
+> patch'ten beri **yalan** ve denetimde bir alt ajanı 60 çağrı noktası boyunca
+> yanlış yöne sürükledi. Yanlış doküman, yanlış koddan pahalıya mal olabiliyor.
+> Bu faz önce o başlığı düzeltmeli.
 
 ---
 
