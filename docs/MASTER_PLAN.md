@@ -689,6 +689,29 @@ raporda "engellediğin kişinin aktivitelerini görebiliyorsun" denmişti,
 gösteriyor, görsel sızıntı yoktu. Gerçek kusur korumanın TEK katmanının UI
 olması ve sorgunun yine de gitmesiydi. Ayrıntı: `HISTORY.md` Madde 183.
 
+## Y10 · "İçeriği Bildir" metin içermeyen kartlarda da görünüyor
+**Nerede:** `features/feed/components/FeedCard.tsx` → `onReport={!isOwnActivity ? … }`
+**Bulundu:** kullanıcı, F9 sonrası (2026-08-18).
+
+*"X, S01E02'yi izledi"* gibi bir sistem logunda bildirilecek kullanıcı içeriği
+yok; moderatör `content_reports`'ta içeriği boş bir satır görüyor.
+
+**Ama "izleme kartı = sistem mesajı" varsayımı YANLIŞ:** `FeedCard.tsx:227`
+her aktivite tipinde not eklemeye izin veriyor (`onEdit` tip ayrımı yapmıyor,
+Worker `handleFeedNote` de yapmıyor) ve not varsa o kartın **birincil içeriği**
+oluyor — Twitter'ın alıntı tweet'i deseni, bilinçli bir özellik. Yani nota
+iliştirilen metin tam anlamıyla UGC ve bildirilebilir kalmalı.
+
+**Doğru koşul** aktivite tipi değil içeriğin varlığı:
+`onReport={!isOwnActivity && !!activity.note ? … }` — `rated` ve notsuz
+`watched_*` gizlenir, notlu her şey görünür kalır. Maraton kartında rapor
+zaten yok (sentetik gruplama, tek `target_id`'ye bildirilemez).
+
+**Neden yapılmadı:** kullanıcı kararı — Google Play UGC politikası açısından
+menüden bildirme seçeneği KALDIRMAK, gereksiz bir seçenek bırakmaktan daha
+riskli. Fazladan "Bildir" zararsız; eksik olanı politika ihlali olabilir.
+**Faz:** Google Play politikası netleştiğinde yeniden değerlendirilir.
+
 ## Y7 · Trakt hata sebepleri tek mesaja düşüyordu — 🟡 KISMEN KAPANDI
 **Durum:** `verifyCaller` + `authErrorResponse` eklendi (Madde 188).
 `/feed/sync` ve `/feed/report` geçirildi; **kalan ~11 uç hâlâ eski

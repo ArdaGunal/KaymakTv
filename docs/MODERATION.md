@@ -5,6 +5,25 @@
 
 ---
 
+## 0. Bildirim geldiğinde ne oluyor?
+
+Yeni bir bildirim kaydedildiğinde Worker **Discord'a haber veriyor** — geri
+bildirim sisteminin zaten kullandığı webhook üzerinden, yeni altyapı yok.
+
+Mesajda: **rapor id** · sebep · hedef tipi ve id · bildirenin açıklaması.
+
+> ⚠️ **Bildirilen içeriğin METNİ Discord'a GÖNDERİLMİYOR** (bilinçli). UGC'yi
+> üçüncü bir platforma yaymak gereksiz bir gizlilik yüzeyi. Rapor id'siyle
+> aşağıdaki sorgudan tam kayda bakılır.
+
+**Tekrar bildirimlerde mesaj gitmez** — `023`'teki UNIQUE kısıtı yeni satır
+oluşturmadığı için Discord'a da yeni bilgi taşınmaz.
+
+**Discord erişilemezse bildirim yine de kaydedilir** (fail-soft); hata
+`wrangler tail`'de görünür.
+
+---
+
 ## 1. Bildirimler nerede duruyor?
 
 Tek yerde: **`content_reports` tablosu** (Supabase).
@@ -125,8 +144,9 @@ where target_type = 'activity' and target_id = '<target_id>';
 1. **Uygulama içi moderasyon paneli yok.** Google Play UGC gereksinimi
    *bildirme arayüzünü* şart koşuyor (var); moderasyonun uygulama içinde
    olması şart değil. Ölçek büyürse ayrı bir faz.
-2. **Bildirim geldiğinde uyarı yok.** Düzenli olarak yukarıdaki sorguyu
-   çalıştırmak gerekiyor.
+2. ~~Bildirim geldiğinde uyarı yok.~~ ✅ **Kapandı** — Discord bildirimi
+   eklendi (§0). Discord'da rapor id'sini görüp §2'deki sorguyla içeriğe
+   bakılıyor.
 3. **İtiraz yolu yok.** Yanlış silinen içerik geri gelmez. F10'da otomatik
    gizleme açılırken bu karara bağlanmalı — gizleme (geri alınabilir) ile
    silme (geri alınamaz) arasındaki fark orada belirleyici olacak.

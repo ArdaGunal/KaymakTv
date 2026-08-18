@@ -4218,5 +4218,26 @@ En kötüsü 429: kullanıcı "token geçersiz" görüp çıkış/giriş deniyor
 ### Doğrulama
 `node --check` ✅ · `vitest` ✅ **34/34** (geriye uyumluluk korundu). **Doğrulanamayan:** deploy edilmedi; 401'in gerçek sebebi hâlâ bilinmiyor — bir sonraki denemede `[verifyCaller]` logu veya kullanıcının gördüğü yeni mesaj söyleyecek.
 
+### 🔔 Bildirimler artık Discord'a düşüyor (kullanıcı isteği)
+Kullanıcı sordu: *"Bu raporlar nereye düşüyor? Zaten kurmuş olduğumuz Discord sistemi var, oraya düşebilir. Bir id ile düşse kolayca Supabase'den bulabilirim."*
+
+`MODERATION.md`'nin "bilinen sınırlar" bölümünde yazılı olan eksik tam olarak buydu: *"Bildirim geldiğinde uyarı yok — düzenli olarak sorguyu çalıştırmak gerekiyor."* Geri bildirim sisteminin **zaten kullandığı** webhook yeniden kullanıldı, yeni altyapı eklenmedi.
+
+Mesaj içeriği: rapor id · sebep · hedef tipi/id · bildirenin açıklaması.
+
+> ⚠️ **Bildirilen içeriğin METNİ gönderilmiyor** — bilinçli. UGC'yi üçüncü bir platforma yaymak gereksiz bir gizlilik yüzeyi; kullanıcının istediği zaten "id ile bulabileyim" idi. Rapor id'siyle `MODERATION.md` §2'deki sorgudan tam kayda bakılıyor.
+
+**Tekrar bildirimlerde mesaj gitmiyor:** UNIQUE kısıtı yeni satır üretmediği için Discord'a da yeni bilgi taşınmaz — aksi halde kullanıcının bilinen "sebebi değiştirip tekrar dene" refleksi kanalı doldururdu.
+
+**Fail-soft:** Discord erişilemezse bildirim yine de kaydedilir, `/feed/report` yanıtı etkilenmez — ama sessiz değil, hata loglanır.
+
+### 📌 Kayda geçen: "İçeriği Bildir" notsuz kartlarda da görünüyor (Y10)
+Kullanıcı fark etti: *"şu kişi X sezonu izledi"* gibi sistem loglarında bildirmeye gerek yok. Araştırıldı ve **kısmen doğru** çıktı:
+
+- **Maraton kartında rapor zaten yok** — `MarathonFeedCard` sentetik bir gruplama, tek bir `target_id`'ye bildirilemiyor (gerekçesi kodda yazılı).
+- **Ama "izleme kartı = sistem mesajı" varsayımı yanlış:** `FeedCard` her aktivite tipinde not eklemeye izin veriyor ve not varsa o kartın **birincil içeriği** oluyor (Twitter'ın alıntı tweet'i deseni, bilinçli özellik). Yani notlu bir izleme kartı tam anlamıyla UGC.
+
+Doğru koşul tipe değil içeriğe bakmak olurdu (`!!activity.note`). **Uygulanmadı — kullanıcı kararı:** Google Play UGC politikası açısından menüden bildirme seçeneği kaldırmak, gereksiz bir seçenek bırakmaktan daha riskli. `MASTER_PLAN` → Y10.
+
 ### 📌 Kayda geçen: Google girişi altyapısı hazır
 Kullanıcı bildirdi: Supabase ↔ Google Cloud entegrasyonu **yapılmış**, kimlik bilgileri hazır. **Henüz kullanılmıyor.** Sıra bağımlılığı değişmedi ve kritik: **F7 (kimlik katmanı) → F8 (Google giriş + hesap birleştirme) → G2.** S9 (`users.trakt_slug` NOT NULL + 13 uç `traktAccessToken` zorunlu) ve S14 (birleştirme köprüsü yok) çözülmeden Google girişi açılırsa mevcut kullanıcıların hesabı ikiye bölünür. Kullanıcı da aceleci olmadığını belirtti.
