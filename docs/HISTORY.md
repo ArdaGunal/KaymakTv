@@ -4439,8 +4439,35 @@ Geliştirme kaynakları (`localhost`, `exp://`) `NODE_ENV !== 'production'` ile 
 
 > **Ölçüm aracı yine yanılttı (bu oturumda 5. kez).** İlk HTTP turunda *listedeki* uçlar da 403 döndü — beyaz liste bozuk sanılacaktı. Sebep kodda değildi: Git Bash'in MSYS yol dönüşümü `endpoint=/users/settings` argümanını `endpoint=/C:/Program Files/Git/users/settings`'e çeviriyordu. `MSYS_NO_PATHCONV=1` ile tekrarlanınca gerçek tablo çıktı. Aynı turda ikinci bir tuzak: izinli ve izinsiz `redirect_uri` **ikisi de HTTP 400** dönüyor — ayrım yalnızca gövdede (`Invalid redirect_uri` vs Trakt'ın `invalid_grant`'i). Sadece durum koduna bakılsaydı guard "her şeyi reddediyor" sanılırdı.
 
-### 🔴 Doğrulanamayan — canlıda hiçbir şey değişmedi
-Kod **deploy edilmedi**; `kaymaktv.com` hâlâ `Access-Control-Allow-Origin: *` ile açık. Cloudflare WAF kuralı da girilmedi. F16 ancak bu iki elle adımdan sonra kapanır (`MASTER_PLAN` §0 adım 3-4). Deploy `npm ci` gerektiriyor — yeni bağımlılık `express-rate-limit@8`.
+### ✅ CANLIDA DOĞRULANDI (aynı gün deploy edildi)
+
+Kullanıcı push + Pi deploy'unu yaptı; `kaymaktv.com` üzerinde ölçüldü:
+
+| Test | Sonuç |
+|---|---|
+| `Origin` yok (native taklidi) | 200 + `ratelimit-policy: 300;w=60`, ACAO **yok** — native etkilenmiyor |
+| `Origin: https://kaymaktv.com` | `access-control-allow-origin: https://kaymaktv.com` |
+| `Origin: https://evil.example` | ACAO **yok** — üçüncü parti site artık kullanamaz |
+| `/sync/watched/shows`, `/users/me/stats`, `/shows/trending` | **403** |
+| `/users/settings`, `/users/requests`, `/users/hidden/progress_watched` | 401 (Trakt'tan — beyaz listeyi geçtiler) |
+| `POST /api/trakt` + `redirect_uri: evil.example` | 400 `Invalid redirect_uri` |
+
+**`Access-Control-Allow-Origin: *` gitti.** Denetimin en acil bulgusu (Y12) kod tarafında kapandı.
+
+### 🖥️ Deploy hedefi: `server.js` bir Raspberry Pi'de — ve siteyi de o sunuyor
+
+Bu tur netleşen (ve deploy planında ilk yazdığımda EKSİK olan) iki şey:
+
+**1. İki sunucu iki farklı sorunu çözüyor, ikisi de bilinçli.** Cloudflare Worker (`...workers.dev`) yalnızca `/feed/*` + `/account/delete` sunuyor — Supabase `service_role` ile yazma, kimlik Trakt token'ı doğrulanarak. Raspberry Pi'deki Express ise `kaymaktv.com`'u, üç `/api/*` proxy'sini **ve web sitesinin kendisini** sunuyor. Ayrılığın tarihsel gerekçesi Madde 91: Pi bir elektrik kesintisinde kapandı ve giriş günlerce çalışmadı. Sosyal akış/moderasyon bu yüzden Pi'ye değil Cloudflare'e kuruldu — Pi düşerse posterler ve OAuth etkilenir, akış ayakta kalır.
+
+**2. `express-rate-limit` seçimi bu mimariye bağlı.** Pi normal bir Node.js süreci olduğu için sayaç tek bellekte tutulur ve gerçekten çalışır. Aynı kod bir Worker'da olsaydı izolatlara dağılır ve sayaç dolmazdı — koruma **var sanılır, olmazdı**. (Worker'ın kendi `isRateLimited`'ı tam bu yüzden zayıf; `MASTER_PLAN` D1.)
+
+> ⚠️ **`server.js` restart'ı `kaymaktv.com`'un tamamını kısa süre düşürür** — sadece API'yi değil. Aynı süreç `dist/`'i statik sunuyor (`server.js`'te `express.static` + SPA fallback). Deploy zamanlaması buna göre yapılmalı.
+
+### 🪤 Deploy planında yakalanan üç boşluk
+1. **Push olmadan `git pull` eski kodu kurardı.** 17 commit yereldeydi; Pi "Already up to date" der, `server/security.js` hiç gitmez ve doğrulama komutu "deploy tutmadı" gibi görünür — sebebi anlaşılmadan. Sessiz başarısızlığın deploy hâli.
+2. **`npm ci` Pi'de riskli.** `node_modules`'ü tamamen silip baştan kurar; Expo SDK 54 + RN bağımlılıklarıyla Pi'de çok uzun sürer ve o pencerede süreç yeniden başlatılamaz. Ayrıca `postinstall: patch-package` ve `patch-package` **devDependencies**'te — kabuk ortamında `NODE_ENV=production` varsa `npm ci` onu atlar ve kurulum kırılır. Doğrusu `npm install`. (`.env` içindeki `NODE_ENV` npm'i etkilemez, `dotenv` onu yalnızca süreç içinde okur — orada güvenli.)
+3. **Web build'i yeniden almaya gerek yoktu.** `dist/` git'te takipli değil; değişiklik tamamen sunucu tarafında ve bundle zaten aynı origin'e (`https://kaymaktv.com/api/...`) gidiyor.
 
 ### Değişen dosyalar
 **Yeni:** `server/security.js` (243 satır).
