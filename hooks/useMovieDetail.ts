@@ -22,6 +22,11 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
   // Yorumlar AYRI bir yükleme durumu taşır (S12) — ekranın geri kalanı
   // açıldıktan sonra Trakt bloğu kendi spinner'ıyla gelebilsin diye.
   const [isLoadingComments, setIsLoadingComments] = useState(true);
+  // Y17: hata ile "veri yok" ayrımı. Bu alan olmadan ekran, Trakt
+  // düştüğünde "bulunamadı" diyordu — YANLIŞ TEŞHİS: içerik duruyor,
+  // yalnızca yüklenemedi. Kullanıcıya "Tekrar Dene" sunulabilmesi de
+  // buna bağlıydı.
+  const [hasError, setHasError] = useState(false);
 
   const tmdbIdNum = tmdbIdStr ? parseInt(tmdbIdStr as string, 10) : null;
   const safeTmdbId = tmdbIdNum && !isNaN(tmdbIdNum) ? tmdbIdNum : null;
@@ -71,6 +76,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
 
     try {
       setIsLoading(true);
+      setHasError(false);
       // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
       fetchCommentsInBackground();
 
@@ -106,6 +112,9 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         ]);
 
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
+        // Yapımın KENDİ özeti gelmediyse bu bir HATADIR. related/cast
+        // eksikliği hata değil — onların fallback'i var (Y17).
+        if (!summary) setHasError(true);
         related = results[1].status === 'fulfilled' ? results[1].value : [];
 
         if (eagerCastPromise) {
@@ -196,5 +205,5 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
 
 
   // Ayrı bir `refreshComments` YOK — bkz. useShowDetail.ts'teki aynı not.
-  return { mediaData, images, isLoading, isLoadingComments, refreshData };
+  return { mediaData, images, isLoading, isLoadingComments, hasError, refreshData };
 }

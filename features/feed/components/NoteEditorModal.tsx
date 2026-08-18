@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { confirmAsync } from '../utils/confirmDialog';
 import {
   View,
   Text,
@@ -56,6 +57,29 @@ export default function NoteEditorModal({
   const [note, setNote] = useState(initialNote);
   const [spoiler, setSpoiler] = useState(initialSpoiler);
 
+  /**
+   * Y16: kapatma yolu artık ONAY istiyor. Eskiden arka plana dokunmak, X ve
+   * Android geri tuşu değişiklikleri onaysız atıyordu — klavyeyi kapatmak için
+   * karartılmış alana dokunmak mobilde en doğal refleks olduğu için yazılan
+   * metin tek dokunuşla, geri alınamaz şekilde gidiyordu. WriteReviewSheet bu
+   * korumayı F4-T9 sırasında kazanmıştı; kapatma tarafı buraya taşınmamıştı.
+   *
+   * Burada ölçüt "metin var mı" değil "DEĞİŞTİ mi" — düzenleme modunda mevcut
+   * not zaten dolu geliyor, hiçbir şey yazmadan kapatan kullanıcıya onay
+   * sormak gereksiz sürtünme olurdu.
+   */
+  const requestClose = async () => {
+    const changed = note.trim() !== (initialNote ?? '').trim();
+    if (!changed) { onCancel(); return; }
+    const confirmed = await confirmAsync(
+      t('noteDiscardTitle', 'Nottan çıkılsın mı?'),
+      t('noteDiscardText', 'Yaptığın değişiklikler kaydedilmeyecek.'),
+      t('discardConfirm', 'Vazgeç'),
+      t('keepEditing', 'Devam Et')
+    );
+    if (confirmed) onCancel();
+  };
+
   // Modal her açılışta önceki oturumun taslağını değil, GÜNCEL kayıtlı notu
   // göstermeli — kapatıp tekrar açınca eski yazılan-ama-kaydedilmemiş metin
   // kalmasın.
@@ -74,10 +98,10 @@ export default function NoteEditorModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={requestClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <TouchableWithoutFeedback onPress={onCancel}>
+      <TouchableWithoutFeedback onPress={requestClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <View style={styles.dialog}>
@@ -91,7 +115,7 @@ export default function NoteEditorModal({
                     ? t('noteEditorTitleEdit', 'Alıntıyı Düzenle')
                     : t('noteEditorTitle', 'Alıntı Yap')}
                 </Text>
-                <TouchableOpacity onPress={onCancel} hitSlop={8}>
+                <TouchableOpacity onPress={requestClose} hitSlop={8}>
                   <X size={20} color="#64748b" />
                 </TouchableOpacity>
               </View>
@@ -124,7 +148,7 @@ export default function NoteEditorModal({
               {!!error && <Text style={styles.error}>{error}</Text>}
 
               <View style={styles.actions}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} disabled={saving}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={requestClose} disabled={saving}>
                   <Text style={styles.cancelText}>{t('cancel', 'Vazgeç')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity

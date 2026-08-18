@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, UIManager, LayoutAnimation } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
+import LoadFailedState from '../../components/LoadFailedState';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
@@ -61,7 +62,7 @@ export default function ShowDetailScreen() {
   // tek tüketicisi inceleme yayını sonrası tazelemeydi, o da gereksiz olduğu
   // için kaldırıldı (bkz. MASTER_PLAN "SONRADAN BULUNANLAR" Y1). Hook'ta
   // duruyor: pull-to-refresh eklenirse doğrudan bağlanacak.
-  const { mediaData, computedSeasons, isLoading, isLoadingComments } = useShowDetail(traktIdNum, tmdbId, showProgress);
+  const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
@@ -180,15 +181,11 @@ export default function ShowDetailScreen() {
     return <DetailHeroSkeleton />;
   }
 
-  if (!showData) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>{t('showNotFound')}</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: '#3b82f6' }}>{t('goBack')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  // 🔴 Y17: burada eskiden "Dizi bulunamadı" yazıyordu — YANLIŞ TEŞHİS.
+  // Dizi duruyor; Trakt erişilemediği için yüklenemedi. Ve "Tekrar Dene"
+  // yoktu, yani geçici bir ağ hatası kullanıcıyı sayfadan kovuyordu.
+  if (hasError || !showData) {
+    return <LoadFailedState onRetry={refreshData} onBack={() => router.back()} />;
   }
 
   return (

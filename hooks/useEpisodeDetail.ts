@@ -25,6 +25,18 @@ export const useEpisodeDetail = (
   const [isLoading, setIsLoading] = useState(true);
   // Yorumlar AYRI yükleme durumu taşır — bkz. aşağıdaki S12 notu.
   const [isLoadingComments, setIsLoadingComments] = useState(true);
+  /**
+   * 🔴 Y17: bu alan EKSİKTİ ve ekran hata durumunda SAHTE VERİ çiziyordu.
+   *
+   * `getEpisodeDetail` başarısız olduğunda `detail` null kalıyor, ekran ise
+   * `episodeData?.title || t('episodeNum')` gibi fallback'lerle sayfayı
+   * BAŞARIYLA AÇILMIŞ gibi çiziyordu: "Bölüm 5 · Henüz özet yok · Tarih yok".
+   * Daha kötüsü `first_aired` boş kaldığı için "TBA" rozeti çıkıyor ve
+   * "İzledim" butonu tamamen kayboluyordu — yani Trakt çöktüğü için
+   * kullanıcıya "bu bölüm henüz yayınlanmadı" deniyordu. Boş ekrandan kötü:
+   * uygulama YALAN söylüyordu.
+   */
+  const [hasError, setHasError] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -61,6 +73,7 @@ export const useEpisodeDetail = (
 
     const loadData = async () => {
       setIsLoading(true);
+      setHasError(false);
       try {
         const traktIdNum = parseInt(showId as string, 10);
         const tmdbIdNum = showTmdbId ? parseInt(showTmdbId as string, 10) : NaN;
@@ -100,6 +113,13 @@ export const useEpisodeDetail = (
           stillRes = fallbackBackdrop;
         }
 
+        // Bölümün KENDİ verisi gelmediyse bu bir hatadır. `stillUrl` ve `cast`
+
+        // eksikliği hata DEĞİL — onlar süsleme, fallback'leri var.
+
+        if (isMounted && !detailRes) setHasError(true);
+
+
         if (isMounted) {
           // FONKSİYONEL GÜNCELLEME ŞART: yorumlar paralel yükleniyor ve bu
           // satırdan ÖNCE gelmiş olabilir; nesneyi komple değiştirmek onları
@@ -113,6 +133,7 @@ export const useEpisodeDetail = (
         }
       } catch (e) {
         console.error('Error loading episode detail:', e);
+        if (isMounted) setHasError(true);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -127,5 +148,5 @@ export const useEpisodeDetail = (
 
   const refreshData = () => setRefreshTrigger(prev => prev + 1);
 
-  return { mediaData, isLoading, isLoadingComments, refreshData };
+  return { mediaData, isLoading, isLoadingComments, hasError, refreshData };
 };

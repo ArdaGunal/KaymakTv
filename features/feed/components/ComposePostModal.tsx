@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from 'react-native';
+import { confirmAsync } from '../utils/confirmDialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Plus } from 'lucide-react-native';
 import MediaPoster from '../../../components/MediaPoster';
@@ -57,6 +58,28 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
     onClose();
   };
 
+  /**
+   * Y16: KAPATMA YOLU ARTIK ONAY İSTİYOR.
+   *
+   * Eskiden arka plana dokunmak, X ve Android geri tuşu metni ONAYSIZ
+   * siliyordu. Klavyeyi kapatmak için sheet'in üstündeki karartılmış alana
+   * dokunmak mobilde en doğal refleks — yani 1000 karakterlik bir metin tek
+   * dokunuşla, geri alınamaz şekilde gidiyordu.
+   *
+   * 'WriteReviewSheet' bu korumayı F4-T9'da kazanmıştı; kapatma tarafı
+   * buraya hiç taşınmamıştı (sistem denetimi bulgusu Y16).
+   */
+  const requestClose = async () => {
+    if (!(body.trim().length > 0)) { resetAndClose(); return; }
+    const confirmed = await confirmAsync(
+      t('composeDiscardTitle', 'Gönderiden çıkılsın mı?'),
+      t('composeDiscardText', 'Yazdıkların kaydedilmeyecek.'),
+      t('discardConfirm', 'Vazgeç'),
+      t('keepEditing', 'Devam Et')
+    );
+    if (confirmed) resetAndClose();
+  };
+
   const handlePublish = async () => {
     if (!canPublish) return;
     setError(null);
@@ -80,8 +103,8 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose} statusBarTranslucent={Platform.OS === 'android'}>
-      <TouchableWithoutFeedback onPress={resetAndClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={requestClose} statusBarTranslucent={Platform.OS === 'android'}>
+      <TouchableWithoutFeedback onPress={requestClose}>
         {/* `behavior="height"` Android'de eskiden `undefined`'dı — yani klavye
             açılınca içerik HİÇ küçülmüyordu, yazı alanı klavyenin altında
             kalıp görünmez oluyordu (bkz. kullanıcı bildirimi). iOS'ta
@@ -106,7 +129,7 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
 
               <View style={styles.header}>
                 <Text style={styles.title}>{t('composeTitle', 'Fikir Paylaş')}</Text>
-                <TouchableOpacity onPress={resetAndClose} hitSlop={8}>
+                <TouchableOpacity onPress={requestClose} hitSlop={8}>
                   <X size={20} color="#64748b" />
                 </TouchableOpacity>
               </View>

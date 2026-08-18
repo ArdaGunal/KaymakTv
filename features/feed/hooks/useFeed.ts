@@ -31,6 +31,9 @@ export interface UseFeedResult {
   hasError: boolean;
   /** Sonsuz kaydırma: alt sayfa yükleniyor mu (footer spinner). */
   isLoadingMore: boolean;
+  /** Y21: sonraki SAYFA yüklenemedi mi.  (ilk yükleme) ile AYRI —
+   *  liste doluyken tam ekran hata gösterilemez, ama sessiz de kalınamaz. */
+  loadMoreFailed: boolean;
   /** Sunucuda daha eski kayıt var mı ("hepsi bu kadar" mesajı için). */
   hasMore: boolean;
   /** Kullanıcı listeyi görmemişken gelen yeni aktivite sayısı ("N yeni gönderi"). */
@@ -63,6 +66,7 @@ export function useFeed(): UseFeedResult {
   const [isLoading, setIsLoading] = useState(!isHydrated);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
 
   // Uçuştaki sayfa isteği. ŞART: `onEndReached` hızlı kaydırmada arka arkaya
   // birden çok kez tetiklenir; korumasız bırakılırsa AYNI imleçle birden fazla
@@ -125,6 +129,12 @@ export function useFeed(): UseFeedResult {
       })
       .catch((error) => {
         console.warn('[Feed] Sonraki sayfa yüklenemedi:', error);
+        // 🔴 Y21: eskiden buradaki yorum "tekrar kaydırınca yeniden denenir"
+        // diyordu — AMA kullanıcı zaten en alttadır ve kaydıracak yer yoktur,
+        // yani onEndReached bir daha TETİKLENMEZ. Spinner kaybolur, hiçbir şey
+        // gelmez, hiçbir mesaj çıkmaz: akışın bittiğini mi bozulduğunu mu
+        // anlamanın yolu yoktu. Footer artık görünür bir "Tekrar Dene" çiziyor.
+        setLoadMoreFailed(true);
         // Liste dolu olduğu için tam ekran hata GÖSTERİLMEZ — kullanıcı eldeki
         // içeriği okumaya devam eder, tekrar kaydırınca yeniden denenir.
         useFeedStore.getState().setLoadingMore(false);
@@ -190,6 +200,7 @@ export function useFeed(): UseFeedResult {
     isLoading,
     isRefreshing,
     hasError,
+    loadMoreFailed,
     isLoadingMore,
     hasMore,
     unseenCount,

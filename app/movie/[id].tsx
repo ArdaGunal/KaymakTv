@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Check, CheckCheck } from 'lucide-react-native';
 
 
+import LoadFailedState from '../../components/LoadFailedState';
 import { useMovieDetail } from '../../hooks/useMovieDetail';
 
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
@@ -64,7 +65,7 @@ export default function MovieDetailScreen() {
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
 
   // bkz. app/show/[id].tsx'teki aynı not — `refreshData` şu an tüketilmiyor.
-  const { mediaData, images, isLoading, isLoadingComments } = useMovieDetail(traktIdNum, tmdbId as string);
+  const { mediaData, images, isLoading, isLoadingComments, hasError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
   const movieData = mediaData.summary;
   const castData = mediaData.cast;
   const relatedMovies = mediaData.related;
@@ -164,15 +165,10 @@ export default function MovieDetailScreen() {
     return <DetailHeroSkeleton />;
   }
 
-  if (!movieData) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>{t('movieNotFound')}</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: '#3b82f6' }}>{t('goBack')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  // 🔴 Y17: eskiden "Film bulunamadı" — YANLIŞ TEŞHİS. Film duruyor,
+  // yalnızca yüklenemedi; üstelik "Tekrar Dene" sunulmuyordu.
+  if (hasError || !movieData) {
+    return <LoadFailedState onRetry={refreshData} onBack={() => router.back()} />;
   }
 
   return (

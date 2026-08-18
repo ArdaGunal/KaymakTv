@@ -30,6 +30,10 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
   // Yorumlar AYRI bir yükleme durumu taşır — bkz. aşağıdaki S12 notu. Ekranın
   // geri kalanı açıldıktan sonra Trakt bloğu kendi spinner'ıyla gelebilsin diye.
   const [isLoadingComments, setIsLoadingComments] = useState(true);
+  // Y17: hata ile "veri yok" ayrımı. Bu alan olmadan ekran, Trakt
+  // düştüğünde "Dizi bulunamadı" diyordu — YANLIŞ TEŞHİS: dizi duruyor,
+  // yalnızca yüklenemedi. "Tekrar Dene" sunabilmek de buna bağlıydı.
+  const [hasError, setHasError] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -71,6 +75,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
 
     const loadData = async () => {
       setIsLoading(true);
+      setHasError(false);
       // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
       loadCommentsInBackground();
       const cacheKey = `@show_detail_v3_${traktIdNum}`;
@@ -109,6 +114,9 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         ]);
 
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
+        // Yapımın KENDİ özeti gelmediyse bu bir HATADIR. related/cast
+        // eksikliği hata değil — onların fallback'i var (Y17).
+        if (!summary) setHasError(true);
         seasons = results[1].status === 'fulfilled' ? results[1].value : [];
         related = results[2].status === 'fulfilled' ? results[2].value : [];
 
@@ -218,6 +226,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     computedSeasons,
     isLoading,
     isLoadingComments,
+    hasError,
     // ESKİ DAVRANIŞ: yalnızca refreshTrigger'ı artırıyordu — loadData() diskteki
     // önbelleği (TTL dolmadıysa) hâlâ HIT sayıp aynı bayat veriyi döndürüyordu,
     // yani bu bir no-op'tu. Artık önce disk önbelleği açıkça temizleniyor,

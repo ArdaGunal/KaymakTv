@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, ShieldCheck, Star, Trash2, Tv, UserX } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, UserX } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -158,6 +158,19 @@ export default function SettingsScreen() {
               anlamı yok, bu yüzden yalnızca gerçek kullanıcıya gösterilir. */}
           {!isGuest && accessToken && (
             <SettingsSection title={t('settings:feedSection', 'Akış')}>
+              {/* Y18: gizlilik ayarı kaydedilemediğinde GÖRÜNÜR uyarı.
+                  Eskiden catch yalnızca console.warn atıyor, anahtar sessizce
+                  eski hâline dönüyordu — kullanıcı fark etmezse gizlediğini
+                  SANIYORDU. Bir gizlilik kontrolünde bu kabul edilemez.
+                  Bölümün en üstünde, çünkü hangi anahtarın başarısız olduğundan
+                  bağımsız olarak görülmesi gerekiyor. */}
+              {!!feedPrivacy.saveError && (
+                <View style={styles.privacyErrorBox}>
+                  <AlertTriangle size={14} color="#f87171" />
+                  <Text style={styles.privacyErrorText}>{feedPrivacy.saveError}</Text>
+                </View>
+              )}
+
               {/* ⚠️ BU BÖLÜMDEKİ DÖRT ANAHTAR DA "GİZLE" YÖNÜNDE:
                   AÇIK = GİZLİ. Bu bilinçli bir tutarlılık kararı.
 
@@ -428,6 +441,25 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  privacyErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.28)',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+  },
+  privacyErrorText: {
+    color: '#fca5a5',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 17,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#0B1120',

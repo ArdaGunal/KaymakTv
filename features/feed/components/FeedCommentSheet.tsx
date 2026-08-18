@@ -14,6 +14,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { confirmAsync } from '../utils/confirmDialog';
 import { X, Send, MessageSquare } from 'lucide-react-native';
 import FeedCommentItem from './FeedCommentItem';
 import { useFeedComments } from '../hooks/useFeedComments';
@@ -62,6 +63,24 @@ export default function FeedCommentSheet({ visible, activityId, onClose }: FeedC
     onClose();
   };
 
+  /**
+   * Y16: kapatma yolu artık ONAY istiyor. Eskiden arka plana dokunmak, X ve
+   * Android geri tuşu metni onaysız siliyordu — klavyeyi kapatmak için
+   * karartılmış alana dokunmak mobilde en doğal refleks olduğu için uzun bir
+   * metin tek dokunuşla, geri alınamaz şekilde gidiyordu. WriteReviewSheet bu
+   * korumayı F4-T9 sırasında kazanmıştı; kapatma tarafı buraya taşınmamıştı.
+   */
+  const requestClose = async () => {
+    if (!(body.trim().length > 0)) { handleClose(); return; }
+    const confirmed = await confirmAsync(
+      t('commentDiscardTitle', 'Yorumdan çıkılsın mı?'),
+      t('commentDiscardText', 'Yazdıkların kaydedilmeyecek.'),
+      t('discardConfirm', 'Vazgeç'),
+      t('keepEditing', 'Devam Et')
+    );
+    if (confirmed) handleClose();
+  };
+
   const handleSend = async () => {
     if (!canSend) return;
     setSubmitError(null);
@@ -79,10 +98,10 @@ export default function FeedCommentSheet({ visible, activityId, onClose }: FeedC
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={handleClose}
+      onRequestClose={requestClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <TouchableWithoutFeedback onPress={handleClose}>
+      <TouchableWithoutFeedback onPress={requestClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <KeyboardAvoidingView
@@ -91,7 +110,7 @@ export default function FeedCommentSheet({ visible, activityId, onClose }: FeedC
             >
               <View style={styles.header}>
                 <Text style={styles.title}>{t('commentsTitle', 'Akış Yorumları')}</Text>
-                <TouchableOpacity onPress={handleClose} hitSlop={8}>
+                <TouchableOpacity onPress={requestClose} hitSlop={8}>
                   <X size={20} color="#64748b" />
                 </TouchableOpacity>
               </View>

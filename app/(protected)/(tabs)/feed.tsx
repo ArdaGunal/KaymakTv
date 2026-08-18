@@ -25,6 +25,7 @@ export default function FeedScreen() {
     isLoading,
     isRefreshing,
     hasError,
+    loadMoreFailed,
     isLoadingMore,
     hasMore,
     unseenCount,
@@ -76,6 +77,24 @@ export default function FeedScreen() {
   //                    zaten ListEmptyComponent konuşuyor)
   //   - devamı var  → hiçbir şey (spinner yalnızca istek uçarken görünsün)
   const renderFooter = useCallback(() => {
+    // Y21: "devamı yüklenemedi" ÜÇÜNCÜ dal. Bu olmadan spinner kayboluyor,
+    // hiçbir mesaj çıkmıyordu ve kullanıcı en altta olduğu için onEndReached
+    // bir daha tetiklenmiyordu — yani akışın bittiğini mi bozulduğunu mu
+    // anlamanın hiçbir yolu yoktu. isLoadingMore'dan ÖNCE, çünkü hata
+    // durumunda spinner zaten kapanmış oluyor.
+    if (loadMoreFailed) {
+      return (
+        <View style={styles.loadMoreFailedBox}>
+          <Text style={styles.loadMoreFailedText}>
+            {t('feed:loadMoreFailed', 'Devamı yüklenemedi.')}
+          </Text>
+          <TouchableOpacity onPress={loadMore} style={styles.loadMoreRetryBtn} activeOpacity={0.8}>
+            <Text style={styles.loadMoreRetryText}>{t('common:retry', 'Tekrar Dene')}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     if (isLoadingMore) {
       return (
         <View style={styles.footer}>
@@ -91,7 +110,7 @@ export default function FeedScreen() {
       );
     }
     return null;
-  }, [isLoadingMore, hasMore, data.length, t]);
+  }, [isLoadingMore, hasMore, data.length, loadMoreFailed, loadMore, t]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -238,6 +257,10 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadMoreFailedBox: { alignItems: 'center', gap: 8, paddingVertical: 18 },
+  loadMoreFailedText: { color: '#94a3b8', fontSize: 12 },
+  loadMoreRetryBtn: { paddingHorizontal: 16, paddingVertical: 7, backgroundColor: '#172033', borderRadius: 8 },
+  loadMoreRetryText: { color: '#e5e5e5', fontSize: 12, fontWeight: '700' },
   safeArea: {
     flex: 1,
     backgroundColor: '#0B1120',

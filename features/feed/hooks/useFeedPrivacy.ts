@@ -66,6 +66,16 @@ export function useFeedPrivacy() {
   const [settings, setSettings] = useState<FeedPrivacySettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<SavingKey>(null);
+  /**
+   * Y18: kaydetme başarısız olduğunda kullanıcıya GÖSTERİLECEK mesaj.
+   *
+   * Eskiden catch yalnızca console.warn atıp anahtarı eski hâline döndürüyordu.
+   * Kullanıcı gizle der, Worker 401/429 döner, anahtar SESSİZCE geri açılır —
+   * fark etmezse aktiviteleri paylaşılmaya devam eder ve GİZLEDİĞİNİ SANIR.
+   * Bir beğeni değil, bir GİZLİLİK kontrolü; burada sessizlik kabul edilemez
+   * (AI_RULES §2). Optimistic UI geri alınması geri bildirim değildir.
+   */
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken || isGuest) {
@@ -98,6 +108,7 @@ export function useFeedPrivacy() {
       if (!accessToken) return;
       const previous = settings;
       setSettings((s) => ({ ...s, [key]: value })); // iyimser (optimistic) güncelleme
+      setSaveError(null);
       setSavingKey(key);
       try {
         await updateFeedPrivacy(accessToken, { [key]: value });
@@ -105,6 +116,12 @@ export function useFeedPrivacy() {
       } catch (error) {
         setSettings(previous); // başarısızsa geri al
         console.warn('[Feed] Gizlilik ayarı kaydedilemedi:', error);
+        // Sessiz geri alma GERİ BİLDİRİM DEĞİLDİR (AI_RULES §2) — kullanıcı
+        // anahtarın kendi kendine geri açıldığını fark etmezse gizlediğini sanır.
+        setSaveError(
+          (error as any)?.response?.data?.message ||
+            'Ayar kaydedilemedi — aktiviteler hâlâ ESKİ ayarla paylaşılıyor.'
+        );
       } finally {
         setSavingKey(null);
       }
@@ -128,6 +145,7 @@ export function useFeedPrivacy() {
         publishManual: !hide,
       };
       setSettings(next);
+      setSaveError(null);
       setSavingKey('hideAll');
       try {
         await updateFeedPrivacy(accessToken, next);
@@ -135,6 +153,12 @@ export function useFeedPrivacy() {
       } catch (error) {
         setSettings(previous);
         console.warn('[Feed] Gizlilik ayarı kaydedilemedi:', error);
+        // Sessiz geri alma GERİ BİLDİRİM DEĞİLDİR (AI_RULES §2) — kullanıcı
+        // anahtarın kendi kendine geri açıldığını fark etmezse gizlediğini sanır.
+        setSaveError(
+          (error as any)?.response?.data?.message ||
+            'Ayar kaydedilemedi — aktiviteler hâlâ ESKİ ayarla paylaşılıyor.'
+        );
       } finally {
         setSavingKey(null);
       }
@@ -150,5 +174,5 @@ export function useFeedPrivacy() {
   const hideAll =
     !settings.publishWatches && !settings.publishRatings && !settings.publishManual;
 
-  return { settings, hideAll, isLoading, savingKey, update, setHideAll };
+  return { settings, hideAll, isLoading, savingKey, saveError, update, setHideAll };
 }
