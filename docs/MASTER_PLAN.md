@@ -75,7 +75,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F9** | Moderasyon altyapı düzeltmesi (S15) | ✅ **BİTTİ** — `023` + `/feed/report`, canlıda doğrulandı (`yeni` → `TEKRAR`) |
 | **F10** | Rapor sayacı + otomatik gizleme — [`MODERATION.md`](MODERATION.md) | ✅ **BİTTİ** — `024` canlıda. Eşik **3 kişi**, itiraz = raporu `dismissed` yapmak |
 | **D0** | 🔍 **Sistem denetimi** (4 alt ajan) | ✅ **BİTTİ** — K1 açığı bulundu+kapatıldı, `025` yazıldı, Y12-Y21 kaydedildi |
-| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟢 **4/5 BİTTİ** — Y17·Y16·Y18·Y21 kapandı, Y20 kısmi. Cihaz testi bekliyor |
+| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟢 **4/5 BİTTİ** — Y17·Y16·Y18·Y21 kapandı, Y20 kısmi. Cihaz testi protokolü yazıldı: [`F15_TEST_PROTOCOL.md`](F15_TEST_PROTOCOL.md) — henüz uygulanmadı |
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
