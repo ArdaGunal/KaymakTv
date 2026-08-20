@@ -20,8 +20,7 @@ edildi. **Kol B (Trakt'tan bağımsızlık) fiilen bitti** — F5 backfill 2-3.
 adımı (ops., kilidi bloke etmiyor) dışında açık madde yok. **Sıradaki iş
 kullanıcı kararına bağlı:** Kol C'nin G3'ü, Kol D'nin teknik borcu (F11-F13,
 F18), ya da F5 backfill.
-**Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
-Yereldeki fark: `git log --oneline origin/main..HEAD`.
+**Push YAPILDI** (2026-08-20) — yerel ve `origin/main` eşit.
 
 > Buraya son commit hash'i ve commit SAYISI yazılmıyor: ikisi de her faz
 > sonunda bayatlıyor (hash iki oturum üst üste yanlış bilgi verdi, sayı ise
