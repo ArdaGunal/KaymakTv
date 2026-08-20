@@ -34,6 +34,9 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
   // düştüğünde "Dizi bulunamadı" diyordu — YANLIŞ TEŞHİS: dizi duruyor,
   // yalnızca yüklenemedi. "Tekrar Dene" sunabilmek de buna bağlıydı.
   const [hasError, setHasError] = useState(false);
+  // Y22 (F15 cihaz testi, HISTORY Madde 194) — bkz. useEpisodeDetail.ts'teki
+  // aynı notun tam metni.
+  const [isCircuitBreakerError, setIsCircuitBreakerError] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -76,6 +79,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     const loadData = async () => {
       setIsLoading(true);
       setHasError(false);
+      setIsCircuitBreakerError(false);
       // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
       loadCommentsInBackground();
       const cacheKey = `@show_detail_v3_${traktIdNum}`;
@@ -116,7 +120,12 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         // Yapımın KENDİ özeti gelmediyse bu bir HATADIR. related/cast
         // eksikliği hata değil — onların fallback'i var (Y17).
-        if (!summary) setHasError(true);
+        if (!summary) {
+          setHasError(true);
+          if (results[0].status === 'rejected' && (results[0].reason as any)?.isCircuitBreakerRejection) {
+            setIsCircuitBreakerError(true);
+          }
+        }
         seasons = results[1].status === 'fulfilled' ? results[1].value : [];
         related = results[2].status === 'fulfilled' ? results[2].value : [];
 
@@ -227,6 +236,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     isLoading,
     isLoadingComments,
     hasError,
+    isCircuitBreakerError,
     // ESKİ DAVRANIŞ: yalnızca refreshTrigger'ı artırıyordu — loadData() diskteki
     // önbelleği (TTL dolmadıysa) hâlâ HIT sayıp aynı bayat veriyi döndürüyordu,
     // yani bu bir no-op'tu. Artık önce disk önbelleği açıkça temizleniyor,

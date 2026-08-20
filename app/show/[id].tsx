@@ -63,7 +63,7 @@ export default function ShowDetailScreen() {
   // tek tüketicisi inceleme yayını sonrası tazelemeydi, o da gereksiz olduğu
   // için kaldırıldı (bkz. MASTER_PLAN "SONRADAN BULUNANLAR" Y1). Hook'ta
   // duruyor: pull-to-refresh eklenirse doğrudan bağlanacak.
-  const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
+  const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
@@ -186,7 +186,13 @@ export default function ShowDetailScreen() {
   // Dizi duruyor; Trakt erişilemediği için yüklenemedi. Ve "Tekrar Dene"
   // yoktu, yani geçici bir ağ hatası kullanıcıyı sayfadan kovuyordu.
   if (hasError || !showData) {
-    return <LoadFailedState onRetry={refreshData} onBack={() => router.back()} />;
+    return (
+      <LoadFailedState
+        onRetry={refreshData}
+        onBack={() => router.back()}
+        text={isCircuitBreakerError ? t('loadFailedCircuitBreakerText', 'Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene.') : undefined}
+      />
+    );
   }
 
   return (

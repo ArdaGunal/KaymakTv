@@ -4557,3 +4557,31 @@ Kullanıcı gerçek cihazda test etti (T1 belirsiz, T2 başarısız + teşhis ed
 
 ### Sıradaki
 Y22'nin küçük düzeltmesi mi, yoksa doğrudan Kol B (F7 → F8) mi — kullanıcı kararı bekleniyor.
+
+---
+
+## 195. Y22 Düzeltildi — Devre Kesici Reddi Artık Ayrı Mesajla Gösteriliyor
+
+**Bağlam:** Madde 194'te bulunan Y22. Kullanıcı kararı: küçük düzeltmeyi yap, doğrula, sonra sıradaki adıma geç.
+
+### Neyin ayrımı yapılıyor
+Üç detay hook'u (`useEpisodeDetail`/`useShowDetail`/`useMovieDetail`) `Promise.allSettled` kullanıyor; asıl özet isteği reddedilirse (`results[0].status === 'rejected'`) reddin sebebi `results[0].reason` içinde duruyor. `traktClient.ts`'in devre kesici reddi bu nesneye `isCircuitBreakerRejection: true` işaretini koyuyor (bkz. `services/api/traktClient.ts:210-213`) — gerçek ağ hatalarında bu alan yok. Üç hook'a da yeni bir `isCircuitBreakerError` state'i eklendi; `results[0].reason?.isCircuitBreakerRejection` true ise bu da true olur (yalnızca `hasError` zaten true olduğunda anlamlı, ayrı bir hata sınıfı değil).
+
+`useEpisodeDetail`'de ayrıca dıştaki `catch` bloğu da kontrol edildi (`(e as any)?.isCircuitBreakerRejection`) — `useShowDetail`/`useMovieDetail`'de `loadData`'yı saran bir dış `catch` yok, dokunulmadı.
+
+Ekranlarda (`app/{episode,show,movie}/[id].tsx`) `isCircuitBreakerError` true ise `LoadFailedState`'e özel bir `text` geçiliyor: *"Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene."* (yeni çeviri anahtarı `media:loadFailedCircuitBreakerText`, `tr`/`en` ikisinde de eklendi). false ise `text` `undefined` kalıyor, `LoadFailedState` kendi varsayılan genel mesajını basıyor — davranış aynen korundu.
+
+### ⚠️ Bilinçli olarak dokunulmayan bir kusur
+`useMovieDetail`'in dış `catch (error)` bloğu `hasError`'ı **hiç set etmiyor** — yalnızca `console.error` basıyor (`useShowDetail`/`useEpisodeDetail`'deki dallardan farklı). Bu Y22'nin kapsamı dışında, ayrı bir kusur adayı; kaydedildi ama bu turda dokunulmadı (kapsam dışına taşımamak için).
+
+### Doğrulama
+- `tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ temiz.
+- `Promise.allSettled`'in gerçek davranışı simüle edilerek 4 senaryo test edildi: devre kesici reddi → `true`, gerçek ağ hatası → `false`, başarılı istek → `false`, sunucudan gelen 401 → `false`. Dördü de beklenen sonucu verdi.
+- Referans sayımı: üç hook'ta `isCircuitBreakerError` sırasıyla 5/4/4 geçiyor (deklarasyon + reset + set + [`useEpisodeDetail`'de iki set noktası] + return) — atlanan yer yok.
+- **Doğrulanamayan:** cihazda gerçek uçak modu senaryosu bu turda tekrar denenmedi; mantık test edildi, ekranda görünüş henüz doğrulanmadı.
+
+### Değişen dosyalar
+`hooks/{useEpisodeDetail,useShowDetail,useMovieDetail}.ts` · `app/{episode,show,movie}/[id].tsx` · `locales/{tr,en}/media.json` (`loadFailedCircuitBreakerText`).
+
+### Sıradaki
+Kullanıcı isterse cihazda tekrar T2'yi (ve T1'i, Y21 hâlâ doğrulanmadı) deneyip kapatabilir. Sonrasında Kol B (F7 → F8, kimlik katmanı + Google giriş).

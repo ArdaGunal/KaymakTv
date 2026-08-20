@@ -65,7 +65,7 @@ export default function MovieDetailScreen() {
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
 
   // bkz. app/show/[id].tsx'teki aynı not — `refreshData` şu an tüketilmiyor.
-  const { mediaData, images, isLoading, isLoadingComments, hasError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
+  const { mediaData, images, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
   const movieData = mediaData.summary;
   const castData = mediaData.cast;
   const relatedMovies = mediaData.related;
@@ -168,7 +168,13 @@ export default function MovieDetailScreen() {
   // 🔴 Y17: eskiden "Film bulunamadı" — YANLIŞ TEŞHİS. Film duruyor,
   // yalnızca yüklenemedi; üstelik "Tekrar Dene" sunulmuyordu.
   if (hasError || !movieData) {
-    return <LoadFailedState onRetry={refreshData} onBack={() => router.back()} />;
+    return (
+      <LoadFailedState
+        onRetry={refreshData}
+        onBack={() => router.back()}
+        text={isCircuitBreakerError ? t('loadFailedCircuitBreakerText', 'Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene.') : undefined}
+      />
+    );
   }
 
   return (

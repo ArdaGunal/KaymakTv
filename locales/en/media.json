@@ -155,6 +155,7 @@
   "lists": "Lists",
   "listsEmptySub": "Use the list button on a show or movie page to create your first collection.",
   "listsEmptyTitle": "No lists yet",
+  "loadFailedCircuitBreakerText": "Too many attempts — wait a few seconds and try again.",
   "loadFailedText": "Check your connection and try again. The content was not deleted — it is just unreachable right now.",
   "loadFailedTitle": "Could not load content",
   "loadingDetails": "Loading details...",

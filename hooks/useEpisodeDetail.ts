@@ -37,6 +37,13 @@ export const useEpisodeDetail = (
    * uygulama YALAN söylüyordu.
    */
   const [hasError, setHasError] = useState(false);
+  // Y22 (F15 cihaz testi, HISTORY Madde 194): devre kesici reddi de
+  // `hasError`'a düşüyordu ve `LoadFailedState` gerçek ağ hatasıyla AYNI
+  // genel mesajı gösteriyordu. Devre 5 art arda hatada 30sn boyunca isteği
+  // ağa hiç göndermez (bkz. utils/circuitBreaker.ts) — kullanıcı internet
+  // geri geldikten sonra "Tekrar Dene"ye bassa bile devre süresi dolana
+  // kadar aynı hatayı görüyor ve "tekrar dene çalışmıyor" sanıyordu.
+  const [isCircuitBreakerError, setIsCircuitBreakerError] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -74,6 +81,7 @@ export const useEpisodeDetail = (
     const loadData = async () => {
       setIsLoading(true);
       setHasError(false);
+      setIsCircuitBreakerError(false);
       try {
         const traktIdNum = parseInt(showId as string, 10);
         const tmdbIdNum = showTmdbId ? parseInt(showTmdbId as string, 10) : NaN;
@@ -117,7 +125,12 @@ export const useEpisodeDetail = (
 
         // eksikliği hata DEĞİL — onlar süsleme, fallback'leri var.
 
-        if (isMounted && !detailRes) setHasError(true);
+        if (isMounted && !detailRes) {
+          setHasError(true);
+          if (results[0].status === 'rejected' && (results[0].reason as any)?.isCircuitBreakerRejection) {
+            setIsCircuitBreakerError(true);
+          }
+        }
 
 
         if (isMounted) {
@@ -133,7 +146,10 @@ export const useEpisodeDetail = (
         }
       } catch (e) {
         console.error('Error loading episode detail:', e);
-        if (isMounted) setHasError(true);
+        if (isMounted) {
+          setHasError(true);
+          if ((e as any)?.isCircuitBreakerRejection) setIsCircuitBreakerError(true);
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -148,5 +164,5 @@ export const useEpisodeDetail = (
 
   const refreshData = () => setRefreshTrigger(prev => prev + 1);
 
-  return { mediaData, isLoading, isLoadingComments, hasError, refreshData };
+  return { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData };
 };

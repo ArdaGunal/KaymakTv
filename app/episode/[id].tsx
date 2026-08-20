@@ -48,7 +48,7 @@ export default function EpisodeDetailScreen() {
   const { isGuest } = useAuth();
   const { t } = useTranslation('media');
   // bkz. app/show/[id].tsx'teki aynı not — `refreshData` şu an tüketilmiyor.
-  const { mediaData, isLoading, isLoadingComments, hasError, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
+  const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
   const stillUrl = mediaData.stillUrl;
@@ -211,7 +211,13 @@ export default function EpisodeDetailScreen() {
   // first_aired boş olduğu için "TBA" rozeti basıp "İzledim" butonunu
   // gizliyordu — kullanıcıya "bu bölüm yayınlanmadı" denmiş oluyordu.
   if (hasError || !episodeData) {
-    return <LoadFailedState onRetry={refreshData} onBack={handleBack} />;
+    return (
+      <LoadFailedState
+        onRetry={refreshData}
+        onBack={handleBack}
+        text={isCircuitBreakerError ? t('loadFailedCircuitBreakerText', 'Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene.') : undefined}
+      />
+    );
   }
 
   const title = episodeData?.title || t('episodeNum', { number: episode });

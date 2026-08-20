@@ -155,6 +155,7 @@
   "lists": "Listeler",
   "listsEmptySub": "Dizi veya film sayfasındaki liste butonuyla ilk koleksiyonunu oluştur.",
   "listsEmptyTitle": "Henüz listen yok",
+  "loadFailedCircuitBreakerText": "Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene.",
   "loadFailedText": "Bağlantını kontrol edip tekrar dene. İçerik silinmedi — yalnızca şu an ulaşılamıyor.",
   "loadFailedTitle": "İçerik yüklenemedi",
   "loadingDetails": "Detaylar yükleniyor...",

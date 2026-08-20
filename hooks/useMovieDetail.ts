@@ -27,6 +27,9 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
   // yalnızca yüklenemedi. Kullanıcıya "Tekrar Dene" sunulabilmesi de
   // buna bağlıydı.
   const [hasError, setHasError] = useState(false);
+  // Y22 (F15 cihaz testi, HISTORY Madde 194) — bkz. useEpisodeDetail.ts'teki
+  // aynı notun tam metni.
+  const [isCircuitBreakerError, setIsCircuitBreakerError] = useState(false);
 
   const tmdbIdNum = tmdbIdStr ? parseInt(tmdbIdStr as string, 10) : null;
   const safeTmdbId = tmdbIdNum && !isNaN(tmdbIdNum) ? tmdbIdNum : null;
@@ -77,6 +80,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
     try {
       setIsLoading(true);
       setHasError(false);
+      setIsCircuitBreakerError(false);
       // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
       fetchCommentsInBackground();
 
@@ -114,7 +118,12 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         summary = results[0].status === 'fulfilled' ? results[0].value : null;
         // Yapımın KENDİ özeti gelmediyse bu bir HATADIR. related/cast
         // eksikliği hata değil — onların fallback'i var (Y17).
-        if (!summary) setHasError(true);
+        if (!summary) {
+          setHasError(true);
+          if (results[0].status === 'rejected' && (results[0].reason as any)?.isCircuitBreakerRejection) {
+            setIsCircuitBreakerError(true);
+          }
+        }
         related = results[1].status === 'fulfilled' ? results[1].value : [];
 
         if (eagerCastPromise) {
@@ -205,5 +214,5 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
 
 
   // Ayrı bir `refreshComments` YOK — bkz. useShowDetail.ts'teki aynı not.
-  return { mediaData, images, isLoading, isLoadingComments, hasError, refreshData };
+  return { mediaData, images, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData };
 }
