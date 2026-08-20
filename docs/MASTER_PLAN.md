@@ -13,10 +13,9 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 — kimlikler düzeltildi,
-GIS kararı verildi (Madde 199). **Oturum token'ı tasarımı** ve **Google
-Console JS origin** kullanıcı onayı/işlemi bekliyor, sonra `/auth/google` +
-`settings.tsx` entegrasyonu yazılacak.
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 — `/auth/google` uç noktası
+Worker'da yazıldı + test edildi (Madde 200), henüz deploy edilmedi. **Sıradaki:
+istemci tarafı** (`AuthContext` + `settings.tsx`'te GIS entegrasyonu).
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 

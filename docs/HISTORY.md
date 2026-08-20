@@ -4773,3 +4773,46 @@ Onaylanan 3-eylemli tasarımı yazmaya başlarken şu soru boşluk çıkardı: T
 
 ### Sıradaki
 Kullanıcıdan iki şey bekleniyor: (1) Google Console'a JavaScript origin eklemesi, (2) oturum token'ı tasarımına onay. İkisi de netleşince `/auth/google` uç noktası + `settings.tsx`'teki GIS entegrasyonu yazılacak.
+
+---
+
+## 200. F8 — `/auth/google` Uç Noktası Yazıldı: Oturum Token'ı Önekle Ayırt Ediliyor, 12 Yazma Ucuna Dokunulmadı
+
+**Bağlam:** Madde 199'un devamı. Kullanıcı doğru Client ID'yi Google Console'a JavaScript origin olarak ekledi (`https://kaymaktv.com`, `http://localhost:8081`), oturum token'ı tasarımına onay verdi ("devam edebiliriz").
+
+### `KAYMAK_SESSION_SECRET` üretildi ve Cloudflare'e yazıldı
+48 byte kriptografik rastgele değer, `wrangler secret put` ile canlıya işlendi (`wrangler secret list` ile doğrulandı — yalnızca varlığı, değeri değil). Kullanıcıdan elle adım istenmedi, terminal erişimi zaten vardı.
+
+### 🔴 Bulunan ikinci kapsam genişlemesi: 12 dosyaya dokunmak gerekecekti
+
+`resolveCallerWithReason`'ın Google dalını yazarken, oturum token'ının nasıl taşınacağını netleştirmek gerekti. İlk tasarım (Madde 199) ayrı bir `kaymakSessionToken` alanıydı — ama bu, istemcide `traktAccessToken` gönderen **12 dosyanın** (`grep` ile ölçüldü: `accountDeletion, contentReports, feedApi, feedPrivacy, feedPublish, feedReviews, feedSocial, feedSync, userBlocks, social, traktClient, users`) hangi sağlayıcıyla giriş yapıldığını bilip iki alandan birini doldurmasını gerektirecekti — F7'nin "uçların gövdesi değişmiyor" ilkesinin tam tersi bir ihlal.
+
+**Çözüm:** `mintSessionToken`'ın ürettiği token `kaymak_session_v1.` önekiyle başlıyor. `resolveCallerWithReason`, `traktAccessToken` alanına gelen değerin bu önekle başlayıp başlamadığına bakıyor — başlıyorsa oturum token'ı olarak (`verifyKaymakSessionCaller`), başlamıyorsa gerçek Trakt token'ı olarak (`verifyTraktCaller`) işliyor.
+
+> **Neden format tahmini DEĞİL, sabit önek:** Trakt'ın kendi token biçimini (opak mi, JWT mi) doğrulamaya çalıştım, Trakt'ın API dokümanı buna net cevap vermedi. Kendi ürettiğimiz değere kontrol edilebilir bir imza koymak, Trakt'ın biçimi hakkında HİÇBİR VARSAYIM yapmadan kesin ayrım sağlıyor — "muhtemelen JWT değildir" gibi bir tahmine dayanmadı.
+
+**Sonuç:** İstemci tarafında `AuthContext.accessToken` **tek bir opak string** olarak kalabilecek (Trakt token'ı ya da önekli oturum token'ı) — 12 dosyanın hiçbiri ve onları çağıran hiçbir yer bunun farkında olmayacak. Yalnızca `AuthContext`'in kendisi (token'ı nereden aldığını bilir) ve `/auth/google` akışını başlatan ekran değişecek.
+
+### Yazılanlar (Worker)
+- `verifyTraktCaller` ikiye bölündü: **`verifyTraktIdentity`** (yalnızca doğrular, Supabase'e dokunmaz) + üstüne upsert ekleyen `verifyTraktCaller` — Google tarafındaki `verifyGoogleIdToken`/`verifyGoogleCaller` ayrımıyla BİREBİR aynı desen. `link_trakt` eyleminin `trakt_slug` üzerinden upsert YAPMADAN kimlik doğrulaması gerekiyordu.
+- `mintSessionToken` / `verifyKaymakSessionToken` / `verifyKaymakSessionCaller` — HS256 (simetrik, RS256'daki gibi asimetrik anahtarın burada karşılığı yok). 30 gün TTL, yenileme mekanizması bilinçli olarak yok (erken optimizasyon olurdu).
+- `decideLinkOutcome` — pure karar fonksiyonu: mevcut satırın `google_sub`'ı boşsa `link`, aynı değere eşitse `already_linked` (idempotent), başka bir değere eşitse `conflict` (sessizce üzerine yazılmaz).
+- `handleAuthGoogle` — `POST /auth/google`, üç eylem:
+  - `check`: yalnızca arar, yazmaz.
+  - `create_new`: yeni satır. Yarış koruması: `google_sub` UNIQUE kısıtının ürettiği PostgREST 409'u (canlı dokümandan doğrulandı: 23505→409) "zaten bağlı" olarak yorumlayıp mevcut satırı bulup token döner — hata değil.
+  - `link_trakt`: Trakt kimliğini doğrular (upsert YAPMADAN), `trakt_slug` ile arar; satır yoksa iki bağlantılı yeni satır, varsa `decideLinkOutcome`'a göre bağlan/idempotent/reddet.
+  - Her eylemde Google token'ı YENİDEN doğrulanır — istemcinin önceki `check` sonucuna güvenilmez.
+  - Rate limit: `auth-google:${ip}`, 10/dk (account-delete'le aynı sıkılıkta — kimlik oluşturma/birleştirme hassas işlem).
+
+### Doğrulama
+- **52/52 test geçti** (43 önceki + 9 yeni: token prefix kontrolü, mint→strip→verify round-trip, sahte imza reddi, süre dolumu, eksik yapılandırma, `decideLinkOutcome`'ın 3 dalı).
+- `verifyTraktCaller` bölünmesi SONRASI da 43/43 (o zamanki tam sayı) hâlâ geçti — refactor davranışı bozmadı.
+- `wrangler deploy --dry-run` üç kez çalıştırıldı (her önemli değişiklikten sonra) — config ve bundle her seferinde geçerli.
+- PostgREST'in 23505→409 eşlemesi canlı dokümandan doğrulandı, varsayılmadı.
+- **Doğrulanamayan:** `/auth/google`'ın Supabase'e dokunan kısımları (network gerektirdiği için, bu havuzun mevcut test felsefesiyle tutarlı olarak) unit test edilmedi; uçtan uca cihaz/tarayıcı testi henüz yapılmadı.
+
+### Değişen dosyalar
+Worker: `src/index.js` (yukarıdaki tüm eklemeler) · `test/auth.spec.js` (+9 test, önek düzeltmesi) · `wrangler.jsonc` (önceki turda) · yeni Cloudflare sırrı `KAYMAK_SESSION_SECRET`.
+
+### Sıradaki
+İstemci tarafı: `AuthContext`'e Google/oturum token'ı desteği, `settings.tsx`'e GIS entegrasyonu (script yükleme, buton, `nonce`, callback), birleştirme köprüsü UI'ı. Tarayıcı önizlemesinde uçtan uca test edilecek.
