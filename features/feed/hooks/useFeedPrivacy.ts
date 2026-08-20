@@ -85,11 +85,10 @@ export function useFeedPrivacy() {
     let cancelled = false;
     (async () => {
       try {
-        // Kendi slug'ım tek yerden, önbellekli (bkz. services/api/myIdentity.ts)
-        // — eskiden burada da ayrı bir `getUserProfile('me')` isteği vardı.
-        const mySlug = await getMyTraktSlug();
-        if (!mySlug) return;
-        const current = await getFeedPrivacySettings(mySlug);
+        // F11/Y15: artık `accessToken`'ın kendisiyle Worker'dan okunuyor —
+        // kimlik `resolveCaller` tarafında doğrulanıyor, ayrıca slug çözmeye
+        // gerek yok (bkz. features/feed/services/feedPrivacy.ts).
+        const current = await getFeedPrivacySettings(accessToken);
         if (!cancelled) setSettings(current);
       } catch (error) {
         console.warn('[Feed] Gizlilik ayarları okunamadı:', error);
