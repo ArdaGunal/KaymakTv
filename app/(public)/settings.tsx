@@ -9,11 +9,21 @@ import { exchangeAuthCode } from '../../services/traktApi';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
+import { GoogleSignInSection } from '../../components/settings/GoogleSignInSection';
+import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 
 // Auth session için web browser desteğini kur
 WebBrowser.maybeCompleteAuthSession();
+
+const OrDivider = ({ t }: { t: (key: string) => string }) => (
+  <View style={styles.dividerContainer}>
+    <View style={styles.dividerLine} />
+    <Text style={styles.dividerText}>{t('common:orDivider')}</Text>
+    <View style={styles.dividerLine} />
+  </View>
+);
 
 export default function Login() {
   const { saveTokens, loginAsGuest } = useAuth();
@@ -25,6 +35,8 @@ export default function Login() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
+  // F8 — bkz. hooks/useGoogleTraktLink.ts başlığı.
+  const { awaitingTraktLink, captureCredential: handleGoogleCredential, cancel: cancelGoogleLink, completeIfPending: completeGoogleLinkIfPending } = useGoogleTraktLink();
 
   // Redirect URI (app.json'daki scheme ile eşleşmeli)
   const redirectUri = AuthSession.makeRedirectUri({
@@ -45,11 +57,9 @@ export default function Login() {
     }
   );
 
-  // OAuth authorization code'ları TEK KULLANIMLIKTIR. Aşağıdaki iki yakalayıcı
-  // (expo-auth-session'ın `response`'u ve web'e özel manuel URL okuması) aynı
-  // kod için BİRLİKTE tetiklenebiliyordu; ikinci değişim Trakt'tan
-  // `invalid_grant` alıp ilk (başarılı) girişin üzerine hata mesajı basıyordu.
-  // Bu ref, bir kodun yalnızca bir kez değişilmesini garanti eder.
+  // OAuth kodları TEK KULLANIMLIKTIR. Aşağıdaki iki yakalayıcı (expo-auth-session'ın
+  // `response`'u + web'e özel URL okuması) aynı kod için BİRLİKTE tetiklenip
+  // ikinci değişim `invalid_grant` ile ilk (başarılı) girişin üzerine yazabiliyordu.
   const exchangedCodeRef = useRef<string | null>(null);
 
   // Tarayıcıdan dönüş yanıtını (Authorization Code) yakala
@@ -72,9 +82,8 @@ export default function Login() {
         window.history.replaceState({}, document.title, window.location.pathname);
         handleTokenExchange(code);
       } else if (oauthError) {
-        // Trakt onayı reddedildiğinde `?error=access_denied` ile döner —
-        // eskiden bu durum hiç okunmuyordu, kullanıcı sessizce giriş
-        // ekranında kalıyordu.
+        // Trakt reddedildiğinde `?error=access_denied` ile döner — eskiden
+        // okunmuyordu, kullanıcı sessizce giriş ekranında kalıyordu.
         window.history.replaceState({}, document.title, window.location.pathname);
         notify(t('common:error'), t('loginCanceled'));
       }
@@ -105,6 +114,20 @@ export default function Login() {
       // hiçbir iz bırakmadan yutuluyor, kullanıcı sebebini göremeden misafir
       // olarak kalıyordu. Artık her başarısızlık aşağıdaki catch'e düşer.
       const tokenData = await exchangeAuthCode(code, redirectUri);
+
+      // F8 — bekleyen bir Google bağlama akışı varsa tamamlar (yoksa no-op).
+      // ⚠️ Bağlama BAŞARISIZ olsa bile normal Trakt girişi ENGELLENMEZ —
+      // kullanıcı Trakt kimliğini az önce kanıtladı, ondan esirgemek kötü olur.
+      try {
+        await completeGoogleLinkIfPending(tokenData.access_token);
+      } catch (linkError: any) {
+        console.error('[Google Sign-In] Hesap bağlama hatası:', linkError);
+        notify(
+          t('common:error'),
+          linkError?.message || t('settings:googleLinkFailed', 'Google hesabın bağlanamadı, ama Trakt ile giriş yaptın.')
+        );
+      }
+
       await saveTokens(tokenData.access_token, tokenData.refresh_token);
       router.replace('/(protected)/(tabs)/explore');
     } catch (error: any) {
@@ -114,8 +137,6 @@ export default function Login() {
       exchangedCodeRef.current = null;
 
       const raw = String(error?.message ?? '');
-      // `Alert.alert` react-native-web'de TAM NO-OP olduğu için bu mesajların
-      // HİÇBİRİ web'de görünmüyordu — `notify` web'de window.alert'e düşer.
       if (raw.startsWith('AUTH_PROXY_MISSING')) {
         notify(t('common:error'), t('settings:loginProxyMissing'));
       } else if (raw.startsWith('AUTH_NO_TOKEN') || raw.startsWith('AUTH_BAD_RESPONSE')) {
@@ -189,11 +210,23 @@ export default function Login() {
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
 
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t('common:orDivider')}</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {/* F8 — Google ile giriş (yalnızca web; iOS/Android bilinçli olarak ertelendi). */}
+            {(awaitingTraktLink || Platform.OS === 'web') && (
+              <>
+                {!awaitingTraktLink && <OrDivider t={t} />}
+                <GoogleSignInSection
+                  isChecked={isChecked}
+                  isGenerating={isGenerating}
+                  canPromptTrakt={!!request}
+                  awaitingTraktLink={awaitingTraktLink}
+                  onCredential={handleGoogleCredential}
+                  onContinueWithTrakt={handleTraktLogin}
+                  onCancelLink={cancelGoogleLink}
+                />
+              </>
+            )}
+
+            <OrDivider t={t} />
 
             <TouchableOpacity
               style={[styles.button, styles.guestButton]}

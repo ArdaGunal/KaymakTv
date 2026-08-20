@@ -13,9 +13,10 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 — `/auth/google` uç noktası
-Worker'da yazıldı + test edildi (Madde 200), henüz deploy edilmedi. **Sıradaki:
-istemci tarafı** (`AuthContext` + `settings.tsx`'te GIS entegrasyonu).
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 — istemci tarafı yazıldı ve
+tarayıcıda test edildi (Madde 201): GIS entegrasyonu + birleştirme akışı.
+**Sıradaki: Worker deploy + kullanıcının kayıtlı bir origin'de (localhost:8081
+veya kaymaktv.com) gerçek bir Google hesabıyla uçtan uca denemesi.**
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -83,7 +84,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ✅ **TAMAM, canlıda** (Madde 196) — `026` + `resolveCaller` + istemci kimliği. `tsc` ✅ · Worker 34/34 ✅ · GRANT kolon listesi canlıdan doğrulandı ✅ · migration + deploy canlıda doğrulandı ✅ |
-| **F8** | ⚠️ **Google giriş + hesap birleştirme** | 🟡 **Faz 1 bitti** (Madde 198): `verifyGoogleIdToken` yazıldı, 9 kripto testi (43/43) geçti, `resolveCallerWithReason`'a bağlandı. **Faz 2 (onboarding/birleştirme uç noktası) tasarım onayı bekliyor** — henüz yazılmadı |
+| **F8** | ⚠️ **Google giriş + hesap birleştirme** | 🟢 **Kod tamamen yazıldı** (Madde 198-201): Worker (`/auth/google`, 3 eylem, nonce doğrulaması, 55/55 test) + istemci (GIS + `settings.tsx` + birleştirme akışı, tarayıcıda test edildi, bir zamanlama kusuru bulunup düzeltildi). **create_new bilinçli olarak arayüze konmadı** (`traktClient.ts`'in 401 mantığı düzeltilmeden riskli). **Kalan: Worker deploy + gerçek hesapla uçtan uca test** |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
 | **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ — Y14 (RLS'siz gizleme) buraya |
 | **F11** | S11 — **yeniden çerçevelendi** (Y15) | ⬜ — ayar yarısı kolon `GRANT`'ı ile, üye listesi yarısı F7'ye |
@@ -425,57 +426,72 @@ yeri hazır.
 > doğrulaması olmadan Google girişi açılırsa herkes sahte token'la başkası
 > olabilir. "G2'de test ederiz" yeterli değil — test etmek ≠ yazmak.
 
-**✅ Faz 1 bitti (HISTORY Madde 198):** `verifyGoogleIdToken` (`jose` +
+**✅ Faz 1 (HISTORY Madde 198):** `verifyGoogleIdToken` (`jose` +
 `createRemoteJWKSet`, Web Crypto tabanlı) imza+`aud`(3 client ID'den biri)+
-`iss`+`exp` doğruluyor. `resolveCallerWithReason`'a bağlandı: `google_sub`
-zaten bağlıysa normal kullanıcı gibi davranıyor, değilse SATIR OLUŞTURMADAN
-`errorKind: "google_unlinked"` döndürüyor. **9 kripto testi (sahte imza dahil)
-43/43 içinde geçti.**
+`iss`+`exp` doğruluyor. `resolveCallerWithReason`'a bağlandı.
 
-🔴 **Faz 2 — onboarding/birleştirme uç noktası HENÜZ YAZILMADI, tasarım onayı
-bekliyor.** REVIEWS_PLAN §9.3'ün karar ağacını uygulayacak. Bu, projenin kendi
-tanımıyla "geri dönüşü en pahalı faz" — kod yazılmadan önce API şekli
-kullanıcıya sunuldu.
+**✅ Faz 2 (HISTORY Madde 200):** `POST /auth/google` yazıldı — `check` /
+`create_new` / `link_trakt` üç eylemi, REVIEWS_PLAN §9.3'ün karar ağacını
+uyguluyor. `create_new`'in yarış koruması PostgREST'in 23505→409 eşlemesini
+kullanıyor (canlı dokümandan doğrulandı). `link_trakt` `decideLinkOutcome`
+(pure) ile link/already_linked/conflict ayrımı yapıyor.
 
-🔴 **F7'de bulunan yeni engel: `.env`'deki Web Client ID aslında bir Client
-SECRET.** `GOCSPX-` önekli — gerçek Client ID'ler `.apps.googleusercontent.com`
-ile biter. Google Cloud Console'daki iki alan karışmış olabilir. Bu düzeltilene
-kadar istemci tarafı (gerçek OAuth isteği) kurulamaz; `wrangler.jsonc`'ye de
-yanlış değer yazılmadı, yorum satırı olarak doğru alma yeri belgelendi.
-Sızıntı riski ölçüldü: `.env` git'e hiç girmemiş, `dist/`'e henüz gömülmemiş —
-bugün sıfır, ama düzeltilmeden client koduna bağlanırsa bir sonraki build'de
-gerçek secret bundle'a gömülürdü.
+**✅ Faz 3 — istemci (HISTORY Madde 201):** GIS (`google.accounts.id`)
+entegrasyonu — `expo-auth-session/providers/google` **deprecated** olduğu ve
+klasik `id_token` akışı `nonce`'u elle üretip TAM SAYFA YÖNLENDİRMESİ boyunca
+saklamayı gerektireceği için GIS seçildi (`nonce` orada birinci sınıf
+destekleniyor, callback sayfa yeniden yüklenmeden tetikleniyor). `nonce`
+Worker'da da doğrulanıyor (`verifyGoogleIdToken`'ın 4. parametresi) — yoksa
+GIS seçiminin "replay koruması" gerekçesi boşa çıkardı.
 
-🔴 **OAuth mantığı TEK yerde olmalı (F7 sırasında keşfedildi).**
+**Bugünkü kapsam kasıtlı olarak dar: Google girişi HER ZAMAN gerçek bir
+Trakt yeniden doğrulamasıyla bitiyor** (`create_new` arayüze konmadı).
+Sebep: `traktClient.ts`'in 401 yakalayıcısı `traktRefreshToken` yoksa
+KOŞULSUZ oturumu kapatıyor — Google'ın oturum token'ını (Madde 200'de
+yazılan `mintSessionToken`/önek mekanizması) `traktAccessToken` olarak
+saklamak, kişisel bir Trakt çağrısı tetiklendiğinde kullanıcıyı sessizce
+çıkışa atardı. Bu yüzden `AuthContext.tsx`'e HİÇ dokunulmadı — her başarılı
+akış mevcut `saveTokens(access, refresh)`'i (gerçek Trakt token'larıyla)
+kullanıyor. `mintSessionToken` altyapısı hazır ve test edilmiş durumda
+duruyor; `create_new` açılacaksa önce `traktClient.ts`'in 401 mantığı
+düzeltilmeli.
+
+**Canlı tarayıcı testinde bulunan kusur (düzeltildi):** Google buton
+konteyneri yalnızca `isChecked` true'yken JSX'e giriyordu; `useGoogleSignIn`'in
+`useEffect`'i montajda (`isChecked` henüz false'ken) konteyneri arayıp
+bulamıyor, `renderButton` sessizce atlanıyordu — kullanıcı sonradan onay
+kutusunu işaretlese de buton sonsuza dek boş kalırdı. Konteyner artık HER
+ZAMAN DOM'da, yalnızca görünürlüğü değişiyor.
+
+~~🔴 `.env`'deki Web Client ID aslında bir Client SECRET~~ — ✅ **DÜZELTİLDİ**
+(Madde 199). Kullanıcının Google Cloud Console JSON'ı doğru Client ID'yi
+verdi, `.env` + `wrangler.jsonc`'ye yazıldı.
+
+🔴 **OAuth mantığı TEK yerde olmalı (F7 sırasında keşfedildi), korundu.**
 `TraktAccountSection.tsx`'in başlığı: eskiden iki ekran kendi
 `useAuthRequest`'ini çalıştırıyordu, Trakt'a kayıtlı redirect URI tek
 (`/settings`) olduğu için aynı kod iki kez değişilmeye çalışılıp
-`invalid_grant` üretiyordu. **Sonuç:** birleştirme köprüsünün "Trakt'ı tekrar
-doğrula" adımı ayrı bir ekranda DEĞİL, `settings.tsx`'in içinde, mevcut
-`request`/`response`/`promptAsync` altyapısı yeniden kullanılarak kurulmalı.
+`invalid_grant` üretiyordu. Birleştirme köprüsünün "Trakt'ı tekrar doğrula"
+adımı ayrı bir ekranda DEĞİL, `settings.tsx`'in içinde, mevcut
+`request`/`response`/`promptAsync` altyapısı yeniden kullanılarak kuruldu.
 
 **Platform kapsamı:** yalnızca **web** — iOS/Android client ID'leri hâlâ yer
-tutucu (`ileride-...-icin-alacagin-id`), native taraf bilinçli olarak
-ertelendi. `expo-auth-session/providers/google` **deprecated**; Expo'nun
-güncel rehberi native için `@react-native-google-signin/google-signin`
-öneriyor — ama bu native modül gerektirir ve şu an test edilemez (client
-ID yok). Web akışı Trakt'takiyle aynı desenle (`expo-auth-session`'ın genel
-`useAuthRequest`'i + Google'ın gerçek discovery endpoint'i) kurulacak.
+tutucu, native taraf bilinçli olarak ertelendi. Native gerektiğinde
+`@react-native-google-signin/google-signin` (Expo'nun güncel önerisi)
+kullanılacak — GIS'in web-özel script/DOM mekanizması native'e taşınmaz,
+ayrı bir entegrasyon işi.
 
-**F7'de bulunan ve F8'i doğrudan etkileyen üç nokta:**
+**F7'de bulunan ve F8'i doğrudan etkileyen noktalar:**
 1. 🔴 **`on_conflict=trakt_slug` Google dalında KULLANILAMAZ.** `026` ile
    `trakt_slug` nullable oldu ve Postgres'te NULL'lar çakışma üretmez — Google
-   kullanıcısı o upsert'ten geçerse **her girişte yeni satır** oluşur, yani
-   F8'in önlemeye çalıştığı bölünmenin ta kendisi. Google dalı `google_sub`
-   üzerinden upsert etmeli. (Uyarı Worker'da `verifyTraktCaller` başlığına da
-   yazıldı.)
-2. 🟠 **Google kullanıcısının akışı BOŞ olur.** `getVisibleUserIds` Trakt
-   following listesine dayanıyor (`REVIEWS_PLAN` §9.2 madde 5). Kırılma değil
-   ama ölü bir ilk deneyim — F8 kapsamına mı, ayrı faza mı alınacağı
-   kararlaştırılmalı.
-3. 🟢 **İstemci tarafı hazır:** `setMySupabaseUserId()` yazıldı ve Google giriş
-   akışının `users.id`'yi doğrudan yazması için bekliyor; `getMySupabaseUserId`
-   artık Trakt'a düşmeden diskten okuyor.
+   kullanıcısı o upsert'ten geçerse **her girişte yeni satır** oluşur.
+   `handleAuthGoogle` bunu doğru yapıyor: `google_sub` üzerinden upsert/insert.
+2. 🟠 **Google kullanıcısının akışı BOŞ olur** (`create_new` açıldığında).
+   `getVisibleUserIds` Trakt following listesine dayanıyor (`REVIEWS_PLAN`
+   §9.2 madde 5). Bugünkü dar kapsamda (her giriş gerçek Trakt'a bağlanıyor)
+   tetiklenmiyor — `create_new` açıldığında tekrar gündeme gelecek.
+3. 🟢 **İstemci tarafı hazır ama bugün exercise edilmiyor:** `setMySupabaseUserId()`
+   yazıldı; `create_new` açıldığında kullanılacak.
 
 ---
 
@@ -944,6 +960,29 @@ gerçek ağ hatası / başarı / 401) test edildi, dördü de doğru ayrıldı.
 > dış `catch` bloğu `hasError`'ı hiç set etmiyor (yalnızca `console.error`).
 > `useShowDetail`/`useEpisodeDetail`'deki dallardan farklı davranıyor.
 > Y22'nin kapsamı dışında tutuldu, kayda geçti.
+
+### 🟡 Y23 · `traktClient.ts`'in 401 yakalayıcısı Google-only kullanıcıyı sessizce çıkışa atar
+**Nerede:** `services/api/traktClient.ts`, 401 interceptor — `traktRefreshToken`
+yoksa KOŞULSUZ `notifySessionExpired()` çağırıp oturumu kapatıyor.
+**Bulundu:** F8 istemci entegrasyonu sırasında (2026-08-20, HISTORY Madde 201).
+
+Bu davranış bugüne kadar zararsızdı çünkü "girişli ama Trakt token'ı yok"
+durumu hiç mümkün değildi (ya Trakt'la tam girişli, ya misafir). F8'in
+`create_new` eylemi (Google'la, hiç Trakt hesabı olmadan hesap açma) bu
+üçüncü durumu YARATIR: uygulamanın herhangi bir yerinde kişisel bir Trakt
+verisi (izleme geçmişi, ayarlar) çekilmeye çalışılırsa 401 alınır,
+`traktRefreshToken` hiç var olmadığı için interceptor kullanıcıyı geçerli
+bir Google oturumu varken sessizce çıkışa atar.
+
+**Neden şimdi kapatılmadı:** düzeltmek bu hassas, geniş etkili dosyaya
+dokunmayı gerektirirdi — F8'in bugünkü kapsamı bilinçli olarak dar tutuldu
+(`create_new` arayüze konmadı, her Google girişi gerçek Trakt token'larıyla
+bitiyor), bu yüzden Y23 bugün TETİKLENMİYOR.
+
+**Kapatılması gereken zaman:** `create_new` arayüze eklenmeden ÖNCE.
+Öneri: interceptor, çağıran tarafın "bu kullanıcının gerçek Trakt bağlantısı
+var mı" bilgisine erişebilmeli (ör. `AuthContext`'ten) — yoksa 401'i sessizce
+yutup o TEK isteği/özelliği başarısız saymalı, tüm oturumu kapatmamalı.
 
 ## Y11 · Gizlenen yorumlar `comment_count`'ta sayılmaya devam ediyor
 **Nerede:** `015_feed_social.sql` → `bump_activity_comment_count` trigger'ı ·

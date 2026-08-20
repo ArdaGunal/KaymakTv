@@ -4816,3 +4816,51 @@ Worker: `src/index.js` (yukarıdaki tüm eklemeler) · `test/auth.spec.js` (+9 t
 
 ### Sıradaki
 İstemci tarafı: `AuthContext`'e Google/oturum token'ı desteği, `settings.tsx`'e GIS entegrasyonu (script yükleme, buton, `nonce`, callback), birleştirme köprüsü UI'ı. Tarayıcı önizlemesinde uçtan uca test edilecek.
+
+---
+
+## 201. F8 — İstemci Entegrasyonu: Google Girişi Her Zaman Gerçek Trakt Token'larıyla Bitiyor
+
+**Bağlam:** Madde 200'ün devamı. Sunucu tarafı hazırdı, istemci tarafı (GIS + `settings.tsx` + birleştirme akışı) yazıldı ve tarayıcıda gerçek testle doğrulandı.
+
+### 🔴 `getTraktClient()` riski — kapsamı daralttı
+
+İstemci koduna başlamadan `services/api/traktClient.ts`'i okudum: `getTraktClient()` token yokken bile çalışıyor (public Trakt uçları için `Authorization` hiç eklenmiyor) — iyi haber. Ama **kişisel** bir Trakt ucu 401 alırsa ve `traktRefreshToken` yoksa, kod **koşulsuz** `notifySessionExpired()` çağırıp oturumu kapatıyor.
+
+Bu, Worker'da yazdığım `KAYMAK_SESSION_SECRET`/önek mekanizmasını `traktAccessToken` SecureStore anahtarına yazmanın, uygulamanın herhangi bir yerinde bir kişisel-Trakt-verisi çağrısı tetiklendiğinde kullanıcıyı **sessizce ve beklenmedik şekilde çıkışa atacağı** anlamına geliyordu — geçerli bir Google oturumu varken. Düzeltmek `traktClient.ts`'in 401 yakalayıcısına dokunmayı gerektirirdi; kullanıcıya soruldu, **"Hayır, Trakt'ım yoktu" (create_new) bugün arayüze konmayacak** kararı çıktı.
+
+**Sonuç — kapsam basitleşti:** Google girişi bugün **her zaman** gerçek bir Trakt yeniden doğrulamasıyla bitiyor. Bu, Madde 200'de yazılan `mintSessionToken`/önek mekanizmasının **bugün hiç kullanılmadığı** anlamına geliyor — sunucu tarafı hazır ve test edilmiş durumda duruyor, `create_new` açıldığında (ve `traktClient.ts`'in 401 mantığı buna göre düzeltildiğinde) devreye girecek. Bu basitleşme `AuthContext.tsx`'e **hiç dokunmama** ihtiyacını da ortadan kaldırdı — her başarılı akış mevcut `saveTokens(access, refresh)`'i kullanıyor.
+
+### GIS entegrasyonu — nonce'un gerçekten kontrol edildiğinden emin olundu
+
+`useGoogleSignIn` hook'u GIS scriptini yalnızca web'de yükler, `google.accounts.id.initialize`'a rastgele bir `nonce` (32 byte, `window.crypto.getRandomValues`) verir. Bu nonce'u Worker'a da göndermek gerekiyordu — yoksa GIS seçiminin ("replay koruması" gerekçesi, Madde 199) hiçbir karşılığı olmazdı. `verifyGoogleIdToken`'a `expectedNonce` parametresi eklendi (`jose`'nin `jwtVerify`'ı `nonce` doğrulamıyor — bu OIDC'nin genel bir JWT claim'i değil, sağlayıcıya özgü bir uygulama claim'i), `/auth/google` artık `nonce`'u zorunlu tutuyor. 3 yeni test: eşleşen nonce kabul, **eşleşmeyen nonce reddedilir** (kritik), `expectedNonce` verilmezse (genel `resolveCallerWithReason` dalı) atlanır.
+
+### Trakt yönlendirmesi boyunca kimlik kanıtını taşıma
+
+Birleştirme akışı: Google kimlik kanıtı alınır → `AsyncStorage`'a yazılır (React state web'deki TAM SAYFA YÖNLENDİRMESİNİ atlatamaz) → kullanıcı "Trakt ile Devam Et"e basar → mevcut Trakt OAuth akışı (aynı `request`/`promptAsync`, TEK giriş noktası — bkz. aşağıki bulgu) çalışır → dönüşte `handleTokenExchange` bekleyen Google bağlamasını tamamlar (`linkGoogleToTrakt`) → **bağlama başarısız olsa bile** normal Trakt girişi engellenmiyor (kullanıcı kimliğini az önce kanıtladı, esirgemek kötü olurdu) → `saveTokens` ile gerçek Trakt token'ları kaydedilir.
+
+Mantık (`AsyncStorage` plakası + tamamlama) `hooks/useGoogleTraktLink.ts`'e, görünüm `components/settings/GoogleSignInSection.tsx`'e ayrıldı — `settings.tsx`'i 400 satır sınırının altında tutmak için (AI_RULES §1). `TraktAccountSection.tsx`'in bilinen dersi (OAuth mantığının iki yerde olması `invalid_grant` üretmişti) korundu: mantığın kendisi (TEK giriş noktası) hâlâ `settings.tsx`'te, yalnızca AsyncStorage plakası ve görünüm ayrıldı.
+
+### 🔴 Tarayıcıda gerçek testle bulunan ve düzeltilen kusur
+
+`GoogleSignInSection`'ın Google buton konteyneri (`<View nativeID={buttonElementId} />`) yalnızca `isChecked` true'yken JSX'e giriyordu. `useGoogleSignIn`'in `useEffect`'i MONTAJDA (`isChecked` henüz false'ken) bir kez çalışıp konteyneri arıyor — o an DOM'da yok, `renderButton` sessizce atlanıyor. Kullanıcı sonradan onay kutusunu işaretlese de hiçbir şey `renderButton`'ı yeniden tetiklemiyor — **buton sonsuza dek boş kalıyordu.**
+
+Bu, canlı tarayıcı testinde (checkbox işaretlenmeden ÖNCE konteynerin DOM'da var olup olmadığı kontrol edilerek) yakalandı. Düzeltme: konteyner artık HER ZAMAN DOM'da (`renderButton` onu bulabilir), yalnızca görünürlüğü (`display:none`/`flex`) `isChecked`'e göre değişiyor.
+
+### Doğrulama (tarayıcı, `http://localhost:8181/settings`)
+
+> ⚠️ Port **8181** kayıtlı JavaScript origin'lerinden (`kaymaktv.com`, `localhost:8081`) biri DEĞİL. Google'ın buton RENDER etmesi origin'i sıkı kontrol etmiyor gibi görünüyor (test bunu kanıtladı) ama gerçek imzalama/kimlik doğrulama adımının kayıtlı bir origin'de test edilmesi gerekiyor — bu tur SADECE entegrasyonun (script yükleme, client ID kabulü, DOM zamanlaması) doğru olduğunu kanıtladı, uçtan uca gerçek girişi DEĞİL.
+
+- Sayfa doğru render oluyor; checkbox işaretlenmeden önce doğru ipucu metni gösteriyor (`get_page_text` ile doğrulandı).
+- `computer.left_click` ile fare tabanlı checkbox tıklaması RNW'nin Pressability sistemine güvenilir şekilde ulaşamadı (birkaç yöntem denendi: ref tıklama, klavye Tab+Space/Enter, DOM event simülasyonu) — sonunda tam `pointerdown/mousedown/pointerup/mouseup/click` dizisini doğru `pointerId`/`button` alanlarıyla dispatch etmek işe yaradı. **Ölçüm metodolojisi notu:** ekran görüntüsü aracı bu oturumda hiç çalışmadı (panel görüntülenmiyor), koordinat tabanlı tıklama bunu gerektiriyor — DOM tabanlı hedefleme ve doğrulamaya geçildi.
+- Checkbox işaretlenince: konteyner `display:none` → `flex`, içinde Google'ın **gerçek** buton HTML'i (`role="button"`, Google'ın kendi CSS sınıfları) — script yükleme + client ID kabulü kanıtlandı.
+- Konsol hatası YOK. Bir "initialize() birden fazla kez çağrıldı" uyarısı görüldü ama **yanlış alarm** olduğu doğrulandı: tek, temiz bir yeniden yüklemede uyarı hiç çıkmadı — önceki uyarı, art arda yaptığım test navigasyonlarının konsol geçmişinde birikmesiydi (StrictMode aranıp bulunmadı, ek bir doğrulama).
+- `tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅ temiz.
+- **Doğrulanamayan:** gerçek bir Google hesabıyla uçtan uca giriş (kayıtlı origin + gerçek kimlik bilgisi gerektiriyor), `awaitingTraktLink` (birleştirme köprüsü) ekranının görsel doğrulaması, `link_trakt`'in gerçek Supabase yazma yolu.
+
+### Değişen/yeni dosyalar
+**Yeni:** `services/api/googleAuth.ts` (71) · `hooks/useGoogleSignIn.ts` (128) · `hooks/useGoogleTraktLink.ts` (54) · `components/settings/GoogleSignInSection.tsx` (159).
+**Değişen:** `app/(public)/settings.tsx` (370→402 satır — GIS entegrasyonu + birleştirme akışı eklendi, mantığın çoğu yukarıdaki 2 dosyaya taşındı; bu sırada `Alert.alert` için F17'de zaten düzeltilmiş olan bayat "TAM NO-OP" iddiasının bir KOPYASI daha bulunup silindi) · Worker `src/index.js` (`nonce` parametresi `verifyGoogleIdToken`/`handleAuthGoogle`'a eklendi) · `test/auth.spec.js` (+3 nonce testi, toplam 55 test).
+
+### Sıradaki
+Kullanıcı gerçek bir Google hesabıyla `kaymaktv.com` üzerinde (ya da `localhost:8081`'de) uçtan uca test edecek. `create_new` (Trakt'sız pure Google hesap) ve `traktClient.ts`'in 401 mantığının düzeltilmesi ayrı, ileride ele alınacak bir iş olarak kayıtlı.
