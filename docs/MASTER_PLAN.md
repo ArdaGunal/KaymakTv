@@ -13,9 +13,10 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 faz 1 (Google ID token
-doğrulama) bitti + test edildi (Madde 198). Onboarding/birleştirme uç
-noktasının tasarımı kullanıcı onayı bekliyor.
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 — kimlikler düzeltildi,
+GIS kararı verildi (Madde 199). **Oturum token'ı tasarımı** ve **Google
+Console JS origin** kullanıcı onayı/işlemi bekliyor, sonra `/auth/google` +
+`settings.tsx` entegrasyonu yazılacak.
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 

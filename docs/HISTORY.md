@@ -4733,3 +4733,43 @@ Worker: `src/index.js` (`jose` import, `supabaseSelect`, `verifyGoogleIdToken`, 
 
 ### Sıradaki
 Onboarding/birleştirme uç noktasının API tasarımı kullanıcıya sunulacak, onay bekleyecek. Ayrıca kullanıcının elle adımı: Google Cloud Console'dan **gerçek** Web Client ID'yi alıp hem `.env`'e hem `wrangler.jsonc`'ye yazmak.
+
+---
+
+## 199. F8 — Doğru Client ID Bulundu, GIS Kararı, Oturum Token'ı Boşluğu
+
+**Bağlam:** Madde 198'in devamı. Kullanıcı Google Cloud Console'un indirilen kimlik JSON'ını paylaştı, 3-eylemli `/auth/google` tasarımını onayladı.
+
+### ✅ `GOCSPX-` teorisi kanıtlandı, kimlikler düzeltildi
+JSON'daki `client_secret` alanı (`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`) `.env`'de yanlışlıkla Client ID diye yazılmış değerle **birebir aynı** çıktı — Madde 198'deki hipotez kanıtlandı. Gerçek Client ID (`12582193451-....apps.googleusercontent.com`) hem `.env`'e hem Worker'ın `wrangler.jsonc`'sine yazıldı; `wrangler deploy --dry-run` config'i doğruladı.
+
+### 🔴 Bulgu: kayıtlı redirect URI Supabase'e ait, bize değil
+JSON'un `redirect_uris` alanı yalnızca `https://<proje>.supabase.co/auth/v1/callback` içeriyordu — Trakt'takine benzer klasik bir yönlendirme akışı kursaydım (`expo-auth-session`'ın genel `useAuthRequest`'i), Google `redirect_uri_mismatch` ile reddederdi.
+
+### Karar: klasik yönlendirme DEĞİL, Google Identity Services (GIS)
+Google'ın kendi güncel dokümanı canlıdan çekildi: klasik `id_token` yönlendirme akışı için **`nonce` zorunlu** ve doküman açıkça *"significantly more complicated... highly recommend using Google Identity Services"* diyor. `expo-auth-session`'ın `AuthRequest`'inde **hiç `nonce` desteği yok** — elle üretmek/bir tam sayfa yönlendirmesi boyunca saklamak gerekirdi, tam olarak "elle kriptografi yazma" riskiydi (Madde 198'de `jose` seçimiyle aynı gerekçe).
+
+**GIS (`google.accounts.id.initialize`) seçildi:**
+- `nonce` **birinci sınıf desteklenen alan** (canlı JS referansından doğrulandı) — tam sayfa yönlendirmesi hiç yok, `nonce` yalnızca aynı sayfa içindeki callback'e kadar hayatta kalması yeterli, Trakt'taki gibi "yönlendirme boyunca sakla" sorunu yok.
+- Callback `{ credential: "<ID_TOKEN_JWT>" }` veriyor — doğrudan `verifyGoogleIdToken`'a girecek.
+- Google Console'da **"Authorized redirect URIs" değil "Authorized JavaScript origins" gerekiyor** — mevcut Supabase redirect kaydına dokunmaya gerek yok.
+
+> 🔴 **Kullanıcının elle adımı:** Google Cloud Console → bu Client ID → **"Authorized JavaScript origins"** → `https://kaymaktv.com` (canlı) ekle. Yerel geliştirme için ayrıca `expo start --web`'in kullandığı origin (genelde `http://localhost:8081`) eklenmeli.
+
+### 🔴 Yeni bulunan tasarım boşluğu: sürekli oturum kimlik doğrulaması
+
+Onaylanan 3-eylemli tasarımı yazmaya başlarken şu soru boşluk çıkardı: Trakt'ta `traktAccessToken` uzun ömürlü, `refreshAccessToken` ile yenileniyor ve her yazma isteğinde **tekrar tekrar gönderiliyor**. Google ID token'ları (`google.accounts.id`'den gelen) böyle değil — **kısa ömürlü** (~1 saat) ve KİMLİK DOĞRULAMA anı için tasarlanmış, API isteği başına yeniden kullanılacak bir "erişim token'ı" değil. `resolveCallerWithReason`'ın Google dalını Trakt'takiyle simetrik kurgulamıştım (`credentials.googleIdToken` her yazma isteğinde beklenir) — ama bu, oturum bir saati geçtiğinde kullanıcının HER yazma isteğinde yeniden Google'a gitmesini gerektirirdi. Çalışmaz.
+
+**Önerilen çözüm:** `/auth/google` başarılı olduğunda (üç eylemden hangisi olursa olsun) Worker kendi imzaladığı, uzun ömürlü bir **KaymakTV oturum token'ı** (HS256 JWT, yeni bir Worker sırrı — `KAYMAK_SESSION_SECRET` — ile imzalanır, yalnızca `{sub: userId, exp}` taşır) döndürür. İstemci bunu `traktAccessToken`'ın yanına, `SecureStore`'a `kaymakSessionToken` olarak yazar ve Google ile bağlı kullanıcılar sonraki tüm yazma isteklerinde BUNU gönderir — `resolveCallerWithReason`'a üçüncü bir dal eklenir. Google ID token'ı yalnızca `/auth/google`'ın kendisinde, bir kerelik kimlik kanıtı olarak kullanılır.
+
+**Bunun getirdiği yeni sorumluluklar (kullanıcıya söylenmeli, sessizce eklenmemeli):**
+- Yeni bir sır: `wrangler secret put KAYMAK_SESSION_SECRET` — kullanıcının çalıştırması gerekiyor.
+- Yenileme mekanizması YOK (v1): token süresi dolunca kullanıcı GIS'i sessizce (oturumu hâlâ açıksa `auto_select`/One Tap ile) veya elle tekrar tetikler. Refresh-token çifti (Trakt'takine benzer) bu turda bilinçli olarak eklenmedi — aşırı mühendislik olurdu, ihtiyaç çıkarsa sonra eklenir.
+
+### Doğrulama
+- `wrangler deploy --dry-run` ✅ — `GOOGLE_WEB_CLIENT_ID` doğru bağlandı.
+- Google'ın canlı JS referans dokümanından `nonce`/`credential`/origin gereksinimleri doğrulandı (tahmin edilmedi).
+- **Doğrulanamayan/bekleyen:** oturum token'ı tasarımı kullanıcı onayı bekliyor; onaylanmadan `/auth/google` ve `settings.tsx` entegrasyonu yazılmadı.
+
+### Sıradaki
+Kullanıcıdan iki şey bekleniyor: (1) Google Console'a JavaScript origin eklemesi, (2) oturum token'ı tasarımına onay. İkisi de netleşince `/auth/google` uç noktası + `settings.tsx`'teki GIS entegrasyonu yazılacak.
