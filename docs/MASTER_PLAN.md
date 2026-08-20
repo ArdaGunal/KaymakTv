@@ -13,10 +13,11 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 — istemci tarafı yazıldı ve
-tarayıcıda test edildi (Madde 201): GIS entegrasyonu + birleştirme akışı.
-**Sıradaki: Worker deploy + kullanıcının kayıtlı bir origin'de (localhost:8081
-veya kaymaktv.com) gerçek bir Google hesabıyla uçtan uca denemesi.**
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 ✅ TAMAM — Worker deploy
+edildi, kullanıcı gerçek Google hesabıyla `link_trakt`'i uçtan uca denedi,
+başarılı. Bilinen sürtünme Y23 olarak kaydedildi (veri kaybı yok, `create_new`
+açılmadan önce kapatılmalı). **Sıradaki: G2 — yeni kimlik yüzeyinin güvenlik
+denetimi** (Kol B: F7 → F8 → G2).
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -84,7 +85,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ✅ **TAMAM, canlıda** (Madde 196) — `026` + `resolveCaller` + istemci kimliği. `tsc` ✅ · Worker 34/34 ✅ · GRANT kolon listesi canlıdan doğrulandı ✅ · migration + deploy canlıda doğrulandı ✅ |
-| **F8** | ⚠️ **Google giriş + hesap birleştirme** | 🟢 **Kod tamamen yazıldı** (Madde 198-201): Worker (`/auth/google`, 3 eylem, nonce doğrulaması, 55/55 test) + istemci (GIS + `settings.tsx` + birleştirme akışı, tarayıcıda test edildi, bir zamanlama kusuru bulunup düzeltildi). **create_new bilinçli olarak arayüze konmadı** (`traktClient.ts`'in 401 mantığı düzeltilmeden riskli). **Kalan: Worker deploy + gerçek hesapla uçtan uca test** |
+| **F8** | ⚠️ **Google giriş + hesap birleştirme** | ✅ **TAMAM, canlıda** (Madde 198-201): Worker deploy edildi (2026-08-20 05:06 UTC, canlıda `/auth/google` 400 ile doğrulandı) + kullanıcı gerçek hesapla `link_trakt`'i uçtan uca denedi, başarılı. `create_new` bilinçli olarak arayüze konmadı (Y23 — `traktClient.ts`'in 401 mantığı önce düzeltilmeli). Kalan sürtünme: aynı Google hesabıyla her girişte Trakt'ı tekrar onaylatıyor (Y23'e bağlı, veri kaybı yok) |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
 | **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ — Y14 (RLS'siz gizleme) buraya |
 | **F11** | S11 — **yeniden çerçevelendi** (Y15) | ⬜ — ayar yarısı kolon `GRANT`'ı ile, üye listesi yarısı F7'ye |
@@ -111,7 +112,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 A. İNCELEME SİSTEMİNİ BİTİR        F1 ✅ F2 ✅ K1 ✅ F3 ✅ G1 ✅ F4 ✅🔓
    (kilidi açan kol)                        ── KOL TAMAMLANDI ──
 
-B. TRAKT'TAN BAĞIMSIZLIK           F5 🟡  F6 ✅  K2 ✅ → F7 → F8 → G2
+B. TRAKT'TAN BAĞIMSIZLIK           F5 🟡  F6 ✅  K2 ✅  F7 ✅  F8 ✅ → G2
    (stratejik kol)                                       ⚠️    ⚠️
 
 C. MODERASYON / UGC                F9 ✅ → F10 ✅ → G3
