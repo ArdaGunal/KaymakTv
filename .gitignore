@@ -72,30 +72,21 @@ firebase.json
 
 # Markdown and Docs
 *.md
-# Geliştirme kuralları için zorunlu olanları istisna tutuyoruz
-!README.md
-!AGENTS.md
-!docs/HISTORY.md
-!docs/ARCHITECTURE.md
-!docs/AI_RULES.md
-# Planlama ve tasarım kayıtları (2026-08-17'de eklendi).
-# NEDEN: yukarıdaki `*.md` kuralı bunları git DIŞINDA bırakıyordu. En kritiği
-# MASTER_PLAN.md — oturumlar arası devir belgesi ve AGENTS.md yeni bir oturuma
-# oradan başlamayı şart koşuyor. Git'te olmaması, tek bir disk hatasının tüm
-# planlama geçmişini silmesi demekti.
-!docs/MASTER_PLAN.md
-!docs/REVIEWS_PLAN.md
-!docs/FEED_SOCIAL_PLAN.md
-!docs/notifications.md
-!docs/F4_TEST_PROTOCOL.md
-!docs/F15_TEST_PROTOCOL.md
-!docs/FEED_VISIBILITY_PLAN.md
-!docs/FOLLOW_SNAPSHOT_PLAN.md
-!docs/MODERATION.md
-# NOT: docs/{feed,ui,PROJECT_VISION,TODO,README}.md bu listede YOK ama yine de
-# takip ediliyor — `*.md` kuralı eklenmeden ÖNCE commit edilmişlerdi (git zaten
-# takip ettiği dosyayı ignore etmez). Biri silinip yeniden oluşturulursa
-# sessizce git dışında kalır; o gün buraya da eklenmeli.
+!/README.md
+# NOT (2026-08-20, F19 repo temizliği): repo public'e açık olduğu için
+# AGENTS.md + docs/ altındaki tüm planlama/geçmiş/güvenlik dosyaları (MASTER_PLAN,
+# HISTORY, ARCHITECTURE, REVIEWS_PLAN, MODERATION, vb.) bilinçli olarak git
+# DIŞINDA bırakıldı. Bunlar hâlâ diskte yaşıyor ve CLAUDE.md/AGENTS.md akışı
+# onları hâlâ okuyor — sadece artık git geçmişi/uzak yedeği yok (bkz.
+# docs/HISTORY.md Madde 205, eğer o dosyaya hâlâ erişimin varsa).
+# Önceki tasarımın (2026-08-17) gerekçesi tam tersiydi: bu dosyaları git'te
+# TUTMAK "disk hatasına karşı yedek" içindi. Gizlilik bunu bilinçli feda ediyor.
+
+# Database internals (2026-08-20, F19 repo temizliği)
+# Şema tasarımı Supabase'e elle uygulanıyor (Pi bu dosyaları hiç okumuyor,
+# yalnızca server.js/server/ dosyaları Pi'nin git pull ile aldığı şey) —
+# public repoda mimariyi ifşa etmenin bir faydası yok.
+/supabase/schema/
 
 # IDEs and AI tools
 .vscode/
