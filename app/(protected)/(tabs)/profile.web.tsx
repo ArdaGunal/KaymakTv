@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Settings } from 'lucide-react-native';
@@ -60,7 +61,7 @@ function DesktopProfileHeader({
     <View style={desktopHeaderStyles.container}>
       {/* Avatar */}
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={desktopHeaderStyles.avatar} />
+        <Image source={{ uri: avatarUrl }} style={desktopHeaderStyles.avatar} contentFit="cover" cachePolicy="disk" />
       ) : (
         <View style={desktopHeaderStyles.avatarFallback}>
           <Text style={desktopHeaderStyles.avatarText}>{initial}</Text>

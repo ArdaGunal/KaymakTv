@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { TraktUserProfile } from '../../services/api/social';
@@ -54,7 +55,7 @@ export default function ProfileHeader({
       {/* Üst Satır: Sol Avatar + Sağ İstatistikler & Aksiyon Butonu */}
       <View style={styles.topRow}>
         {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
         ) : (
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initial}</Text>

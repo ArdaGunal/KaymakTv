@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle } from 'lucide-react-native';
@@ -26,7 +27,7 @@ export default function ErrorFallback({ onRetry }: ErrorFallbackProps) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.content}>
-        <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../assets/icon.png')} style={styles.logo} contentFit="contain" />
 
         <View style={styles.iconBadge}>
           <AlertTriangle size={22} color="#f87171" />

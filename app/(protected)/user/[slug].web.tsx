@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Rss, Check, Clock, UserPlus, Lock, WifiOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -108,7 +109,7 @@ export default function PublicProfileScreenWeb() {
           <>
             <View style={styles.headerCard}>
               {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
               ) : (
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{initial}</Text>

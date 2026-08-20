@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
 
@@ -27,7 +28,7 @@ export default function ComposePostBar({ onPress }: ComposePostBarProps) {
   return (
     <TouchableOpacity style={styles.wrap} onPress={onPress} activeOpacity={0.75}>
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
       ) : (
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>

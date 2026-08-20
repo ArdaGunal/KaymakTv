@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +30,7 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
   return (
     <View style={styles.requestRow}>
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
       ) : (
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>

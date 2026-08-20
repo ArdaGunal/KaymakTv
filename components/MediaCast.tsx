@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { getPersonPhoto } from '../services/tmdbApi';
 
 interface MediaCastProps {
@@ -31,7 +32,7 @@ export default function MediaCast({ cast, onActorPress }: MediaCastProps) {
             <>
               <View style={styles.castImageContainer}>
                 {photoUrl ? (
-                  <Image source={{ uri: photoUrl }} style={styles.castImage} />
+                  <Image source={{ uri: photoUrl }} style={styles.castImage} contentFit="cover" cachePolicy="disk" />
                 ) : (
                   <View style={styles.castImagePlaceholder} />
                 )}
@@ -87,7 +88,6 @@ const styles = StyleSheet.create({
   castImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   castImagePlaceholder: {
     width: '100%',
