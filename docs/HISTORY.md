@@ -4678,3 +4678,58 @@ Kullanıcının elle adımları: **`026` çalıştır** → **Worker deploy**. �
 
 ### Sıradaki
 F8 (Google giriş + hesap birleştirme köprüsü) için onay bekleniyor. Kullanıcı test niyetini paylaştı: Trakt ve Google e-postalarının aynı olmasına dayanarak birleşmeyi denemek istiyor — bu, F8'in kırmızı çizgisiyle (yalnızca e-postaya bakıp otomatik birleştirme YASAK) çelişeceği için netleştirildi: köprü e-posta eşleşmesine değil, kullanıcının Trakt OAuth'unu tekrar açıp token'la kanıtlamasına dayanacak.
+
+---
+
+## 198. F8 Faz 1 — Google ID Token Doğrulaması (Worker'da) Yazıldı ve Test Edildi
+
+**Bağlam:** Kol B'nin en kritik fazı. Kullanıcı planı verdi ve *"bildiğini yapmak yerine test et, doğrula"* dedi. Kod yazmadan önce üç araştırma yapıldı, ikisi plan üzerinde doğrudan etkili çıktı.
+
+### 🔴 `.env`'de Client ID yerine Client SECRET yazılmış
+
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="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"`. `GOCSPX-` öneki Google'ın **Client Secret** biçimi — gerçek Client ID'ler `....apps.googleusercontent.com` ile biter. Muhtemelen Google Cloud Console'da yan yana duran iki alan karışmış.
+
+**Ölçülen risk:** `.env` git'e hiç girmemiş (`git log --all --full-history -- .env` boş) ve `dist/`'e henüz gömülmemiş (istemci kodu bu değeri henüz hiç okumuyordu, F8 başlamamıştı) — bugünkü sızıntı sıfır. Ama `EXPO_PUBLIC_` önekli olduğu için, bu değer düzeltilmeden client koduna bağlanırsa **bir sonraki build'de** gerçek Client Secret dünyaya açık bir bundle'a gömülürdü. Bu yüzden client tarafı yazılmadı; `wrangler.jsonc`'ye de yanlış değer konmadı, yorum satırı olarak doğru alma yeri belgelendi.
+
+### 🔴 OAuth mantığının iki yerde olması geçmişte gerçek bir hataya yol açmış
+
+`TraktAccountSection.tsx`'in başlığı: eskiden `settings.tsx` ve `account.tsx` ikisi de kendi `useAuthRequest`'ini çalıştırıyordu; Trakt'a kayıtlı redirect URI **tek** (`/settings`) olduğu için akışı başlatan ekranla kodu yakalayan ekran farklılaşıyor, aynı tek-kullanımlık kod iki kez değişilmeye çalışılıp `invalid_grant` üretiyordu.
+
+**Sonucu:** birleştirme köprüsünün "Trakt'ı tekrar doğrula" adımı **ayrı bir ekranda değil, `settings.tsx`'in içinde**, mevcut `request`/`response`/`promptAsync` altyapısını yeniden kullanarak kurulmalı. Bu, onboarding tasarımını doğrudan şekillendiriyor (aşağıda).
+
+### Kütüphane seçimi: `jose` — elle RS256 yazılmadı
+
+Cloudflare dokümanı ve `jose`'nin kendi belgeleri canlıdan çekilerek doğrulandı: Web Crypto API Workers'ta `nodejs_compat` gerekmeden RS256 destekliyor; `jose` Workers'ı resmi olarak destekliyor, `createRemoteJWKSet` + `jwtVerify` JWKS getirme/önbellekleme/rotasyonu kendisi yönetiyor. Elle imza doğrulama (base64url, `kid` seçimi, algoritma karıştırma saldırılarına karşı savunma) güvenlik açısından riskli olurdu — bu proje için doğru çağrı kütüphaneyi seçmekti, "gereksiz bağımlılık eklememe" ilkesine aykırı değil.
+
+`npm install jose` → sıfır bağımlılık ekledi (kendisi zaten sıfır-bağımlılık kütüphanesi).
+
+### Yazılan: `verifyGoogleIdToken` — saf, ağ gerektirmeyen doğrulama katmanı
+
+`verifyGoogleCaller`'ı tek fonksiyon yerine ikiye böldüm:
+- **`verifyGoogleIdToken(idToken, env, jwks)`** — yalnızca kriptografik doğrulama (imza + `aud` + `iss` + `exp`). Supabase'e HİÇ dokunmuz. `jwks` parametresi test edilebilirlik için enjekte edilir (üretimde `GOOGLE_JWKS`).
+- **`verifyGoogleCaller(idToken, env)`** — üstekini çağırır, sonra `google_sub` ile `users`'ta arar (yeni bir `supabaseSelect` yardımcısı yazıldı — bu Worker'da daha önce genel amaçlı SELECT yoktu).
+
+Ayrım iki gerekçeyle: (1) bu havuzda Supabase/Trakt'a giden çağrılar bilinçli olarak mock'lanmıyor (`test/index.spec.js` başlığındaki kural), saf kısım gerçek testlerle doğrulanabiliyor; (2) onboarding uç noktası (henüz yazılmadı) da aynı doğrulamaya ihtiyaç duyacak, kopyalanmayacak.
+
+**`aud` üç client ID'yi birden kabul ediyor** (web/iOS/Android) — Google her platform için ayrı client ID kullanıyor, sabit tek `aud` beklemek diğer ikisini baştan kilitlerdi. `jose`'nin `audience` alanının `string | string[]` kabul ettiği tip tanımlarından doğrulandı.
+
+`resolveCallerWithReason`'a bağlandı — Trakt dalıyla **kasıtlı fark**: Trakt dalı doğrulama başarılıysa satırı upsert ediyor (slug tek anlamlı kimlik), Google dalı ise `google_sub` bulunamazsa satır OLUŞTURMUYOR (`errorKind: "google_unlinked"` döner) — bu karar 12 yazma ucunun ortak kapısında otomatik verilirse "iki içerik kümesini birleştirme" felaketini riske atardı.
+
+### Doğrulama
+- **`test/auth.spec.js` — 9 yeni test, `test/index.spec.js`'in 34'üyle birlikte 43/43 geçti.** Gerçek bir RSA anahtar çifti üretilip `createLocalJWKSet` ile enjekte edildi (Google'ın gerçek anahtarına ihtiyaç yok, ağ gerektirmez):
+  - Geçerli token → kabul
+  - Üç client ID'den herhangi biri (Android örneği) → kabul
+  - Yanlış `aud`, yanlış `iss`, süresi dolmuş, `sub` eksik, hiçbir client ID env'de yok, çöp string → hepsi reddedildi
+  - **🔴 Kritik test: farklı bir anahtarla imzalanmış (sahte) token reddedildi** — Google'ın gerçek özel anahtarına sahip olmayan birinin üretebileceği en iyi ihtimal bu, ve reddedildi
+- `node --check` ✅ · `npx wrangler deploy --dry-run` ✅ (config geçerli, `jose` bundle'a gerçekten girdi — yükleme boyutu 119.57 KiB'a çıktı)
+- **Doğrulanamayan:** gerçek bir Google ID token'ıyla uçtan uca test edilmedi (Client ID düzeltilmeden yapılamaz).
+
+### 📥 Bilinçli olarak YAZILMAYAN: onboarding/birleştirme uç noktası
+
+REVIEWS_PLAN §9.3'ün karar ağacını uygulayacak yeni uç nokta (yeni kullanıcı mı, mevcut Trakt hesabına mı bağlanıyor) henüz yazılmadı. Bu, projenin kendi dokümanlarının "EN KRİTİK" / "geri dönüşü en pahalı faz" dediği parça — kullanıcıya somut bir API tasarımı sunulup onay istenecek, MASTER_PLAN'da onayı beklenen bir sonraki adım olarak işaretlendi.
+
+### Değişen dosyalar
+Worker: `src/index.js` (`jose` import, `supabaseSelect`, `verifyGoogleIdToken`, `verifyGoogleCaller`, `resolveCallerWithReason`'ın Google dalı, `google_unlinked` hata dalı) · `package.json`+`package-lock.json` (`jose@6.2.9`) · `wrangler.jsonc` (Google client ID'leri için yorumlu yer tutucu + GOCSPX uyarısı) · **Yeni:** `test/auth.spec.js`.
+
+### Sıradaki
+Onboarding/birleştirme uç noktasının API tasarımı kullanıcıya sunulacak, onay bekleyecek. Ayrıca kullanıcının elle adımı: Google Cloud Console'dan **gerçek** Web Client ID'yi alıp hem `.env`'e hem `wrangler.jsonc`'ye yazmak.

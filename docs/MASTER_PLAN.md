@@ -13,7 +13,9 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** F7 ✅ TAMAM — F8 onayı bekleniyor
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 faz 1 (Google ID token
+doğrulama) bitti + test edildi (Madde 198). Onboarding/birleştirme uç
+noktasının tasarımı kullanıcı onayı bekliyor.
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -81,7 +83,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ✅ **TAMAM, canlıda** (Madde 196) — `026` + `resolveCaller` + istemci kimliği. `tsc` ✅ · Worker 34/34 ✅ · GRANT kolon listesi canlıdan doğrulandı ✅ · migration + deploy canlıda doğrulandı ✅ |
-| **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — F7'nin elle adımları tamamlanınca. Karar: **Worker kendi doğrular** (Google JWKS ile imza+`aud`+`iss`+`exp`), Supabase Auth kullanılmayacak |
+| **F8** | ⚠️ **Google giriş + hesap birleştirme** | 🟡 **Faz 1 bitti** (Madde 198): `verifyGoogleIdToken` yazıldı, 9 kripto testi (43/43) geçti, `resolveCallerWithReason`'a bağlandı. **Faz 2 (onboarding/birleştirme uç noktası) tasarım onayı bekliyor** — henüz yazılmadı |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
 | **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ — Y14 (RLS'siz gizleme) buraya |
 | **F11** | S11 — **yeniden çerçevelendi** (Y15) | ⬜ — ayar yarısı kolon `GRANT`'ı ile, üye listesi yarısı F7'ye |
@@ -422,6 +424,43 @@ yeri hazır.
 > 🔴 **DOĞRULAMA F8'DE YAZILIR, G2'DE YALNIZCA DENETLENİR.** İmza/`aud`/`iss`
 > doğrulaması olmadan Google girişi açılırsa herkes sahte token'la başkası
 > olabilir. "G2'de test ederiz" yeterli değil — test etmek ≠ yazmak.
+
+**✅ Faz 1 bitti (HISTORY Madde 198):** `verifyGoogleIdToken` (`jose` +
+`createRemoteJWKSet`, Web Crypto tabanlı) imza+`aud`(3 client ID'den biri)+
+`iss`+`exp` doğruluyor. `resolveCallerWithReason`'a bağlandı: `google_sub`
+zaten bağlıysa normal kullanıcı gibi davranıyor, değilse SATIR OLUŞTURMADAN
+`errorKind: "google_unlinked"` döndürüyor. **9 kripto testi (sahte imza dahil)
+43/43 içinde geçti.**
+
+🔴 **Faz 2 — onboarding/birleştirme uç noktası HENÜZ YAZILMADI, tasarım onayı
+bekliyor.** REVIEWS_PLAN §9.3'ün karar ağacını uygulayacak. Bu, projenin kendi
+tanımıyla "geri dönüşü en pahalı faz" — kod yazılmadan önce API şekli
+kullanıcıya sunuldu.
+
+🔴 **F7'de bulunan yeni engel: `.env`'deki Web Client ID aslında bir Client
+SECRET.** `GOCSPX-` önekli — gerçek Client ID'ler `.apps.googleusercontent.com`
+ile biter. Google Cloud Console'daki iki alan karışmış olabilir. Bu düzeltilene
+kadar istemci tarafı (gerçek OAuth isteği) kurulamaz; `wrangler.jsonc`'ye de
+yanlış değer yazılmadı, yorum satırı olarak doğru alma yeri belgelendi.
+Sızıntı riski ölçüldü: `.env` git'e hiç girmemiş, `dist/`'e henüz gömülmemiş —
+bugün sıfır, ama düzeltilmeden client koduna bağlanırsa bir sonraki build'de
+gerçek secret bundle'a gömülürdü.
+
+🔴 **OAuth mantığı TEK yerde olmalı (F7 sırasında keşfedildi).**
+`TraktAccountSection.tsx`'in başlığı: eskiden iki ekran kendi
+`useAuthRequest`'ini çalıştırıyordu, Trakt'a kayıtlı redirect URI tek
+(`/settings`) olduğu için aynı kod iki kez değişilmeye çalışılıp
+`invalid_grant` üretiyordu. **Sonuç:** birleştirme köprüsünün "Trakt'ı tekrar
+doğrula" adımı ayrı bir ekranda DEĞİL, `settings.tsx`'in içinde, mevcut
+`request`/`response`/`promptAsync` altyapısı yeniden kullanılarak kurulmalı.
+
+**Platform kapsamı:** yalnızca **web** — iOS/Android client ID'leri hâlâ yer
+tutucu (`ileride-...-icin-alacagin-id`), native taraf bilinçli olarak
+ertelendi. `expo-auth-session/providers/google` **deprecated**; Expo'nun
+güncel rehberi native için `@react-native-google-signin/google-signin`
+öneriyor — ama bu native modül gerektirir ve şu an test edilemez (client
+ID yok). Web akışı Trakt'takiyle aynı desenle (`expo-auth-session`'ın genel
+`useAuthRequest`'i + Google'ın gerçek discovery endpoint'i) kurulacak.
 
 **F7'de bulunan ve F8'i doğrudan etkileyen üç nokta:**
 1. 🔴 **`on_conflict=trakt_slug` Google dalında KULLANILAMAZ.** `026` ile
