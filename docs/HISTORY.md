@@ -4660,3 +4660,21 @@ Dönüş tipi eski `verifyAndUpsertUser` ile **birebir aynı** tutuldu (`user` |
 
 ### Sıradaki
 Kullanıcının elle adımları: **`026` çalıştır** → **Worker deploy**. İkisi de tamamlanıp bir giriş + yazma işlemi denendikten sonra **F8** (Google giriş + hesap birleştirme köprüsü) için onay istenecek.
+
+---
+
+## 197. F7 Canlıda Doğrulandı — Elle Adımlar Tamamlandı
+
+**Bağlam:** Madde 196'nın devamı. Kullanıcı `026`'yı çalıştırdı ve Worker'ı deploy etti.
+
+### Doğrulama
+- **`026`:** Canlı Supabase'e anon key ile sorgu atıldı. `select=google_sub` → `42501 permission denied` (GRANT çalışıyor). `select=id,username,auth_provider` → `200`, `auth_provider: "trakt"` döndü (kolon var, migration çalışmış).
+- **Worker deploy:** İlk HTTP testi (`/feed/report` boş gövdeyle → `"traktAccessToken zorunlu"`) **yanıltıcı** olurdu — bu mesaj ucun `resolveCallerWithReason`'a hiç ulaşmadan kendi eski `if (!token)` kontrolünden geliyor; refactor tasarım gereği istemciden görünen davranışı hiç değiştirmediği için HTTP üzerinden eski/yeni kod ayırt edilemiyor. Bunun yerine `npx wrangler deployments list` çalıştırıldı: en son iki deploy 2026-08-20 01:34/01:36 UTC'de, `src/index.js`'in son değişim zamanından (mtime) SONRA. Worker git'te olmadığı ve diskte tek kopya olduğu için bu, canlı kodun F7'nin refactor'ünü içerdiğini mantıken kanıtlıyor. Kullanıcı deploy'u kendisinin çalıştırdığını doğruladı.
+
+> **Ölçüm metodolojisi notu:** İlk kurulan HTTP testi yanlış pozitif *üretebilirdi* — rapor edilmeden önce yakalandı ve düzeltildi (`wrangler deployments list` + mtime karşılaştırmasına geçildi). Bu projede tekrar eden bir ders: bir doğrulamanın "aynı sonucu eski kod da verir mi" sorusu sorulmadan kanıt sayılmaması gerekiyor.
+
+### Sonuç
+**F7 tamamen kapandı** — kod, migration ve deploy üçü de canlıda doğrulandı. `MASTER_PLAN` güncellendi.
+
+### Sıradaki
+F8 (Google giriş + hesap birleştirme köprüsü) için onay bekleniyor. Kullanıcı test niyetini paylaştı: Trakt ve Google e-postalarının aynı olmasına dayanarak birleşmeyi denemek istiyor — bu, F8'in kırmızı çizgisiyle (yalnızca e-postaya bakıp otomatik birleştirme YASAK) çelişeceği için netleştirildi: köprü e-posta eşleşmesine değil, kullanıcının Trakt OAuth'unu tekrar açıp token'la kanıtlamasına dayanacak.
