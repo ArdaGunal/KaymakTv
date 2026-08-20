@@ -75,7 +75,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F9** | Moderasyon altyapı düzeltmesi (S15) | ✅ **BİTTİ** — `023` + `/feed/report`, canlıda doğrulandı (`yeni` → `TEKRAR`) |
 | **F10** | Rapor sayacı + otomatik gizleme — [`MODERATION.md`](MODERATION.md) | ✅ **BİTTİ** — `024` canlıda. Eşik **3 kişi**, itiraz = raporu `dismissed` yapmak |
 | **D0** | 🔍 **Sistem denetimi** (4 alt ajan) | ✅ **BİTTİ** — K1 açığı bulundu+kapatıldı, `025` yazıldı, Y12-Y21 kaydedildi |
-| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟢 **4/5 BİTTİ** — Y17·Y16·Y18·Y21 kapandı, Y20 kısmi. Cihaz testi protokolü yazıldı: [`F15_TEST_PROTOCOL.md`](F15_TEST_PROTOCOL.md) — henüz uygulanmadı |
+| **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟡 **Cihazda test edildi (HISTORY Madde 194).** Y16·Y18 doğrulandı. Y21 **doğrulanmadı** (test doğal akış sonuna denk geldi, hata dalı hiç tetiklenmedi). Y17 ekranı doğru ama testte **yeni bulgu Y22** çıktı — "Tekrar Dene" devre kesici yüzünden çalışmıyor görünüyor |
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
@@ -832,11 +832,37 @@ riskliydi, elle ve tek tek yapılmalı.
 
 </details>
 
-### ✅ Y21 · Akışta "devamı yüklenemedi" çıkmazı — KAPANDI (F15)
+### ✅ Y21 · Akışta "devamı yüklenemedi" çıkmazı — KAPANDI (F15), ⚠️ CİHAZDA DOĞRULANMADI
 `useFeed` `loadMore` hatasında yalnızca `console.warn`; kullanıcı zaten en
 alttadır, `onEndReached` yeniden tetiklenmez, footer `null` döner. Spinner
 kaybolur ve **hiçbir şey olmaz**. Aynı sınıf: liste doluyken `refresh()`
 başarısızlığı tamamen görünmez.
+
+> **T1 (HISTORY Madde 194) bu dalı tetiklemedi** — test doğal akış sonuna
+> (`!hasMore`) denk geldi, `loadMoreFailed` hiç devreye girmedi. Kod
+> değişmedi, yalnızca doğrulama eksik: akış ortasındayken, daha sayfa
+> varken uçak modu açılarak tekrar denenmeli.
+
+### 🔴 Y22 · Devre kesici, "Tekrar Dene"yi görünmez kılıyor — YENİ (F15 cihaz testi)
+`services/api/traktClient.ts` + `utils/circuitBreaker.ts`: her Trakt
+endpoint'i **5 art arda hatada 30 saniye** boyunca isteği ağa hiç
+göndermeden reddediyor. Yanıtsız ağ hatası (uçak modu) bu sayıma dahil.
+`useEpisodeDetail`/`useShowDetail`/`useMovieDetail`'in catch bloğu devre
+kesici reddiyle gerçek ağ hatasını AYIRT ETMİYOR — ikisi de aynı
+`LoadFailedState` genel mesajına düşüyor.
+
+**Cihazda gözlemlenen:** uçak modunda birkaç kez "Tekrar Dene"ye basmak
+(≥5 hata) devreyi açıyor; internet geri gelse bile 30 saniye boyunca aynı
+hata görünmeye devam ediyor — kullanıcı "tekrar dene çalışmıyor" sanıyor.
+Yalnızca 30 saniyeden uzun süre uzakta kalmak (ör. arka plana atıp
+dönmek) devrenin kendiliğinden yarı-açılmasına yetiyor.
+
+**Önerilen düzeltme (küçük, F18/D bölümüne uygun):** üç hook'un catch'i
+`error.isCircuitBreakerRejection`'ı ayırt etsin, `LoadFailedState`'e farklı
+bir mesaj versin (*"Çok fazla deneme yapıldı, birkaç saniye bekleyip tekrar
+dene"*). Genel ağ hatasıyla karıştırılmamalı.
+**Kanıt seviyesi:** kod okunarak çıkarılmış güçlü bir hipotez, cihazda
+buton-basış zamanlaması ölçülerek doğrulanmadı.
 
 ## Y11 · Gizlenen yorumlar `comment_count`'ta sayılmaya devam ediyor
 **Nerede:** `015_feed_social.sql` → `bump_activity_comment_count` trigger'ı ·

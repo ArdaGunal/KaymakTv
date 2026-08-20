@@ -4520,3 +4520,40 @@ Kök `utils/formatRelativeTime.ts` i18n'liydi ama `t('justNow')` gibi önek'siz 
 
 ### Sıradaki
 **Kol E tamamlandı** (F15 → F16 → F17, üçü de kapandı). Sıradaki büyük iş **F7 → F8** (Kol B, kimlik katmanı + Google giriş) — bilinçli olarak ertelenmiş, büyük ve riskli bir iş. F15'in cihaz testi de hâlâ yapılmadı; iki iş de sırada.
+
+---
+
+## 194. F15 Cihaz Testi Sonucu — Y22 Bulundu: Devre Kesici, Retry'ı Görünmez Kılıyor
+
+**Bağlam:** `docs/F15_TEST_PROTOCOL.md`'nin T1-T5'i kullanıcı tarafından gerçek cihazda çalıştırıldı. Sonuç 4 satırlık bir onay değil — T1 **belirsiz** çıktı, T2'de **yeni bir kusur** bulundu.
+
+### T1 · Belirsiz (BAŞARISIZ değil, DOĞRULANMADI)
+Kullanıcı akışın en altına indi, *"hepsi bu kadar"* mesajını gördü. Bu, `!hasMore` (doğal akış sonu) dalı — `loadMoreFailed` (Y21'in düzelttiği hata dalı) hiç tetiklenmedi. Protokolün kendisi bu ihtimali önceden işaretlemişti (*"azsa hasMore hemen false olur, test tetiklenmez"*). **Y21 bu turda doğrulanmadı**, yalnızca ilgisiz bir yolun sorunsuz çalıştığı görüldü.
+
+### T3, T4 · Geçti
+Gizlilik anahtarı (Y18): uçak modunda kaydedilemedi uyarısı çıktı, internet gelince **uygulamadan çıkmaya gerek kalmadan** düzeldi. Üç yazma yüzeyi (Y16): onay akışında sorun yok.
+
+### 🔴 T2 · BAŞARISIZ — ama Y17'nin kendisi değil, yeni bir kusur: Y22
+
+`LoadFailedState` (Y17'nin düzelttiği ekran) doğru göründü: sahte veri yok, "İçerik yüklenemedi" dürüstçe yazıyor. Sorun **"Tekrar Dene"nin kendisinde**: kullanıcı interneti geri açtıktan SONRA "Tekrar Dene"ye bastı, aynı hata tekrar çıktı. Uygulamayı arka plana atıp geri girince düzeldi.
+
+**Kod kanıtı (`services/api/traktClient.ts` + `utils/circuitBreaker.ts`):**
+
+- Her Trakt endpoint'inin kendi devre kesicisi var: **5 art arda hata → 30 saniye boyunca istekler ağa hiç gönderilmeden anında reddedilir** (`FAILURE_THRESHOLD=5`, `OPEN_DURATION_MS=30000`).
+- Yanıtsız ağ hatası (uçak modu → `error.response` yok) **devre kesiciye hata olarak işleniyor** (`traktClient.ts:384`).
+- `useEpisodeDetail`/`useShowDetail`/`useMovieDetail`'in catch bloğu bu ayrımı YAPMIYOR — devre kesici reddi de, gerçek ağ hatası da **aynı** `setHasError(true)`'ya düşüyor, `LoadFailedState` **aynı** genel mesajı gösteriyor.
+
+**Sonuç:** uçak modundayken birkaç kez "Tekrar Dene"ye basmak (her biri ayrı bir hata olarak sayılıyor) 5 hataya ulaşıp devreyi **AÇAR**. İnternet geri gelse bile devre 30 saniye boyunca isteği ağa hiç göndermeden reddediyor — ekranda görünen mesaj değişmiyor, kullanıcı "tekrar dene çalışmıyor" sanıyor. Devre kayıtları (`registry`) yalnızca bellekte tutuluyor; basit arka plan/öne getirme JS motorunu yeniden başlatmaz ama **30 saniyeden fazla uzakta kalmak** devrenin kendiliğinden `HALF_OPEN`'a geçmesine yeter — kullanıcının "arka plana atıp girince düzeldi" gözlemiyle tutarlı.
+
+> ⚠️ **Bu bir hipotez, kanıtlanmış olgu değil** — buton basış zamanlaması cihazda ölçülmedi, yalnızca kod okunarak çıkarıldı. Ama mekanizma tam olarak gözlemi açıklıyor ve `console.warn('[CircuitBreaker...] Devre AÇILDI')` satırı (breaker.ts:80) bunu doğrulardı; test sırasında konsol izlenmedi.
+
+**T3'ün T2'den farklı sonucu bunu destekliyor:** `useFeedPrivacy`'nin hata yolu devre kesiciden GEÇMİYOR (Worker'a gidiyor, Trakt'a değil) — ve o, internet gelince **anında** düzeldi, arka plana atmaya gerek kalmadı. İki test aynı "internet yok" senaryosunu koşuyor ama farklı davrandı; fark tam olarak devre kesicinin varlığı/yokluğuyla örtüşüyor.
+
+### 📥 Y22 kaydedildi
+`docs/MASTER_PLAN.md`'ye eklendi. Önerilen düzeltme (henüz yapılmadı): üç detay hook'unun catch bloğu `error.isCircuitBreakerRejection`'ı ayırt etsin, `LoadFailedState`'e farklı bir mesaj versin (*"Çok fazla deneme yapıldı, birkaç saniye bekleyip tekrar dene"*) — genel ağ hatasıyla karıştırılmasın. Küçük, düşük riskli bir değişiklik; üç dosyaya birkaç satır.
+
+### Doğrulama
+Kullanıcı gerçek cihazda test etti (T1 belirsiz, T2 başarısız + teşhis edildi, T3/T4 geçti, T5 atlandı — kullanıcı kararı, pratik değildi).
+
+### Sıradaki
+Y22'nin küçük düzeltmesi mi, yoksa doğrudan Kol B (F7 → F8) mi — kullanıcı kararı bekleniyor.
