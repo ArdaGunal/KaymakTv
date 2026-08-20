@@ -13,11 +13,10 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** F8 ✅ TAMAM — Worker deploy
-edildi, kullanıcı gerçek Google hesabıyla `link_trakt`'i uçtan uca denedi,
-başarılı. Bilinen sürtünme Y23 olarak kaydedildi (veri kaybı yok, `create_new`
-açılmadan önce kapatılmalı). **Sıradaki: G2 — yeni kimlik yüzeyinin güvenlik
-denetimi** (Kol B: F7 → F8 → G2).
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** G2 — 3/4 madde canlı/kod
+incelemesiyle kapandı (Madde 202); bir yan kusur (yanlış sağlayıcı mesajı)
+bulunup deploy edildi. **Kullanıcıdan bekleniyor:** `pg_constraint` sorgusu
+(aşağıda, G2 bölümünde) — gelince Kol B tamamen kapanır.
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -496,12 +495,24 @@ ayrı bir entegrasyon işi.
 
 ---
 
-#### G2 · 🔒 Güvenlik Denetimi #2 — yeni kimlik yüzeyi
+#### G2 · 🔒 Güvenlik Denetimi #2 — yeni kimlik yüzeyi — 🟡 3/4 KAPANDI (Madde 202)
 **Programın en kritik güvenlik noktası.** §4.2 + özel maddeler:
-- Google token doğrulaması sunucuda mı yapılıyor (`aud`/`iss`/imza kontrolü)?
-- `google_sub` gerçekten UNIQUE mi — aynı Google hesabı iki satıra bağlanabiliyor mu?
-- Birleştirme akışı bir hesabı **başkasının** hesabına bağlayabiliyor mu?
-- Kimlik sağlayıcı değişince IDOR korumaları (`WHERE user_id = ...`) hâlâ geçerli mi?
+- ✅ Google token doğrulaması sunucuda mı yapılıyor — canlıda 2 sahte token ile doğrulandı, ikisi de reddedildi.
+- 🟡 `google_sub` gerçekten UNIQUE mi — migration'da kısıt var, çalıştığı dolaylı kanıtlandı (Madde 197) ama `pg_constraint`'e doğrudan sorgu ATILMADI. **Kullanıcıdan bekleniyor:**
+  ```sql
+  SELECT conname, contype FROM pg_constraint
+  WHERE conrelid = 'users'::regclass
+    AND conname IN ('users_google_sub_key','users_auth_provider_check','users_has_identity_check');
+  ```
+  Üçü de (`contype='u'` ilki, `'c'` diğer ikisi) dönmeli.
+- ✅ Birleştirme akışı bir hesabı başkasının hesabına bağlayabiliyor mu — kod incelemesiyle reddedildi: kimlik hiçbir zaman istek gövdesinden değil, sağlayıcının kendisinden (Google imzası / Trakt'ın gerçek `/users/settings` yanıtı) türetiliyor.
+- ✅ IDOR korumaları hâlâ geçerli mi — `handleFeedComment` + `handleAccountDelete` (en yıkıcı uç) satır satır okundu, ikisi de `verified.userId` kullanıyor; 12 ucun hepsi F7'den beri değişmeyen tek `resolveCaller` kapısından geçiyor.
+
+> 🔴 **Denetim sırasında bulunan yan kusur, düzeltildi:** `authErrorResponse`'un
+> `invalid_token` mesajı sağlayıcılar arası paylaşılıyordu ama sabit "Trakt
+> oturumun sona ermiş" diyordu — Google token'ı geçersiz olunca kullanıcıya
+> yanlış sağlayıcıyı suçlayan bir mesaj gösteriliyordu. Genelleştirildi,
+> deploy edildi, canlıda doğrulandı.
 
 ---
 

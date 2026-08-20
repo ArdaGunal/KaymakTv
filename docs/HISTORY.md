@@ -4864,3 +4864,41 @@ Bu, canlı tarayıcı testinde (checkbox işaretlenmeden ÖNCE konteynerin DOM'd
 
 ### Sıradaki
 Kullanıcı gerçek bir Google hesabıyla `kaymaktv.com` üzerinde (ya da `localhost:8081`'de) uçtan uca test edecek. `create_new` (Trakt'sız pure Google hesap) ve `traktClient.ts`'in 401 mantığının düzeltilmesi ayrı, ileride ele alınacak bir iş olarak kayıtlı.
+
+---
+
+## 202. G2 — Yeni Kimlik Yüzeyinin Güvenlik Denetimi
+
+**Bağlam:** Kol B'nin "programın en kritik güvenlik noktası" dediği denetim. `MASTER_PLAN` G2'nin 4 maddesi sırayla, canlı ölçümle (tahmin edilmeden) denetlendi.
+
+### ✅ 1. Google token doğrulaması sunucuda mı yapılıyor — DOĞRULANDI (canlı)
+İki farklı sahte token canlı `/auth/google`'a gönderildi:
+- İmzasız düz metin (`"bu-hic-bir-jwt-degil"`) → `invalid_token`
+- Yapısal olarak geçerli JWT (doğru `aud`/`iss`/`nonce` ile üretilmiş) ama **sahte imzalı** → `invalid_token`
+
+İkisi de reddedildi — imza doğrulaması gerçekten Google'ın genel anahtarına karşı yapılıyor, `aud`/`iss` alanlarına bakıp geçmiyor. `nonce` eksikliği de ayrı olarak 400 ile reddedildi.
+
+### 🟡 2. `google_sub` gerçekten UNIQUE mi — DOLAYLI KANIT, DOĞRUDAN SORGU BEKLİYOR
+`026_identity_layer.sql`'de `ALTER TABLE users ADD CONSTRAINT users_google_sub_key UNIQUE (google_sub)` var. Migration'ın çalıştığı Madde 197'de GRANT testiyle dolaylı doğrulanmıştı (aynı script'in ilerleyen satırları çalıştıysa öncekiler de çalışmış olmalı — Postgres script'leri sırayla ve hata durursa duracak şekilde işler). **Doğrudan `pg_constraint` sorgusu çalıştırılmadı** — yalnızca anon key erişimim var, service_role yok. Kullanıcıdan tek, salt-okunur bir sorgu istendi (aşağıda).
+
+### ✅ 3. Birleştirme akışı başkasının hesabına bağlayabiliyor mu — KOD İNCELEMESİYLE REDDEDİLDİ
+`handleAuthGoogle`'ın `link_trakt` dalı okundu: `googleSub` YALNIZCA `verifyGoogleIdToken`'ın döndürdüğü değer (Google'ın imzaladığı token'dan), `identity.traktSlug` YALNIZCA `verifyTraktIdentity`'nin döndürdüğü değer (Trakt'ın GERÇEK `/users/settings` ucuna sorularak). **İstek gövdesinden hiçbir `trakt_slug`/`google_sub` alanı doğrudan güvenilmiyor** — ikisi de sağlayıcı tarafından kanıtlanıyor. Bir saldırganın başka birinin Trakt hesabına "bağlanabilmesi" için o hesabın GERÇEK, GEÇERLİ bir Trakt access token'ına sahip olması gerekir — ki bu noktada zaten o hesabı kontrol ediyordur (ayrı bir token hırsızlığı sorunu, bu akışın açığı değil).
+
+### ✅ 4. IDOR korumaları hâlâ geçerli mi — KOD İNCELEMESİYLE DOĞRULANDI
+İki temsilci uç nokta satır satır okundu:
+- `handleFeedComment`: `INSERT ... user_id: verified.userId` (istek gövdesinden değil)
+- `handleAccountDelete` (en yıkıcı uç, CASCADE siliyor): `supabaseDeleteRow(env, "users", verified.userId)`
+
+12 yazma ucunun hepsi F7'den beri **aynı** `resolveCaller(body, env)` tek kapısından geçiyor ve F8 bu fonksiyonun DÖNÜŞ TİPİNE dokunmadı (yalnızca içindeki dispatch mantığına yeni bir dal ekledi) — yani bu iki örnekte doğrulanan desen, değişmeyen ortak koddan dolayı diğer 10'unda da geçerli.
+
+### 🔴 Denetim sırasında bulunan ve düzeltilen yan kusur: sağlayıcılar arası yanlış hata mesajı
+Canlı testte (madde 1) fark edildi: `authErrorResponse`'un `"invalid_token"` dalı **üç farklı sağlayıcı** (`verifyTraktIdentity`, `verifyGoogleIdToken`, `verifyKaymakSessionToken`) tarafından paylaşılıyor ama mesaj sabit *"Trakt oturumun sona ermiş"* diyordu. Google token'ı geçersiz olduğunda kullanıcıya yanlışlıkla Trakt'ı suçlayan bir mesaj gösteriliyordu. Mesaj sağlayıcı adı geçmeyecek şekilde genelleştirildi (*"Oturumun geçersiz veya süresi dolmuş. Tekrar giriş yapman gerekiyor."*), deploy edildi, canlıda doğrulandı. 55/55 test hâlâ geçiyor (mesaj metnine bağımlı test yoktu).
+
+### Doğrulama
+- Canlı: 2 sahte token testi + nonce eksikliği testi + mesaj düzeltmesi sonrası tekrar test.
+- Kod incelemesi: `handleAuthGoogle`'ın tamamı, `handleFeedComment` + `handleAccountDelete` satır satır.
+- `node --check` ✅ · Worker `vitest` 55/55 ✅ · `wrangler deploy` ✅.
+- **Doğrulanamayan:** `google_sub` UNIQUE kısıtının `pg_constraint`'te doğrudan varlığı (kullanıcıdan sorgu bekleniyor).
+
+### Sıradaki
+Kullanıcının sorgu sonucu gelince G2 kapanacak. Sonra Kol B'nin geri kalanı (F5 backfill) veya başka bir kol.
