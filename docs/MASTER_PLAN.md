@@ -13,10 +13,13 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-20 · **Aktif faz:** G2 — 3/4 madde canlı/kod
-incelemesiyle kapandı (Madde 202); bir yan kusur (yanlış sağlayıcı mesajı)
-bulunup deploy edildi. **Kullanıcıdan bekleniyor:** `pg_constraint` sorgusu
-(aşağıda, G2 bölümünde) — gelince Kol B tamamen kapanır.
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** G2 ✅ TAMAMEN KAPANDI (Madde
+202-203) — 4/4 madde canlı/kod incelemesiyle + kullanıcının `pg_constraint`
+sorgusuyla doğrulandı. Bir yan kusur (yanlış sağlayıcı mesajı) bulunup deploy
+edildi. **Kol B (Trakt'tan bağımsızlık) fiilen bitti** — F5 backfill 2-3.
+adımı (ops., kilidi bloke etmiyor) dışında açık madde yok. **Sıradaki iş
+kullanıcı kararına bağlı:** Kol C'nin G3'ü, Kol D'nin teknik borcu (F11-F13,
+F18), ya da F5 backfill.
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -111,7 +114,8 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 A. İNCELEME SİSTEMİNİ BİTİR        F1 ✅ F2 ✅ K1 ✅ F3 ✅ G1 ✅ F4 ✅🔓
    (kilidi açan kol)                        ── KOL TAMAMLANDI ──
 
-B. TRAKT'TAN BAĞIMSIZLIK           F5 🟡  F6 ✅  K2 ✅  F7 ✅  F8 ✅ → G2
+B. TRAKT'TAN BAĞIMSIZLIK           F5 🟡  F6 ✅  K2 ✅  F7 ✅  F8 ✅  G2 ✅
+   (F5 backfill 2-3. adım ops. iş olarak kaldı — kilidi bloke etmiyor)
    (stratejik kol)                                       ⚠️    ⚠️
 
 C. MODERASYON / UGC                F9 ✅ → F10 ✅ → G3
@@ -495,16 +499,10 @@ ayrı bir entegrasyon işi.
 
 ---
 
-#### G2 · 🔒 Güvenlik Denetimi #2 — yeni kimlik yüzeyi — 🟡 3/4 KAPANDI (Madde 202)
+#### G2 · 🔒 Güvenlik Denetimi #2 — yeni kimlik yüzeyi — ✅ TAMAMEN KAPANDI (Madde 202-203)
 **Programın en kritik güvenlik noktası.** §4.2 + özel maddeler:
 - ✅ Google token doğrulaması sunucuda mı yapılıyor — canlıda 2 sahte token ile doğrulandı, ikisi de reddedildi.
-- 🟡 `google_sub` gerçekten UNIQUE mi — migration'da kısıt var, çalıştığı dolaylı kanıtlandı (Madde 197) ama `pg_constraint`'e doğrudan sorgu ATILMADI. **Kullanıcıdan bekleniyor:**
-  ```sql
-  SELECT conname, contype FROM pg_constraint
-  WHERE conrelid = 'users'::regclass
-    AND conname IN ('users_google_sub_key','users_auth_provider_check','users_has_identity_check');
-  ```
-  Üçü de (`contype='u'` ilki, `'c'` diğer ikisi) dönmeli.
+- ✅ `google_sub` gerçekten UNIQUE mi — kullanıcı `pg_constraint`'i sorguladı (2026-08-20): `users_google_sub_key` (`u`), `users_auth_provider_check` (`c`), `users_has_identity_check` (`c`) — üçü de canlıda mevcut.
 - ✅ Birleştirme akışı bir hesabı başkasının hesabına bağlayabiliyor mu — kod incelemesiyle reddedildi: kimlik hiçbir zaman istek gövdesinden değil, sağlayıcının kendisinden (Google imzası / Trakt'ın gerçek `/users/settings` yanıtı) türetiliyor.
 - ✅ IDOR korumaları hâlâ geçerli mi — `handleFeedComment` + `handleAccountDelete` (en yıkıcı uç) satır satır okundu, ikisi de `verified.userId` kullanıyor; 12 ucun hepsi F7'den beri değişmeyen tek `resolveCaller` kapısından geçiyor.
 

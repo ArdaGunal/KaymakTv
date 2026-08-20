@@ -4902,3 +4902,23 @@ Canlı testte (madde 1) fark edildi: `authErrorResponse`'un `"invalid_token"` da
 
 ### Sıradaki
 Kullanıcının sorgu sonucu gelince G2 kapanacak. Sonra Kol B'nin geri kalanı (F5 backfill) veya başka bir kol.
+
+---
+
+## 203. G2 Tamamen Kapandı — `google_sub` UNIQUE Canlıda Doğrulandı
+
+**Bağlam:** Madde 202'nin son maddesi. Kullanıcı `pg_constraint` sorgusunu çalıştırdı.
+
+### Sonuç
+```
+conname                   | contype
+users_auth_provider_check | c
+users_google_sub_key      | u
+users_has_identity_check  | c
+```
+Üçü de beklenen tipte (`u` = UNIQUE, `c` = CHECK) canlıda mevcut. `026_identity_layer.sql`'in yazdığı kısıtlar gerçekten uygulanmış — G2'nin 4 maddesi de artık doğrudan kanıtla kapandı (1 ve 3-4 kod incelemesi + canlı testle Madde 202'de, 2 bu maddede).
+
+**Kol B (Trakt'tan bağımsızlık) fiilen bitti.** Açık kalan tek şey F5 backfill'in 2-3. adımı — ops. bir iş, build kilidini bloke etmiyor.
+
+### Sıradaki
+Kullanıcı kararına bağlı: Kol C'nin G3'ü, Kol D'nin teknik borcu (F11-F13, F18), ya da F5 backfill.
