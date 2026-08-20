@@ -3,7 +3,7 @@ import { TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-na
 import { useTranslation } from 'react-i18next';
 import { UserX, UserCheck } from 'lucide-react-native';
 import { useBlockState } from '../hooks/useBlockState';
-import { confirmAsync } from '../utils/confirmDialog';
+import { confirmAsync } from '../../../utils/confirmDialog';
 
 interface BlockUserButtonProps {
   traktSlug: string;

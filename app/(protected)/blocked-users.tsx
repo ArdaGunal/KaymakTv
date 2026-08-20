@@ -19,7 +19,7 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { useAuth } from '../../context/AuthContext';
 import { getMyBlockedUsers, unblockUser, BlockedUser } from '../../features/feed/services/userBlocks';
 import { invalidateFeedCache, invalidateVisibleUserIds } from '../../features/feed/services/feedApi';
-import { confirmAsync } from '../../features/feed/utils/confirmDialog';
+import { confirmAsync } from '../../utils/confirmDialog';
 
 const DESKTOP_BREAKPOINT = 768;
 

@@ -4477,3 +4477,46 @@ Bu tur netleşen (ve deploy planında ilk yazdığımda EKSİK olan) iki şey:
 
 ### Sıradaki
 **F17** — kopya birleştirme (`formatRelativeTime`, `confirmAsync`) ve `utils/confirmDialog.ts`'in patch'ten beri yalan söyleyen başlığı. Alternatif: F15'in cihaz testi (hâlâ yapılmadı).
+
+---
+
+## 193. F17 — Kopya Birleştirme + Bayat Doküman (Y19): Kol E Kapandı
+
+**Bağlam:** `MASTER_PLAN` Kol E'nin son fazı. `formatRelativeTime` ve `confirmAsync`'in ikişer kopyası ıraksamıştı; denetimde (Madde 190) `utils/confirmDialog.ts`'in yalan başlığı bir alt ajanı 60 çağrı noktası boyunca yanıltmıştı.
+
+### 🔴 İlk izlenim yanlış kanonik dosyayı seçtirtiyordu
+
+`grep`'in ilk turu `confirmAsync`/`notify` için 17 import satırı buldu, hepsi `'../utils/confirmDialog'` veya `'../../utils/confirmDialog'` gibi görünüyordu — yüzeysel bakışta "16'sı köke, 1'i feed'e" gibi bir izlenim veriyordu. Ama **literal string aynı olsa bile hangi dosyaya çözüldüğü çağıranın kendi dizinine bağlıydı.** Her satırı çağıranın konumuna göre tek tek çözünce gerçek tablo çıktı:
+
+| | Importer sayısı |
+|---|---|
+| Kök `utils/confirmDialog.ts` | 10 |
+| `features/feed/utils/confirmDialog.ts` | 7 |
+
+Üstelik `notify` fonksiyonu **yalnızca kök dosyada** vardı — bu, sayım ne çıkarsa çıksın kanonik hedefi yapısal olarak belirliyordu (feed kopyasını kanonik seçseydim 5 `notify` importer'ı kırılırdı). Kararı doğru veren şey sayım değil, bu yapısal zorunluluktu; sayımın kendisi yanıltıcıydı.
+
+### 🔴 "Kanonik" dosya, gerçekte buglu olandı
+
+Kök `utils/confirmDialog.ts`'in başlığı kendini *"projenin her yerinde AYNI web-güvenli davranışı garanti eden TEK kaynak"* ilan ediyordu — ama Android'de `Alert.alert`'e `onDismiss` geçirmiyordu. Varsayılan olarak kapatılabilir bir diyalogda (dışarı dokunma / geri tuşu) bu, `onPress` hiç tetiklenmeden diyaloğun kapanması demek — döndürülen Promise **sonsuza dek askıda** kalıyordu. Fix, "kopya" damgası yenmiş `features/feed/utils/confirmDialog.ts`'te zaten vardı (`{ cancelable: true, onDismiss: () => resolve(false) }`). Kendini kanonik ilan eden dosya, aslında eksik olandı.
+
+### `formatRelativeTime` — namespace bağımsızlığı
+
+Kök `utils/formatRelativeTime.ts` i18n'liydi ama `t('justNow')` gibi önek'siz anahtarlar kullanıyordu — yani yalnızca `'common'` namespace'i aktif olan ekranlardan çağrılabiliyordu. Feed kartları (`FeedCard`, `FeedCommentItem`, `MarathonFeedCard`) `useTranslation('feed')` kullandığı için kök fonksiyonu çağıramıyor, kendi **Türkçe sabit kodlu** kopyasını yazmışlardı — İngilizce arayüzde akış Türkçe zaman gösteriyordu (`ReviewItem` de aynı feed kopyasını import ediyordu, üstelik `components/reviews/` altında).
+
+Çözüm kopyalamak değil, kök fonksiyonu **namespace'ten bağımsız** hale getirmekti: tüm anahtarlar `common:justNow` gibi önekli çağrılıyor artık. `locales/index.ts`'te i18next tüm namespace'leri `resources` ile senkron/statik yüklüyor (lazy backend yok), yani `t('common:key')` hangi ekranın `t`'si verilirse verilsin çalışıyor — proje zaten `app/(protected)/list/[id].tsx`'te bu deseni kullanıyordu, icat edilmedi.
+
+`MarathonFeedCard.tsx`'in hiç `useTranslation` çağrısı yoktu — eklendi.
+
+### Doğrulama
+
+- **tsc** `--noEmit --noUnusedLocals --noUnusedParameters` ✅ temiz (17 dosya değişti, iki dosya silindi).
+- **`formatRelativeTime` mantık testi:** gerçek `tr`/`en` `common.json`'lardan okuyarak 7 zaman aralığı (saniye→yıl) iki dilde de test edildi — EN sözlükle hiçbir Türkçe kelime sızmadı (Y19'un tarif ettiği kusur birebir tekrarlanıp kapandığı doğrulandı). `undefined` guard'ı da test edildi.
+- **Kalan referans taraması:** `features/feed/utils/{confirmDialog,formatRelativeTime}.ts` silindikten sonra hem eski dosya adı hem eski import path'i için tüm proje tarandı — sıfır kalıntı.
+- **Doğrulanamayan:** Android'deki `onDismiss` davranışı ve web'de `confirmAsync`/`formatRelativeTime`'ın gerçek ekranda görünüşü cihaz/tarayıcı gerektiriyor, bu turda yapılmadı (bu proje Trakt CORS'a takıldığı için web önizlemesi de kimlikli akışları göstermiyor).
+
+### Değişen dosyalar
+**Silinen:** `features/feed/utils/confirmDialog.ts` · `features/feed/utils/formatRelativeTime.ts`.
+**Değişen:** `utils/confirmDialog.ts` (başlık düzeltildi + `onDismiss` eklendi) · `utils/formatRelativeTime.ts` (`common:` önekleri) · import path'i değişen 10 dosya (`app/(protected)/blocked-users.tsx` · `components/reviews/ReviewItem.tsx` · `features/feed/{components/{BlockUserButton,CardMenu,ComposePostModal,FeedCard,FeedCommentItem,FeedCommentSheet,MarathonFeedCard,NoteEditorModal},hooks/useQuickBlock}.ts(x)`) · `docs/{MASTER_PLAN,HISTORY}.md`.
+
+### Sıradaki
+**Kol E tamamlandı** (F15 → F16 → F17, üçü de kapandı). Sıradaki büyük iş **F7 → F8** (Kol B, kimlik katmanı + Google giriş) — bilinçli olarak ertelenmiş, büyük ve riskli bir iş. F15'in cihaz testi de hâlâ yapılmadı; iki iş de sırada.

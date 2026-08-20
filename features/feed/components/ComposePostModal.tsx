@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from 'react-native';
-import { confirmAsync } from '../utils/confirmDialog';
+import { confirmAsync } from '../../../utils/confirmDialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Plus } from 'lucide-react-native';
 import MediaPoster from '../../../components/MediaPoster';

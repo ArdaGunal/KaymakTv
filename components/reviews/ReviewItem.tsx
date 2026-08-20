@@ -4,7 +4,7 @@ import { Heart, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { FeedActivity } from '../../features/feed/types';
-import { formatRelativeTime } from '../../features/feed/utils/formatRelativeTime';
+import { formatRelativeTime } from '../../utils/formatRelativeTime';
 import { useAuth } from '../../context/AuthContext';
 import { useQuickBlock } from '../../features/feed/hooks/useQuickBlock';
 import CardMenu from '../../features/feed/components/CardMenu';
@@ -56,7 +56,7 @@ export default function ReviewItem({ review, isOwn, onToggleLike, onEdit, onDele
             {review.user.username}
           </Text>
           {isOwn && <Text style={styles.ownBadge}>{t('yourReviewBadge', 'sen')}</Text>}
-          <Text style={styles.timestamp}>{formatRelativeTime(review.activityAt)}</Text>
+          <Text style={styles.timestamp}>{formatRelativeTime(review.activityAt, t)}</Text>
         </View>
 
         {revealed ? (

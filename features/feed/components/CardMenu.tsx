@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MoreVertical, Pencil, Trash2, Share2, Flag, UserX } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { confirmAsync } from '../utils/confirmDialog';
+import { confirmAsync } from '../../../utils/confirmDialog';
 
 interface CardMenuProps {
   /** Verilmezse "Düzenle" satırı hiç render edilmez. */

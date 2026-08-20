@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { confirmAsync } from '../utils/confirmDialog';
+import { confirmAsync } from '../../../utils/confirmDialog';
 import {
   View,
   Text,

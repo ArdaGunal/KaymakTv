@@ -14,7 +14,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { confirmAsync } from '../utils/confirmDialog';
+import { confirmAsync } from '../../../utils/confirmDialog';
 import { X, Send, MessageSquare } from 'lucide-react-native';
 import FeedCommentItem from './FeedCommentItem';
 import { useFeedComments } from '../hooks/useFeedComments';

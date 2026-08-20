@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
-import { confirmAsync } from '../utils/confirmDialog';
+import { confirmAsync } from '../../../utils/confirmDialog';
 import { blockUser } from '../services/userBlocks';
 import { invalidateFeedCache, invalidateVisibleUserIds } from '../services/feedApi';
 

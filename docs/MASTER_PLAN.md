@@ -13,7 +13,7 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-18 · **Aktif faz:** F16 (açık proxy güvenliği)
+**Son güncelleme:** 2026-08-18 · **Aktif faz:** F17 tamamlandı — Kol E bitti
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -27,9 +27,9 @@ Yereldeki fark: `git log --oneline origin/main..HEAD`.
 |---|---|---|
 | 1 | **`025_integrity_fixes.sql` çalıştır** | B1 (`uq_feed_rated`+`media_type`) · B4 (retention `rated` muafiyeti) · B3 (`is_visible`). Ön kontrol içeriyor, çakışma bulursa kendini durdurur |
 | 2 | **İstemciyi yeniden yükle** | ⚠️ **1'den SONRA.** `fetchMediaReviews` `.eq('is_visible', true)` kullanıyor; migration olmadan yapım sayfası inceleme listesi kırılır |
-| 3 | **Cloudflare rate limiting kuralı** | Y12 ikinci hat — origin IP biliniyorsa Cloudflare atlanabilir. **Free planda 1 kural VAR** (kilitli değil): `URI Path contains /api/`, 10 sn / 100 istek, Block 10 sn. ⚠️ `Bot Fight Mode` AÇMA — native istekleri `Origin` göndermez, kendi uygulamanı engeller. **Durum: kullanıcıda, doğrulanmadı** |
-| 4 | *(ops.)* F5 backfill 2-3. adım | `watched_episode` 43 · `rated` 8 eksik `tmdb_id`. Uygulamayı aç → self-join UPDATE'i tekrar çalıştır (F5 bölümü) |
-| 5 | *(ops.)* Pi `.env` → `NODE_ENV=production` | `server/security.js` bunu okuyup `localhost`/`exp://` origin'lerini kapatır. Pratik risk düşük (CORS tarayıcı korumasıdır), doğru olan kapalı olması. **`.env`'e yaz, kabuk ortamına DEĞİL** — `npm ci` devDependencies'i atlar ve `patch-package` postinstall'ı kırılır |
+| 3 | ~~Cloudflare rate limiting kuralı~~ | **ATLANDI (kullanıcı kararı).** Domain Worker altyapısı üzerinden sunulduğu için zone seviyesi WAF paneli açılmadı. Kod seviyesindeki `express-rate-limit` (Madde 192'de canlıda ölçüldü) birincil koruma olarak kabul edildi — ikinci hat yok ama tek hat çalışıyor |
+| 4 | **Pi'de `node server.js`'i yeniden başlat** | `.env`'e `NODE_ENV=production` eklendi ama **canlıda henüz etkili değil** — `dotenv` bunu yalnızca süreç başlarken okur, dosya değişikliği çalışan sürece işlemez. Canlıda ölçüldü (2026-08-18): `Origin: http://localhost:9999` hâlâ `access-control-allow-origin` alıyor. Pratik risk düşük (CORS bir tarayıcı korumasıdır) ama madem hedef kapatmaksa restart şart |
+| 5 | *(ops.)* F5 backfill 2-3. adım | `watched_episode` 43 · `rated` 8 eksik `tmdb_id`. Uygulamayı aç → self-join UPDATE'i tekrar çalıştır (F5 bölümü) |
 
 ### ✅ Tamamlananlar (ayrıntı `HISTORY.md`)
 Kol A (F1-F4) · F5 · F6 · F9 · F10 · F14 · K1 · K2 · G1 · Y7(kısmi) · Y8 ·
@@ -77,7 +77,7 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **D0** | 🔍 **Sistem denetimi** (4 alt ajan) | ✅ **BİTTİ** — K1 açığı bulundu+kapatıldı, `025` yazıldı, Y12-Y21 kaydedildi |
 | **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟢 **4/5 BİTTİ** — Y17·Y16·Y18·Y21 kapandı, Y20 kısmi. Cihaz testi bekliyor |
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
-| **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ⬜ — küçük, ama denetimde bir ajanı yanılttı |
+| **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
 | **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
 | **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — altyapı hazır (kullanıcı kurdu), S9+S14 bekliyor |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
@@ -115,19 +115,19 @@ C. MODERASYON / UGC                F9 ✅ → F10 ✅ → G3
 D. TEKNİK BORÇ                     F11 · F12 · F13 · F18
    (paralel, fırsat buldukça)
 
-E. DENETİM DÜZELTMELERİ  🆕        F15 → F16 → F17
-   (2026-08-18 sistem denetimi)    ⚡ F15 kullanıcıya dokunuyor
+E. DENETİM DÜZELTMELERİ            F15 ✅ F16 ✅ F17 ✅
+   (2026-08-18 sistem denetimi)         ── KOL TAMAMLANDI ──
 ```
 
 **Kol A bitti** — build kilidi kalktı. **Kol C'nin altyapısı bitti** (F9+F10).
-**Kol E yeni:** 4 alt ajanlı sistem denetiminden (D0) çıktı; bulguların tamamı
-`SONRADAN BULUNANLAR` bölümünde Y12-Y21 olarak kayıtlı.
+**Kol E bitti** — 4 alt ajanlı sistem denetiminden (D0) çıkan F15/F16/F17'nin
+üçü de kapandı. Kalan bulgular (Y13-Y15, Y9, Y11) `SONRADAN BULUNANLAR`
+bölümünde kayıtlı, ayrı fazlara (G3, F11, Worker turu) dağıtıldı.
 
-**Sıra tavsiyem:** E → B. Gerekçe: F15'teki kusurlar bugün **gerçek
-kullanıcıya** dokunuyor (uygulama hata durumunda yalan söylüyor, yazılan metin
-onaysız siliniyor, gizlilik anahtarı sessizce başarısız oluyor). F7/F8 ise
-büyük, riskli ve tek başına yapılması gereken bir iş — üstüne bilinen kusurlarla
-gitmek yanlış.
+**Kol E kapandı** (F15 → F16 → F17, üçü de bitti). Sıradaki büyük iş **F7 → F8**
+(Kol B, kimlik katmanı + Google giriş) — ama bu büyük, riskli ve tek başına
+yapılması gereken bir iş; F15 açılırken bilinçli olarak ertelendi. F5 backfill
+2-3. adımı (§0) ops. bir ara-iş olarak her an yapılabilir.
 
 ### Denetim fazları neden ayrı
 Kalite (K) ve güvenlik (G) denetimleri **birer faz**, bir alışkanlık değil.
@@ -488,15 +488,18 @@ fatura riski** + TMDB anahtarının kota aşımıyla askıya alınması.
 **Not:** SSRF yok (host değiştirilemiyor, `api_key` ezilemiyor) — sorun
 kimliksiz kota tüketimi.
 
-#### F17 · 🧹 Kopya birleştirme + bayat doküman (Y19)
-`formatRelativeTime` ve `confirmAsync`'in ikişer kopyası ıraksamış.
-İlkinde İngilizce arayüz Türkçe zaman gösteriyor; ikincisinde Android'de
-diyalog dışına dokunulunca promise sonsuza dek askıda kalıyor.
+#### F17 · 🧹 Kopya birleştirme + bayat doküman (Y19) — ✅ BİTTİ
+`formatRelativeTime` ve `confirmAsync`'in ikişer kopyası ıraksamıştı.
+İlkinde İngilizce arayüz Türkçe zaman gösteriyordu; ikincisinde Android'de
+diyalog dışına dokunulunca promise sonsuza dek askıda kalıyordu.
 
-> **Neden önemsiz görünüp önemli:** `utils/confirmDialog.ts`'in başlığı
-> patch'ten beri **yalan** ve denetimde bir alt ajanı 60 çağrı noktası boyunca
-> yanlış yöne sürükledi. Yanlış doküman, yanlış koddan pahalıya mal olabiliyor.
-> Bu faz önce o başlığı düzeltmeli.
+**Sonuç:** her ikisi de kök `utils/`'e birleştirildi, `features/feed/utils/`
+kopyaları silindi. Kanonik dosya seçimi importer sayımı **yanlış tahmin
+edilseydi** yanlış yöne giderdi — ayrıntı HISTORY Madde 193.
+
+> **Neden önemsiz görünüp önemliydi:** `utils/confirmDialog.ts`'in başlığı
+> patch'ten beri **yalandı** ve denetimde bir alt ajanı 60 çağrı noktası
+> boyunca yanlış yöne sürüklemişti. Başlık bu turda düzeltildi.
 
 ---
 
@@ -792,14 +795,25 @@ Kullanıcı "gizle" der, Worker 401/429 döner, anahtar sessizce geri açılır 
 **gizlediğini sanır.** Bir gizlilik kontrolünde sessizlik kabul edilemez
 (AI_RULES §2). `ReportContentModal`'daki `notice` deseni yeniden kullanılmalı.
 
-### 🟡 Y19 · İki modülün iki kopyası ıraksamış
+### ✅ Y19 · İki modülün iki kopyası ıraksamıştı — KAPANDI (F17)
 `formatRelativeTime`: `utils/` (i18n'li, yıla kadar) vs `features/feed/utils/`
 (**Türkçe sabit kodlu**, günde duruyor) → İngilizce arayüzde akış Türkçe zaman
-gösteriyor; `ReviewItem` ile `CommentItem` yan yana farklı dil kullanıyor.
-`confirmAsync`: `utils/` sürümünde `onDismiss` yok → Android'de diyalog dışına
-dokunulunca **promise sonsuza dek askıda**.
-Ayrıca `utils/confirmDialog.ts`'in başlığı **yalan** (patch'ten beri) ve bu,
-denetimde bir ajanı yanılttı — önce o düzeltilmeli.
+gösteriyordu; `ReviewItem` ile `CommentItem` yan yana farklı dil kullanıyordu.
+`confirmAsync`: **kanonik olduğu iddia edilen** `utils/` sürümünde `onDismiss`
+yoktu → Android'de diyalog dışına dokunulunca **promise sonsuza dek askıda**
+kalıyordu; fix zaten `features/feed/utils/`'teki kopyada vardı.
+
+**Kapanış (HISTORY Madde 193):** ikisi de kök `utils/`'e birleştirildi —
+`formatRelativeTime` artık `common:` önekli çeviri anahtarları kullanıyor
+(çağıranın namespace'inden bağımsız), `confirmAsync` `onDismiss` fix'ini
+kazandı. `utils/confirmDialog.ts`'in yalan başlığı da düzeltildi.
+
+> ⚠️ **İmporter sayımı ilk bakışta ters çıkıyordu.** Import path'leri
+> `'../utils/confirmDialog'` gibi görünüyordu ama hangi dosyaya çözüldüğü
+> **çağıranın kendi dizinine bağlıydı** — literal string aynı olsa bile 17
+> importer'dan 10'u kök dosyaya, 7'si feed kopyasına gidiyordu. Path'ler tek
+> tek çözülmeden "16'ya 1" gibi bir ilk izlenim yanlış kanonik dosyayı
+> seçtirebilirdi.
 
 ### 🟡 Y20 · `SectionErrorBoundary` yayılımı — 🟢 KISMEN KAPANDI (F15)
 **Yapıldı:** akış kartları (`feed.tsx` renderItem, `silent` — bozuk tek kart

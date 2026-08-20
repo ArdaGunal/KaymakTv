@@ -15,10 +15,11 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';
 import { MarathonActivity } from '../types';
 import { getMarathonMessage } from '../utils/marathonMessages';
-import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { formatRelativeTime } from '../../../utils/formatRelativeTime';
 import { buildMediaHref } from '../utils/feedNavigation';
 import { useMyTraktSlug } from '../hooks/useMyTraktSlug';
 import { useQuickBlock } from '../hooks/useQuickBlock';
@@ -35,6 +36,7 @@ interface MarathonFeedCardProps {
 }
 
 export default function MarathonFeedCard({ activity, onDeleteActivity }: MarathonFeedCardProps) {
+  const { t } = useTranslation('feed');
   const router = useRouter();
   const myTraktSlug = useMyTraktSlug();
   const { accessToken, isGuest } = useAuth();
@@ -113,7 +115,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
         </Text>
 
         {/* Göreceli zaman */}
-        <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt)}</Text>
+        <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt, t)}</Text>
       </View>
 
       {/* ── Sağ: Poster + Bölüm Sayacı rozeti ────────────────────────────── */}

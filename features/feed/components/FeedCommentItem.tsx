@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Heart, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { FeedComment } from '../services/feedSocial';
-import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { formatRelativeTime } from '../../../utils/formatRelativeTime';
 import { useAuth } from '../../../context/AuthContext';
 import { useQuickBlock } from '../hooks/useQuickBlock';
 import CardMenu from './CardMenu';
@@ -34,7 +34,7 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
       <View style={styles.body}>
         <View style={styles.headerRow}>
           <Text style={styles.username}>{comment.username}</Text>
-          <Text style={styles.timestamp}>{formatRelativeTime(comment.createdAt)}</Text>
+          <Text style={styles.timestamp}>{formatRelativeTime(comment.createdAt, t)}</Text>
         </View>
 
         {revealed ? (

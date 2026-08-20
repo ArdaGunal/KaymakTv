@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';
 import { FeedActivity } from '../types';
-import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { formatRelativeTime } from '../../../utils/formatRelativeTime';
 import { formatRating } from '../../../utils/formatRating';
 import { buildMediaHref } from '../utils/feedNavigation';
 import CardMenu from './CardMenu';
@@ -290,7 +290,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
         )}
 
         <View style={styles.metaRow}>
-          <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt)}</Text>
+          <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt, t)}</Text>
           {/* Yayınlanıyor göstergesi: kart ekranda ama sunucu onayı henüz
               gelmedi. Onaylanınca kaybolur, hata olursa kart geri alınır. */}
           {activity.isPending && <ActivityIndicator size="small" color="#475569" />}
