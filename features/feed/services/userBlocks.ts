@@ -1,4 +1,5 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
@@ -14,22 +15,78 @@ const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 // NOT: feedPublish.ts'teki `resolveMe().id` BU DEĞİL — orası yalnızca
 // iyimser kart çizmek için `me-{slug}` sahte bir id kullanıyor.
 // `user_blocks.blocker_id`'yi sorgulamak için GERÇEK Supabase uuid'i gerekir.
+//
+// 🔴 F7 — KİMLİK ARTIK TRAKT'A BAĞLI DEĞİL.
+// ESKİ HÂLİ tek yoldan geçiyordu: `getMyTraktSlug()` → Trakt'a HTTP isteği →
+// slug → `users` tablosunda ara. Bunun iki sonucu vardı:
+//   1. Trakt'ı OLMAYAN bir kullanıcı (F8'in Google girişi) için `getMyTraktSlug()`
+//      `null` döner ve kimlik HİÇ çözülemezdi — engelleme, yorum sahipliği
+//      ("sil" butonu), inceleme sahipliği ve beğeni durumunun tamamı sessizce
+//      çalışmazdı.
+//   2. Trakt kesintisinde mevcut kullanıcı da kendi kimliğini kaybediyordu.
+//
+// `users.id` DEĞİŞMEYEN bir birincil anahtar, dolayısıyla diske yazmak güvenli
+// ve TTL gerektirmiyor (`myIdentity.ts`'in slug için kullandığı desenin aynısı).
+// Öncelik sırası: bellek → disk → (yalnızca gerekirse) Trakt slug'ı üzerinden
+// çözüm. Üçüncü adım geriye uyumluluk içindir: bu sürümden ÖNCE giriş yapmış
+// kullanıcıların diskinde henüz id yoktur.
+//
+// F8'de Google girişi `setMySupabaseUserId()` ile bu değeri doğrudan yazacak
+// ve üçüncü adıma hiç düşmeyecek.
+const MY_USER_ID_STORAGE_KEY = 'myIdentity.supabaseUserId';
+
 let myUserIdCache: { id: string | null; fetchedAt: number } | null = null;
 
 export function invalidateMySupabaseUserId(): void {
   myUserIdCache = null;
+  // Disk kopyası da gitmeli: `AuthContext` bunu ÇIKIŞTA çağırıyor ve kalan
+  // bir id, bir sonraki hesabın oturumunda önceki kullanıcının kimliği olarak
+  // okunurdu (K2'de bulunan önbellek sınıfının aynısı, kalıcı hâli).
+  // Ateşle-ve-unut: `AuthContext` bu fonksiyonu senkron çağırıyor.
+  AsyncStorage.removeItem(MY_USER_ID_STORAGE_KEY).catch((error) =>
+    console.warn('[userBlocks] users.id diskten silinemedi:', error)
+  );
+}
+
+/** Kimlik çözüldüğünde (giriş akışı) çağrılır — F8'in Google dalı bunu kullanacak. */
+export async function setMySupabaseUserId(id: string): Promise<void> {
+  myUserIdCache = { id, fetchedAt: Date.now() };
+  try {
+    await AsyncStorage.setItem(MY_USER_ID_STORAGE_KEY, id);
+  } catch (error) {
+    console.warn('[userBlocks] users.id diske yazılamadı:', error);
+  }
 }
 
 export async function getMySupabaseUserId(): Promise<string | null> {
   if (myUserIdCache && Date.now() - myUserIdCache.fetchedAt < CACHE_TTL.SHORT) {
     return myUserIdCache.id;
   }
+
+  // 1) Disk — sağlayıcıdan bağımsız, ağ gerektirmez.
+  try {
+    const stored = await AsyncStorage.getItem(MY_USER_ID_STORAGE_KEY);
+    if (stored) {
+      myUserIdCache = { id: stored, fetchedAt: Date.now() };
+      return stored;
+    }
+  } catch (error) {
+    console.warn('[userBlocks] users.id diskten okunamadı:', error);
+  }
+
+  // 2) Geriye uyumlu yol: Trakt slug'ı üzerinden çöz ve diske yaz, böylece
+  //    bir dahaki sefere 1. adım yeterli olur.
   const slug = await getMyTraktSlug();
   if (!slug) return null;
   const { data, error } = await supabase.from('users').select('id').eq('trakt_slug', slug).maybeSingle();
   if (error) throw error;
   const id = data?.id ?? null;
   myUserIdCache = { id, fetchedAt: Date.now() };
+  if (id) {
+    // Ateşle-ve-unut: çağıranı bekletmeye değmez, başarısızlığı yalnızca bir
+    // sonraki çağrının yine Trakt'a gitmesi demek.
+    void setMySupabaseUserId(id);
+  }
   return id;
 }
 

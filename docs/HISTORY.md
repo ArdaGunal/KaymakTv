@@ -4585,3 +4585,78 @@ Ekranlarda (`app/{episode,show,movie}/[id].tsx`) `isCircuitBreakerError` true is
 
 ### Sıradaki
 Kullanıcı isterse cihazda tekrar T2'yi (ve T1'i, Y21 hâlâ doğrulanmadı) deneyip kapatabilir. Sonrasında Kol B (F7 → F8, kimlik katmanı + Google giriş).
+
+---
+
+## 196. F7 — Kimlik Katmanı: Trakt "anahtar" olmaktan çıkıp "bağlantı" oldu
+
+**Bağlam:** Kol B'nin başlangıcı. `MASTER_PLAN` F7 · `REVIEWS_PLAN` §9. Kullanıcı planı dört maddeyle verdi ve *"hatalı, eksik ya da sorunlu yer varsa bana söyle"* dedi. **Plandaki bir madde uygulansaydı sistemi kilitlerdi**, ikisi de eksik varsayıma dayanıyordu.
+
+### 🔴 `auth_provider` UNIQUE olsaydı sistemde toplam 2 kullanıcı olabilirdi
+
+Görev tanımı *"`auth_provider` ve `google_sub` için UNIQUE kısıtlamalarını ekle"* diyordu. `auth_provider` bir etikettir (`'trakt'` | `'google'`); UNIQUE yapılsaydı **ikinci Trakt kullanıcısı kaydolamazdı** — üstelik hata, ilk iki kullanıcı oluşana kadar görünmezdi. `REVIEWS_PLAN` §9.2 doğru yazmıştı (*yalnızca* `google_sub` UNIQUE); hata görev tanımına aktarılırken oluşmuş. `026`'da yalnızca `google_sub` UNIQUE, `auth_provider` ise `CHECK` kısıtlı serbest etiket.
+
+### 🔴 "13 uç" sayısı baştan beri yanlıştı — ölçüm aracının klasik tuzağı
+
+Beş ayrı dokümanda (`MASTER_PLAN`, `REVIEWS_PLAN`, `HISTORY`'nin dört maddesi) *"13 uç noktanın tamamı"* yazıyordu. Kaynağı `grep -c "verifyAndUpsertUser(token, env)"` → **13**. Ama bunun **1'i fonksiyonun kendi tanımıydı** (`async function verifyAndUpsertUser(token, env) {`). Yedek dosyadan satır satır ayrıştırılınca gerçek dağılım çıktı:
+
+| | Sayı |
+|---|---|
+| `verifyAndUpsertUser` **tanımı** | 1 |
+| `verifyAndUpsertUser` **çağrısı** (→ `resolveCaller`) | **12** |
+| `verifyCaller` çağrısı (→ `resolveCallerWithReason`) | **2** |
+| **Toplam kimlik doğrulama noktası** | **14** |
+
+Refactor sırasında `sed` 12 satır değiştirince "13 bekliyordum" uyuşmazlığı ortaya çıktı ve sayı düzeltildi. Uyuşmazlık kovalanmasaydı, eksik kalan bir uç arayarak zaman kaybedilecekti.
+
+### 🔴 `getMySupabaseUserId()` "zaten vardı" ama Trakt'a bağımlıydı
+
+`REVIEWS_PLAN` §9.2 madde 4 *"altyapı yarı hazır"* diyordu. Gerçekte fonksiyon şunu yapıyordu:
+
+```
+getMyTraktSlug() → Trakt'a HTTP isteği → slug → users tablosunda ara
+```
+
+Yani Trakt'ı olmayan bir kullanıcıda (F8'in tam hedef kitlesi) `null` döner ve **engelleme, yorum sahipliği ("sil" butonu), inceleme sahipliği, beğeni durumu** sessizce çalışmazdı. Ayrıca mevcut kullanıcı da Trakt kesintisinde kendi kimliğini kaybediyordu.
+
+Yeni öncelik sırası: **bellek → disk → (yalnızca gerekirse) Trakt slug'ı**. `users.id` değişmeyen bir birincil anahtar olduğu için diske yazmak güvenli ve TTL gerektirmiyor — `myIdentity.ts`'in slug için kullandığı desenin aynısı. Üçüncü adım geriye uyumluluk: bu sürümden önce giriş yapmış kullanıcıların diskinde henüz id yok. `setMySupabaseUserId()` yazıldı; F8'in Google dalı `users.id`'yi doğrudan yazıp üçüncü adıma hiç düşmeyecek.
+
+> `invalidateMySupabaseUserId()` artık disk kopyasını da siliyor. Silmeseydi, çıkış yapıp başka hesapla girildiğinde önceki kullanıcının kimliği **kalıcı olarak** okunurdu — K2'de bulunan önbellek sınıfının aynısı, ama bellekteki değil diskteki hâli.
+
+### 🔴 `google_sub` anon key'e açık olacaktı — K1'in birebir tekrarı
+
+`001_feed_schema.sql`: `CREATE POLICY "users_select_all" ON users FOR SELECT USING (true)`. `users`'ın **tüm kolonları** anon key ile okunabiliyor; `google_sub` eklenince herkes herkesin Google kalıcı kimliğini çekebilirdi.
+
+Çözüm `026`'nın **aynı** dosyasında: `REVOKE SELECT ON users FROM anon, authenticated` + yalnızca güvenli kolonlara `GRANT SELECT (...)`. Kolon seviyesinde GRANT'a PostgREST uyuyor (Y15'in tespiti).
+
+> **Neden aynı migration'da, sonraya bırakılmadan:** K1 açığı (Madde 190) tam olarak *"istemci deploy'undan sonra kapatırım"* diye ertelendiği için gerçek ve sömürülebilir bir sansür aracına dönüşmüştü. Hassas kolon ile onu koruyan GRANT ayrılmamalı.
+
+> 🔬 **GRANT kolon listesi canlıdan doğrulandı.** Elle sayılan liste eksik olsaydı istemci o kolonu okuyamaz ve sebebi "RLS" sanılırdı. Anon key ile `GET /rest/v1/users?select=*&limit=1` çekildi: dönen 10 kolon, migration'daki listeyle **birebir** eşleşti (+`auth_provider`, −`google_sub`).
+
+### `resolveCaller(request)` DEĞİL `resolveCaller(body, env)`
+
+Görev tanımı `resolveCaller(request)` diyordu. Uygulanmadı, gerekçesi: uçlar gövdeyi zaten okuyor (`const body = await request.json()`) ve **bir `Request` gövdesi iki kez okunamaz**. `request` geçirmek 14 uçta `request.clone()` gerektirir; unutulan tek bir yer çalışma zamanında patlardı. `body` nesnesi aynı sonucu sıfır riskle veriyor.
+
+Dönüş tipi eski `verifyAndUpsertUser` ile **birebir aynı** tutuldu (`user` | `null`) — bu sayede 12 ucun gövdesindeki `if (!verified)` ve `verified.userId` satırlarının **hiçbiri** değişmedi. Değişen tek şey çağrı satırı. `verifyCaller` → `verifyTraktCaller` olarak yeniden adlandırıldı: F8'de yanına Google dalı geleceği için "caller'ı doğrulayan tek şey" izlenimi yanlış olurdu.
+
+`no_credentials` hata dalı ve 401 yanıtı eklendi — bugün uçların kendi `if (!token)` kontrolleri bunu yakalıyor, ama F8'de "iki token da yok" durumu buraya düşecek ve `default` (502 "Sunucu hatası") yanlış teşhis olurdu.
+
+### Doğrulama
+- **Worker `vitest`: 34/34 ✅** — refactorün asıl kanıtı.
+- `node --check` ✅ · `tsc --noEmit --noUnusedLocals --noUnusedParameters` ✅.
+- 14 çağrı noktasının tamamında `body` değişkeninin kapsamda olduğu tarandı ✅.
+- GRANT kolon listesi canlı Supabase'ten doğrulandı ✅.
+- **Doğrulanamayan:** `026` çalıştırılmadı, Worker deploy edilmedi. F7 canlıda DEĞİL.
+
+> 💾 **Worker git'te olmadığı için refactor öncesi `src/index.js.bak-F7-<zaman>` yedeği alındı** (F18'e kadar tek geri dönüş noktası).
+
+### Değişen dosyalar
+**Yeni:** `supabase/schema/026_identity_layer.sql`.
+**Değişen:** Worker `src/index.js` (`verifyCaller`→`verifyTraktCaller`, `verifyAndUpsertUser`→`resolveCaller`+`resolveCallerWithReason`, 14 çağrı noktası, `no_credentials` dalı) · `features/feed/services/userBlocks.ts` (kimlik disk öncelikli, `setMySupabaseUserId`) · `docs/{MASTER_PLAN,REVIEWS_PLAN,HISTORY}.md`.
+
+### 📥 Kaydedilen, bu fazda yapılmayan
+- **Kimlik mantığı hâlâ `userBlocks.ts`'te.** Dosyanın konusu "kullanıcı engelleme"; kimlik oraya ait değil, `services/api/myIdentity.ts`'e taşınmalı. Taşıma 5 dosyada import değişikliği demek — F7'nin kapsamı dışında tutuldu (dosya 210 satır, 400 sınırının altında).
+- **Google kullanıcısının akışı boş olacak** (`getVisibleUserIds` Trakt following'e dayalı) — F8 kararına bırakıldı.
+
+### Sıradaki
+Kullanıcının elle adımları: **`026` çalıştır** → **Worker deploy**. İkisi de tamamlanıp bir giriş + yazma işlemi denendikten sonra **F8** (Google giriş + hesap birleştirme köprüsü) için onay istenecek.

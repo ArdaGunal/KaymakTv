@@ -295,8 +295,12 @@ users.trakt_slug TEXT UNIQUE NOT NULL   -- 002_fix_user_identity.sql
 3. Worker: `verifyAndUpsertUser(token)` → **`resolveCaller(request)`**; içeride
    sağlayıcıya göre doğrular. **13 uç noktanın gövdesi DEĞİŞMEZ** — hepsi zaten
    dönen `userId`'yi kullanıyor.
-4. İstemcide kimlik kaynağı `getMyTraktSlug()` değil dahili `users.id`
-   (`getMySupabaseUserId()` **zaten var** — altyapı yarı hazır).
+4. İstemcide kimlik kaynağı `getMyTraktSlug()` değil dahili `users.id`.
+   ⚠️ **"`getMySupabaseUserId()` zaten var, altyapı yarı hazır" YANILTICIYDI**
+   (F7'de ölçüldü): fonksiyon vardı ama İÇERİDE `getMyTraktSlug()` çağırıp
+   slug'dan türetiyordu — yani tamamen Trakt'a bağımlıydı ve Google
+   kullanıcısında `null` dönerdi. F7'de disk öncelikli hâle getirildi
+   (bellek → disk → yalnızca gerekirse slug).
 5. **Akış görünürlüğü:** `getVisibleUserIds` Trakt following listesine dayanıyor →
    Google kullanıcısının akışı **boş** olur. Kendi takip sistemimiz sorusunu açar.
 

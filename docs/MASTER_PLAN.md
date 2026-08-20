@@ -13,7 +13,7 @@
 
 ## 0. DURUM
 
-**Son güncelleme:** 2026-08-18 · **Aktif faz:** F17 tamamlandı — Kol E bitti
+**Son güncelleme:** 2026-08-20 · **Aktif faz:** F7 kod bitti — elle adım 1-2 bekliyor
 **Push YAPILMADI** — `origin/main` hâlâ `368b127`'de.
 Yereldeki fark: `git log --oneline origin/main..HEAD`.
 
@@ -27,6 +27,8 @@ Yereldeki fark: `git log --oneline origin/main..HEAD`.
 |---|---|---|
 | 1 | **`025_integrity_fixes.sql` çalıştır** | B1 (`uq_feed_rated`+`media_type`) · B4 (retention `rated` muafiyeti) · B3 (`is_visible`). Ön kontrol içeriyor, çakışma bulursa kendini durdurur |
 | 2 | **İstemciyi yeniden yükle** | ⚠️ **1'den SONRA.** `fetchMediaReviews` `.eq('is_visible', true)` kullanıyor; migration olmadan yapım sayfası inceleme listesi kırılır |
+| 1b | **`026_identity_layer.sql` çalıştır** (F7) | `trakt_slug` NULLABLE · `auth_provider` · `google_sub` UNIQUE · **`google_sub` anon'dan GRANT ile gizlenir**. Ön kontrol içeriyor. Sonundaki 4 doğrulama sorgusunu çalıştır — özellikle **anon `google_sub` görememeli AMA `id,username` görebilmeli** (ikincisini atlamak "her şeyi kilitledim" hatasını gizler) |
+| 2b | **Worker deploy** (F7) | `npx wrangler deploy`. ⚠️ **`026`'dan SONRA.** Sıra ters olursa yeni Worker `google_sub` kolonuna yazmaya çalışmaz (F7'de henüz yazmıyor) ama `026`'nın GRANT'ı olmadan istemci `auth_provider` kolonunu okuyamaz. Deploy sonrası **bir kez giriş yapıp bir yorum/beğeni** dene — 14 kimlik noktasının tamamı aynı fonksiyondan geçiyor |
 | 3 | ~~Cloudflare rate limiting kuralı~~ | **ATLANDI (kullanıcı kararı).** Domain Worker altyapısı üzerinden sunulduğu için zone seviyesi WAF paneli açılmadı. Kod seviyesindeki `express-rate-limit` (Madde 192'de canlıda ölçüldü) birincil koruma olarak kabul edildi — ikinci hat yok ama tek hat çalışıyor |
 | 4 | **Pi'de `node server.js`'i yeniden başlat** | `.env`'e `NODE_ENV=production` eklendi ama **canlıda henüz etkili değil** — `dotenv` bunu yalnızca süreç başlarken okur, dosya değişikliği çalışan sürece işlemez. Canlıda ölçüldü (2026-08-18): `Origin: http://localhost:9999` hâlâ `access-control-allow-origin` alıyor. Pratik risk düşük (CORS bir tarayıcı korumasıdır) ama madem hedef kapatmaksa restart şart |
 | 5 | *(ops.)* F5 backfill 2-3. adım | `watched_episode` 43 · `rated` 8 eksik `tmdb_id`. Uygulamayı aç → self-join UPDATE'i tekrar çalıştır (F5 bölümü) |
@@ -78,8 +80,8 @@ cd ../kaymaktv-feedback-worker && npx vitest run   # 34/34
 | **F15** | 🩹 **Denetim düzeltmeleri — kullanıcıya dokunanlar** | 🟡 **Cihazda test edildi (Madde 194), Y22 bulunup kapandı (Madde 195).** Y16·Y18 doğrulandı. Y21 hâlâ **doğrulanmadı** (test doğal akış sonuna denk geldi). Y22'nin kod düzeltmesi mantık testinden geçti, **cihazda henüz denenmedi** |
 | **F16** | 🔒 Açık proxy güvenliği (Y12) | ✅ **BİTTİ** — `server/security.js` Pi'ye deploy edildi ve **canlıda doğrulandı**: `ACAO: *` gitti, liste dışı Trakt uçları 403, `redirect_uri` guard'ı çalışıyor. Cloudflare kuralı (elle adım 3) ikinci hat olarak açık |
 | **F17** | 🧹 Kopya birleştirme + bayat doküman (Y19) | ✅ **BİTTİ** — `confirmAsync` + `formatRelativeTime` tek kopyaya indirildi, `utils/confirmDialog.ts` başlığı düzeltildi, Android promise askıda kalma kusuru kapandı |
-| **F7** | ⚠️ Kimlik katmanı refactor | ⬜ — `verifyCaller` (Madde 188) ilk adımıydı |
-| **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — altyapı hazır (kullanıcı kurdu), S9+S14 bekliyor |
+| **F7** | ⚠️ Kimlik katmanı refactor | 🟢 **KOD BİTTİ** (Madde 196) — `026` + `resolveCaller` + istemci kimliği. `tsc` ✅ · Worker 34/34 ✅ · GRANT kolon listesi canlıdan doğrulandı ✅. **Elle adım 1b + 2b bekliyor** |
+| **F8** | ⚠️ **Google giriş + hesap birleştirme** | ⬜ — F7'nin elle adımları tamamlanınca. Karar: **Worker kendi doğrular** (Google JWKS ile imza+`aud`+`iss`+`exp`), Supabase Auth kullanılmayacak |
 | **G2** | 🔒 **Güvenlik denetimi #2** — yeni kimlik yüzeyi | ⬜ |
 | **G3** | 🔒 **Güvenlik denetimi #3** — moderasyon kötüye kullanımı | ⬜ — Y14 (RLS'siz gizleme) buraya |
 | **F11** | S11 — **yeniden çerçevelendi** (Y15) | ⬜ — ayar yarısı kolon `GRANT`'ı ile, üye listesi yarısı F7'ye |
@@ -362,19 +364,32 @@ akışın yaşamasını sağlar.
 
 ---
 
-#### F7 · ⚠️ Kimlik katmanı refactor — KRİTİK
-Detay: `REVIEWS_PLAN.md` §9. Özet:
-1. `users.trakt_slug` → **NULLABLE** (UNIQUE kalır)
-2. `auth_provider` + **`google_sub` UNIQUE**
-3. Worker `verifyAndUpsertUser` → **`resolveCaller(request)`**
+#### F7 · ⚠️ Kimlik katmanı refactor — 🟢 KOD BİTTİ, elle adımlar bekliyor
+Detay: `REVIEWS_PLAN.md` §9 · uygulama: `HISTORY.md` Madde 196. Özet:
+1. `users.trakt_slug` → **NULLABLE** (UNIQUE kalır) — `026`
+2. `auth_provider` + **`google_sub` UNIQUE** — `026`
+   ⚠️ **`auth_provider` UNIQUE DEĞİL.** Görev tanımında sehven öyle yazılmıştı;
+   uygulansaydı sistemde toplam 2 kullanıcı olabilirdi.
+3. Worker `verifyAndUpsertUser` → **`resolveCaller(body, env)`**
+   ⚠️ `request` DEĞİL `body`: bir `Request` gövdesi iki kez okunamaz ve uçlar
+   onu zaten okumuş oluyor. `request` geçirmek her uçta `clone()` gerektirirdi.
 4. İstemcide kimlik kaynağı `getMyTraktSlug()` değil `users.id`
+   ⚠️ `getMySupabaseUserId()` "zaten vardı" ama **içeride `getMyTraktSlug()`
+   çağırıyordu** — yani Trakt'a bağımlıydı. Disk öncelikli hâle getirildi.
 
-**Neden kritik:** 13 uç noktanın TAMAMI bu fonksiyondan geçiyor. Yanlış yapılırsa
-tüm yazma yolları aynı anda kırılır. **Bu faz TEK BAŞINA yapılmalı**, başka bir
-işle birleştirilmemeli.
+**Neden kritik:** yazma uçlarının TAMAMI bu fonksiyondan geçiyor. Yanlış
+yapılırsa tüm yazma yolları aynı anda kırılır. **Bu faz TEK BAŞINA yapılmalı**,
+başka bir işle birleştirilmemeli.
 
-**Azaltıcı:** 13 ucun *gövdesi* değişmiyor (hepsi dönen `userId`'yi kullanıyor) —
+**Azaltıcı:** uçların *gövdesi* değişmiyor (hepsi dönen `userId`'yi kullanıyor) —
 değişen yalnızca kimliğin nasıl çözüldüğü. Refactor'ü bu sınırda tut.
+
+> 🔢 **"13 uç" SAYISI YANLIŞTI** (F7 sırasında ölçüldü, HISTORY Madde 196).
+> `grep -c "verifyAndUpsertUser(token, env)"` **13** döndürüyordu ama bunun
+> **1'i fonksiyonun kendi tanımıydı**. Gerçek dağılım:
+> **12 uç** `resolveCaller` + **2 uç** `resolveCallerWithReason` = **14
+> kimlik doğrulama noktası**. Sayı bu belgede, `REVIEWS_PLAN`'da ve
+> `HISTORY`'nin beş maddesinde "13" olarak yayılmıştı.
 
 ---
 
@@ -396,6 +411,32 @@ açılırsa, mevcut kullanıcılar ikinci bir boş hesap açar ve içerikleri b�
 
 **Çıkış kriteri:** Trakt'la kaydolmuş bir test hesabı, Google'a geçtiğinde
 içeriğini KAYBETMİYOR.
+
+**Mimari kararı (2026-08-20, kullanıcı):** Google ID token'ını **Worker kendi
+doğrular** — Google JWKS ile imza + `aud` (kendi Client ID'miz) + `iss` + `exp`.
+Supabase Auth KULLANILMAYACAK (paneldeki provider açık ama devrede değil);
+gerekçe: `auth.users` + `public.users` iki tablo arası senkron, F8'in en riskli
+kısmı olan birleştirmeyi karmaşıklaştırırdı. `resolveCallerWithReason`'da dal
+yeri hazır.
+
+> 🔴 **DOĞRULAMA F8'DE YAZILIR, G2'DE YALNIZCA DENETLENİR.** İmza/`aud`/`iss`
+> doğrulaması olmadan Google girişi açılırsa herkes sahte token'la başkası
+> olabilir. "G2'de test ederiz" yeterli değil — test etmek ≠ yazmak.
+
+**F7'de bulunan ve F8'i doğrudan etkileyen üç nokta:**
+1. 🔴 **`on_conflict=trakt_slug` Google dalında KULLANILAMAZ.** `026` ile
+   `trakt_slug` nullable oldu ve Postgres'te NULL'lar çakışma üretmez — Google
+   kullanıcısı o upsert'ten geçerse **her girişte yeni satır** oluşur, yani
+   F8'in önlemeye çalıştığı bölünmenin ta kendisi. Google dalı `google_sub`
+   üzerinden upsert etmeli. (Uyarı Worker'da `verifyTraktCaller` başlığına da
+   yazıldı.)
+2. 🟠 **Google kullanıcısının akışı BOŞ olur.** `getVisibleUserIds` Trakt
+   following listesine dayanıyor (`REVIEWS_PLAN` §9.2 madde 5). Kırılma değil
+   ama ölü bir ilk deneyim — F8 kapsamına mı, ayrı faza mı alınacağı
+   kararlaştırılmalı.
+3. 🟢 **İstemci tarafı hazır:** `setMySupabaseUserId()` yazıldı ve Google giriş
+   akışının `users.id`'yi doğrudan yazması için bekliyor; `getMySupabaseUserId`
+   artık Trakt'a düşmeden diskten okuyor.
 
 ---
 
