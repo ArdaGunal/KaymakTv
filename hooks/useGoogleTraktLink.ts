@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { linkGoogleToTrakt } from '../services/api/googleAuth';
+import { checkGoogleAccount, linkGoogleToTrakt } from '../services/api/googleAuth';
 
 // F8 — Google ile giriş tamamlanınca Trakt yeniden doğrulamasını beklerken
 // kimlik kanıtını (ID token + nonce) burada sakla. AsyncStorage kullanılıyor
@@ -25,8 +25,31 @@ export function useGoogleTraktLink() {
     });
   }, []);
 
-  const captureCredential = useCallback(async (googleIdToken: string, nonce: string) => {
+  /**
+   * GIS callback'inden çağrılır. `onAlreadyLinked` verilmişse önce Worker'a
+   * `check` sorar — hesap zaten bir Trakt hesabına bağlıysa köprü kartını
+   * HİÇ GÖSTERMEDEN `onAlreadyLinked()`'i tetikler (çağıran taraf bunu
+   * `handleTraktLogin`'e bağlar). ⚠️ Bu HÂLÂ gerçek bir Trakt round-trip'i
+   * demektir — Y23 (traktClient.ts'in koşulsuz 401 çıkışı) kapanmadan
+   * `sessionToken`'ı `traktAccessToken` yerine KULLANMIYORUZ (bkz. HISTORY
+   * Madde 201/205). Kaldırılan tek şey kullanıcıya gösterilen ARA EKRAN.
+   * `check` başarısız olursa GÜVENLİ TARAF: her zamanki köprü kartı gösterilir.
+   */
+  const captureCredential = useCallback(async (googleIdToken: string, nonce: string, onAlreadyLinked?: () => void) => {
     await AsyncStorage.setItem(PENDING_GOOGLE_LINK_KEY, JSON.stringify({ googleIdToken, nonce }));
+
+    if (onAlreadyLinked) {
+      try {
+        const check = await checkGoogleAccount(googleIdToken, nonce);
+        if (check.status === 'linked') {
+          onAlreadyLinked();
+          return;
+        }
+      } catch (checkError) {
+        console.error('[Google Sign-In] check hatasi, kopru ekranina dusuluyor:', checkError);
+      }
+    }
+
     setAwaitingTraktLink(true);
   }, []);
 

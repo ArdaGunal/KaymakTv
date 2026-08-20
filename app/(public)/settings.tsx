@@ -219,7 +219,7 @@ export default function Login() {
                   isGenerating={isGenerating}
                   canPromptTrakt={!!request}
                   awaitingTraktLink={awaitingTraktLink}
-                  onCredential={handleGoogleCredential}
+                  onCredential={(idToken, nonce) => handleGoogleCredential(idToken, nonce, handleTraktLogin)}
                   onContinueWithTrakt={handleTraktLogin}
                   onCancelLink={cancelGoogleLink}
                 />
