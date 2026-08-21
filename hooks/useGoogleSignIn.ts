@@ -104,11 +104,19 @@ export function useGoogleSignIn(onCredential: (idToken: string, nonce: string) =
         if (container) {
           google.accounts.id.renderButton(container, {
             type: 'standard',
-            theme: 'filled_blue',
+            // 2026-08-21 — Trakt butonuyla aynı 'filled_blue' iki butonu ayırt
+            // edilemez kılıyordu ("Trakt kabak gibi ortada, Google gizli"
+            // geri bildirimi büyük ölçüde ikisinin görsel ağırlığının eşit
+            // OLMAMASINDANdı). 'filled_black' koyu temada net bir ikinci
+            // birincil seçenek gibi durur.
+            theme: 'filled_black',
             size: 'large',
             text: 'continue_with',
             shape: 'rectangular',
-            width: 320,
+            // 280: settings.tsx'in `container` dolgusu (24+24) dar telefon
+            // genişliklerinde (ör. 320px) 320'lik sabit genişliğin taşmasına
+            // yol açabilirdi — 280 daha güvenli bir alt sınır.
+            width: 280,
           });
         }
         setIsReady(true);

@@ -71,6 +71,23 @@ const releaseFetchLock = () => {
   }
 };
 
+/**
+ * Hesap değiştirildiğinde (`AuthContext.removeKeys`) çağrılır.
+ *
+ * 🔴 `lastFetchTimeRef` MODÜL SEVİYESİNDE — JS süreci canlı kaldığı sürece
+ * (uygulama tamamen kapatılmadan çıkış → başka hesapla giriş yapılırsa)
+ * ÖNCEKİ hesabın son GERÇEK senkron zaman damgasını taşımaya devam eder.
+ * Sıfırlanmazsa: yeni hesabın İLK `fetchFreshData` çağrısı, TTL'i hâlâ
+ * geçerli sanıp (önceki hesap az önce gerçekten senkronlamış olduğu için)
+ * senkronu TAMAMEN ATLAR — `useLibraryStore.clearAll()` ile önbellek boşalsa
+ * bile yeni hesap için hiç doldurulmaz. Kilit de aynı gerekçeyle tazelenir
+ * (önceki hesabın yarım kalmış bir senkronu varsa yenisini bloklamasın).
+ */
+export const resetFetchState = () => {
+  lastFetchTimeRef.current = 0;
+  releaseFetchLock();
+};
+
 // Android'de tek bir aşırı büyük satır (SQLite CursorWindow limiti) TÜM multiGet
 // batch'ini patlatabilir. Bu durumda anahtarları tek tek okuyarak yalnızca bozuk
 // dilimin kaybolmasını sağlarız — cihazlar arası "bende çalışıyor, onda çalışmıyor"

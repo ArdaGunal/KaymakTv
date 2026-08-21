@@ -10,6 +10,8 @@ export type GoogleAuthCheckResult =
 
 export type GoogleAuthLinkResult = { status: 'created' | 'linked'; sessionToken: string };
 
+export type GoogleCreateNewResult = { status: 'created' | 'linked'; sessionToken: string };
+
 const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   try {
@@ -56,6 +58,22 @@ export const checkGoogleAccount = async (googleIdToken: string, nonce: string): 
  * fonksiyonun DÖNÜŞÜNÜ değil, kendi elindeki gerçek Trakt token'larını
  * (`exchangeAuthCode`'dan gelen) `saveTokens`'a veriyor.
  */
+/**
+ * Y23 kapandıktan SONRA eklendi (create_new). Kullanıcı Trakt hesabı hiç
+ * olmadan, yalnızca Google ile bir hesap açar — Worker `google_sub`'a bağlı
+ * YENİ bir `users` satırı oluşturup (veya, yarış durumunda, var olanı bulup)
+ * bir `sessionToken` döner. Bu token `AuthContext.saveGoogleSession`'a
+ * verilir — `traktAccessToken` yerine saklanır, `traktRefreshToken` HİÇ
+ * yazılmaz.
+ */
+export const createGoogleOnlyAccount = async (googleIdToken: string, nonce: string): Promise<GoogleCreateNewResult> => {
+  const data = await postAuthGoogle({ action: 'create_new', googleIdToken, nonce });
+  if (!data?.success) {
+    throw new Error(data?.message || 'Hesap oluşturulamadı.');
+  }
+  return { status: data.status, sessionToken: data.sessionToken };
+};
+
 export const linkGoogleToTrakt = async (
   googleIdToken: string,
   traktAccessToken: string,

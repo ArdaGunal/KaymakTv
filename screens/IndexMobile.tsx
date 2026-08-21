@@ -26,7 +26,7 @@ export default function DizilerScreen() {
   const [finishedShow, setFinishedShow] = useState<{ name: string; id: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { accessToken, isGuest } = useAuth();
+  const { accessToken, isGuest, authProvider } = useAuth();
 
   // ── Yeni izole takip modülü: kategorizasyon store/hook'ta, UI durumu ayrı store'da.
   const { categories, isLoading: trackingLoading, isEmpty, dropShow } = useTrackingShows();
@@ -99,6 +99,22 @@ export default function DizilerScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan dizilerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+      </View>
+    );
+  }
+
+  // create_new — bkz. docs/HISTORY.md Madde 221. Google-only (Trakt'sız)
+  // kullanıcı: Diziler sekmesi kişisel Trakt senkron verisi gerektirdiği
+  // için "Trakt'a bağla" boş durumu gösterilir — Keşfet/Akış/Detay
+  // ekranları bu kısıtlamaya TABİ DEĞİL.
+  if (authProvider === 'google') {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoginPaywall
+          title={t('common:connectTraktTitle', 'Trakt Hesabını Bağla')}
+          message={t('common:connectTraktDesc', 'Kütüphaneni görmek ve senkronlamak için Trakt hesabını bağlaman gerekiyor.')}
+          buttonLabel={t('common:connectTraktButton', "Trakt'a Bağlan")}
+        />
       </View>
     );
   }

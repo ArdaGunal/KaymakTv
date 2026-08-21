@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
@@ -11,6 +11,7 @@ import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import { GoogleSignInSection } from '../../components/settings/GoogleSignInSection';
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
+import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 
@@ -26,8 +27,9 @@ const OrDivider = ({ t }: { t: (key: string) => string }) => (
 );
 
 export default function Login() {
-  const { saveTokens, loginAsGuest } = useAuth();
+  const { saveTokens, saveGoogleSession, loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreatingGoogleOnly, setIsCreatingGoogleOnly] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -36,7 +38,13 @@ export default function Login() {
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
   // F8 — bkz. hooks/useGoogleTraktLink.ts başlığı.
-  const { awaitingTraktLink, captureCredential: handleGoogleCredential, cancel: cancelGoogleLink, completeIfPending: completeGoogleLinkIfPending } = useGoogleTraktLink();
+  const {
+    awaitingTraktLink,
+    captureCredential: handleGoogleCredential,
+    cancel: cancelGoogleLink,
+    completeIfPending: completeGoogleLinkIfPending,
+    completeWithoutTrakt,
+  } = useGoogleTraktLink();
 
   // Redirect URI (app.json'daki scheme ile eşleşmeli)
   const redirectUri = AuthSession.makeRedirectUri({
@@ -149,6 +157,25 @@ export default function Login() {
     }
   };
 
+  // create_new — bkz. docs/HISTORY.md Madde 221. Köprü kartında "Trakt'sız
+  // Devam Et" seçildiğinde: Worker'da Google-only yeni bir hesap açar (veya
+  // zaten varsa bulur), dönen Kaymak oturum token'ını `saveGoogleSession`
+  // ile saklar. Gerçek Trakt akışından FARKLI olarak burada `redirect_uri`/
+  // `code` yok — tek ağ isteği, aynı sayfada kalınır.
+  const handleContinueWithoutTrakt = async () => {
+    setIsCreatingGoogleOnly(true);
+    try {
+      const sessionToken = await completeWithoutTrakt();
+      await saveGoogleSession(sessionToken);
+      router.replace('/(protected)/(tabs)/explore');
+    } catch (error: any) {
+      console.error('[Google Sign-In] Trakt\'sız hesap oluşturma hatası:', error);
+      notify(t('common:error'), error?.message || t('communicationError'));
+    } finally {
+      setIsCreatingGoogleOnly(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Right Language Button */}
@@ -177,22 +204,14 @@ export default function Login() {
               {t('traktDescription')}
             </Text>
 
-            <TouchableOpacity 
-              style={[styles.button, (!request || !isChecked) ? styles.buttonDisabled : null]} 
-              activeOpacity={0.8} 
-              onPress={handleTraktLogin} 
-              disabled={!request || isGenerating || !isChecked}
-            >
-              {isGenerating ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>{t('loginTrakt')}</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.checkboxContainer} 
-              activeOpacity={0.7} 
+            {/* 2026-08-21 — kullanım koşulları onayı artık İKİ girişin de
+                (Trakt + Google) ÜSTÜNDE, tek bir kapı olarak duruyor —
+                eskiden Trakt butonuyla Google seçeneği arasına sıkışmış
+                olması, Google'ın ikincil/gizli bir seçenekmiş gibi
+                algılanmasının bir parçasıydı. */}
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              activeOpacity={0.7}
               onPress={() => setIsChecked(!isChecked)}
             >
               {isChecked ? (
@@ -208,12 +227,38 @@ export default function Login() {
               </Text>
             </TouchableOpacity>
 
+            {/* Trakt ve Google artık AYNI görsel ağırlıkta, art arda iki eşit
+                seçenek olarak duruyor — köprü kartı (awaitingTraktLink) devrede
+                iken Trakt butonu GİZLENİR, çünkü o an seçim zaten "Trakt'a
+                bağlan mı, Trakt'sız mı devam edilsin" sorusuna dönüşmüş oluyor
+                (bkz. GoogleSignInSection'ın kendi awaitingTraktLink dalı). */}
+            {!awaitingTraktLink && (
+              <TouchableOpacity
+                style={[styles.button, (!request || !isChecked) ? styles.buttonDisabled : null]}
+                activeOpacity={0.8}
+                onPress={handleTraktLogin}
+                disabled={!request || isGenerating || !isChecked}
+              >
+                {isGenerating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>{t('loginTrakt')}</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
 
             {/* F8 — Google ile giriş (yalnızca web; iOS/Android bilinçli olarak ertelendi). */}
             {(awaitingTraktLink || Platform.OS === 'web') && (
               <>
-                {!awaitingTraktLink && <OrDivider t={t} />}
+                {!awaitingTraktLink && (
+                  <View style={styles.miniDivider}>
+                    <View style={styles.miniDividerLine} />
+                    <Text style={styles.miniDividerText}>{t('common:orDivider')}</Text>
+                    <View style={styles.miniDividerLine} />
+                  </View>
+                )}
                 <GoogleSignInSection
                   isChecked={isChecked}
                   isGenerating={isGenerating}
@@ -222,30 +267,29 @@ export default function Login() {
                   onCredential={(idToken, nonce) => handleGoogleCredential(idToken, nonce, handleTraktLogin)}
                   onContinueWithTrakt={handleTraktLogin}
                   onCancelLink={cancelGoogleLink}
+                  onContinueWithoutTrakt={handleContinueWithoutTrakt}
+                  isCreatingAccount={isCreatingGoogleOnly}
                 />
               </>
             )}
 
             <OrDivider t={t} />
 
-            <TouchableOpacity
-              style={[styles.button, styles.guestButton]}
-              activeOpacity={0.8}
-              onPress={async () => {
-                await loginAsGuest();
-                router.replace('/(protected)/(tabs)/explore');
-              }}
-            >
-              <Text style={styles.guestButtonText}>{t('common:landingGuest')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.button, styles.backButton]}
-              activeOpacity={0.8}
-              onPress={() => router.replace('/')}
-            >
-              <Text style={styles.guestButtonText}>{t('common:viewShowcase')}</Text>
-            </TouchableOpacity>
+            <View style={styles.tertiaryRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={async () => {
+                  await loginAsGuest();
+                  router.replace('/(protected)/(tabs)/explore');
+                }}
+              >
+                <Text style={styles.tertiaryLinkText}>{t('common:landingGuest')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.tertiarySeparator}>·</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => router.replace('/')}>
+                <Text style={styles.tertiaryLinkText}>{t('common:viewShowcase')}</Text>
+              </TouchableOpacity>
+            </View>
           </>
         </View>
       </View>
@@ -258,145 +302,3 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 24,
-    justifyContent: 'center',
-  },
-  contentWrapper: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-  },
-  desktopCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
-    padding: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.8)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.4,
-    shadowRadius: 30,
-    elevation: 15,
-    ...(Platform.OS === 'web' && {
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-    } as any),
-  },
-  headerContainer: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#e2e8f0',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#94a3b8',
-  },
-  formContainer: {
-    gap: 16,
-  },
-  description: {
-    color: '#cbd5e1',
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#3b82f680',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  guestButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginTop: 8,
-  },
-  guestButtonText: {
-    color: '#cbd5e1',
-    fontWeight: '500',
-    fontSize: 15,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-    paddingHorizontal: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#334155',
-  },
-  dividerText: {
-    color: '#64748b',
-    paddingHorizontal: 16,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    gap: 10,
-    paddingHorizontal: 8,
-  },
-  checkboxText: {
-    color: '#cbd5e1',
-    fontSize: 13,
-    flexShrink: 1,
-  },
-  linkText: {
-    color: '#3b82f6',
-    textDecorationLine: 'underline',
-  },
-  pollingText: {
-    color: '#94a3b8',
-    marginTop: 8,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  topRightLangButton: {
-    position: 'absolute',
-    top: 50,
-    right: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    zIndex: 10,
-  },
-  topRightLangText: {
-    color: '#e2e8f0',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  backButton: {
-    backgroundColor: 'transparent',
-    marginTop: 8,
-  },
-});

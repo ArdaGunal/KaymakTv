@@ -6,9 +6,15 @@ import { Lock } from 'lucide-react-native';
 
 interface LoginPaywallProps {
   message?: string;
+  // create_new: Google-only (Trakt'sız) kullanıcılar için "giriş yap"tan
+  // farklı bir başlık/buton metni gerekiyor — onlar zaten girişli, yalnızca
+  // Trakt hesabını bağlamaları gerekiyor. Verilmezse mevcut misafir metinleri
+  // korunur (geriye dönük uyumlu, mevcut çağıranlar hiç değişmez).
+  title?: string;
+  buttonLabel?: string;
 }
 
-export default function LoginPaywall({ message }: LoginPaywallProps) {
+export default function LoginPaywall({ message, title, buttonLabel }: LoginPaywallProps) {
   const { t } = useTranslation('common');
   const router = useRouter();
 
@@ -19,16 +25,16 @@ export default function LoginPaywall({ message }: LoginPaywallProps) {
         <View style={styles.iconContainer}>
           <Lock size={32} color="#3b82f6" />
         </View>
-        <Text style={styles.title}>{t('guestAccess')}</Text>
+        <Text style={styles.title}>{title || t('guestAccess')}</Text>
         <Text style={styles.message}>
           {message || t('guestAccessDesc')}
         </Text>
-        <TouchableOpacity 
-          style={styles.button} 
+        <TouchableOpacity
+          style={styles.button}
           activeOpacity={0.8}
           onPress={() => router.push('/(public)/settings')}
         >
-          <Text style={styles.buttonText}>{t('signupLogin')}</Text>
+          <Text style={styles.buttonText}>{buttonLabel || t('signupLogin')}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -3,6 +3,8 @@ import * as SecureStore from '../utils/secureStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
 import { useFollowStore } from '../store/followStore';
+import { useLibraryStore } from '../store/useLibraryStore';
+import { resetFetchState } from '../services/library/fetchers';
 import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { useFeedStore } from '../features/feed/store/feedStore';
 import { clearFeedPublishIdentity } from '../features/feed/services/feedPublish';
@@ -18,7 +20,11 @@ type AuthContextType = {
   accessToken: string | null;
   isGuest: boolean;
   isLoading: boolean;
+  // create_new: Google-only (Trakt'sız) bir oturum mu, yoksa gerçek bir
+  // Trakt bağlantısı mı — `null` yalnızca henüz hiç oturum açılmadığında.
+  authProvider: 'trakt' | 'google' | null;
   saveTokens: (access: string, refresh: string) => Promise<void>;
+  saveGoogleSession: (sessionToken: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   removeKeys: () => Promise<void>;
 };
@@ -27,7 +33,9 @@ const AuthContext = createContext<AuthContextType>({
   accessToken: null,
   isGuest: false,
   isLoading: true,
+  authProvider: null,
   saveTokens: async () => {},
+  saveGoogleSession: async () => {},
   loginAsGuest: async () => {},
   removeKeys: async () => {},
 });
@@ -38,6 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authProvider, setAuthProvider] = useState<'trakt' | 'google' | null>(null);
 
   useEffect(() => {
     loadKeys();
@@ -72,13 +81,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       // Paralel: bu iki okuma birbirinden bağımsız, sıralı `await` açılışta
       // gereksiz bir round-trip kadar gecikme ekliyordu.
-      const [token, guestStatus] = await Promise.all([
+      const [token, guestStatus, providerRaw] = await Promise.all([
         SecureStore.getItemAsync('traktAccessToken'),
         SecureStore.getItemAsync('traktGuestMode'),
+        SecureStore.getItemAsync('traktAuthProvider'),
       ]);
 
       if (token) {
         setAccessToken(token);
+        // Y23'ten önce yazılmış eski bir token'da bu anahtar hiç olmayabilir
+        // — `null !== 'google'` zaten `traktClient.ts`'teki varsayılanla
+        // (gerçek Trakt oturumu) birebir aynı davranışı üretir.
+        setAuthProvider(providerRaw === 'google' ? 'google' : 'trakt');
       }
       if (guestStatus === 'true') {
         setIsGuest(true);
@@ -104,9 +118,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // sanıp çıkışa atmaz — kullanıcı sessizce bozuk/bayat veriyle kalır.
       await SecureStore.setItemAsync('traktAuthProvider', 'trakt');
       setAccessToken(access);
+      setAuthProvider('trakt');
       setIsGuest(false);
     } catch (error) {
       console.error('Error saving tokens:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * create_new: Google-only (Trakt hesabı hiç olmayan) bir kayıt/giriş
+   * sonrası çağrılır — Worker'ın `mintSessionToken`'ının ürettiği
+   * `kaymak_session_v1.` önekli değeri `traktAccessToken` YUVASINA saklar
+   * (Worker'ın kendi tasarım niyeti: bu alan TEK bir opak string, gerçek
+   * Trakt token'ı ya da Kaymak oturum token'ı — bkz. Worker
+   * `resolveCallerWithReason` başlığı). `traktRefreshToken` BİLİNÇLİ OLARAK
+   * hiç yazılmaz; `services/api/traktClient.ts`'in Y23 düzeltmesi
+   * `traktAuthProvider==='google'` gördüğünde bunu BEKLENEN sayıp tüm
+   * oturumu kapatmadan yalnızca ilgili Trakt isteğini başarısız sayar.
+   */
+  const saveGoogleSession = async (sessionToken: string) => {
+    try {
+      await SecureStore.setItemAsync('traktAccessToken', sessionToken);
+      await SecureStore.deleteItemAsync('traktRefreshToken');
+      await SecureStore.setItemAsync('traktAuthProvider', 'google');
+      await SecureStore.deleteItemAsync('traktGuestMode');
+      setAccessToken(sessionToken);
+      setAuthProvider('google');
+      setIsGuest(false);
+    } catch (error) {
+      console.error('Error saving google session:', error);
       throw error;
     }
   };
@@ -136,6 +177,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // tekrar hiç çalışmaz ve önceki hesabın (varsa farklı bir Trakt hesabı)
       // takip durumu yeni oturuma sızar. Çıkışta açıkça sıfırla.
       useFollowStore.getState().reset();
+      // 2026-08-21 — kullanıcı canlı testte bulundu ("State Leakage"): Arda
+      // (Trakt'a bağlı) çıkış yapıp sekme kapatılmadan Deneme (Google-only)
+      // ile giriş yapınca Arda'nın izleme geçmişi/ilerlemesi/listeleri
+      // ekranda kalmaya devam ediyordu. Kök neden AYNI sınıf — `useLibraryStore`
+      // da RAM'de bir Zustand singleton'ı, `clearAll()` metodu ZATEN vardı ama
+      // hiçbir yerden çağrılmıyordu. `resetFetchState()` (services/library/
+      // fetchers.ts) AYRICA gerekli: `fetchFreshData`'nın TTL saati de modül
+      // seviyesinde — sıfırlanmazsa yeni hesabın ilk senkronu, önceki hesap az
+      // önce gerçekten senkronladığı için TTL'i geçerli sanıp TAMAMEN ATLANIRDI,
+      // yani `clearAll()` boşalttıktan SONRA bile yeni hesap için hiç dolmazdı.
+      useLibraryStore.getState().clearAll();
+      resetFetchState();
       // Aynı gerekçe, modül seviyesindeki kimlik önbelleği için (bkz.
       // services/api/myIdentity.ts): temizlenmezse önceki hesabın slug'ı yeni
       // oturuma sızar ve Akış'ta yanlış kişinin aktiviteleri "benim" görünürdü.
@@ -167,6 +220,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // sınıfı, yalnızca daha sonra eklendikleri için gözden kaçmışlar).
       invalidateIdentityScopedFeedCaches();
       setAccessToken(null);
+      setAuthProvider(null);
       setIsGuest(false);
     } catch (error) {
       console.error('Error removing keys:', error);
@@ -174,7 +228,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ accessToken, isGuest, isLoading, saveTokens, loginAsGuest, removeKeys }}>
+    <AuthContext.Provider
+      value={{ accessToken, isGuest, isLoading, authProvider, saveTokens, saveGoogleSession, loginAsGuest, removeKeys }}
+    >
       {children}
     </AuthContext.Provider>
   );

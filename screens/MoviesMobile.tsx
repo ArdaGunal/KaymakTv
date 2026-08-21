@@ -25,7 +25,7 @@ export default function MoviesScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedMovieName, setFinishedMovieName] = useState('');
 
-  const { accessToken, isGuest } = useAuth();
+  const { accessToken, isGuest, authProvider } = useAuth();
 
   // Katı seçici: yalnızca film dilimleri okunur; dizi/progress güncellemeleri bu ekranı render etmez.
   const { watchlistMovies, calendarMovies, isMoviesLoading, hiddenMovieIds, hasSyncError } = useLibrarySelector(s => ({
@@ -85,6 +85,21 @@ export default function MoviesScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan filmlerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+      </View>
+    );
+  }
+
+  // create_new — bkz. docs/HISTORY.md Madde 221. Google-only (Trakt'sız)
+  // kullanıcı: Filmler sekmesi kişisel Trakt senkron verisi gerektirdiği
+  // için "Trakt'a bağla" boş durumu gösterilir.
+  if (authProvider === 'google') {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoginPaywall
+          title={t('common:connectTraktTitle', 'Trakt Hesabını Bağla')}
+          message={t('common:connectTraktDesc', 'Kütüphaneni görmek ve senkronlamak için Trakt hesabını bağlaman gerekiyor.')}
+          buttonLabel={t('common:connectTraktButton', "Trakt'a Bağlan")}
+        />
       </View>
     );
   }
