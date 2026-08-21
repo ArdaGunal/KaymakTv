@@ -96,6 +96,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await SecureStore.setItemAsync('traktAccessToken', access);
       await SecureStore.setItemAsync('traktRefreshToken', refresh);
       await SecureStore.deleteItemAsync('traktGuestMode');
+      // Y23: gerçek Trakt token'ları her yazıldığında (ilk giriş VEYA
+      // Google-only bir hesabın sonradan Trakt'a bağlanması — bkz.
+      // traktClient.ts'teki 'google' dalı) önceki 'google' işareti EZİLİR.
+      // Aksi halde bu kullanıcının GERÇEK Trakt oturumu sonradan gerçekten
+      // sona erdiğinde interceptor bunu "Trakt'sız kullanıcı, beklenen"
+      // sanıp çıkışa atmaz — kullanıcı sessizce bozuk/bayat veriyle kalır.
+      await SecureStore.setItemAsync('traktAuthProvider', 'trakt');
       setAccessToken(access);
       setIsGuest(false);
     } catch (error) {
@@ -118,6 +125,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await SecureStore.deleteItemAsync('traktAccessToken');
       await SecureStore.deleteItemAsync('traktRefreshToken');
       await SecureStore.deleteItemAsync('traktGuestMode');
+      // Y23: bir sonraki oturuma sızmasın — diğer kimlik anahtarlarıyla aynı gerekçe.
+      await SecureStore.deleteItemAsync('traktAuthProvider');
       await AsyncStorage.clear();
       // AsyncStorage.clear() yalnızca DİSKTEKİ kopyayı siler — followStore
       // RAM'de bir Zustand singleton'ı olduğundan bir önceki oturumun

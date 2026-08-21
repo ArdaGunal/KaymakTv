@@ -121,6 +121,19 @@ export const refreshAccessToken = async (): Promise<string> => {
     const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
     if (!refreshToken) {
       const err = new Error('Refresh token yok — oturum sona ermiş.');
+
+      // Y23: Google-only kullanıcı için (hiç Trakt hesabı yok, bkz.
+      // AuthContext.saveTokens'ın yazdığı 'traktAuthProvider') refresh
+      // token'ın hiç olmaması BEKLENEN bir durumdur — oturumun sona erdiği
+      // anlamına gelmez. Yalnızca bu TEK istek başarısız sayılır; token'lar
+      // (zaten yok) silinmez, tüm oturum kapatılmaz.
+      const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
+      if (authProvider === 'google') {
+        processQueue(err, null);
+        console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
+        throw err;
+      }
+
       await SecureStore.deleteItemAsync('traktAccessToken');
       await SecureStore.deleteItemAsync('traktRefreshToken');
       processQueue(err, null);
@@ -311,6 +324,17 @@ export const getTraktClient = async () => {
           // TÜM 401'ler bir daha asla çözülmeyen bir kuyruğa yığılır (sessiz kilitlenme).
           isRefreshing = false;
           processQueue(error, null);
+
+          // Y23: Google-only kullanıcı için (hiç Trakt hesabı yok) refresh
+          // token'ın hiç olmaması BEKLENEN bir durumdur — oturumun sona
+          // erdiği anlamına gelmez. Yalnızca bu TEK istek/özellik başarısız
+          // sayılır; token'lar (zaten yok) silinmez, tüm oturum kapatılmaz.
+          const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
+          if (authProvider === 'google') {
+            console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
+            return Promise.reject(error);
+          }
+
           await SecureStore.deleteItemAsync('traktAccessToken');
           await SecureStore.deleteItemAsync('traktRefreshToken');
           logError('traktClient.401.noRefreshToken', error, { endpoint: breakerKey || 'unknown' });
