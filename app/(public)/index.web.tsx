@@ -5,13 +5,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import Head from 'expo-router/head';
-import { LandingCSS } from './index.web.styles';
+import { LandingCSS } from '../../components/public/index.web.styles';
 import {
   useNavScrollStyle,
   useScrollRevealObserver,
   useStatsCounterAnimation,
   useTrendingMedia,
-} from './index.web.hooks';
+} from '../../components/public/index.web.hooks';
 
 export default function WebLandingPage() {
   const { t } = useTranslation('common');
@@ -23,7 +23,7 @@ export default function WebLandingPage() {
 
   // F12 — dört ayrı kaygı (nav rengi, reveal animasyonu, istatistik sayacı,
   // trend çekme) tek bir useEffect'e karışmıştı, dört ayrı hook'a bölündü
-  // (bkz. index.web.hooks.ts).
+  // (bkz. components/public/index.web.hooks.ts).
   const navStyle = useNavScrollStyle();
   useScrollRevealObserver();
   useStatsCounterAnimation();

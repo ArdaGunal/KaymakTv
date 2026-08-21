@@ -4,6 +4,14 @@
 // yerine ham CSS kullanıyor, .reveal/.stats-panel gibi sınıf adları
 // index.web.hooks.ts'teki DOM sorgularıyla SÖZLEŞME içinde, ikisi birlikte
 // değişmeli.
+//
+// ⚠️ BURADA, `components/` ALTINDA durmasının sebebi (`app/(public)/`
+// DEĞİL): Expo Router `app/` altındaki HER dosyayı olası bir route sanıp
+// tarıyor — `.web.` içeren bir dosya adı platform-özel bir route sanılıp
+// "fallback sibling" (örn. `index.styles.ts`) aranıyor, bulunamayınca
+// TÜM uygulama beyaz ekranla çöküyordu (canlıda bulundu, 2026-08-21).
+// `MediaHero.styles.ts`/`ReportIssueModal.styles.ts` aynı F12 turunda zaten
+// `components/` altına taşınmıştı — bu dosya da aynı kurala uydurulmalıydı.
 export const LandingCSS = `
   :root{
     --bg:#0B1120;

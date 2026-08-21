@@ -2,6 +2,14 @@ import { StyleSheet, Platform } from 'react-native';
 
 // F12 — download.web.tsx'ten çıkarıldı (400 satır kuralı, AI_RULES §1).
 // Saf stil tanımı, mantık yok.
+//
+// ⚠️ BURADA, `components/` ALTINDA durmasının sebebi (`app/(public)/`
+// DEĞİL): Expo Router `app/` altındaki HER dosyayı olası bir route sanıp
+// tarıyor — `.web.` içeren bir dosya adı platform-özel bir route sanılıp
+// "fallback sibling" (örn. `download.styles.ts`) aranıyor, bulunamayınca
+// TÜM uygulama beyaz ekranla çöküyordu (canlıda bulundu, 2026-08-21).
+// `MediaHero.styles.ts`/`ReportIssueModal.styles.ts` aynı F12 turunda zaten
+// `components/` altına taşınmıştı — bu dosya da aynı kurala uydurulmalıydı.
 export const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,

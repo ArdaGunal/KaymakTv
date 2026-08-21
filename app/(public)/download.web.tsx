@@ -25,7 +25,7 @@ import {
 import { useRouter } from 'expo-router';
 import { APK_DOWNLOAD_URL, GITHUB_RELEASES_URL } from '../../utils/constants';
 import { fetchBetaReleaseNotes } from '../../services/github';
-import { styles } from './download.web.styles';
+import { styles } from '../../components/public/download.web.styles';
 
 // APK bilgileri — Sürüm notları GitHub API'den dinamik çekilir. Sürüm
 // numarası BİLİNÇLİ OLARAK burada tutulmuyor (kullanıcı GitHub Release

@@ -6,6 +6,14 @@ import { getShowPoster, getMoviePoster } from '../../services/tmdbApi';
 // ayrı kaygıyı (nav rengi, reveal fade-in, istatistik sayacı, trend çekme)
 // tek bloğa karıştırıyordu — AI_RULES §1'in "spagetti kod" dediği örnek.
 // Dördü birbirinden bağımsız, ayrı temizlik (cleanup) gerektiriyor.
+//
+// ⚠️ BURADA, `components/` ALTINDA durmasının sebebi (`app/(public)/`
+// DEĞİL): Expo Router `app/` altındaki HER dosyayı olası bir route sanıp
+// tarıyor — `.web.` içeren bir dosya adı platform-özel bir route sanılıp
+// "fallback sibling" (örn. `index.hooks.ts`) aranıyor, bulunamayınca TÜM
+// uygulama beyaz ekranla çöküyordu (canlıda bulundu, 2026-08-21).
+// `MediaHero.styles.ts`/`ReportIssueModal.styles.ts` aynı F12 turunda zaten
+// `components/` altına taşınmıştı — bu dosya da aynı kurala uydurulmalıydı.
 
 /** Sayfa 40px'ten fazla kaydırılınca nav bar'ın arka planını koyulaştırır. */
 export function useNavScrollStyle() {
