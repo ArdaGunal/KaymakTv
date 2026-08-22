@@ -1,7 +1,32 @@
 require('dotenv').config();
+
+// ⚠️ IPv4 ÖNCELİĞİ (Madde 234 — ölçüldü): Pi'nin ağı IPv6'ya sahip ama o yol
+// TMDB/Trakt'a karşı tıkalı — bağlantı ~7.5s'de zaman aşımına uğrayıp IPv4'e
+// düşüyor (curl ile doğrulandı: ipv6 connect 7.55s, ipv4 connect 0.05s, DNS'in
+// kendisi 21ms — darboğaz DNS değil, IPv6 rotası). Bilinçli olarak Pi'nin
+// işletim sistemi/ağ ayarına DOKUNULMADI (bu makinede başka projeler de
+// çalışıyor) — yalnızca BU Node sürecinin DNS çözümleme sırası değiştirildi.
+const dns = require('dns');
+// `setDefaultResultOrder` Node 16.4+ gerektirir. Pi'nin Node sürümü bu
+// kod yazılırken doğrulanmadı (sistem sınırı) — yoksa sunucuyu ÇÖKERTMEDEN
+// eski davranışta (IPv6 önce) devam eder, yalnızca terminale not düşer.
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+} else {
+  console.warn('⚠️ dns.setDefaultResultOrder bulunamadı (Node < 16.4?) — IPv4 önceliği DEVREDE DEĞİL.');
+}
+
 const express = require('express');
 const path = require('path');
+const https = require('https');
 const axios = require('axios');
+
+// Aşağıdaki 6 dış istek (TMDB/Trakt) `keepAlive` OLMADAN her seferinde
+// sıfırdan TCP+TLS el sıkışması yapıyordu (~0.3s ekstra, ölçüldü). Tek bir
+// paylaşılan agent bağlantıyı canlı tutar, sonraki isteklerde el sıkışma
+// atlanır. Axios'un varsayılan `httpsAgent`'ını değiştirir; her çağrı
+// noktasına ayrı ayrı eklemeye gerek kalmaz.
+axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
 
 // Açık proxy koruması (MASTER_PLAN F16 / Y12) — gerekçeler ve beyaz listeler
 // `server/security.js` içinde. Ayrı modül olmasının sebebi AI_RULES §1'in
