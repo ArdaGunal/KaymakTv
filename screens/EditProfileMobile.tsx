@@ -36,7 +36,7 @@ const TRAKT_PROFILE_SETTINGS_URL = 'https://trakt.tv/settings/profile';
  */
 export default function EditProfileMobile() {
   const router = useRouter();
-  const { isGuest } = useAuth();
+  const { isGuest, authProvider } = useAuth();
   const { t } = useTranslation(['media', 'common']);
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -109,22 +109,57 @@ export default function EditProfileMobile() {
                 </Text>
               </View>
 
-              <View style={styles.infoBox}>
-                <Info size={16} color="#60a5fa" />
-                <Text style={styles.infoText}>
-                  {t(
-                    'media:editProfileTraktOnlyHint',
-                    'Profil bilgileri yalnızca Trakt.tv üzerinden düzenlenebilir.'
-                  )}
-                </Text>
-              </View>
+              {/* 🔴 2026-08-22 — Google-only kullanıcı (`create_new`, Madde 221)
+                  için bu blok YANLIŞ TEŞHİS koyuyordu: "yalnızca Trakt.tv'de
+                  düzenlenebilir" diyor ve `trakt.tv/settings/profile`'a
+                  yönlendiriyordu — ama bu kullanıcının Trakt hesabı HİÇ YOK,
+                  o sayfada onunla ilgili hiçbir şey bulunmaz. Kullanıcı bunu
+                  "profili düzenle kısmı Trakt'a bağlanmış görünüyor, kafa
+                  karıştırıcı" diye bildirdi. Gerçek düzenleme yolu zaten var
+                  — Ayarlar'daki "Kullanıcı Adı" satırı (bkz.
+                  `components/settings/ProfileUsernameSection.tsx`, Madde
+                  227) — burada YENİDEN İNŞA ETMEK yerine oraya yönlendiriyoruz. */}
+              {authProvider === 'google' ? (
+                <>
+                  <View style={styles.infoBox}>
+                    <Info size={16} color="#60a5fa" />
+                    <Text style={styles.infoText}>
+                      {t(
+                        'media:editProfileGoogleOnlyHint',
+                        'Kullanıcı adını Ayarlar > Hesap sayfasından değiştirebilirsin.'
+                      )}
+                    </Text>
+                  </View>
 
-              <TouchableOpacity style={styles.traktBtn} onPress={openTraktSettings} activeOpacity={0.85}>
-                <ExternalLink size={17} color="#fff" />
-                <Text style={styles.traktBtnText}>
-                  {t('media:editProfileOpenTrakt', "Trakt.tv'de Düzenle")}
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.traktBtn}
+                    onPress={() => router.push('/(protected)/account')}
+                    activeOpacity={0.85}
+                  >
+                    <ExternalLink size={17} color="#fff" />
+                    <Text style={styles.traktBtnText}>{t('common:goToSettings')}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.infoBox}>
+                    <Info size={16} color="#60a5fa" />
+                    <Text style={styles.infoText}>
+                      {t(
+                        'media:editProfileTraktOnlyHint',
+                        'Profil bilgileri yalnızca Trakt.tv üzerinden düzenlenebilir.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity style={styles.traktBtn} onPress={openTraktSettings} activeOpacity={0.85}>
+                    <ExternalLink size={17} color="#fff" />
+                    <Text style={styles.traktBtnText}>
+                      {t('media:editProfileOpenTrakt', "Trakt.tv'de Düzenle")}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </>
           )}
         </View>

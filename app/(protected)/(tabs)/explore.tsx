@@ -59,6 +59,8 @@ export default function ExploreScreen() {
     setActiveTab,
     onRefresh,
     fetchMore,
+    loadMoreFailed,
+    retryLoadMore,
   } = useExplore();
 
   // Auth guard
@@ -190,6 +192,8 @@ export default function ExploreScreen() {
           refreshControl={refreshControl}
           screenWidth={width}
           onScroll={handleDesktopScroll}
+          loadMoreFailed={loadMoreFailed}
+          onRetryLoadMore={retryLoadMore}
         />
       </View>
     );
@@ -220,6 +224,16 @@ export default function ExploreScreen() {
           loadingMore ? (
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" />
+            </View>
+          ) : loadMoreFailed ? (
+            // Otomatik yeniden deneme BİLİNÇLİ OLARAK yok (bkz. useExplore.ts
+            // `showLoadMoreFailed` başlığı) — sessizlik kabul edilemez
+            // (AI_RULES §2), bu yüzden açık bir "Tekrar Dene" gösteriliyor.
+            <View style={styles.loadMoreFailedBox}>
+              <Text style={styles.loadMoreFailedText}>{t('media:exploreLoadMoreFailed', 'Devamı yüklenemedi.')}</Text>
+              <TouchableOpacity style={styles.loadMoreRetryBtn} onPress={retryLoadMore} activeOpacity={0.8}>
+                <Text style={styles.loadMoreRetryBtnText}>{t('common:retry')}</Text>
+              </TouchableOpacity>
             </View>
           ) : null
         }
@@ -404,5 +418,27 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  loadMoreFailedBox: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  loadMoreFailedText: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  loadMoreRetryBtn: {
+    backgroundColor: '#172033',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2A364F',
+  },
+  loadMoreRetryBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

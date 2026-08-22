@@ -13,6 +13,7 @@ import {
 import MediaPoster from '../MediaPoster';
 import { Star, Plus, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import PosterGridSkeleton from '../skeletons/PosterGridSkeleton';
@@ -154,6 +155,11 @@ interface ExploreWebGridProps {
   refreshControl: React.ReactElement<any>;
   screenWidth: number;
   onScroll?: (offsetY: number) => void;
+  /** bkz. hooks/useExplore.ts'teki `loadMoreFailed` başlığı — sonsuz istek
+   * döngüsünü kıran kapı. Bu true iken `onEndReached` artık otomatik
+   * tetiklenmiyor, kullanıcıya görünür bir "Tekrar Dene" gösterilir. */
+  loadMoreFailed: boolean;
+  onRetryLoadMore: () => void;
 }
 
 const COLUMN_COUNT = 5;
@@ -172,7 +178,10 @@ const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(func
   refreshControl,
   screenWidth,
   onScroll,
+  loadMoreFailed,
+  onRetryLoadMore,
 }, ref) {
+  const { t } = useTranslation(['media', 'common']);
   const containerPadding = 32;
   const totalGapWidth = CARD_GAP * (COLUMN_COUNT - 1);
   const availableWidth = Math.min(screenWidth, 1280) - containerPadding * 2;
@@ -202,6 +211,16 @@ const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(func
         loadingMore ? (
           <View style={styles.footerLoader}>
             <ActivityIndicator size="small" />
+          </View>
+        ) : loadMoreFailed ? (
+          // Otomatik yeniden deneme BİLİNÇLİ OLARAK yok (bkz. useExplore.ts
+          // `showLoadMoreFailed` başlığı) — sessizlik kabul edilemez (AI_RULES
+          // §2), bu yüzden açık bir "Tekrar Dene" gösteriliyor.
+          <View style={styles.loadMoreFailedBox}>
+            <Text style={styles.loadMoreFailedText}>{t('media:exploreLoadMoreFailed', 'Devamı yüklenemedi.')}</Text>
+            <TouchableOpacity style={styles.loadMoreRetryBtn} onPress={onRetryLoadMore} activeOpacity={0.8}>
+              <Text style={styles.loadMoreRetryBtnText}>{t('common:retry', 'Tekrar Dene')}</Text>
+            </TouchableOpacity>
           </View>
         ) : null
       }
@@ -332,5 +351,27 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 24,
     alignItems: 'center',
+  },
+  loadMoreFailedBox: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 24,
+  },
+  loadMoreFailedText: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  loadMoreRetryBtn: {
+    backgroundColor: '#172033',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2A364F',
+  },
+  loadMoreRetryBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

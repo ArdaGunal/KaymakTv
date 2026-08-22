@@ -22,6 +22,11 @@ export interface ExploreActions {
   setActiveTab: (t: SearchTabType) => void;
   onRefresh: () => void;
   fetchMore: () => void;
+  /** Aktif sekmenin ("show"/"movie") son `fetchMore` denemesi başarısız oldu mu. */
+  loadMoreFailed: boolean;
+  /** `fetchMore`'un aksine `loadMoreFailed` kapısını BYPASS eder — yalnızca
+   * kullanıcının açık "Tekrar Dene" eylemi için. */
+  retryLoadMore: () => void;
   searchQuery: string;
   activeTab: SearchTabType;
   currentData: any[];
@@ -48,6 +53,30 @@ export function useExplore(): ExploreState & ExploreActions {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🔴 2026-08-22 — Keşfet'in "sonsuz istek döngüsü" kusuru (kullanıcı canlıda
+  // bulup bildirdi, konsolda `/shows/trending`'e ONLARCA ard arda 401/CORS/
+  // Network Error tekrarı gözlendi, devre kesici sonunda devreye girene kadar).
+  //
+  // KÖK NEDEN: eski `fetchMore`'da bir sayfa BAŞARISIZ olduğunda `showPage`/
+  // `moviePage` İLERLEMİYOR ve hiçbir "artık deneme" bayrağı SET EDİLMİYORDU.
+  // React Native'in FlatList'i `onEndReached`'i yalnızca kullanıcı kaydırınca
+  // DEĞİL, içerik/layout her yeniden hesaplandığında (`_maybeCallOnEdgeReached`)
+  // tetikleyebiliyor — `PAGE_SIZE=7` gibi kısa bir liste ekranı doldurmadığında
+  // bu SÜREKLİ oluyor. Sonuç: `loadingMore` `finally`'de `false`'a dönüyor,
+  // bir sonraki layout turu `fetchMore`'u TEKRAR çağırıyor, o da aynı sayfada
+  // aynı şekilde başarısız oluyor — kullanıcı hiçbir şey yapmadan saniyede
+  // onlarca istek. Trakt ücretli olduğu için bu doğrudan bir fatura riskiydi.
+  //
+  // ÇÖZÜM: Y21'in (`features/feed/hooks/useFeed.ts`, akış için aynı sınıf
+  // hatayı kapatan) desenİ — bir sayfa başarısız olunca kalıcı bir bayrak
+  // set edilir, `fetchMore` bu bayrak açıkken KOŞULSUZ erken döner. Yalnızca
+  // açık bir kullanıcı eylemi (`retryLoadMore`, aşağıda) veya taze bir
+  // `fetchTrending(reset=true)` bayrağı temizler. Diziler/filmler AYRI
+  // sayfalama akışları olduğu için (`showPage`/`moviePage` de ayrı) bayrak da
+  // sekme başına ayrı — bir sekmedeki hata diğerini kilitlemez.
+  const [showLoadMoreFailed, setShowLoadMoreFailed] = useState(false);
+  const [movieLoadMoreFailed, setMovieLoadMoreFailed] = useState(false);
+
   const activeSearchRef = useRef<string>('');
 
   const fetchTrending = async (reset = true, force = false) => {
@@ -63,6 +92,9 @@ export function useExplore(): ExploreState & ExploreActions {
         setLoading(true);
         setShowPage(1);
         setMoviePage(1);
+        // Taze bir liste başlıyor — önceki sayfalama hatası artık ilgisiz.
+        setShowLoadMoreFailed(false);
+        setMovieLoadMoreFailed(false);
       }
 
       const [shows, movies] = await Promise.all([
@@ -80,14 +112,16 @@ export function useExplore(): ExploreState & ExploreActions {
     }
   };
 
-  const fetchMore = async () => {
-    if (searchQuery.trim().length > 2 || loadingMore || loading) return;
-
+  // Gerçek sayfa çekme mantığı — KAPISIZ. `fetchMore` (onEndReached, otomatik)
+  // ve `retryLoadMore` (kullanıcı eylemi, bayrağı bypass eder) ikisi de bunu
+  // çağırır; farkları yalnızca ÇAĞRILMADAN ÖNCEKİ kapıda.
+  const doFetchMore = async () => {
     setLoadingMore(true);
     try {
       if (activeTab === 'show') {
         const nextPage = showPage + 1;
         const newShows = await getTrendingShows(nextPage, PAGE_SIZE);
+        setShowLoadMoreFailed(false);
         if (newShows.length > 0) {
           setTrendingShows(prev => [...prev, ...newShows]);
           setShowPage(nextPage);
@@ -95,6 +129,7 @@ export function useExplore(): ExploreState & ExploreActions {
       } else {
         const nextPage = moviePage + 1;
         const newMovies = await getTrendingMovies(nextPage, PAGE_SIZE);
+        setMovieLoadMoreFailed(false);
         if (newMovies.length > 0) {
           setTrendingMovies(prev => [...prev, ...newMovies]);
           setMoviePage(nextPage);
@@ -102,9 +137,28 @@ export function useExplore(): ExploreState & ExploreActions {
       }
     } catch (err) {
       console.error(t('fetchMoreError'), err);
+      // Bkz. `showLoadMoreFailed`'in başlığı — bu bayrak olmadan onEndReached
+      // aynı başarısız sayfayı sonsuza dek yeniden dener.
+      if (activeTab === 'show') setShowLoadMoreFailed(true);
+      else setMovieLoadMoreFailed(true);
     } finally {
       setLoadingMore(false);
     }
+  };
+
+  const loadMoreFailed = activeTab === 'show' ? showLoadMoreFailed : movieLoadMoreFailed;
+
+  const fetchMore = () => {
+    if (searchQuery.trim().length > 2 || loadingMore || loading || loadMoreFailed) return;
+    void doFetchMore();
+  };
+
+  /** Yalnızca kullanıcının açık "Tekrar Dene" dokunuşu için — `loadMoreFailed`
+   * kapısını BYPASS eder (aksi hâlde bayrağı temizlemeden çağırmak aynı
+   * render turunda hâlâ eski/stale değeri görüp hiçbir şey yapmazdı). */
+  const retryLoadMore = () => {
+    if (loadingMore || loading) return;
+    void doFetchMore();
   };
 
   const fetchSearch = async (query: string) => {
@@ -203,5 +257,7 @@ export function useExplore(): ExploreState & ExploreActions {
     setActiveTab,
     onRefresh,
     fetchMore,
+    loadMoreFailed,
+    retryLoadMore,
   };
 }
