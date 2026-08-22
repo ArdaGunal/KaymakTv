@@ -51,8 +51,33 @@ export function invalidateMySupabaseUserId(): void {
   );
 }
 
+/**
+ * `users.id` UUID biçim kontrolü.
+ *
+ * 🔴 NEDEN VAR (2026-08-22, canlıda bulundu — kendi eklediğimiz kusur):
+ * `setMySupabaseUserId(profile.userId)` KORUMASIZ çağrılıyordu. Worker'ın
+ * `userId` döndüren sürümü DEPLOY EDİLMEDEN önce çalışan istemci
+ * `profile.userId === undefined` alıyor ve bu değeri diske yazıyordu.
+ * Web'de `AsyncStorage` = `localStorage`, yani diske **`"undefined"` STRING'i**
+ * düştü. Sonraki her açılışta disk adımı bunu TRUTHY okuyup kimlik olarak
+ * döndürdü → akış sorgusu `.in('user_id', ['undefined'])` oldu ve HİÇBİR
+ * satır getirmedi. Deploy doğru yapılmıştı; zehirlenmiş önbellek onu
+ * maskeliyordu — belirti "hiç düzelmemiş" gibi görünüyordu.
+ *
+ * Ders: kalıcı bir önbelleğe yazarken değerin GEÇERLİ olduğu doğrulanmalı.
+ * Bir kez bozuk yazılan disk değeri, kaynak düzelse bile kendi kendine
+ * onarılmaz. Bu yüzden kontrol İKİ yönlü: yazarken de, okurken de.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUserId = (id: unknown): id is string => typeof id === 'string' && UUID_RE.test(id);
+
 /** Kimlik çözüldüğünde (giriş akışı) çağrılır — F8'in Google dalı bunu kullanacak. */
 export async function setMySupabaseUserId(id: string): Promise<void> {
+  // Geçersiz değer ASLA yazılmaz — yukarıdaki nota bakınız.
+  if (!isValidUserId(id)) {
+    console.warn('[userBlocks] Geçersiz users.id yazılmadı:', id);
+    return;
+  }
   myUserIdCache = { id, fetchedAt: Date.now() };
   try {
     await AsyncStorage.setItem(MY_USER_ID_STORAGE_KEY, id);
@@ -69,9 +94,16 @@ export async function getMySupabaseUserId(): Promise<string | null> {
   // 1) Disk — sağlayıcıdan bağımsız, ağ gerektirmez.
   try {
     const stored = await AsyncStorage.getItem(MY_USER_ID_STORAGE_KEY);
-    if (stored) {
+    if (isValidUserId(stored)) {
       myUserIdCache = { id: stored, fetchedAt: Date.now() };
       return stored;
+    }
+    if (stored) {
+      // ZEHİRLENMİŞ DEĞER (ör. `"undefined"` string'i — bkz. isValidUserId'in
+      // başlığı). Sil ki aşağıdaki taze çözüm yolu çalışabilsin; aksi halde
+      // kaynak düzelse bile bu satır sonsuza dek bozuk değeri döndürürdü.
+      console.warn('[userBlocks] Diskteki users.id geçersiz, temizleniyor:', stored);
+      await AsyncStorage.removeItem(MY_USER_ID_STORAGE_KEY);
     }
   } catch (error) {
     console.warn('[userBlocks] users.id diskten okunamadı:', error);
@@ -91,6 +123,14 @@ export async function getMySupabaseUserId(): Promise<string | null> {
   if (isKaymakSessionToken(token) && token) {
     try {
       const profile = await getMyProfile(token);
+      // 🔴 KORUMA ZORUNLU: Worker'ın `userId` döndüren sürümü deploy
+      // edilmemişse bu alan `undefined` gelir. Korumasız bırakıldığında
+      // diske `"undefined"` string'i yazıldı ve akış kalıcı olarak boş
+      // kaldı (bkz. isValidUserId başlığı) — kusur BUYDU.
+      if (!isValidUserId(profile.userId)) {
+        console.warn('[userBlocks] Worker geçerli bir userId döndürmedi (deploy güncel mi?).');
+        return null;
+      }
       myUserIdCache = { id: profile.userId, fetchedAt: Date.now() };
       void setMySupabaseUserId(profile.userId);
       return profile.userId;
