@@ -1,19 +1,25 @@
 require('dotenv').config();
 
-// ⚠️ IPv4 ÖNCELİĞİ (Madde 234 — ölçüldü): Pi'nin ağı IPv6'ya sahip ama o yol
-// TMDB/Trakt'a karşı tıkalı — bağlantı ~7.5s'de zaman aşımına uğrayıp IPv4'e
-// düşüyor (curl ile doğrulandı: ipv6 connect 7.55s, ipv4 connect 0.05s, DNS'in
-// kendisi 21ms — darboğaz DNS değil, IPv6 rotası). Bilinçli olarak Pi'nin
-// işletim sistemi/ağ ayarına DOKUNULMADI (bu makinede başka projeler de
-// çalışıyor) — yalnızca BU Node sürecinin DNS çözümleme sırası değiştirildi.
+// ⚠️ DNS GECİKMESİ (Madde 234 — ölçüldü, İKİ TURDA teşhis düzeltildi):
+// İLK TEŞHİS (curl -6/-4 ile "IPv6 bağlantısı yavaş") YANLIŞ ÇIKTI — o
+// bayraklar DNS çözümlemesini atlayıp tek bir aileyi zorluyor, gerçek
+// darboğazı gizliyordu. Node'un varsayılan `dns.lookup()`'ı (AF_UNSPEC) HEM
+// A HEM AAAA kaydını sorgulayıp İKİSİNİN DE dönmesini bekliyor — Pi'de A
+// kaydı 14ms'de dönerken AAAA birkaç saniyede dönüyor (ölçüldü:
+// `dns.resolve4` 14ms, `dns.resolve6` 2069ms; muhtemelen upstream DNS
+// sunucusunun IPv6 sorgularını yavaş/güvenilmez yanıtlaması). Önceki turda
+// denenen `dns.setDefaultResultOrder('ipv4first')` SONUÇLARIN SIRASINI
+// değiştiriyor ama SORGUNUN KENDİSİNİ hızlandırmıyor — ölçümle yetersiz
+// bulundu. Asıl çözüm AAAA'yı HİÇ SORGULAMAMAK: aşağıdaki axios agent'ında
+// `family: 4` (ölçüldü: family:4 ile istek 298ms, olmadan 5+ saniye).
+// `setDefaultResultOrder` zararsız ikincil önlem olarak bırakıldı — henüz
+// keşfedilmemiş, agent'sız bir dış istek eklenirse yine de IPv4'ü önceler.
+// Bilinçli olarak Pi'nin işletim sistemi/ağ ayarına DOKUNULMADI (bu
+// makinede başka projeler de çalışıyor) — yalnızca BU Node sürecinin DNS
+// davranışı değiştirildi.
 const dns = require('dns');
-// `setDefaultResultOrder` Node 16.4+ gerektirir. Pi'nin Node sürümü bu
-// kod yazılırken doğrulanmadı (sistem sınırı) — yoksa sunucuyu ÇÖKERTMEDEN
-// eski davranışta (IPv6 önce) devam eder, yalnızca terminale not düşer.
 if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
-} else {
-  console.warn('⚠️ dns.setDefaultResultOrder bulunamadı (Node < 16.4?) — IPv4 önceliği DEVREDE DEĞİL.');
 }
 
 const express = require('express');
@@ -21,12 +27,12 @@ const path = require('path');
 const https = require('https');
 const axios = require('axios');
 
-// Aşağıdaki 6 dış istek (TMDB/Trakt) `keepAlive` OLMADAN her seferinde
-// sıfırdan TCP+TLS el sıkışması yapıyordu (~0.3s ekstra, ölçüldü). Tek bir
-// paylaşılan agent bağlantıyı canlı tutar, sonraki isteklerde el sıkışma
-// atlanır. Axios'un varsayılan `httpsAgent`'ını değiştirir; her çağrı
-// noktasına ayrı ayrı eklemeye gerek kalmaz.
-axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
+// `family: 4` yukarıdaki AAAA gecikmesinin asıl çözümü — bu agent
+// üzerinden yapılan bağlantılarda IPv6 kaydı hiç sorgulanmaz. `keepAlive`
+// ayrıca sonraki isteklerde TCP+TLS el sıkışmasını da atlar (~0.3s ekstra
+// tasarruf, ayrıca ölçüldü). Axios'un varsayılan `httpsAgent`'ını
+// değiştirir; her çağrı noktasına ayrı ayrı eklemeye gerek kalmaz.
+axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50, family: 4 });
 
 // Açık proxy koruması (MASTER_PLAN F16 / Y12) — gerekçeler ve beyaz listeler
 // `server/security.js` içinde. Ayrı modül olmasının sebebi AI_RULES §1'in
