@@ -117,8 +117,20 @@ export function GoogleSignInSection({
   // konteyner o an DOM'da YOK, `renderButton` sessizce atlanıyor. Kullanıcı
   // sonradan onay kutusunu işaretlediğinde konteyner DOM'a girse de hiçbir
   // şey `renderButton`'ı YENİDEN tetiklemiyor: buton SONSUZA DEK boş kalıyor.
-  // Çözüm: konteyner HER ZAMAN DOM'da olsun (`renderButton` onu bulabilsin),
-  // yalnızca GÖRÜNÜRLÜĞÜ `isChecked`'e göre değişsin.
+  // Çözüm: konteyner HER ZAMAN DOM'da olsun (`renderButton` onu bulabilsin) —
+  // bu hâlâ geçerli, aşağıdaki değişiklik yalnızca GÖRÜNÜRLÜK stratejisini
+  // değiştiriyor, montaj stratejisini DEĞİL.
+  //
+  // 2026-08-22 — kullanıcı geri bildirimi: Trakt butonu onay kutusu
+  // işaretlenene kadar hep GÖRÜNÜR kalıp yalnızca soluklaşırken
+  // (`buttonDisabled`), Google butonu `display:none` ile TAMAMEN
+  // KAYBOLUYORDU — bu asimetri "mantıksız/kafa karıştırıcı" bulundu. Artık
+  // Google da AYNI muameleyi görüyor: her zaman görünür, yalnızca soluk.
+  // GIS'in kendi çizdiği gerçek `<div>`'i programatik olarak "disabled"
+  // yapmanın yolu yok (üçüncü parti, kendi tıklama işleyicisi var) — bu
+  // yüzden `!isChecked` iken görünmez bir overlay konteynerin TAMAMINI
+  // kaplayıp tıklamayı YUTUYOR; `isChecked` olunca `pointerEvents:'none'`'a
+  // düşüp gerçek butonu serbest bırakıyor.
   return (
     <View style={styles.buttonWrap}>
       {!isChecked && (
@@ -126,11 +138,13 @@ export function GoogleSignInSection({
           {t('settings:googleNeedsTermsAccept', 'Google ile devam etmek için önce kullanım koşullarını kabul et.')}
         </Text>
       )}
-      {/* GIS bu ID'ye SAHİP DOM elemanını kendi butonuyla dolduruyor
-          (bkz. hooks/useGoogleSignIn.ts) — RN bileşeni değil, GIS'in kendi
-          çizdiği gerçek bir <div>. `isChecked` false iken `display:none` —
-          `renderButton`'ın konteyneri bulabilmesi için DOM'dan hiç ÇIKARILMAZ. */}
-      <View nativeID={buttonElementId} style={!isChecked ? styles.hidden : styles.gisContainer} />
+      <View style={styles.gisOuter}>
+        <View nativeID={buttonElementId} style={[styles.gisContainer, !isChecked && styles.gisContainerDisabled]} />
+        {/* Trakt butonunun `disabled` prop'uyla sessizce hiçbir şey yapmama
+            davranışıyla SİMETRİK — üstteki `disabledHint` zaten sebebi
+            anlatıyor, ekstra bir toast/uyarı eklenmiyor. */}
+        <View style={StyleSheet.absoluteFill} pointerEvents={isChecked ? 'none' : 'auto'} />
+      </View>
       {loadError && <Text style={styles.errorText}>{loadError}</Text>}
     </View>
   );
@@ -142,13 +156,20 @@ const styles = StyleSheet.create({
     gap: 8,
     width: '100%',
   },
+  // Overlay'in `position:'absolute'` referans noktası — `gisContainer`'ın
+  // KENDİSİ değil, onu saran bu `View` konumlanıyor (GIS'in çizdiği gerçek
+  // butonun boyutlarına dokunulmasın diye).
+  gisOuter: {
+    width: '100%',
+    position: 'relative',
+  },
   gisContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
   },
-  hidden: {
-    display: 'none',
+  gisContainerDisabled: {
+    opacity: 0.45,
   },
   errorText: {
     color: '#f87171',

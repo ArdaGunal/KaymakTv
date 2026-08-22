@@ -232,32 +232,44 @@ export default function Login() {
 
       <View style={styles.formContainer}>
           <>
-            <Text style={styles.description}>
-              {t('traktDescription')}
-            </Text>
+            {/* 2026-08-22 — kullanıcı geri bildirimi: köprü kartı
+                (awaitingTraktLink) devredeyken açıklama metni + onay kutusu
+                kartın ÜSTÜNDE tekrar duruyordu — ama buraya gelebilmek için
+                `isChecked` zaten ZORUNLU olarak true olmak durumundaydı
+                (Google butonu Değişiklik 1'le onaysız tıklanamıyor), yani bu
+                blok bu aşamada YALNIZCA gereksiz kalabalıktı, kararı
+                etkilemiyordu. Kartın kendi metni ("Google ile giriş
+                yaptın...") bağlamı zaten anlatıyor. */}
+            {!awaitingTraktLink && (
+              <>
+                <Text style={styles.description}>
+                  {t('traktDescription')}
+                </Text>
 
-            {/* 2026-08-21 — kullanım koşulları onayı artık İKİ girişin de
-                (Trakt + Google) ÜSTÜNDE, tek bir kapı olarak duruyor —
-                eskiden Trakt butonuyla Google seçeneği arasına sıkışmış
-                olması, Google'ın ikincil/gizli bir seçenekmiş gibi
-                algılanmasının bir parçasıydı. */}
-            <TouchableOpacity
-              style={styles.checkboxContainer}
-              activeOpacity={0.7}
-              onPress={() => setIsChecked(!isChecked)}
-            >
-              {isChecked ? (
-                <CheckSquare size={20} color="#3b82f6" />
-              ) : (
-                <Square size={20} color="#64748b" />
-              )}
-              <Text style={styles.checkboxText}>
-                <Trans
-                  i18nKey="settings:termsAcceptance"
-                  components={{ 1: <Text onPress={() => setIsLegalModalVisible(true)} style={styles.linkText} /> }}
-                />
-              </Text>
-            </TouchableOpacity>
+                {/* 2026-08-21 — kullanım koşulları onayı artık İKİ girişin de
+                    (Trakt + Google) ÜSTÜNDE, tek bir kapı olarak duruyor —
+                    eskiden Trakt butonuyla Google seçeneği arasına sıkışmış
+                    olması, Google'ın ikincil/gizli bir seçenekmiş gibi
+                    algılanmasının bir parçasıydı. */}
+                <TouchableOpacity
+                  style={styles.checkboxContainer}
+                  activeOpacity={0.7}
+                  onPress={() => setIsChecked(!isChecked)}
+                >
+                  {isChecked ? (
+                    <CheckSquare size={20} color="#3b82f6" />
+                  ) : (
+                    <Square size={20} color="#64748b" />
+                  )}
+                  <Text style={styles.checkboxText}>
+                    <Trans
+                      i18nKey="settings:termsAcceptance"
+                      components={{ 1: <Text onPress={() => setIsLegalModalVisible(true)} style={styles.linkText} /> }}
+                    />
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             {/* Trakt ve Google artık AYNI görsel ağırlıkta, art arda iki eşit
                 seçenek olarak duruyor — köprü kartı (awaitingTraktLink) devrede
@@ -307,23 +319,31 @@ export default function Login() {
               </>
             )}
 
-            <OrDivider t={t} />
+            {/* Misafir/Vitrin de köprü kartıyla AYNI gerekçeyle gizleniyor —
+                kart kendi "İptal" çıkışını zaten sağlıyor (bkz.
+                GoogleSignInSection.tsx); ikinci bir rakip çıkış grubu bu
+                aşamada kafa karışıklığından başka bir şey eklemiyordu. */}
+            {!awaitingTraktLink && (
+              <>
+                <OrDivider t={t} />
 
-            <View style={styles.tertiaryRow}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={async () => {
-                  await loginAsGuest();
-                  router.replace('/(protected)/(tabs)/explore');
-                }}
-              >
-                <Text style={styles.tertiaryLinkText}>{t('common:landingGuest')}</Text>
-              </TouchableOpacity>
-              <Text style={styles.tertiarySeparator}>·</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => router.replace('/')}>
-                <Text style={styles.tertiaryLinkText}>{t('common:viewShowcase')}</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.tertiaryRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={async () => {
+                      await loginAsGuest();
+                      router.replace('/(protected)/(tabs)/explore');
+                    }}
+                  >
+                    <Text style={styles.tertiaryLinkText}>{t('common:landingGuest')}</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.tertiarySeparator}>·</Text>
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => router.replace('/')}>
+                    <Text style={styles.tertiaryLinkText}>{t('common:viewShowcase')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </>
         </View>
       </View>
