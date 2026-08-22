@@ -22,13 +22,24 @@ const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 // --------------------------------------------------------------------------
 // Geliştirme kaynaklarına izin veriliyor mu?
 // --------------------------------------------------------------------------
-// `NODE_ENV=production` DIŞINDAKİ her durumda açık. Bilinçli olarak "kırılmama
-// yönünde" hata yapar: prod'da `NODE_ENV` set edilmemişse localhost kaynakları
-// da kabul edilir. Bu ciddi bir açık değil (saldırgan kendi localhost'una
-// yönlendirebilir ama Trakt code/redirect_uri eşleşmesini kendisi doğrular),
-// buna karşılık ters tercih tüm geliştirme ortamını sessizce kırardı.
+// 🔴 NEDEN AYRI BİR DEĞİŞKEN (Madde 233): eskiden bu bayrak
+// `process.env.NODE_ENV !== 'production'` idi, yani TEK anahtar İKİ ayrı şeyi
+// birden kontrol ediyordu: (a) dev origin'lerin kabulü, (b) tüm prod
+// davranışları. Geliştirici localhost'tan test edebilmek için (a)'yı açmak
+// isteyince (b)'yi de kapatmak ZORUNDA kalıyordu — ve geri almayı unutmak çok
+// kolaydı. 2026-08-22'de tam olarak bu oldu: `NODE_ENV` günlerce
+// `development`'ta kaldı ve F16 CORS kalkanı yarı açık çalıştı.
+//
+// Artık ikisi bağımsız: `NODE_ENV=production` KALICI olarak açık kalır,
+// geliştirici yalnızca `ALLOW_DEV_ORIGINS=1` ekler/kaldırır.
+//
+// Varsayılan KAPALI ("güvenli taraf"): değişken hiç set edilmemişse dev
+// origin'ler reddedilir. Eski davranış tersineydi (set edilmemişse AÇIK) —
+// bilinçli olarak değiştirildi, çünkü o tercih tam da yukarıdaki sessiz
+// yarı-açık duruma yol açıyordu. Yalnızca tam olarak '1' değeri açar;
+// böylece boş string ya da 'false' gibi değerler kazara kalkanı indirmez.
 // Hangi modda çalışıldığı `logSecurityMode()` ile açıkça terminale yazılır.
-const ALLOW_DEV_ORIGINS = process.env.NODE_ENV !== 'production';
+const ALLOW_DEV_ORIGINS = process.env.ALLOW_DEV_ORIGINS === '1';
 
 const PROD_ORIGINS = ['https://kaymaktv.com'];
 
@@ -224,8 +235,13 @@ const logSecurityMode = () => {
   console.log('🔒 Proxy korumasi: CORS beyaz listesi + rate limit + Trakt uc beyaz listesi');
   console.log(
     '   Gelistirme kaynaklari (localhost / exp://): ' +
-      (ALLOW_DEV_ORIGINS ? 'ACIK (NODE_ENV != production)' : 'KAPALI')
+      (ALLOW_DEV_ORIGINS
+        ? 'ACIK (ALLOW_DEV_ORIGINS=1) -- CANLIDA BOYLE BIRAKMA!'
+        : 'KAPALI')
   );
+  // NODE_ENV artık CORS kalkanını etkilemiyor (Madde 233), ama Express'in
+  // kendi prod optimizasyonlarını hâlâ etkiliyor — o yüzden ayrıca basılıyor.
+  console.log(`   NODE_ENV: ${process.env.NODE_ENV || '(set edilmemis)'}`);
 };
 
 module.exports = {
