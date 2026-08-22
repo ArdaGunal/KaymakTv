@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Link2, X, ArrowRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -47,11 +47,21 @@ export function GoogleSignInSection({
   isCreatingAccount,
 }: GoogleSignInSectionProps) {
   const { t } = useTranslation(['settings', 'common']);
-  const { buttonElementId, loadError } = useGoogleSignIn(onCredential);
+  const { buttonElementId, loadError, requestRender } = useGoogleSignIn(onCredential);
+  const isWeb = Platform.OS === 'web';
 
-  if (awaitingTraktLink) {
-    return (
-      <View style={styles.linkCard}>
+  // Köprü kartı kapandığında (İptal) konteyner tekrar GÖRÜNÜR hâle gelir —
+  // güvenlik ağı olarak çizimi bir kez daha talep ediyoruz. İdempotent:
+  // konteyner zaten doluysa hook hiçbir şey yapmaz.
+  useEffect(() => {
+    if (!awaitingTraktLink) requestRender();
+  }, [awaitingTraktLink, requestRender]);
+
+  // Native'de Google yok; köprü kartı da yoksa gösterilecek hiçbir şey kalmaz.
+  if (!isWeb && !awaitingTraktLink) return null;
+
+  const bridgeCard = awaitingTraktLink ? (
+    <View style={styles.linkCard}>
         <View style={styles.linkIconBadge}>
           <Link2 size={26} color="#38bdf8" />
         </View>
@@ -103,49 +113,59 @@ export function GoogleSignInSection({
           <Text style={styles.cancelText}>{t('common:cancel')}</Text>
         </TouchableOpacity>
       </View>
-    );
-  }
+  ) : null;
 
-  // 🔴 YALNIZCA WEB — bkz. hooks/useGoogleSignIn.ts başlığı (iOS/Android
-  // client ID'leri hâlâ yer tutucu, native taraf bilinçli olarak ertelendi).
-  if (Platform.OS !== 'web') return null;
-
-  // 🔴 CANLI TARAYICI TESTİNDE BULUNDU: `nativeID={buttonElementId}` konteyneri
-  // eskiden yalnızca `isChecked` true'ken JSX'e giriyordu. `useGoogleSignIn`
-  // içindeki `useEffect` MONTAJDA (ilk render, `isChecked` henüz false'ken)
-  // bir kez çalışıp `document.getElementById(buttonElementId)` arıyor —
-  // konteyner o an DOM'da YOK, `renderButton` sessizce atlanıyor. Kullanıcı
-  // sonradan onay kutusunu işaretlediğinde konteyner DOM'a girse de hiçbir
-  // şey `renderButton`'ı YENİDEN tetiklemiyor: buton SONSUZA DEK boş kalıyor.
-  // Çözüm: konteyner HER ZAMAN DOM'da olsun (`renderButton` onu bulabilsin) —
-  // bu hâlâ geçerli, aşağıdaki değişiklik yalnızca GÖRÜNÜRLÜK stratejisini
-  // değiştiriyor, montaj stratejisini DEĞİL.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴 KONTEYNER ARTIK ASLA UNMOUNT EDİLMİYOR — 2026-08-22, canlıda ölçüldü
+  // ═════════════════════════════════════════════════════════════════════════
+  // ESKİ YAPI: `if (awaitingTraktLink) return <linkCard/>` şeklinde ERKEN
+  // ÇIKIŞ vardı — köprü kartı açıkken GIS konteyneri DOM'dan tamamen
+  // siliniyordu. `useGoogleSignIn`'in çizim denemesi `[]` bağımlılıkla tek
+  // seferlikti, dolayısıyla kullanıcı "İptal"e bastığında konteyner BOŞ
+  // olarak geri geliyor ve buton bir daha ASLA çizilmiyordu.
   //
-  // 2026-08-22 — kullanıcı geri bildirimi: Trakt butonu onay kutusu
-  // işaretlenene kadar hep GÖRÜNÜR kalıp yalnızca soluklaşırken
-  // (`buttonDisabled`), Google butonu `display:none` ile TAMAMEN
-  // KAYBOLUYORDU — bu asimetri "mantıksız/kafa karıştırıcı" bulundu. Artık
-  // Google da AYNI muameleyi görüyor: her zaman görünür, yalnızca soluk.
-  // GIS'in kendi çizdiği gerçek `<div>`'i programatik olarak "disabled"
-  // yapmanın yolu yok (üçüncü parti, kendi tıklama işleyicisi var) — bu
-  // yüzden `!isChecked` iken görünmez bir overlay konteynerin TAMAMINI
-  // kaplayıp tıklamayı YUTUYOR; `isChecked` olunca `pointerEvents:'none'`'a
-  // düşüp gerçek butonu serbest bırakıyor.
+  // Tarayıcıda ölçülen kanıt (İptal sonrası):
+  //   containerExists: true, containerChildren: 0, gisIframe: false
+  // Kullanıcının "Google ile giriş kafasına göre görünüp yok oluyor"
+  // şikayetinin kök nedeni buydu.
+  //
+  // YENİ YAPI: tek bir kök `View`, İÇİNDEKİLERİN SIRASI SABİT. Konteyner
+  // (`gisOuter`) her zaman AYNI indekste duruyor — koşullu kardeşler `false`
+  // döndüğünde bile React o slotu koruyor, yani konteyner unmount/remount
+  // OLMUYOR, yalnızca `display:none` ile gizleniyor. GIS'in çizdiği iframe
+  // köprü kartı boyunca hayatta kalıyor ve İptal'de anında geri geliyor.
+  //
+  // Ayrıca (2026-08-21 kullanıcı geri bildirimi): Trakt butonu onay kutusu
+  // işaretlenene kadar hep GÖRÜNÜR kalıp yalnızca soluklaşırken, Google
+  // butonu `display:none` ile TAMAMEN kayboluyordu. Artık Google da AYNI
+  // muameleyi görüyor: her zaman görünür, yalnızca soluk. GIS'in çizdiği
+  // gerçek `<div>`'i programatik "disabled" yapmanın yolu yok (üçüncü parti,
+  // kendi tıklama işleyicisi var) — bu yüzden `!isChecked` iken görünmez bir
+  // overlay konteyneri kaplayıp tıklamayı YUTUYOR.
   return (
     <View style={styles.buttonWrap}>
-      {!isChecked && (
+      {isWeb && !awaitingTraktLink && !isChecked && (
         <Text style={styles.disabledHint}>
           {t('settings:googleNeedsTermsAccept', 'Google ile devam etmek için önce kullanım koşullarını kabul et.')}
         </Text>
       )}
-      <View style={styles.gisOuter}>
-        <View nativeID={buttonElementId} style={[styles.gisContainer, !isChecked && styles.gisContainerDisabled]} />
-        {/* Trakt butonunun `disabled` prop'uyla sessizce hiçbir şey yapmama
-            davranışıyla SİMETRİK — üstteki `disabledHint` zaten sebebi
-            anlatıyor, ekstra bir toast/uyarı eklenmiyor. */}
-        <View style={StyleSheet.absoluteFill} pointerEvents={isChecked ? 'none' : 'auto'} />
-      </View>
-      {loadError && <Text style={styles.errorText}>{loadError}</Text>}
+
+      {/* ⛔ BU BLOĞU KOŞULLU HÂLE GETİRMEYİN (yalnızca `isWeb` sabiti hariç,
+          o oturum boyunca değişmez). Unmount edilirse yukarıdaki kusur
+          aynen geri döner. Gizlemek için `gisHidden` kullanın. */}
+      {isWeb && (
+        <View style={[styles.gisOuter, awaitingTraktLink && styles.gisHidden]}>
+          <View nativeID={buttonElementId} style={[styles.gisContainer, !isChecked && styles.gisContainerDisabled]} />
+          {/* Trakt butonunun `disabled` prop'uyla sessizce hiçbir şey yapmama
+              davranışıyla SİMETRİK — üstteki `disabledHint` zaten sebebi
+              anlatıyor, ekstra bir toast/uyarı eklenmiyor. */}
+          <View style={StyleSheet.absoluteFill} pointerEvents={isChecked ? 'none' : 'auto'} />
+        </View>
+      )}
+
+      {isWeb && !awaitingTraktLink && loadError && <Text style={styles.errorText}>{loadError}</Text>}
+
+      {bridgeCard}
     </View>
   );
 }
@@ -171,6 +191,12 @@ const styles = StyleSheet.create({
   gisContainerDisabled: {
     opacity: 0.45,
   },
+  // Köprü kartı açıkken konteyner GİZLENİR ama DOM'da KALIR — unmount
+  // edilirse GIS'in çizdiği buton yok olur ve geri gelmez (bkz. yukarıdaki
+  // "KONTEYNER ARTIK ASLA UNMOUNT EDİLMİYOR" başlığı).
+  gisHidden: {
+    display: 'none',
+  },
   errorText: {
     color: '#f87171',
     fontSize: 12,
@@ -183,6 +209,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   linkCard: {
+    // Artık ortalanmış bir kök `View`'ın (buttonWrap) içinde — kendi
+    // genişliğini almazsa içeriğine göre daralırdı.
+    alignSelf: 'stretch',
+    width: '100%',
     alignItems: 'center',
     gap: 10,
     backgroundColor: 'rgba(56,189,248,0.06)',
