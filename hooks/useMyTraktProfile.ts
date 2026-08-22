@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfile, getFollowers, getFollowing, TraktUserProfile } from '../services/api/social';
+import { getMyProfile } from '../features/feed/services/profile';
 
 // Profil ekranındaki sosyal başlık (avatar, isim, takipçi/takip edilen
 // sayıları) için — "me" kısaltması Trakt'ın kendi konvansiyonu (bkz.
@@ -50,16 +51,34 @@ export function useMyTraktProfile() {
         setIsLoading(false);
         return;
       }
-      // Google-only: Trakt'a HİÇ gitme, yerel profili sentezle (bkz. başlık).
+      // Google-only: Trakt'a HİÇ gitme (bkz. başlık). Kaynak SUNUCU —
+      // `AuthContext.myUsername`/`myAvatarUrl` yalnızca `create_new` anında
+      // yazılıyor, yani BU özellikten ÖNCE açılmış hesapların diskinde hiç
+      // yok (2026-08-22 testinde profil resmi bu yüzden gelmedi). Worker'ın
+      // `/account/profile/get`'i her zaman güncel gerçeği veriyor; yerel
+      // değerler yalnızca ağ düşerse devreye giren yedek.
       if (authProvider === 'google') {
+        let username = myUsername ?? '';
+        let avatarUrl = myAvatarUrl ?? null;
+        try {
+          const remote = await getMyProfile(accessToken);
+          username = remote.username || username;
+          avatarUrl = remote.avatarUrl ?? avatarUrl;
+        } catch (error) {
+          console.warn('[Profile] Kaymak profili okunamadı, yerel kopyaya düşülüyor:', error);
+        }
+        if (isMounted && !isMounted()) return;
         setProfile({
-          username: myUsername ?? '',
+          username,
           private: false,
-          name: myUsername ?? null,
+          name: username || null,
           vip: false,
+          // Google-only kullanıcının Trakt slug'ı YOK — boş bırakmak doğru.
           ids: { slug: '' },
-          images: myAvatarUrl ? { avatar: { full: myAvatarUrl } } : undefined,
+          images: avatarUrl ? { avatar: { full: avatarUrl } } : undefined,
         });
+        // Trakt'sız kullanıcının Trakt sosyal grafiği YOK: 0 bir hata değil,
+        // gerçek durum.
         setFollowersCount(0);
         setFollowingCount(0);
         setIsLoading(false);

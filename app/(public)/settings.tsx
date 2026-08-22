@@ -163,6 +163,21 @@ export default function Login() {
   // zaten varsa bulur), dönen Kaymak oturum token'ını `saveGoogleSession`
   // ile saklar. Gerçek Trakt akışından FARKLI olarak burada `redirect_uri`/
   // `code` yok — tek ağ isteği, aynı sayfada kalınır.
+  // Mevcut bir Google-only hesabın TEKRAR girişi (`check` → linked, ama
+  // `traktLinked:false`). Trakt round-trip'i YOK — bu kullanıcının Trakt
+  // hesabı hiç yok, o akışı tamamlaması imkânsızdı (2026-08-22 testi).
+  // Onboarding'e de gitmiyoruz: hesap zaten var, adını çoktan seçmiş.
+  const handleGoogleOnlySession = async (sessionToken: string, userId?: string) => {
+    try {
+      await saveGoogleSession(sessionToken);
+      if (userId) await setMySupabaseUserId(userId);
+      router.replace('/(protected)/(tabs)/explore');
+    } catch (error: any) {
+      console.error('[Google Sign-In] Google-only oturum acilamadi:', error);
+      notify(t('common:error'), error?.message || t('communicationError'));
+    }
+  };
+
   const handleContinueWithoutTrakt = async () => {
     setIsCreatingGoogleOnly(true);
     try {
@@ -281,7 +296,9 @@ export default function Login() {
                   isGenerating={isGenerating}
                   canPromptTrakt={!!request}
                   awaitingTraktLink={awaitingTraktLink}
-                  onCredential={(idToken, nonce) => handleGoogleCredential(idToken, nonce, handleTraktLogin)}
+                  onCredential={(idToken, nonce) =>
+                    handleGoogleCredential(idToken, nonce, handleTraktLogin, handleGoogleOnlySession)
+                  }
                   onContinueWithTrakt={handleTraktLogin}
                   onCancelLink={cancelGoogleLink}
                   onContinueWithoutTrakt={handleContinueWithoutTrakt}

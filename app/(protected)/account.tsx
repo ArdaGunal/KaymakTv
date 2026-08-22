@@ -43,7 +43,7 @@ const DESKTOP_BREAKPOINT = 768;
 const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
 
 export default function SettingsScreen() {
-  const { accessToken, isGuest } = useAuth();
+  const { accessToken, isGuest, authProvider } = useAuth();
   const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
     isLoggingOut, isDeletingAccount } = useSettings();
   const router = useRouter();
@@ -139,8 +139,16 @@ export default function SettingsScreen() {
         <SettingsHeader title={t('settings', 'Ayarlar')} isDesktop={isDesktop} onBack={navigateBack} />
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+          {/* 🔴 `!!accessToken` DEĞİL (2026-08-22 canlı testinde bulundu):
+              Google-only kullanıcıda (`create_new`, Madde 221) `accessToken`
+              DOLU ama içindeki değer bir Trakt token'ı DEĞİL — Kaymak oturum
+              token'ı. Eski koşul bu kullanıcıya "Trakt hesabı bağlı ✓"
+              gösteriyordu; oysa hiç bağlı değil ve Kütüphane/Takvim ona
+              "Trakt'a bağlan" diyordu — uygulama kendi içinde ÇELİŞİYORDU.
+              Doğru kaynak `authProvider`: yalnızca gerçek Trakt token'ı
+              yazıldığında 'trakt' olur (bkz. AuthContext.saveTokens). */}
           <TraktAccountSection
-            isConnected={!!accessToken}
+            isConnected={authProvider === 'trakt'}
             onGoToLogin={goToLogin}
           />
 

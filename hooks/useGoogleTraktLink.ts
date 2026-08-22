@@ -35,23 +35,50 @@ export function useGoogleTraktLink() {
    * Madde 201/205). Kaldırılan tek şey kullanıcıya gösterilen ARA EKRAN.
    * `check` başarısız olursa GÜVENLİ TARAF: her zamanki köprü kartı gösterilir.
    */
-  const captureCredential = useCallback(async (googleIdToken: string, nonce: string, onAlreadyLinked?: () => void) => {
-    await AsyncStorage.setItem(PENDING_GOOGLE_LINK_KEY, JSON.stringify({ googleIdToken, nonce }));
+  const captureCredential = useCallback(
+    async (
+      googleIdToken: string,
+      nonce: string,
+      onAlreadyLinked?: () => void,
+      /**
+       * 🔴 2026-08-22 canlı testinde bulundu: `check` "linked" dönüyor diye
+       * kullanıcı KOŞULSUZ Trakt OAuth'a gönderiliyordu — ama Google-only bir
+       * hesap da (`create_new`, Madde 221) `google_sub` taşıdığı için "linked"
+       * döner. Sonuç: "Trakt'sız devam et" diyen kullanıcı, BİR SONRAKİ
+       * girişinde zorla Trakt'a atılıyordu; hesabının Trakt'ı hiç olmadığı
+       * için de o akışı tamamlaması imkânsızdı.
+       *
+       * Worker artık `traktLinked` döndürüyor; `false` ise Trakt round-trip'i
+       * ATLANIR ve `sessionToken` doğrudan kullanılır (Y23 kapandığı için bu
+       * artık güvenli — bkz. googleAuth.ts başlığı).
+       */
+      onGoogleOnlySession?: (sessionToken: string, userId?: string) => void
+    ) => {
+      await AsyncStorage.setItem(PENDING_GOOGLE_LINK_KEY, JSON.stringify({ googleIdToken, nonce }));
 
-    if (onAlreadyLinked) {
-      try {
-        const check = await checkGoogleAccount(googleIdToken, nonce);
-        if (check.status === 'linked') {
-          onAlreadyLinked();
-          return;
+      if (onAlreadyLinked || onGoogleOnlySession) {
+        try {
+          const check = await checkGoogleAccount(googleIdToken, nonce);
+          if (check.status === 'linked') {
+            if (!check.traktLinked && onGoogleOnlySession) {
+              await AsyncStorage.removeItem(PENDING_GOOGLE_LINK_KEY);
+              onGoogleOnlySession(check.sessionToken, check.userId);
+              return;
+            }
+            if (onAlreadyLinked) {
+              onAlreadyLinked();
+              return;
+            }
+          }
+        } catch (checkError) {
+          console.error('[Google Sign-In] check hatasi, kopru ekranina dusuluyor:', checkError);
         }
-      } catch (checkError) {
-        console.error('[Google Sign-In] check hatasi, kopru ekranina dusuluyor:', checkError);
       }
-    }
 
-    setAwaitingTraktLink(true);
-  }, []);
+      setAwaitingTraktLink(true);
+    },
+    []
+  );
 
   const cancel = useCallback(async () => {
     await AsyncStorage.removeItem(PENDING_GOOGLE_LINK_KEY);

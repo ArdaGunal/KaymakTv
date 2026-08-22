@@ -5,7 +5,18 @@ import axios from 'axios';
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 
 export type GoogleAuthCheckResult =
-  | { status: 'linked'; sessionToken: string }
+  | {
+      status: 'linked';
+      sessionToken: string;
+      /**
+       * `false` → hesap var ama Google-only (Trakt'a HİÇ bağlı değil).
+       * Bu ayrım olmadan istemci "linked"i "Trakt'a bağlı" sanıp kullanıcıyı
+       * Trakt OAuth'a gönderiyordu — "Trakt'sız devam et" diyen kullanıcı
+       * bir sonraki girişinde zorla Trakt'a atılıyordu (2026-08-22).
+       */
+      traktLinked: boolean;
+      userId?: string;
+    }
   | { status: 'unlinked' };
 
 export type GoogleAuthLinkResult = { status: 'created' | 'linked'; sessionToken: string };
@@ -45,14 +56,17 @@ const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
  * Google ID token'ının bu cihazdaki oturum için YETERLİ olup olmadığını
  * sorar — hiçbir şey YAZMAZ (bkz. Worker'daki `handleAuthGoogle` başlığı).
  *
- * ⚠️ Bugünkü kapsamda (HISTORY Madde 201) `status:'linked'` dönse bile
- * istemci `sessionToken`'ı KULLANMIYOR — her başarılı giriş `link_trakt` ile
- * tamamlanıp GERÇEK Trakt token'ları kaydediliyor (`AuthContext.saveTokens`).
- * Sebep: `sessionToken`'ı `traktAccessToken` olarak saklamak,
- * `services/api/traktClient.ts`'in 401 yakalayıcısını (refresh token yoksa
- * KOŞULSUZ oturumu kapatıyor) yanlış tetikleyip kullanıcıyı sessizce çıkışa
- * atardı. `sessionToken` altyapısı hazır ve test edildi; kullanılması bu
- * riskin çözüldüğü ayrı bir işe bırakıldı.
+ * ⚠️ Bu not (HISTORY Madde 201) ARTIK YALNIZCA `traktLinked:true` İÇİN
+ * geçerli: o durumda `sessionToken` hâlâ kullanılmıyor, giriş `link_trakt`
+ * ile tamamlanıp GERÇEK Trakt token'ları kaydediliyor. Sebep tarihseldi:
+ * `sessionToken`'ı `traktAccessToken` olarak saklamak, `traktClient.ts`'in
+ * 401 yakalayıcısını yanlış tetikleyip kullanıcıyı sessizce çıkışa atardı —
+ * ama o risk **Y23'te kapandı** (Madde 220) ve `create_new` zaten bu yolu
+ * kullanıyor.
+ *
+ * `traktLinked:false` (Google-only hesap) durumunda `sessionToken` DOĞRUDAN
+ * kullanılır — Trakt round-trip'i yapmak anlamsız olurdu, kullanıcının zaten
+ * Trakt hesabı yok.
  */
 export const checkGoogleAccount = async (googleIdToken: string, nonce: string): Promise<GoogleAuthCheckResult> => {
   const data = await postAuthGoogle({ action: 'check', googleIdToken, nonce });
@@ -60,7 +74,16 @@ export const checkGoogleAccount = async (googleIdToken: string, nonce: string): 
     throw new Error(data?.message || 'Google hesabı doğrulanamadı.');
   }
   return data.status === 'linked'
-    ? { status: 'linked', sessionToken: data.sessionToken }
+    ? {
+        status: 'linked',
+        sessionToken: data.sessionToken,
+        // `?? true` GÜVENLİ TARAF: Worker'ın eski (bu alanı döndürmeyen)
+        // sürümü hâlâ canlıysa davranış BUGÜNKÜ gibi kalır — Trakt yolu.
+        // Yanlış tarafa düşmek kullanıcıyı Trakt'sız bir hesapta Trakt
+        // token'ıyla oturum açmaya zorlardı.
+        traktLinked: data.traktLinked ?? true,
+        userId: data.userId,
+      }
     : { status: 'unlinked' };
 };
 
