@@ -18,8 +18,21 @@ import { getUserProfile, getFollowers, getFollowing, TraktUserProfile } from '..
 // `false`'a çekip misafiri doğrudan giriş ekranına fırlatıyordu (canlı hata
 // günlüğünde `traktClient.401.noRefreshToken` olarak yakalandı). `useFeedPrivacy.ts`
 // bunu zaten doğru yapıyordu; aynı desen buraya da taşındı.
+//
+// 🔴 2026-08-22 — AYNI HATA SINIFININ ÜÇÜNCÜ HÂLİ: Google-only kullanıcı
+// (`create_new`, Madde 221) misafirle aynı durumda değil — elinde DOLU bir
+// `accessToken` var, ama o bir Trakt token'ı DEĞİL (Kaymak oturum token'ı).
+// Yukarıdaki misafir koruması onu geçiriyordu; `/users/me` 401 dönüyor,
+// `profile` sonsuza dek `null` kalıyor ve profil ekranı GRİ YANIP SÖNEN bir
+// iskelet gösteriyordu (kullanıcı canlı testte bildirdi). Y23 sayesinde artık
+// çıkışa atılmıyor ama ekran da hiç dolmuyordu.
+//
+// Bu kullanıcının adı/fotoğrafı ZATEN BİZDE (`AuthContext.myUsername`/
+// `myAvatarUrl`, Worker'ın `/account/profile/get`'inden gelir) — Trakt'a hiç
+// gitmeden yerel bir profil sentezleniyor. Takipçi/takip sayıları 0: Trakt'sız
+// kullanıcının Trakt sosyal grafiği YOK, bu bir hata değil GERÇEK durum.
 export function useMyTraktProfile() {
-  const { accessToken, isGuest } = useAuth();
+  const { accessToken, isGuest, authProvider, myUsername, myAvatarUrl } = useAuth();
   const [profile, setProfile] = useState<TraktUserProfile | null>(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -34,6 +47,21 @@ export function useMyTraktProfile() {
   const fetchProfile = useCallback(
     async (isMounted?: () => boolean) => {
       if (!accessToken || isGuest) {
+        setIsLoading(false);
+        return;
+      }
+      // Google-only: Trakt'a HİÇ gitme, yerel profili sentezle (bkz. başlık).
+      if (authProvider === 'google') {
+        setProfile({
+          username: myUsername ?? '',
+          private: false,
+          name: myUsername ?? null,
+          vip: false,
+          ids: { slug: '' },
+          images: myAvatarUrl ? { avatar: { full: myAvatarUrl } } : undefined,
+        });
+        setFollowersCount(0);
+        setFollowingCount(0);
         setIsLoading(false);
         return;
       }
@@ -53,7 +81,7 @@ export function useMyTraktProfile() {
         if (!isMounted || isMounted()) setIsLoading(false);
       }
     },
-    [accessToken, isGuest]
+    [accessToken, isGuest, authProvider, myUsername, myAvatarUrl]
   );
 
   useEffect(() => {

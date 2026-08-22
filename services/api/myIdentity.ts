@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from '../../utils/secureStorage';
 import { getUserProfile } from './social';
+import { isKaymakSessionToken } from './traktClient';
 
 /**
  * Giriş yapmış kullanıcının KENDİ Trakt slug'ı — tek gerçek kaynak.
@@ -39,6 +41,18 @@ let inFlight: Promise<string | null> | null = null;
 export async function getMyTraktSlug(): Promise<string | null> {
   if (cachedSlug) return cachedSlug;
   if (inFlight) return inFlight;
+
+  // 🔴 Google-only oturum (`create_new`, Madde 221): Trakt hesabı HİÇ yok,
+  // dolayısıyla bir slug da yok. İstek göndermek yalnızca 401 üretir (canlı
+  // testte, 2026-08-22, akışın her yüklemesinde tekrarlanıyordu). `null`
+  // dönmek zaten DOĞRU cevap — ama artık ağa çıkmadan veriliyor.
+  //
+  // ⚠️ Bu, çağıranların "ben kimim"i slug'tan çözemeyeceği anlamına gelir;
+  // Google-only kimliğin doğru kaynağı `getMySupabaseUserId()`'dir (bkz.
+  // features/feed/services/userBlocks.ts — disk-öncelikli, sağlayıcıdan
+  // bağımsız).
+  const token = await SecureStore.getItemAsync('traktAccessToken');
+  if (isKaymakSessionToken(token)) return null;
 
   inFlight = (async () => {
     try {

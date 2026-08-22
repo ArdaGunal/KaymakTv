@@ -20,6 +20,32 @@ export const applyTranslation = (item: any, lang: string) => {
 
 const TRAKT_API_URL = 'https://api.trakt.tv';
 
+/**
+ * Worker'ın `mintSessionToken`'ının ürettiği KaymakTV oturum token'ının öneki
+ * (bkz. Worker `KAYMAK_SESSION_PREFIX` / `resolveCallerWithReason`).
+ *
+ * 🔴 NEDEN BURADA GEREKLİ: Google-only kullanıcıda (`create_new`, Madde 221)
+ * `traktAccessToken` YUVASINDA bir Trakt token'ı DEĞİL, bu önekli Kaymak
+ * oturum token'ı durur — bu, Worker'ın bilinçli tasarımı (12 yazma ucu tek
+ * opak string görsün diye). Ama Trakt bu değeri tanımaz.
+ *
+ * Bunu `Authorization: Bearer` olarak Trakt'a göndermek yalnızca kişisel
+ * uçları değil, KİMLİK GEREKTİRMEYEN PUBLIC UÇLARI DA kırıyordu: Trakt
+ * geçersiz bir bearer görünce isteği komple 401'liyor. Canlı testte
+ * (2026-08-22) `GET /shows/trending` — misafirin sorunsuz çektiği uç — bu
+ * yüzden 401 dönüyordu; Keşfet, arama ve dizi/film detay sayfaları Google-only
+ * kullanıcı için tamamen ölüydü. Yani token'ın VARLIĞI, kullanıcıyı
+ * misafirden DAHA KÖTÜ duruma sokuyordu.
+ *
+ * Öneke bakmak `traktAuthProvider` bayrağını okumaya tercih edildi: değer
+ * kendi kendini tanımlıyor, ekstra bir async okuma gerektirmiyor ve bayrak
+ * bir şekilde bayatlarsa/yazılamazsa bile doğru davranıyor.
+ */
+const KAYMAK_SESSION_PREFIX = 'kaymak_session_v1.';
+
+export const isKaymakSessionToken = (token: string | null | undefined): boolean =>
+  typeof token === 'string' && token.startsWith(KAYMAK_SESSION_PREFIX);
+
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
@@ -189,7 +215,13 @@ export const getTraktClient = async () => {
     'trakt-api-key': clientId,
   };
 
-  if (accessToken) {
+  // Kaymak oturum token'ı Trakt'a GÖNDERİLMEZ (bkz. KAYMAK_SESSION_PREFIX'in
+  // başlığı): Trakt onu tanımaz ve geçersiz bir bearer yüzünden PUBLIC uçları
+  // bile 401'ler. Başlığı hiç eklemeyerek Google-only kullanıcı, public Trakt
+  // uçlarında misafirle BİREBİR aynı (çalışan) davranışı alır; kişisel uçlar
+  // zaten onun için anlamsız ve 401 dönmeye devam eder — bu BEKLENEN, Y23'ün
+  // yakalayıcısı bunu çıkışa çevirmiyor.
+  if (accessToken && !isKaymakSessionToken(accessToken)) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getMyProfile, MyProfile } from '../features/feed/services/profile';
+import { setMySupabaseUserId } from '../features/feed/services/userBlocks';
 
 /**
  * `account.tsx`'in "Kullanıcı Adı" satırı için — yalnızca `authProvider ===
@@ -29,6 +30,13 @@ export function useMyGoogleProfile() {
       try {
         const current = await getMyProfile(accessToken);
         if (!cancelled) setProfile(current);
+        // Kimliği diske yaz — `create_new` yalnızca İLK kayıtta bir kez
+        // çalışıyor, bu uç ise her açılışta. Uygulamayı yeniden kuran ya da
+        // başka bir cihazdan giren Google-only kullanıcı için kimliğin tek
+        // kalıcı kaynağı burası (bkz. userBlocks.getMySupabaseUserId'nin
+        // disk-öncelikli tasarımı). `cancelled` olsa bile yazılır: değer
+        // ekrandan bağımsız, doğru ve değişmeyen bir kimlik.
+        if (current.userId) void setMySupabaseUserId(current.userId);
       } catch (error) {
         console.warn('[useMyGoogleProfile] Profil okunamadı:', error);
       } finally {

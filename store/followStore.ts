@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from '../utils/secureStorage';
 import { getMyFollowingSlugs } from '../services/api/social';
+import { isKaymakSessionToken } from '../services/api/traktClient';
 // `import type`: yalnızca tip gerekiyor. Düz `import` olduğunda bu satır
 // GERÇEK bir çalışma-zamanı bağımlılığı yaratıyordu ve `useFollowState`
 // AuthContext + notificationStore'u da içeri çektiği için ortaya
@@ -108,6 +110,22 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
     // Hidrasyon bitmeden ağdan gelen sonuç birleştirilmeye BAŞLANAMAZ —
     // aksi halde az sonra tamamlanacak hidrasyon bu birleştirmeyi ezer.
     await ensureHydrated();
+
+    // 🔴 Google-only oturum (`create_new`, Madde 221): bu kullanıcının Trakt
+    // hesabı HİÇ YOK, dolayısıyla bir Trakt takip listesi de yok. İstek
+    // göndermek 401'den başka bir şey üretmez ve `lastFailedAt`'i doldurup
+    // akışın tepesinde "Takip listesi güncellenemedi — son bilinen hâli
+    // gösteriliyor" uyarısını çıkarır. Bu uyarı YANLIŞ TEŞHİSTİR: ortada
+    // güncellenemeyen bir liste yok, hiç liste yok. Kullanıcı canlı testte
+    // (2026-08-22) tam da bunu bildirdi.
+    //
+    // Boş ama BAŞARILI bir sonuç olarak işaretleniyor — `lastFailedAt` 0
+    // kalıyor, dolayısıyla `selectIsFollowingListStale` false döner.
+    const token = await SecureStore.getItemAsync('traktAccessToken');
+    if (isKaymakSessionToken(token)) {
+      set({ isFetched: true, isLoading: false, fetchedAt: Date.now(), lastFailedAt: 0 });
+      return;
+    }
 
     const isStale = Date.now() - get().fetchedAt >= CACHE_TTL.SYNC_INTERVAL;
     if (get().isFetched && !force && !isStale) return;

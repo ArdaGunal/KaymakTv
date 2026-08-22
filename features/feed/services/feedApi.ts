@@ -299,19 +299,38 @@ export async function getVisibleUserIds(force = false): Promise<Set<string>> {
 
   // Kendi slug'ım BİLİNÇLİ OLARAK dahil — kullanıcı kendi aktivitelerini de
   // akışta görür (bkz. docs/HISTORY.md Madde 142). Takip ettiklerim + ben.
-  const [followingSlugs, mySlug] = await Promise.all([getFollowingSlugs(), getMyTraktSlug()]);
+  //
+  // 🔴 `myUserId` (2026-08-22): Google-only kullanıcının (`create_new`, Madde
+  // 221) `trakt_slug`'ı NULL'dur — aşağıdaki `.in('trakt_slug', slugs)`
+  // sorgusu onu ASLA bulamaz. Sonuç canlı testte görüldü: kullanıcı KENDİ
+  // gönderisini bile göremiyordu (gönderi kaydediliyor ama akış onu
+  // sahiplenemiyor). Kimlik bu yüzden slug'tan BAĞIMSIZ olarak da çözülüyor
+  // — `getMySupabaseUserId()` disk-öncelikli ve sağlayıcıdan bağımsızdır
+  // (bkz. userBlocks.ts). Trakt kullanıcısı için davranış DEĞİŞMEZ: onun
+  // id'si zaten slug sorgusundan geliyor, `add` yalnızca aynı değeri tekrar
+  // yazar (Set).
+  const [followingSlugs, mySlug, myUserId] = await Promise.all([
+    getFollowingSlugs(),
+    getMyTraktSlug(),
+    getMySupabaseUserId().catch(() => null),
+  ]);
   const slugs = Array.from(new Set(mySlug ? [...followingSlugs, mySlug] : followingSlugs));
-  if (slugs.length === 0) {
+
+  const ids = new Set<string>();
+  if (slugs.length > 0) {
+    const { data, error } = await timeSupabaseCall('supabase.users.visibleIds', () =>
+      supabase.from('users').select('id').in('trakt_slug', slugs)
+    );
+    if (error) throw error;
+    for (const row of (data ?? []) as { id: string }[]) ids.add(row.id);
+  }
+  if (myUserId) ids.add(myUserId);
+
+  if (ids.size === 0) {
     const empty = new Set<string>();
     visibleUserIdsCache = { ids: empty, fetchedAt: Date.now() };
     return empty;
   }
-
-  const { data, error } = await timeSupabaseCall('supabase.users.visibleIds', () =>
-    supabase.from('users').select('id').in('trakt_slug', slugs)
-  );
-  if (error) throw error;
-  const ids = new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
 
   // Engel, Trakt takibinden HER ZAMAN üstündür (bkz. docs/FEED_SOCIAL_PLAN.md
   // §4.2, §4.3) — takip listesinde olsalar bile engellenen/engelleyen

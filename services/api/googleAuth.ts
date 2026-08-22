@@ -17,6 +17,12 @@ export type GoogleCreateNewResult = {
   // onboarding ekranının önceden doldurması için (bkz. profil-olustur.tsx).
   username?: string;
   avatarUrl?: string | null;
+  /**
+   * Google-only kullanıcının Supabase `users.id`'si. `trakt_slug` NULL olduğu
+   * için istemci bu kimliği slug'tan ÇÖZEMEZ — akışın "ben" tanımı buna bağlı
+   * (bkz. features/feed/services/userBlocks.ts `setMySupabaseUserId`).
+   */
+  userId?: string;
 };
 
 const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
@@ -78,7 +84,13 @@ export const createGoogleOnlyAccount = async (googleIdToken: string, nonce: stri
   if (!data?.success) {
     throw new Error(data?.message || 'Hesap oluşturulamadı.');
   }
-  return { status: data.status, sessionToken: data.sessionToken, username: data.username, avatarUrl: data.avatarUrl };
+  return {
+    status: data.status,
+    sessionToken: data.sessionToken,
+    username: data.username,
+    avatarUrl: data.avatarUrl,
+    userId: data.userId,
+  };
 };
 
 export const linkGoogleToTrakt = async (

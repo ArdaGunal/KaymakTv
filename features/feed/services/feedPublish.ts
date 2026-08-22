@@ -1,7 +1,9 @@
 import axios from 'axios';
 import * as SecureStore from '../../../utils/secureStorage';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
+import { isKaymakSessionToken } from '../../../services/api/traktClient';
 import { getUserProfile } from '../../../services/api/social';
+import { getMySupabaseUserId } from './userBlocks';
 import { useFeedStore } from '../store/feedStore';
 import { invalidateFeedCache, invalidateUserFeedActivitiesCache } from './feedApi';
 import { FeedActivity, FeedMediaType } from '../types';
@@ -60,6 +62,40 @@ let cachedMe: FeedActivity['user'] | null = null;
 
 async function resolveMe(): Promise<FeedActivity['user'] | null> {
   if (cachedMe) return cachedMe;
+
+  // 🔴 Google-only kullanıcı (`create_new`, Madde 221): `getMyTraktSlug()`
+  // null döner ve `getUserProfile('me')` 401 alır — aşağıdaki Trakt yolu bu
+  // kullanıcı için ASLA çalışamaz. Canlı testte (2026-08-22) sonuç şuydu:
+  // gönderi sunucuya kaydediliyor ama ekranda HİÇBİR ŞEY olmuyordu, kullanıcı
+  // "paylaşmadı" sandı. Kimlik/ad/fotoğraf zaten bizde (Worker'ın
+  // `/account/profile/get`'i → AuthContext → SecureStore), Trakt'a hiç
+  // gitmeden iyimser kart çizilebilir.
+  try {
+    const token = await SecureStore.getItemAsync('traktAccessToken');
+    if (isKaymakSessionToken(token)) {
+      const myUserId = await getMySupabaseUserId().catch(() => null);
+      if (!myUserId) return null;
+      const [username, avatarUrl] = await Promise.all([
+        SecureStore.getItemAsync('kaymakMyUsername'),
+        SecureStore.getItemAsync('kaymakMyAvatarUrl'),
+      ]);
+      cachedMe = {
+        // Trakt dalının aksine BURADA gerçek Supabase `users.id`'si var —
+        // Google-only kimliğin zaten tek anahtarı o (bkz. userBlocks.ts).
+        id: myUserId,
+        // Bu kullanıcının Trakt slug'ı YOK; akışın "ben" eşleşmesi artık
+        // `getVisibleUserIds`'te id üzerinden yapılıyor (bkz. feedApi.ts).
+        traktSlug: '',
+        username: username || 'Kaymak Kullanıcısı',
+        avatarUrl: avatarUrl ?? null,
+      };
+      return cachedMe;
+    }
+  } catch (error) {
+    console.warn('[Feed] Google-only kimliği çözülemedi (iyimser kart atlanıyor):', error);
+    return null;
+  }
+
   try {
     const [slug, profile] = await Promise.all([getMyTraktSlug(), getUserProfile('me')]);
     if (!slug) return null;

@@ -1,7 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
+import * as SecureStore from '../../../utils/secureStorage';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
+import { isKaymakSessionToken } from '../../../services/api/traktClient';
+import { getMyProfile } from './profile';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
 
 // Kullanıcı Engelleme — KaymakTV'ye özel, Trakt'a hiç dokunmaz (bkz.
@@ -74,7 +77,30 @@ export async function getMySupabaseUserId(): Promise<string | null> {
     console.warn('[userBlocks] users.id diskten okunamadı:', error);
   }
 
-  // 2) Geriye uyumlu yol: Trakt slug'ı üzerinden çöz ve diske yaz, böylece
+  // 2) Google-only oturum (`create_new`, Madde 221): Trakt slug'ı HİÇ YOK,
+  //    aşağıdaki 3. adım bu kullanıcı için asla sonuç veremez. Kimliği
+  //    Worker'ın kimlik doğrulamalı ucundan çöz ve diske yaz.
+  //
+  //    ⚠️ NEDEN BURADA, giriş akışında değil: giriş akışı (`settings.tsx`)
+  //    bunu zaten yazıyor, ama YALNIZCA `create_new`'in çalıştığı İLK kayıtta.
+  //    Bu düzeltmeden ÖNCE açılmış Google-only hesapların diskinde değer yok
+  //    ve akış onlar için sessizce boş kalırdı. Çözümü tek bir yere (bu
+  //    fonksiyona) koymak, her çağıranın kendi başına telafi etmesinden
+  //    daha güvenli — "ben kimim" sorusunun TEK cevabı burası.
+  const token = await SecureStore.getItemAsync('traktAccessToken');
+  if (isKaymakSessionToken(token) && token) {
+    try {
+      const profile = await getMyProfile(token);
+      myUserIdCache = { id: profile.userId, fetchedAt: Date.now() };
+      void setMySupabaseUserId(profile.userId);
+      return profile.userId;
+    } catch (error) {
+      console.warn('[userBlocks] Google-only kimlik Worker\'dan çözülemedi:', error);
+      return null;
+    }
+  }
+
+  // 3) Geriye uyumlu yol: Trakt slug'ı üzerinden çöz ve diske yaz, böylece
   //    bir dahaki sefere 1. adım yeterli olur.
   const slug = await getMyTraktSlug();
   if (!slug) return null;

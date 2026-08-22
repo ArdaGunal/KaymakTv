@@ -11,6 +11,7 @@ import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import { GoogleSignInSection } from '../../components/settings/GoogleSignInSection';
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
+import { setMySupabaseUserId } from '../../features/feed/services/userBlocks';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -167,6 +168,13 @@ export default function Login() {
     try {
       const result = await completeWithoutTrakt();
       await saveGoogleSession(result.sessionToken, { username: result.username, avatarUrl: result.avatarUrl });
+      // 🔴 Google-only kullanıcının `trakt_slug`'ı NULL — akışın/engellerin
+      // "ben kimim" çözümü (getMySupabaseUserId) slug'a düşerse HİÇBİR ZAMAN
+      // sonuç veremez ve kullanıcı KENDİ gönderisini bile göremez (2026-08-22
+      // canlı testinde bulundu). Kimliği burada, tek bildiğimiz anda diske
+      // yazıyoruz — `setMySupabaseUserId` tam bu an için yazılmıştı ama F8'de
+      // hiç bağlanmamıştı.
+      if (result.userId) await setMySupabaseUserId(result.userId);
       // Profil onboarding turu: yalnızca GERÇEKTEN yeni oluşturulan bir
       // hesap (`status:'created'`) türetilen adı/fotoğrafı ÖNCEDEN dolu
       // görüp düzenleyebileceği bir ekrana gider. `'linked'` (iki sekmenin

@@ -14,6 +14,8 @@ export interface UpdateProfilePatch {
 }
 
 export interface MyProfile {
+  /** Supabase `users.id` — Google-only kullanıcı için kimliğin TEK kalıcı kaynağı. */
+  userId: string;
   username: string;
   avatarUrl: string | null;
   /** ISO string veya `null` — hiç değiştirilmemişse `null` (kilit yok). */
@@ -46,6 +48,7 @@ export async function getMyProfile(traktAccessToken: string): Promise<MyProfile>
     throw new Error(response.data?.message || 'Profil okunamadı.');
   }
   return {
+    userId: response.data.userId,
     username: response.data.username,
     avatarUrl: response.data.avatarUrl ?? null,
     usernameUpdatedAt: response.data.usernameUpdatedAt ?? null,
