@@ -23,8 +23,17 @@ type AuthContextType = {
   // create_new: Google-only (Trakt'sız) bir oturum mu, yoksa gerçek bir
   // Trakt bağlantısı mı — `null` yalnızca henüz hiç oturum açılmadığında.
   authProvider: 'trakt' | 'google' | null;
+  // Yalnızca `authProvider==='google'` kullanıcılar için anlamlı — Trakt
+  // kullanıcılarının adı Trakt'tan senkronlanıyor (bkz. profil onboarding
+  // turunun tasarım notu: bu ikisi KASITLI OLARAK ayrı, Trakt taraf hiç
+  // dokunulmuyor). `users` tablosuna anon key ile "kendi satırımı" sorgulamanın
+  // yolu yok (google_sub anon'a kapalı, 026) — bu yüzden değer sunucudan
+  // (create_new/updateProfile yanıtı) alınıp burada yerelde tutuluyor.
+  myUsername: string | null;
+  myAvatarUrl: string | null;
   saveTokens: (access: string, refresh: string) => Promise<void>;
-  saveGoogleSession: (sessionToken: string) => Promise<void>;
+  saveGoogleSession: (sessionToken: string, profile?: { username?: string; avatarUrl?: string | null }) => Promise<void>;
+  updateMyProfile: (patch: { username?: string; avatarUrl?: string | null }) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   removeKeys: () => Promise<void>;
 };
@@ -34,8 +43,11 @@ const AuthContext = createContext<AuthContextType>({
   isGuest: false,
   isLoading: true,
   authProvider: null,
+  myUsername: null,
+  myAvatarUrl: null,
   saveTokens: async () => {},
   saveGoogleSession: async () => {},
+  updateMyProfile: async () => {},
   loginAsGuest: async () => {},
   removeKeys: async () => {},
 });
@@ -47,6 +59,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authProvider, setAuthProvider] = useState<'trakt' | 'google' | null>(null);
+  const [myUsername, setMyUsername] = useState<string | null>(null);
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadKeys();
@@ -81,10 +95,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       // Paralel: bu iki okuma birbirinden bağımsız, sıralı `await` açılışta
       // gereksiz bir round-trip kadar gecikme ekliyordu.
-      const [token, guestStatus, providerRaw] = await Promise.all([
+      const [token, guestStatus, providerRaw, usernameRaw, avatarUrlRaw] = await Promise.all([
         SecureStore.getItemAsync('traktAccessToken'),
         SecureStore.getItemAsync('traktGuestMode'),
         SecureStore.getItemAsync('traktAuthProvider'),
+        SecureStore.getItemAsync('kaymakMyUsername'),
+        SecureStore.getItemAsync('kaymakMyAvatarUrl'),
       ]);
 
       if (token) {
@@ -93,6 +109,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // — `null !== 'google'` zaten `traktClient.ts`'teki varsayılanla
         // (gerçek Trakt oturumu) birebir aynı davranışı üretir.
         setAuthProvider(providerRaw === 'google' ? 'google' : 'trakt');
+        if (usernameRaw) setMyUsername(usernameRaw);
+        if (avatarUrlRaw) setMyAvatarUrl(avatarUrlRaw);
       }
       if (guestStatus === 'true') {
         setIsGuest(true);
@@ -137,7 +155,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    * `traktAuthProvider==='google'` gördüğünde bunu BEKLENEN sayıp tüm
    * oturumu kapatmadan yalnızca ilgili Trakt isteğini başarısız sayar.
    */
-  const saveGoogleSession = async (sessionToken: string) => {
+  const saveGoogleSession = async (sessionToken: string, profile?: { username?: string; avatarUrl?: string | null }) => {
     try {
       await SecureStore.setItemAsync('traktAccessToken', sessionToken);
       await SecureStore.deleteItemAsync('traktRefreshToken');
@@ -146,8 +164,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAccessToken(sessionToken);
       setAuthProvider('google');
       setIsGuest(false);
+      // `profile` yalnızca create_new'in `status:'created'` dalında dolu
+      // gelir (bkz. googleAuth.ts) — yarış durumunda (`'linked'`) verilmez,
+      // önceki bilinen değer (varsa) korunur.
+      if (profile?.username) {
+        await SecureStore.setItemAsync('kaymakMyUsername', profile.username);
+        setMyUsername(profile.username);
+      }
+      if (profile?.avatarUrl) {
+        await SecureStore.setItemAsync('kaymakMyAvatarUrl', profile.avatarUrl);
+        setMyAvatarUrl(profile.avatarUrl);
+      }
     } catch (error) {
       console.error('Error saving google session:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * `EditProfileModal`'ın (onboarding VEYA Ayarlar) `updateProfile` Worker
+   * çağrısı başarılı olduktan SONRA çağrılır — yerel kopyayı sunucudaki
+   * gerçek değerle senkron tutar. Yalnızca dolu gelen alanlar güncellenir.
+   */
+  const updateMyProfile = async (patch: { username?: string; avatarUrl?: string | null }) => {
+    try {
+      if (patch.username !== undefined) {
+        await SecureStore.setItemAsync('kaymakMyUsername', patch.username);
+        setMyUsername(patch.username);
+      }
+      if (patch.avatarUrl !== undefined) {
+        if (patch.avatarUrl) {
+          await SecureStore.setItemAsync('kaymakMyAvatarUrl', patch.avatarUrl);
+        } else {
+          await SecureStore.deleteItemAsync('kaymakMyAvatarUrl');
+        }
+        setMyAvatarUrl(patch.avatarUrl);
+      }
+    } catch (error) {
+      console.error('Error updating my profile:', error);
       throw error;
     }
   };
@@ -168,6 +222,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await SecureStore.deleteItemAsync('traktGuestMode');
       // Y23: bir sonraki oturuma sızmasın — diğer kimlik anahtarlarıyla aynı gerekçe.
       await SecureStore.deleteItemAsync('traktAuthProvider');
+      // Aynı gerekçe: temizlenmezse çıkış yapıp BAŞKA bir Google-only hesapla
+      // girildiğinde (uygulama kapatılmadan) önceki hesabın adı/fotoğrafı bir
+      // an için yeni oturumda görünürdü.
+      await SecureStore.deleteItemAsync('kaymakMyUsername');
+      await SecureStore.deleteItemAsync('kaymakMyAvatarUrl');
       await AsyncStorage.clear();
       // AsyncStorage.clear() yalnızca DİSKTEKİ kopyayı siler — followStore
       // RAM'de bir Zustand singleton'ı olduğundan bir önceki oturumun
@@ -222,6 +281,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAccessToken(null);
       setAuthProvider(null);
       setIsGuest(false);
+      setMyUsername(null);
+      setMyAvatarUrl(null);
     } catch (error) {
       console.error('Error removing keys:', error);
     }
@@ -229,7 +290,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ accessToken, isGuest, isLoading, authProvider, saveTokens, saveGoogleSession, loginAsGuest, removeKeys }}
+      value={{
+        accessToken,
+        isGuest,
+        isLoading,
+        authProvider,
+        myUsername,
+        myAvatarUrl,
+        saveTokens,
+        saveGoogleSession,
+        updateMyProfile,
+        loginAsGuest,
+        removeKeys,
+      }}
     >
       {children}
     </AuthContext.Provider>

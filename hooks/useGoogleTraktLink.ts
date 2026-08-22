@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { checkGoogleAccount, linkGoogleToTrakt, createGoogleOnlyAccount } from '../services/api/googleAuth';
+import { checkGoogleAccount, linkGoogleToTrakt, createGoogleOnlyAccount, GoogleCreateNewResult } from '../services/api/googleAuth';
 
 // F8 — Google ile giriş tamamlanınca Trakt yeniden doğrulamasını beklerken
 // kimlik kanıtını (ID token + nonce) burada sakla. AsyncStorage kullanılıyor
@@ -79,8 +79,12 @@ export function useGoogleTraktLink() {
    * (`PENDING_GOOGLE_LINK_KEY`) okur ama Trakt'a bağlamak yerine Google-only
    * yeni bir hesap açar (veya, hesap zaten varsa, onu bulur). Dönen
    * `sessionToken`'ı çağıran taraf `AuthContext.saveGoogleSession`'a verir.
+   * Tüm sonucu (yalnızca `sessionToken`'ı değil) döner — `status`, çağıranın
+   * onboarding ekranına mı (`'created'`) yoksa doğrudan ana sayfaya mı
+   * (`'linked'`, yarış durumu) gideceğine karar vermesi için gerekli;
+   * `username`/`avatarUrl` de onboarding'in ÖNCEDEN doldurması için.
    */
-  const completeWithoutTrakt = useCallback(async (): Promise<string> => {
+  const completeWithoutTrakt = useCallback(async (): Promise<GoogleCreateNewResult> => {
     const raw = await AsyncStorage.getItem(PENDING_GOOGLE_LINK_KEY);
     if (!raw) {
       throw new Error('Bekleyen bir Google kimlik doğrulaması yok.');
@@ -89,7 +93,7 @@ export function useGoogleTraktLink() {
     const result = await createGoogleOnlyAccount(googleIdToken, nonce);
     await AsyncStorage.removeItem(PENDING_GOOGLE_LINK_KEY);
     setAwaitingTraktLink(false);
-    return result.sessionToken;
+    return result;
   }, []);
 
   return { awaitingTraktLink, captureCredential, cancel, completeIfPending, completeWithoutTrakt };

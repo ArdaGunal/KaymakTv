@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, UserX } from 'lucide-react-native';
+import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, User, UserX } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
+import EditProfileModal from '../../components/modals/EditProfileModal';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import ReportIssueModal from '../../components/settings/ReportIssueModal';
@@ -28,6 +29,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { useFeedPrivacy } from '../../features/feed/hooks/useFeedPrivacy';
 import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
+import { useMyGoogleProfile } from '../../hooks/useMyGoogleProfile';
 
 // Sürüm numarasına ard arda dokununca gizli Geliştirici Paneli açılır
 // (Android'in "Yapı Numarası"na dokunma esprisiyle aynı mantık). 5. dokunuşta
@@ -42,7 +44,7 @@ const DESKTOP_BREAKPOINT = 768;
 const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
 
 export default function SettingsScreen() {
-  const { accessToken, isGuest } = useAuth();
+  const { accessToken, isGuest, authProvider } = useAuth();
   const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
     isLoggingOut, isDeletingAccount } = useSettings();
   const router = useRouter();
@@ -54,8 +56,11 @@ export default function SettingsScreen() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [legalModalVisible, setLegalModalVisible] = useState(false);
+  const [editUsernameModalVisible, setEditUsernameModalVisible] = useState(false);
   const feedPrivacy = useFeedPrivacy();
   const profilePrivacy = useProfilePrivacy();
+  // Yalnızca Google-only kullanıcı için anlamlı — bkz. EditProfileModal.tsx başlığı.
+  const { profile: myGoogleProfile, setProfile: setMyGoogleProfile } = useMyGoogleProfile();
 
   // ── Gizli Geliştirici Paneli (sürüm numarasına ard arda dokunma) ─────────
   // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
@@ -142,6 +147,23 @@ export default function SettingsScreen() {
             isConnected={!!accessToken}
             onGoToLogin={goToLogin}
           />
+
+          {/* Yalnızca Google-only kullanıcı — Trakt kullanıcısının adı
+              Trakt'tan senkronlanıyor, burada göstermek/düzenletmek bir
+              sonraki girişte sessizce eski hâline dönerdi (bkz.
+              EditProfileModal.tsx başlığı). */}
+          {!isGuest && authProvider === 'google' && myGoogleProfile && (
+            <SettingsSection title={t('settings:profileSection', 'Profil')}>
+              <SettingsRow
+                icon={<User size={20} color="#60a5fa" />}
+                label={t('settings:usernameRowLabel', 'Kullanıcı Adı')}
+                tintColor="#60a5fa"
+                value={myGoogleProfile.username}
+                showChevron
+                onPress={() => setEditUsernameModalVisible(true)}
+              />
+            </SettingsSection>
+          )}
 
           <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
@@ -425,6 +447,16 @@ export default function SettingsScreen() {
         onSelect={handleChangeLanguage}
         onClose={() => setLanguageModalVisible(false)}
       />
+
+      {myGoogleProfile && (
+        <EditProfileModal
+          visible={editUsernameModalVisible}
+          onClose={() => setEditUsernameModalVisible(false)}
+          currentUsername={myGoogleProfile.username}
+          usernameUpdatedAt={myGoogleProfile.usernameUpdatedAt}
+          onSaved={(username) => setMyGoogleProfile((prev) => (prev ? { ...prev, username, usernameUpdatedAt: new Date().toISOString() } : prev))}
+        />
+      )}
 
       <Snackbar
         visible={devModeToast.visible}

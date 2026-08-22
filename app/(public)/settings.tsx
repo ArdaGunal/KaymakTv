@@ -165,9 +165,18 @@ export default function Login() {
   const handleContinueWithoutTrakt = async () => {
     setIsCreatingGoogleOnly(true);
     try {
-      const sessionToken = await completeWithoutTrakt();
-      await saveGoogleSession(sessionToken);
-      router.replace('/(protected)/(tabs)/explore');
+      const result = await completeWithoutTrakt();
+      await saveGoogleSession(result.sessionToken, { username: result.username, avatarUrl: result.avatarUrl });
+      // Profil onboarding turu: yalnızca GERÇEKTEN yeni oluşturulan bir
+      // hesap (`status:'created'`) türetilen adı/fotoğrafı ÖNCEDEN dolu
+      // görüp düzenleyebileceği bir ekrana gider. `'linked'` (iki sekmenin
+      // yarışması) zaten var olan bir hesaba döner — onboarding'e gerek yok,
+      // muhtemelen daha önce zaten gösterilmişti.
+      if (result.status === 'created') {
+        router.replace('/profil-olustur');
+      } else {
+        router.replace('/(protected)/(tabs)/explore');
+      }
     } catch (error: any) {
       console.error('[Google Sign-In] Trakt\'sız hesap oluşturma hatası:', error);
       notify(t('common:error'), error?.message || t('communicationError'));

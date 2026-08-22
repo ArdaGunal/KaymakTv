@@ -10,7 +10,14 @@ export type GoogleAuthCheckResult =
 
 export type GoogleAuthLinkResult = { status: 'created' | 'linked'; sessionToken: string };
 
-export type GoogleCreateNewResult = { status: 'created' | 'linked'; sessionToken: string };
+export type GoogleCreateNewResult = {
+  status: 'created' | 'linked';
+  sessionToken: string;
+  // Yalnızca `status:'created'` iken dolu — Worker'ın türettiği ilk değerler,
+  // onboarding ekranının önceden doldurması için (bkz. profil-olustur.tsx).
+  username?: string;
+  avatarUrl?: string | null;
+};
 
 const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
@@ -71,7 +78,7 @@ export const createGoogleOnlyAccount = async (googleIdToken: string, nonce: stri
   if (!data?.success) {
     throw new Error(data?.message || 'Hesap oluşturulamadı.');
   }
-  return { status: data.status, sessionToken: data.sessionToken };
+  return { status: data.status, sessionToken: data.sessionToken, username: data.username, avatarUrl: data.avatarUrl };
 };
 
 export const linkGoogleToTrakt = async (
