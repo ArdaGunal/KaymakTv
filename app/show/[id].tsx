@@ -232,7 +232,7 @@ export default function ShowDetailScreen() {
               Kendi sosyal evrenimiz: yanıt/beğeni burada yaşar, yazma işlemi
               Trakt'a DA gider (dual-write). Aşağıdaki "Trakt Topluluğu"
               bölümünden BİLİNÇLİ olarak ayrı — birleşik liste reddedildi
-              (bkz. docs/REVIEWS_PLAN.md §4.2). */}
+              (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
           <View style={styles.section}>
             <MediaCommentsSection
               mediaId={traktIdNum}

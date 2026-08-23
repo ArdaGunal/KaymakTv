@@ -20,7 +20,7 @@ interface CommentRepliesProps {
  *
  * ⚠️ v2 DEĞİŞİKLİĞİ: Burada eskiden bir cevap YAZMA kutusu vardı
  * (`addCommentReply` → Trakt'a POST). Trakt'a yazmayı tamamen bıraktığımız
- * için (bkz. docs/REVIEWS_PLAN.md v2) o kısım kaldırıldı; cevaplar yalnızca
+ * için (bkz. docs/design/REVIEWS_PLAN.md v2) o kısım kaldırıldı; cevaplar yalnızca
  * GÖRÜNTÜLENİYOR.
  *
  * Kullanıcı kararı (Karar 9): "CommentReplies kalsın, Trakt yanıtları salt

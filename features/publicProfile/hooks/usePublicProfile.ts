@@ -5,7 +5,7 @@
  * fonksiyonlardı (yalnızca "me" değil, herhangi bir slug/username kabul
  * ediyor — bkz. hooks/useMyTraktProfile.ts'in "me" için aynı üçlüyü kullanan
  * mevcut deseni) — yeni bir servis fonksiyonu gerekmedi. Trakt'ın bu üç uç
- * noktası da herkese açık (auth gerektirmiyor, bkz. docs/feed.md), bu yüzden
+ * noktası da herkese açık (auth gerektirmiyor, bkz. docs/design/feed.md), bu yüzden
  * `useMyTraktProfile.ts`'teki gibi bir accessToken/isGuest koruması burada
  * YOK — misafir bir kullanıcı bile başkasının profilini görebilir.
  */

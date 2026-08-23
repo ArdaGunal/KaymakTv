@@ -21,7 +21,7 @@ import { confirmAsync } from '../../utils/confirmDialog';
  *
  * ⚠️ v2: TEK yazma hedefi var. Worker'ın `/feed/review` ucuna yazılır, o da
  * yalnızca `feed_activities`'e yazar — **Trakt'a hiçbir şey gitmez**
- * (bkz. docs/REVIEWS_PLAN.md v2 §1). Artık "iki kapı" sorunu yapısal olarak
+ * (bkz. docs/design/REVIEWS_PLAN.md v2 §1). Artık "iki kapı" sorunu yapısal olarak
  * imkânsız: dizi, film VE bölüm sayfalarının üçü de bu sheet'i kullanıyor
  * (bölüm incelemeleri F2'de açıldı, `episodeNumber` ile ayrışıyor ve `in_feed`
  * türetilmiş kolonu sayesinde ana akışa düşmüyor).
@@ -59,7 +59,7 @@ export default function WriteReviewSheet({
   // ⚠️ v2: Mevcut metin artık TRAKT'TAN OKUNMUYOR. v1'de `useMyMediaComment`
   // ile Trakt'taki yorum ön-doldurulurdu, çünkü inceleme oraya da yazılıyordu
   // ve kullanıcının Trakt web'den yazdığının üzerine boş kutuyla yazması
-  // önlenmeliydi. Trakt'a yazmayı bıraktığımız için (docs/REVIEWS_PLAN.md v2)
+  // önlenmeliydi. Trakt'a yazmayı bıraktığımız için (docs/design/REVIEWS_PLAN.md v2)
   // tek gerçek kaynak KENDİ satırımız — çağıran onu `initialBody` ile geçiyor.
   const trimmed = inputText.trim();
   const charCount = trimmed.length;

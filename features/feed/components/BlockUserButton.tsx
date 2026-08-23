@@ -11,7 +11,7 @@ interface BlockUserButtonProps {
 
 /**
  * Profil sayfasındaki engelle/engeli kaldır butonu (bkz.
- * docs/FEED_SOCIAL_PLAN.md §4.5). Tek eylem olduğu için ayrı bir "..." açılır
+ * docs/design/FEED_SOCIAL_PLAN.md §4.5). Tek eylem olduğu için ayrı bir "..." açılır
  * menüsü yerine doğrudan ikonla gösteriliyor — kilitli/açık durumu ikonun
  * kendisinden okunur.
  */

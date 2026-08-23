@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // KaymakTV'ye özel gizlilik ayarları — Trakt'taki `private` ayarından
-// BAĞIMSIZ (bkz. docs/feed.md). Okuma da yazma da artık Worker üzerinden
+// BAĞIMSIZ (bkz. docs/design/feed.md). Okuma da yazma da artık Worker üzerinden
 // (kimlik doğrulamalı, /feed/privacy/get + /feed/privacy) — F11/Y15: bu
 // alanlar eskiden anon key ile doğrudan `users`'tan okunuyordu, `028`
 // migration'ı bu okumayı GRANT'tan kaldırdığı için taşındı (bkz.
@@ -20,7 +20,7 @@ import axios from 'axios';
 //
 // Üçüncüsünün silme YERİNE gizleme olmasının gerekçesi: elle yazılan içerik
 // hiçbir yerden yeniden üretilemez (Madde 165). Ayrıntı ve mekanizma:
-// docs/FEED_VISIBILITY_PLAN.md.
+// docs/design/FEED_VISIBILITY_PLAN.md.
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 
 export interface FeedPrivacySettings {

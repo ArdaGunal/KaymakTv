@@ -5,7 +5,7 @@ import { useFollowStore } from './followStore';
 import { logError } from '../utils/errorLog';
 
 // Basit, tamamen istemci-tarafı "aktivite" bildirimleri — dış push YOK,
-// backend/Supabase YOK (bkz. docs/notifications.md Faz 2, bilinçli olarak bu
+// backend/Supabase YOK (bkz. docs/design/notifications.md Faz 2, bilinçli olarak bu
 // kapsamın dışında bırakıldı). `store/followStore.ts`'teki hydrate/persist
 // deseninin BİREBİR aynısı: AsyncStorage'a yazılır, uygulama açılışında bir
 // kez hidratlanır.

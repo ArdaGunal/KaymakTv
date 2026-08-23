@@ -54,7 +54,7 @@ export default function PublicProfileMobile() {
   const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
 
-  // Engelleme (bkz. docs/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel, Trakt
+  // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel, Trakt
   // takip durumunu hiç etkilemez. `isBlockedEitherWay` true ise sekmeler
   // yerine kilit ekranı gösterilir.
   const { accessToken, isGuest } = useAuth();

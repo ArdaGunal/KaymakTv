@@ -58,7 +58,7 @@ function BlockedUserRow({ user, isRemoving, onUnblock }: BlockedUserRowProps) {
   );
 }
 
-// Ayarlar → "Engellenen Kullanıcılar" — bkz. docs/FEED_SOCIAL_PLAN.md §4.5.
+// Ayarlar → "Engellenen Kullanıcılar" — bkz. docs/design/FEED_SOCIAL_PLAN.md §4.5.
 // Yalnızca BENİM engellediklerim listelenir (beni engelleyenler kasıtlı
 // olarak gösterilmiyor, bkz. userBlocks.ts getMyBlockedUsers).
 export default function BlockedUsersScreen() {

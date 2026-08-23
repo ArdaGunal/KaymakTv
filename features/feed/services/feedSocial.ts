@@ -2,7 +2,7 @@ import axios from 'axios';
 import { supabase } from './supabaseClient';
 
 // Akış Sosyal Katmanı — Kişisel Not/Alıntı, Yorum, Beğeni. bkz.
-// docs/FEED_SOCIAL_PLAN.md. Okuma doğrudan Supabase'ten (anon key + RLS
+// docs/design/FEED_SOCIAL_PLAN.md. Okuma doğrudan Supabase'ten (anon key + RLS
 // SELECT-only, diğer feed tablolarıyla AYNI desen); yazma Worker üzerinden
 // (kimlik doğrulamalı + blok kontrolü, bkz. kaymaktv-feedback-worker).
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
@@ -90,7 +90,7 @@ export async function setActivityNote(
 
 /** Yalnızca kişisel not eklenmiş ya da puanlanmış aktivitelere yorum
  *  yapılabilir — Worker bu kuralı da doğrular, burası erken/anlaşılır hata
- *  için (bkz. docs/FEED_SOCIAL_PLAN.md). */
+ *  için (bkz. docs/design/FEED_SOCIAL_PLAN.md). */
 export async function addComment(
   traktAccessToken: string,
   activityId: string,

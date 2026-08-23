@@ -236,7 +236,7 @@ export default function MovieDetailScreen() {
           </View>
 
           {/* ── KaymakTV İncelemeleri ──────────────────────────────────
-              bkz. app/show/[id].tsx'teki aynı blok ve docs/REVIEWS_PLAN.md §4.2. */}
+              bkz. app/show/[id].tsx'teki aynı blok ve docs/design/REVIEWS_PLAN.md §4.2. */}
           <View style={styles.section}>
             <MediaCommentsSection
               mediaId={traktIdNum}

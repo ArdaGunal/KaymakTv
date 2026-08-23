@@ -65,7 +65,7 @@ export default function TraktCommentsBlock({
     <View>
       {/* Ayraç bir SEKME DEĞİL — ince çizgi + ortada etiket. Kullanıcı
           kaydırmaya devam eder, "başka bir yere geçtim" hissetmez
-          (docs/REVIEWS_PLAN.md §7). */}
+          (docs/design/REVIEWS_PLAN.md §7). */}
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
         <Text style={styles.dividerLabel}>

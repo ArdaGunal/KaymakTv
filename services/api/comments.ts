@@ -8,7 +8,7 @@ import { getTraktClient } from './traktClient';
  * kullanıcının kendi yorumlarını önbellekliyordu (`getUserComments`). Trakt
  * API ücretlendirmeye geçtiği için yazma tamamen kaldırıldı — kullanıcının
  * ürettiği içerik artık yalnızca kendi veritabanımıza gidiyor
- * (bkz. docs/REVIEWS_PLAN.md v2, `features/feed/services/feedReviews.ts`).
+ * (bkz. docs/design/REVIEWS_PLAN.md v2, `features/feed/services/feedReviews.ts`).
  *
  * Geriye kalan üç fonksiyon yalnızca dizi/film/bölüm sayfalarındaki "Trakt
  * topluluğu" bloğunu besliyor.

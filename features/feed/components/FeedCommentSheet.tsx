@@ -32,7 +32,7 @@ interface FeedCommentSheetProps {
  * KARIŞTIRILMASIN (bkz. `components/CommentSheet.tsx`, dizi/film/bölüm
  * sayfalarındaki, herkese açık Trakt tartışması). Bu tamamen ayrı: bir
  * arkadaşının "izledim" gönderisine bırakılan, yalnızca KaymakTV içinde
- * yaşayan yorumlar (bkz. docs/FEED_SOCIAL_PLAN.md).
+ * yaşayan yorumlar (bkz. docs/design/FEED_SOCIAL_PLAN.md).
  */
 export default function FeedCommentSheet({ visible, activityId, onClose }: FeedCommentSheetProps) {
   const { t } = useTranslation('feed');

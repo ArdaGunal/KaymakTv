@@ -58,7 +58,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
      * başlıyor.
      *
      * Trakt tamamen çökerse: `catch` boş listeye düşer, ekran açık kalır
-     * (bkz. docs/REVIEWS_PLAN.md §4.1).
+     * (bkz. docs/design/REVIEWS_PLAN.md §4.1).
      */
     const loadCommentsInBackground = () => {
       setIsLoadingComments(true);

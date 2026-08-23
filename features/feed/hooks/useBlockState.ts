@@ -13,7 +13,7 @@ import { invalidateFeedCache, invalidateVisibleUserIds } from '../services/feedA
 export interface UseBlockStateResult {
   isLoading: boolean;
   /** Ben mi onu engelledim, yoksa o mu beni — akış/profil görünürlüğü HER
-   *  İKİ durumda da kilitlenir (bkz. docs/FEED_SOCIAL_PLAN.md §4.3). */
+   *  İKİ durumda da kilitlenir (bkz. docs/design/FEED_SOCIAL_PLAN.md §4.3). */
   isBlockedEitherWay: boolean;
   /** Menüde "Engelle" mi "Engeli Kaldır" mı gösterileceğine karar verir —
    *  yalnızca BENİM attığım engeli kaldırabilirim, karşı tarafınkini değil. */

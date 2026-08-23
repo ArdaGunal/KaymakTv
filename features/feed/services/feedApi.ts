@@ -332,7 +332,7 @@ export async function getVisibleUserIds(force = false): Promise<Set<string>> {
     return empty;
   }
 
-  // Engel, Trakt takibinden HER ZAMAN üstündür (bkz. docs/FEED_SOCIAL_PLAN.md
+  // Engel, Trakt takibinden HER ZAMAN üstündür (bkz. docs/design/FEED_SOCIAL_PLAN.md
   // §4.2, §4.3) — takip listesinde olsalar bile engellenen/engelleyen
   // kullanıcılar akıştan çıkarılır. Bu, Realtime'ın (useFeedRealtime.ts) ve
   // yorum listesinin de paylaştığı AYNI kümedir — tutarsızlık riski yok.
@@ -562,7 +562,7 @@ export async function fetchMediaReviews(
   // Bkz. yukarıdaki NULL karşılaştırması notu.
   query = episodeNumber ? query.eq('episode_number', episodeNumber) : query.is('episode_number', null);
 
-  // Engel, BEŞİNCİ okuma noktası (bkz. docs/FEED_SOCIAL_PLAN.md §4.3 — orada
+  // Engel, BEŞİNCİ okuma noktası (bkz. docs/design/FEED_SOCIAL_PLAN.md §4.3 — orada
   // dört tane sayılıyordu, bu liste beşincisi). Atlanırsa engellediğin kişinin
   // incelemesi akışta görünmez ama HER dizi sayfasında karşına çıkardı.
   //

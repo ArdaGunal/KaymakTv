@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 /**
  * Engellenen (ya da beni engelleyen) bir kullanıcının profilinde aktivite/
- * kütüphane sekmeleri yerine gösterilir — bkz. docs/FEED_SOCIAL_PLAN.md §4.5.
+ * kütüphane sekmeleri yerine gösterilir — bkz. docs/design/FEED_SOCIAL_PLAN.md §4.5.
  * Yönü (kim kimi engelledi) BİLİNÇLİ OLARAK açıklanmıyor, yalnızca bir engel
  * ilişkisi olduğu söyleniyor.
  */

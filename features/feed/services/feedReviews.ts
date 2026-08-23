@@ -14,7 +14,7 @@ import {
  * İNCELEME (Review) — istemci yazma katmanı.
  *
  * ⚠️ v2 (Trakt'tan kopuş): inceleme artık YALNIZCA bizim veritabanımıza
- * yazılır. Trakt'a hiçbir şey gitmez (bkz. docs/REVIEWS_PLAN.md v2 §1).
+ * yazılır. Trakt'a hiçbir şey gitmez (bkz. docs/design/REVIEWS_PLAN.md v2 §1).
  *
  * v1'DEN NE GİTTİ:
  *  - `traktOk` kısmi-başarısızlık sinyali — tek yazma hedefi kaldığı için
@@ -40,7 +40,7 @@ export interface PublishableReview {
   /**
    * ZORUNLU. Worker `tmdbId` yoksa isteği baştan reddeder ve DB'de de CHECK
    * var (019) — Trakt'tan bağımsızlaşmanın tek dayanağı bu alan
-   * (bkz. docs/REVIEWS_PLAN.md §2.2). Çağıran, tmdbId çözülene kadar
+   * (bkz. docs/design/REVIEWS_PLAN.md §2.2). Çağıran, tmdbId çözülene kadar
    * "İnceleme Yaz" butonunu pasif tutmalı.
    */
   tmdbId: number;
@@ -92,7 +92,7 @@ export async function publishReview(
   if (!token) return { ok: false, message: 'Oturum bulunamadı.' };
 
   // Damga İSTEMCİDE üretilip Worker'a gönderiliyor. Gerekçe R6 (bkz.
-  // docs/REVIEWS_PLAN.md): sunucu kendi zamanını yazarsa Realtime yankısı
+  // docs/design/REVIEWS_PLAN.md): sunucu kendi zamanını yazarsa Realtime yankısı
   // akıştaki kartla eşleşmez ve aynı inceleme iki kart görünür.
   const activityAt = new Date().toISOString();
 

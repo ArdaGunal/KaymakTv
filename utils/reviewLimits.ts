@@ -6,7 +6,7 @@
  * `MIN_COMMENT_WORDS = 5`, `REVIEW_WORD_THRESHOLD = 200`, `MAX_COMMENT_CHARS`)
  * — çünkü yorumlar Trakt'a yazılıyordu ve uymayan istek 422 dönüyordu.
  *
- * Trakt'a yazmayı tamamen bıraktığımız için (bkz. docs/REVIEWS_PLAN.md v2) o
+ * Trakt'a yazmayı tamamen bıraktığımız için (bkz. docs/design/REVIEWS_PLAN.md v2) o
  * kuralların hiçbiri artık bizi bağlamıyor; geriye yalnızca KENDİ seçtiğimiz
  * iki sınır kaldı. Dosya adı da bunu yansıtıyor — içinde bir "validation"
  * fonksiyonu yok, yalnızca sınırlar var.

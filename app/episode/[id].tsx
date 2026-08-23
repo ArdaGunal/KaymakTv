@@ -382,7 +382,7 @@ export default function EpisodeDetailScreen() {
               yazılan inceleme BU BÖLÜME bağlanıyor ve `in_feed` türetilmiş
               kolonu (020) sayesinde ANA AKIŞA DÜŞMÜYOR — kullanıcı kararı:
               bir sezonu maratonlayan kişi akışı 20 inceleme kartıyla
-              doldurmasın (bkz. docs/REVIEWS_PLAN.md §8). */}
+              doldurmasın (bkz. docs/design/REVIEWS_PLAN.md §8). */}
           <View style={styles.section}>
             <MediaCommentsSection
               mediaId={showId as number}

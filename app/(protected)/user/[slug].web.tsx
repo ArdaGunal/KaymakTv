@@ -44,7 +44,7 @@ export default function PublicProfileScreenWeb() {
   const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(slug);
   const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
 
-  // Engelleme (bkz. docs/FEED_SOCIAL_PLAN.md §4) — dar ekran dalıyla (
+  // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — dar ekran dalıyla (
   // screens/PublicProfileMobile.tsx) AYNI mantık, ayrı bir header/layout
   // olduğu için burada da ayrıca bağlanıyor.
   const { accessToken, isGuest } = useAuth();

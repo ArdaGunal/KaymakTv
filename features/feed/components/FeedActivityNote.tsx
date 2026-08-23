@@ -17,7 +17,7 @@ interface FeedActivityNoteProps {
 /**
  * Kullanıcının kendi aktivitesine eklediği kişisel not/alıntı — Letterboxd/
  * Twitter tarzı: "İzledim" logunun altında bir alıntı gibi gösterilir (bkz.
- * docs/FEED_SOCIAL_PLAN.md). Trakt'ın kendi yorum sistemiyle KARIŞTIRILMASIN,
+ * docs/design/FEED_SOCIAL_PLAN.md). Trakt'ın kendi yorum sistemiyle KARIŞTIRILMASIN,
  * bu tamamen KaymakTV'ye özel. Bağımsız gönderilerin ("Fikir Paylaş", bkz.
  * 017_feed_posts.sql) ana metni de AYNI bileşenle gösterilir — ikisi de aynı
  * `note` alanına yazılır, tekrar bir bileşen yazmaya gerek yok.

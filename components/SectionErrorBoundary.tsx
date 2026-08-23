@@ -12,7 +12,7 @@ import { logError } from '../utils/errorLog';
  * kaybeder. Bu bileşen ise yalnızca sardığı alt ağacı yakalar; sayfanın geri
  * kalanı çalışmaya devam eder.
  *
- * NEDEN GEREKLİ (S13, bkz. docs/REVIEWS_PLAN.md §4.2): "Trakt API kesilirse
+ * NEDEN GEREKLİ (S13, bkz. docs/design/REVIEWS_PLAN.md §4.2): "Trakt API kesilirse
  * alt blok kaybolur, sayfa bozulmaz" güvencesi bugün yalnızca VERİ hataları
  * için geçerliydi (`Promise.allSettled` + per-call `.catch`). Bir RENDER
  * istisnası (ör. Trakt'ın beklenmedik biçimde döndürdüğü bir alan) hâlâ tüm
@@ -31,7 +31,7 @@ interface Props {
    * `true` ise hata durumunda HİÇBİR ŞEY çizilmez (bölüm sessizce kaybolur).
    * Zorunlu olmayan, tamamlayıcı bölümler için — ör. Trakt yorumları:
    * kullanıcı kararı "Trakt bloğu yoksa sessizce gizlensin, hata gösterme"
-   * (docs/REVIEWS_PLAN.md §1, Karar 10).
+   * (docs/design/REVIEWS_PLAN.md §1, Karar 10).
    */
   silent?: boolean;
 }

@@ -22,7 +22,7 @@ import { isKaymakSessionToken } from './traktClient';
  *   - **DİSK KOPYASI (F6):** başarılı slug AsyncStorage'a yazılır ve Trakt
  *     erişilemediğinde oradan okunur — aşağıdaki gerekçe.
  *
- * 🔴 NEDEN DİSK KOPYASI ŞART (F6 ön koşulu, bkz. docs/FOLLOW_SNAPSHOT_PLAN.md):
+ * 🔴 NEDEN DİSK KOPYASI ŞART (F6 ön koşulu, bkz. docs/design/FOLLOW_SNAPSHOT_PLAN.md):
  * `getVisibleUserIds` akışta gösterilecek kullanıcı kümesini kurarken kendi
  * slug'ımı da ekliyor — "kullanıcı kendi aktivitelerini de görür" kuralı.
  * Bu fonksiyon Trakt'a gidiyor ve hatada `null` dönüyordu, dolayısıyla

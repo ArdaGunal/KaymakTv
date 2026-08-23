@@ -1,4 +1,4 @@
-// Feed (Akış) sistemi tipleri — bkz. docs/feed.md
+// Feed (Akış) sistemi tipleri — bkz. docs/design/feed.md
 // Phase 1: yalnızca 4 aktivite tipi. Phase 2'de 'commented'/'added_to_list' eklenecek.
 
 export type FeedActivityType =
@@ -10,7 +10,7 @@ export type FeedActivityType =
   // Bağımsız gönderi ("Fikir Paylaş") — bkz. supabase/schema/017_feed_posts.sql.
   // İzleme/puanlama olayına BAĞLI DEĞİL, kullanıcı istediği an paylaşır.
   | 'posted'
-  // İnceleme — bkz. supabase/schema/019_feed_reviews.sql, docs/REVIEWS_PLAN.md.
+  // İnceleme — bkz. supabase/schema/019_feed_reviews.sql, docs/design/REVIEWS_PLAN.md.
   // `posted`tan FARKI: Trakt'ta da yaşar (dual-write). Metin yine `note`
   // alanında; ayırt edici alan `traktCommentId`.
   | 'reviewed';
@@ -48,13 +48,13 @@ export interface FeedActivity {
    *  (bkz. features/feed/services/feedPublish.ts). */
   isPending?: boolean;
 
-  // ── Sosyal katman (bkz. docs/FEED_SOCIAL_PLAN.md) ───────────────────────
+  // ── Sosyal katman (bkz. docs/design/FEED_SOCIAL_PLAN.md) ───────────────────────
   /** Kullanıcının kendi eklediği kişisel not/alıntı — yalnızca kendi
    *  aktivitesinde, features/feed/services/feedSocial.ts ile düzenlenir. */
   note?: string | null;
   noteSpoiler?: boolean;
   /** YALNIZCA `activityType === 'reviewed'` satırlarında dolu — Trakt'taki
-   *  karşılığının kimliği. Hem dedup'ın anahtarı (bkz. docs/REVIEWS_PLAN.md
+   *  karşılığının kimliği. Hem dedup'ın anahtarı (bkz. docs/design/REVIEWS_PLAN.md
    *  §3.1) hem de "bu incelemeyi Trakt'tan da sil/güncelle" işlemlerinin
    *  hedefi. Diğer tiplerde HER ZAMAN undefined. */
   traktCommentId?: number;
@@ -122,7 +122,7 @@ export function isPostActivity(item: FeedItem): item is FeedActivity {
 
 /** İnceleme kartı mı? `posted` ile aynı görsel dili paylaşır (metin birincil
  *  içerik) ama silme/düzenleme yolu FARKLIDIR — Trakt'a da gider, bu yüzden
- *  `CardMenu` bu ayrımı bilmek zorunda (bkz. docs/REVIEWS_PLAN.md §6.1). */
+ *  `CardMenu` bu ayrımı bilmek zorunda (bkz. docs/design/REVIEWS_PLAN.md §6.1). */
 export function isReviewActivity(item: FeedItem): item is FeedActivity {
   return !isMarathonActivity(item) && item.activityType === 'reviewed';
 }

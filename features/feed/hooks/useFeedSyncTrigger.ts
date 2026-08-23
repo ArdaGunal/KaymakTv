@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { syncFeedActivity } from '../services/feedSync';
 
-// App açılışında (bkz. docs/feed.md "Option B") Feed aktivitelerini Trakt'tan
+// App açılışında (bkz. docs/design/feed.md "Option B") Feed aktivitelerini Trakt'tan
 // Supabase'e senkronize eder. Sessizce başarısız olur — Feed senkronizasyonu
 // çökse bile uygulamanın geri kalanı hiç etkilenmemeli.
 export function useFeedSyncTrigger(accessToken: string | null, isGuest: boolean) {

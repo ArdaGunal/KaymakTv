@@ -66,7 +66,7 @@ export function useFeedRealtime(enabled: boolean): void {
             // geçmez: canlı INSERT doğrudan store'a girer. Bu kontrol
             // olmadan bölüm incelemesi yenilemede kaybolan ama WebSocket'ten
             // CANLI sızan bir kart olurdu (engel filtresindeki aynı sınıf
-            // hata — bkz. docs/FEED_SOCIAL_PLAN.md §4.3, 4. madde).
+            // hata — bkz. docs/design/FEED_SOCIAL_PLAN.md §4.3, 4. madde).
             // `REPLICA IDENTITY FULL` (013) sayesinde payload TAM satırı
             // taşıyor, `in_feed` de dahil.
             //

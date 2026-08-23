@@ -84,7 +84,7 @@ const ACTIVITY_META: Record<
     color: '#22d3ee',
     labelSuffix: () => 'bir gönderi paylaştı',
   },
-  // İnceleme — bkz. 018_feed_reviews.sql, docs/REVIEWS_PLAN.md. `posted`tan
+  // İnceleme — bkz. 018_feed_reviews.sql, docs/design/REVIEWS_PLAN.md. `posted`tan
   // farklı olarak yapım HER ZAMAN var, bu yüzden `labelSuffix` gerçekten
   // kullanılıyor (yapım adı JSX'te ayrı render edilir, bu yalnızca sonrası).
   reviewed: {
@@ -104,7 +104,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
   const myTraktSlug = useMyTraktSlug();
   const { blockUserQuick } = useQuickBlock();
 
-  // Sosyal katman (bkz. docs/FEED_SOCIAL_PLAN.md) — henüz sunucu onayı
+  // Sosyal katman (bkz. docs/design/FEED_SOCIAL_PLAN.md) — henüz sunucu onayı
   // gelmemiş (iyimser) kartlarda GEÇİCİ bir id var, gerçek bir like/comment
   // hedefi olamaz; bu yüzden tüm sosyal etkileşim onay gelene kadar gizli.
   const isInteractive = !activity.isPending;
@@ -245,7 +245,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
         {activity.note ? (
           <>
             {/* Kişisel not/alıntı — Twitter'ın "Alıntı Yap" modeline yakın bir
-                tasarım (bkz. docs/FEED_SOCIAL_PLAN.md §3.1 + kullanıcı
+                tasarım (bkz. docs/design/FEED_SOCIAL_PLAN.md §3.1 + kullanıcı
                 revizyonu). Alıntı zaten varsa ayrı bir "Düzenle" butonu YOK,
                 bloğun kendisi tıklanınca düzenleme açılır. Trakt'ın kendi
                 yorum sistemiyle KARIŞMASIN diye tamamen ayrı bir bileşen. */}

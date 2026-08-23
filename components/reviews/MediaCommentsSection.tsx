@@ -33,7 +33,7 @@ import WriteReviewSheet from './WriteReviewSheet';
  * tüketildi" durumu). Ölçek bunu gereksiz kılıyor — bir yapımda bizim inceleme
  * sayımız uzun süre 0-2, Trakt'ınki yüzlerce olacak. Bloklar sıralı olunca
  * Trakt'ın mevcut sayfalaması (`useComments`) HİÇ DEĞİŞMEDEN çalışıyor
- * (bkz. docs/REVIEWS_PLAN.md §4).
+ * (bkz. docs/design/REVIEWS_PLAN.md §4).
  *
  * KADEMELİ ÇÖKÜŞ: Trakt bloğu veri hatasında (boş liste) ve render hatasında
  * (`SectionErrorBoundary silent`) SESSİZCE kaybolur — sayfa çalışmaya devam
@@ -158,7 +158,7 @@ export default function MediaCommentsSection({
       // Bugünkü ölçekte neredeyse HER yapımda bu dal çalışacak (canlıda 0
       // inceleme var). Bu yüzden hata gibi DEĞİL, davet gibi görünmeli —
       // hemen altında Trakt bloğu akmaya devam ettiği için sayfa asla boş
-      // görünmüyor (docs/REVIEWS_PLAN.md §7).
+      // görünmüyor (docs/design/REVIEWS_PLAN.md §7).
       return (
         <Text style={styles.emptyText}>
           {t('reviewsEmpty', 'Henüz kimse inceleme yazmadı. İlk sen ol!')}

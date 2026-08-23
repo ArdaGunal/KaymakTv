@@ -14,7 +14,7 @@ import { FeedActivity, FeedMediaType } from '../features/feed/types';
  * sistemini okur (`Trakt Topluluğu` bölümü) ve aynı ekranda BU hook'un
  * YANINDA çalışır. İkisi bilinçli olarak ayrı: birleşik bir liste, kimlik
  * uyuşmazlığı ve "bu yanıt nereye gidiyor?" belirsizliği üretirdi
- * (bkz. docs/REVIEWS_PLAN.md §4.2).
+ * (bkz. docs/design/REVIEWS_PLAN.md §4.2).
  *
  * UI/Logic ayrımı (docs/AI_RULES.md §1): ekranlar servis katmanını doğrudan
  * çağırmaz, yalnızca bu hook'u tüketir.
@@ -43,7 +43,7 @@ interface UseMediaReviewsOptions {
    * ZORUNLU ama geç çözülebilir: `useShowDetail` tmdbId'yi URL'den bilmiyorsa
    * Trakt özetinden öğreniyor. Çözülene kadar `undefined` — bu sürede
    * `canSubmit` false olur ve UI "İnceleme Yaz" butonunu pasif tutar
-   * (bkz. docs/REVIEWS_PLAN.md §1.2: tmdb_id olmadan satır yazılamaz).
+   * (bkz. docs/design/REVIEWS_PLAN.md §1.2: tmdb_id olmadan satır yazılamaz).
    */
   tmdbId?: number;
   /**

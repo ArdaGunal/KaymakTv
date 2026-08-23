@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getTraktClient } from './traktClient';
 import * as SecureStore from '../../utils/secureStorage';
 
-// Trakt'ın kendi sosyal grafiği (Follow/Following) — bkz. docs/feed.md
+// Trakt'ın kendi sosyal grafiği (Follow/Following) — bkz. docs/design/feed.md
 // "Mimari Pivot". KaymakTV kendi takip tablosunu tutmuyor, tüm takip
 // ilişkisi doğrudan Trakt API'sinden okunup yazılıyor. Bu uç noktaların
 // hepsi kullanıcının KENDİ token'ıyla çağrılıyor — Trakt zaten "bu isteği
@@ -82,7 +82,7 @@ export const getFollowing = async (username: string, page?: number, limit?: numb
  *
  * ⚠️ `Array.isArray` GUARD'I SİLİNMEMELİ: `[]` (kullanıcı gerçekten kimseyi
  * takip etmiyor) ile "yanıt kabul edilemez" ayrımı, takip snapshot'ının
- * tamamının dayandığı ayrım (bkz. docs/FOLLOW_SNAPSHOT_PLAN.md ve Worker'daki
+ * tamamının dayandığı ayrım (bkz. docs/design/FOLLOW_SNAPSHOT_PLAN.md ve Worker'daki
  * `normalizeFollowingSlugs`). Trakt bir gün 200 + HTML gövde döndürürse
  * (kapanış duyurusu, proxy sayfası) bugün `.map is not a function` TypeError'ı
  * TESADÜFEN doğru davranıyor — reject ediyor. Guard bunu niyetli ve teşhis

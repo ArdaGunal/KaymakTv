@@ -40,7 +40,7 @@ interface NoteEditorModalProps {
 
 /**
  * Kendi aktivitene kişisel not/alıntı ekleme sheet'i (bkz.
- * docs/FEED_SOCIAL_PLAN.md §3.6). "Çok güzeldi!" gibi Letterboxd tarzı bir
+ * docs/design/FEED_SOCIAL_PLAN.md §3.6). "Çok güzeldi!" gibi Letterboxd tarzı bir
  * inceleme — Trakt'ın kendi yorum sistemiyle karışmaz, yalnızca KaymakTV
  * içinde yaşar.
  */

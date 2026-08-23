@@ -8,7 +8,7 @@ import { getMyProfile } from './profile';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
 
 // Kullanıcı Engelleme — KaymakTV'ye özel, Trakt'a hiç dokunmaz (bkz.
-// docs/FEED_SOCIAL_PLAN.md §4). Okuma doğrudan Supabase'ten (anon key +
+// docs/design/FEED_SOCIAL_PLAN.md §4). Okuma doğrudan Supabase'ten (anon key +
 // RLS SELECT — diğer tüm sosyal tablolarla aynı "herkese açık oku,
 // görünürlüğü client'ta filtrele" deseni, bkz. feedApi.ts); yazma
 // (engelle/kaldır) Worker üzerinden (kimlik doğrulamalı, /feed/block).
@@ -158,7 +158,7 @@ export async function getMySupabaseUserId(): Promise<string | null> {
 
 // ── Engellenen/Engelleyen kümesi ────────────────────────────────────────
 // Akış, yorumlar ve Realtime AYNI kümeyi paylaşmalı (bkz.
-// docs/FEED_SOCIAL_PLAN.md §4.3) — "ben kimi engelledim" VEYA "beni kim
+// docs/design/FEED_SOCIAL_PLAN.md §4.3) — "ben kimi engelledim" VEYA "beni kim
 // engelledi" birleşimi, ikisi de görünürlükte aynı sonucu (karşılıklı
 // görünmezlik) doğurur.
 let blockedIdsCache: { ids: Set<string>; fetchedAt: number } | null = null;

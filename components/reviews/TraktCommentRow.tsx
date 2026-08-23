@@ -11,7 +11,7 @@ import { CommentData } from '../../hooks/useComments';
  * (`CommentData` vs `FeedActivity`) ve daha önemlisi **etkileşim yüzeyleri
  * tamamen ayrık**. Bu satırda beğen/yanıtla/menü YOKTUR — çünkü:
  *   - Beğeni Trakt'ta yaşar, bizim `feed_activity_likes` tablomuzda değil
- *   - Yanıt Trakt'a gitmez (kullanıcı kararı, bkz. docs/REVIEWS_PLAN.md v2)
+ *   - Yanıt Trakt'a gitmez (kullanıcı kararı, bkz. docs/design/REVIEWS_PLAN.md v2)
  * Bir `variant` prop'uyla tek bileşende birleştirmek, aksiyon satırının
  * tamamını koşullu hale getirip ikisini de okunmaz yapardı. Emsal: projede
  * `FeedCommentItem` ve `ReviewItem` de aynı gerekçeyle ayrı duruyor.
@@ -19,7 +19,7 @@ import { CommentData } from '../../hooks/useComments';
  * **Buton yokluğu bilinçli bir SİNYALDİR:** kullanıcı dokunacak bir şey
  * göremeyince bu satırın "başka bir yerden geldiğini" ayrıca okumaya gerek
  * kalmadan anlar. Bu yüzden burada disabled/gri buton da GÖSTERMİYORUZ —
- * öyle olsaydı "bozuk" sanılırdı (docs/REVIEWS_PLAN.md §7).
+ * öyle olsaydı "bozuk" sanılırdı (docs/design/REVIEWS_PLAN.md §7).
  */
 
 interface TraktCommentRowProps {
