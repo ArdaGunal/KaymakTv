@@ -27,6 +27,7 @@ export default function FeedScreen() {
     isRefreshing,
     hasError,
     loadMoreFailed,
+    retryLoadMore,
     isLoadingMore,
     hasMore,
     unseenCount,
@@ -78,28 +79,37 @@ export default function FeedScreen() {
   //                    zaten ListEmptyComponent konuşuyor)
   //   - devamı var  → hiçbir şey (spinner yalnızca istek uçarken görünsün)
   const renderFooter = useCallback(() => {
+    // ⚠️ SIRA ÖNEMLİ: `isLoadingMore` ÖNCE gelmeli. Eskiden `loadMoreFailed`
+    // öndeydi ("hata durumunda spinner zaten kapanmış oluyor" gerekçesiyle) —
+    // bu, buton `loadMore`'a bağlıyken zararsızdı ama Y21 kapanışıyla gerçek
+    // bir "Tekrar Dene" eklendiğinde KUSURA dönüştü: kullanıcı butona basınca
+    // istek uçarken ekranda hâlâ hata kutusu duruyordu, yani eylemin işe
+    // yarayıp yaramadığına dair HİÇBİR geri bildirim yoktu (AI_RULES §2:
+    // "kullanıcının başlattığı bir eylem görünür geri bildirim almak
+    // ZORUNDA"). `hooks/useExplore.ts` tarafındaki footer bu sırayı zaten
+    // doğru kullanıyordu — iki kopya ıraksamıştı (AI_RULES §2.5).
+    if (isLoadingMore) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator size="small" color="#38bdf8" />
+        </View>
+      );
+    }
+
     // Y21: "devamı yüklenemedi" ÜÇÜNCÜ dal. Bu olmadan spinner kayboluyor,
     // hiçbir mesaj çıkmıyordu ve kullanıcı en altta olduğu için onEndReached
     // bir daha tetiklenmiyordu — yani akışın bittiğini mi bozulduğunu mu
-    // anlamanın hiçbir yolu yoktu. isLoadingMore'dan ÖNCE, çünkü hata
-    // durumunda spinner zaten kapanmış oluyor.
+    // anlamanın hiçbir yolu yoktu. Otomatik yeniden deneme YOK: tek
+    // tetikleyici aşağıdaki açık dokunuş.
     if (loadMoreFailed) {
       return (
         <View style={styles.loadMoreFailedBox}>
           <Text style={styles.loadMoreFailedText}>
             {t('feed:loadMoreFailed', 'Devamı yüklenemedi.')}
           </Text>
-          <TouchableOpacity onPress={loadMore} style={styles.loadMoreRetryBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={retryLoadMore} style={styles.loadMoreRetryBtn} activeOpacity={0.8}>
             <Text style={styles.loadMoreRetryText}>{t('common:retry', 'Tekrar Dene')}</Text>
           </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (isLoadingMore) {
-      return (
-        <View style={styles.footer}>
-          <ActivityIndicator size="small" color="#38bdf8" />
         </View>
       );
     }
@@ -111,7 +121,7 @@ export default function FeedScreen() {
       );
     }
     return null;
-  }, [isLoadingMore, hasMore, data.length, loadMoreFailed, loadMore, t]);
+  }, [isLoadingMore, hasMore, data.length, loadMoreFailed, retryLoadMore, t]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

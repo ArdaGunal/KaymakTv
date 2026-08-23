@@ -16,6 +16,7 @@ import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
+import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import Snackbar from '../../components/Snackbar';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -64,7 +65,7 @@ export default function MovieDetailScreen() {
   const idStr = Array.isArray(id) ? id[0] : id;
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
 
-  // bkz. app/show/[id].tsx'teki aynı not — `refreshData` şu an tüketilmiyor.
+  // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
   const { mediaData, images, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
   const movieData = mediaData.summary;
   const castData = mediaData.cast;
@@ -182,25 +183,31 @@ export default function MovieDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         
-        <MediaHero 
-          type="movie"
-          data={movieData}
-          backdrop={backdrop}
-          poster={poster}
-          trailerId={trailerId}
-          userRating={userRating}
-          isWatched={isWatched}
-          isWatchlisted={isWatchlisted}
-          isFavorited={isFavorited}
-          onRate={handleRate}
-          onRemoveRating={handleRemoveRating}
-          onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
-          onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
-          onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
-          onRewatch={handleRewatch}
-          isHidden={isHidden}
-          onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'movie', isHidden)}
-        />
+        {/* Y20: bkz. app/show/[id].tsx'teki aynı sınır ve gerekçesi.
+            Bu ekranda EKSİKTİ — show/ tarafı F15'te korunmuştu ama film
+            ekranı hiç sarılmamıştı (AI_RULES §2.5'in "kopyalar sessizce
+            ıraksar" uyarısının canlı örneği). */}
+        <SectionErrorBoundary label="movie-hero">
+          <MediaHero
+            type="movie"
+            data={movieData}
+            backdrop={backdrop}
+            poster={poster}
+            trailerId={trailerId}
+            userRating={userRating}
+            isWatched={isWatched}
+            isWatchlisted={isWatchlisted}
+            isFavorited={isFavorited}
+            onRate={handleRate}
+            onRemoveRating={handleRemoveRating}
+            onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
+            onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
+            onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
+            onRewatch={handleRewatch}
+            isHidden={isHidden}
+            onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'movie', isHidden)}
+          />
+        </SectionErrorBoundary>
 
         <View style={styles.contentArea}>
           {/* ACTION BUTTONS */}
@@ -254,14 +261,18 @@ export default function MovieDetailScreen() {
           </View>
 
 
-          <MediaCast cast={castData} />
+          <SectionErrorBoundary label="movie-cast">
+            <MediaCast cast={castData} />
+          </SectionErrorBoundary>
 
           {relatedMovies && relatedMovies.length > 0 && (
-            <HorizontalMediaList 
-              title={t('relatedMovies')} 
-              data={relatedMovies} 
-              type="movie" 
-            />
+            <SectionErrorBoundary label="movie-related">
+              <HorizontalMediaList
+                title={t('relatedMovies')}
+                data={relatedMovies}
+                type="movie"
+              />
+            </SectionErrorBoundary>
           )}
         </View>
 

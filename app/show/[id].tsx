@@ -59,10 +59,9 @@ export default function ShowDetailScreen() {
   // bu satırlar yüzünden ekstra render tetiklemez.
   const { toggleWatchlistStatus, toggleFavoriteStatus, toggleHiddenFromProgress, deleteMediaFromHistory } = useLibraryActions();
 
-  // NOT: hook `refreshData` de döndürüyor ama bu ekran şu an KULLANMIYOR —
-  // tek tüketicisi inceleme yayını sonrası tazelemeydi, o da gereksiz olduğu
-  // için kaldırıldı (bkz. MASTER_PLAN "SONRADAN BULUNANLAR" Y1). Hook'ta
-  // duruyor: pull-to-refresh eklenirse doğrudan bağlanacak.
+  // `refreshData` → `LoadFailedState.onRetry` (aşağıda). Y1'de eski tüketicisi
+  // (inceleme yayını sonrası tazeleme) kaldırılmıştı ve bir süre boşta kaldı;
+  // hata ekranının "Tekrar Dene"si eklenince yeniden bağlandı.
   const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
   const castData = mediaData.cast;
@@ -200,24 +199,33 @@ export default function ShowDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         
-        <MediaHero 
-          type="show"
-          data={showData}
-          backdrop={backdrop}
-          poster={poster}
-          trailerId={trailerId}
-          userRating={userRating}
-          isWatchlisted={isWatchlisted}
-          isWatched={isWatched}
-          isFavorited={isFavorited}
-          isHidden={!!isHidden}
-          onRate={handleRate}
-          onRemoveRating={handleRemoveRating}
-          onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
-          onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
-          onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
-          onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
-        />
+        {/* Y20: MediaHero Trakt/TMDB HAM verisini en çok okuyan bileşen
+            (yayın tarihi, süre, tür listesi, puan) — yani beklenmedik bir
+            alan geldiğinde ilk çöken burası. Sınır olmadan bu istisna kök
+            ErrorBoundary'ye çıkıp TÜM SAYFAYI beyaz ekrana düşürüyordu;
+            artık yalnızca hero kutusu düşüyor, kadro/inceleme/sezonlar
+            çalışmaya devam ediyor. `silent` DEĞİL: hero sayfanın birincil
+            içeriği, sessizce kaybolması kullanıcıyı yanıltır. */}
+        <SectionErrorBoundary label="show-hero">
+          <MediaHero
+            type="show"
+            data={showData}
+            backdrop={backdrop}
+            poster={poster}
+            trailerId={trailerId}
+            userRating={userRating}
+            isWatchlisted={isWatchlisted}
+            isWatched={isWatched}
+            isFavorited={isFavorited}
+            isHidden={!!isHidden}
+            onRate={handleRate}
+            onRemoveRating={handleRemoveRating}
+            onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
+            onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
+            onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
+            onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
+          />
+        </SectionErrorBoundary>
 
         <View style={styles.contentArea}>
           {/* Y20: Trakt/TMDB ham verisini okuyan bloklar kendi hata
@@ -257,30 +265,36 @@ export default function ShowDetailScreen() {
           {computedSeasons && computedSeasons.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t('seasons')}</Text>
+              {/* Y20: sınır SEZON BAŞINA — tüm listeyi tek sınıra sarmak,
+                  bozuk TEK bir sezonun diğerlerini de götürmesi demekti
+                  (feed.tsx'teki kart-başına sınırla aynı gerekçe). */}
               {computedSeasons.map((season) => (
-                <SeasonAccordion
-                  key={season.number}
-                  season={season}
-                  showTraktId={traktIdNum}
-                  showSlug={showData?.ids?.slug}
-                  showTitle={showData?.title}
-                  showTmdbId={tmdbId as string}
-                  onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
-                  isExpanded={expandedSeasons[season.number]}
-                  onToggle={() => toggleSeason(season.number)}
-                  seasonProgress={season.seasonProgress}
-                />
+                <SectionErrorBoundary key={season.number} label={'season:' + season.number}>
+                  <SeasonAccordion
+                    season={season}
+                    showTraktId={traktIdNum}
+                    showSlug={showData?.ids?.slug}
+                    showTitle={showData?.title}
+                    showTmdbId={tmdbId as string}
+                    onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
+                    isExpanded={expandedSeasons[season.number]}
+                    onToggle={() => toggleSeason(season.number)}
+                    seasonProgress={season.seasonProgress}
+                  />
+                </SectionErrorBoundary>
               ))}
             </View>
           )}
 
           {/* RELATED SHOWS */}
           {relatedShows && relatedShows.length > 0 && (
-            <HorizontalMediaList 
-              title={t('relatedShows')} 
-              data={relatedShows} 
-              type="show"
-            />
+            <SectionErrorBoundary label="show-related">
+              <HorizontalMediaList
+                title={t('relatedShows')}
+                data={relatedShows}
+                type="show"
+              />
+            </SectionErrorBoundary>
           )}
 
         </View>

@@ -14,6 +14,7 @@ import { formatRating } from '../../utils/formatRating';
 import RatingModal from '../../components/RatingModal';
 import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
+import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import { formatEpisodeCode } from '../../features/feed/services/feedPublish';
 import MediaCast from '../../components/MediaCast';
 import ProgressBar from '../../components/ProgressBar';
@@ -47,7 +48,7 @@ export default function EpisodeDetailScreen() {
   } = useLibrary();
   const { isGuest } = useAuth();
   const { t } = useTranslation('media');
-  // bkz. app/show/[id].tsx'teki aynı not — `refreshData` şu an tüketilmiyor.
+  // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
   const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
@@ -374,7 +375,12 @@ export default function EpisodeDetailScreen() {
           </View>
 
           {epCast && epCast.length > 0 && (
-            <MediaCast cast={epCast} onActorPress={voteActor} />
+            /* Y20: bölüm ekranı özgün listede YOKTU ama aynı riski taşıyor —
+               Trakt'ın ham kadro verisini okuyor. Dizi/film ekranlarıyla
+               aynı sınır. */
+            <SectionErrorBoundary label="episode-cast">
+              <MediaCast cast={epCast} onActorPress={voteActor} />
+            </SectionErrorBoundary>
           )}
 
           {/* ── Yorumlar: tek akış, iki blok ────────────────────────────

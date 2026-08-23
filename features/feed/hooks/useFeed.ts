@@ -42,6 +42,8 @@ export interface UseFeedResult {
   refresh: () => Promise<void>;
   /** Listenin sonuna yaklaşıldığında çağrılır. */
   loadMore: () => void;
+  /** Açık kullanıcı eylemi — `loadMoreFailed` kapısını bypass eder (Y21). */
+  retryLoadMore: () => void;
   /** Bir aktiviteyi (yalnızca kendi kartın — CardMenu bunu isOwnActivity'e
    *  göre zaten filtreler) kalıcı olarak siler. Worker `/feed/delete` hard
    *  delete + tombstone yapıyor (bkz. deleteActivitiesBulk) — burada yeni bir
@@ -88,6 +90,11 @@ export function useFeed(): UseFeedResult {
         const page = await fetchFeedActivities(null, force);
         useFeedStore.getState().setFirstPage(page);
         setHasError(false);
+        // Taze 1. sayfa bayrağı TEMİZLER — yoksa bir kez başarısız olan akış,
+        // pull-to-refresh'ten sonra bile "Devamı yüklenemedi." takılı kalır ve
+        // `loadMore` kapısı sonsuza dek kapalı kalırdı (useExplore'daki
+        // `fetchTrending(reset=true)` ile aynı rol).
+        setLoadMoreFailed(false);
       } catch (error) {
         console.warn('[Feed] Akış yüklenemedi:', error);
         setHasError(true);
@@ -115,17 +122,20 @@ export function useFeed(): UseFeedResult {
     setIsRefreshing(false);
   }, [loadFirstPage, markSeen]);
 
-  const loadMore = useCallback(() => {
+  // Gerçek sayfa çekme mantığı — KAPISIZ. `loadMore` (onEndReached, otomatik)
+  // ve `retryLoadMore` (kullanıcı eylemi, bayrağı bypass eder) ikisi de bunu
+  // çağırır; farkları yalnızca ÇAĞRILMADAN ÖNCEKİ kapıda.
+  // (Desen `hooks/useExplore.ts`'ten — Madde 232'de aynı sınıf hata orada
+  //  kapatıldı, bu onun akış tarafındaki ikizi.)
+  const doLoadMore = useCallback(() => {
     const state = useFeedStore.getState();
-    // Dört koruma: oturum yok / uçuşta istek var / devamı yok / imleç yok.
-    if (!canLoad || isFetchingRef.current || !state.hasMore || !state.nextCursor) return;
-
     isFetchingRef.current = true;
     state.setLoadingMore(true);
     fetchFeedActivities(state.nextCursor)
       .then((page) => {
         useFeedStore.getState().appendPage(page);
         setHasError(false);
+        setLoadMoreFailed(false);
       })
       .catch((error) => {
         console.warn('[Feed] Sonraki sayfa yüklenemedi:', error);
@@ -135,15 +145,37 @@ export function useFeed(): UseFeedResult {
         // gelmez, hiçbir mesaj çıkmaz: akışın bittiğini mi bozulduğunu mu
         // anlamanın yolu yoktu. Footer artık görünür bir "Tekrar Dene" çiziyor.
         setLoadMoreFailed(true);
-        // Liste dolu olduğu için tam ekran hata GÖSTERİLMEZ — kullanıcı eldeki
-        // içeriği okumaya devam eder, tekrar kaydırınca yeniden denenir.
-        useFeedStore.getState().setLoadingMore(false);
       })
       .finally(() => {
         isFetchingRef.current = false;
         useFeedStore.getState().setLoadingMore(false);
       });
-  }, [canLoad]);
+  }, []);
+
+  const loadMore = useCallback(() => {
+    const state = useFeedStore.getState();
+    // BEŞ koruma: oturum yok / uçuşta istek var / devamı yok / imleç yok /
+    // 🔴 son deneme BAŞARISIZ.
+    //
+    // Beşincisi Y21'in asıl kapanışı ve Madde 232'nin dersi: `loadMoreFailed`
+    // bayrağı VARDI ve footer'ı çiziyordu, ama bu kapıda YOKTU. FlatList
+    // `onEndReached`'i yalnızca kullanıcı kaydırınca değil, içerik/layout her
+    // yeniden hesaplandığında da tetikleyebiliyor (`_maybeCallOnEdgeReached`)
+    // — yani başarısız bir sayfa, kullanıcı hiçbir şey yapmadan sonsuza dek
+    // yeniden denenebiliyordu. Trakt/Supabase'e sessiz kota yakan bir döngü.
+    if (!canLoad || isFetchingRef.current || !state.hasMore || !state.nextCursor || loadMoreFailed) return;
+    doLoadMore();
+  }, [canLoad, loadMoreFailed, doLoadMore]);
+
+  /** Yalnızca kullanıcının açık "Tekrar Dene" dokunuşu için — `loadMoreFailed`
+   * kapısını BYPASS eder (aksi hâlde bayrağı temizlemeden çağırmak aynı render
+   * turunda hâlâ eski/stale değeri görüp hiçbir şey yapmazdı). Otomatik
+   * yeniden deneme YOK: tek tetikleyici kullanıcının kendi dokunuşu. */
+  const retryLoadMore = useCallback(() => {
+    const state = useFeedStore.getState();
+    if (!canLoad || isFetchingRef.current || !state.hasMore || !state.nextCursor) return;
+    doLoadMore();
+  }, [canLoad, doLoadMore]);
 
   // Maraton gruplaması BİLİNÇLİ OLARAK burada, store'da değil: gruplama tüm
   // ham veri toplandıktan SONRA, render öncesi tek seferde yapılmalı (bkz.
@@ -207,6 +239,7 @@ export function useFeed(): UseFeedResult {
     markSeen,
     refresh,
     loadMore,
+    retryLoadMore,
     deleteActivity,
   };
 }
