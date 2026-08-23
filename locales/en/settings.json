@@ -124,5 +124,9 @@
   "usernameRowLabel": "Username",
   "usernameSaved": "Your username has been updated.",
   "usernameTaken": "That username is already taken, try another one.",
-  "yesDelete": "Yes, Delete"
+  "yesDelete": "Yes, Delete",
+  "googleLinkTitle": "Google Account",
+  "googleLinkDescription": "Link your Google account to sign in with Google as well as Trakt. Your tracking data keeps working through Trakt.",
+  "googleLinking": "Linking your account…",
+  "googleLinked": "Your Google account is linked."
 }

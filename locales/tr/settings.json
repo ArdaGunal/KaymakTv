@@ -124,5 +124,9 @@
   "usernameRowLabel": "Kullanıcı Adı",
   "usernameSaved": "Kullanıcı adın güncellendi.",
   "usernameTaken": "Bu kullanıcı adı zaten alınmış, başka bir tane dene.",
-  "yesDelete": "Evet, Sil"
+  "yesDelete": "Evet, Sil",
+  "googleLinkTitle": "Google Hesabı",
+  "googleLinkDescription": "Google hesabını bağlarsan, Trakt ile birlikte Google ile de giriş yapabilirsin. Takip verilerin Trakt üzerinden çalışmaya devam eder.",
+  "googleLinking": "Hesabın bağlanıyor…",
+  "googleLinked": "Google hesabın bağlandı."
 }

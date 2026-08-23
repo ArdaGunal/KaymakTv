@@ -9,9 +9,7 @@ import { exchangeAuthCode } from '../../services/traktApi';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
-import { GoogleSignInSection } from '../../components/settings/GoogleSignInSection';
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
-import { setMySupabaseUserId } from '../../features/feed/services/userBlocks';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -28,9 +26,8 @@ const OrDivider = ({ t }: { t: (key: string) => string }) => (
 );
 
 export default function Login() {
-  const { saveTokens, saveGoogleSession, loginAsGuest } = useAuth();
+  const { saveTokens, loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCreatingGoogleOnly, setIsCreatingGoogleOnly] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -38,14 +35,25 @@ export default function Login() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
-  // F8 — bkz. hooks/useGoogleTraktLink.ts başlığı.
-  const {
-    awaitingTraktLink,
-    captureCredential: handleGoogleCredential,
-    cancel: cancelGoogleLink,
-    completeIfPending: completeGoogleLinkIfPending,
-    completeWithoutTrakt,
-  } = useGoogleTraktLink();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴 GOOGLE GİRİŞİ BU EKRANDAN KALDIRILDI (2026-08-23, ürün kararı)
+  // ═══════════════════════════════════════════════════════════════════════
+  // GEREKÇE: Google-only bir kullanıcının Trakt hesabı olmadığı için dizi/film
+  // TAKİBİ YAPAMIYOR — Kütüphane ve Takvim ona "Trakt'a bağlan" diyor. Bu,
+  // lansmanda "uygulama bozuk" izlenimi yaratıyordu. Google artık bir GİRİŞ
+  // yöntemi değil, Trakt'lı bir hesaba eklenen bir BAĞLAMA seçeneği
+  // (Ayarlar → `GoogleLinkSection`).
+  //
+  // Geri alma yolu, neyin neden değiştiği ve hangi kodun bilinçli olarak
+  // KORUNDUĞU: docs/design/GOOGLE_AUTH_MIGRATION.md
+  //
+  // ⚠️ `completeIfPending` BİLİNÇLİ OLARAK DURUYOR (UI gitti, bu kalmalı):
+  // eski akışta Google kimliğini yakalayıp Trakt'a yönlenmiş, ama henüz geri
+  // dönmemiş kullanıcılar olabilir. Onların AsyncStorage'ında bekleyen kayıt
+  // var; bu çağrı bir sonraki Trakt girişlerinde bağlamayı sessizce tamamlar.
+  // Bekleyen kayıt yoksa NO-OP. Kaldırılırsa o kullanıcılar arada kalırdı.
+  const { completeIfPending: completeGoogleLinkIfPending } = useGoogleTraktLink();
 
   // Redirect URI (app.json'daki scheme ile eşleşmeli)
   const redirectUri = AuthSession.makeRedirectUri({
@@ -158,55 +166,6 @@ export default function Login() {
     }
   };
 
-  // create_new — bkz. docs/HISTORY.md Madde 221. Köprü kartında "Trakt'sız
-  // Devam Et" seçildiğinde: Worker'da Google-only yeni bir hesap açar (veya
-  // zaten varsa bulur), dönen Kaymak oturum token'ını `saveGoogleSession`
-  // ile saklar. Gerçek Trakt akışından FARKLI olarak burada `redirect_uri`/
-  // `code` yok — tek ağ isteği, aynı sayfada kalınır.
-  // Mevcut bir Google-only hesabın TEKRAR girişi (`check` → linked, ama
-  // `traktLinked:false`). Trakt round-trip'i YOK — bu kullanıcının Trakt
-  // hesabı hiç yok, o akışı tamamlaması imkânsızdı (2026-08-22 testi).
-  // Onboarding'e de gitmiyoruz: hesap zaten var, adını çoktan seçmiş.
-  const handleGoogleOnlySession = async (sessionToken: string, userId?: string) => {
-    try {
-      await saveGoogleSession(sessionToken);
-      if (userId) await setMySupabaseUserId(userId);
-      router.replace('/(protected)/(tabs)/explore');
-    } catch (error: any) {
-      console.error('[Google Sign-In] Google-only oturum acilamadi:', error);
-      notify(t('common:error'), error?.message || t('communicationError'));
-    }
-  };
-
-  const handleContinueWithoutTrakt = async () => {
-    setIsCreatingGoogleOnly(true);
-    try {
-      const result = await completeWithoutTrakt();
-      await saveGoogleSession(result.sessionToken, { username: result.username, avatarUrl: result.avatarUrl });
-      // 🔴 Google-only kullanıcının `trakt_slug`'ı NULL — akışın/engellerin
-      // "ben kimim" çözümü (getMySupabaseUserId) slug'a düşerse HİÇBİR ZAMAN
-      // sonuç veremez ve kullanıcı KENDİ gönderisini bile göremez (2026-08-22
-      // canlı testinde bulundu). Kimliği burada, tek bildiğimiz anda diske
-      // yazıyoruz — `setMySupabaseUserId` tam bu an için yazılmıştı ama F8'de
-      // hiç bağlanmamıştı.
-      if (result.userId) await setMySupabaseUserId(result.userId);
-      // Profil onboarding turu: yalnızca GERÇEKTEN yeni oluşturulan bir
-      // hesap (`status:'created'`) türetilen adı/fotoğrafı ÖNCEDEN dolu
-      // görüp düzenleyebileceği bir ekrana gider. `'linked'` (iki sekmenin
-      // yarışması) zaten var olan bir hesaba döner — onboarding'e gerek yok,
-      // muhtemelen daha önce zaten gösterilmişti.
-      if (result.status === 'created') {
-        router.replace('/profil-olustur');
-      } else {
-        router.replace('/(protected)/(tabs)/explore');
-      }
-    } catch (error: any) {
-      console.error('[Google Sign-In] Trakt\'sız hesap oluşturma hatası:', error);
-      notify(t('common:error'), error?.message || t('communicationError'));
-    } finally {
-      setIsCreatingGoogleOnly(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -232,15 +191,7 @@ export default function Login() {
 
       <View style={styles.formContainer}>
           <>
-            {/* 2026-08-22 — kullanıcı geri bildirimi: köprü kartı
-                (awaitingTraktLink) devredeyken açıklama metni + onay kutusu
-                kartın ÜSTÜNDE tekrar duruyordu — ama buraya gelebilmek için
-                `isChecked` zaten ZORUNLU olarak true olmak durumundaydı
-                (Google butonu Değişiklik 1'le onaysız tıklanamıyor), yani bu
-                blok bu aşamada YALNIZCA gereksiz kalabalıktı, kararı
-                etkilemiyordu. Kartın kendi metni ("Google ile giriş
-                yaptın...") bağlamı zaten anlatıyor. */}
-            {!awaitingTraktLink && (
+            <>
               <>
                 <Text style={styles.description}>
                   {t('traktDescription')}
@@ -269,14 +220,15 @@ export default function Login() {
                   </Text>
                 </TouchableOpacity>
               </>
-            )}
+            </>
 
-            {/* Trakt ve Google artık AYNI görsel ağırlıkta, art arda iki eşit
-                seçenek olarak duruyor — köprü kartı (awaitingTraktLink) devrede
-                iken Trakt butonu GİZLENİR, çünkü o an seçim zaten "Trakt'a
-                bağlan mı, Trakt'sız mı devam edilsin" sorusuna dönüşmüş oluyor
-                (bkz. GoogleSignInSection'ın kendi awaitingTraktLink dalı). */}
-            {!awaitingTraktLink && (
+            {/* 🔴 Buradaki `!awaitingTraktLink` KAPISI KALDIRILDI (2026-08-23).
+                Google köprü kartı bu ekrandan gidince, AsyncStorage'ında eski
+                bir bekleyen kayıt taşıyan kullanıcıda o bayrak `true` kalıyor
+                ve Trakt butonunu GİZLİYORDU — yani giriş ekranı HİÇBİR giriş
+                seçeneği göstermeyen bir çıkmaza dönüşürdü. Trakt butonu artık
+                KOŞULSUZ çiziliyor. */}
+            <>
               <TouchableOpacity
                 style={[styles.button, (!request || !isChecked) ? styles.buttonDisabled : null]}
                 activeOpacity={0.8}
@@ -289,41 +241,12 @@ export default function Login() {
                   <Text style={styles.buttonText}>{t('loginTrakt')}</Text>
                 )}
               </TouchableOpacity>
-            )}
+            </>
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
 
-            {/* F8 — Google ile giriş (yalnızca web; iOS/Android bilinçli olarak ertelendi). */}
-            {(awaitingTraktLink || Platform.OS === 'web') && (
-              <>
-                {!awaitingTraktLink && (
-                  <View style={styles.miniDivider}>
-                    <View style={styles.miniDividerLine} />
-                    <Text style={styles.miniDividerText}>{t('common:orDivider')}</Text>
-                    <View style={styles.miniDividerLine} />
-                  </View>
-                )}
-                <GoogleSignInSection
-                  isChecked={isChecked}
-                  isGenerating={isGenerating}
-                  canPromptTrakt={!!request}
-                  awaitingTraktLink={awaitingTraktLink}
-                  onCredential={(idToken, nonce) =>
-                    handleGoogleCredential(idToken, nonce, handleTraktLogin, handleGoogleOnlySession)
-                  }
-                  onContinueWithTrakt={handleTraktLogin}
-                  onCancelLink={cancelGoogleLink}
-                  onContinueWithoutTrakt={handleContinueWithoutTrakt}
-                  isCreatingAccount={isCreatingGoogleOnly}
-                />
-              </>
-            )}
-
-            {/* Misafir/Vitrin de köprü kartıyla AYNI gerekçeyle gizleniyor —
-                kart kendi "İptal" çıkışını zaten sağlıyor (bkz.
-                GoogleSignInSection.tsx); ikinci bir rakip çıkış grubu bu
-                aşamada kafa karışıklığından başka bir şey eklemiyordu. */}
-            {!awaitingTraktLink && (
+            {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür. */}
+            <>
               <>
                 <OrDivider t={t} />
 
@@ -343,7 +266,7 @@ export default function Login() {
                   </TouchableOpacity>
                 </View>
               </>
-            )}
+            </>
           </>
         </View>
       </View>

@@ -24,6 +24,7 @@ import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
+import { GoogleLinkSection } from '../../components/settings/GoogleLinkSection';
 import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
@@ -155,6 +156,13 @@ export default function SettingsScreen() {
           {/* Yalnızca Google-only kullanıcı için görünür — kendi kendine
               yeterli bir bileşen, bkz. ProfileUsernameSection.tsx başlığı. */}
           <ProfileUsernameSection />
+
+          {/* Google artık bir GİRİŞ yöntemi değil, Trakt'lı hesaba eklenen bir
+              BAĞLAMA seçeneği (2026-08-23 ürün kararı). Bileşen kendi kapısını
+              kendi tutuyor: yalnızca web + gerçek Trakt kullanıcısı görür,
+              misafir GÖRMEZ (`link_trakt` Trakt token'ı zorunlu kılıyor).
+              Gerekçe ve geri alma: docs/design/GOOGLE_AUTH_MIGRATION.md */}
+          <GoogleLinkSection />
 
           <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
