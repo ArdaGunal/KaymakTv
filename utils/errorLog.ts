@@ -77,6 +77,28 @@ export const logError = (
       // teşhis aracıdır, ana akışı asla etkilememeli.
     }
   });
+
+  // ── UZAKTAN TELEMETRİ (kara kutu) ────────────────────────────────────────
+  // Yerel yazma yukarıda AYNEN duruyor; bu EK bir kanal, onun yerine geçmiyor.
+  // Cihazdaki günlük hâlâ tek tam kayıt (50 giriş, 'warn' dahil); merkeze
+  // yalnızca 'error' seviyesi ve dedupe/tavan filtrelerinden geçenler gider.
+  //
+  // 🔴 `require` BİLİNÇLİ olarak burada (üstte `import` DEĞİL): `telemetry.ts`
+  // → `axios` → (ileride) hata yolu → `logError` şeklinde bir döngüsel import
+  // riski var. Gecikmeli yükleme bu modülü `errorLog`'un yükleme grafiğinden
+  // çıkarıyor. Ayrıca telemetri hiç kullanılmayan bir ortamda (test) modül
+  // hiç yüklenmiyor.
+  //
+  // Hata YUTULUR ve BURADA `logError` ÇAĞRILMAZ — çağrılsaydı sonsuz
+  // özyineleme olurdu (logError → telemetri → hata → logError → …).
+  if (level === 'error') {
+    try {
+      const { reportErrorRemotely } = require('../services/api/telemetry');
+      void reportErrorRemotely({ context, message, stack, tags });
+    } catch {
+      // yoksay
+    }
+  }
 };
 
 /** `logError`nun 'warn' seviyesindeki kısayolu — akışı bozmayan ama Geliştirici
