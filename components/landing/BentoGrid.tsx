@@ -10,7 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, BarChart2, ListVideo, Film, CheckCircle2 } from 'lucide-react-native';
+import { Calendar, BarChart2, ListVideo, Film, CheckCircle2 } from '../icons';
 
 const MOBILE_BREAKPOINT = 768;
 

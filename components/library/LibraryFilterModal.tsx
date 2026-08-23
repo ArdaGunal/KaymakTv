@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, X } from 'lucide-react-native';
+import { Check, X } from '../icons';
 import { useTranslation } from 'react-i18next';
 
 export interface FilterOption<TKey extends string> {

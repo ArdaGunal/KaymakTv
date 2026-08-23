@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Search, X } from 'lucide-react-native';
+import { Search, X } from '../icons';
 
 interface SearchBarProps {
   value: string;

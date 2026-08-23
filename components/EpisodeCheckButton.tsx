@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { Check } from './icons';
 import { useLibraryActions } from '../context/LibraryContext';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';

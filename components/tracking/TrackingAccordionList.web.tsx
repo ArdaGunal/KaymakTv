@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
-import { ChevronDown, PlayCircle, Bookmark, PauseCircle } from 'lucide-react-native';
+import { ChevronDown, PlayCircle, Bookmark, PauseCircle } from '../icons';
 import EpisodeCard from '../EpisodeCard';
 import type { ShowCategories, TrackingCard } from '../../store/tracking/trackingLogic';
 import type { TrackingCategoryKey, CollapsedMap } from '../../store/tracking/useTrackingStore';

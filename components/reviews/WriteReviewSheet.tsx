@@ -11,7 +11,7 @@ import {
   Switch,
   ActivityIndicator,
 } from 'react-native';
-import { X, Send, AlertTriangle } from 'lucide-react-native';
+import { X, Send, AlertTriangle } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { MAX_REVIEW_CHARS, MIN_REVIEW_CHARS } from '../../utils/reviewLimits';
 import { confirmAsync } from '../../utils/confirmDialog';

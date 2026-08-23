@@ -11,7 +11,7 @@ import {
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
-import { ArrowUp } from 'lucide-react-native';
+import { ArrowUp } from '../../../components/icons';
 import { ActivityIndicator } from 'react-native';
 import MediaRowSkeleton from '../../../components/skeletons/MediaRowSkeleton';
 import ShowCard from '../../../components/ShowCard';

@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Inbox, SearchX } from 'lucide-react-native';
+import { ChevronLeft, Inbox, SearchX } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../../../context/AuthContext';

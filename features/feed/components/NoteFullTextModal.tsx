@@ -10,7 +10,7 @@ import {
   TouchableWithoutFeedback,
   Platform,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X } from '../../../components/icons';
 
 interface NoteFullTextModalProps {
   visible: boolean;

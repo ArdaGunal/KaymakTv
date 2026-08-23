@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
-import { Globe } from 'lucide-react-native';
+import { Globe } from '../../components/icons';
 
 export default function LandingPage() {
   const { accessToken, isGuest } = useAuth();

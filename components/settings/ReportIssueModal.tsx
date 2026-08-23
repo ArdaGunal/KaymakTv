@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, Info, Lightbulb, Send, Sparkles, X } from 'lucide-react-native';
+import { AlertTriangle, Clock, Info, Lightbulb, Send, Sparkles, X } from '../icons';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {

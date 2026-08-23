@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { UserX, UserCheck } from 'lucide-react-native';
+import { UserX, UserCheck } from '../../../components/icons';
 import { useBlockState } from '../hooks/useBlockState';
 import { confirmAsync } from '../../../utils/confirmDialog';
 

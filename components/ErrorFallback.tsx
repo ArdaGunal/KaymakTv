@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle } from './icons';
 
 interface ErrorFallbackProps {
   onRetry: () => void;

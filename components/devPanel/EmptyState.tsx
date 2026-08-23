@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Inbox } from 'lucide-react-native';
+import { Inbox } from '../icons';
 
 interface EmptyStateProps {
   title: string;

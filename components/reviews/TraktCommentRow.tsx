@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Heart, EyeOff } from 'lucide-react-native';
+import { Heart, EyeOff } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { CommentData } from '../../hooks/useComments';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { List as ListIcon, Plus } from 'lucide-react-native';
+import { List as ListIcon, Plus } from '../icons';
 import { useTranslation } from 'react-i18next';
 
 interface ListsEmptyCardProps {

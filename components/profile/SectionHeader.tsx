@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from '../icons';
 import { SECTION_PADDING_H } from './profileMetrics';
 
 interface SectionHeaderProps {

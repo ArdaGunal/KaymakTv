@@ -1,6 +1,6 @@
 import React, { useState, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { Star, Plus, Check } from 'lucide-react-native';
+import { Star, Plus, Check } from './icons';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';

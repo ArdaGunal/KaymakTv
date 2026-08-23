@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
-import { Star, CheckCheck } from 'lucide-react-native';
+import { Star, CheckCheck } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 

@@ -21,7 +21,7 @@ import {
   Globe,
   Info,
   ExternalLink,
-} from 'lucide-react-native';
+} from '../../components/icons';
 import { useRouter } from 'expo-router';
 import { APK_DOWNLOAD_URL, GITHUB_RELEASES_URL } from '../../utils/constants';
 import { fetchBetaReleaseNotes } from '../../services/github';

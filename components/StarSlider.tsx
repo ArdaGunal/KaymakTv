@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Animated, PanResponder, Platform } from 'react-native';
-import { Star } from 'lucide-react-native';
+import { Star } from './icons';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';

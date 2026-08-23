@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
-import { Copy, Check } from 'lucide-react-native';
+import { Copy, Check } from '../icons';
 import * as Clipboard from 'expo-clipboard';
 
 interface RowCopyButtonProps {

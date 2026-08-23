@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MediaPoster from '../MediaPoster';
-import { Star, Plus, Check } from 'lucide-react-native';
+import { Star, Plus, Check } from '../icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';

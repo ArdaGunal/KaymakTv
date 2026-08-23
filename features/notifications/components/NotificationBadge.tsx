@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Bell } from 'lucide-react-native';
+import { Bell } from '../../../components/icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotificationStore } from '../../../store/notificationStore';

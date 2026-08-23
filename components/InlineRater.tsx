@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Star } from 'lucide-react-native';
+import { Star } from './icons';
 import StarSlider from './StarSlider';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';

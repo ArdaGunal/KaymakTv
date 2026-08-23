@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
-import { UserCircle2, X as XIcon } from 'lucide-react-native';
+import { UserCircle2, X as XIcon } from '../../components/icons';
 import {
   View,
   Text,

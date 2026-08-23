@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X } from '../../../components/icons';
 import SearchBar from '../../../components/SearchBar';
 import SearchTabs, { SearchTabType } from '../../../components/SearchTabs';
 import { searchTrakt } from '../../../services/api/search';

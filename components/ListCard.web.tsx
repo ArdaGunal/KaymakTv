@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { List as ListIcon } from 'lucide-react-native';
+import { List as ListIcon } from './icons';
 import { useRouter } from 'expo-router';
 
 export default function ListCard({ data }: { data: any }) {

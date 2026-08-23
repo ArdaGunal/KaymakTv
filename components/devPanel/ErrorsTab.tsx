@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
-import { Copy, Trash2 } from 'lucide-react-native';
+import { Copy, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 
 import ErrorEntryRow from './ErrorEntryRow';

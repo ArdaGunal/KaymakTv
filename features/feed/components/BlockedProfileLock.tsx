@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ban } from 'lucide-react-native';
+import { Ban } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 
 /**

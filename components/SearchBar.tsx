@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Search, X } from 'lucide-react-native';
+import { Search, X } from './icons';
 import { useTranslation } from 'react-i18next';
 
 interface SearchBarProps {

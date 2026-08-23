@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X } from '../icons';
 
 interface LibraryFilterBarProps {
   value: string;

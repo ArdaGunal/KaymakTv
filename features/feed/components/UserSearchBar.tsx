@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Search, X } from 'lucide-react-native';
+import { Search, X } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 
 interface UserSearchBarProps {

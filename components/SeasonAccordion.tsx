@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator } from 'react-native';
-import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { generateEpisodeSlug } from '../utils/slugHelper';

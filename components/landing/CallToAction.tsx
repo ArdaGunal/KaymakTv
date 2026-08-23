@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Compass, ArrowRight } from 'lucide-react-native';
+import { LogIn, Compass, ArrowRight } from '../icons';
 
 const MOBILE_BREAKPOINT = 768;
 

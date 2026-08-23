@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Zap } from 'lucide-react-native';
+import { Zap } from '../../../components/icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';

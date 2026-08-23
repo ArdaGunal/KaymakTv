@@ -2,7 +2,7 @@ import React, { useState, memo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PlayCircle, Info } from 'lucide-react-native';
+import { PlayCircle, Info } from './icons';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
 import { useTranslation } from 'react-i18next';

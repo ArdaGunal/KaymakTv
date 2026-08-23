@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Rss, WifiOff } from 'lucide-react-native';
+import { Rss, WifiOff } from '../icons';
 import FeedCard from '../../features/feed/components/FeedCard';
 import MarathonFeedCard from '../../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../../features/feed/components/FeedSkeleton';

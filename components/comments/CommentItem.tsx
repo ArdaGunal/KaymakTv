@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { Heart, EyeOff, Eye } from 'lucide-react-native';
+import { Heart, EyeOff, Eye } from '../icons';
 import type { CommentData } from '../../hooks/useComments';
 import CommentReplies from './CommentReplies';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';

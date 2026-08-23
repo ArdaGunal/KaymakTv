@@ -10,7 +10,7 @@ import {
   TouchableWithoutFeedback,
   ActivityIndicator,
 } from 'react-native';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle } from '../icons';
 
 interface DeleteAccountModalProps {
   visible: boolean;

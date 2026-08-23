@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Ban } from 'lucide-react-native';
+import { Ban } from '../../components/icons';
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { useAuth } from '../../context/AuthContext';

@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Compass, Sparkles, RefreshCw, BarChart2 } from 'lucide-react-native';
+import { LogIn, Compass, Sparkles, RefreshCw, BarChart2 } from '../icons';
 
 const MOBILE_BREAKPOINT = 768;
 

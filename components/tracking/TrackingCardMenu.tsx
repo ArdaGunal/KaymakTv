@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MoreVertical, PauseCircle, ListPlus, Heart, Share2 } from 'lucide-react-native';
+import { MoreVertical, PauseCircle, ListPlus, Heart, Share2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { useAuth } from '../../context/AuthContext';

@@ -2,7 +2,7 @@ import React, { useState, memo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PlayCircle } from 'lucide-react-native';
+import { PlayCircle } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useAirCountdown } from '../../hooks/useAirCountdown';
 import MediaPoster from '../MediaPoster';
@@ -10,7 +10,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import MovieCardMobile from './MovieCardMobile';
 import TrackingCardMenu from '../tracking/TrackingCardMenu';
 import { useLibraryActions } from '../../context/LibraryContext';
-import { Check } from 'lucide-react-native';
+import { Check } from '../icons';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 

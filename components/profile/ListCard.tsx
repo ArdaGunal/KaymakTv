@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { List as ListIcon } from 'lucide-react-native';
+import { List as ListIcon } from '../icons';
 import { useRouter } from 'expo-router';
 import type { EnrichedList } from '../../hooks/useProfileLists';
 import { POSTER_CARD_WIDTH, POSTER_CARD_HEIGHT, CARD_GAP } from './profileMetrics';

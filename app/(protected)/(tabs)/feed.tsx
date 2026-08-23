@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
-import { Rss, WifiOff, ArrowUp, RefreshCw, CloudOff } from 'lucide-react-native';
+import { Rss, WifiOff, ArrowUp, RefreshCw, CloudOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FeedCard from '../../../features/feed/components/FeedCard';

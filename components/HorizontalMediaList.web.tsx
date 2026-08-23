@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from './icons';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';

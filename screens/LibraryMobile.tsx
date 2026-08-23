@@ -12,10 +12,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import PosterGridSkeleton from '../components/skeletons/PosterGridSkeleton';
-import { Inbox, SearchX } from 'lucide-react-native';
+import { Inbox, SearchX } from '../components/icons';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
 import MediaPoster from '../components/MediaPoster';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

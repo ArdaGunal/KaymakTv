@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { Clock, Tv, Film } from 'lucide-react-native';
+import { Clock, Tv, Film } from '../../icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { formatWatchDuration } from '../../../utils/watchTimeHelper';

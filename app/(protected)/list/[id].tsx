@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Trash2, List as ListIcon, Plus, X, Lock } from 'lucide-react-native';
+import { ChevronLeft, Trash2, List as ListIcon, Plus, X, Lock } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { getCustomListItems } from '../../../services/traktApi';
 import { useLibraryActions } from '../../../context/LibraryContext';

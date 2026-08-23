@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Platform, UIManag
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Check, CheckCheck } from 'lucide-react-native';
+import { Check, CheckCheck } from '../../components/icons';
 
 
 import LoadFailedState from '../../components/LoadFailedState';

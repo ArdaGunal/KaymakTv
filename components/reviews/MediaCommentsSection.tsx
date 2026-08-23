@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { PenLine, LogIn, AlertTriangle } from 'lucide-react-native';
+import { PenLine, LogIn, AlertTriangle } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useMediaReviews } from '../../hooks/useMediaReviews';

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, SearchX } from 'lucide-react-native';
+import { ChevronLeft, SearchX } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
 import FeedCard from '../../features/feed/components/FeedCard';
 import { useActivityDetail } from '../../features/feed/hooks/useActivityDetail';

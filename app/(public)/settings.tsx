@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ActivityIn
 
 import { useRouter } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
-import { Globe, CheckSquare, Square } from 'lucide-react-native';
+import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
 import { exchangeAuthCode } from '../../services/traktApi';
 import { notify } from '../../utils/confirmDialog';

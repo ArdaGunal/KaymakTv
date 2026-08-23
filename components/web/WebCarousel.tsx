@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight } from '../icons';
 
 interface WebCarouselProps {
   title: string;

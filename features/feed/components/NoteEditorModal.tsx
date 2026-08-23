@@ -13,7 +13,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X } from '../../../components/icons';
 
 // 500 DEĞİL 1000: Worker'ın `/feed/note`si (handleFeedNote) ve DB kısıtı
 // (`feed_activities_note_length`, 017_feed_posts.sql) 1000'e çıkarıldı —

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { Star } from 'lucide-react-native';
+import { Star } from '../../icons';
 import { useTranslation } from 'react-i18next';
 import type { ProfileStatsRatings } from '../../../hooks/useProfileStatistics';
 import { formatRating } from '../../../utils/formatRating';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from '../icons';
 
 interface SettingsRowProps {
   icon: React.ReactNode;

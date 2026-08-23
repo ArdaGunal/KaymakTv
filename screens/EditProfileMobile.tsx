@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, Info } from 'lucide-react-native';
+import { ExternalLink, Info } from '../components/icons';
 
 import { useAuth } from '../context/AuthContext';
 import { useMyTraktProfile } from '../hooks/useMyTraktProfile';

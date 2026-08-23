@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Flame, Clock, History, LucideIcon } from 'lucide-react-native';
+import { Flame, Clock, History, LucideIcon } from '../icons';
 import { useTranslation } from 'react-i18next';
 import type { CommentSort } from '../../hooks/useComments';
 

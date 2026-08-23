@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Tv, Film } from 'lucide-react-native';
+import { ChevronLeft, Tv, Film } from '../components/icons';
 import { useTranslation } from 'react-i18next';
 
 import { useProfileStatistics, StatsTab } from '../hooks/useProfileStatistics';

@@ -1,6 +1,6 @@
 import React, { useState, memo, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { Check } from '../icons';
 import { useLibraryActions } from '../../context/LibraryContext';
 import { useRouter } from 'expo-router';
 import { useAirCountdown } from '../../hooks/useAirCountdown';

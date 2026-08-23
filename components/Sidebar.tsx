@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { usePathname, Link } from 'expo-router';
-import { Tv, Film, Compass, User, Settings, Rss } from 'lucide-react-native';
+import { Tv, Film, Compass, User, Settings, Rss } from './icons';
 import { useTranslation } from 'react-i18next';
 
 export default function Sidebar() {

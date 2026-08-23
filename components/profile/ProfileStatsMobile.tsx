@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Tv, Film, ChevronRight } from 'lucide-react-native';
+import { Tv, Film, ChevronRight } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useLibrarySelector } from '../../context/LibraryContext';

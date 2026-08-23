@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { EyeOff, Pencil } from 'lucide-react-native';
+import { EyeOff, Pencil } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import NoteFullTextModal from './NoteFullTextModal';
 

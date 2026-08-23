@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator } from 'react-native';
-import { Link2, X, ArrowRight } from 'lucide-react-native';
+import { Link2, X, ArrowRight } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 

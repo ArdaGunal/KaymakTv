@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
-import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from 'lucide-react-native';
+import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';

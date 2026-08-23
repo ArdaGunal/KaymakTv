@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft } from '../icons';
 import { useTranslation } from 'react-i18next';
 
 interface SettingsHeaderProps {

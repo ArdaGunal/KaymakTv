@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MoreVertical, Pencil, Trash2, Share2, Flag, UserX } from 'lucide-react-native';
+import { MoreVertical, Pencil, Trash2, Share2, Flag, UserX } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { confirmAsync } from '../../../utils/confirmDialog';
 

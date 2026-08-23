@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { Lock, Check, Clock, UserPlus } from 'lucide-react-native';
+import { Lock, Check, Clock, UserPlus } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { TraktUserProfile } from '../../../services/api/social';

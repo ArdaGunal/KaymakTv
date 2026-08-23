@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Lock } from 'lucide-react-native';
+import { Lock } from './icons';
 
 interface LoginPaywallProps {
   message?: string;

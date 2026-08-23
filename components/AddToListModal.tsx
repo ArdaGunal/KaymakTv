@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
-import { X, Plus, Check, Folder } from 'lucide-react-native';
+import { X, Plus, Check, Folder } from './icons';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

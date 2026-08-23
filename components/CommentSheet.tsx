@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import { X, MessageSquare } from 'lucide-react-native';
+import { X, MessageSquare } from './icons';
 import CommentItem from './comments/CommentItem';
 import CommentSortBar from './comments/CommentSortBar';
 import CommentListSkeleton from './skeletons/CommentListSkeleton';

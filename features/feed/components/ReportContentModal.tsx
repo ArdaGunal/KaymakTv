@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
 } from 'react-native';
-import { Flag, CheckCircle2, Circle } from 'lucide-react-native';
+import { Flag, CheckCircle2, Circle } from '../../../components/icons';
 import { reportContent, ReportReason, ReportTargetType } from '../services/contentReports';
 import Snackbar from '../../../components/Snackbar';
 

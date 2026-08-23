@@ -4,7 +4,7 @@ import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Star, Check, Share2 } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Star, Check, Share2 } from '../../components/icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { addRating, removeRating } from '../../services/traktApi';

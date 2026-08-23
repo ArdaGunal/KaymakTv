@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { WifiOff } from 'lucide-react-native';
+import { WifiOff } from './icons';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 /**

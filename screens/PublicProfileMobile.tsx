@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, useWindo
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Rss, WifiOff } from 'lucide-react-native';
+import { ChevronLeft, Rss, WifiOff } from '../components/icons';
 import { useTranslation } from 'react-i18next';
 
 import ProfileHeader from '../components/profile/ProfileHeader';

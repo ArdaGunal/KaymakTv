@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User } from 'lucide-react-native';
+import { User } from '../icons';
 import EditProfileModal from '../modals/EditProfileModal';
 import SettingsRow from './SettingsRow';
 import { SettingsSection } from './SettingsSection';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from 'lucide-react-native';
+import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp } from '../icons';
 import type { LoggedError } from '../../utils/errorLog';
 import { formatTimestamp } from './formatTimestamp';
 import RowCopyButton from './RowCopyButton';

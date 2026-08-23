@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
-import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus, PenLine } from 'lucide-react-native';
+import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus, PenLine } from '../../../components/icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';

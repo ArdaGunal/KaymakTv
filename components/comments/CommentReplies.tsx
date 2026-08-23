@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { CornerDownRight, MessageCircle, ChevronUp } from 'lucide-react-native';
+import { CornerDownRight, MessageCircle, ChevronUp } from '../icons';
 import { getCommentReplies } from '../../services/traktApi';
 
 interface CommentRepliesProps {

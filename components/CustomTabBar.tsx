@@ -13,7 +13,7 @@ import React, { memo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { Tv, Film, Rss, Compass, User } from 'lucide-react-native';
+import { Tv, Film, Rss, Compass, User } from './icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import Animated, {

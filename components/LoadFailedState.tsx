@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { CloudOff, RotateCw, ChevronLeft } from 'lucide-react-native';
+import { CloudOff, RotateCw, ChevronLeft } from './icons';
 import { useTranslation } from 'react-i18next';
 
 /**

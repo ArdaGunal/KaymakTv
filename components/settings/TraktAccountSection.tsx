@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { CheckCircle2, LogIn } from 'lucide-react-native';
+import { CheckCircle2, LogIn } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { SettingsSection, SettingsSectionDivider } from './SettingsSection';
 

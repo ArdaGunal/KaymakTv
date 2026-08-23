@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle } from './icons';
 import { logError } from '../utils/errorLog';
 
 /**

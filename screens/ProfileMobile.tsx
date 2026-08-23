@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity } from 
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Settings, List as ListIcon, Tv, Film, Plus } from 'lucide-react-native';
+import { Heart, Settings, List as ListIcon, Tv, Film, Plus } from '../components/icons';
 import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector } from '../context/LibraryContext';
