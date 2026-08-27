@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from '../../../utils/secureStorage';
+import { refreshTraktToken } from '../../../services/api/auth';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
 import { isKaymakSessionToken } from '../../../services/api/traktClient';
 import { getUserProfile } from '../../../services/api/social';
@@ -181,12 +182,60 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
   optimistic.forEach((card) => store.upsertActivity(card, false));
 
   const start = Date.now();
-  try {
-    const response = await axios.post(
+
+  // ── Tek seferlik 401 kurtarması (Worker'a özel) ──────────────────────────
+  // NEDEN: Worker'a giden istekler traktClient'ın 401→refresh interceptor'ından
+  // GEÇMEZ (bkz. traktClient.ts'teki "Worker'a giden isteklerimiz" notu).
+  // Depodaki token bayatsa Worker `resolveCallerWithReason` → `verifyTraktIdentity`
+  // zinciri Trakt'tan 401 alır ve yayına `invalid_token` (HTTP 401) döner.
+  //
+  // NASIL: (1) Depo ÖNCE yeniden okunur — bu arada başka bir Trakt isteği
+  // interceptor'da refresh tetiklediyse yeni token hazırdır; elle yenilemeye
+  // gerek kalmaz (aynı refresh_token'la yarış, Trakt rotasyonunda ikinci
+  // kullanımda düşer). (2) Değişmediyse mevcut `refreshTraktToken` ile BİR kez
+  // yenilenir, depoya yazılır ve istek YENİ token'la TEK kez tekrarlanır.
+  // Google-only oturum (`kaymak_session_v1.*`) client tarafında yenilenemez
+  // (token yalnızca girişte mint edilir) — o dal bilinçli olarak dışarıda.
+  const postPublish = (accessToken: string) =>
+    axios.post(
       `${KAYMAK_WORKER_URL}/feed/publish`,
-      { traktAccessToken: token, activities },
+      { traktAccessToken: accessToken, activities },
       { headers: { 'Content-Type': 'application/json' }, timeout: 12000 }
     );
+
+  const postPublishWithAuthRecovery = async () => {
+    try {
+      return await postPublish(token);
+    } catch (error: any) {
+      if (error?.response?.status !== 401 || isKaymakSessionToken(token)) throw error;
+
+      console.warn('[Feed] Yayın 401 aldı — bayat token kurtarması deneniyor...');
+      // (1) Bu arada interceptor yeniledi mi?
+      const latest = await SecureStore.getItemAsync('traktAccessToken');
+      // Hesap değişimi/arka plan yenilemesi sırasında depo değeri bir
+      // Google-only oturum token'ına dönmüş olabilir. Böyle bir değeri
+      // Trakt token'ı sanıp Worker'a göndermemeliyiz.
+      if (latest && latest !== token) {
+        if (isKaymakSessionToken(latest)) throw error;
+        return postPublish(latest);
+      }
+
+      // (2) Elle tek seferlik refresh — interceptor'ın izlediği yolun aynısı.
+      // NOT: traktClient'ın iç `cachedAccessToken`'ına dokunulamaz (export yok);
+      // depo değeri değiştiği için sonraki `getTraktClient()` zaten taze değerle
+      // kendi instance'ını kurar — tek maliyet bir kez örnek yenilemesi.
+      const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
+      if (!refreshToken) throw error;
+
+      const data = await refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob');
+      await SecureStore.setItemAsync('traktAccessToken', data.access_token);
+      await SecureStore.setItemAsync('traktRefreshToken', data.refresh_token);
+      return postPublish(data.access_token);
+    }
+  };
+
+  try {
+    const response = await postPublishWithAuthRecovery();
 
     if (!response.data?.success) {
       throw new Error(response.data?.message || 'Yayın reddedildi.');
@@ -223,7 +272,11 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
     // Yayınlanmamış bir şeyi ekranda bırakmak kullanıcıya YALAN olurdu.
     optimistic.forEach((card) => useFeedStore.getState().removeActivity(card.id));
     recordMutationResult('publishFeedActivity', false);
-    logError('feedPublish.publishActivities', error);
+    logError('feedPublish.publishActivities', error, {
+      // Worker'ın `authErrorResponse` gövdesindeki `errorKind` — telemetri
+      // artık invalid_token / no_credentials / rate_limited ayırt edebilir.
+      code: (error as any)?.response?.data?.code,
+    });
     console.warn('[Feed] Aktivite yayınlanamadı:', error);
   } finally {
     recordApiLatency('worker.feed.publish', Date.now() - start);
