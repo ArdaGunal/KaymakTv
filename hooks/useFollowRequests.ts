@@ -35,6 +35,22 @@ export function useFollowRequests() {
     };
   }, [accessToken, isGuest]);
 
+  // Pull-to-refresh (bildirimler ekranı) için: `isLoading`'e DOKUNMAZ —
+  // aksi hâlde her "aşağı çekme" jesti listeyi kısa süreliğine boşaltıp
+  // iskelet gösterirdi, ki bu RefreshControl'ün kendi döner göstergesiyle
+  // ÇAKIŞIR. Mount effect'iyle bilinçli olarak AYNI mantığı tekrar etmiyor —
+  // burada `cancelled` koruması gerekmez çünkü çağıran taraf zaten mount
+  // olmuş bir bileşen (RefreshControl'ün kendisi).
+  const refetch = useCallback(async () => {
+    if (!accessToken || isGuest) return;
+    try {
+      const data = await getFollowRequests();
+      setRequests(data);
+    } catch (error) {
+      console.warn('[useFollowRequests] Yenileme başarısız:', error);
+    }
+  }, [accessToken, isGuest]);
+
   const resolve = useCallback(
     async (id: number, action: (id: number) => Promise<void>) => {
       const previous = requests;
@@ -53,5 +69,5 @@ export function useFollowRequests() {
   const accept = useCallback((id: number) => resolve(id, approveFollowRequest), [resolve]);
   const reject = useCallback((id: number) => resolve(id, denyFollowRequest), [resolve]);
 
-  return { requests, isLoading, accept, reject };
+  return { requests, isLoading, accept, reject, refetch };
 }

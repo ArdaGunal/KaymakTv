@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StatusBar,
   FlatList,
+  RefreshControl,
   TouchableOpacity,
   Platform,
   useWindowDimensions,
@@ -17,6 +18,7 @@ import { Inbox, SearchX } from '../components/icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
+import { useLibraryActions } from '../context/LibraryContext';
 import MediaPoster from '../components/MediaPoster';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -78,6 +80,20 @@ export default function LibraryScreen() {
   const { width } = useWindowDimensions();
 
   const { data, loading } = useLibraryTypeData(type, accessToken);
+
+  // Pull-to-refresh: bu ekranın kendi veri kaynağı yok, `LibraryContext`'ten
+  // türetiliyor (bkz. useLibraryTypeData) — bu yüzden `refreshLibrary` diğer
+  // kütüphane ekranlarıyla (MoviesMobile) AYNI kaynağı zorla tazeler.
+  const { refreshLibrary } = useLibraryActions();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshLibrary();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshLibrary]);
 
   // Süzme "Diziler" ve "Filmler" ekranlarında açık; favoriler ve listeler
   // bilerek dokunulmadan eski davranışlarını sürdürüyor.
@@ -221,6 +237,9 @@ export default function LibraryScreen() {
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.gridContainer}
           getItemLayout={getItemLayout}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+          }
           ListFooterComponent={<View style={{ height: 40 }} />}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

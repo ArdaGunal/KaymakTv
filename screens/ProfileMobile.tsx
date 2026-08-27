@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, RefreshControl } from 'react-native';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Settings, List as ListIcon, Tv, Film, Plus } from '../components/icons';
 import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
-import { useLibrarySelector } from '../context/LibraryContext';
+import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useRouter } from 'expo-router';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ListCard from '../components/profile/ListCard';
@@ -75,6 +75,21 @@ export default function ProfileScreen() {
   const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
+  // Pull-to-refresh: bu ekran İKİ ayrı kaynaktan okuyor — Trakt profili
+  // (`refetchProfile`, zaten odak-tazeleme için vardı) ve kütüphane verisi
+  // (`refreshLibrary`, MoviesMobile/LibraryMobile ile AYNI kaynak). İkisi de
+  // tazelenmezse "yenile" jesti yarım bir tazeleme olurdu.
+  const { refreshLibrary } = useLibraryActions();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchProfile(), refreshLibrary()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchProfile, refreshLibrary]);
+
   // Ekran her odağa geldiğinde profili tazeler — kullanıcı Trakt.tv'de
   // adını/bio'sunu değiştirip uygulamaya döndüğünde (bkz. docs/HISTORY.md
   // Madde 134: düzenleme yalnızca trakt.tv'de yapılabiliyor) değişiklik
@@ -122,7 +137,13 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+        }
+      >
         {isProfileLoading || !profile ? (
           <ProfileHeaderSkeleton />
         ) : (

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -91,10 +91,24 @@ export default function NotificationsScreen() {
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const { accessToken, isGuest } = useAuth();
 
-  const { requests, isLoading: isRequestsLoading, accept, reject } = useFollowRequests();
+  const { requests, isLoading: isRequestsLoading, accept, reject, refetch: refetchRequests } = useFollowRequests();
   const items = useNotificationStore((s) => s.items);
   const refreshActivity = useNotificationStore((s) => s.refreshActivity);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
+
+  // Pull-to-refresh: bu ekran İKİ ayrı kaynaktan besleniyor — takip istekleri
+  // (`useFollowRequests`) ve aktivite bildirimleri (`useNotificationStore`,
+  // zaten mount'ta `refreshActivity` ile çekiliyordu). İkisi de tazelenmezse
+  // "yenile" jesti yarım kalır.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchRequests(), refreshActivity()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchRequests, refreshActivity]);
 
   // Misafirde/token yokken Trakt'a istek atılmaz (bkz. docs/HISTORY.md
   // Madde 89'daki AYNI koruma — token'sız `/users/me` çağrısı misafiri
@@ -119,6 +133,9 @@ export default function NotificationsScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+        }
       >
         {/* A. Takip İstekleri */}
         <View style={styles.section}>

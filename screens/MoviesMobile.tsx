@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, Dimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, RefreshControl, Dimensions, Platform } from 'react-native';
 
 import ConfettiCannon from 'react-native-confetti-cannon';
 import MovieCard from '../components/movies/MovieCard';
@@ -41,6 +41,19 @@ export default function MoviesScreen() {
   // "İlerlemeyi Gizle" uç noktasına bağlıdır (bkz. toggleHiddenFromProgress),
   // dizilerle birebir aynı mekanizma.
   const { toggleHiddenFromProgress, refreshLibrary } = useLibraryActions();
+
+  // Pull-to-refresh: `refreshLibrary` zaten hata durumunda ("Tekrar Dene",
+  // SyncErrorState) kullanılıyordu — burada aşağı çekme jestine bağlanıyor.
+  // `force=true` ile çağırdığı için (bkz. useLibraryActions) TTL'yi atlar.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshLibrary();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshLibrary]);
 
   const { watchlistMoviesList, upcomingMovies } = useMoviesDashboardData(
     accessToken ? watchlistMovies : [],
@@ -140,6 +153,9 @@ export default function MoviesScreen() {
           maxToRenderPerBatch={5}
           windowSize={3}
           removeClippedSubviews={Platform.OS !== 'web'}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+          }
           ListEmptyComponent={
             <Text style={styles.emptyText}>{t('noUpcomingMovies')}</Text>
           }
@@ -157,6 +173,9 @@ export default function MoviesScreen() {
           maxToRenderPerBatch={5}
           windowSize={3}
           removeClippedSubviews={Platform.OS !== 'web'}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+          }
           ListEmptyComponent={
             <Text style={styles.emptyText}>{t('noWatchlistMovies')}</Text>
           }
