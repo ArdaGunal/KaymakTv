@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Compass, Sparkles, RefreshCw, BarChart2 } from '../icons';
+import { Clapperboard, LogIn, Compass } from '../icons';
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -24,12 +24,12 @@ export default function HeroSection() {
   const isDesktop = width >= MOBILE_BREAKPOINT;
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -40,84 +40,59 @@ export default function HeroSection() {
 
   return (
     <View style={styles.container}>
-      {/* Çift katmanlı arka plan parlaması */}
       <LinearGradient
-        colors={['rgba(37, 99, 235, 0.2)', 'rgba(59, 130, 246, 0.06)', 'transparent']}
+        colors={['rgba(176, 198, 255, 0.07)', 'rgba(14, 19, 29, 0)']}
         style={styles.glowTop}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       />
-
       <Animated.View
         style={[
           styles.content,
           { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
       >
-        {/* Sürüm rozeti */}
         <View style={styles.badge}>
-          <View style={styles.badgeDot} />
-          <Text style={styles.badgeText}>{t('landingVersion', '✨ Yeni Sürüm 2.0 Yayında')}</Text>
+          <Clapperboard size={13} color="#b0c6ff" strokeWidth={2} />
+          <Text style={styles.badgeText}>{t('diaryEyebrow').toUpperCase()}</Text>
         </View>
 
-        {/* Başlık */}
         <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-          {t('landingTitle1', 'Medyalarınızı')}{'\n'}
-          {t('landingTitle3', 'Yönetmenin ')}<Text style={styles.highlight}>{t('landingTitle2', 'En Şık')}</Text>{'\n'}
-          {'Yolu'}
+          {t('heroTitle1')}
+          {'\n'}
+          <Text style={styles.highlight}>{t('heroTitle2')}</Text>
+          {t('heroTitle3')}
         </Text>
 
-        {/* Alt başlık */}
         <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
-          {t('landingSubtitle')}
+          {t('heroSubtitle')}
         </Text>
 
-        {/* CTA Butonları */}
         <View style={[styles.ctaGroup, isDesktop && styles.ctaGroupDesktop]}>
-          {/* Birincil: Giriş Yap */}
           <TouchableOpacity
             style={styles.primaryButton}
             activeOpacity={0.82}
             onPress={() => router.push('/(public)/settings')}
           >
             <LinearGradient
-              colors={['#1d4ed8', '#3b82f6', '#60a5fa']}
+              colors={['#b0c6ff', '#8ab4ff']}
               style={styles.primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <LogIn color="#ffffff" size={17} />
-              <Text style={styles.primaryButtonText}>{t('login', 'Giriş Yap')}</Text>
+              <LogIn color="#002d6e" size={17} strokeWidth={2.5} />
+              <Text style={styles.primaryButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* İkincil: Misafir */}
           <TouchableOpacity
             style={styles.secondaryButton}
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
-            <Compass color="#93c5fd" size={17} />
-            <Text style={styles.secondaryButtonText}>{t('landingGuest', 'Misafir Devam')}</Text>
+            <Compass color="#b0c6ff" size={17} strokeWidth={2} />
+            <Text style={styles.secondaryButtonText}>{t('exploreAsGuest')}</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Güven çipleri */}
-        <View style={styles.trustRow}>
-          <View style={styles.trustChip}>
-            <Sparkles size={11} color="#60a5fa" />
-            <Text style={styles.trustText}>100K+ İçerik</Text>
-          </View>
-          <View style={styles.trustDot} />
-          <View style={styles.trustChip}>
-            <RefreshCw size={11} color="#34d399" />
-            <Text style={styles.trustText}>Trakt Senkron</Text>
-          </View>
-          <View style={styles.trustDot} />
-          <View style={styles.trustChip}>
-            <BarChart2 size={11} color="#fbbf24" />
-            <Text style={styles.trustText}>Detaylı Analiz</Text>
-          </View>
         </View>
       </Animated.View>
     </View>
@@ -126,8 +101,8 @@ export default function HeroSection() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === 'web' ? 140 : 56,
-    paddingBottom: Platform.OS === 'web' ? 80 : 40,
+    paddingTop: Platform.OS === 'web' ? 160 : 72,
+    paddingBottom: Platform.OS === 'web' ? 96 : 60,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -136,11 +111,10 @@ const styles = StyleSheet.create({
   },
   glowTop: {
     position: 'absolute',
-    top: -80,
-    left: '-50%',
-    right: '-50%',
-    width: '200%',
-    height: 400,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 380,
   },
   content: {
     alignItems: 'center',
@@ -148,68 +122,59 @@ const styles = StyleSheet.create({
     maxWidth: 680,
     zIndex: 1,
   },
-  // ── Rozet ───────────────────────────────────────────────────────────────
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: 'rgba(27, 32, 42, 0.9)',
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.22)',
-    marginBottom: 20,
-  },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#60a5fa',
-    ...(Platform.OS === 'web' ? ({ boxShadow: '0 0 6px #60a5fa' } as any) : null),
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 28,
   },
   badgeText: {
-    color: '#93c5fd',
+    color: '#b0c6ff',
     fontWeight: '700',
-    fontSize: 12.5,
-    letterSpacing: 0.2,
+    fontSize: 11,
+    letterSpacing: 1.4,
   },
-  // ── Başlık ──────────────────────────────────────────────────────────────
   title: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '800',
-    color: '#f1f5f9',
+    color: '#dee2f1',
     textAlign: 'center',
-    lineHeight: 43,
-    marginBottom: 16,
+    lineHeight: 46,
+    marginBottom: 20,
     letterSpacing: -0.8,
   },
   titleDesktop: {
-    fontSize: 64,
-    lineHeight: 76,
-    letterSpacing: -1.5,
+    fontSize: 56,
+    lineHeight: 68,
+    letterSpacing: -1.2,
   },
   highlight: {
-    color: '#60a5fa',
+    color: '#b0c6ff',
+    fontStyle: 'italic',
   },
   subtitle: {
     fontSize: 15,
-    color: '#64748b',
+    color: '#8c90a0',
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-    maxWidth: 480,
+    lineHeight: 26,
+    marginBottom: 36,
+    maxWidth: 520,
   },
   subtitleDesktop: {
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 28,
-    color: '#94a3b8',
+    color: '#c2c6d6',
   },
-  // ── CTA Butonları ────────────────────────────────────────────────────────
   ctaGroup: {
     width: '100%',
     gap: 12,
-    marginBottom: 32,
+    maxWidth: 480,
   },
   ctaGroupDesktop: {
     flexDirection: 'row',
@@ -217,73 +182,46 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   primaryButton: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
-    // Canlı mavi gölge
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
+    shadowColor: '#b0c6ff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 16,
-    elevation: 10,
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
+    elevation: 8,
   },
   primaryGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
-    paddingVertical: 15,
-    paddingHorizontal: 28,
-    minHeight: 52,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    minHeight: 54,
   },
   primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 15.5,
+    color: '#002d6e',
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
   secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
-    paddingVertical: 15,
-    paddingHorizontal: 28,
-    borderRadius: 16,
-    minHeight: 52,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    minHeight: 54,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.22)',
-    backgroundColor: 'rgba(59, 130, 246, 0.07)',
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(27, 32, 42, 0.8)',
   },
   secondaryButtonText: {
-    color: '#93c5fd',
-    fontSize: 15.5,
+    color: '#c2c6d6',
+    fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.1,
-  },
-  // ── Güven Çipleri ─────────────────────────────────────────────────────────
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  trustChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  trustText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  trustDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#334155',
   },
 });

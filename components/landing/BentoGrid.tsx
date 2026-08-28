@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -9,70 +9,77 @@ import {
   useWindowDimensions,
   Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, BarChart2, ListVideo, Film, CheckCircle2 } from '../icons';
+import { Calendar, BarChart2, List, Star, Users, Search } from '../icons';
 
 const MOBILE_BREAKPOINT = 768;
 
 const features = [
   {
-    title: 'featureStats',
-    description: 'featureStatsDesc',
-    iconColor: '#fbbf24',
-    Icon: BarChart2,
-    accent: 'rgba(251,191,36,0.12)',
-    borderAccent: 'rgba(251,191,36,0.18)',
-  },
-  {
-    title: 'featureLists',
-    description: 'featureListsDesc',
-    iconColor: '#34d399',
-    Icon: ListVideo,
-    accent: 'rgba(52,211,153,0.1)',
-    borderAccent: 'rgba(52,211,153,0.18)',
-  },
-  {
-    title: 'featureCalendar',
-    description: 'featureCalendarDesc',
-    iconColor: '#60a5fa',
+    titleKey: 'viewingDiary',
+    descKey: 'viewingDiaryDesc',
     Icon: Calendar,
-    accent: 'rgba(96,165,250,0.1)',
-    borderAccent: 'rgba(96,165,250,0.18)',
+    iconColor: '#b0c6ff',
+    accent: 'rgba(176,198,255,0.12)',
+    borderAccent: 'rgba(176,198,255,0.14)',
   },
   {
-    title: 'featureDiscover',
-    description: 'featureDiscoverDesc',
-    iconColor: '#c084fc',
-    Icon: Film,
-    accent: 'rgba(192,132,252,0.1)',
-    borderAccent: 'rgba(192,132,252,0.18)',
+    titleKey: 'fastSearchTitle',
+    descKey: 'fastSearchDesc',
+    Icon: Search,
+    iconColor: '#94ccff',
+    accent: 'rgba(148,204,255,0.10)',
+    borderAccent: 'rgba(148,204,255,0.14)',
   },
   {
-    title: 'featureProgress',
-    description: 'featureProgressDesc',
+    titleKey: 'statsPanel',
+    descKey: 'statsPanelDesc',
+    Icon: BarChart2,
+    iconColor: '#fbbf24',
+    accent: 'rgba(251,191,36,0.10)',
+    borderAccent: 'rgba(251,191,36,0.14)',
+  },
+  {
+    titleKey: 'ratingReview',
+    descKey: 'ratingReviewDesc',
+    Icon: Star,
     iconColor: '#f87171',
-    Icon: CheckCircle2,
-    accent: 'rgba(248,113,113,0.1)',
-    borderAccent: 'rgba(248,113,113,0.18)',
+    accent: 'rgba(248,113,113,0.10)',
+    borderAccent: 'rgba(248,113,113,0.14)',
+  },
+  {
+    titleKey: 'personalLists',
+    descKey: 'personalListsDesc',
+    Icon: List,
+    iconColor: '#34d399',
+    accent: 'rgba(52,211,153,0.10)',
+    borderAccent: 'rgba(52,211,153,0.14)',
+  },
+  {
+    titleKey: 'socialFollow',
+    descKey: 'socialFollowDesc',
+    Icon: Users,
+    iconColor: '#c084fc',
+    accent: 'rgba(192,132,252,0.10)',
+    borderAccent: 'rgba(192,132,252,0.14)',
   },
 ];
 
 interface CardProps {
   feature: typeof features[0];
   isDesktop: boolean;
-  index: number;
+  isLastOdd: boolean;
   t: any;
 }
 
-const BentoCard = ({ feature, isDesktop, index, t }: CardProps) => {
+const FeatureCard = ({ feature, isDesktop, isLastOdd, t }: CardProps) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       useNativeDriver: true,
-      friction: 7,
-      tension: 200,
+      friction: 8,
+      tension: 220,
     }).start();
   };
 
@@ -80,14 +87,10 @@ const BentoCard = ({ feature, isDesktop, index, t }: CardProps) => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      friction: 7,
-      tension: 200,
+      friction: 8,
+      tension: 220,
     }).start();
   };
-
-  // Mobilde: 2 sütunlu grid benzeri yerleşim
-  // 0. kart (Stats) tam genişlik, diğerleri 2'li sıra
-  const isMobileFull = !isDesktop && index === 0;
 
   return (
     <Pressable
@@ -98,29 +101,25 @@ const BentoCard = ({ feature, isDesktop, index, t }: CardProps) => {
       onHoverOut={handlePressOut}
       style={[
         styles.cardOuter,
-        !isDesktop && (isMobileFull ? styles.cardOuterFullMobile : styles.cardOuterHalfMobile),
-        isDesktop && styles.cardOuterDesktop,
+        isDesktop ? styles.cardDesktop : (isLastOdd ? styles.cardMobileFull : styles.cardMobileHalf),
       ]}
     >
       <Animated.View style={[styles.cardAnimWrap, { transform: [{ scale: scaleAnim }] }]}>
-        <LinearGradient
-          colors={['rgba(22, 31, 50, 0.9)', 'rgba(11, 17, 32, 0.98)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.card, { borderColor: feature.borderAccent }]}
-        >
-          {/* İkon + Başlık yatay */}
-          <View style={styles.cardTop}>
-            <View style={[styles.iconWrap, { backgroundColor: feature.accent }]}>
-              <feature.Icon size={18} color={feature.iconColor} strokeWidth={2} />
-            </View>
-            <Text style={styles.cardTitle}>{t(feature.title)}</Text>
-          </View>
-          <Text style={styles.cardDesc}>{t(feature.description)}</Text>
+        <View style={[styles.card, { borderColor: feature.borderAccent }]}>
+          {/* Subtle accent glow in corner */}
+          <View style={[styles.cardCornerGlow, { backgroundColor: feature.accent }]} />
 
-          {/* Alt dekorasyon çizgisi */}
-          <View style={[styles.cardLine, { backgroundColor: feature.borderAccent }]} />
-        </LinearGradient>
+          {/* İkon */}
+          <View style={[styles.iconWrap, { backgroundColor: feature.accent }]}>
+            <feature.Icon size={20} color={feature.iconColor} strokeWidth={1.8} />
+          </View>
+
+          {/* Başlık */}
+          <Text style={styles.cardTitle}>{t(feature.titleKey)}</Text>
+
+          {/* Açıklama */}
+          <Text style={styles.cardDesc}>{t(feature.descKey)}</Text>
+        </View>
       </Animated.View>
     </Pressable>
   );
@@ -136,7 +135,7 @@ export default function BentoGrid() {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 800,
-      delay: 150,
+      delay: 200,
       useNativeDriver: true,
     }).start();
   }, []);
@@ -146,13 +145,13 @@ export default function BentoGrid() {
       {/* Bölüm Başlığı */}
       <View style={styles.header}>
         <View style={styles.eyebrow}>
-          <Text style={styles.eyebrowText}>ÖZELLİKLER</Text>
+          <Text style={styles.eyebrowText}>{t('features', 'NELER YAPABİLİRSİN').toUpperCase()}</Text>
         </View>
         <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-          {t('landingWhy', 'Neden ')}<Text style={styles.highlight}>KaymakTV?</Text>
+          {t('oneApp')}
         </Text>
         <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
-          {t('landingWhySub')}
+          {t('featuresSectionSub')}
         </Text>
       </View>
 
@@ -164,9 +163,18 @@ export default function BentoGrid() {
           { opacity: fadeAnim },
         ]}
       >
-        {features.map((feature, index) => (
-          <BentoCard key={index} feature={feature} isDesktop={isDesktop} index={index} t={t} />
-        ))}
+        {features.map((feature, index) => {
+          const isLastOdd = !isDesktop && features.length % 2 !== 0 && index === features.length - 1;
+          return (
+            <FeatureCard
+              key={index}
+              feature={feature}
+              isDesktop={isDesktop}
+              isLastOdd={isLastOdd}
+              t={t}
+            />
+          );
+        })}
       </Animated.View>
     </View>
   );
@@ -174,7 +182,7 @@ export default function BentoGrid() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 56,
+    paddingVertical: 64,
     paddingHorizontal: 16,
     alignItems: 'center',
     width: '100%',
@@ -182,50 +190,47 @@ const styles = StyleSheet.create({
   // ── Başlık ──────────────────────────────────────────────────────────────
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-    maxWidth: 580,
+    marginBottom: 40,
+    maxWidth: 600,
     paddingHorizontal: 8,
   },
   eyebrow: {
-    backgroundColor: 'rgba(96,165,250,0.08)',
+    backgroundColor: 'rgba(27, 32, 42, 0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.16)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 100,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   eyebrowText: {
-    color: '#60a5fa',
+    color: '#b0c6ff',
     fontSize: 10.5,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#f1f5f9',
+    color: '#dee2f1',
     textAlign: 'center',
     marginBottom: 10,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   titleDesktop: {
-    fontSize: 38,
-    letterSpacing: -1,
-  },
-  highlight: {
-    color: '#60a5fa',
+    fontSize: 36,
+    letterSpacing: -0.8,
   },
   subtitle: {
     fontSize: 14.5,
-    color: '#64748b',
+    color: '#8c90a0',
     textAlign: 'center',
     lineHeight: 22,
   },
   subtitleDesktop: {
-    fontSize: 17,
-    lineHeight: 26,
-    color: '#94a3b8',
+    fontSize: 16,
+    lineHeight: 25,
+    color: '#c2c6d6',
   },
   // ── Grid ────────────────────────────────────────────────────────────────
   grid: {
@@ -245,66 +250,63 @@ const styles = StyleSheet.create({
   },
   // ── Kart Dış Kaplama ────────────────────────────────────────────────────
   cardOuter: {},
-  cardOuterFullMobile: {
-    width: '100%',
-  },
-  cardOuterHalfMobile: {
-    // Mobilde 2 sütunlu: boşluklar çıkarılarak yaklaşık %48
+  cardMobileHalf: {
     flex: 1,
     minWidth: '45%',
   },
-  cardOuterDesktop: {
+  cardMobileFull: {
+    width: '100%',
+  },
+  cardDesktop: {
     flex: 1,
     minWidth: 200,
-    maxWidth: 320,
+    maxWidth: 310,
   },
   cardAnimWrap: {
     flex: 1,
   },
+  // ── Kart ────────────────────────────────────────────────────────────────
   card: {
     flex: 1,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
+    backgroundColor: 'rgba(27, 32, 42, 0.7)',
     position: 'relative',
     overflow: 'hidden',
+    gap: 10,
     ...(Platform.OS === 'web' && {
-      boxShadow: '0 8px 24px -8px rgba(0,0,0,0.45)',
+      boxShadow: '0 4px 24px -6px rgba(0,0,0,0.5)',
     } as any),
   },
-  // ── Kart İçi ────────────────────────────────────────────────────────────
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
+  cardCornerGlow: {
+    position: 'absolute',
+    top: -30,
+    right: -30,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    opacity: 0.6,
   },
+  // ── Kart İçi ────────────────────────────────────────────────────────────
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    marginBottom: 2,
   },
   cardTitle: {
-    color: '#e2e8f0',
-    fontSize: 14.5,
+    color: '#dee2f1',
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
-    flex: 1,
-    flexWrap: 'wrap',
   },
   cardDesc: {
-    color: '#64748b',
-    fontSize: 12.5,
-    lineHeight: 19,
-  },
-  cardLine: {
-    position: 'absolute',
-    bottom: 0,
-    left: 18,
-    right: 18,
-    height: 1,
+    color: '#8c90a0',
+    fontSize: 13,
+    lineHeight: 20,
   },
 });

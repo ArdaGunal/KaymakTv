@@ -114,6 +114,7 @@ export { default as UserCheck } from '../node_modules/lucide-react-native/dist/e
 export { default as UserCircle2 } from '../node_modules/lucide-react-native/dist/esm/icons/circle-user-round.mjs';
 export { default as UserPlus } from '../node_modules/lucide-react-native/dist/esm/icons/user-plus.mjs';
 export { default as UserX } from '../node_modules/lucide-react-native/dist/esm/icons/user-x.mjs';
+export { default as Users } from '../node_modules/lucide-react-native/dist/esm/icons/users.mjs';
 export { default as WifiOff } from '../node_modules/lucide-react-native/dist/esm/icons/wifi-off.mjs';
 export { default as X } from '../node_modules/lucide-react-native/dist/esm/icons/x.mjs';
 export { default as Zap } from '../node_modules/lucide-react-native/dist/esm/icons/zap.mjs';

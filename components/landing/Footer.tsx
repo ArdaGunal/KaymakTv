@@ -1,9 +1,12 @@
-import React from 'react';
+﻿import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Lock } from '../icons';
 
 export default function Footer() {
   const { t } = useTranslation('common');
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
@@ -15,12 +18,24 @@ export default function Footer() {
         <Text style={styles.brand}>KaymakTV</Text>
       </View>
 
-      <Text style={styles.tagline}>İzlediklerinin kaymağını çıkar.</Text>
+      {/* Linkler */}
+      <View style={styles.linkRow}>
+        <TouchableOpacity onPress={() => router.push('/(public)/gizlilik')} activeOpacity={0.7}>
+          <Text style={styles.link}>{t('product', 'Gizlilik Politikası')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.linkDot}>·</Text>
+        <TouchableOpacity onPress={() => router.push('/(public)/kullanim-kosullari')} activeOpacity={0.7}>
+          <Text style={styles.link}>{t('other', 'Kullanım Koşulları')}</Text>
+        </TouchableOpacity>
+      </View>
 
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>{t('footerRights')}</Text>
-        <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaText}>{t('footerData')}</Text>
+      {/* Telif */}
+      <Text style={styles.copyright}>{t('footerRights')}</Text>
+
+      {/* Veri notu */}
+      <View style={styles.dataRow}>
+        <Lock size={12} color="#424654" strokeWidth={2} />
+        <Text style={styles.dataText}>{t('dataLocal')}</Text>
       </View>
     </View>
   );
@@ -28,57 +43,71 @@ export default function Footer() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 36,
+    paddingVertical: 40,
     paddingHorizontal: 24,
     alignItems: 'center',
     width: '100%',
+    backgroundColor: '#090e18',
   },
   divider: {
     width: '100%',
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 28,
-    maxWidth: 400,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginBottom: 32,
+    maxWidth: 480,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    marginBottom: 6,
+    marginBottom: 20,
   },
   brandDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#3b82f6',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#b0c6ff',
+    opacity: 0.6,
   },
   brand: {
-    color: '#e2e8f0',
-    fontSize: 15,
+    color: '#dee2f1',
+    fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
-  tagline: {
-    color: '#334155',
-    fontSize: 12.5,
-    marginBottom: 18,
-    fontStyle: 'italic',
-  },
-  metaRow: {
+  linkRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 6,
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
-  metaText: {
-    color: '#1e293b',
-    fontSize: 11,
+  link: {
+    color: '#8c90a0',
+    fontSize: 12.5,
+    fontWeight: '600',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
+  },
+  linkDot: {
+    color: '#424654',
+    fontSize: 12,
+  },
+  copyright: {
+    color: '#424654',
+    fontSize: 11.5,
+    marginBottom: 10,
+    letterSpacing: 0.1,
     textAlign: 'center',
-    lineHeight: 17,
   },
-  metaDot: {
-    color: '#1e293b',
+  dataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  dataText: {
+    color: '#424654',
     fontSize: 11,
+    letterSpacing: 0.1,
   },
 });
