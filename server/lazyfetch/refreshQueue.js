@@ -89,7 +89,7 @@ class RefreshQueue {
     }
 
     if (this.active.size < this.maxConcurrent) {
-      this.#run(key, task);
+      this._run(key, task);
       return 'started';
     }
 
@@ -104,15 +104,21 @@ class RefreshQueue {
   }
 
   /** Bir slot boşaldığında sıradan bir sonraki işi başlatır. */
-  #pump() {
+  // Alt çizgi konvansiyonu, `#` private DEĞİL — bilinçli: `#` private
+  // metotlar Node 14.6+ ister ve bu dosya onları sunucu koduna SOKAN ilk
+  // dosya olurdu. Eski bir Node'da hata, LazyFetch'in "sessizce devre dışı
+  // kal" tasarımını (paths.js) baypas edip sunucuyu AÇILIŞTA çökertirdi —
+  // yani cache'in bir lüks olması gerekirken tüm siteyi düşürürdü.
+  // `memoryCache.js` de aynı şekilde düz metot kullanıyor (tutarlılık).
+  _pump() {
     while (this.active.size < this.maxConcurrent && this.pending.size > 0) {
       const [key, task] = this.pending.entries().next().value;
       this.pending.delete(key);
-      this.#run(key, task);
+      this._run(key, task);
     }
   }
 
-  #run(key, task) {
+  _run(key, task) {
     this.active.add(key);
     this.stats.started += 1;
 
@@ -134,9 +140,9 @@ class RefreshQueue {
       )
       .finally(() => {
         this.active.delete(key);
-        // `finally` bir mikro-görevde çalışır → `#pump` özyinelemesi
+        // `finally` bir mikro-görevde çalışır → `_pump` özyinelemesi
         // senkron yığını büyütmez.
-        this.#pump();
+        this._pump();
       });
   }
 
