@@ -8,6 +8,7 @@ import { Check, CheckCheck } from '../../components/icons';
 
 import LoadFailedState from '../../components/LoadFailedState';
 import { useMovieDetail } from '../../hooks/useMovieDetail';
+import { useMediaReviews } from '../../hooks/useMediaReviews';
 
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
@@ -71,7 +72,15 @@ export default function MovieDetailScreen() {
   const castData = mediaData.cast;
   const relatedMovies = mediaData.related;
   const commentsData = mediaData.comments;
-  
+
+  // Y6 (Madde 244): bkz. app/show/[id].tsx'teki aynı not.
+  const reviewsState = useMediaReviews({
+    mediaId: traktIdNum,
+    mediaType: 'movie',
+    mediaTitle: movieData?.title ?? '',
+    tmdbId: Number(movieData?.ids?.tmdb ?? tmdbId) || undefined,
+  });
+
   const backdrop = images.backdrop;
   const poster = images.poster;
   const trailerId = images.trailerId;
@@ -246,11 +255,7 @@ export default function MovieDetailScreen() {
               bkz. app/show/[id].tsx'teki aynı blok ve docs/design/REVIEWS_PLAN.md §4.2. */}
           <View style={styles.section}>
             <MediaCommentsSection
-              mediaId={traktIdNum}
-              mediaType="movie"
-              mediaTitle={movieData?.title ?? ''}
-              tmdbId={Number(movieData?.ids?.tmdb ?? tmdbId) || undefined}
-              // bkz. app/show/[id].tsx'teki aynı not.
+              reviewsState={reviewsState}
               // ── Trakt bloğu (salt okunur kuyruk) ─────────────────
               // Artık AYRI bir bölüm değil: tek kesintisiz listenin
               // altında akıyor (bkz. MediaCommentsSection başlığı).
@@ -279,11 +284,12 @@ export default function MovieDetailScreen() {
       </ScrollView>
 
       {/* Yorumlar Modal */}
-      <CommentSheet 
-        visible={commentSheetVisible} 
-        onClose={() => setCommentSheetVisible(false)} 
-        mediaId={traktIdNum} 
-        mediaType="movie" 
+      <CommentSheet
+        visible={commentSheetVisible}
+        onClose={() => setCommentSheetVisible(false)}
+        mediaId={traktIdNum}
+        mediaType="movie"
+        reviewsState={reviewsState}
       />
 
       <Snackbar

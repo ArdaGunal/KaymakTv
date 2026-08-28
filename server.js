@@ -26,6 +26,7 @@ const express = require('express');
 const path = require('path');
 const https = require('https');
 const axios = require('axios');
+const compression = require('compression');
 
 // `family: 4` yukarıdaki AAAA gecikmesinin asıl çözümü — bu agent
 // üzerinden yapılan bağlantılarda IPv6 kaydı hiç sorgulanmaz. `keepAlive`
@@ -55,6 +56,11 @@ const PORT = process.env.PORT || 4830;
 // istekleri CORS başlığı alır. Native istekler `Origin` göndermediği için
 // bundan ETKİLENMEZ (bkz. server/security.js).
 app.use(corsMiddleware);
+// PERF (HISTORY Madde 235, "Pi'ye compression middleware"): etkisi sınırlı —
+// Cloudflare zaten kullanıcıya brotli/zstd ile sıkıştırıyor, bu yalnızca
+// cache MISS'te Pi→Cloudflare hattını rahatlatır. Düşük öncelik olarak
+// kayda geçmişti, düşük risk olduğu için de eklendi.
+app.use(compression());
 app.use(express.json());
 
 // `/api/trakt-proxy`'nin dört handler'ı da (GET/POST/DELETE/PUT) aynı kapıdan

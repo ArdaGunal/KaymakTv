@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -16,6 +16,8 @@ import CommentItem from './comments/CommentItem';
 import CommentSortBar from './comments/CommentSortBar';
 import CommentListSkeleton from './skeletons/CommentListSkeleton';
 import { useComments, CommentSort } from '../hooks/useComments';
+import { UseMediaReviewsResult } from '../hooks/useMediaReviews';
+import ReviewItem from './reviews/ReviewItem';
 
 interface CommentSheetProps {
   visible: boolean;
@@ -24,6 +26,15 @@ interface CommentSheetProps {
   mediaType: 'show' | 'movie' | 'episode';
   season?: number;
   episode?: number;
+  /**
+   * Y6 (Madde 244): bu sheet eskiden YALNIZCA Trakt yorumlarını gösteriyordu
+   * — "Tümünü Gör" adının vaat ettiğinin aksine, kullanıcının kendi KaymakTV
+   * incelemesi burada hiç görünmüyordu. Ekran (`app/{show,movie,episode}/
+   * [id].tsx`) `useMediaReviews`'i BİR KEZ çağırıp `MediaCommentsSection` ile
+   * BU sheet'e AYNI referansı geçiriyor — burada tekrar çağırmak her sayfa
+   * açılışında incelemeleri iki kez çeker (bkz. MediaCommentsSection başlığı).
+   */
+  reviewsState: UseMediaReviewsResult & { canSubmit: boolean };
 }
 
 export default function CommentSheet({
@@ -33,11 +44,32 @@ export default function CommentSheet({
   mediaType,
   season,
   episode,
+  reviewsState,
 }: CommentSheetProps) {
   const { t } = useTranslation(['common', 'media']);
   const [sort, setSort] = useState<CommentSort>('likes');
   const { comments, loading, loadingMore, error, totalCount, loadComments, loadMore } =
     useComments({ mediaId, mediaType, season, episode, sort });
+
+  const { myReview, otherReviews, toggleReviewLike } = reviewsState;
+
+  // S7 ile AYNI tekilleştirme (bkz. TraktCommentsBlock başlığı): aynı
+  // kişinin hem KaymakTV incelemesi hem eski bir Trakt yorumu olabilir —
+  // üstteki KaymakTV bloğunda zaten göründüğü için Trakt listesinde bir
+  // daha çıkmamalı, aksi halde "aynı kişi iki kez" görünür.
+  const excludeSlugs = useMemo(() => {
+    const slugs = new Set<string>();
+    if (myReview?.user.traktSlug) slugs.add(myReview.user.traktSlug);
+    for (const r of otherReviews) if (r.user.traktSlug) slugs.add(r.user.traktSlug);
+    return slugs;
+  }, [myReview, otherReviews]);
+
+  const dedupedComments = useMemo(
+    () => comments.filter((c) => !c.user?.ids?.slug || !excludeSlugs.has(c.user.ids.slug)),
+    [comments, excludeSlugs]
+  );
+
+  const kaymakReviewCount = (myReview ? 1 : 0) + otherReviews.length;
 
   // `sort` bağımlılığa dahil: kullanıcı sıralamayı değiştirdiğinde de yeniden
   // çekilsin. `loadComments` zaten `sort` değiştiğinde yeniden oluşturuluyor
@@ -75,8 +107,8 @@ export default function CommentSheet({
               <MessageSquare size={20} color="#60a5fa" />
               <Text style={styles.title}>
                 {t('media:comments')}
-                {totalCount > 0 && (
-                  <Text style={styles.count}> ({totalCount})</Text>
+                {(totalCount + kaymakReviewCount) > 0 && (
+                  <Text style={styles.count}> ({totalCount + kaymakReviewCount})</Text>
                 )}
               </Text>
             </View>
@@ -105,7 +137,7 @@ export default function CommentSheet({
             </View>
           ) : (
             <FlatList
-              data={comments}
+              data={dedupedComments}
               keyExtractor={(item, index) =>
                 item.id ? item.id.toString() : index.toString()
               }
@@ -114,6 +146,37 @@ export default function CommentSheet({
               showsVerticalScrollIndicator={false}
               onEndReached={loadMore}
               onEndReachedThreshold={0.4}
+              // Y6 (Madde 244): "Tümünü Gör" artık gerçekten TÜMÜNÜ gösteriyor
+              // — KaymakTV incelemeleri (varsa) üstte, sonra yumuşak bir
+              // ayraç, sonra Trakt'ın sayfalanan listesi. `ListHeaderComponent`
+              // FlatList'in KENDİ scroll'unun içinde akar — ikinci bir
+              // kaydırılabilir alan açmaz.
+              ListHeaderComponent={
+                kaymakReviewCount > 0 ? (
+                  <View style={styles.kaymakReviews}>
+                    {myReview && (
+                      <ReviewItem review={myReview} isOwn onToggleLike={() => toggleReviewLike(myReview.id)} />
+                    )}
+                    {otherReviews.map((review) => (
+                      <ReviewItem
+                        key={review.id}
+                        review={review}
+                        isOwn={false}
+                        onToggleLike={() => toggleReviewLike(review.id)}
+                      />
+                    ))}
+                    {dedupedComments.length > 0 && (
+                      <View style={styles.divider}>
+                        <View style={styles.dividerLine} />
+                        <Text style={styles.dividerLabel}>
+                          {t('media:traktCommunityTitle', 'Trakt topluluğundan')}
+                        </Text>
+                        <View style={styles.dividerLine} />
+                      </View>
+                    )}
+                  </View>
+                ) : null
+              }
               ListFooterComponent={
                 loadingMore ? (
                   <View style={styles.footerLoader}>
@@ -121,12 +184,17 @@ export default function CommentSheet({
                   </View>
                 ) : null
               }
+              // KaymakTV bloğu zaten dolu göründüyse "henüz yorum yok" boş
+              // durumu YANLIŞ olur — yalnızca İKİ liste de gerçekten boşsa
+              // gösterilir (ListHeaderComponent'in `null` döndüğü tek durum).
               ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <MessageSquare size={40} color="#1e293b" />
-                  <Text style={styles.emptyTitle}>{t('noCommentsYet')}</Text>
-                  <Text style={styles.emptySubtitle}>{t('firstCommentPrompt')}</Text>
-                </View>
+                kaymakReviewCount === 0 ? (
+                  <View style={styles.emptyState}>
+                    <MessageSquare size={40} color="#1e293b" />
+                    <Text style={styles.emptyTitle}>{t('noCommentsYet')}</Text>
+                    <Text style={styles.emptySubtitle}>{t('firstCommentPrompt')}</Text>
+                  </View>
+                ) : null
               }
             />
           )}
@@ -137,6 +205,26 @@ export default function CommentSheet({
 }
 
 const styles = StyleSheet.create({
+  kaymakReviews: {
+    marginBottom: 4,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#1e293b',
+  },
+  dividerLabel: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',

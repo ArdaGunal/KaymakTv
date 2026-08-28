@@ -8,6 +8,7 @@ import LoadFailedState from '../../components/LoadFailedState';
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
+import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
@@ -67,8 +68,17 @@ export default function ShowDetailScreen() {
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
   const commentsData = mediaData.comments;
-  
-  
+
+  // Y6 (Madde 244): tek çağrı — `MediaCommentsSection` (inline) VE
+  // `CommentSheet` ("Tümünü Gör") AYNI reviewsState'i tüketir, bkz.
+  // MediaCommentsSection.tsx başlığı.
+  const reviewsState = useMediaReviews({
+    mediaId: traktIdNum,
+    mediaType: 'show',
+    mediaTitle: showData?.title ?? '',
+    tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined,
+  });
+
   const [backdrop, setBackdrop] = useState<string | null>(null);
   const [poster, setPoster] = useState<string | null>(null);
   const [trailerId, setTrailerId] = useState<string | null>(null);
@@ -243,15 +253,7 @@ export default function ShowDetailScreen() {
               (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
           <View style={styles.section}>
             <MediaCommentsSection
-              mediaId={traktIdNum}
-              mediaType="show"
-              mediaTitle={showData?.title ?? ''}
-              // URL'de tmdbId yoksa Trakt özetinden gelen değeri kullan —
-              // `tmdb_id` inceleme satırında ZORUNLU (bkz. REVIEWS_PLAN §1.2).
-              tmdbId={Number(showData?.ids?.tmdb ?? tmdbId) || undefined}
-              // İnceleme Trakt'a da yazıldığı için aşağıdaki "Trakt Topluluğu"
-              // listesi de bayatlar — eski WriteCommentSheet.onSuccess'in
-              // yaptığı tazelemenin aynısı.
+              reviewsState={reviewsState}
               // ── Trakt bloğu (salt okunur kuyruk) ─────────────────
               // Artık AYRI bir bölüm değil: tek kesintisiz listenin
               // altında akıyor (bkz. MediaCommentsSection başlığı).
@@ -321,11 +323,12 @@ export default function ShowDetailScreen() {
       />
 
       {/* Yorumlar Modal */}
-      <CommentSheet 
-        visible={commentSheetVisible} 
-        onClose={() => setCommentSheetVisible(false)} 
-        mediaId={traktIdNum} 
-        mediaType="show" 
+      <CommentSheet
+        visible={commentSheetVisible}
+        onClose={() => setCommentSheetVisible(false)}
+        mediaId={traktIdNum}
+        mediaType="show"
+        reviewsState={reviewsState}
       />
 
       <Snackbar

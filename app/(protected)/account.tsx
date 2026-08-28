@@ -25,6 +25,7 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
 import { GoogleLinkSection } from '../../components/settings/GoogleLinkSection';
+import ClearCacheRow from '../../components/settings/ClearCacheRow';
 import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
@@ -173,6 +174,10 @@ export default function SettingsScreen() {
               showChevron
               onPress={() => setLanguageModalVisible(true)}
             />
+            {/* TODO.md → Performans: F13'ten sonra (expo-image + disk cache)
+                disk kullanımı arttı, bu buton artık anlamlı. Web'de
+                kendi içinde null döner (bkz. ClearCacheRow başlığı). */}
+            <ClearCacheRow />
           </SettingsSection>
 
           {/* Misafirin bir Trakt hesabı yok — bu ayarın onun için hiçbir

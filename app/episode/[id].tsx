@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { addRating, removeRating } from '../../services/traktApi';
 import LoadFailedState from '../../components/LoadFailedState';
 import { useEpisodeDetail } from '../../hooks/useEpisodeDetail';
+import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { formatRating } from '../../utils/formatRating';
 import RatingModal from '../../components/RatingModal';
 import CommentSheet from '../../components/CommentSheet';
@@ -53,6 +54,18 @@ export default function EpisodeDetailScreen() {
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
   const stillUrl = mediaData.stillUrl;
+
+  // Y6 (Madde 244): bkz. app/show/[id].tsx'teki aynı not. `mediaId` dizinin
+  // traktId'si (`showId`) — bölüm incelemesi `episodeNumber` ile ayrıştırılır,
+  // `useMediaReviews`'in kendi `mediaType`'ı hep 'show' (FeedMediaType'ta
+  // 'episode' yok, bkz. features/feed/types.ts).
+  const reviewsState = useMediaReviews({
+    mediaId: showId as number,
+    mediaType: 'show',
+    mediaTitle: `${showName} ${formatEpisodeCode(Number(season), Number(episode))}`,
+    tmdbId: Number(showTmdbId) || undefined,
+    episodeNumber: formatEpisodeCode(Number(season), Number(episode)),
+  });
 
   const { cast: epCast, voteActor } = useEpisodeCast(
     showTmdbId ? parseInt(showTmdbId as string, 10) : null,
@@ -391,11 +404,7 @@ export default function EpisodeDetailScreen() {
               doldurmasın (bkz. docs/design/REVIEWS_PLAN.md §8). */}
           <View style={styles.section}>
             <MediaCommentsSection
-              mediaId={showId as number}
-              mediaType="show"
-              mediaTitle={`${showName} ${formatEpisodeCode(Number(season), Number(episode))}`}
-              tmdbId={Number(showTmdbId) || undefined}
-              episodeNumber={formatEpisodeCode(Number(season), Number(episode))}
+              reviewsState={reviewsState}
               traktComments={commentsData}
               isLoadingTraktComments={isLoadingComments}
               onSeeAllTrakt={() => setCommentSheetVisible(true)}
@@ -413,13 +422,14 @@ export default function EpisodeDetailScreen() {
         onRemoveRating={handleRemoveRating}
       />
 
-      <CommentSheet 
-        visible={commentSheetVisible} 
-        onClose={() => setCommentSheetVisible(false)} 
+      <CommentSheet
+        visible={commentSheetVisible}
+        onClose={() => setCommentSheetVisible(false)}
         mediaId={showId as number}
         mediaType="episode"
         season={season}
         episode={episode}
+        reviewsState={reviewsState}
       />
 
 

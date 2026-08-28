@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { PenLine, LogIn, AlertTriangle } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
-import { useMediaReviews } from '../../hooks/useMediaReviews';
-import { FeedMediaType } from '../../features/feed/types';
+import { UseMediaReviewsResult } from '../../hooks/useMediaReviews';
 import { notify } from '../../utils/confirmDialog';
 import { CommentData } from '../../hooks/useComments';
 import SectionErrorBoundary from '../SectionErrorBoundary';
@@ -44,13 +43,14 @@ import WriteReviewSheet from './WriteReviewSheet';
  */
 
 interface MediaCommentsSectionProps {
-  mediaId: number;
-  mediaType: FeedMediaType;
-  mediaTitle: string;
-  /** Çözülene kadar undefined olabilir — o sürede yazma pasif kalır (§1.2). */
-  tmdbId?: number;
-  /** "S01E02" — bölüm sayfasında geçilir; bu bölüme özel incelemeler listelenir. */
-  episodeNumber?: string;
+  // ⚠️ Veri kaynağı (F12/Y6, Madde 244): `useMediaReviews` artık BURADA değil,
+  // ekranda (`app/{show,movie,episode}/[id].tsx`) bir kez çağrılıp bu bileşene
+  // VE `CommentSheet`'e AYNI referansla geçiliyor. Sebep: "Tümünü Gör" sheet'i
+  // eskiden yalnızca Trakt yorumlarını gösteriyordu, kullanıcının kendi
+  // KaymakTV incelemesi orada KAYBOLUYORDU (Y6). Hook'u burada TEKRAR
+  // çağırmak (sheet'te de) her sayfa açılışında incelemeleri İKİ KEZ
+  // çekerdi — tek kaynak, iki tüketici daha doğrusu.
+  reviewsState: UseMediaReviewsResult & { canSubmit: boolean };
 
   // ── Trakt bloğu (salt okunur) ─────────────────────────────────────────
   /** Ekranın `useShowDetail`/`useMovieDetail`'den aldığı Trakt yorumları. */
@@ -62,11 +62,7 @@ interface MediaCommentsSectionProps {
 }
 
 export default function MediaCommentsSection({
-  mediaId,
-  mediaType,
-  mediaTitle,
-  tmdbId,
-  episodeNumber,
+  reviewsState,
   traktComments,
   isLoadingTraktComments,
   onSeeAllTrakt,
@@ -83,11 +79,12 @@ export default function MediaCommentsSection({
     hasError,
     isSubmitting,
     canSubmit,
+    isTmdbIdPending,
     submitReview,
     removeReview,
     toggleReviewLike,
     refresh,
-  } = useMediaReviews({ mediaId, mediaType, mediaTitle, tmdbId, episodeNumber });
+  } = reviewsState;
 
   // ⚠️ v2: Burada eskiden `onPublished?.()` çağrısı vardı — ekranın Trakt
   // verisini tazelemesi için. İki gerekçesi de düştü: (1) inceleme artık
@@ -204,7 +201,7 @@ export default function MediaCommentsSection({
 
       {/* tmdbId henüz çözülmediyse buton pasif — kullanıcı NEDEN pasif
           olduğunu görmeli, yoksa "bozuk" sanır. */}
-      {!isGuest && !canSubmit && !tmdbId && (
+      {!isGuest && !canSubmit && isTmdbIdPending && (
         <Text style={styles.pendingNote}>
           {t('reviewTmdbPending', 'Yapım bilgisi yükleniyor…')}
         </Text>

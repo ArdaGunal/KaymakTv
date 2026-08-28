@@ -29,6 +29,8 @@ export interface UseMediaReviewsResult {
   myReview: FeedActivity | null;
   /** Başkalarının incelemeleri — kendiminki listeden ayrı gösterilir. */
   otherReviews: FeedActivity[];
+  /** `tmdbId` henüz çözülmedi — yazma butonunun GEÇİCİ olarak pasif olduğunu ayırt eder. */
+  isTmdbIdPending: boolean;
   submitReview: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; message: string }>;
   removeReview: () => Promise<{ ok: true } | { ok: false; message: string }>;
   toggleReviewLike: (activityId: string) => Promise<void>;
@@ -211,6 +213,10 @@ export function useMediaReviews({
     hasError,
     isSubmitting,
     canSubmit,
+    // MediaCommentsSection'ın "yükleniyor" notu İÇİN: `canSubmit=false`
+    // birden fazla sebepten olabilir (misafir, token yok, tmdbId gecikmesi)
+    // — yalnızca SONUNCUSU geçici, UI bu ikisini ayırt edebilmeli.
+    isTmdbIdPending: !tmdbId,
     submitReview,
     removeReview,
     toggleReviewLike,
