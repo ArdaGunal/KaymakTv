@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#b0c6ff',
-    opacity: 0.6,
+    backgroundColor: '#5c8cf5',
+    opacity: 0.8,
   },
   brand: {
     color: '#dee2f1',

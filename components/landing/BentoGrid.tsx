@@ -1,4 +1,4 @@
-﻿import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -18,17 +18,17 @@ const features = [
     titleKey: 'viewingDiary',
     descKey: 'viewingDiaryDesc',
     Icon: Calendar,
-    iconColor: '#b0c6ff',
-    accent: 'rgba(176,198,255,0.12)',
-    borderAccent: 'rgba(176,198,255,0.14)',
+    iconColor: '#5c8cf5',
+    accent: 'rgba(92, 140, 245, 0.10)',
+    borderAccent: 'rgba(92, 140, 245, 0.14)',
   },
   {
     titleKey: 'fastSearchTitle',
     descKey: 'fastSearchDesc',
     Icon: Search,
-    iconColor: '#94ccff',
-    accent: 'rgba(148,204,255,0.10)',
-    borderAccent: 'rgba(148,204,255,0.14)',
+    iconColor: '#38bdf8',
+    accent: 'rgba(56, 189, 248, 0.08)',
+    borderAccent: 'rgba(56, 189, 248, 0.12)',
   },
   {
     titleKey: 'statsPanel',
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   eyebrowText: {
-    color: '#b0c6ff',
+    color: '#7aa2f7',
     fontSize: 10.5,
     fontWeight: '700',
     letterSpacing: 1.4,

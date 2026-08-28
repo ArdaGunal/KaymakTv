@@ -1,9 +1,15 @@
+import axios from 'axios';
 import { getTraktClient, applyTranslation } from './traktClient';
 import i18n from '../../locales/index';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
-// bkz. services/api/shows.ts — getTrendingShows'taki aynı önbellek gerekçesi.
+// bkz. services/api/shows.ts — getTrendingShows'taki aynı önbellek VE
+// CORS-proxy gerekçesi (`/api/trakt-proxy`, server/security.js beyaz listesi).
 const trendingMoviesCache = new Map<number, { data: any; fetchedAt: number }>();
+
+const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
+  : '/api/trakt-proxy';
 
 export const getTrendingMovies = async (page = 1, limit = 7, force = false) => {
   const cached = trendingMoviesCache.get(page);
@@ -11,12 +17,13 @@ export const getTrendingMovies = async (page = 1, limit = 7, force = false) => {
     return cached.data;
   }
   try {
-    const client = await getTraktClient();
-    const response = await client.get(`/movies/trending?extended=full&page=${page}&limit=${limit}`);
+    const response = await axios.get(TRAKT_PROXY_URL, {
+      params: { endpoint: '/movies/trending', extended: 'full', page, limit },
+    });
     trendingMoviesCache.set(page, { data: response.data, fetchedAt: Date.now() });
     return response.data;
   } catch (error) {
-    console.error('Trakt API HatasÄ± (getTrendingMovies):', error);
+    console.error('Trakt API Hatası (getTrendingMovies):', error);
     throw error;
   }
 };

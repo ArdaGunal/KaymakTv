@@ -31,7 +31,7 @@ export default function CallToAction() {
     <View style={styles.container}>
       {/* Arka plan parlaması */}
       <LinearGradient
-        colors={['rgba(37,99,235,0.12)', 'rgba(11,17,32,0)']}
+        colors={['rgba(59, 130, 246, 0.04)', 'rgba(14, 19, 29, 0)']}
         style={StyleSheet.absoluteFill}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -41,7 +41,7 @@ export default function CallToAction() {
         {/* Üst kısım: Başlık */}
         <View style={styles.cardHeader}>
           <View style={styles.eyebrow}>
-            <Text style={styles.eyebrowText}>HEMEN BAŞLA</Text>
+            <Text style={styles.eyebrowText}>{t('ctaEyebrow', 'HEMEN BAŞLA').toUpperCase()}</Text>
           </View>
           <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
             {t('startToday1', 'Bugün başla,')}{'\n'}
@@ -64,14 +64,14 @@ export default function CallToAction() {
             onPress={() => router.push('/(public)/settings')}
           >
             <LinearGradient
-              colors={['#1d4ed8', '#3b82f6']}
+              colors={['#3b82f6', '#2563eb']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryGrad}
             >
-              <LogIn color="#ffffff" size={16} />
-              <Text style={styles.primaryText}>{t('login', 'Giriş Yap')}</Text>
-              <ArrowRight color="rgba(255,255,255,0.6)" size={15} />
+              <LogIn color="#ffffff" size={16} strokeWidth={2.2} />
+              <Text style={styles.primaryText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
+              <ArrowRight color="rgba(255,255,255,0.7)" size={15} />
             </LinearGradient>
           </TouchableOpacity>
 
@@ -81,14 +81,14 @@ export default function CallToAction() {
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
-            <Compass color="#93c5fd" size={16} />
+            <Compass color="#7aa2f7" size={16} />
             <Text style={styles.ghostText}>{t('exploreAsGuest', 'Misafir Olarak Devam Et')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Alt not */}
         <Text style={styles.footNote}>
-          Ücretsiz · Reklamsız · Trakt.tv ile senkronize
+          {t('ctaFootnote', 'Ücretsiz · Reklamsız · Trakt.tv ile senkronize')}
         </Text>
       </View>
     </View>
@@ -107,19 +107,19 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: '#111827',
+    backgroundColor: 'rgba(27, 32, 42, 0.7)',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.16)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
     ...(Platform.OS === 'web' ? ({
-      boxShadow: '0 0 60px rgba(37,99,235,0.15)',
+      boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.5)',
     }) as any : {
-      shadowColor: '#3B82F6',
+      shadowColor: '#000000',
       shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.15,
-      shadowRadius: 32,
-      elevation: 14,
+      shadowOpacity: 0.25,
+      shadowRadius: 24,
+      elevation: 8,
     }),
   },
   cardDesktop: {
@@ -132,16 +132,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   eyebrow: {
-    backgroundColor: 'rgba(96,165,250,0.08)',
+    backgroundColor: 'rgba(27, 32, 42, 0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.16)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 100,
     marginBottom: 16,
   },
   eyebrowText: {
-    color: '#60a5fa',
+    color: '#7aa2f7',
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.4,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#f1f5f9',
+    color: '#dee2f1',
     textAlign: 'center',
     lineHeight: 33,
     marginBottom: 12,
@@ -160,11 +160,12 @@ const styles = StyleSheet.create({
     lineHeight: 40,
   },
   highlight: {
-    color: '#60a5fa',
+    color: '#5c8cf5',
+    fontStyle: 'italic',
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#8c90a0',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -191,11 +192,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     flex: 1,
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   primaryGrad: {
@@ -224,20 +225,20 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     minHeight: 50,
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.2)',
-    backgroundColor: 'rgba(59,130,246,0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(27, 32, 42, 0.8)',
     flex: 1,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   ghostText: {
-    color: '#93c5fd',
+    color: '#c2c6d6',
     fontSize: 15,
     fontWeight: '600',
   },
   // ── Alt not ──────────────────────────────────────────────────────────────
   footNote: {
     textAlign: 'center',
-    color: '#334155',
+    color: '#424654',
     fontSize: 11.5,
     paddingBottom: 20,
     letterSpacing: 0.1,

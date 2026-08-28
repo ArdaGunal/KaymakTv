@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -13,6 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Clapperboard, LogIn, Compass } from '../icons';
+import { useLandingPosterWall } from '../../hooks/useLandingPosterWall';
+import PosterWall from './PosterWall';
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -22,6 +24,7 @@ export default function HeroSection() {
   const { loginAsGuest } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width >= MOBILE_BREAKPOINT;
+  const posters = useLandingPosterWall();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -40,8 +43,9 @@ export default function HeroSection() {
 
   return (
     <View style={styles.container}>
+      <PosterWall posters={posters} />
       <LinearGradient
-        colors={['rgba(176, 198, 255, 0.07)', 'rgba(14, 19, 29, 0)']}
+        colors={['rgba(59, 130, 246, 0.03)', 'rgba(14, 19, 29, 0)']}
         style={styles.glowTop}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -53,7 +57,7 @@ export default function HeroSection() {
         ]}
       >
         <View style={styles.badge}>
-          <Clapperboard size={13} color="#b0c6ff" strokeWidth={2} />
+          <Clapperboard size={13} color="#5c8cf5" strokeWidth={2} />
           <Text style={styles.badgeText}>{t('diaryEyebrow').toUpperCase()}</Text>
         </View>
 
@@ -75,12 +79,12 @@ export default function HeroSection() {
             onPress={() => router.push('/(public)/settings')}
           >
             <LinearGradient
-              colors={['#b0c6ff', '#8ab4ff']}
+              colors={['#3b82f6', '#2563eb']}
               style={styles.primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <LogIn color="#002d6e" size={17} strokeWidth={2.5} />
+              <LogIn color="#ffffff" size={17} strokeWidth={2.2} />
               <Text style={styles.primaryButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -90,7 +94,7 @@ export default function HeroSection() {
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
-            <Compass color="#b0c6ff" size={17} strokeWidth={2} />
+            <Compass color="#7aa2f7" size={17} strokeWidth={2} />
             <Text style={styles.secondaryButtonText}>{t('exploreAsGuest')}</Text>
           </TouchableOpacity>
         </View>
@@ -135,7 +139,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   badgeText: {
-    color: '#b0c6ff',
+    color: '#7aa2f7',
     fontWeight: '700',
     fontSize: 11,
     letterSpacing: 1.4,
@@ -155,7 +159,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.2,
   },
   highlight: {
-    color: '#b0c6ff',
+    color: '#5c8cf5',
     fontStyle: 'italic',
   },
   subtitle: {
@@ -184,11 +188,11 @@ const styles = StyleSheet.create({
   primaryButton: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#b0c6ff',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   primaryGradient: {
     flexDirection: 'row',
@@ -200,7 +204,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   primaryButtonText: {
-    color: '#002d6e',
+    color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.2,

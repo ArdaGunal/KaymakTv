@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -7,7 +7,10 @@ import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import Head from 'expo-router/head';
 import { LandingCSS } from '../../components/public/index.web.styles';
 import { useNavScrollStyle, useScrollRevealObserver } from '../../components/public/index.web.hooks';
+import { useLandingPosterWall } from '../../hooks/useLandingPosterWall';
 import { Clapperboard, Calendar, Search, BarChart2, Star, List, Users, LogIn, Globe, Compass, Lock } from '../../components/icons';
+
+const POSTER_TILE_COUNT = 21;
 
 export default function WebLandingPage() {
   const { t } = useTranslation('common');
@@ -18,6 +21,10 @@ export default function WebLandingPage() {
 
   const navStyle = useNavScrollStyle();
   useScrollRevealObserver();
+  const posters = useLandingPosterWall();
+  const posterTiles = posters.length > 0
+    ? Array.from({ length: POSTER_TILE_COUNT }, (_, i) => posters[i % posters.length])
+    : [];
 
   const handleLogin = () => {
     router.push('/(public)/settings');
@@ -33,17 +40,17 @@ export default function WebLandingPage() {
       titleKey: 'viewingDiary',
       descKey: 'viewingDiaryDesc',
       Icon: Calendar,
-      color: '#b0c6ff',
-      accent: 'rgba(176,198,255,0.12)',
-      borderAccent: 'rgba(176,198,255,0.14)',
+      color: '#5c8cf5',
+      accent: 'rgba(92, 140, 245, 0.10)',
+      borderAccent: 'rgba(92, 140, 245, 0.14)',
     },
     {
       titleKey: 'fastSearchTitle',
       descKey: 'fastSearchDesc',
       Icon: Search,
-      color: '#94ccff',
-      accent: 'rgba(148,204,255,0.10)',
-      borderAccent: 'rgba(148,204,255,0.14)',
+      color: '#38bdf8',
+      accent: 'rgba(56, 189, 248, 0.08)',
+      borderAccent: 'rgba(56, 189, 248, 0.12)',
     },
     {
       titleKey: 'statsPanel',
@@ -101,12 +108,12 @@ export default function WebLandingPage() {
 
           <div className="nav-actions">
             <button className="lang-btn" onClick={() => setLangModalVisible(true)}>
-              <Globe size={14} color="#b0c6ff" strokeWidth={2.5} />
+              <Globe size={14} color="#7aa2f7" strokeWidth={2.2} />
               {currentLanguage === 'tr' ? 'TR' : 'EN'}
             </button>
             
             <button onClick={handleLogin} className="btn-primary">
-              <LogIn size={15} color="#002d6e" strokeWidth={2.5} />
+              <LogIn size={15} color="#ffffff" strokeWidth={2.2} />
               {t('connectTraktButton', 'Trakt ile Giriş Yap')}
             </button>
           </div>
@@ -115,10 +122,20 @@ export default function WebLandingPage() {
 
       <main>
         <section className="hero">
+          {posterTiles.length > 0 && (
+            <>
+              <div className="hero-poster-wall">
+                {posterTiles.map((src, idx) => (
+                  <img key={idx} src={src} alt="" />
+                ))}
+              </div>
+              <div className="hero-poster-fade"></div>
+            </>
+          )}
           <div className="hero-glow"></div>
           <div className="kaymak-container reveal">
             <div className="eyebrow-badge">
-              <Clapperboard size={14} color="#b0c6ff" strokeWidth={2} />
+              <Clapperboard size={14} color="#7aa2f7" strokeWidth={2} />
               {t('diaryEyebrow', 'SİNEMA & DİZİ GÜNLÜĞÜN').toUpperCase()}
             </div>
             
@@ -132,11 +149,11 @@ export default function WebLandingPage() {
             
             <div className="hero-ctas">
               <button onClick={handleLogin} className="btn-primary">
-                <LogIn size={16} color="#002d6e" strokeWidth={2.5} />
+                <LogIn size={16} color="#ffffff" strokeWidth={2.2} />
                 {t('connectTraktButton', 'Trakt ile Giriş Yap')}
               </button>
               <button onClick={handleGuest} className="btn-secondary">
-                <Compass size={16} color="#b0c6ff" strokeWidth={2} />
+                <Compass size={16} color="#7aa2f7" strokeWidth={2} />
                 {t('exploreAsGuest', 'Misafir Olarak Devam Et')}
               </button>
             </div>
@@ -161,6 +178,31 @@ export default function WebLandingPage() {
                 <p>{t(item.descKey)}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="cta-band kaymak-container reveal">
+          <div className="cta-card">
+            <div className="cta-card-head">
+              <span className="eyebrow">{t('ctaEyebrow', 'HEMEN BAŞLA').toUpperCase()}</span>
+              <h2>
+                {t('startToday1', 'Bugün başla,')}<br />
+                <em>{t('startToday2', 'ilk filmini kaydet.')}</em>
+              </h2>
+              <p>{t('ctaBandSubtitle', 'Kurulum yok, kredi kartı yok. Sadece izle ve kaydet.')}</p>
+            </div>
+            <div className="cta-divider"></div>
+            <div className="cta-actions">
+              <button onClick={handleLogin} className="btn-primary">
+                <LogIn size={16} color="#ffffff" strokeWidth={2.2} />
+                {t('connectTraktButton', 'Trakt ile Giriş Yap')}
+              </button>
+              <button onClick={handleGuest} className="btn-secondary">
+                <Compass size={16} color="#7aa2f7" strokeWidth={2} />
+                {t('exploreAsGuest', 'Misafir Olarak Devam Et')}
+              </button>
+            </div>
+            <p className="cta-footnote">{t('ctaFootnote', 'Ücretsiz · Reklamsız · Trakt.tv ile senkronize')}</p>
           </div>
         </section>
       </main>

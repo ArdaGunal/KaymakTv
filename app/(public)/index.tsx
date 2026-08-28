@@ -1,8 +1,9 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, TouchableOpacity, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeroSection from '../../components/landing/HeroSection';
 import BentoGrid from '../../components/landing/BentoGrid';
+import CallToAction from '../../components/landing/CallToAction';
 import Footer from '../../components/landing/Footer';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import { StatusBar } from 'expo-status-bar';
@@ -58,7 +59,7 @@ export default function LandingPage() {
             onPress={() => setLangModalVisible(true)}
             activeOpacity={0.75}
           >
-            <Globe size={14} color="#b0c6ff" />
+            <Globe size={14} color="#7aa2f7" />
             <Text style={styles.langButtonText}>
               {currentLanguage === 'tr' ? 'TR' : 'EN'}
             </Text>
@@ -69,7 +70,7 @@ export default function LandingPage() {
             onPress={() => router.push('/(public)/settings')}
             activeOpacity={0.82}
           >
-            <LogIn size={14} color="#002d6e" strokeWidth={2.5} />
+            <LogIn size={14} color="#ffffff" strokeWidth={2.2} />
             <Text style={styles.loginButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
           </TouchableOpacity>
         </View>
@@ -83,6 +84,7 @@ export default function LandingPage() {
       >
         <HeroSection />
         <BentoGrid />
+        <CallToAction />
         <Footer />
       </ScrollView>
 
@@ -125,10 +127,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#b0c6ff',
+    backgroundColor: '#5c8cf5',
   },
   brandText: {
-    color: '#b0c6ff',
+    color: '#5c8cf5',
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.4,
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   langButtonText: {
-    color: '#b0c6ff',
+    color: '#c2c6d6',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -172,11 +174,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#b0c6ff',
+    backgroundColor: '#2563eb',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   loginButtonText: {
-    color: '#002d6e',
+    color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.1,

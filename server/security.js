@@ -129,6 +129,8 @@ const TRAKT_ENDPOINT_ALLOWLIST = {
     /^\/users\/hidden\/(progress_watched|calendar)$/, // getHiddenShows / getHiddenMovies
     /^\/users\/requests$/, // getFollowRequests
     /^\/users\/settings$/, // getUserSettings / getProfilePrivacy
+    /^\/shows\/trending$/, // getTrendingShows (karşılama ekranı poster duvarı — kimliksiz/public veri)
+    /^\/movies\/trending$/, // getTrendingMovies (karşılama ekranı poster duvarı — kimliksiz/public veri)
   ],
   POST: [
     /^\/users\/hidden\/(progress_watched|calendar)$/, // hideItemTrakt
