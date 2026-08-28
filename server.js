@@ -54,6 +54,9 @@ const {
 // çağrılan genel altyapı init'i kalıyor (TMDB'ye özel değil — L7'de Trakt
 // da aynı `paths.js`'i paylaşacak).
 const { initLazyFetchPaths } = require('./server/lazyfetch/paths');
+// L6 — süpürücü zamanlayıcısı. Kendi içinde "cache kapalıysa hiç kurulma"
+// kontrolü var, burada koşul yazmaya gerek yok.
+const { startSweeperSchedule } = require('./server/lazyfetch/sweeper');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
@@ -95,6 +98,7 @@ if (missingEnvVars.length > 0) {
 // logunu görmek için ilk TMDB isteğini beklemek gerekirdi. Burada erken
 // çağırmak yalnızca operasyonel görünürlük için — davranışı değiştirmez.
 initLazyFetchPaths();
+startSweeperSchedule();
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır
