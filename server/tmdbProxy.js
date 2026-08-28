@@ -65,6 +65,12 @@ router.get('/', tmdbLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Resource not found' });
     }
 
+    // 🆕 Teşhis başlığı — `/api/trakt-catalog` ile SİMETRİ (Madde 261).
+    // Bu başlık olmadığı için TMDB tarafında "önbellek isabet etti mi"
+    // sorusu yalnızca süreyle ölçülebiliyordu; internet üzerinden yapılan
+    // ölçümde ağ gecikmesi 2 ms'lik kazancı tamamen gizliyor ve YANLIŞ
+    // sonuca götürüyor (bu tam olarak yaşandı). Davranışı etkilemez.
+    res.setHeader('x-lazyfetch', result.status);
     res.json(result.data);
   } catch (error) {
     // 🆕 (L4): devre kesici AÇIK veya kendi kota tavanımız dolu — bunlar

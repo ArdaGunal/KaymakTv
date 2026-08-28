@@ -1,0 +1,22 @@
+[Unit]
+Description=KaymakTV sunucusu (Express + LazyFetch)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=GNL
+WorkingDirectory=/home/GNL/KaymakTv
+# .env dosyasi zaten server.js icinde dotenv ile yukleniyor; LAZYFETCH_ROOT'u
+# BURAYA da yazmak, .env unutulsa bile onbellegin acik kalmasini garanti eder.
+Environment=NODE_ENV=production
+Environment=LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch
+ExecStart=/usr/bin/env node server.js
+# 502 firtinasinin sebebi buydu: surec olunce kimse ayaga kaldirmiyordu.
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
