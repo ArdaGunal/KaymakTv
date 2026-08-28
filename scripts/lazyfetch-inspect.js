@@ -77,7 +77,61 @@ function fmtAge(ms) {
   return `${Math.round(sa / 24)} gün`;
 }
 
-const DURUM = { fresh: '🟢 taze', stale: '🟡 bayat', expired: '🔴 süresi dolmuş' };
+// --------------------------------------------------------------------------
+// ASCII GERİ DÜŞÜŞÜ
+// --------------------------------------------------------------------------
+// 🔴 GERÇEK BİR SORUNDAN DOĞDU: Pi'ye SSH ile bağlanıldığında çıktı
+// `kayÄ±t` / `ğŸ“¦` şeklinde bozuk göründü. Node UTF-8 yazıyor; bozan şey
+// terminalin/SSH istemcisinin Latin-1 yorumlaması. Doğru kalıcı çözüm
+// terminal tarafında (`LANG=C.UTF-8`), AMA bir teşhis aracı, teşhis
+// edilecek ortamda okunaksız olmayı göze alamaz — bu yüzden kendi
+// geri düşüşü var.
+//
+// Otomatik algılama: `LANG`/`LC_ALL` açıkça "utf" demiyorsa ASCII'ye
+// düşülür (temkinli yön — bozuk çıktı yerine sade çıktı). `--ascii`
+// bayrağı ile zorlanabilir.
+const ASCII =
+  process.argv.includes('--ascii') ||
+  process.env.LAZYFETCH_ASCII === '1' ||
+  !/utf-?8/i.test(process.env.LC_ALL || process.env.LC_CTYPE || process.env.LANG || '');
+
+// ASCII modunda hem Türkçe harfler hem işaretler sadeleştirilir. Tek bir
+// harita: her çıktı satırı `say()`'den geçtiği için çağrı yerlerinde
+// koşul yazmaya gerek kalmıyor.
+const SADE = {
+  ç: 'c', Ç: 'C', ğ: 'g', Ğ: 'G', ı: 'i', İ: 'I', ö: 'o', Ö: 'O',
+  ş: 's', Ş: 'S', ü: 'u', Ü: 'U', '·': '-', '—': '-', '’': "'",
+  '│': '|', '┌': '+', '└': '+', '─': '-', '→': '->', '“': '"', '”': '"',
+  '📦': '#', '🎬': '*', '💡': '>', '📋': '=', '📭': '-', '🔎': '?', '🔬': '>',
+  '⚠️': '!', '⚠': '!', '✅': 'OK', '❌': 'HATA', '⚪': 'o',
+  '🟢': '', '🟡': '', '🔴': '', '️': '',
+};
+const SADE_RE = new RegExp(Object.keys(SADE).join('|'), 'g');
+
+function tr(s) {
+  if (!ASCII) return s;
+  return String(s).replace(SADE_RE, (c) => SADE[c] ?? c);
+}
+
+/** Tüm çıktı buradan geçer — tek noktadan sadeleştirme. */
+function say(line = '') {
+  console.log(tr(line));
+}
+
+const DURUM = ASCII
+  ? { fresh: '[TAZE ]', stale: '[BAYAT]', expired: '[DOLDU]' }
+  : { fresh: '🟢 taze', stale: '🟡 bayat', expired: '🔴 süresi dolmuş' };
+
+/**
+ * Aile satırındaki taze/bayat/dolmuş üçlüsü. ASCII modunda renkli
+ * daireler kaybolduğu için sayılar etiketlenir — aksi halde satır
+ * sonunda anlamsız bir "3 0 0" kalırdı.
+ */
+function dagilim(g) {
+  return ASCII
+    ? `taze:${g.taze} bayat:${g.bayat} doldu:${g.dolmus}`
+    : `🟢${g.taze} 🟡${g.bayat} 🔴${g.dolmus}`;
+}
 
 // --------------------------------------------------------------------------
 async function readEnvelope(file) {
@@ -136,11 +190,11 @@ function ozet(rows) {
     else g.dolmus++;
   }
 
-  console.log(`\n📦 TOPLAM: ${rows.length} kayıt · ${fmtSize(toplamBayt)}`);
-  if (negatif) console.log(`   ${negatif} negatif kayıt ("içerik yok" bilgisi)`);
-  if (bozuk) console.log(`   ⚠️  ${bozuk} okunamayan dosya`);
+  say(`\n📦 TOPLAM: ${rows.length} kayıt · ${fmtSize(toplamBayt)}`);
+  if (negatif) say(`   ${negatif} negatif kayıt ("içerik yok" bilgisi)`);
+  if (bozuk) say(`   ⚠️  ${bozuk} okunamayan dosya`);
 
-  console.log('\n┌─ AİLE BAZINDA ─────────────────────────────────────────────────');
+  say('\n┌─ AİLE BAZINDA ─────────────────────────────────────────────────');
   const sirali = [...byFamily.entries()].sort((a, b) => b[1].adet - a[1].adet);
   const ACIKLAMA = {
     tv_detail: 'dizi künyesi (sezon/bölüm SAYISI, özet, tür)',
@@ -154,40 +208,40 @@ function ozet(rows) {
   };
   for (const [f, g] of sirali) {
     const ad = f.replace('tmdb/', '');
-    console.log(
+    say(
       `│ ${ad.padEnd(18)} ${String(g.adet).padStart(5)} kayıt  ${fmtSize(g.bayt).padStart(9)}   ` +
-      `🟢${g.taze} 🟡${g.bayat} 🔴${g.dolmus}`
+      dagilim(g)
     );
-    if (ACIKLAMA[ad]) console.log(`│ ${' '.repeat(18)} └─ ${ACIKLAMA[ad]}`);
+    if (ACIKLAMA[ad]) say(`│ ${' '.repeat(18)} └─ ${ACIKLAMA[ad]}`);
   }
-  console.log('└────────────────────────────────────────────────────────────────');
+  say('└────────────────────────────────────────────────────────────────');
 
   // Bölüm verisi sorusu — kullanıcının en çok merak ettiği şey.
   const bolum = byFamily.get('episode_detail');
-  console.log('\n🎬 SEZON/BÖLÜM DURUMU');
+  say('\n🎬 SEZON/BÖLÜM DURUMU');
   if (bolum && bolum.adet > 0) {
-    console.log(`   ✅ TMDB bölüm detayı iniyor: ${bolum.adet} bölüm kaydı`);
+    say(`   ✅ TMDB bölüm detayı iniyor: ${bolum.adet} bölüm kaydı`);
   } else {
-    console.log('   ⚪ Henüz TMDB bölüm detayı inmemiş (bir bölüm ekranı açılınca iner)');
+    say('   ⚪ Henüz TMDB bölüm detayı inmemiş (bir bölüm ekranı açılınca iner)');
   }
-  console.log('   ⚠️  Sezon/bölüm LİSTESİ (hangi sezonlar, kaç bölüm) TRAKT\'tan geliyor');
-  console.log('       ve Pi\'yi HİÇ görmüyor → cache\'lenmiyor. Bu, L7 fazının konusu.');
+  say('   ⚠️  Sezon/bölüm LİSTESİ (hangi sezonlar, kaç bölüm) TRAKT\'tan geliyor');
+  say('       ve Pi\'yi HİÇ görmüyor → cache\'lenmiyor. Bu, L7 fazının konusu.');
 }
 
 function listele(rows, aile) {
   const now = Date.now();
   const filtre = rows.filter((r) => !r.envelope.__bozuk && (r.envelope.family || '').includes(aile));
   if (!filtre.length) {
-    console.log(`\n"${aile}" ailesinde kayıt yok. Aileler: tv_detail, movie_detail, episode_detail, credits, tv_images, tv_videos, movie_videos, episode_credits`);
+    say(`\n"${aile}" ailesinde kayıt yok. Aileler: tv_detail, movie_detail, episode_detail, credits, tv_images, tv_videos, movie_videos, episode_credits`);
     return;
   }
-  console.log(`\n📋 ${aile} — ${filtre.length} kayıt\n`);
+  say(`\n📋 ${aile} — ${filtre.length} kayıt\n`);
   filtre
     .sort((a, b) => (b.envelope.fetchedAt || 0) - (a.envelope.fetchedAt || 0))
     .forEach((r) => {
       const st = getEnvelopeState(r.envelope, SCHEMA_VERSION, now);
       const yas = r.envelope.fetchedAt ? fmtAge(now - r.envelope.fetchedAt) : '?';
-      console.log(`  ${DURUM[st] || st}  ${yas.padStart(7)} önce  ${(r.size / 1024).toFixed(1).padStart(6)} KB  ${describe(r.envelope)}`);
+      say(`  ${DURUM[st] || st}  ${yas.padStart(7)} önce  ${(r.size / 1024).toFixed(1).padStart(6)} KB  ${describe(r.envelope)}`);
     });
 }
 
@@ -196,16 +250,16 @@ function ara(rows, terim) {
   const q = terim.toLocaleLowerCase('tr');
   const bulunan = rows.filter((r) => !r.envelope.__bozuk && titleOf(r.envelope).toLocaleLowerCase('tr').includes(q));
   if (!bulunan.length) {
-    console.log(`\n"${terim}" için kayıt bulunamadı.`);
-    console.log('Not: bölüm/kadro kayıtları dizi adını TAŞIMAZ (TMDB yanıtında yok) — bu arama');
-    console.log('yalnızca dizi/film künyelerini bulur. Belirli bir dizinin TÜM kayıtları için:');
-    console.log('  node scripts/lazyfetch-inspect.js --check /tv/<tmdbId>');
+    say(`\n"${terim}" için kayıt bulunamadı.`);
+    say('Not: bölüm/kadro kayıtları dizi adını TAŞIMAZ (TMDB yanıtında yok) — bu arama');
+    say('yalnızca dizi/film künyelerini bulur. Belirli bir dizinin TÜM kayıtları için:');
+    say('  node scripts/lazyfetch-inspect.js --check /tv/<tmdbId>');
     return;
   }
-  console.log(`\n🔎 "${terim}" — ${bulunan.length} eşleşme\n`);
+  say(`\n🔎 "${terim}" — ${bulunan.length} eşleşme\n`);
   bulunan.forEach((r) => {
     const st = getEnvelopeState(r.envelope, SCHEMA_VERSION, now);
-    console.log(`  ${DURUM[st] || st}  [${(r.envelope.family || '').replace('tmdb/', '')}]  ${describe(r.envelope)}`);
+    say(`  ${DURUM[st] || st}  [${(r.envelope.family || '').replace('tmdb/', '')}]  ${describe(r.envelope)}`);
   });
 }
 
@@ -232,11 +286,11 @@ async function kontrol(cacheDir, tmdbPath) {
     ? [tmdbPath, `${tmdbPath}/images`, `${tmdbPath}/videos`, `${tmdbPath}/credits`]
     : [tmdbPath];
 
-  console.log(`\n🔬 "${tmdbPath}" kontrolü\n`);
+  say(`\n🔬 "${tmdbPath}" kontrolü\n`);
   for (const aday of adaylar) {
     const aile = AILELER.find(([, test]) => test(aday));
     if (!aile) {
-      console.log(`  ${aday.padEnd(32)} → ⚪ cache'lenmeyen uç (PASSTHRU — beyaz listede değil)`);
+      say(`  ${aday.padEnd(32)} → ⚪ cache'lenmeyen uç (PASSTHRU — beyaz listede değil)`);
       continue;
     }
     // Dil parametresi anahtarın parçası: istemci hem tr-TR hem en-US isteyebilir.
@@ -248,12 +302,12 @@ async function kontrol(cacheDir, tmdbPath) {
       if (!fs.existsSync(full)) continue;
       const envelope = await readEnvelope(full);
       const st = getEnvelopeState(envelope, SCHEMA_VERSION);
-      console.log(`  ${aday.padEnd(32)} → ${DURUM[st] || st}  [${lang || 'dilsiz'}]  ${describe(envelope)}`);
+      say(`  ${aday.padEnd(32)} → ${DURUM[st] || st}  [${lang || 'dilsiz'}]  ${describe(envelope)}`);
       bulundu = true;
     }
-    if (!bulundu) console.log(`  ${aday.padEnd(32)} → ⚪ cache'te YOK (henüz istenmemiş)`);
+    if (!bulundu) say(`  ${aday.padEnd(32)} → ⚪ cache'te YOK (henüz istenmemiş)`);
   }
-  console.log('\n  ⚪ "YOK" kötü bir şey değil — o ekran henüz hiç açılmamış demektir.');
+  say('\n  ⚪ "YOK" kötü bir şey değil — o ekran henüz hiç açılmamış demektir.');
 }
 
 /**
@@ -291,8 +345,8 @@ async function main() {
 
   const rows = await collect(cacheDir);
   if (!rows.length) {
-    console.log('\n📭 Cache boş — henüz hiçbir şey inmemiş.');
-    console.log('   Uygulamada bir dizi/film ekranı aç, sonra tekrar bak.\n');
+    say('\n📭 Cache boş — henüz hiçbir şey inmemiş.');
+    say('   Uygulamada bir dizi/film ekranı aç, sonra tekrar bak.\n');
     return;
   }
 
@@ -302,10 +356,10 @@ async function main() {
   if (find) return ara(rows, find);
 
   ozet(rows);
-  console.log('\n💡 Daha derine:');
-  console.log('   --list episode_detail   bölüm kayıtlarını tek tek gör');
-  console.log('   --find "Breaking Bad"   ada göre ara');
-  console.log('   --check /tv/1396        belirli bir dizi indi mi (kesin cevap)\n');
+  say('\n💡 Daha derine:');
+  say('   --list episode_detail   bölüm kayıtlarını tek tek gör');
+  say('   --find "Breaking Bad"   ada göre ara');
+  say('   --check /tv/1396        belirli bir dizi indi mi (kesin cevap)\n');
 }
 
 main().catch((e) => {
