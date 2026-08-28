@@ -22,6 +22,19 @@
 
 const DEFAULT_LIMITS = {
   tmdb: { capacity: 20, refillRatePerSecond: 20 },
+  // 🆕 L7 — Trakt. TMDB'den ÇOK daha düşük, çünkü Trakt'ın beyan ettiği
+  // sınır çok daha dar: dokümanında 5 dakikada 1.000 çağrı (≈200/dk ≈
+  // 3,3/sn) diyor. Bu BİZİM ölçümümüz DEĞİL, sağlayıcının beyanı — ve
+  // Trakt bu uçta gerçek bir `X-Ratelimit` başlığı DÖNDÜRMÜYOR (canlı
+  // kontrol edildi, yalnızca `Access-Control-Expose-Headers` listesinde
+  // adı geçiyor), yani ölçerek doğrulayamıyoruz.
+  //
+  // Güvenlik payıyla sürekli hız 2/sn (≈120/dk) seçildi; `capacity: 10`
+  // ise bir sayfa açılışındaki kısa patlamayı karşılar. Gerçek origin
+  // yükü bundan ÇOK daha düşük olacak: bu uçların arkasında LazyFetch var
+  // ve Trakt paylaşımlı cache'lere 12 saat TTL veriyor (`s-maxage=43200`,
+  // canlı ölçüldü) — yani aynı dizi günde en fazla iki kez origin'e gider.
+  trakt: { capacity: 10, refillRatePerSecond: 2 },
 };
 
 class TokenBucket {

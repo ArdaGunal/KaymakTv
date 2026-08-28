@@ -20,6 +20,10 @@
 // `maxAgeSeconds: undefined` döner — orchestrator bu durumda
 // `routeRegistry.resolveTtl()`'in varsayılanına düşer, hata FIRLATILMAZ.
 //
+// 🆕 L7: parser `providers/cacheControl.js`'e taşındı (Trakt adaptörü de
+// aynısını istiyordu). TMDB `s-maxage` DÖNDÜRMÜYOR (canlı doğrulandı),
+// dolayısıyla bu taşıma TMDB davranışını hiç değiştirmiyor.
+//
 // ⚠️ Axios global singleton üzerinden çağrılıyor (`require('axios')`,
 // `axios.create()` DEĞİL) — `server.js`'in en başında ayarladığı
 // `axios.defaults.httpsAgent` (Madde 234: `family:4` + `keepAlive`, DNS
@@ -28,15 +32,9 @@
 
 const axios = require('axios');
 const { NotFoundError } = require('../errors');
+const { parseSharedMaxAge } = require('./cacheControl');
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-
-/** `Cache-Control: public, max-age=3760` → `3760`. Bulunamazsa `undefined`. */
-function parseMaxAgeSeconds(cacheControlHeader) {
-  if (!cacheControlHeader || typeof cacheControlHeader !== 'string') return undefined;
-  const match = /max-age=(\d+)/.exec(cacheControlHeader);
-  return match ? parseInt(match[1], 10) : undefined;
-}
 
 /**
  * orchestrator.js'in `fetcher` sözleşmesini dolduran fabrika — `apiKey`'i
@@ -60,7 +58,7 @@ function createTmdbFetcher(apiKey) {
 
       return {
         data: response.data,
-        maxAgeSeconds: parseMaxAgeSeconds(response.headers['cache-control']),
+        maxAgeSeconds: parseSharedMaxAge(response.headers['cache-control']),
       };
     } catch (error) {
       // 🆕 (L4, negatif cache): "kaynak gerçekten yok" (404) GENEL bir
@@ -79,6 +77,4 @@ function createTmdbFetcher(apiKey) {
 
 module.exports = {
   createTmdbFetcher,
-  // Yalnızca test için dışa veriliyor.
-  parseMaxAgeSeconds,
 };

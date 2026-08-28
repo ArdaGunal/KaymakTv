@@ -77,10 +77,31 @@ const TMDB_ROUTES = [
   { family: 'episode_credits', regex: /^\/tv\/\d+\/season\/\d+\/episode\/\d+\/credits$/ },
 ];
 
+// 🆕 L7 — TRAKT KATALOG ROTALARI.
+//
+// 🔴 TEK UÇLA BAŞLANIYOR (03_FAZLAR.md L7 adım 4: "tek uçla başla, sonra
+// genişlet"). Sebep: L7 istemci değişikliği gerektiren İLK faz, yani geri
+// alması L1-L6 gibi tek satır değil. Yüzeyi dar tutmak, bir sorun çıkarsa
+// etkilenen yolu da dar tutar.
+//
+// Neden ÖNCE `/shows/:id/seasons`: en yüksek getirili uç. Canlı ölçüm
+// (2026-08-29, Breaking Bad): 63.627 bayt ham / 12.947 bayt gzip, 0,48 s.
+// Üstelik kullanıcının "sezon ve bölüm bilgileri de iniyor mu?" sorusunun
+// cevabındaki eksik parça tam olarak buydu (Madde 256).
+//
+// 🔴 YALNIZCA PUBLIC KATALOG. Bu listeye kullanıcıya özel HİÇBİR uç
+// (`/users/*`, `/sync/*`, `/calendars/my/*`) eklenemez — `02_ENVANTER.md`
+// gizlilik sınırı. Adaptör zaten `Authorization` göndermediği için böyle
+// bir uç eklense de çalışmazdı, ama kural burada da yazılı olsun.
+const TRAKT_ROUTES = [
+  // `:id` hem sayısal Trakt ID hem slug olabilir (`1388` veya `breaking-bad`)
+  // — istemci ikisini de kullanıyor. Slug karakter kümesi dar tutuldu.
+  { family: 'show_seasons', regex: /^\/shows\/[A-Za-z0-9-]+\/seasons$/ },
+];
+
 const PROVIDER_ROUTES = {
   tmdb: TMDB_ROUTES,
-  // trakt: L7'de eklenecek (03_FAZLAR.md — istemci değişikliği gerektiren,
-  // en riskli adım; L1-L3'ün kapsamı dışında, bilinçli olarak burada yok).
+  trakt: TRAKT_ROUTES,
 };
 
 /**

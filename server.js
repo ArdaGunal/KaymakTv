@@ -106,6 +106,10 @@ startSweeperSchedule();
 // ==========================================
 app.use('/api/tmdb', require('./server/tmdbProxy'));
 
+// Trakt katalog geçidi (L7). ⚠️ `/api/trakt-proxy` ile KARIŞTIRILMAMALI —
+// zıt güvenlik sözleşmeleri; gerekçe: server/traktCatalog.js başlığı.
+app.use('/api/trakt-catalog', require('./server/traktCatalog'));
+
 // ==========================================
 // TRAKT GENERIC PROXY (CORS Köprüsü)
 // ==========================================

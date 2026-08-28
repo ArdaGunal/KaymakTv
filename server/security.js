@@ -107,6 +107,13 @@ const makeLimiter = (max, label) =>
 // (Poster görselleri image.tmdb.org'dan DOĞRUDAN gelir, bu limite girmez.)
 const tmdbLimiter = makeLimiter(300, 'TMDB proxy');
 const traktProxyLimiter = makeLimiter(120, 'Trakt proxy');
+// 🆕 L7 — katalog geçidi (`/api/trakt-catalog`). TMDB'den DÜŞÜK, Trakt
+// proxy'sinden yüksek: bir dizi sayfası tek bir `seasons` çağrısı yapar
+// (TMDB'deki onlarca çağrının aksine), ama liste ekranlarında arka arkaya
+// birkaç dizi açılabilir. Ayrıca bu ucun arkasında LazyFetch var — ikinci
+// istek zaten SSD'den dönüyor, yani gerçek origin yükü bu sayıdan çok daha
+// düşük. Sayı ölçülmedi, gerekçelendirildi (04_KARARLAR.md B).
+const traktCatalogLimiter = makeLimiter(180, 'Trakt katalog gecidi');
 // Giriş/token yenileme seyrek bir işlem; burada dar olmak güvenli.
 const traktAuthLimiter = makeLimiter(20, 'Trakt auth');
 
@@ -250,6 +257,7 @@ module.exports = {
   corsMiddleware,
   tmdbLimiter,
   traktProxyLimiter,
+  traktCatalogLimiter,
   traktAuthLimiter,
   traktProxyGuard,
   redirectUriGuard,

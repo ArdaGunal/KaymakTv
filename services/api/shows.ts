@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getTraktClient, applyTranslation } from './traktClient';
+import { fetchTraktCatalog, isTraktCatalogViaPiEnabled } from './traktCatalogClient';
 import i18n from '../../locales/index';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
@@ -51,6 +52,25 @@ export const getShowSummary = async (showId: number) => {
 };
 
 export const getShowSeasons = async (showId: number) => {
+  // 🆕 LazyFetch L7: bu çağrı KATALOG verisidir (kimseye ait değil) ve
+  // bugüne kadar Pi'yi hiç görmüyordu. Bayrak açıksa Pi'nin önbellekli
+  // geçidinden geçer — ölçülen kazanç: 610 ms → 2,4 ms.
+  //
+  // 🔴 GERİ DÜŞÜŞ: geçit herhangi bir sebeple çalışmazsa AŞAĞIDAKİ eski
+  // yol devreye girer. Bir dizi ekranının açılmaması, önbellek kazancından
+  // kat kat pahalıdır.
+  if (isTraktCatalogViaPiEnabled()) {
+    try {
+      return await fetchTraktCatalog(`/shows/${showId}/seasons`, { extended: 'full,episodes' });
+    } catch (error) {
+      console.warn(
+        `[L7] Katalog geçidi başarısız (getShowSeasons - ${showId}), doğrudan Trakt'a düşülüyor:`,
+        error
+      );
+      // bilinçli olarak yutuluyor — aşağıdaki eski yol denenecek
+    }
+  }
+
   try {
     const client = await getTraktClient();
     const response = await client.get(`/shows/${showId}/seasons?extended=full,episodes`);

@@ -21,6 +21,11 @@
 
 const DEFAULT_CONFIG = {
   tmdb: { failureThreshold: 5, openDurationMs: 30 * 1000 },
+  // 🆕 L7 — Trakt katalog geçidi. TMDB ile AYNI eşikler: iki sağlayıcı da
+  // "çökerse bekle, boşuna dövme" davranışını aynı ölçekte istiyor ve
+  // farklı bir sayı için elimizde hiçbir gerekçe yok. Ayrıştırmak
+  // gerekirse telemetri söyler (04_KARARLAR.md B).
+  trakt: { failureThreshold: 5, openDurationMs: 30 * 1000 },
 };
 
 class CircuitBreaker {
