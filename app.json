@@ -13,7 +13,8 @@
       "backgroundColor": "#171717"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ardagnl.kaymak"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +36,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.12582193451-g07esrua6eegm504achp8ee94ld4nudl"
+        }
+      ]
     ],
     "extra": {
       "router": {},

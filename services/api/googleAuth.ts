@@ -119,7 +119,10 @@ export const createGoogleOnlyAccount = async (googleIdToken: string, nonce: stri
 export const linkGoogleToTrakt = async (
   googleIdToken: string,
   traktAccessToken: string,
-  nonce: string
+  // Native (Madde 246+) nonce ÜRETEMİYOR — bkz. hooks/useGoogleNativeSignIn.ts
+  // başlığı. Worker bu durumda nonce replay kontrolünü atlıyor, imza+süre
+  // doğrulaması (asıl güvenlik sınırı) etkilenmiyor.
+  nonce?: string
 ): Promise<GoogleAuthLinkResult> => {
   const data = await postAuthGoogle({ action: 'link_trakt', googleIdToken, traktAccessToken, nonce });
   if (!data?.success) {
