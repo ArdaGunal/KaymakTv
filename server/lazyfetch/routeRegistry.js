@@ -38,6 +38,21 @@ const TTL_CEILING_MS = 7 * 24 * 60 * 60 * 1000; // 7 gün — anormal derecede u
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // sağlayıcı hiç Cache-Control döndürmezse (uç durum) kullanılan yedek
 const DEFAULT_GRACE_MULTIPLIER = 4; // toplam "servis edilebilir" pencere ≈ TTL × (1 + 4) = TTL'in 5 katı
 
+// 🆕 (L5, "grace tavanı sınırlı" — 03_FAZLAR.md): çarpanın MUTLAK tavanı.
+// Çarpan tek başına sınırsızdı: `TTL_CEILING_MS` 7 gün olduğu için sağlayıcı
+// uzun bir `max-age` dönerse grace 28 güne kadar çıkabiliyordu — yani bir ay
+// önceki veriyi "bayat ama sorun değil, arkada yenilerim" diye ANINDA servis
+// ederdik. Bu, sessiz bir veri çürümesidir.
+//
+// 🔴 KESİNTİ DAYANIKLILIĞINI DÜŞÜRMEZ — sık yapılan karıştırma bu. Grace
+// penceresi yalnızca "beklemeden servis et + arkada yenile" bölgesini
+// tanımlar. Pencere bittiğinde veri SİLİNMEZ: istek sağlayıcıya gider,
+// sağlayıcı çökmüşse orchestrator'ın GRACE FALLBACK yolu aynı eski zarfı
+// yine döner (orchestrator.js `resolveRequest` catch bloğu). Yani tavan,
+// "TMDB 3 gün çökerse kullanıcı boş ekran görür" anlamına GELMEZ; yalnızca
+// çok eski veriyi kontrol etmeden dağıtmayı bırakırız.
+const GRACE_CEILING_MS = 24 * 60 * 60 * 1000; // 24 saat
+
 // 🆕 (L4, negatif cache): "kaynak yok" (404) bilgisinin ne kadar saklanacağı.
 // Sağlayıcıdan bir `max-age` gelmiyor (404 yanıtının kendi TTL'i yok) — bu
 // yüzden route registry'nin normal `resolveTtl()`'inden AYRI, sabit bir
@@ -101,7 +116,11 @@ function resolveTtl(providerMaxAgeSeconds) {
       : DEFAULT_TTL_MS;
 
   const ttlMs = Math.min(Math.max(raw, TTL_FLOOR_MS), TTL_CEILING_MS);
-  const graceMs = ttlMs * DEFAULT_GRACE_MULTIPLIER;
+  // 🆕 L5: çarpan + MUTLAK tavan. Ölçülen gerçek TMDB değerlerinde
+  // (max-age 3.760 sn ≈ 1 sa · 10.870 sn ≈ 3 sa) tavan hiç devreye
+  // GİRMEZ (grace 4-12 sa) — yalnızca anormal uzun bir `max-age`
+  // geldiğinde kırpar. Yani normal davranış L4'e göre değişmiyor.
+  const graceMs = Math.min(ttlMs * DEFAULT_GRACE_MULTIPLIER, GRACE_CEILING_MS);
 
   return { ttlMs, graceMs };
 }
@@ -116,4 +135,5 @@ module.exports = {
   TTL_CEILING_MS,
   DEFAULT_TTL_MS,
   DEFAULT_GRACE_MULTIPLIER,
+  GRACE_CEILING_MS,
 };

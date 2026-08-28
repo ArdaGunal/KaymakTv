@@ -27,11 +27,19 @@
 // çökse bile kullanıcı boş ekran görmez. Elimizde hiç veri yoksa hata
 // olduğu gibi yukarı iletilir.
 //
-// ⚠️ SWR'nin (arka plan yenileme, L5) BASİT bir öncül hali burada var —
-// "stale" durumda hemen dönülür + arka planda TEK yenileme tetiklenir
-// (aynı `inFlight` kilidini paylaşır). Eşzamanlılık sınırlı bir "yenileme
-// kuyruğu" (03_FAZLAR.md L5) BİLİNÇLİ OLARAK burada YOK — L5'e bırakıldı,
-// şimdiden aşırı mühendislik yapılmadı.
+// 🆕 L5 — SWR SAĞLAMLAŞTIRMA: "stale" durumda hemen dönülür + arka planda
+// TEK yenileme tetiklenir (aynı `inFlight` kilidini paylaşır). L5'te buna
+// iki koruma eklendi:
+//   1. `refreshQueue` — arka plan yenilemeleri en fazla 2 paralel çalışır.
+//      `singleFlight` yalnızca AYNI anahtarı tekilleştirir; farklı 200
+//      anahtar aynı anda bayatladığında foreground'un token kotasını
+//      çalıyorlardı (gerekçenin tamamı: refreshQueue.js başlığı).
+//   2. Başarısız yenileme SOĞUMASI — yenileme hata verirse zarfa bellekte
+//      `lastErrorAt` damgası vurulur ve `REVALIDATE_FAILURE_COOLDOWN_MS`
+//      boyunca o anahtar için YENİ arka plan yenilemesi tetiklenmez.
+//      Bu olmadan, sağlayıcı çökmüşken gelen HER istek yeni bir (kesin
+//      başarısız olacak) yenileme başlatıyordu — ölü bir sağlayıcıyı
+//      istek başına bir kez dövmek.
 //
 // 🆕 L4 — DİSİPLİN KATMANI: sağlayıcıya gitmeden HEMEN ÖNCE iki kapı var:
 //   1. `circuitBreaker.canRequest()` — devre AÇIKSA sağlayıcı hiç aranmaz.
@@ -47,9 +55,10 @@
 
 const { resolveRoute, resolveTtl, NEGATIVE_TTL_MS, NEGATIVE_GRACE_MS } = require('./routeRegistry');
 const { buildCacheKey } = require('./key');
-const { createEnvelope, getEnvelopeState, SCHEMA_VERSION } = require('./envelope');
+const { createEnvelope, getEnvelopeState, markRevalidationFailed, SCHEMA_VERSION } = require('./envelope');
 const { readCacheEntry, writeCacheEntry } = require('./diskStore');
 const { createMemoryCache } = require('./memoryCache');
+const { createRefreshQueue } = require('./refreshQueue');
 const circuitBreaker = require('./circuitBreaker');
 const tokenBucket = require('./tokenBucket');
 const { NotFoundError, CircuitOpenError, RateLimitedError } = require('./errors');
@@ -57,6 +66,19 @@ const { NotFoundError, CircuitOpenError, RateLimitedError } = require('./errors'
 // Modül seviyesinde TEK paylaşılan bellek katmanı — Node'un require cache'i
 // bunu doğal bir singleton yapar (memoryCache.js başlığındaki tasarım notu).
 const memoryCache = createMemoryCache();
+
+// 🆕 L5 — aynı singleton deseni: tüm arka plan yenilemeleri TEK kuyruktan
+// geçer, yoksa eşzamanlılık tavanı anlamsız olurdu.
+const refreshQueue = createRefreshQueue();
+
+// 🆕 L5 — bir yenileme başarısız olduktan sonra aynı anahtar için yeni bir
+// yenileme denemeden önce beklenecek süre. 30 sn seçildi çünkü devre
+// kesicinin açık kalma süresiyle (circuitBreaker.js, 30 sn) AYNI ölçekte
+// olması gerekiyor: daha kısa olsaydı, devre kapanmadan boşuna deneme
+// üretirdik; çok daha uzun olsaydı, sağlayıcı toparladıktan sonra bile
+// bayat veri servis etmeye gereksiz yere devam ederdik. Ölçülmüş bir sayı
+// DEĞİL, gerekçelendirilmiş bir başlangıç değeri (04_KARARLAR.md B).
+const REVALIDATE_FAILURE_COOLDOWN_MS = 30 * 1000;
 
 // Tek-uçuş kilidi durumu — yalnızca "şu an uçuşta olan istekler", TTL/LRU
 // DEĞİL. Bir anahtar burada en fazla birkaç saniye yaşar (sağlayıcı yanıt
@@ -129,23 +151,60 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
 }
 
 /**
+ * 🆕 L5 — bir yenileme başarısız olduğunda çağrılır: BELLEKTEKİ zarfa
+ * `lastErrorAt` damgasını vurur (soğuma sayacı bunu okur).
+ *
+ * 🔴 DİSKE YAZILMAZ — bilinçli. Sağlayıcı çökmüşken her istek başına bir
+ * gzip+yazma yapmak, hiçbir şey kazandırmadan SSD'yi yorardı; damganın tek
+ * tüketicisi bellekteki soğuma kontrolü. Yeniden başlatmada kaybolması da
+ * zararsız (en fazla bir fazladan deneme). Damganın DİSKE de işlenmesi
+ * (teşhis/telemetri amaçlı) L6'ya bırakıldı.
+ *
+ * 🔴 KUŞAK KONTROLÜ: yenileme başarısız olurken PARALEL bir foreground
+ * isteği başarılı olup yeni bir zarf yazmış olabilir. `fetchedAt`
+ * değişmişse elimizdeki damga ARTIK BAŞKA BİR KAYDA aittir — vurulmaz,
+ * yoksa taptaze bir kaydı 30 sn boyunca yenilenemez damgalardık.
+ */
+function recordRevalidateFailure(relativePath, staleFetchedAt, now = Date.now()) {
+  const current = memoryCache.get(relativePath);
+  if (!current || current.fetchedAt !== staleFetchedAt) return;
+  memoryCache.set(relativePath, markRevalidationFailed(current, now));
+}
+
+/** 🆕 L5 — bu zarf için son yenileme yakın zamanda mı patladı? (soğuma penceresi) */
+function isInFailureCooldown(envelope, now = Date.now()) {
+  return typeof envelope.lastErrorAt === 'number' && now - envelope.lastErrorAt < REVALIDATE_FAILURE_COOLDOWN_MS;
+}
+
+/**
  * "Stale" durumda çağrılır — SONUCU BEKLEMEDEN (fire-and-forget) arka
- * planda TEK bir yenileme tetikler. Aynı anahtara art arda gelen birden
- * fazla "stale" isteği, `singleFlight` sayesinde AYNI yenilemeyi paylaşır
- * — her istek kendi yenilemesini başlatmaz.
+ * planda TEK bir yenileme tetikler. Üç kat tekilleştirme/sınırlama var:
+ *   1. `isInFailureCooldown` — son deneme patladıysa hiç kuyruğa girmez
+ *   2. `refreshQueue` — en fazla 2 paralel, aynı anahtar bir kez (L5)
+ *   3. `singleFlight` — kuyruktan çıkan iş, o an foreground'da aynı
+ *      anahtar için uçuşta bir çağrı varsa onu PAYLAŞIR, ikincisini açmaz
  *
  * Yenileme BAŞARISIZ olursa: `writeCacheEntry` hiç çağrılmadığı için
  * diskteki (hâlâ stale ama geçerli) zarfa dokunulmaz — 01_MIMARI.md kural
  * 4'ün ("başarısız yenileme fetchedAt'i bozmaz") doğal sonucu, ekstra kod
- * gerekmiyor. `envelope.markRevalidationFailed`'in gerçek kullanımı
- * (`lastErrorAt`'i diskteki zarfa işlemek, teşhis/telemetri) L6'ya
- * bırakıldı — şimdilik yalnızca loglanıyor.
+ * gerekmiyor. Yalnızca `lastErrorAt` damgası bellekte güncellenir.
  */
-function triggerBackgroundRevalidate({ provider, family, relativePath, path, query, fetcher }) {
-  singleFlight(relativePath, () => fetchAndStore({ provider, family, relativePath, path, query, fetcher })).catch(
-    (error) => {
+function triggerBackgroundRevalidate({ provider, family, relativePath, path, query, fetcher, staleEnvelope }) {
+  if (isInFailureCooldown(staleEnvelope)) return;
+
+  const staleFetchedAt = staleEnvelope.fetchedAt;
+  refreshQueue.enqueue(relativePath, () =>
+    singleFlight(relativePath, () =>
+      fetchAndStore({ provider, family, relativePath, path, query, fetcher })
+    ).catch((error) => {
+      recordRevalidateFailure(relativePath, staleFetchedAt);
       console.error(`[LazyFetch] Arka plan yenileme başarısız (${relativePath}): ${error.message}`);
-    }
+      // Hata YUTULMAZ, yeniden fırlatılır — kuyruğun `failed` sayacı
+      // (L6 telemetrisi) aksi halde sonsuza kadar 0 kalırdı. Kuyruk kendi
+      // içinde yakalıyor, unhandled rejection riski yok (refreshQueue.js
+      // `#run`: `.then(onOk, onErr)`).
+      throw error;
+    })
   );
 }
 
@@ -208,7 +267,15 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
     if (state === 'stale') {
       // 🆕 Negatif bir kaydı "stale" iken de yenilemek anlamlı (TMDB'ye
       // içerik sonradan eklenmiş olabilir) — aynı SWR yolunu kullanır.
-      triggerBackgroundRevalidate({ provider, family: route.family, relativePath, path, query, fetcher });
+      triggerBackgroundRevalidate({
+        provider,
+        family: route.family,
+        relativePath,
+        path,
+        query,
+        fetcher,
+        staleEnvelope: envelope,
+      });
       return envelopeToResult(envelope, 'stale');
     }
     // state === 'expired' → envelope'u ELDE TUTUYORUZ (silmiyoruz), aşağıda
@@ -233,4 +300,6 @@ module.exports = {
   resolveRequest,
   // Yalnızca test/teşhis için dışa veriliyor.
   memoryCache,
+  refreshQueue, // 🆕 L5 — `getStats()` L6 telemetrisinin bağlanacağı yer
+  REVALIDATE_FAILURE_COOLDOWN_MS,
 };
