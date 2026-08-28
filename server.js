@@ -40,13 +40,20 @@ axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50, f
 // 400 satır sınırı; bu dosya zaten 361 satırdı.
 const {
   corsMiddleware,
-  tmdbLimiter,
   traktProxyLimiter,
   traktAuthLimiter,
   traktProxyGuard,
   redirectUriGuard,
   logSecurityMode,
 } = require('./server/security');
+
+// LazyFetch (docs/Lazy Down Plan/, Madde 249+) — SSD önbellek + tek-uçuş
+// kilidi + grace fallback. Gerçek route mantığı `server/tmdbProxy.js`'e
+// taşındı (Madde 251 — LazyFetch entegrasyonu bu dosyayı 400 satır
+// sınırının üstüne çıkardı); burada yalnızca sunucu açılışında BİR KEZ
+// çağrılan genel altyapı init'i kalıyor (TMDB'ye özel değil — L7'de Trakt
+// da aynı `paths.js`'i paylaşacak).
+const { initLazyFetchPaths } = require('./server/lazyfetch/paths');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
@@ -83,56 +90,17 @@ if (missingEnvVars.length > 0) {
   console.warn('==========================================');
 }
 
+// Sunucu açılışında BİR KEZ çağrılır — `paths.js`'in kendi lazy-init'i zaten
+// ilk istekte otomatik tetiklenirdi, ama o zaman "LazyFetch etkin mi"
+// logunu görmek için ilk TMDB isteğini beklemek gerekirdi. Burada erken
+// çağırmak yalnızca operasyonel görünürlük için — davranışı değiştirmez.
+initLazyFetchPaths();
+
 // ==========================================
-// TMDB PROXY ENDPOINT
+// TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır
+// sınırı). Davranış BİREBİR aynı, yalnızca dosya değişti.
 // ==========================================
-app.get('/api/tmdb', tmdbLimiter, async (req, res) => {
-  try {
-    // ⚠️ `EXPO_PUBLIC_TMDB_API_KEY` FALLBACK'İ BİLİNÇLİ OLARAK KALDIRILDI.
-    //
-    // Expo'da `EXPO_PUBLIC_` önekli HER değişken build zamanında istemci
-    // bundle'ına GÖMÜLÜR (bkz. docs/AI_RULES.md §2) — yani o adla tanımlanmış
-    // bir TMDB anahtarı, uygulamayı indiren herkes tarafından okunabilir olurdu.
-    // Fallback bir sızıntı DEĞİLDİ ama birinin `.env`'e o adı yazmasını DAVET
-    // ediyordu; ilk yanlış tanımda sessizce sızardı.
-    //
-    // Trakt için aynı fallback `ARCHITECTURE.md` §4'te zaten kaldırılmıştı
-    // (Madde 25); TMDB'de gözden kaçmıştı. Anahtar YALNIZCA öneksiz
-    // `TMDB_API_KEY` ile, yalnızca sunucuda okunur.
-    const tmdbApiKey = process.env.TMDB_API_KEY;
-    if (!tmdbApiKey) {
-      return res.status(500).json({ error: 'Server configuration error (missing TMDB_API_KEY)' });
-    }
-
-    let endpoint = req.query.endpoint;
-    if (!endpoint) {
-      return res.status(400).json({ error: 'Endpoint is required' });
-    }
-
-    if (!endpoint.startsWith('/')) {
-      endpoint = '/' + endpoint;
-    }
-
-    const queryParams = { ...req.query };
-    delete queryParams.endpoint;
-
-    const tmdbResponse = await axios.get(`https://api.themoviedb.org/3${endpoint}`, {
-      params: {
-        ...queryParams,
-        api_key: tmdbApiKey,
-      },
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    res.json(tmdbResponse.data);
-  } catch (error) {
-    console.error('Error in TMDB proxy:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({ 
-      error: error.response?.data || 'Internal Server Error',
-      details: error.message
-    });
-  }
-});
+app.use('/api/tmdb', require('./server/tmdbProxy'));
 
 // ==========================================
 // TRAKT GENERIC PROXY (CORS Köprüsü)
