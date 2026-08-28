@@ -45,7 +45,18 @@ import { logError } from '../../utils/errorLog';
  * `GoogleSignin.signIn()`'i de aynı şekilde sayfa değiştirmeden (native bir
  * sheet/modal içinde) tamamlanır.
  */
+
+// 🔴 GEÇİCİ OLARAK KAPALI (2026-08-27, kullanıcı kararı — HISTORY Madde 248):
+// Sistem Trakt'tan bağımsızlığını ilan edene kadar Google bağlama gerçek
+// kullanıcılara KAPALI — native taraf bugün eklendi, cihaz testi henüz
+// yapılmadı; erken açık bırakmak yanlış/eksik veri yazma riski taşıyor.
+// Geliştirici kendi testi için yerelde `true`'ya çevirebilir — ama bu
+// satırı `false`'a döndürmeden production'a/commit'e GÖNDERME.
+const GOOGLE_LINK_ENABLED = false;
+
 export function GoogleLinkSection() {
+  if (!GOOGLE_LINK_ENABLED) return null;
+
   const { accessToken, isGuest, authProvider } = useAuth();
   const isWeb = Platform.OS === 'web';
   const traktKullanicisi = !isGuest && authProvider === 'trakt' && !!accessToken;
