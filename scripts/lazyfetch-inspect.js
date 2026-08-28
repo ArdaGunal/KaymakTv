@@ -51,6 +51,13 @@ function describe(envelope) {
     case 'credits':
     case 'episode_credits':
       return `${(p.cast || []).length} oyuncu · ${(p.crew || []).length} ekip`;
+    // 🆕 L7 — Trakt katalog. Yanıt bir DİZİ (sezonlar), TMDB'nin nesne
+    // yanıtlarından farklı; bu yüzden ayrı ele alınıyor.
+    case 'show_seasons': {
+      if (!Array.isArray(p)) return '(beklenmeyen sezon yanıtı)';
+      const bolum = p.reduce((t, sez) => t + ((sez && sez.episodes) || []).length, 0);
+      return `${p.length} sezon · ${bolum} bölüm (Trakt sezon/bölüm LİSTESİ)`;
+    }
     default:
       return '(bilinmeyen aile)';
   }
@@ -179,7 +186,10 @@ function ozet(rows) {
     toplamBayt += r.size;
     if (r.envelope.__bozuk) { bozuk++; continue; }
     if (r.envelope.isNegative) negatif++;
-    const f = r.envelope.family || '(bilinmiyor)';
+    // `provider` ve `family` zarfta AYRI alanlar (envelope.js). L7'den beri
+    // iki sağlayıcı var; birleşik anahtar olmadan `tv_detail` (tmdb) ile
+    // `show_seasons` (trakt) aynı listede ayırt edilemezdi.
+    const f = `${r.envelope.provider || '?'}/${r.envelope.family || '?'}`;
     if (!byFamily.has(f)) byFamily.set(f, { adet: 0, bayt: 0, taze: 0, bayat: 0, dolmus: 0 });
     const g = byFamily.get(f);
     g.adet++;
@@ -197,17 +207,20 @@ function ozet(rows) {
   say('\n┌─ AİLE BAZINDA ─────────────────────────────────────────────────');
   const sirali = [...byFamily.entries()].sort((a, b) => b[1].adet - a[1].adet);
   const ACIKLAMA = {
-    tv_detail: 'dizi künyesi (sezon/bölüm SAYISI, özet, tür)',
-    movie_detail: 'film künyesi',
-    episode_detail: 'BÖLÜM detayı (başlık, özet, yayın tarihi, kare)',
-    episode_credits: 'bölüm kadrosu',
-    credits: 'dizi/film kadrosu',
-    tv_images: 'dizi görselleri (afiş/arka plan/logo)',
-    tv_videos: 'dizi fragmanları',
-    movie_videos: 'film fragmanları',
+    'tmdb/tv_detail': 'dizi künyesi (sezon/bölüm SAYISI, özet, tür)',
+    'tmdb/movie_detail': 'film künyesi',
+    'tmdb/episode_detail': 'BÖLÜM detayı (başlık, özet, yayın tarihi, kare)',
+    'tmdb/episode_credits': 'bölüm kadrosu',
+    'tmdb/credits': 'dizi/film kadrosu',
+    'tmdb/tv_images': 'dizi görselleri (afiş/arka plan/logo)',
+    'tmdb/tv_videos': 'dizi fragmanları',
+    'tmdb/movie_videos': 'film fragmanları',
+    'trakt/show_seasons': '🆕 L7 — sezon/bölüm LİSTESİ (hangi sezonlar, kaç bölüm, yayın tarihleri)',
   };
   for (const [f, g] of sirali) {
-    const ad = f.replace('tmdb/', '');
+    // Sağlayıcı öneki KORUNUYOR — L7'den beri iki sağlayıcı var,
+    // `tv_detail` (tmdb) ile `show_seasons` (trakt) karışmasın.
+    const ad = f;
     say(
       `│ ${ad.padEnd(18)} ${String(g.adet).padStart(5)} kayıt  ${fmtSize(g.bayt).padStart(9)}   ` +
       dagilim(g)
@@ -216,21 +229,39 @@ function ozet(rows) {
   }
   say('└────────────────────────────────────────────────────────────────');
 
-  // Bölüm verisi sorusu — kullanıcının en çok merak ettiği şey.
-  const bolum = byFamily.get('episode_detail');
+  // Bölüm/sezon durumu — kullanıcının en çok merak ettiği şey.
+  // ⚠️ Bu blok L7 ÖNCESİ "sezon listesi cache'lenmiyor" diye SABİT bir metin
+  // basıyordu. L7 gelince o metin YALAN söylemeye başladı ve çalışan bir
+  // kurulumu "bozuk" gösterdi (Madde 260). Artık sabit metin yok — gerçek
+  // kayıtlara BAKIP söylüyor.
+  const bolum = byFamily.get('tmdb/episode_detail');
+  const sezon = byFamily.get('trakt/show_seasons');
   say('\n🎬 SEZON/BÖLÜM DURUMU');
+
   if (bolum && bolum.adet > 0) {
-    say(`   ✅ TMDB bölüm detayı iniyor: ${bolum.adet} bölüm kaydı`);
+    say(`   ✅ TMDB bölüm detayı: ${bolum.adet} kayıt (tek bölümün başlığı/özeti/karesi)`);
   } else {
-    say('   ⚪ Henüz TMDB bölüm detayı inmemiş (bir bölüm ekranı açılınca iner)');
+    say('   ⚪ TMDB bölüm detayı henüz inmemiş (bir bölüm ekranı açılınca iner)');
   }
-  say('   ⚠️  Sezon/bölüm LİSTESİ (hangi sezonlar, kaç bölüm) TRAKT\'tan geliyor');
-  say('       ve Pi\'yi HİÇ görmüyor → cache\'lenmiyor. Bu, L7 fazının konusu.');
+
+  if (sezon && sezon.adet > 0) {
+    say(`   ✅ TRAKT sezon/bölüm LİSTESİ: ${sezon.adet} dizi — L7 ÇALIŞIYOR`);
+  } else {
+    say('   ⚪ Trakt sezon/bölüm listesi henüz inmemiş.');
+    say('      L7 açıksa bir dizi ekranı açılınca iner. Hiç inmiyorsa sırayla bak:');
+    say('        1. Cihazın KENDİ önbelleği (6 sa) isteği ağa hiç çıkarmıyor olabilir');
+    say('           -> hiç açmadığın bir dizi aç veya Ayarlar > "Önbelleği Temizle"');
+    say('        2. Bayrak APK\'ya gömüldü mü -> Geliştirici Paneli, "L7/yapilandirma"');
+    say('        3. Uç ayakta mı -> curl .../api/trakt-catalog?endpoint=/shows/1388/seasons');
+    say('      Ayrıntı: docs/runbook/LAZYFETCH_OPS.md §2.6');
+  }
 }
 
 function listele(rows, aile) {
   const now = Date.now();
-  const filtre = rows.filter((r) => !r.envelope.__bozuk && (r.envelope.family || '').includes(aile));
+  const filtre = rows.filter(
+    (r) => !r.envelope.__bozuk && `${r.envelope.provider}/${r.envelope.family}`.includes(aile)
+  );
   if (!filtre.length) {
     say(`\n"${aile}" ailesinde kayıt yok. Aileler: tv_detail, movie_detail, episode_detail, credits, tv_images, tv_videos, movie_videos, episode_credits`);
     return;
@@ -259,7 +290,7 @@ function ara(rows, terim) {
   say(`\n🔎 "${terim}" — ${bulunan.length} eşleşme\n`);
   bulunan.forEach((r) => {
     const st = getEnvelopeState(r.envelope, SCHEMA_VERSION, now);
-    say(`  ${DURUM[st] || st}  [${(r.envelope.family || '').replace('tmdb/', '')}]  ${describe(r.envelope)}`);
+    say(`  ${DURUM[st] || st}  [${r.envelope.provider || '?'}/${r.envelope.family || '?'}]  ${describe(r.envelope)}`);
   });
 }
 
@@ -358,6 +389,7 @@ async function main() {
   ozet(rows);
   say('\n💡 Daha derine:');
   say('   --list episode_detail   bölüm kayıtlarını tek tek gör');
+  say('   --list show_seasons     Trakt sezon/bölüm listeleri (L7)');
   say('   --find "Breaking Bad"   ada göre ara');
   say('   --check /tv/1396        belirli bir dizi indi mi (kesin cevap)\n');
 }

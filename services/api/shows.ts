@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { getTraktClient, applyTranslation } from './traktClient';
-import { fetchTraktCatalog, isTraktCatalogViaPiEnabled } from './traktCatalogClient';
+import {
+  fetchTraktCatalog,
+  isTraktCatalogViaPiEnabled,
+  reportCatalogConfig,
+  catalogErrorTags,
+} from './traktCatalogClient';
+import { logWarning } from '../../utils/errorLog';
 import i18n from '../../locales/index';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
@@ -59,13 +65,22 @@ export const getShowSeasons = async (showId: number) => {
   // 🔴 GERİ DÜŞÜŞ: geçit herhangi bir sebeple çalışmazsa AŞAĞIDAKİ eski
   // yol devreye girer. Bir dizi ekranının açılmaması, önbellek kazancından
   // kat kat pahalıdır.
+  // 🔴 Yapılandırma her koşulda bir kez raporlanır — bayrak KAPALIYKEN de.
+  // Kapalıysa aşağıdaki blok hiç çalışmaz, yani hata da oluşmaz ve
+  // Geliştirici Paneli boş kalırdı; boş panel "sorun yok" değil "hiç
+  // denenmedi" demek olurdu (bkz. traktCatalogClient.ts teşhis notu).
+  reportCatalogConfig();
+
   if (isTraktCatalogViaPiEnabled()) {
     try {
       return await fetchTraktCatalog(`/shows/${showId}/seasons`, { extended: 'full,episodes' });
     } catch (error) {
-      console.warn(
-        `[L7] Katalog geçidi başarısız (getShowSeasons - ${showId}), doğrudan Trakt'a düşülüyor:`,
-        error
+      // `logWarning` → yalnızca cihazdaki günlük + Geliştirici Paneli;
+      // Discord'a GİTMEZ (teşhis gürültüsü operasyon kanalını kirletmesin).
+      logWarning(
+        'L7/getShowSeasons',
+        error,
+        catalogErrorTags(error, { showId: String(showId), sonuc: 'eski-yola-dusuldu' })
       );
       // bilinçli olarak yutuluyor — aşağıdaki eski yol denenecek
     }

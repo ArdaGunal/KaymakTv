@@ -24,6 +24,7 @@
 // zaten hiç devreye girmez.
 
 import axios from 'axios';
+import { logWarning } from '../../utils/errorLog';
 
 // `TMDB_PROXY_URL` ile BİREBİR aynı desen (services/tmdbApi.ts:12):
 // native derlemelerde cihazın sunucuya ulaşacağı mutlak adres gerekir;
@@ -42,6 +43,42 @@ const CATALOG_URL = process.env.EXPO_PUBLIC_API_URL
 export const isTraktCatalogViaPiEnabled = (): boolean =>
   process.env.EXPO_PUBLIC_TRAKT_CATALOG_VIA_PI === '1';
 
+// --------------------------------------------------------------------------
+// TEŞHİS (Madde 259-260)
+// --------------------------------------------------------------------------
+// 🔴 NEDEN GEREKLİ: L7'nin geri düşüşü BİLEREK sessizdir — geçit çalışmazsa
+// kullanıcı hiçbir şey fark etmez, eski yol devreye girer. Ama bu sessizlik
+// geliştirme sırasında da geçerliydi: cihazda `console.warn` görünmüyor,
+// dolayısıyla "neden çalışmıyor" sorusunun cevabı hiçbir yerde yoktu.
+//
+// 🔴 EN KRİTİK VAKA — BAYRAK KAPALIYSA HİÇ HATA OLUŞMAZ: `EXPO_PUBLIC_*`
+// build zamanında gömülür; bayrak APK'ya girmediyse geçit hiç DENENMEZ,
+// yani hata da olmaz ve panel BOŞ kalır. Boş panel "sorun yok" değil
+// "hiç denenmedi" anlamına gelirdi — teşhis edilemez bir durum. Bu yüzden
+// yapılandırma durumu, hata olmasa bile oturumda BİR KEZ yazılır.
+//
+// `logWarning` (level: 'warn') kullanılıyor — yalnızca CİHAZDA kalır,
+// Discord telemetrisine GİTMEZ (`utils/errorLog.ts`: uzak bildirim yalnızca
+// 'error' seviyesinde). Teşhis gürültüsü operasyon kanalını kirletmemeli.
+
+let yapilandirmaYazildi = false;
+
+/** Oturumda bir kez: L7 açık mı, hangi adrese gidiyor? */
+const logCatalogConfigOnce = () => {
+  if (yapilandirmaYazildi) return;
+  yapilandirmaYazildi = true;
+
+  const acik = isTraktCatalogViaPiEnabled();
+  logWarning('L7/yapilandirma', acik ? 'Katalog geçidi AÇIK' : 'Katalog geçidi KAPALI', {
+    bayrak: acik ? 'acik' : 'KAPALI',
+    // Ham değer: `undefined` görünüyorsa bayrak APK'ya HİÇ gömülmemiş demektir.
+    bayrakHamDeger: String(process.env.EXPO_PUBLIC_TRAKT_CATALOG_VIA_PI),
+    adres: CATALOG_URL,
+    // Göreli yol native'de ÇALIŞMAZ — `EXPO_PUBLIC_API_URL` eksikse buradan anlaşılır.
+    adresMutlakMi: CATALOG_URL.startsWith('http') ? 'evet' : 'HAYIR (native icin HATA)',
+  });
+};
+
 /**
  * Katalog isteğini Pi üzerinden yapar.
  *
@@ -51,6 +88,8 @@ export const isTraktCatalogViaPiEnabled = (): boolean =>
  *         düşmekle yükümlü (bkz. `shows.ts` `getShowSeasons`).
  */
 export const fetchTraktCatalog = async (endpoint: string, params: Record<string, string> = {}) => {
+  logCatalogConfigOnce();
+
   const response = await axios.get(CATALOG_URL, {
     params: { ...params, endpoint },
     // Katalog verisi büyük olabiliyor (ölçüm: Breaking Bad sezonları
@@ -60,3 +99,19 @@ export const fetchTraktCatalog = async (endpoint: string, params: Record<string,
   });
   return response.data;
 };
+
+/** Bayrak kapalıyken de yapılandırmayı görebilmek için — `shows.ts` çağırır. */
+export const reportCatalogConfig = logCatalogConfigOnce;
+
+/**
+ * Bir geçit hatasını teşhis edilebilir etiketlere çevirir.
+ * En çok işe yarayan alan `durum`: 404 → uç yayında yok · 502/522 →
+ * Pi'ye ulaşılamıyor · 403 → beyaz liste reddi · `ag-hatasi` → istek
+ * hiç ulaşmadı (adres yanlış olabilir).
+ */
+export const catalogErrorTags = (error: any, extra: Record<string, string> = {}) => ({
+  adres: CATALOG_URL,
+  durum: error?.response?.status ? String(error.response.status) : 'ag-hatasi',
+  mesaj: String(error?.message || '').slice(0, 120),
+  ...extra,
+});
