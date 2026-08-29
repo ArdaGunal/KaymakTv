@@ -197,6 +197,9 @@ function getArchiveStatus() {
   return kisaDurum();
 }
 
+// İç içe `transaction()` çağrılarının derinliği. Aşağıdaki kırmızı nota bak.
+let islemDerinligi = 0;
+
 /**
  * Bir işi TEK işlem (transaction) içinde çalıştırır.
  *
@@ -205,6 +208,26 @@ function getArchiveStatus() {
  * öksüz bir entity kalır ve bir daha ASLA bulunamaz (arama external_ids
  * üzerinden yapılıyor), yani sessizce çift kayıt üretmeye başlardık.
  *
+ * 🔴🔴 İÇ İÇE ÇAĞRIYA DAYANIKLI — İKİ SEBEPLE ZORUNLU:
+ *
+ * 1. **SQLite iç içe `BEGIN` KABUL ETMEZ** ("cannot start a transaction
+ *    within a transaction"). `resolveOrCreate` kendi içinde `transaction()`
+ *    çağırıyor; A2 bir dizinin TÜM hiyerarşisini (sezonlar + bölümler) tek
+ *    blokta yazmak için onları dıştan saracak. Derinlik sayacı olmasaydı
+ *    ikinci çağrı anında patlardı.
+ *
+ * 2. **PERFORMANS.** Her satırı ayrı transaction'la yazmak, SQLite'ı satır
+ *    başına bir `fsync`/WAL commit'ine zorlar. 1.220 bölümlük bir dizide bu
+ *    1.220 ayrı commit demek — Pi'nin diskini gereksiz yere döver ve süreyi
+ *    kat kat uzatır. Tek transaction'da aynı iş toplu yazılır.
+ *    (Bu uyarı kullanıcıdan geldi; ölçümü `scripts/arsiv-benchmark.js`'te.)
+ *
+ * İç çağrılar DIŞ işleme katılır: kendi `BEGIN`/`COMMIT`'lerini vermezler.
+ * Yani "hep ya da hiç" garantisi en dıştaki bloğun tamamını kapsar — bir
+ * bölüm yazılamazsa o dizinin hiçbir parçası yazılmamış olur. Arşiv için
+ * doğru davranış bu: yarım bir hiyerarşi, hiç olmayandan daha tehlikelidir
+ * (kapsam ölçümü yalan söylemeye başlar).
+ *
  * `node:sqlite`'ta yerleşik bir transaction sarmalayıcısı yok; klasik
  * BEGIN/COMMIT/ROLLBACK.
  */
@@ -212,6 +235,17 @@ function transaction(is) {
   const db = getDb();
   if (!db) return null;
 
+  // İç çağrı: dış işleme katıl, kendi BEGIN'ini AÇMA.
+  if (islemDerinligi > 0) {
+    islemDerinligi += 1;
+    try {
+      return is(db);
+    } finally {
+      islemDerinligi -= 1;
+    }
+  }
+
+  islemDerinligi = 1;
   db.exec('BEGIN');
   try {
     const sonuc = is(db);
@@ -220,6 +254,8 @@ function transaction(is) {
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch (_) { /* zaten kapanmış olabilir */ }
     throw error;
+  } finally {
+    islemDerinligi = 0;
   }
 }
 
