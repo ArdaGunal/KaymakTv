@@ -1,15 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Star, Check, Share2 } from '../../components/icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
-import { addRating, removeRating } from '../../services/traktApi';
 import LoadFailedState from '../../components/LoadFailedState';
 import { useEpisodeDetail } from '../../hooks/useEpisodeDetail';
+import { getShowBackdrop } from '../../services/tmdbApi';
 import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { formatRating } from '../../utils/formatRating';
 import RatingModal from '../../components/RatingModal';
@@ -18,18 +15,22 @@ import MediaCommentsSection from '../../components/reviews/MediaCommentsSection'
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import { formatEpisodeCode } from '../../features/feed/services/feedPublish';
 import MediaCast from '../../components/MediaCast';
-import ProgressBar from '../../components/ProgressBar';
 import { useLibrary } from '../../context/LibraryContext';
 import { getProgressBarColor } from '../../utils/progressBarColor';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
-import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug } from '../../utils/slugHelper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug, generateEpisodeSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../context/AuthContext';
 import { useAppBack } from '../../hooks/useAppBack';
+import { useEpisodeActions } from '../../hooks/useEpisodeActions';
+import { useShowDetail } from '../../hooks/useShowDetail';
+import { useDetailLayout } from '../../hooks/useDetailLayout';
+import DetailWebLayout from '../../components/detail/DetailWebLayout';
+import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
+import EpisodeHeroWeb from '../../components/detail/EpisodeHeroWeb';
+import EpisodeHeroMobile from '../../components/detail/EpisodeHeroMobile';
+import { styles } from '../../components/detail/episodeDetail.styles';
 
 export default function EpisodeDetailScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id, showTmdbId } = useLocalSearchParams();
   
@@ -38,17 +39,9 @@ export default function EpisodeDetailScreen() {
   const showName = formatSlugToTitle(showSlug);
   const showId = parsedShowId;
   const traktIdNum = parsedShowId;
-  const {
-    userRatingsEpisodes,
-    setLocalRating,
-    removeLocalRating,
-    showProgressMap,
-    hiddenShowIds,
-    unwatchEpisode,
-    markEpisodeAsWatched,
-    markEpisodesUpToAsWatched
-  } = useLibrary();
-  const { isGuest } = useAuth();
+  // Yazma islemleri artik `useEpisodeActions` icinde (bkz. o dosyanin basligi);
+  // burada yalnizca OKUMA dilimleri kaliyor.
+  const { userRatingsEpisodes, showProgressMap, hiddenShowIds } = useLibrary();
   const { t } = useTranslation('media');
   // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
   const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
@@ -77,7 +70,35 @@ export default function EpisodeDetailScreen() {
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
 
-  const [isCheckLoading, setIsCheckLoading] = useState(false);
+  const layout = useDetailLayout();
+
+  // Masaüstü banner'ı için DİZİNİN kapak görseli. Bölüm karesini banner
+  // olarak da kullanmak aynı fotoğrafı sayfada iki kez gösteriyordu (canlı
+  // testte görüldü). Yalnızca masaüstü web'de çekilir — mobilde bu efekt hiç
+  // çalışmaz, ekstra istek de olmaz.
+  const [showBackdrop, setShowBackdrop] = useState<string | null>(null);
+  useEffect(() => {
+    if (!layout.isDesktopWeb || !showTmdbId) return;
+    let alive = true;
+    getShowBackdrop(parseInt(showTmdbId as string, 10))
+      .then((bd) => { if (alive) setShowBackdrop(bd); })
+      .catch(() => { /* Banner dekoratif — düşerse düz yüzeye düşülür. */ });
+    return () => { alive = false; };
+  }, [layout.isDesktopWeb, showTmdbId]);
+  // Sag gezinme rayi (sezonlar) YALNIZCA masaustu web'de gerekiyor.
+  // `useShowDetail` `traktId` 0 iken aga hic cikmaz (kendi korumasi),
+  // dolayisiyla mobilde tek bir ekstra istek bile olusmaz.
+  const railData = useShowDetail(layout.isDesktopWeb ? traktIdNum : 0, showTmdbId, showProgressMap[traktIdNum]);
+  const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({ [Number(season)]: true });
+
+  const actions = useEpisodeActions({
+    showTraktId: traktIdNum,
+    season,
+    episode,
+    epTraktId,
+    slug: idStr as string,
+    showName,
+  });
 
   // bkz. hooks/useAppBack.ts — geçmiş yoksa (deep link / sayfa yenileme)
   // karşılama ekranı yerine Keşfet'e dönülür.
@@ -100,117 +121,15 @@ export default function EpisodeDetailScreen() {
   const showProgressColor = getProgressBarColor(isShowHidden, isShowFinished);
 
   const handleRate = async (val: number) => {
-    // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
-    try {
-      setLocalRating(epTraktId, 'episode', val);
-      await addRating(epTraktId, 'episode', val);
-      setRatingModalVisible(false);
-    } catch(e) { 
-      removeLocalRating(epTraktId, 'episode');
-      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
-      console.error(e);
-    }
+    if (await actions.rate(val)) setRatingModalVisible(false);
   };
 
   const handleRemoveRating = async () => {
-    try {
-      removeLocalRating(epTraktId, 'episode');
-      await removeRating(epTraktId, 'episode');
-      setRatingModalVisible(false);
-    } catch(e) { 
-      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
-      console.error(e);
-    }
+    if (await actions.clearRating()) setRatingModalVisible(false);
   };
 
-  const handleWatchPress = async () => {
-    if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-
-    const sNum = season;
-    const eNum = episode;
-    const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
-
-    setIsCheckLoading(true);
-    try {
-      if (isWatchedLocal) {
-        await unwatchEpisode(traktIdNum, sNum, eNum);
-        return;
-      }
-
-      const progress = showProgressMap[traktIdNum];
-      let skippedEpisodes: number[] = [];
-      if (progress && progress.seasons) {
-        const currentSeasonProgress = progress.seasons.find((s: any) => s.number === sNum);
-        if (currentSeasonProgress && currentSeasonProgress.episodes) {
-          for (let i = 1; i < eNum; i++) {
-            const ep = currentSeasonProgress.episodes.find((e: any) => e.number === i);
-            if (!ep || !ep.completed) {
-              skippedEpisodes.push(i);
-            }
-          }
-        } else {
-          for (let i = 1; i < eNum; i++) {
-            skippedEpisodes.push(i);
-          }
-        }
-      } else {
-        for (let i = 1; i < eNum; i++) {
-          skippedEpisodes.push(i);
-        }
-      }
-
-      const performCheckIn = async (isBulk: boolean, eps: number[]) => {
-        try {
-          if (isBulk) {
-            await markEpisodesUpToAsWatched(traktIdNum, sNum, eps);
-          } else {
-            await markEpisodeAsWatched(traktIdNum, sNum, eNum);
-          }
-        } catch(e) {
-          console.error(e);
-          Alert.alert(t('common:error'), 'Bölüm işaretlenirken bir hata oluştu.');
-        }
-      };
-
-      if (skippedEpisodes.length > 0) {
-        Alert.alert(
-          t('skippedEpisodesTitle', { defaultValue: 'Atlanan Bölümler Var' }),
-          t('skippedEpisodesMsg', { defaultValue: 'Önceki izlemediğiniz bölümleri de izlendi olarak işaretlemek ister misiniz?' }),
-          [
-            {
-              text: t('common:markOnlyThis', { defaultValue: 'Yalnızca Bu Bölüm' }),
-              onPress: () => performCheckIn(false, []),
-              style: 'cancel'
-            },
-            {
-              text: t('common:markPreviousToo', { defaultValue: 'Öncekileri de İşaretle' }),
-              onPress: () => performCheckIn(true, [...skippedEpisodes, eNum])
-            }
-          ]
-        );
-      } else {
-        await performCheckIn(false, []);
-      }
-    } catch(e) {
-      console.error(e);
-    } finally {
-      setIsCheckLoading(false);
-    }
-  };
-
-  const handleShare = async () => {
-    try {
-      const url = `https://kaymaktv.com/episode/${idStr}`;
-      
-      await Share.share({
-        message: `${showName} S${season} E${episode} ${t('shareEpisodeMsg', 'bölümüne göz at!')}\n${url}`,
-      });
-    } catch (error) {
-      console.log(error);
-    }
+  const openRating = () => {
+    if (actions.guardGuest()) setRatingModalVisible(true);
   };
 
   if (isLoading) {
@@ -237,179 +156,24 @@ export default function EpisodeDetailScreen() {
   const rating = formatRating(episodeData?.rating);
   const votes = episodeData?.votes ? episodeData.votes.toLocaleString('tr-TR') : '0';
 
-  return (
-    <View style={styles.container}>
-      <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-        {/* Header Section */}
-        <View style={styles.headerContainer}>
-          {stillUrl ? (
-            <Image source={{ uri: stillUrl }} style={styles.stillImage} contentFit="cover" transition={300} />
-          ) : (
-            <View style={styles.stillPlaceholder} />
-          )}
-          
-          <LinearGradient
-            colors={['rgba(0,0,0,0.8)', 'transparent', '#0a0a0a']}
-            style={styles.gradientOverlay}
-          />
+  // ── Her iki duzenin PAYLASTIGI parcalar ───────────────────────────────
+  const commentsSection = (
+    <MediaCommentsSection
+      reviewsState={reviewsState}
+      traktComments={commentsData}
+      isLoadingTraktComments={isLoadingComments}
+      onSeeAllTrakt={() => setCommentSheetVisible(true)}
+    />
+  );
 
-          {/* Güvenli alan (safe area) DİNAMİK olmalı: `styles.backButton`/
-              `styles.shareButton` eskiden `top: 50` ile SABİT kodlanmıştı ve
-              bu ekranda çağrılan `useSafeAreaInsets()` sonucu hiç
-              kullanılmıyordu. Sonuç: çentiği/durum çubuğu yüksekliği farklı
-              cihazlarda (küçük ekranlı Android, katlanabilir, Dynamic Island)
-              butonlar ya durum çubuğunun altına giriyor ya da gereksiz aşağıda
-              kalıyordu. Artık `MediaHero.tsx`'teki mevcut desenin AYNISI
-              kullanılıyor (`insets.top + 10`, yatayda da insets'e saygılı). */}
-          <TouchableOpacity
-            style={[styles.backButton, { top: insets.top + 10, left: insets.left + 16 }]}
-            onPress={handleBack}
-          >
-            <ChevronLeft color="#fff" size={24} />
-          </TouchableOpacity>
+  const castSection = epCast && epCast.length > 0 ? (
+    <SectionErrorBoundary label="episode-cast">
+      <MediaCast cast={epCast} onActorPress={voteActor} />
+    </SectionErrorBoundary>
+  ) : null;
 
-          <TouchableOpacity
-            style={[styles.shareButton, { top: insets.top + 10, right: insets.right + 16 }]}
-            onPress={handleShare}
-          >
-            <Share2 color="#fff" size={24} />
-          </TouchableOpacity>
-
-          <View style={styles.headerContent}>
-            {/* Dizi adı: küçük, sade bir üst başlık (breadcrumb) — göze batmadan tıklanabilir */}
-            <TouchableOpacity
-              onPress={handleShowPress}
-              activeOpacity={0.6}
-              hitSlop={{ top: 8, bottom: 8, left: 0, right: 8 }}
-              style={styles.showNameRow}
-            >
-              <Text style={styles.showName} numberOfLines={1}>{showName}</Text>
-              <ChevronRight size={11} color="rgba(148,163,184,0.7)" strokeWidth={2.5} />
-            </TouchableOpacity>
-
-            <Text style={styles.episodeTitle}>{title}</Text>
-            <Text style={styles.episodeIdentifier}>
-              {t('seasonEpisodeIdentifier', { season: season, episode: episode })} • {firstAired}
-            </Text>
-
-            <View style={styles.ratingsRow}>
-              {/* Global Trakt puanı + oy sayısı. `votes` zaten hesaplanıyordu
-                  ama HİÇBİR yerde basılmıyordu (repo genelinde `.votes`'un tek
-                  kullanımı buydu) — puanın kaç oya dayandığı bilgisi bir
-                  refaktörde arayüzden düşmüş. Oy sayısı yalnızca gerçekten
-                  varsa gösterilir: 0 oylu (yeni/niş) bölümlerde "(0)" basmak
-                  puanı gereksiz yere şüpheli gösterirdi. */}
-              <View style={styles.ratingBadge}>
-                <Star size={14} color="#facc15" fill="#facc15" />
-                <Text style={styles.ratingText}>
-                  {rating}
-                </Text>
-                {episodeData?.votes > 0 && (
-                  <Text style={styles.votesText}>({votes})</Text>
-                )}
-              </View>
-
-              {/* User Rating Badge (Puanla) */}
-              <TouchableOpacity 
-                style={[styles.userRatingBadge, (myRating !== undefined && myRating !== null) ? styles.userRatingActive : null]} 
-                onPress={() => {
-                  if (isGuest) {
-                    Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-                    return;
-                  }
-                  setRatingModalVisible(true)
-                }}
-                activeOpacity={0.7}
-              >
-                <Star size={14} color={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "transparent"} />
-                <Text style={[styles.userRatingText, (myRating !== undefined && myRating !== null) ? styles.userRatingTextActive : null]}>
-                  {(myRating !== undefined && myRating !== null) ? `${formatRating(myRating)}/5` : t('rate', { defaultValue: 'Puanla' })}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Check (Watched/Unwatched) Badge */}
-              {(() => {
-                const sNum = season;
-                const eNum = episode;
-                const isWatchedLocal = showProgressMap[traktIdNum]?.seasons?.find((s:any) => s.number === sNum)?.episodes?.find((e:any) => e.number === eNum)?.completed;
-                const isFutureOrTBA = !episodeData?.first_aired || new Date(episodeData.first_aired) > new Date();
-                
-                if (isFutureOrTBA) {
-                  return (
-                    <View style={[styles.userRatingBadge, { backgroundColor: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                      <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13 }}>
-                        {!episodeData?.first_aired ? 'TBA' : t('notAiredYet', { defaultValue: 'Yayınlanmadı' })}
-                      </Text>
-                    </View>
-                  );
-                }
-                const isAired = episodeData?.first_aired ? new Date(episodeData.first_aired) <= new Date() : true;
-                if (!isAired) return null;
-
-                return (
-                  <TouchableOpacity 
-                    style={[styles.userRatingBadge, isWatchedLocal && { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }]} 
-                    onPress={handleWatchPress}
-                    disabled={isCheckLoading}
-                  >
-                    {isCheckLoading ? (
-                      <ActivityIndicator size="small" color={isWatchedLocal ? "#10b981" : "#a3a3a3"} />
-                    ) : (
-                      <>
-                        <Check size={14} color={isWatchedLocal ? "#10b981" : "#a3a3a3"} strokeWidth={3} />
-                        <Text style={[styles.userRatingText, isWatchedLocal ? { color: '#10b981' } : null]}>
-                          {isWatchedLocal ? t('watched') : t('markAsWatched')}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                );
-              })()}
-            </View>
-
-            {hasShowProgress && (
-              <View style={styles.progressContainer}>
-                <View style={styles.progressBarWrapper}>
-                  <ProgressBar percentage={showProgressPercentage} fillColor={showProgressColor} />
-                </View>
-                <Text style={styles.progressText}>%{Math.round(showProgressPercentage)}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.contentArea}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('overview')}</Text>
-            <Text style={styles.overviewText}>{overview}</Text>
-          </View>
-
-          {epCast && epCast.length > 0 && (
-            /* Y20: bölüm ekranı özgün listede YOKTU ama aynı riski taşıyor —
-               Trakt'ın ham kadro verisini okuyor. Dizi/film ekranlarıyla
-               aynı sınır. */
-            <SectionErrorBoundary label="episode-cast">
-              <MediaCast cast={epCast} onActorPress={voteActor} />
-            </SectionErrorBoundary>
-          )}
-
-          {/* ── Yorumlar: tek akış, iki blok ────────────────────────────
-              Dizi/film sayfalarıyla AYNI bileşen. Tek farkı `episodeNumber`:
-              yazılan inceleme BU BÖLÜME bağlanıyor ve `in_feed` türetilmiş
-              kolonu (020) sayesinde ANA AKIŞA DÜŞMÜYOR — kullanıcı kararı:
-              bir sezonu maratonlayan kişi akışı 20 inceleme kartıyla
-              doldurmasın (bkz. docs/design/REVIEWS_PLAN.md §8). */}
-          <View style={styles.section}>
-            <MediaCommentsSection
-              reviewsState={reviewsState}
-              traktComments={commentsData}
-              isLoadingTraktComments={isLoadingComments}
-              onSeeAllTrakt={() => setCommentSheetVisible(true)}
-            />
-          </View>
-        </View>
-      </ScrollView>
-
+  const overlays = (
+    <>
       <RatingModal
         visible={ratingModalVisible}
         onClose={() => setRatingModalVisible(false)}
@@ -428,110 +192,135 @@ export default function EpisodeDetailScreen() {
         episode={episode}
         reviewsState={reviewsState}
       />
+    </>
+  );
 
+  // ── MASAUSTU WEB (>=1024px) ───────────────────────────────────────────
+  // Solda bolum icerigi, sagda dizinin sezon/bolum rayi. Kullanicinin
+  // bulundugu sezon acik gelir, bulundugu bolum vurgulanir.
+  if (layout.isDesktopWeb) {
+    const airStatus: 'aired' | 'unaired' | 'tba' = !episodeData?.first_aired
+      ? 'tba'
+      : (new Date(episodeData.first_aired) > new Date() ? 'unaired' : 'aired');
 
+    return (
+      <View style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 72 }}>
+          <DetailWebLayout
+            metrics={layout}
+            backdrop={showBackdrop}
+            left={
+              <>
+                <EpisodeHeroWeb
+                  showName={showName}
+                  title={title}
+                  season={season}
+                  episode={episode}
+                  firstAired={firstAired}
+                  stillUrl={stillUrl}
+                  rating={rating}
+                  votes={episodeData?.votes || 0}
+                  myRating={myRating}
+                  isWatched={actions.isWatchedLocal}
+                  isCheckLoading={actions.isCheckLoading}
+                  airStatus={airStatus}
+                  hasShowProgress={!!hasShowProgress}
+                  showProgressPercentage={showProgressPercentage}
+                  showProgressColor={showProgressColor}
+                  onBack={handleBack}
+                  onShare={actions.share}
+                  onShowPress={handleShowPress}
+                  onOpenRating={openRating}
+                  onToggleWatched={actions.toggleWatched}
+                />
+
+                <View style={styles.webBlock}>
+                  <Text style={styles.sectionTitle}>{t('overview')}</Text>
+                  <Text style={styles.webOverview}>{overview}</Text>
+                </View>
+
+                {castSection ? <View style={[styles.webBlock, styles.webFlush]}>{castSection}</View> : null}
+                <View style={styles.webBlock}>{commentsSection}</View>
+              </>
+            }
+            rail={
+              <SeasonsRailWeb
+                seasons={railData.computedSeasons || []}
+                showTraktId={traktIdNum}
+                showSlug={showSlug}
+                showTitle={showName}
+                showTmdbId={showTmdbId as string}
+                expandedSeasons={expandedSeasons}
+                onToggleSeason={(n) => setExpandedSeasons((prev) => ({ ...prev, [n]: !prev[n] }))}
+                onSelectEpisode={(ep, seasonNumber) => {
+                  // Bu ekranda "bolum secenekleri" modali yok — ray bir GEZINME
+                  // araci, o yuzden secim dogrudan o bolume goturur (buton olu
+                  // kalmasin).
+                  const epId = ep?.ids?.trakt;
+                  if (!epId) return;
+                  const epSlug = generateEpisodeSlug(traktIdNum, showSlug, showName, seasonNumber, ep.number, epId);
+                  router.push(`/episode/${epSlug}${showTmdbId ? `?showTmdbId=${showTmdbId}` : ''}`);
+                }}
+                activeSeasonNumber={season}
+                activeEpisodeNumber={episode}
+              />
+            }
+          />
+        </ScrollView>
+        {overlays}
+      </View>
+    );
+  }
+
+  // ── MOBIL (ve dar web) — YERLESIM DEGISTIRILMEDI ──────────────────────
+  return (
+    <View style={styles.container}>
+      <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+        <EpisodeHeroMobile
+          stillUrl={stillUrl}
+          showName={showName}
+          title={title}
+          season={season}
+          episode={episode}
+          firstAired={firstAired}
+          rating={rating}
+          votes={votes}
+          episodeData={episodeData}
+          myRating={myRating}
+          isWatchedLocal={actions.isWatchedLocal}
+          isCheckLoading={actions.isCheckLoading}
+          hasShowProgress={!!hasShowProgress}
+          showProgressPercentage={showProgressPercentage}
+          showProgressColor={showProgressColor}
+          handleBack={handleBack}
+          handleShare={actions.share}
+          handleShowPress={handleShowPress}
+          openRating={openRating}
+          onToggleWatched={actions.toggleWatched}
+        />
+
+        <View style={styles.contentArea}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('overview')}</Text>
+            <Text style={styles.overviewText}>{overview}</Text>
+          </View>
+
+          {/* Y20: bölüm ekranı özgün listede YOKTU ama aynı riski taşıyor —
+              Trakt'ın ham kadro verisini okuyor. Dizi/film ekranlarıyla
+              aynı sınır. (Boşsa `castSection` zaten null.) */}
+          {castSection}
+
+          {/* ── Yorumlar: tek akış, iki blok ────────────────────────────
+              Dizi/film sayfalarıyla AYNI bileşen. Tek farkı `episodeNumber`:
+              yazılan inceleme BU BÖLÜME bağlanıyor ve `in_feed` türetilmiş
+              kolonu (020) sayesinde ANA AKIŞA DÜŞMÜYOR — kullanıcı kararı:
+              bir sezonu maratonlayan kişi akışı 20 inceleme kartıyla
+              doldurmasın (bkz. docs/design/REVIEWS_PLAN.md §8). */}
+          <View style={styles.section}>{commentsSection}</View>
+        </View>
+      </ScrollView>
+
+      {overlays}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
-  loadingContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' },
-  headerContainer: { width: '100%', height: 350, position: 'relative' },
-  stillImage: { width: '100%', height: '100%' },
-  stillPlaceholder: { width: '100%', height: '100%', backgroundColor: '#0B1120' },
-  gradientOverlay: { ...StyleSheet.absoluteFillObject },
-  // `top`/`left`/`right` BİLİNÇLİ OLARAK burada YOK — güvenli alana göre
-  // render sırasında veriliyor (bkz. yukarıdaki insets notu).
-  backButton: { position: 'absolute', zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  shareButton: { position: 'absolute', zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  headerContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, zIndex: 5 },
-  // Sade breadcrumb: arka plan/kenarlık yok, sadece küçük soluk metin + ok — göze batmaz, isteyen fark edip kullanır.
-  showNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 3,
-    marginBottom: 5,
-  },
-  showName: { fontSize: 11, color: 'rgba(148,163,184,0.85)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 },
-  episodeTitle: { fontSize: 26, fontWeight: 'bold', color: '#fff', marginBottom: 6 },
-  episodeIdentifier: { fontSize: 13, color: '#94a3b8', fontWeight: '500', marginBottom: 12 },
-  ratingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(250, 204, 21, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.2)',
-  },
-  ratingText: {
-    color: '#facc15',
-    fontWeight: 'bold',
-    fontSize: 13,
-    marginLeft: 4,
-  },
-  // Oy sayısı: puanın yanında ikincil bilgi — daha soluk ve ince, puanı
-  // gölgelemesin.
-  votesText: {
-    color: 'rgba(250, 204, 21, 0.6)',
-    fontWeight: '600',
-    fontSize: 11,
-    marginLeft: 4,
-  },
-  userRatingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  userRatingActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-  },
-  userRatingText: {
-    color: '#a3a3a3',
-    fontWeight: 'bold',
-    fontSize: 13,
-    marginLeft: 6,
-  },
-  userRatingTextActive: {
-    color: '#3b82f6',
-  },
-  progressContainer: { marginTop: 8, width: '100%', maxWidth: 240, flexDirection: 'row', alignItems: 'center' },
-  progressBarWrapper: { flex: 1 },
-  progressText: { color: '#a3a3a3', fontSize: 12, fontWeight: '600', marginLeft: 8 },
-  contentArea: { padding: 16 },
-  section: { marginBottom: 32 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
-  seeAllText: { color: '#3b82f6', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
-  overviewText: { color: '#d4d4d4', fontSize: 15, lineHeight: 24 },
-  castItem: { width: 80, alignItems: 'center' },
-  castPhotoPlaceholder: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#172033', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  castName: { color: '#fff', fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
-  castCharacter: { color: '#a3a3a3', fontSize: 10, textAlign: 'center' },
-  commentBox: { backgroundColor: '#0B1120', padding: 16, borderRadius: 12, marginBottom: 12 },
-  commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  commentUserRow: { flexDirection: 'row', alignItems: 'center' },
-  commentAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10, backgroundColor: '#172033' },
-  commentAvatarPlaceholder: { width: 36, height: 36, borderRadius: 18, marginRight: 10, backgroundColor: '#facc15', justifyContent: 'center', alignItems: 'center' },
-  commentAvatarText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-  commentUser: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  commentDate: { color: '#737373', fontSize: 11, marginTop: 2 },
-  commentText: { color: '#d4d4d4', fontSize: 14, lineHeight: 22 },
-  commentFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 6 },
-  commentLikes: { color: '#a3a3a3', fontSize: 12, fontWeight: 'bold' },
-});

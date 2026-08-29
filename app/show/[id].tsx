@@ -16,13 +16,13 @@ import MediaHero from '../../components/MediaHero';
 import { useAppBack } from '../../hooks/useAppBack';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
-import Snackbar from '../../components/Snackbar';
-import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
 import { useTranslation } from 'react-i18next';
 import SeasonAccordion from '../../components/SeasonAccordion';
-import EpisodeRatingModal from '../../components/modals/EpisodeRatingModal';
-import EpisodeOptionsModal from '../../components/modals/EpisodeOptionsModal';
+import { useDetailLayout } from '../../hooks/useDetailLayout';
+import DetailWebLayout from '../../components/detail/DetailWebLayout';
+import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
+import ShowDetailOverlays from '../../components/detail/ShowDetailOverlays';
 
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -31,6 +31,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 export default function ShowDetailScreen() {
   const handleBack = useAppBack();
+  // Masaustu web'de duzen cift sutuna gecer; native'de HER ZAMAN false.
+  const layout = useDetailLayout();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
   const { t } = useTranslation('media');
 
@@ -205,6 +207,122 @@ export default function ShowDetailScreen() {
     );
   }
 
+  // ── Her iki duzenin PAYLASTIGI parcalar (AI_RULES 2.5: kopya yok) ─────
+  // Y20: her blok kendi hata sinirinda — tek bir render istisnasi eskiden
+  // kok ErrorBoundary'ye cikip TUM SAYFAYI beyaz ekrana dusuruyordu.
+  const hero = (
+    <SectionErrorBoundary label="show-hero">
+      <MediaHero
+        type="show"
+        data={showData}
+        backdrop={backdrop}
+        poster={poster}
+        trailerId={trailerId}
+        userRating={userRating}
+        isWatchlisted={isWatchlisted}
+        isWatched={isWatched}
+        isFavorited={isFavorited}
+        isHidden={!!isHidden}
+        onRate={handleRate}
+        onRemoveRating={handleRemoveRating}
+        onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
+        onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
+        onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
+        onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
+      />
+    </SectionErrorBoundary>
+  );
+
+  const castSection = (
+    <SectionErrorBoundary label="show-cast">
+      <MediaCast cast={castData} />
+    </SectionErrorBoundary>
+  );
+
+  // Trakt blogu (salt okunur kuyruk) AYRI bir bolum degil: tek kesintisiz
+  // listenin altinda akiyor (bkz. MediaCommentsSection basligi).
+  const commentsSection = (
+    <MediaCommentsSection
+      reviewsState={reviewsState}
+      traktComments={commentsData}
+      isLoadingTraktComments={isLoadingComments}
+      onSeeAllTrakt={() => setCommentSheetVisible(true)}
+    />
+  );
+
+  const relatedSection = relatedShows && relatedShows.length > 0 ? (
+    <SectionErrorBoundary label="show-related">
+      <HorizontalMediaList title={t('relatedShows')} data={relatedShows} type="show" />
+    </SectionErrorBoundary>
+  ) : null;
+
+  // Iki propta da ayni arama yapiliyordu — tek yerde turetiliyor.
+  const selectedEpisodeRating = userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId);
+
+  const overlays = (
+    <ShowDetailOverlays
+      showTraktId={traktIdNum}
+      reviewsState={reviewsState}
+      selectedEpisode={selectedEpisode}
+      onCloseEpisodeOptions={() => setSelectedEpisode(null)}
+      loadingOption={localLoadingOption}
+      onOpenEpisodeRating={() => setEpisodeRatingModalVisible(true)}
+      onRewatchEpisode={handleRewatchEpisode}
+      onUnwatchEpisode={handleUnwatchEpisode}
+      episodeRatingVisible={episodeRatingModalVisible}
+      onCloseEpisodeRating={() => setEpisodeRatingModalVisible(false)}
+      episodeInitialRating={selectedEpisodeRating?.rating}
+      onRateEpisode={handleRateEpisode}
+      onRemoveEpisodeRating={selectedEpisodeRating ? handleRemoveEpisodeRating : undefined}
+      commentSheetVisible={commentSheetVisible}
+      onCloseCommentSheet={() => setCommentSheetVisible(false)}
+      unwatchSnackbarVisible={snackbarVisible}
+      onUndoUnwatch={handleUndoUnwatchClick}
+      onDismissUnwatchSnackbar={() => setSnackbarVisible(false)}
+      rewatchSnackbarVisible={rewatchSnackbarVisible}
+      onDismissRewatchSnackbar={() => setRewatchSnackbarVisible(false)}
+    />
+  );
+
+  // ── MASAUSTU WEB (>=1024px) ───────────────────────────────────────────
+  // Asimetrik cift sutun: solda icerik, sagda YAPISKAN sezon rayi. Sezonlar
+  // mobilde oldugu yerde (icerigin icinde, alt alta) kalmaya devam ediyor.
+  if (layout.isDesktopWeb) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScrollView contentContainerStyle={{ paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
+          <DetailWebLayout
+            metrics={layout}
+            backdrop={backdrop}
+            left={
+              <>
+                {hero}
+                <View style={[styles.webBlock, styles.webFlush]}>{castSection}</View>
+                <View style={styles.webBlock}>{commentsSection}</View>
+                {relatedSection ? <View style={[styles.webBlock, styles.webFlush]}>{relatedSection}</View> : null}
+              </>
+            }
+            rail={
+              <SeasonsRailWeb
+                seasons={computedSeasons || []}
+                showTraktId={traktIdNum}
+                showSlug={showData?.ids?.slug}
+                showTitle={showData?.title}
+                showTmdbId={tmdbId as string}
+                expandedSeasons={expandedSeasons}
+                onToggleSeason={toggleSeason}
+                onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt })}
+              />
+            }
+          />
+        </ScrollView>
+        {overlays}
+      </View>
+    );
+  }
+
+  // ── MOBIL (ve dar web) — YERLESIM DEGISTIRILMEDI ──────────────────────
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -217,52 +335,21 @@ export default function ShowDetailScreen() {
             artık yalnızca hero kutusu düşüyor, kadro/inceleme/sezonlar
             çalışmaya devam ediyor. `silent` DEĞİL: hero sayfanın birincil
             içeriği, sessizce kaybolması kullanıcıyı yanıltır. */}
-        <SectionErrorBoundary label="show-hero">
-          <MediaHero
-            type="show"
-            data={showData}
-            backdrop={backdrop}
-            poster={poster}
-            trailerId={trailerId}
-            userRating={userRating}
-            isWatchlisted={isWatchlisted}
-            isWatched={isWatched}
-            isFavorited={isFavorited}
-            isHidden={!!isHidden}
-            onRate={handleRate}
-            onRemoveRating={handleRemoveRating}
-            onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
-            onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
-            onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
-            onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
-          />
-        </SectionErrorBoundary>
+        {hero}
 
         <View style={styles.contentArea}>
           {/* Y20: Trakt/TMDB ham verisini okuyan bloklar kendi hata
               sınırlarında. Eskiden tek bir render istisnası kök
               ErrorBoundary'ye çıkıp TÜM SAYFAYI düşürüyordu — S13'ün
               gerekçesi buydu ama pratikte yalnızca bir yerde uygulanmıştı. */}
-          <SectionErrorBoundary label="show-cast">
-            <MediaCast cast={castData} />
-          </SectionErrorBoundary>
+          {castSection}
 
           {/* ── KaymakTV İncelemeleri ──────────────────────────────────
               Kendi sosyal evrenimiz: yanıt/beğeni burada yaşar, yazma işlemi
               Trakt'a DA gider (dual-write). Aşağıdaki "Trakt Topluluğu"
               bölümünden BİLİNÇLİ olarak ayrı — birleşik liste reddedildi
               (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
-          <View style={styles.section}>
-            <MediaCommentsSection
-              reviewsState={reviewsState}
-              // ── Trakt bloğu (salt okunur kuyruk) ─────────────────
-              // Artık AYRI bir bölüm değil: tek kesintisiz listenin
-              // altında akıyor (bkz. MediaCommentsSection başlığı).
-              traktComments={commentsData}
-              isLoadingTraktComments={isLoadingComments}
-              onSeeAllTrakt={() => setCommentSheetVisible(true)}
-            />
-          </View>
+          <View style={styles.section}>{commentsSection}</View>
 
 
           {computedSeasons && computedSeasons.length > 0 && (
@@ -290,120 +377,24 @@ export default function ShowDetailScreen() {
           )}
 
           {/* RELATED SHOWS */}
-          {relatedShows && relatedShows.length > 0 && (
-            <SectionErrorBoundary label="show-related">
-              <HorizontalMediaList
-                title={t('relatedShows')}
-                data={relatedShows}
-                type="show"
-              />
-            </SectionErrorBoundary>
-          )}
+          {relatedSection}
 
         </View>
       </ScrollView>
 
-      {/* Bölüm Seçenekleri (Bottom Sheet Modal) */}
-      <EpisodeOptionsModal
-        visible={!!selectedEpisode}
-        onClose={() => setSelectedEpisode(null)}
-        episode={selectedEpisode}
-        loadingOption={localLoadingOption}
-        onRatePress={() => setEpisodeRatingModalVisible(true)}
-        onRewatch={handleRewatchEpisode}
-        onUnwatch={handleUnwatchEpisode}
-      />
-
-      {/* Episode Rating Modal */}
-      <EpisodeRatingModal
-        visible={episodeRatingModalVisible}
-        onClose={() => setEpisodeRatingModalVisible(false)}
-        initialRating={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId)?.rating}
-        onRate={handleRateEpisode}
-        onRemove={userRatingsEpisodes?.find((r: any) => r.episode?.ids?.trakt === selectedEpisode?.traktId) ? handleRemoveEpisodeRating : undefined}
-      />
-
-      {/* Yorumlar Modal */}
-      <CommentSheet
-        visible={commentSheetVisible}
-        onClose={() => setCommentSheetVisible(false)}
-        mediaId={traktIdNum}
-        mediaType="show"
-        reviewsState={reviewsState}
-      />
-
-      <Snackbar
-        visible={snackbarVisible}
-        message={t('episodeUnwatched')}
-        actionText={t('undo')}
-        onAction={handleUndoUnwatchClick}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={4000}
-      />
-
-      <Snackbar
-        visible={rewatchSnackbarVisible}
-        message={t('rewatchConfirmation')}
-        onDismiss={() => setRewatchSnackbarVisible(false)}
-        duration={2500}
-      />
+      {overlays}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B1120' },
-  loadingContainer: { flex: 1, backgroundColor: '#0B1120', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#a3a3a3', marginTop: 16 },
   contentArea: { padding: 16 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
-  seasonContainer: { marginBottom: 12, backgroundColor: '#0B1120', borderRadius: 8, overflow: 'hidden' },
-  seasonHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#1e293b' },
-  seasonTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  episodesList: { padding: 8 },
-  episodeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#172033' },
-  episodeInfo: { flex: 1, paddingRight: 12 },
-  episodeNumber: { color: '#a3a3a3', fontSize: 12, fontWeight: 'bold', marginBottom: 2 },
-  episodeName: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 2 },
-  episodeDate: { color: '#737373', fontSize: 11 },
-  watchedIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center' },
-  commentBox: {
-    backgroundColor: '#172033',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#2A364F',
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  commentUser: {
-    color: '#3b82f6',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  commentLikes: {
-    color: '#a3a3a3',
-    fontSize: 12,
-  },
-  commentText: {
-    color: '#d4d4d4',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  unairedBadge: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  unairedText: {
-    color: '#10b981',
-    fontSize: 10,
-    fontWeight: 'bold',
-  }
+  // Masaustu sol sutununda bloklar arasi dikey ritim.
+  webBlock: { marginTop: 40 },
+  // MediaCast/HorizontalMediaList kendi 16px yatay dolgusunu tasiyor —
+  // masaustunde ozete gore icerlek kaliyordu, negatif margin hizaliyor.
+  webFlush: { marginHorizontal: -16 },
 });

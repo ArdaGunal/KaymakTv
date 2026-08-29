@@ -23,6 +23,13 @@ interface SeasonAccordionProps {
   isExpanded: boolean;
   onToggle: () => void;
   seasonProgress: any;
+  /**
+   * Masaüstü web'deki BÖLÜM sayfasının sağ gezinme rayı için (kullanıcı
+   * isteği: "bulunduğu bölüm görsel olarak vurgulansın"). Verilmezse hiçbir
+   * satır vurgulanmaz — mobil çağrı yerleri bunu HİÇ göndermiyor, yani mobil
+   * görünüm değişmiyor.
+   */
+  activeEpisodeNumber?: number | null;
 }
 
 export default function SeasonAccordion({
@@ -34,7 +41,8 @@ export default function SeasonAccordion({
   onSelectEpisode,
   isExpanded,
   onToggle,
-  seasonProgress
+  seasonProgress,
+  activeEpisodeNumber = null,
 }: SeasonAccordionProps) {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
@@ -169,9 +177,10 @@ export default function SeasonAccordion({
           {season.episodes.map((ep: any) => {
              const isWatchedLocal = ep.isWatchedLocal;
              const isAired = isEpisodeAired(ep, season.aired_episodes || 0);
+             const isActive = activeEpisodeNumber != null && ep.number === activeEpisodeNumber;
 
              return (
-               <View key={ep.number} style={styles.episodeRow}>
+               <View key={ep.number} style={[styles.episodeRow, isActive && styles.episodeRowActive]}>
                  <TouchableOpacity
                    style={styles.episodeInfo}
                    activeOpacity={0.7}
@@ -183,7 +192,7 @@ export default function SeasonAccordion({
                    }}
                  >
                    <Text style={styles.episodeNumber}>{t('episodeNum', { number: ep.number })}</Text>
-                   <Text style={styles.episodeName} numberOfLines={1}>{ep.title}</Text>
+                   <Text style={[styles.episodeName, isActive && styles.episodeNameActive]} numberOfLines={1}>{ep.title}</Text>
                    {ep.first_aired && <Text style={styles.episodeDate}>{new Date(ep.first_aired).toLocaleDateString('tr-TR')}</Text>}
                  </TouchableOpacity>
                  <View>
@@ -285,6 +294,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  // Yalnızca `activeEpisodeNumber` verildiğinde uygulanır (masaüstü web).
+  episodeRowActive: {
+    backgroundColor: 'rgba(59,130,246,0.10)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#3b82f6',
+    borderBottomColor: 'rgba(59,130,246,0.18)',
+    marginHorizontal: -12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  episodeNameActive: {
+    color: '#93c5fd',
   },
   episodeInfo: {
     flex: 1,

@@ -14,6 +14,8 @@ import { useLibrarySelector, useLibraryActions } from '../../context/LibraryCont
 import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
 import { useAppBack } from '../../hooks/useAppBack';
+import { useDetailLayout } from '../../hooks/useDetailLayout';
+import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import CommentSheet from '../../components/CommentSheet';
@@ -29,6 +31,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 export default function MovieDetailScreen() {
   const handleBack = useAppBack();
+  // Film ekrani da MediaHero'yu paylasiyor; masaustunde ayni kabugu
+  // kullanmazsa hero ortalanmamis/kenara yapisik kalirdi.
+  const layout = useDetailLayout();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
     const { t } = useTranslation('media');
   
@@ -188,6 +193,131 @@ export default function MovieDetailScreen() {
     );
   }
 
+  // ── Her iki duzenin PAYLASTIGI parcalar (AI_RULES 2.5: kopya yok) ─────
+  // Y20: bkz. app/show/[id].tsx'teki ayni sinir ve gerekcesi.
+  const hero = (
+    <SectionErrorBoundary label="movie-hero">
+      <MediaHero
+        type="movie"
+        data={movieData}
+        backdrop={backdrop}
+        poster={poster}
+        trailerId={trailerId}
+        userRating={userRating}
+        isWatched={isWatched}
+        isWatchlisted={isWatchlisted}
+        isFavorited={isFavorited}
+        onRate={handleRate}
+        onRemoveRating={handleRemoveRating}
+        onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
+        onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
+        onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
+        onRewatch={handleRewatch}
+        isHidden={isHidden}
+        onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'movie', isHidden)}
+      />
+    </SectionErrorBoundary>
+  );
+
+  const watchAction = (
+      <View style={styles.actionRow}>
+        {isReleased ? (
+          <TouchableOpacity
+            style={[styles.actionButton, isWatched && styles.actionButtonActive]}
+            onPress={handleToggleWatched}
+            disabled={actionLoading}
+            activeOpacity={0.8}
+          >
+            {actionLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : isWatched ? (
+              <>
+                <CheckCheck color="#ffffff" size={20} style={{ marginRight: 8 }} />
+                <Text style={styles.actionButtonText}>{t('watched')}</Text>
+              </>
+            ) : (
+              <>
+                <Check color="#ffffff" size={20} style={{ marginRight: 8 }} />
+                <Text style={styles.actionButtonText}>{t('iWatched')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.actionButton, { backgroundColor: '#333' }]}>
+            <Text style={styles.actionButtonText}>{t('notAiredYet')}</Text>
+          </View>
+        )}
+        
+        {/* İleride Seçenekler menüsü buraya gelecek */}
+      </View>
+  );
+
+  const commentsSection = (
+    <MediaCommentsSection
+      reviewsState={reviewsState}
+      traktComments={commentsData}
+      isLoadingTraktComments={isLoadingComments}
+      onSeeAllTrakt={() => setCommentSheetVisible(true)}
+    />
+  );
+
+  const castSection = (
+    <SectionErrorBoundary label="movie-cast">
+      <MediaCast cast={castData} />
+    </SectionErrorBoundary>
+  );
+
+  const relatedSection = relatedMovies && relatedMovies.length > 0 ? (
+    <SectionErrorBoundary label="movie-related">
+      <HorizontalMediaList title={t('relatedMovies')} data={relatedMovies} type="movie" />
+    </SectionErrorBoundary>
+  ) : null;
+
+  const overlays = (
+    <>
+      <CommentSheet
+        visible={commentSheetVisible}
+        onClose={() => setCommentSheetVisible(false)}
+        mediaId={traktIdNum}
+        mediaType="movie"
+        reviewsState={reviewsState}
+      />
+      <Snackbar
+        visible={rewatchSnackbarVisible}
+        message={t('rewatchConfirmation')}
+        onDismiss={() => setRewatchSnackbarVisible(false)}
+        duration={2500}
+      />
+    </>
+  );
+
+  // ── MASAUSTU WEB (>=1024px) ───────────────────────────────────────────
+  // Filmde sezon rayi YOK: tek sutun, ortalanmis 1200px kapsayici.
+  if (layout.isDesktopWeb) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScrollView contentContainerStyle={{ paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
+          <DetailWebLayout
+            metrics={layout}
+            backdrop={backdrop}
+            left={
+              <>
+                {hero}
+                <View style={[styles.webBlock, styles.webAction]}>{watchAction}</View>
+                <View style={styles.webBlock}>{commentsSection}</View>
+                <View style={[styles.webBlock, styles.webFlush]}>{castSection}</View>
+                {relatedSection ? <View style={[styles.webBlock, styles.webFlush]}>{relatedSection}</View> : null}
+              </>
+            }
+          />
+        </ScrollView>
+        {overlays}
+      </View>
+    );
+  }
+
+  // ── MOBIL (ve dar web) — YERLESIM DEGISTIRILMEDI ──────────────────────
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -197,108 +327,25 @@ export default function MovieDetailScreen() {
             Bu ekranda EKSİKTİ — show/ tarafı F15'te korunmuştu ama film
             ekranı hiç sarılmamıştı (AI_RULES §2.5'in "kopyalar sessizce
             ıraksar" uyarısının canlı örneği). */}
-        <SectionErrorBoundary label="movie-hero">
-          <MediaHero
-            type="movie"
-            data={movieData}
-            backdrop={backdrop}
-            poster={poster}
-            trailerId={trailerId}
-            userRating={userRating}
-            isWatched={isWatched}
-            isWatchlisted={isWatchlisted}
-            isFavorited={isFavorited}
-            onRate={handleRate}
-            onRemoveRating={handleRemoveRating}
-            onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
-            onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
-            onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
-            onRewatch={handleRewatch}
-            isHidden={isHidden}
-            onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'movie', isHidden)}
-          />
-        </SectionErrorBoundary>
+        {hero}
 
         <View style={styles.contentArea}>
           {/* ACTION BUTTONS */}
-          <View style={styles.actionRow}>
-            {isReleased ? (
-              <TouchableOpacity
-                style={[styles.actionButton, isWatched && styles.actionButtonActive]}
-                onPress={handleToggleWatched}
-                disabled={actionLoading}
-                activeOpacity={0.8}
-              >
-                {actionLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : isWatched ? (
-                  <>
-                    <CheckCheck color="#ffffff" size={20} style={{ marginRight: 8 }} />
-                    <Text style={styles.actionButtonText}>{t('watched')}</Text>
-                  </>
-                ) : (
-                  <>
-                    <Check color="#ffffff" size={20} style={{ marginRight: 8 }} />
-                    <Text style={styles.actionButtonText}>{t('iWatched')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.actionButton, { backgroundColor: '#333' }]}>
-                <Text style={styles.actionButtonText}>{t('notAiredYet')}</Text>
-              </View>
-            )}
-            
-            {/* İleride Seçenekler menüsü buraya gelecek */}
-          </View>
+          {watchAction}
 
           {/* ── KaymakTV İncelemeleri ──────────────────────────────────
               bkz. app/show/[id].tsx'teki aynı blok ve docs/design/REVIEWS_PLAN.md §4.2. */}
-          <View style={styles.section}>
-            <MediaCommentsSection
-              reviewsState={reviewsState}
-              // ── Trakt bloğu (salt okunur kuyruk) ─────────────────
-              // Artık AYRI bir bölüm değil: tek kesintisiz listenin
-              // altında akıyor (bkz. MediaCommentsSection başlığı).
-              traktComments={commentsData}
-              isLoadingTraktComments={isLoadingComments}
-              onSeeAllTrakt={() => setCommentSheetVisible(true)}
-            />
-          </View>
+          <View style={styles.section}>{commentsSection}</View>
 
 
-          <SectionErrorBoundary label="movie-cast">
-            <MediaCast cast={castData} />
-          </SectionErrorBoundary>
+          {castSection}
 
-          {relatedMovies && relatedMovies.length > 0 && (
-            <SectionErrorBoundary label="movie-related">
-              <HorizontalMediaList
-                title={t('relatedMovies')}
-                data={relatedMovies}
-                type="movie"
-              />
-            </SectionErrorBoundary>
-          )}
+          {relatedSection}
         </View>
 
       </ScrollView>
 
-      {/* Yorumlar Modal */}
-      <CommentSheet
-        visible={commentSheetVisible}
-        onClose={() => setCommentSheetVisible(false)}
-        mediaId={traktIdNum}
-        mediaType="movie"
-        reviewsState={reviewsState}
-      />
-
-      <Snackbar
-        visible={rewatchSnackbarVisible}
-        message={t('rewatchConfirmation')}
-        onDismiss={() => setRewatchSnackbarVisible(false)}
-        duration={2500}
-      />
+      {overlays}
     </View>
   );
 }
@@ -307,17 +354,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0B1120',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#0B1120',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    color: '#a3a3a3',
-    marginTop: 16,
-    fontSize: 16,
   },
   contentArea: {
     paddingTop: 16,
@@ -348,36 +384,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 24,
   },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  commentBox: {
-    backgroundColor: '#172033',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#2A364F',
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  commentUser: {
-    color: '#3b82f6',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  commentLikes: {
-    color: '#a3a3a3',
-    fontSize: 12,
-  },
-  commentText: {
-    color: '#d4d4d4',
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  // Masaustu sol sutununda bloklar arasi dikey ritim.
+  webBlock: { marginTop: 40 },
+  // MediaCast/HorizontalMediaList kendi 16px yatay dolgusunu tasiyor.
+  webFlush: { marginHorizontal: -16 },
+  // "Izledim" butonu mobilde tam genislikte; masaustunde ekran boyu bir
+  // cubuga donusuyordu — icerige gore genisleyen makul bir olcuye alindi.
+  webAction: { maxWidth: 260, marginHorizontal: -16 },
 });

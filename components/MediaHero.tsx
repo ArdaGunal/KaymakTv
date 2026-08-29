@@ -15,6 +15,8 @@ import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
 import { getProgressBarColor } from '../utils/progressBarColor';
 import { useAppBack, useAppHome } from '../hooks/useAppBack';
+import { useDetailLayout } from '../hooks/useDetailLayout';
+import MediaHeroWebView from './hero/MediaHeroWebView';
 import { deriveFollowStatus, resolveFollowAction } from '../utils/followStatus';
 import { styles } from './MediaHero.styles';
 
@@ -90,6 +92,10 @@ export default function MediaHero({
   // karşılama/vitrin ekranında mahsur kalıyordu).
   const handleBack = useAppBack();
   const handleHome = useAppHome();
+  // Masaüstü web'de hero TAMAMEN farklı bir düzende çiziliyor (bkz.
+  // hooks/useDetailLayout.ts). Native'de `isDesktopWeb` HER ZAMAN false —
+  // aşağıdaki mobil ağaç bit bit aynı kalır.
+  const { isDesktopWeb } = useDetailLayout();
 
   const handleRemove = () => {
     onRemoveRating();
@@ -140,8 +146,47 @@ export default function MediaHero({
     onToggleWatchlist();
   };
 
+  // Misafir kontrolü + modal açma tek yerde kalsın diye küçük sarmalayıcılar
+  // (web görünümü SALT SUNUM — kendi kuralını bilmez).
+  const openRating = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+    setRatingModalVisible(true);
+  };
+  const openList = () => {
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+    setListModalVisible(true);
+  };
+
   return (
     <View style={styles.container}>
+      {isDesktopWeb ? (
+        <MediaHeroWebView
+          type={type}
+          data={data}
+          poster={poster}
+          trailerId={trailerId}
+          userRating={userRating}
+          isFavorited={isFavorited}
+          hasProgress={!!hasProgress}
+          progressPercentage={progressPercentage}
+          progressColor={progressColor}
+          followStatus={followStatus}
+          onBack={handleBack}
+          onHome={handleHome}
+          onOptions={() => setOptionsModalVisible(true)}
+          onOpenRating={openRating}
+          onToggleFavorite={handleToggleFavorite}
+          onOpenList={openList}
+          onToggleFollow={handleToggleFollow}
+        />
+      ) : (
+      <>
       {/* BACKDROP */}
       <View style={styles.backdropContainer}>
         {backdrop ? (
@@ -210,13 +255,7 @@ export default function MediaHero({
             {/* User Rating (Delicate Button) */}
             <TouchableOpacity
               style={[styles.userRatingBadge, (userRating !== undefined && userRating !== null) ? styles.userRatingActive : null]}
-              onPress={() => {
-                if (isGuest) {
-                  Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-                  return;
-                }
-                setRatingModalVisible(true)
-              }}
+              onPress={openRating}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
@@ -247,13 +286,7 @@ export default function MediaHero({
             <TouchableOpacity
               style={[styles.userRatingBadge, styles.iconOnlyBadge]}
               activeOpacity={0.7}
-              onPress={() => {
-                if (isGuest) {
-                  Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-                  return;
-                }
-                setListModalVisible(true);
-              }}
+              onPress={openList}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <ListPlus size={16} color="#a3a3a3" />
@@ -322,6 +355,9 @@ export default function MediaHero({
             </View>
           </TouchableOpacity>
         </View>
+      )}
+
+      </>
       )}
 
       {/* RATING MODAL */}
