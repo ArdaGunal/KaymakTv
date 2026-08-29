@@ -14,6 +14,7 @@
 //   ... node scripts/lazyfetch-inspect.js --list episode_detail
 //   ... node scripts/lazyfetch-inspect.js --find "Breaking Bad"
 //   ... node scripts/lazyfetch-inspect.js --check /tv/1396
+//   ... node scripts/lazyfetch-inspect.js --arsiv       (yalnizca arsiv)
 //
 // Ayrıntı: docs/runbook/LAZYFETCH_OPS.md
 
@@ -497,6 +498,22 @@ async function main() {
 
   const check = bayrak('--check');
   if (check) return kontrol(cacheDir, normalizeTmdbPath(check));
+
+  // 🔴 `--arsiv` — YALNIZCA arşiv bölümünü basar.
+  //
+  // NEDEN AYRI BİR BAYRAK: operatör bunu `grep "ARŞİV"` ile süzmek zorunda
+  // kalıyordu ve o desende Türkçe `Ş`/`İ` var — Pi'nin terminaline
+  // yazılamıyor (gerçek olay, 2026-08-29). Bir teşhis aracı, teşhis
+  // edileceği ortamda KULLANILAMAZ olmamalı; ASCII geri düşüşünü
+  // (Madde 257) doğuran dersin aynısı.
+  //
+  // 🔴 CACHE TARAMASINDAN ÖNCE: arşiv cache'ten BAĞIMSIZ bir sistem
+  // (01_MIMARI.md "cache ≠ arşiv"). Cache boşken de arşivde veri olabilir —
+  // ilk taslakta bu blok "cache boş" erken dönüşünün ALTINDAYDI ve boş
+  // cache'te arşiv hiç basılmıyordu.
+  if (args.includes('--arsiv') || args.includes('--archive')) {
+    return arsivDurumu();
+  }
 
   const rows = await collect(cacheDir);
   if (!rows.length) {
