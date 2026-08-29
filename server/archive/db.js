@@ -16,12 +16,26 @@
 // eklemek, bir arşiv sorununun önbelleği de düşürmesi demekti. İki sistem
 // aynı SSD'yi paylaşır ama birbirini düşürmez (01_MIMARI.md "cache ≠ arşiv").
 //
-// 🔴 SÜRÜCÜ: `node:sqlite` — Node 22.5+ ile GELEN yerleşik modül, harici
-// paket YOK (03_FAZLAR.md "Paket önerisi"). Alternatifi `better-sqlite3`
-// native bir modüldür: Pi'de ARM için derlenmesi gerekir, her `npm ci`
-// build toolchain ister ve Expo/EAS tarafına sızma riski taşır.
-// Pi'de ölçülen sürüm: v22.23.2 (2026-08-29) — `node:sqlite` mevcut ve
-// bayrak gerektirmiyor. Yine de `require` KORUMALI: sürücü yoksa arşiv
+// 🔴 SÜRÜCÜ: `node:sqlite` — Node ile GELEN yerleşik modül, harici paket
+// YOK (03_FAZLAR.md "Paket önerisi"). Alternatifi `better-sqlite3` native
+// bir modüldür: Pi'de ARM için derlenmesi gerekir, her `npm ci` build
+// toolchain ister ve Expo/EAS tarafına sızma riski taşır.
+//
+// 📏 PI'DE ÖLÇÜLDÜ (2026-08-29, tahmin DEĞİL — Madde 233): Node v22.23.2 ·
+// SQLite **3.51.3** · `node:sqlite` bayraksız yükleniyor. Bel bağladığımız
+// dört özellik tek tek denendi:
+//   • `COALESCE` ifade indeksi (3.9+)   → sezon tekilliği, NULL tuzağı
+//   • kısmi indeks `WHERE` (3.8+)       → aynı indeks
+//   • `ON CONFLICT DO UPDATE` (3.24+)   → payload latest-wins upsert
+//   • `VACUUM INTO` (3.27+)             → TEK güvenli yedek yöntemi
+// Hepsi 3.51.3'te fazlasıyla mevcut.
+//
+// ⚠️ Node 22'de bu modül "experimental" damgalı ve her açılışta stderr'e
+// bir `ExperimentalWarning` yazar — `journalctl -u kaymak` çıktısında
+// görünür. Hata DEĞİL. Susturmak için `--no-warnings` gerekir ama o TÜM
+// Node uyarılarını susturur; bilinçli olarak susturmuyoruz.
+//
+// Yine de `require` KORUMALI: sürücü bir gün kaldırılır/değişirse arşiv
 // kapanır, sunucu ayakta kalır.
 
 const fs = require('fs');

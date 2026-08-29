@@ -46,7 +46,25 @@ function yeniKaymakId(tip) {
 /**
  * Trakt'ın `ids` bloğunu `external_ids` satırlarına çevirir.
  *
- * @param {'show'|'movie'|'episode'} tip
+ * 📏 GERÇEK YANITLA ÖLÇÜLDÜ (2026-08-29, `/shows/1388/seasons?extended=
+ * full,episodes`): sezon `ids` → `{plex, tmdb, tvdb, trakt}`, bölüm `ids`
+ * → `{imdb, plex, tmdb, tvdb, trakt}`. 72 bölümün 72'sinde `trakt`,
+ * 71'inde `tmdb` var. Yani tek bir katalog yanıtı, dizinin TÜM
+ * hiyerarşisinin kimlik haritasını bedava veriyor.
+ *
+ * 🔴 KAYNAK ADI HER ZAMAN KENDİ TİPİNİ TAŞIR. İlk taslakta bölümün
+ * `tmdb`/`tvdb` kimlikleri `tmdb:show`/`tvdb:show` diye etiketleniyordu —
+ * "bölümün tmdb'si üst diziyi gösterir" varsayımıyla. YANLIŞ: ölçümde
+ * görüldü ki bölümün kendi tmdb kimliği (62085) geliyor. O etiketle
+ * yazsaydık, tmdb dizi kimliği 62085 olan GERÇEK bir dizi geldiğinde
+ * çakışırdı ve arşiv sessizce iki farklı yapımı karıştırırdı. Kod
+ * okumasıyla görülmezdi; gerçek yanıt açılınca çıktı.
+ *
+ * ⛔ `plex` BİLİNÇLİ OLARAK ALINMIYOR: değeri skaler değil, iç içe bir
+ * nesne (`{guid: "..."}`). Bizim için bir karşılığı yok ve `String()`'e
+ * sokmak `[object Object]` üretirdi — sahte bir kimlik.
+ *
+ * @param {'show'|'movie'|'season'|'episode'} tip
  * @param {Object} ids  Trakt yanıtındaki `ids` nesnesi
  * @returns {Array<{source: string, source_id: string}>}
  */
@@ -58,15 +76,19 @@ function traktIdsToExternal(tip, ids) {
     // bazen `0` olarak döndürüyor. `0`'ı kimlik sanmak, TÜM eksik
     // kimlikli yapımları tek bir sahte kayda bağlardı.
     if (deger === null || deger === undefined || deger === '' || deger === 0) return;
+    // Nesne değerli kimlikler (`plex`) buraya hiç gelmemeli; gelse bile
+    // "[object Object]" yazmaktansa atlıyoruz.
+    if (typeof deger === 'object') return;
     cikti.push({ source: kaynak, source_id: String(deger) });
   };
 
   ekle(`trakt:${tip}`, ids.trakt);
-  ekle(`trakt:slug`, ids.slug);
+  // Slug yalnızca dizi/filmde var (sezon/bölümde yok — ölçüldü).
+  ekle('trakt:slug', ids.slug);
+  // IMDB kimlikleri tipten BAĞIMSIZ olarak globalde benzersiz (tt...).
   ekle('imdb', ids.imdb);
-  // tvdb yalnızca dizi/bölüm tarafında anlamlı; film için Trakt döndürmez.
-  if (tip !== 'movie') ekle('tvdb:show', ids.tvdb);
-  ekle(`tmdb:${tip === 'episode' ? 'show' : tip}`, ids.tmdb);
+  ekle(`tvdb:${tip}`, ids.tvdb);
+  ekle(`tmdb:${tip}`, ids.tmdb);
 
   return cikti;
 }

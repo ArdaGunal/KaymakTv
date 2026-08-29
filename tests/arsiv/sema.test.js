@@ -99,6 +99,65 @@ const depo = require(path.join(AR, 'store'));
   const bosluklu = kimlik.traktIdsToExternal('show', { trakt: 55, slug: '', tvdb: 0, imdb: null, tmdb: undefined });
   T.ok('🔴 0 / null / bos string KIMLIK SAYILMIYOR', bosluklu.length === 1 && bosluklu[0].source === 'trakt:show', JSON.stringify(bosluklu));
 
+  // ----------------------------------------------------------------------
+  // 📏 GERCEK TRAKT YANIT SEKLI (olculdu 2026-08-29,
+  // /shows/1388/seasons?extended=full,episodes). Uydurulmus sekil DEGIL.
+  // ----------------------------------------------------------------------
+  const gercekSezonIds = { plex: { guid: '602e61de66dfdb002c096b16' }, tmdb: 3572, tvdb: 30272, trakt: 3950 };
+  const gercekBolumIds = { imdb: 'tt0959621', plex: { guid: '5d9c0fc37b5c2e001e6a7045' }, tmdb: 62085, tvdb: 349232, trakt: 73482 };
+
+  const sezonKimlikleri = kimlik.traktIdsToExternal('season', gercekSezonIds);
+  const bolumKimlikleri = kimlik.traktIdsToExternal('episode', gercekBolumIds);
+
+  T.ok('⛔ plex (ic ice NESNE) kimlik olarak ALINMIYOR',
+    ![...sezonKimlikleri, ...bolumKimlikleri].some((d) => d.source.includes('plex') || d.source_id.includes('object')),
+    JSON.stringify([...sezonKimlikleri, ...bolumKimlikleri].map((d) => d.source)));
+
+  // 🔴 ILK TASLAKTAKI GERCEK HATA: bolumun tmdb/tvdb kimlikleri
+  // `tmdb:show`/`tvdb:show` diye etiketleniyordu. tmdb dizi kimligi 62085
+  // olan GERCEK bir dizi geldiginde ayni satira cakisir ve arsiv iki farkli
+  // yapimi sessizce karistirirdi.
+  T.ok('🔴 BOLUM kimligi tmdb:episode olarak etiketleniyor (tmdb:show DEGIL)',
+    bolumKimlikleri.some((d) => d.source === 'tmdb:episode' && d.source_id === '62085') &&
+    !bolumKimlikleri.some((d) => d.source === 'tmdb:show'));
+  T.ok('🔴 BOLUM kimligi tvdb:episode olarak etiketleniyor',
+    bolumKimlikleri.some((d) => d.source === 'tvdb:episode' && d.source_id === '349232') &&
+    !bolumKimlikleri.some((d) => d.source === 'tvdb:show'));
+  T.ok('SEZON kimligi tmdb:season / tvdb:season olarak etiketleniyor',
+    sezonKimlikleri.some((d) => d.source === 'tmdb:season' && d.source_id === '3572') &&
+    sezonKimlikleri.some((d) => d.source === 'tvdb:season' && d.source_id === '30272'));
+  T.ok('Bolumun imdb kimligi tipsiz (globalde benzersiz)',
+    bolumKimlikleri.some((d) => d.source === 'imdb' && d.source_id === 'tt0959621'));
+  T.ok('Sezon/bolumde slug YOK, uretilmiyor',
+    ![...sezonKimlikleri, ...bolumKimlikleri].some((d) => d.source === 'trakt:slug'));
+
+  // 🔴 ASIL SENARYO: tmdb DIZI kimligi 62085 olan gercek bir yapim ile,
+  // tmdb BOLUM kimligi 62085 olan bolum ayni satira DUSMEMELI. Ilk
+  // taslaktaki `tmdb:show` etiketi tam olarak bunu kirardi.
+  const cakisanDizi = kimlik.resolveOrCreate({
+    type: 'show', externalIds: kimlik.traktIdsToExternal('show', { trakt: 62085001, tmdb: 62085 }),
+  });
+  // 🔴 Sema, bolum entity'si icin parentId + sezon/bolum numarasini ZORUNLU
+  // tutuyor — A2 yazicisinin uymasi gereken kural. (Ilk taslakta bu test
+  // numarasiz bolum yaratmaya calisti ve sema hakli olarak REDDETTI.)
+  const bolumunSezonu = kimlik.resolveOrCreate({
+    type: 'season', externalIds: kimlik.traktIdsToExternal('season', gercekSezonIds),
+    parentId: ilk.kaymak_id, seasonNumber: 1,
+  });
+  const cakisanBolum = kimlik.resolveOrCreate({
+    type: 'episode', externalIds: bolumKimlikleri,
+    parentId: bolumunSezonu.kaymak_id, seasonNumber: 1, episodeNumber: 1,
+  });
+  T.ok('🔴 tmdb:show/62085 ile tmdb:episode/62085 AYRI yapimlar (tip etiketi sayesinde)',
+    cakisanDizi.kaymak_id !== cakisanBolum.kaymak_id && cakisanBolum.conflict === false);
+  T.ok('Bolum entity si dogru sezona bagli',
+    h.prepare('SELECT parent_id p FROM entities WHERE kaymak_id=?').get(cakisanBolum.kaymak_id).p === bolumunSezonu.kaymak_id);
+  T.ok('Ayni sezon ikinci kez cozulurken CIFT KAYIT uretmiyor',
+    kimlik.resolveOrCreate({
+      type: 'season', externalIds: kimlik.traktIdsToExternal('season', gercekSezonIds),
+      parentId: ilk.kaymak_id, seasonNumber: 1,
+    }).created === false);
+
   let kimliksizReddedildi = false;
   try { kimlik.resolveOrCreate({ type: 'show', externalIds: [] }); } catch (e) { kimliksizReddedildi = true; }
   T.ok('Dis kimliksiz entity YARATILAMIYOR (bulunamaz oksuz kayit olurdu)', kimliksizReddedildi);
@@ -119,9 +178,11 @@ const depo = require(path.join(AR, 'store'));
   // ======================================================================
   T.H('Hiyerarsi ve sema kisitlari');
   // ======================================================================
+  // Sezon 1 yukaridaki gercek-sekil blogunda zaten yaratildi (trakt:season/3950)
+  // — burada 2. sezonu aciyoruz ki "yeni yaratildi" iddiasi anlamli olsun.
   const sezon = kimlik.resolveOrCreate({
-    type: 'season', externalIds: [{ source: 'trakt:season', source_id: '3950' }],
-    parentId: ilk.kaymak_id, seasonNumber: 1,
+    type: 'season', externalIds: [{ source: 'trakt:season', source_id: '3951' }],
+    parentId: ilk.kaymak_id, seasonNumber: 2,
   });
   T.ok('Sezon, diziye bagli olarak yaratildi', sezon.created === true);
 
