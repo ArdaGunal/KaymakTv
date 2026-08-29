@@ -1,0 +1,82 @@
+// ==========================================================================
+// LAZYFETCH — L6 SÜPÜRÜCÜ TESTLERİ
+// ==========================================================================
+// 🔴 BU DOSYANIN VAR OLUŞ SEBEBİ TEK BİR İDDİA: süpürücü YALNIZCA `cache/`
+// alt ağacına dokunur. `tmp/` (atomik yazmanın çalışma alanı) ve
+// `quarantine/` (bozuk kayıtların KANIT deposu) asla silinmez.
+//
+// Bu, tüm LazyFetch'teki en yıkıcı hata olurdu: `quarantine/` silinirse
+// teşhis imkânı yok olur, `tmp/` silinirse yazılmakta olan bir dosya
+// kaybolup `rename()` atomikliği bozulur. Testte ikisi de KASTEN 90
+// GÜNLÜK yapılıyor — yani yaş elemesine takılmaları GEREKİRDİ; hayatta
+// kalmaları, korumanın gerçekten çalıştığının kanıtı.
+
+const fs = require('fs');
+const path = require('path');
+const { baslat, dosyaYaz, LF } = require('./yardimci');
+
+const T = baslat('SUPURUCU (L6)', { kokOneki: 'lf-supurucu-' });
+
+const sweeper = require(path.join(LF, 'sweeper'));
+const paths = require(path.join(LF, 'paths'));
+
+const GUN = 24 * 3600 * 1000;
+
+(async () => {
+  paths.isLazyFetchEnabled();
+
+  T.H('Yalnizca cache/ silinir');
+
+  const taze1 = dosyaYaz(T.kok, 'cache/tmdb/tv_detail/aa/1111.json.gz', 1);
+  const taze2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/2222.json.gz', 2);
+  const eski1 = dosyaYaz(T.kok, 'cache/tmdb/tv_detail/aa/3333.json.gz', 40);
+  const eski2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/4444.json.gz', 45);
+  // Bu ikisi KASTEN 90 gunluk: yas elemesine takilmalari GEREKIRDI.
+  const tmpDosya = dosyaYaz(T.kok, 'tmp/yarim-yazim.tmp', 90);
+  const karantina = dosyaYaz(T.kok, 'quarantine/1700000000__bozuk.json.gz', 90);
+
+  const r = await sweeper.runSweep();
+
+  T.ok('30 gunden eski cache kayitlari silindi', r.deletedByAge === 2 && !fs.existsSync(eski1) && !fs.existsSync(eski2));
+  T.ok('Taze cache kayitlari KORUNDU', fs.existsSync(taze1) && fs.existsSync(taze2));
+  T.ok('tmp/ dosyasi 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(tmpDosya));
+  T.ok('quarantine/ dosyasi 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(karantina));
+  T.ok('tmp/ ve quarantine/ yalnizca SAYILDI', r.orphanTmpFiles === 1 && r.quarantineFiles === 1);
+  T.ok('Aile ayrimi provider/family duzeyinde', r.families === 2, r.families + ' aile');
+  T.ok('Taranan dosya sayisi dogru (yalnizca cache/)', r.scanned === 4, r.scanned + ' dosya');
+
+  T.H('Kota elemesi - aile bazinda');
+
+  for (let i = 0; i < 6; i++) dosyaYaz(T.kok, 'cache/tmdb/tv_images/cc/img' + i + '.json.gz', i + 1);
+  const r2 = await sweeper.runSweep({ maxEntriesPerFamily: 3 });
+  const kalan = fs.readdirSync(path.join(T.kok, 'cache/tmdb/tv_images/cc')).length;
+  T.ok('Aile tavana indirildi', kalan === 3 && r2.deletedByQuota === 3, kalan + ' kayit kaldi');
+  T.ok('En YENI kayitlar hayatta kaldi (en eski mtime gider)', fs.existsSync(path.join(T.kok, 'cache/tmdb/tv_images/cc/img0.json.gz')));
+
+  T.H('Yapilandirma ve dayaniklilik');
+
+  T.ok(
+    'Varsayilanlar: 30 gun yas / 20000 kota / %80 disk alarmi',
+    sweeper.DEFAULT_CONFIG.maxAgeMs === 30 * GUN &&
+      sweeper.DEFAULT_CONFIG.maxEntriesPerFamily === 20000 &&
+      sweeper.DEFAULT_CONFIG.diskAlarmPercent === 80
+  );
+
+  const kullanim = await sweeper.getDiskUsage(path.join(T.kok, 'cache'), 1000, 1);
+  T.ok('Disk doluluk olculebiliyor (fs.statfs)', kullanim.available === true, kullanim.available ? '%' + kullanim.usedPercent + ' dolu' : 'yok');
+
+  // 🔴 SSD YOK SENARYOSU: ayri bir surecte, LAZYFETCH_ROOT olmadan.
+  // Ayni surecte denenemez cunku paths.js durumu modul seviyesinde onbellekler.
+  const altSurec = require('child_process').spawnSync(
+    process.execPath,
+    ['-e', 'delete process.env.LAZYFETCH_ROOT; require(process.argv[1]).runSweep().then(r => process.exit(r === null ? 0 : 1));', path.join(LF, 'sweeper')],
+    { encoding: 'utf8' }
+  );
+  T.ok('LAZYFETCH_ROOT yokken supurucu null donuyor, COKMUYOR', altSurec.status === 0);
+
+  const zamanlayici = sweeper.startSweeperSchedule();
+  T.ok('Zamanlayici kuruldu (her gun 04:00-06:00 penceresi)', zamanlayici !== null);
+  sweeper.stopSweeperSchedule();
+
+  T.bitir();
+})();

@@ -125,6 +125,23 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
     circuitBreaker.recordSuccess(provider);
     const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds);
     const envelope = createEnvelope({ provider, family, payload: result.data, ttlMs, graceMs });
+
+    // 🆕 (L7+) SAĞLAYICI "SAKLAMA" DEDİYSE SAKLAMIYORUZ.
+    // `storable === false` yalnızca `Cache-Control: no-store` / `no-cache` /
+    // `private` görüldüğünde gelir (providers/cacheControl.js). Veri
+    // kullanıcıya DÖNER — yalnızca diske ve belleğe yazılmaz, yani bir
+    // sonraki istek yine sağlayıcıya gider.
+    //
+    // 🔴 Eski (varsa) zarf SİLİNMEZ: sağlayıcı YENİ yanıtı saklamamamızı
+    // istedi, eskisini geçersiz kılmadı — eski kayıt kendi TTL'ini
+    // yaşamaya devam eder. Ayrıca `storable` alanı OLMAYAN bir adaptör
+    // (yarın yazılacak üçüncü bir sağlayıcı) eski davranışı görür:
+    // `undefined === false` yanlıştır, yani varsayılan SAKLA'dır.
+    if (result.storable === false) {
+      envelope.__notStored = true;
+      return envelope;
+    }
+
     await writeCacheEntry(relativePath, envelope);
     memoryCache.set(relativePath, envelope);
     return envelope;
@@ -286,7 +303,12 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
     const freshEnvelope = await singleFlight(relativePath, () =>
       fetchAndStore({ provider, family: route.family, relativePath, path, query, fetcher })
     );
-    return envelopeToResult(freshEnvelope, envelope ? 'miss-refetched' : 'miss');
+    // 🆕 (L7+) `no-store` teşhis için AYRI bir durum: `x-lazyfetch: no-store`
+    // gören operatör, "önbellek neden hiç isabet etmiyor" sorusunun cevabını
+    // ölçmeden görür. Madde 261'in dersi (yanlış alet yanlış teşhis üretir)
+    // burada peşinen uygulanıyor.
+    const status = freshEnvelope.__notStored ? 'no-store' : envelope ? 'miss-refetched' : 'miss';
+    return envelopeToResult(freshEnvelope, status);
   } catch (error) {
     if (envelope) {
       console.error(`[LazyFetch] Sağlayıcı başarısız, grace fallback dönülüyor (${relativePath}): ${error.message}`);

@@ -32,7 +32,7 @@
 
 const axios = require('axios');
 const { NotFoundError } = require('../errors');
-const { parseSharedMaxAge } = require('./cacheControl');
+const { parseSharedMaxAge, isStorable } = require('./cacheControl');
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
@@ -59,6 +59,9 @@ function createTmdbFetcher(apiKey) {
       return {
         data: response.data,
         maxAgeSeconds: parseSharedMaxAge(response.headers['cache-control']),
+        // 🆕 (L7+) TMDB ölçülen her yanıtta `public` dönüyor, yani bu bayrak
+        // pratikte hep `true` — savunma amaçlı (cacheControl.js başlığı).
+        storable: isStorable(response.headers['cache-control']),
       };
     } catch (error) {
       // 🆕 (L4, negatif cache): "kaynak gerçekten yok" (404) GENEL bir

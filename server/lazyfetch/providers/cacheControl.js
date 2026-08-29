@@ -19,6 +19,43 @@
 // yere 12 KAT fazla üretecektik. TMDB'de `s-maxage` olmadığı için orada
 // davranış hiç değişmiyor (geriye dönük güvenli).
 
+// 🆕 (L7+) SAĞLAYICININ "SAKLAMA" DEDİĞİ HAL — eskiden GÖZ ARDI EDİLİYORDU.
+//
+// Bulunduğu tur: 2026-08-29 devir denetimi. `parseSharedMaxAge` bir sayı
+// bulamayınca `undefined` dönüyordu ve `resolveTtl()` bunu "header yok"
+// sanıp varsayılan 1 SAATE düşüyordu. Yani `Cache-Control: no-store`
+// diyen bir yanıt, tam tersi yapılıp bir saat saklanıyordu.
+//
+// Bugünkü beyaz listede erişilebilir DEĞİLDİ (TMDB ve Trakt katalog uçları
+// ölçülen her yanıtta `public, max-age=N` dönüyor) — ama L7+ beyaz listeyi
+// 1 uçtan 8 uca çıkardığı için "hiç gelmez" varsayımı artık taşınamaz.
+//
+// 🔴 `private` NEDEN BURADA: LazyFetch PAYLAŞIMLI bir önbellek. `private`,
+// "bunu yalnızca tek kullanıcının tarayıcısı saklayabilir" demektir; bizim
+// saklamamız o yanıtı DİĞER kullanıcılara servis etmek olurdu — 02_ENVANTER
+// .md'nin gizlilik sınırının tam ihlali. Sağlayıcı bunu söylüyorsa dinleriz.
+//
+// ⚠️ `no-cache` tam olarak "saklama" DEĞİL, "kullanmadan önce doğrula"
+// demektir (RFC 9111 §5.2.2.4). LazyFetch'te henüz koşullu istek
+// (`If-None-Match`) yok — doğrulayamadığımız bir kaydı saklamak, onu
+// doğrulanmış gibi servis etmek olur. Doğrulama L5'in 304 desteğiyle
+// geldiğinde bu satır yeniden değerlendirilmeli.
+const NO_STORE_DIRECTIVES = /(?:^|[\s,])(no-store|no-cache|private)(?:\s*(?:,|$))/i;
+
+/**
+ * Bu yanıt PAYLAŞIMLI bir önbellekte saklanabilir mi?
+ *
+ * @param {string|undefined} header  Ham `Cache-Control` başlığı
+ * @returns {boolean} `false` ise orchestrator yanıtı döner ama DİSKE/BELLEĞE
+ *   YAZMAZ (bkz. orchestrator.js `fetchAndStore`). Header hiç yoksa `true` —
+ *   "sağlayıcı bir şey söylemedi" ile "saklama dedi" AYNI ŞEY DEĞİLDİR;
+ *   susan sağlayıcıda eski davranış (varsayılan TTL) korunur.
+ */
+function isStorable(header) {
+  if (!header || typeof header !== 'string') return true;
+  return !NO_STORE_DIRECTIVES.test(header);
+}
+
 /**
  * @param {string|undefined} header  Ham `Cache-Control` başlığı
  * @returns {number|undefined} saniye — bulunamazsa `undefined`
@@ -37,4 +74,4 @@ function parseSharedMaxAge(header) {
   return priv ? parseInt(priv[1], 10) : undefined;
 }
 
-module.exports = { parseSharedMaxAge };
+module.exports = { parseSharedMaxAge, isStorable };

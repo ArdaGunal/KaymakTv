@@ -93,10 +93,46 @@ const TMDB_ROUTES = [
 // (`/users/*`, `/sync/*`, `/calendars/my/*`) eklenemez — `02_ENVANTER.md`
 // gizlilik sınırı. Adaptör zaten `Authorization` göndermediği için böyle
 // bir uç eklense de çalışmazdı, ama kural burada da yazılı olsun.
+// 🆕 L7+ (2026-08-29) — TEK UÇTAN SEKİZ UCA. L7 bilinçli olarak tek uçla
+// (`show_seasons`) başlamıştı; kalıp üretimde kanıtlandıktan sonra
+// (18 gerçek kayıt SSD'de, istemci trafiğiyle) yüzey genişletildi.
+//
+// Liste UYDURULMADI — `services/api/shows.ts` ve `movies.ts`'te bugün
+// `getTraktClient()` ile DOĞRUDAN `api.trakt.tv`'ye giden public katalog
+// çağrıları tarandı (2026-08-29). Kapsam dışında bilinçli bırakılanlar:
+//   • `/search/:type` — her sorgu ayrı anahtar üretir (sonsuz kardinalite),
+//     önbellek şişer, isabet oranı düşük kalır. Ölçüm olmadan açılmaz.
+//   • yorumlar (`/comments/*`) — sosyal veri, sık değişir, katalog değil.
+//   • `/users/*`, `/sync/*`, `/calendars/my/*` — kullanıcıya ÖZEL, bu
+//     listeye ASLA giremez (02_ENVANTER.md gizlilik sınırı).
+//
+// 🔴 ÇIPLAK DETAY UÇLARINDA `:id` YALNIZCA SAYISAL — sebebi bir çakışma:
+// `/shows/[A-Za-z0-9-]+` deseni `/shows/trending`, `/shows/popular`,
+// `/shows/anticipated` gibi LİSTE uçlarını da yakalardı. O uçlar public
+// olduğu için güvenlik açığı değil, ama sessiz bir DOĞRULUK hatası olurdu:
+// bir trend listesi `show_detail` ailesine yazılır ve o ailenin TTL'iyle
+// (Trakt trending'e `s-maxage=3600`, detaya `43200` diyor) servis edilirdi.
+// Sayısal kısıt bu çakışmayı desen düzeyinde İMKÂNSIZ kılar; istemci de
+// zaten yalnızca sayısal ID gönderiyor (`useMovieDetail.ts:114` → `traktIdNum`).
+// Slug'la gelen bir istek beyaz listeye takılmaz → istemci eski yola düşer.
+//
+// Alt kaynaklarda (`/related`, `/people`, `/seasons`) slug SERBEST: orada
+// çakışacak bir liste ucu yok (`/shows/trending/related` diye bir uç
+// Trakt'ta yok, 404 döner → negatif cache, zararsız).
 const TRAKT_ROUTES = [
+  // --- Diziler ---
+  { family: 'show_detail', regex: /^\/shows\/\d+$/ },
   // `:id` hem sayısal Trakt ID hem slug olabilir (`1388` veya `breaking-bad`)
   // — istemci ikisini de kullanıyor. Slug karakter kümesi dar tutuldu.
   { family: 'show_seasons', regex: /^\/shows\/[A-Za-z0-9-]+\/seasons$/ },
+  { family: 'show_related', regex: /^\/shows\/[A-Za-z0-9-]+\/related$/ },
+  { family: 'show_people', regex: /^\/shows\/[A-Za-z0-9-]+\/people$/ },
+  // Trakt'ın yolu ÇOĞUL: `/seasons/1/episodes/1` (TMDB'de `/season/1/episode/1`).
+  { family: 'episode_detail', regex: /^\/shows\/[A-Za-z0-9-]+\/seasons\/\d+\/episodes\/\d+$/ },
+  // --- Filmler ---
+  { family: 'movie_detail', regex: /^\/movies\/\d+$/ },
+  { family: 'movie_related', regex: /^\/movies\/[A-Za-z0-9-]+\/related$/ },
+  { family: 'movie_people', regex: /^\/movies\/[A-Za-z0-9-]+\/people$/ },
 ];
 
 const PROVIDER_ROUTES = {

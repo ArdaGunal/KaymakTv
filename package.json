@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "serve": "npx serve -s dist -l 3048",
     "start-server": "node server.js",
-    "lazyfetch:inspect": "node scripts/lazyfetch-inspect.js"
+    "lazyfetch:inspect": "node scripts/lazyfetch-inspect.js",
+    "test:lazyfetch": "node tests/lazyfetch/calistir.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

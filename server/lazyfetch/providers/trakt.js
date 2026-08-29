@@ -29,7 +29,7 @@
 
 const axios = require('axios');
 const { NotFoundError } = require('../errors');
-const { parseSharedMaxAge } = require('./cacheControl');
+const { parseSharedMaxAge, isStorable } = require('./cacheControl');
 
 const TRAKT_API_URL = 'https://api.trakt.tv';
 
@@ -58,6 +58,10 @@ function createTraktCatalogFetcher(clientId) {
         // 2026-08-29: `max-age=3600, s-maxage=43200`). `cacheControl.js`
         // `s-maxage`'i tercih ediyor → 1 saat yerine 12 saat.
         maxAgeSeconds: parseSharedMaxAge(response.headers['cache-control']),
+        // 🆕 (L7+) Sağlayıcı `no-store`/`private` derse yazmayız
+        // (cacheControl.js başlığı). L7+ beyaz listeyi 1 uçtan 8 uca
+        // çıkardığı için "hep public döner" varsayımı artık taşınmıyor.
+        storable: isStorable(response.headers['cache-control']),
       };
     } catch (error) {
       // tmdb.js ile AYNI sözleşme: 404 → `NotFoundError` (negatif cache),

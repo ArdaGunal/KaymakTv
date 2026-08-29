@@ -115,3 +115,50 @@ export const catalogErrorTags = (error: any, extra: Record<string, string> = {})
   mesaj: String(error?.message || '').slice(0, 120),
   ...extra,
 });
+
+/**
+ * 🆕 L7+ — GEÇİT + GERİ DÜŞÜŞ deseninin TEK kopyası.
+ *
+ * L7'de bu desen yalnızca `getShowSeasons`'ta vardı ve elle yazılmıştı.
+ * L7+ beyaz listeyi 8 uca çıkarınca aynı 12 satır 8 yere kopyalanacaktı —
+ * `AI_RULES §2.5` bunu yasaklıyor, ve pratik sebebi şu: geri düşüş
+ * mantığında ileride yapılacak bir düzeltme (ör. yalnızca belirli hata
+ * kodlarında düşmek) 8 yerden 7'sinde unutulurdu.
+ *
+ * 🔴 SÖZLEŞME: bu fonksiyon ASLA geçit hatası fırlatmaz. Geçit çalışmazsa
+ * `eskiYol()` çağrılır ve onun sonucu/hatası dışarı çıkar — yani çağıran
+ * için davranış, bayrak kapalıymış gibi BİREBİR aynıdır. L7 istemciyi
+ * değiştiren ilk fazdı; bir dizi ekranının açılmaması, önbellek
+ * kazancından kat kat pahalıdır.
+ *
+ * @param etiket   Geliştirici Paneli'nde görünecek ad (ör. `L7/getShowSummary`)
+ * @param endpoint Trakt yolu — ör. `/shows/1388/seasons`
+ * @param params   Query parametreleri
+ * @param eskiYol  Geçit kullanılamazsa çalıştırılacak ESKİ çağrı
+ * @param etiketler Teşhis için ek etiketler (ör. `{ showId: '1388' }`)
+ */
+export const fetchCatalogOrFallback = async <T>(
+  etiket: string,
+  endpoint: string,
+  params: Record<string, string>,
+  eskiYol: () => Promise<T>,
+  etiketler: Record<string, string> = {}
+): Promise<T> => {
+  // 🔴 Bayrak KAPALIYKEN de bir kez raporlanır — kapalıyken hiç hata
+  // oluşmayacağı için panel boş kalır ve "sorun yok" ile "hiç denenmedi"
+  // ayırt edilemezdi (yukarıdaki teşhis notu).
+  logCatalogConfigOnce();
+
+  if (isTraktCatalogViaPiEnabled()) {
+    try {
+      return (await fetchTraktCatalog(endpoint, params)) as T;
+    } catch (error) {
+      // `logWarning` → yalnızca cihazdaki günlük + Geliştirici Paneli;
+      // Discord'a GİTMEZ (teşhis gürültüsü operasyon kanalını kirletmesin).
+      logWarning(etiket, error, catalogErrorTags(error, { ...etiketler, sonuc: 'eski-yola-dusuldu' }));
+      // bilinçli olarak yutuluyor — aşağıdaki eski yol denenecek
+    }
+  }
+
+  return eskiYol();
+};

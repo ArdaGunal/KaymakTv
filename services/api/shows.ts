@@ -1,12 +1,6 @@
 import axios from 'axios';
 import { getTraktClient, applyTranslation } from './traktClient';
-import {
-  fetchTraktCatalog,
-  isTraktCatalogViaPiEnabled,
-  reportCatalogConfig,
-  catalogErrorTags,
-} from './traktCatalogClient';
-import { logWarning } from '../../utils/errorLog';
+import { fetchCatalogOrFallback } from './traktCatalogClient';
 import i18n from '../../locales/index';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
@@ -46,86 +40,94 @@ export const getTrendingShows = async (page = 1, limit = 7, force = false) => {
 };
 
 export const getShowSummary = async (showId: number) => {
+  const lang = i18n.language === 'tr' ? 'tr' : 'en';
   try {
-    const client = await getTraktClient();
-    const lang = i18n.language === 'tr' ? 'tr' : 'en';
-    const response = await client.get(`/shows/${showId}?extended=full&translations=${lang}`);
-    return applyTranslation(response.data, lang);
+    // 🆕 L7+: geçitten geçer, geçit çalışmazsa eski yola düşer
+    // (`fetchCatalogOrFallback` sözleşmesi). `translations` query'nin
+    // parçası olduğu için ÖNBELLEK ANAHTARI DİLE GÖRE AYRILIR
+    // (server/lazyfetch/key.js) — tr ve en ayrı dosyalar.
+    const ham = await fetchCatalogOrFallback(
+      'L7/getShowSummary',
+      `/shows/${showId}`,
+      { extended: 'full', translations: lang },
+      async () => (await (await getTraktClient()).get(`/shows/${showId}?extended=full&translations=${lang}`)).data,
+      { showId: String(showId) }
+    );
+    // 🔴 Çeviri İKİ yola da uygulanır — geçit ham Trakt yanıtını döner,
+    // eski yol da artık ham dönüyor. Dönüşüm tek yerde.
+    return applyTranslation(ham, lang);
   } catch (error) {
-    console.error(`Trakt API HatasÃ„Â± (getShowSummary - ${showId}):`, error);
+    console.error(`Trakt API Hatasi (getShowSummary - ${showId}):`, error);
     throw error;
   }
 };
 
 export const getShowSeasons = async (showId: number) => {
   // 🆕 LazyFetch L7: bu çağrı KATALOG verisidir (kimseye ait değil) ve
-  // bugüne kadar Pi'yi hiç görmüyordu. Bayrak açıksa Pi'nin önbellekli
-  // geçidinden geçer — ölçülen kazanç: 610 ms → 2,4 ms.
-  //
-  // 🔴 GERİ DÜŞÜŞ: geçit herhangi bir sebeple çalışmazsa AŞAĞIDAKİ eski
-  // yol devreye girer. Bir dizi ekranının açılmaması, önbellek kazancından
-  // kat kat pahalıdır.
-  // 🔴 Yapılandırma her koşulda bir kez raporlanır — bayrak KAPALIYKEN de.
-  // Kapalıysa aşağıdaki blok hiç çalışmaz, yani hata da oluşmaz ve
-  // Geliştirici Paneli boş kalırdı; boş panel "sorun yok" değil "hiç
-  // denenmedi" demek olurdu (bkz. traktCatalogClient.ts teşhis notu).
-  reportCatalogConfig();
-
-  if (isTraktCatalogViaPiEnabled()) {
-    try {
-      return await fetchTraktCatalog(`/shows/${showId}/seasons`, { extended: 'full,episodes' });
-    } catch (error) {
-      // `logWarning` → yalnızca cihazdaki günlük + Geliştirici Paneli;
-      // Discord'a GİTMEZ (teşhis gürültüsü operasyon kanalını kirletmesin).
-      logWarning(
-        'L7/getShowSeasons',
-        error,
-        catalogErrorTags(error, { showId: String(showId), sonuc: 'eski-yola-dusuldu' })
-      );
-      // bilinçli olarak yutuluyor — aşağıdaki eski yol denenecek
-    }
-  }
-
+  // L7'ye kadar Pi'yi hiç görmüyordu. Ölçülen kazanç: 610 ms → 2,4 ms.
+  // L7+ turunda elle yazılmış geçit+geri düşüş bloğu
+  // `fetchCatalogOrFallback`'e taşındı (8 uçta tek kopya, AI_RULES §2.5) —
+  // davranış birebir aynı, gerekçelerin tamamı o dosyada.
   try {
-    const client = await getTraktClient();
-    const response = await client.get(`/shows/${showId}/seasons?extended=full,episodes`);
-    return response.data;
+    return await fetchCatalogOrFallback(
+      'L7/getShowSeasons',
+      `/shows/${showId}/seasons`,
+      { extended: 'full,episodes' },
+      async () => (await (await getTraktClient()).get(`/shows/${showId}/seasons?extended=full,episodes`)).data,
+      { showId: String(showId) }
+    );
   } catch (error) {
-    console.error(`Trakt API HatasÃ„Â± (getShowSeasons - ${showId}):`, error);
+    console.error(`Trakt API Hatasi (getShowSeasons - ${showId}):`, error);
     throw error;
   }
 };
 
 export const getShowCast = async (showId: number) => {
   try {
-    const client = await getTraktClient();
-    const response = await client.get(`/shows/${showId}/people`);
-    return response.data;
+    return await fetchCatalogOrFallback(
+      'L7/getShowCast',
+      `/shows/${showId}/people`,
+      {},
+      async () => (await (await getTraktClient()).get(`/shows/${showId}/people`)).data,
+      { showId: String(showId) }
+    );
   } catch (error) {
-    console.error(`Trakt API HatasÃ„Â± (getShowCast - ${showId}):`, error);
+    console.error(`Trakt API Hatasi (getShowCast - ${showId}):`, error);
     throw error;
   }
 };
 
 export const getRelatedShows = async (showId: number) => {
   try {
-    const client = await getTraktClient();
-    const response = await client.get(`/shows/${showId}/related?extended=full&limit=10`);
-    return response.data;
+    return await fetchCatalogOrFallback(
+      'L7/getRelatedShows',
+      `/shows/${showId}/related`,
+      { extended: 'full', limit: '10' },
+      async () => (await (await getTraktClient()).get(`/shows/${showId}/related?extended=full&limit=10`)).data,
+      { showId: String(showId) }
+    );
   } catch (error) {
-    console.error(`Trakt API HatasÃ„Â± (getRelatedShows - ${showId}):`, error);
+    console.error(`Trakt API Hatasi (getRelatedShows - ${showId}):`, error);
     throw error;
   }
 };
 
 export const getEpisodeDetail = async (showId: number, season: number, episode: number) => {
+  const lang = i18n.language === 'tr' ? 'tr' : 'en';
   try {
-    const client = await getTraktClient();
-    const lang = i18n.language === 'tr' ? 'tr' : 'en';
-    const response = await client.get(`/shows/${showId}/seasons/${season}/episodes/${episode}?extended=full&translations=${lang}`);
-    return applyTranslation(response.data, lang);
+    const ham = await fetchCatalogOrFallback(
+      'L7/getEpisodeDetail',
+      `/shows/${showId}/seasons/${season}/episodes/${episode}`,
+      { extended: 'full', translations: lang },
+      async () =>
+        (await (await getTraktClient()).get(
+          `/shows/${showId}/seasons/${season}/episodes/${episode}?extended=full&translations=${lang}`
+        )).data,
+      { showId: String(showId), bolum: `S${season}E${episode}` }
+    );
+    return applyTranslation(ham, lang);
   } catch (error) {
-    console.error(`Trakt API HatasÄ± (getEpisodeDetail - ${showId} S${season}E${episode}):`, error);
+    console.error(`Trakt API Hatasi (getEpisodeDetail - ${showId} S${season}E${episode}):`, error);
     throw error;
   }
 };

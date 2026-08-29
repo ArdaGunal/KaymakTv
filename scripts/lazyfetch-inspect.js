@@ -32,32 +32,64 @@ const { getEnvelopeState, SCHEMA_VERSION } = require(path.join(LF, 'envelope'));
 // Aile başına farklı alanlar taşıyor — TMDB'nin kendi yanıt şekilleri.
 // --------------------------------------------------------------------------
 function describe(envelope) {
-  if (envelope.isNegative) return '(negatif kayıt — TMDB "bu içerik yok" dedi)';
+  if (envelope.isNegative) return '(negatif kayıt — sağlayıcı "bu içerik yok" dedi)';
   const p = envelope.payload;
   if (!p || typeof p !== 'object') return '(boş/tanınmayan içerik)';
 
-  switch (envelope.family) {
-    case 'tv_detail':
+  // 🔴 SAĞLAYICI ÖNEKİYLE EŞLEŞTİRİLİYOR — yalnızca `family` ile DEĞİL.
+  // L7+ (2026-08-29) Trakt tarafına da `episode_detail` ve `movie_detail`
+  // adlı aileler ekledi; bunlar TMDB'deki AYNI ADLI ailelerle çakışıyor ama
+  // yanıt ŞEKİLLERİ tamamen farklı (Trakt `ids`/`title`, TMDB `name`/
+  // `number_of_seasons`). Yalnızca `family`'ye bakan bir switch, bir Trakt
+  // kaydını TMDB şekliyle okumaya çalışıp "?" basardı — Madde 260'ta
+  // denetçinin ÇALIŞAN bir sistemi "bozuk" göstermesinin aynısı.
+  const key = `${envelope.provider || '?'}/${envelope.family || '?'}`;
+
+  switch (key) {
+    // ---------------- TMDB ----------------
+    case 'tmdb/tv_detail':
       return `${p.name || p.original_name || '?'} · ${p.number_of_seasons ?? '?'} sezon · ${p.number_of_episodes ?? '?'} bölüm`;
-    case 'movie_detail':
+    case 'tmdb/movie_detail':
       return `${p.title || p.original_title || '?'} (${(p.release_date || '').slice(0, 4) || '?'})`;
-    case 'episode_detail':
+    case 'tmdb/episode_detail':
       return `S${String(p.season_number ?? '?').padStart(2, '0')}E${String(p.episode_number ?? '?').padStart(2, '0')} — ${p.name || '?'}${p.air_date ? ' · ' + p.air_date : ''}`;
-    case 'tv_images':
+    case 'tmdb/tv_images':
       return `${(p.posters || []).length} afiş · ${(p.backdrops || []).length} arka plan · ${(p.logos || []).length} logo`;
-    case 'tv_videos':
-    case 'movie_videos':
+    case 'tmdb/tv_videos':
+    case 'tmdb/movie_videos':
       return `${(p.results || []).length} video (fragman vb.)`;
-    case 'credits':
-    case 'episode_credits':
+    case 'tmdb/credits':
+    case 'tmdb/episode_credits':
       return `${(p.cast || []).length} oyuncu · ${(p.crew || []).length} ekip`;
-    // 🆕 L7 — Trakt katalog. Yanıt bir DİZİ (sezonlar), TMDB'nin nesne
-    // yanıtlarından farklı; bu yüzden ayrı ele alınıyor.
-    case 'show_seasons': {
+
+    // ---------------- TRAKT (L7 / L7+) ----------------
+    // Yanıt şekilleri TMDB'ninkinden tamamen farklı: Trakt `title`/`year`/
+    // `ids` kullanıyor, sezonlar bir DİZİ dönüyor.
+    case 'trakt/show_seasons': {
       if (!Array.isArray(p)) return '(beklenmeyen sezon yanıtı)';
       const bolum = p.reduce((t, sez) => t + ((sez && sez.episodes) || []).length, 0);
       return `${p.length} sezon · ${bolum} bölüm (Trakt sezon/bölüm LİSTESİ)`;
     }
+    case 'trakt/show_detail':
+      return `${p.title || '?'}${p.year ? ` (${p.year})` : ''} · ${p.status || 'durum ?'}${p.aired_episodes ? ` · ${p.aired_episodes} yayınlanmış bölüm` : ''}`;
+    case 'trakt/movie_detail':
+      return `${p.title || '?'}${p.year ? ` (${p.year})` : ''}${p.runtime ? ` · ${p.runtime} dk` : ''}`;
+    case 'trakt/episode_detail':
+      return `S${String(p.season ?? '?').padStart(2, '0')}E${String(p.number ?? '?').padStart(2, '0')} — ${p.title || '?'}${p.first_aired ? ' · ' + String(p.first_aired).slice(0, 10) : ''}`;
+    case 'trakt/show_related':
+    case 'trakt/movie_related':
+      return Array.isArray(p)
+        ? `${p.length} benzer yapım${p.length ? ' — ör. ' + (p[0].title || '?') : ''}`
+        : '(beklenmeyen benzer yapım yanıtı)';
+    case 'trakt/show_people':
+    case 'trakt/movie_people': {
+      // Trakt kadroyu `cast` + `crew` (departmanlara bölünmüş nesne) döndürür.
+      const ekip = p.crew && typeof p.crew === 'object'
+        ? Object.values(p.crew).reduce((t, liste) => t + (Array.isArray(liste) ? liste.length : 0), 0)
+        : 0;
+      return `${(p.cast || []).length} oyuncu · ${ekip} ekip`;
+    }
+
     default:
       return '(bilinmeyen aile)';
   }
@@ -215,17 +247,25 @@ function ozet(rows) {
     'tmdb/tv_images': 'dizi görselleri (afiş/arka plan/logo)',
     'tmdb/tv_videos': 'dizi fragmanları',
     'tmdb/movie_videos': 'film fragmanları',
-    'trakt/show_seasons': '🆕 L7 — sezon/bölüm LİSTESİ (hangi sezonlar, kaç bölüm, yayın tarihleri)',
+    'trakt/show_seasons': 'L7 — sezon/bölüm LİSTESİ (hangi sezonlar, kaç bölüm, yayın tarihleri)',
+    'trakt/show_detail': '🆕 L7+ — Trakt dizi künyesi (durum, yayınlanmış bölüm sayısı, çeviri)',
+    'trakt/movie_detail': '🆕 L7+ — Trakt film künyesi (yıl, süre, çeviri)',
+    'trakt/episode_detail': '🆕 L7+ — Trakt BÖLÜM detayı (başlık, özet, ilk yayın)',
+    'trakt/show_related': '🆕 L7+ — benzer diziler',
+    'trakt/movie_related': '🆕 L7+ — benzer filmler',
+    'trakt/show_people': '🆕 L7+ — dizi kadrosu (Trakt)',
+    'trakt/movie_people': '🆕 L7+ — film kadrosu (Trakt)',
   };
   for (const [f, g] of sirali) {
     // Sağlayıcı öneki KORUNUYOR — L7'den beri iki sağlayıcı var,
     // `tv_detail` (tmdb) ile `show_seasons` (trakt) karışmasın.
     const ad = f;
     say(
-      `│ ${ad.padEnd(18)} ${String(g.adet).padStart(5)} kayıt  ${fmtSize(g.bayt).padStart(9)}   ` +
+      // 20 karakter: en uzun aile adı `trakt/episode_detail` (L7+).
+      `│ ${ad.padEnd(20)} ${String(g.adet).padStart(5)} kayıt  ${fmtSize(g.bayt).padStart(9)}   ` +
       dagilim(g)
     );
-    if (ACIKLAMA[ad]) say(`│ ${' '.repeat(18)} └─ ${ACIKLAMA[ad]}`);
+    if (ACIKLAMA[ad]) say(`│ ${' '.repeat(20)} └─ ${ACIKLAMA[ad]}`);
   }
   say('└────────────────────────────────────────────────────────────────');
 
@@ -263,7 +303,12 @@ function listele(rows, aile) {
     (r) => !r.envelope.__bozuk && `${r.envelope.provider}/${r.envelope.family}`.includes(aile)
   );
   if (!filtre.length) {
-    say(`\n"${aile}" ailesinde kayıt yok. Aileler: tv_detail, movie_detail, episode_detail, credits, tv_images, tv_videos, movie_videos, episode_credits`);
+    say(
+      `\n"${aile}" ailesinde kayıt yok.` +
+      '\n  TMDB:  tv_detail, movie_detail, episode_detail, credits, episode_credits, tv_images, tv_videos, movie_videos' +
+      '\n  Trakt: show_detail, show_seasons, show_related, show_people, episode_detail, movie_detail, movie_related, movie_people' +
+      `\n  İpucu: "${aile}" iki sağlayıcıda da varsa sağlayıcıyla daralt — ör. --list trakt/${aile}`
+    );
     return;
   }
   say(`\n📋 ${aile} — ${filtre.length} kayıt\n`);
@@ -272,7 +317,15 @@ function listele(rows, aile) {
     .forEach((r) => {
       const st = getEnvelopeState(r.envelope, SCHEMA_VERSION, now);
       const yas = r.envelope.fetchedAt ? fmtAge(now - r.envelope.fetchedAt) : '?';
-      say(`  ${DURUM[st] || st}  ${yas.padStart(7)} önce  ${(r.size / 1024).toFixed(1).padStart(6)} KB  ${describe(r.envelope)}`);
+      // 🆕 L7+ — sağlayıcı/aile eti̇keti̇ eklendi: `--list episode_detail` artık
+      // HEM `tmdb/episode_detail` HEM `trakt/episode_detail` yakalıyor
+      // (`.includes()` filtresi). Etiket olmasa hangi satırın hangisi olduğu
+      // ayırt edilemezdi.
+      const et = `${r.envelope.provider || '?'}/${r.envelope.family || '?'}`;
+      say(
+        `  ${DURUM[st] || st}  ${yas.padStart(7)} önce  ${(r.size / 1024).toFixed(1).padStart(6)} KB  ` +
+        `[${et.padEnd(20)}] ${describe(r.envelope)}`
+      );
     });
 }
 
@@ -388,7 +441,8 @@ async function main() {
 
   ozet(rows);
   say('\n💡 Daha derine:');
-  say('   --list episode_detail   bölüm kayıtlarını tek tek gör');
+  say('   --list episode_detail   bölüm kayıtları (tmdb + trakt, ikisi de)');
+  say('   --list trakt/          TÜM Trakt katalog kayıtları (L7+ — 8 aile)');
   say('   --list show_seasons     Trakt sezon/bölüm listeleri (L7)');
   say('   --find "Breaking Bad"   ada göre ara');
   say('   --check /tv/1396        belirli bir dizi indi mi (kesin cevap)\n');
