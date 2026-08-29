@@ -11,7 +11,26 @@ WorkingDirectory=/home/GNL/KaymakTv
 # BURAYA da yazmak, .env unutulsa bile onbellegin acik kalmasini garanti eder.
 Environment=NODE_ENV=production
 Environment=LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch
-ExecStart=/usr/bin/env node server.js
+# 🔴🔴 MUTLAK YOL ZORUNLU — `/usr/bin/env node` YAZMA.
+#
+# GERCEK OLAY (2026-08-29, Madde 266): burada `/usr/bin/env node` yaziyordu.
+# `env`, node'u SYSTEMD'nin PATH'inden cozer — kullanicinin kabugundaki
+# PATH'ten DEGIL. Kullanici kabukta Node v22.23.2 kullaniyordu ama systemd
+# Debian'in eski /usr/bin/node'unu buluyordu; sonuc:
+#     [Arsiv] Devre disi — node:sqlite yuklenemedi
+#             (No such built-in module: node:sqlite)
+# Sunucu calisiyordu, ARSIV SESSIZCE KAPALIYDI. (Fail-soft tasarim sayesinde
+# cokme olmadi ve sebep log'a dustu — ama fark edilmesi gunler alabilirdi.)
+#
+# Dogru yolu bul ve BURAYA YAZ:
+#     which node        -> or. /home/GNL/.nvm/versions/node/v22.23.2/bin/node
+#
+# ⚠️ nvm kullaniyorsan yol SURUME BAGLIDIR ve nvm guncellemesinde kirilir.
+# Kalici cozum: Node'u sistem geneline kur (NodeSource) ya da kararli bir
+# symlink olustur ve ExecStart'ta ONU kullan:
+#     sudo ln -sfn "$(which node)" /usr/local/bin/kaymak-node
+#     ExecStart=/usr/local/bin/kaymak-node server.js
+ExecStart=/usr/local/bin/kaymak-node server.js
 # 502 firtinasinin sebebi buydu: surec olunce kimse ayaga kaldirmiyordu.
 Restart=always
 RestartSec=3
