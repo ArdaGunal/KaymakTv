@@ -345,6 +345,40 @@ function backupTo(hedefYol) {
   }
 }
 
+/**
+ * 🔴 SALT-OKUNUR bağlantı — teşhis araçları için (`lazyfetch-inspect.js`).
+ *
+ * NEDEN AYRI: `initArchive()` şema DDL'i çalıştırır (`CREATE TABLE IF NOT
+ * EXISTS ...`). Denetçi onu çağırdığında, sunucu arşive yazarken bile
+ * bir YAZMA kilidi istemiş olur. Denetçinin kendi sözleşmesi ise
+ * "hiçbir şey silmez, yazmaz, değiştirmez" (dosya başlığı) — bu çelişkiyi
+ * kapatıyoruz.
+ *
+ * `readOnly: true` SQLite düzeyinde zorlanıyor (denendi: yazma girişimi
+ * `attempt to write a readonly database` ile reddediliyor), yani disiplin
+ * değil YAPISAL bir garanti. WAL sayesinde sunucu yazarken okumak
+ * bloklanmaz.
+ *
+ * Şema YOKSA (arşiv hiç oluşmamışsa) `null` döner — açmayı DENEMEZ,
+ * çünkü salt-okunur açış var olmayan dosyayı yaratmaz, hata verir.
+ *
+ * @returns {{db: object, dbPath: string}|null} Çağıran taraf `close()`
+ *   etmekle yükümlü — bu bağlantı singleton DEĞİLDİR.
+ */
+function openReadOnly() {
+  if (!sqlite) return null;
+  const kok = arsivKokunuCoz();
+  if (!kok) return null;
+  const dbPath = path.join(kok, 'katalog.db');
+  if (!fs.existsSync(dbPath)) return null;
+  try {
+    const db = new sqlite.DatabaseSync(dbPath, { readOnly: true });
+    return { db, dbPath };
+  } catch (_) {
+    return null;
+  }
+}
+
 /** Test ve düzgün kapanış için. */
 function closeArchive() {
   if (durum && durum.enabled) {
@@ -361,6 +395,7 @@ module.exports = {
   transaction,
   transactionAsync,
   backupTo,
+  openReadOnly,
   closeArchive,
   HEDEF_SEMA_SURUMU,
 };

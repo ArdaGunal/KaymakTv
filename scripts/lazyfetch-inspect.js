@@ -305,43 +305,66 @@ function ozet(rows) {
 // denetçi AYNI TURDA güncellenir. Arşiv burada görünmeseydi operatör
 // "arşiv çalışıyor mu?" sorusunu yine ölçemezdi.
 //
+// 🔴🔴 SALT-OKUNUR AÇILIR (`openReadOnly`). İlk taslak `initArchive()`
+// çağırıyordu — o şema DDL'i çalıştırır, yani sunucu arşive yazarken
+// denetçi bir YAZMA kilidi isterdi. Bu, dosyanın kendi başlığındaki
+// "hiçbir şey silmez, yazmaz, değiştirmez" sözleşmesini bozardı.
+// `readOnly` SQLite düzeyinde zorlanıyor: disiplin değil, garanti.
+//
 // ⚠️ Arşiv, cache'in aksine SİLİNMEZ ve yedeklenir. Buradaki sayılar
 // yalnızca BÜYÜR — düşüyorsa bir sorun var demektir.
 function arsivDurumu() {
-  let db, depo, kuyruk;
+  let arsivDb;
   try {
-    db = require(path.join(__dirname, '..', 'server', 'archive', 'db'));
-    depo = require(path.join(__dirname, '..', 'server', 'archive', 'store'));
-    kuyruk = require(path.join(__dirname, '..', 'server', 'archive', 'queue'));
+    arsivDb = require(path.join(__dirname, '..', 'server', 'archive', 'db'));
   } catch (e) {
     return; // arsiv modulleri yoksa sessizce atla
   }
 
-  const d = db.initArchive();
-  say(`
-🗄️  KATALOG ARŞİVİ (A1/A2)`);
-  if (!d.enabled) {
-    say(`   ⚪ Kapalı — ${d.reason}`);
+  say(`\n\u{1F5C4}\uFE0F  KATALOG ARŞİVİ (A1/A2)`);
+
+  const acik = arsivDb.openReadOnly();
+  if (!acik) {
+    say('   ⚪ Henüz oluşmamış veya okunamıyor.');
+    say('      Sunucu açılış log\'unda "[Arsiv] Etkin" satırı var mı? Yoksa sebebi orada yazar.');
     return;
   }
 
-  const oz = depo.summary();
-  say(`   ✅ Açık — ${d.dbPath}`);
-  say(`   ${String(oz.entities).padStart(8)} yapım (dizi/film/sezon/bölüm)`);
-  say(`   ${String(oz.externalIds).padStart(8)} dış kimlik (trakt/tmdb/imdb/tvdb çaprazlaması)`);
-  say(`   ${String(oz.payloads).padStart(8)} ham yanıt · ${fmtSize(oz.bytes)}`);
-  if (oz.conflicts) say(`   ⚠️  ${oz.conflicts} kimlik çakışması — sync_log'a bak (otomatik birleştirilmedi)`);
-  if (oz.errors) say(`   ⚠️  ${oz.errors} yazım hatası — sync_log'a bak`);
+  const { db, dbPath } = acik;
+  try {
+    const tek = (sql) => db.prepare(sql).get();
+    const e = tek('SELECT count(*) c FROM entities').c;
+    const x = tek('SELECT count(*) c FROM external_ids').c;
+    const pl = tek('SELECT count(*) c, COALESCE(SUM(bytes_gz),0) b FROM payloads');
+    const cak = tek("SELECT count(*) c FROM sync_log WHERE event='conflict'").c;
+    const hat = tek("SELECT count(*) c FROM sync_log WHERE event='error'").c;
 
-  const kapsam = depo.coverage();
-  if (kapsam.length) {
-    say('   ┌─ AİLE BAZINDA');
-    for (const r of kapsam) {
-      say(`   │ ${(r.provider + '/' + r.endpoint).padEnd(22)} ${String(r.kayit).padStart(5)} kayıt  ${fmtSize(r.disk_bayt).padStart(9)}  [${r.lang}]`);
+    say(`   ✅ Açık (salt-okunur) — ${dbPath}`);
+    say(`   ${String(e).padStart(8)} yapım (dizi/film/sezon/bölüm)`);
+    say(`   ${String(x).padStart(8)} dış kimlik (trakt/tmdb/imdb/tvdb çaprazlaması)`);
+    say(`   ${String(pl.c).padStart(8)} ham yanıt · ${fmtSize(pl.b)}`);
+    if (cak) say(`   ⚠️  ${cak} kimlik çakışması — otomatik birleştirilmedi, sync_log'a bak`);
+    if (hat) say(`   ⚠️  ${hat} yazım hatası — sync_log'a bak`);
+
+    const tipler = db.prepare('SELECT type, count(*) c FROM entities GROUP BY type ORDER BY c DESC').all();
+    if (tipler.length) {
+      say('   ' + tipler.map((t) => `${t.c} ${t.type}`).join(' · '));
     }
-    say('   └─');
-  } else {
-    say('   ⚪ Henüz hiç kayıt yok — bir dizi ekranı açılınca dolmaya başlar.');
+
+    const kapsam = db.prepare('SELECT * FROM v_kapsam ORDER BY kayit DESC').all();
+    if (kapsam.length) {
+      say('   ┌─ AİLE BAZINDA');
+      for (const r of kapsam) {
+        say(`   │ ${(r.provider + '/' + r.endpoint).padEnd(22)} ${String(r.kayit).padStart(5)} kayıt  ${fmtSize(r.disk_bayt).padStart(9)}  [${r.lang}]`);
+      }
+      say('   └─');
+    } else {
+      say('   ⚪ Henüz hiç yanıt arşivlenmemiş — bir dizi ekranı açılınca dolmaya başlar.');
+    }
+  } catch (error) {
+    say(`   ⚠️  Arşiv okunamadı: ${error.message}`);
+  } finally {
+    try { db.close(); } catch (_) { /* onemli degil */ }
   }
 }
 
