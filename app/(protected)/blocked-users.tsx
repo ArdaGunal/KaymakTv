@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import { Ban } from '../../components/icons';
 
@@ -63,7 +63,7 @@ function BlockedUserRow({ user, isRemoving, onUnblock }: BlockedUserRowProps) {
 // olarak gösterilmiyor, bkz. userBlocks.ts getMyBlockedUsers).
 export default function BlockedUsersScreen() {
   const { accessToken } = useAuth();
-  const router = useRouter();
+  const handleBack = useAppBack();
   const { t } = useTranslation(['feed', 'settings', 'common']);
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -127,7 +127,7 @@ export default function BlockedUsersScreen() {
         <SettingsHeader
           title={t('blockedUsersTitle', 'Engellenen Kullanıcılar')}
           isDesktop={isDesktop}
-          onBack={() => router.back()}
+          onBack={handleBack}
         />
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>

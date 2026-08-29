@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Trash2 } from '../../components/icons';
 import {
@@ -30,10 +31,7 @@ export default function HesapSilScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  };
+  const goBack = useAppBack();
 
   const goToLogin = () => router.push('/(public)/settings');
 

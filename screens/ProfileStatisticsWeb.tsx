@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../hooks/useAppBack';
 import { ChevronLeft, Tv, Film } from '../components/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +14,7 @@ import CompletionProgressBar from '../components/profile/stats/CompletionProgres
 // Masaüstü "Detaylı Analiz" ekranı: sonsuz dikey kaydırma yerine, grafikler
 // yan yana (grid) yerleşir; tek ekranda çoğu içerik görünür.
 export default function ProfileStatisticsScreenWeb() {
-  const router = useRouter();
+  const handleBack = useAppBack();
   const { t } = useTranslation('media');
   const [activeTab, setActiveTab] = useState<StatsTab>('shows');
 
@@ -29,7 +29,7 @@ export default function ProfileStatisticsScreenWeb() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <ChevronLeft size={20} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('detailedAnalysis', 'Detaylı Analiz')}</Text>

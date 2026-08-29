@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../hooks/useAppBack';
 import { ChevronLeft, Tv, Film } from '../components/icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import RatingDistributionChart from '../components/profile/stats/RatingDistribut
 import CompletionProgressBar from '../components/profile/stats/CompletionProgressBar';
 
 export default function ProfileStatisticsScreen() {
-  const router = useRouter();
+  const handleBack = useAppBack();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('media');
   const [activeTab, setActiveTab] = useState<StatsTab>('shows');
@@ -26,7 +26,7 @@ export default function ProfileStatisticsScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={26} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('detailedAnalysis', 'Detaylı Analiz')}</Text>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAppBack } from '../hooks/useAppBack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Rss, WifiOff } from '../components/icons';
@@ -37,6 +38,7 @@ export default function PublicProfileMobile() {
   const { slug: rawSlug } = useLocalSearchParams();
   const slug = (Array.isArray(rawSlug) ? rawSlug[0] : rawSlug) ?? null;
   const router = useRouter();
+  const handleBack = useAppBack();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['feed', 'media', 'common']);
 
@@ -109,7 +111,7 @@ export default function PublicProfileMobile() {
 
       <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.iconBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

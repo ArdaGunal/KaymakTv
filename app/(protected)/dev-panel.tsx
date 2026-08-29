@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, RefreshCw, Activity, Bug } from '../../components/icons';
@@ -24,7 +24,6 @@ const DESKTOP_BREAKPOINT = 768;
 type DevPanelTab = 'performance' | 'errors';
 
 export default function DeveloperPanelScreen() {
-  const router = useRouter();
   const { t, i18n } = useTranslation(['settings', 'common']);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -62,10 +61,7 @@ export default function DeveloperPanelScreen() {
     return () => clearInterval(interval);
   }, [liveMode, silentRefresh]);
 
-  const navigateBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(protected)/(tabs)/explore');
-  };
+  const navigateBack = useAppBack();
 
   const showToast = useCallback((message: string) => setToast({ visible: true, message }), []);
 

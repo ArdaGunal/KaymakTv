@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +14,7 @@ import AddToListModal from './AddToListModal';
 import ProgressBar from './ProgressBar';
 import { useLibrary } from '../context/LibraryContext';
 import { getProgressBarColor } from '../utils/progressBarColor';
+import { useAppBack, useAppHome } from '../hooks/useAppBack';
 import { deriveFollowStatus, resolveFollowAction } from '../utils/followStatus';
 import { styles } from './MediaHero.styles';
 
@@ -65,7 +65,6 @@ export default function MediaHero({
   onDeleteFromHistory,
   onRewatch,
 }: MediaHeroProps) {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
@@ -86,13 +85,11 @@ export default function MediaHero({
     setRatingModalVisible(false);
   };
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  };
+  // Geri/Ana sayfa davranışı tek kaynakta: hooks/useAppBack.ts (geçmiş
+  // yoksa misafir dahil oturumu olan kullanıcı Keşfet'e döner — eskiden
+  // karşılama/vitrin ekranında mahsur kalıyordu).
+  const handleBack = useAppBack();
+  const handleHome = useAppHome();
 
   const handleRemove = () => {
     onRemoveRating();
@@ -165,7 +162,7 @@ export default function MediaHero({
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.homeButton, { top: insets.top + 10, right: insets.right + 64 }]}
-          onPress={() => router.dismissAll()}
+          onPress={handleHome}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Home color="#fff" size={24} />

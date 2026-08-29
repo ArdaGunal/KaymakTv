@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, Bell, Check, X, Inbox } from '../../components/icons';
 
@@ -85,7 +85,6 @@ function NotificationRow({ notification }: { notification: ActivityNotification 
 }
 
 export default function NotificationsScreen() {
-  const router = useRouter();
   const { t } = useTranslation('common');
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -120,10 +119,7 @@ export default function NotificationsScreen() {
     markAllRead();
   }, [accessToken, isGuest, refreshActivity, markAllRead]);
 
-  const navigateBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(protected)/(tabs)/explore');
-  };
+  const navigateBack = useAppBack();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

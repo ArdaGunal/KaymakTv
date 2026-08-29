@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from '../../components/icons';
 import {
@@ -33,15 +33,11 @@ const DESKTOP_BREAKPOINT = 768;
  */
 export default function GizlilikScreen() {
   const { t } = useTranslation(['legal', 'common']);
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const sections = t('legal:sections', { returnObjects: true }) as LegalSection[];
 
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  };
+  const goBack = useAppBack();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

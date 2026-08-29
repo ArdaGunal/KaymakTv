@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useAppBack } from '../../../../hooks/useAppBack';
 import { ChevronLeft } from '../../../../components/icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +15,7 @@ export default function NetworkScreen() {
   const slug = Array.isArray(rawSlug) ? rawSlug[0] : rawSlug ?? null;
   const initialType = (Array.isArray(rawType) ? rawType[0] : rawType) as 'followers' | 'following' || 'followers';
   
-  const router = useRouter();
+  const handleBack = useAppBack();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['feed', 'media']);
 
@@ -38,7 +39,7 @@ export default function NetworkScreen() {
     <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.iconBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Platform, UIManager, Alert, ActivityIndicator } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import { Check, CheckCheck } from '../../components/icons';
 
 
@@ -13,6 +13,7 @@ import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
+import { useAppBack } from '../../hooks/useAppBack';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import CommentSheet from '../../components/CommentSheet';
@@ -27,7 +28,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function MovieDetailScreen() {
-  const router = useRouter();
+  const handleBack = useAppBack();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
     const { t } = useTranslation('media');
   
@@ -181,7 +182,7 @@ export default function MovieDetailScreen() {
     return (
       <LoadFailedState
         onRetry={refreshData}
-        onBack={() => router.back()}
+        onBack={handleBack}
         text={isCircuitBreakerError ? t('loadFailedCircuitBreakerText', 'Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene.') : undefined}
       />
     );

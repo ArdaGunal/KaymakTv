@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, SearchX } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
 import FeedCard from '../../features/feed/components/FeedCard';
 import { useActivityDetail } from '../../features/feed/hooks/useActivityDetail';
+import { useAppBack } from '../../hooks/useAppBack';
 
 // Tek bir aktivitenin kalıcı bağlantısı — "Paylaş" menü satırının hedefi
 // (bkz. features/feed/components/FeedCard.tsx handleShare). `app/episode/
@@ -20,16 +21,18 @@ import { useActivityDetail } from '../../features/feed/hooks/useActivityDetail';
 export default function ActivityDetailScreen() {
   const { id: rawId } = useLocalSearchParams();
   const id = (Array.isArray(rawId) ? rawId[0] : rawId) ?? null;
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('feed');
   const { activity, isLoading } = useActivityDetail(id);
+  // Bu ekran TANIM GEREĞİ paylaşım linkiyle (yani yığının ilk ekranı olarak)
+  // açılıyor — çıplak `router.back()` orada hiçbir şey yapmıyordu.
+  const handleBack = useAppBack();
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.backBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

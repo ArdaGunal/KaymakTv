@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useAppBack } from '../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, Info } from '../components/icons';
 
@@ -43,10 +44,8 @@ export default function EditProfileMobile() {
 
   const { profile, isLoading: isProfileLoading } = useMyTraktProfile();
 
-  const navigateBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(protected)/(tabs)/profile');
-  };
+  // Bu ekranın doğal üstü Profil sekmesi — varsayılan (Keşfet) yerine o veriliyor.
+  const navigateBack = useAppBack('/(protected)/(tabs)/profile');
 
   useEffect(() => {
     if (!isGuest) return;

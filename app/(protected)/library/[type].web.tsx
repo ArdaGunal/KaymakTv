@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAppBack } from '../../../hooks/useAppBack';
 import { ChevronLeft, Inbox, SearchX } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -51,6 +52,7 @@ export default function LibraryScreenWeb() {
   const { isDesktop } = useResponsive();
   const { type, status } = useLocalSearchParams();
   const router = useRouter();
+  const handleBack = useAppBack();
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
 
@@ -114,7 +116,7 @@ export default function LibraryScreenWeb() {
       `}} />
       <View style={styles.webContainer}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <ChevronLeft color="#ffffff" size={28} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>

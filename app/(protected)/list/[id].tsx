@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAppBack } from '../../../hooks/useAppBack';
 import { ChevronLeft, Trash2, List as ListIcon, Plus, X, Lock } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { getCustomListItems } from '../../../services/traktApi';
@@ -28,6 +29,7 @@ export default function ListDetailsScreen() {
   const { id, name } = useLocalSearchParams();
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
+  const handleBack = useAppBack();
   const { deleteListById, toggleMediaInList } = useLibraryActions();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -91,7 +93,7 @@ export default function ListDetailsScreen() {
     setIsDeleting(true);
     try {
       await deleteListById(listId as string);
-      router.back();
+      handleBack();
     } catch (error) {
       console.error('Liste silinemedi:', error);
       Alert.alert(t('common:error'), t('listDeleteError', 'Liste silinemedi.'));
@@ -163,7 +165,7 @@ export default function ListDetailsScreen() {
 
       <View style={[styles.innerContainer, isLargeScreen && styles.webInnerContainer]}>
         <View style={[styles.header, { paddingTop: isLargeScreen ? 20 : (insets.top || 20) }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={handleBack} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <ChevronLeft color="#fff" size={26} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>

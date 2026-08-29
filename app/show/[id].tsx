@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
 
 import LoadFailedState from '../../components/LoadFailedState';
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
@@ -13,6 +13,7 @@ import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/t
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
+import { useAppBack } from '../../hooks/useAppBack';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import Snackbar from '../../components/Snackbar';
@@ -29,7 +30,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function ShowDetailScreen() {
-  const router = useRouter();
+  const handleBack = useAppBack();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
   const { t } = useTranslation('media');
 
@@ -198,7 +199,7 @@ export default function ShowDetailScreen() {
     return (
       <LoadFailedState
         onRetry={refreshData}
-        onBack={() => router.back()}
+        onBack={handleBack}
         text={isCircuitBreakerError ? t('loadFailedCircuitBreakerText', 'Çok fazla deneme yapıldı — birkaç saniye bekleyip tekrar dene.') : undefined}
       />
     );

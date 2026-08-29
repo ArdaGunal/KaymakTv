@@ -26,6 +26,7 @@ import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug } from '../../ut
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { useAppBack } from '../../hooks/useAppBack';
 
 export default function EpisodeDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -78,13 +79,9 @@ export default function EpisodeDetailScreen() {
 
   const [isCheckLoading, setIsCheckLoading] = useState(false);
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  };
+  // bkz. hooks/useAppBack.ts — geçmiş yoksa (deep link / sayfa yenileme)
+  // karşılama ekranı yerine Keşfet'e dönülür.
+  const handleBack = useAppBack();
 
   const handleShowPress = () => {
     if (!showId) return;

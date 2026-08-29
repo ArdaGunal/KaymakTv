@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
 import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { useAuth } from '../../context/AuthContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { confirmAsync } from '../../utils/confirmDialog';
@@ -41,7 +41,7 @@ export default function OptionsModal({
 }: OptionsModalProps) {
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
-  const router = useRouter();
+  const handleBack = useAppBack();
 
   const handleShare = async () => {
     try {
@@ -107,7 +107,7 @@ export default function OptionsModal({
     // bir şey kalmaz, geri dönmek mantıklı. Filmler: tek film söz konusu,
     // sayfada kalıp "İzledim" butonunun eski haline dönmesi görülebilsin.
     if (type === 'show') {
-      router.back();
+      handleBack();
     }
   };
 

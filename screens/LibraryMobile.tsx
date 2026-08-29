@@ -16,6 +16,7 @@ import PosterGridSkeleton from '../components/skeletons/PosterGridSkeleton';
 import { Inbox, SearchX } from '../components/icons';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAppBack } from '../hooks/useAppBack';
 import { ChevronLeft } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
 import { useLibraryActions } from '../context/LibraryContext';
@@ -63,6 +64,7 @@ export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const { type, status } = useLocalSearchParams();
   const router = useRouter();
+  const handleBack = useAppBack();
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
 
@@ -181,7 +183,7 @@ export default function LibraryScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ChevronLeft size={28} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>

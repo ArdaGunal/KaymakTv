@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAppBack } from '../../../hooks/useAppBack';
 import { ChevronLeft, Rss, Check, Clock, UserPlus, Lock, WifiOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +34,7 @@ export default function PublicProfileScreenWeb() {
   const { slug: rawSlug } = useLocalSearchParams();
   const slug = (Array.isArray(rawSlug) ? rawSlug[0] : rawSlug) ?? null;
   const router = useRouter();
+  const handleBack = useAppBack();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['feed', 'media', 'common']);
 
@@ -82,7 +84,7 @@ export default function PublicProfileScreenWeb() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.8}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton} activeOpacity={0.8}>
             <ChevronLeft size={18} color="#cbd5e1" />
             <Text style={styles.backButtonText}>{t('media:goBack', 'Geri Dön')}</Text>
           </TouchableOpacity>

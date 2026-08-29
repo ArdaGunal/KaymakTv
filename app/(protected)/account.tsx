@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
+import { useAppBack } from '../../hooks/useAppBack';
 import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, UserX } from '../../components/icons';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -104,10 +105,7 @@ export default function SettingsScreen() {
 
   const appVersion = Constants.expoConfig?.version ?? '2.0.3';
 
-  const navigateBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(protected)/(tabs)/explore');
-  };
+  const navigateBack = useAppBack();
 
   // ── Trakt girişi ────────────────────────────────────────────────────────
   // Bu ekranda OAuth YOK. Trakt'a kayıtlı yönlendirme adresi tek bir yola

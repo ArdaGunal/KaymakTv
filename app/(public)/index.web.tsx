@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
@@ -15,7 +15,7 @@ const POSTER_TILE_COUNT = 21;
 export default function WebLandingPage() {
   const { t } = useTranslation('common');
   const router = useRouter();
-  const { loginAsGuest } = useAuth();
+  const { accessToken, isGuest, loginAsGuest } = useAuth();
   const { currentLanguage, handleChangeLanguage } = useSettings();
   const [langModalVisible, setLangModalVisible] = useState(false);
 
@@ -25,6 +25,18 @@ export default function WebLandingPage() {
   const posterTiles = posters.length > 0
     ? Array.from({ length: POSTER_TILE_COUNT }, (_, i) => posters[i % posters.length])
     : [];
+
+  // Mobil karşılama ekranıyla (app/(public)/index.tsx) AYNI kural — bu ikili
+  // ARCHITECTURE §E gereği yalnızca GÖRSEL olarak farklılaşmalı, iş mantığı
+  // olarak değil; burada eksikti. Oturumu olan (Trakt'a bağlı ya da misafir)
+  // bir kullanıcı bu sayfada MAHSUR KALIYORDU: geri tuşundan buraya düşen
+  // misafirin uygulamaya dönmek için tekrar "Misafir Olarak Devam Et"
+  // demesi gerekiyordu. Sonsuz döngü riski yok — (protected)/_layout.tsx'in
+  // ters yöndeki yönlendirmesi tam olarak BUNUN DEĞİLİ koşulla çalışıyor
+  // (oturum YOKSA '/'), iki koşul ayrık.
+  if (accessToken || isGuest) {
+    return <Redirect href="/(protected)/(tabs)/explore" />;
+  }
 
   const handleLogin = () => {
     router.push('/(public)/settings');
