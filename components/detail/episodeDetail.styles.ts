@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
   progressText: { color: '#a3a3a3', fontSize: 12, fontWeight: '600', marginLeft: 8 },
   contentArea: { padding: 16 },
   // Masaustu sol sutununda bloklar arasi dikey ritim + okunabilirlik siniri.
-  webBlock: { marginTop: 40 },
+  webBlock: { marginTop: 28 },
   // bkz. app/show/[id].tsx'teki ayni notun gerekcesi.
   webFlush: { marginHorizontal: -16 },
   webOverview: { color: '#cbd5e1', fontSize: 15, lineHeight: 26, maxWidth: 760 },

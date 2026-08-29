@@ -291,7 +291,7 @@ export default function ShowDetailScreen() {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
           <DetailWebLayout
             metrics={layout}
             backdrop={backdrop}
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
   // Masaustu sol sutununda bloklar arasi dikey ritim.
-  webBlock: { marginTop: 40 },
+  webBlock: { marginTop: 28 },
   // MediaCast/HorizontalMediaList kendi 16px yatay dolgusunu tasiyor —
   // masaustunde ozete gore icerlek kaliyordu, negatif margin hizaliyor.
   webFlush: { marginHorizontal: -16 },

@@ -79,25 +79,31 @@ export default function EpisodeHeroWeb({
         </TouchableOpacity>
       </View>
 
-      {/* Bölüm karesi — 16:9, kırpılmadan. */}
-      <View style={local.still}>
-        {stillUrl ? (
-          <Image source={{ uri: stillUrl }} style={local.stillImage} contentFit="cover" transition={300} />
-        ) : (
-          <View style={local.stillPlaceholder} />
-        )}
-      </View>
+      {/* 🔴 Dizi ana sayfasiyla AYNI desen (kullanici istegi): gorsel SOL
+          USTTE, bilgiler ve butonlar SAGINDA. Onceki surumde bolum karesi
+          sol sutunun TAMAMINI kaplayan 784x441'lik bir bloktu ve ustundeki
+          kapak banner'iyla birlikte ilk ekrani tamamen yiyordu
+          ("sırıtıyor, içeriği kaplıyor"). */}
+      <View style={s.headRow}>
+        <View style={local.still}>
+          {stillUrl ? (
+            <Image source={{ uri: stillUrl }} style={local.stillImage} contentFit="cover" transition={300} />
+          ) : (
+            <View style={local.stillPlaceholder} />
+          )}
+        </View>
 
-      {/* Dizi adı: sade, tıklanabilir breadcrumb. */}
-      <TouchableOpacity onPress={onShowPress} activeOpacity={0.6} style={local.breadcrumb}>
-        <Text style={local.breadcrumbText} numberOfLines={1}>{showName}</Text>
-        <ChevronRight size={12} color="rgba(148,163,184,0.8)" strokeWidth={2.5} />
-      </TouchableOpacity>
+        <View style={s.headText}>
+          {/* Dizi adı: sade, tıklanabilir breadcrumb. */}
+          <TouchableOpacity onPress={onShowPress} activeOpacity={0.6} style={local.breadcrumb}>
+            <Text style={local.breadcrumbText} numberOfLines={1}>{showName}</Text>
+            <ChevronRight size={12} color="rgba(148,163,184,0.8)" strokeWidth={2.5} />
+          </TouchableOpacity>
 
-      <Text style={local.title}>{title}</Text>
-      <Text style={local.identifier}>
-        {t('seasonEpisodeIdentifier', { season, episode })} • {firstAired}
-      </Text>
+          <Text style={local.title}>{title}</Text>
+          <Text style={local.identifier}>
+            {t('seasonEpisodeIdentifier', { season, episode })} • {firstAired}
+          </Text>
 
       <View style={[s.actionRow, local.actions]}>
         <View style={[s.pill, s.pillStatic, s.pillRating]}>
@@ -146,27 +152,32 @@ export default function EpisodeHeroWeb({
         )}
       </View>
 
-      {hasShowProgress && (
-        <View style={s.progressRow}>
-          <View style={s.progressBarWrapper}>
-            <ProgressBar percentage={showProgressPercentage} fillColor={showProgressColor} height={6} />
-          </View>
-          <Text style={s.progressText}>%{Math.round(showProgressPercentage)}</Text>
+          {hasShowProgress && (
+            <View style={s.progressRow}>
+              <View style={s.progressBarWrapper}>
+                <ProgressBar percentage={showProgressPercentage} fillColor={showProgressColor} height={6} />
+              </View>
+              <Text style={s.progressText}>%{Math.round(showProgressPercentage)}</Text>
+            </View>
+          )}
         </View>
-      )}
+      </View>
     </View>
   );
 }
 
 const local = StyleSheet.create({
+  // Bolum karesi 16:9 kaliyor (dogru orani bu) ama artik sol sutunun
+  // tamamini degil, dizi sayfasindaki afisin isgal ettigi alani kapliyor.
   still: {
-    width: '100%',
+    width: 320,
+    flexShrink: 0,
     aspectRatio: 16 / 9,
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#172033',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   stillImage: { width: '100%', height: '100%' },
   stillPlaceholder: { width: '100%', height: '100%', backgroundColor: '#172033' },
@@ -175,8 +186,7 @@ const local = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 4,
-    marginTop: 26,
-    marginBottom: 8,
+    marginBottom: 6,
     cursor: 'pointer',
   } as any,
   breadcrumbText: {
@@ -188,17 +198,17 @@ const local = StyleSheet.create({
   },
   title: {
     color: '#f8fafc',
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: '800',
     letterSpacing: -0.6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   identifier: {
     color: '#94a3b8',
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   actions: { marginBottom: 4 },
   votes: {

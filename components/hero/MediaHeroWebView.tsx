@@ -166,10 +166,11 @@ export default function MediaHeroWebView({
               <Text style={s.progressText}>%{Math.round(progressPercentage)}</Text>
             </View>
           )}
+
+          {/* Ozet afisin ALTINDA degil YANINDA — bkz. stil dosyasindaki not. */}
+          {!!data?.overview && <Text style={s.overview}>{data.overview}</Text>}
         </View>
       </View>
-
-      {!!data?.overview && <Text style={s.overview}>{data.overview}</Text>}
 
       {!!trailerId && trailerId !== 'null' && (
         <View style={s.trailerSection}>

@@ -297,7 +297,7 @@ export default function MovieDetailScreen() {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
           <DetailWebLayout
             metrics={layout}
             backdrop={backdrop}
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   // Masaustu sol sutununda bloklar arasi dikey ritim.
-  webBlock: { marginTop: 40 },
+  webBlock: { marginTop: 28 },
   // MediaCast/HorizontalMediaList kendi 16px yatay dolgusunu tasiyor.
   webFlush: { marginHorizontal: -16 },
   // "Izledim" butonu mobilde tam genislikte; masaustunde ekran boyu bir

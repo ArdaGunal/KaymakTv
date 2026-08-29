@@ -46,13 +46,15 @@ export function useDetailLayout(): DetailLayoutMetrics {
   // Yatay nefes payı: 1200'e ulaşmayan ekranlarda kenarlara yapışmasın.
   const contentWidth = Math.min(width - 48, MAX_CONTENT_WIDTH);
   const railWidth = clamp(Math.round(contentWidth * 0.32), 300, 384);
-  // Banner ekranla birlikte büyür ama sınırlıdır — 4K'da yarım ekran
-  // kaplayan bir kapak görseli istemiyoruz.
-  const bannerHeight = clamp(Math.round(width * 0.26), 300, 440);
-  // İçerik banner'ın alt yarısından başlar: afiş görselin üstüne BİNER
+  // Banner ekranla birlikte büyür ama sınırlıdır. 🔴 Oran 0.26'dan 0.20'ye,
+  // tavan 440'tan 340'a ÇEKİLDİ (kullanıcı geri bildirimi): kapak görseli
+  // "sırıtıyor, içeriği kaplıyor"du — özellikle bölüm sayfasında, altındaki
+  // bölüm karesiyle birlikte ilk ekranın tamamını yiyordu.
+  const bannerHeight = clamp(Math.round(width * 0.20), 240, 340);
+  // İçerik banner'ın alt kısmından başlar: afiş görselin üstüne BİNER
   // (kırpılmaz — bindirme ile kırpılma farklı şeyler) ve klasik detay
   // sayfası derinliği oluşur.
-  const contentOffset = Math.round(bannerHeight * 0.46);
+  const contentOffset = Math.round(bannerHeight * 0.44);
 
   return { isDesktopWeb, contentWidth, railWidth, bannerHeight, contentOffset };
 }

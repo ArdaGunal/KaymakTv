@@ -205,7 +205,7 @@ export default function EpisodeDetailScreen() {
 
     return (
       <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 72 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
           <DetailWebLayout
             metrics={layout}
             backdrop={showBackdrop}
