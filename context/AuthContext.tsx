@@ -76,7 +76,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return onSessionExpired(() => {
       console.warn('[Auth] Oturum süresi doldu, kullanıcı çıkışa alınıyor.');
       setAccessToken(null);
-      setIsGuest(false);
+      // `setIsGuest(false)` BİLİNÇLİ OLARAK KALDIRILDI (2026-08-30): "oturum
+      // sona erdi" TANIM GEREĞİ giriş yapmış bir kullanıcıyla ilgilidir;
+      // misafirin sona erecek bir oturumu YOKTUR. Gerçek bir kullanıcı için
+      // bu satır zaten no-op'tu (`saveTokens` isGuest'i çoktan false yapar),
+      // ama misafir için YIKICIYDI: `traktGuestMode` diskte 'true' kalırken
+      // bellekteki `isGuest` false'a düşüyor, `(protected)/_layout.tsx`
+      // kullanıcıyı karşılama ekranına atıyor ve iki kaynak uygulama yeniden
+      // açılana kadar tutarsız kalıyordu. Kök neden traktClient.ts'te
+      // kapatıldı; bu satır üçüncü kalkan.
     });
   }, []);
 

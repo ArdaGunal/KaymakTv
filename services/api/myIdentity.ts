@@ -54,6 +54,18 @@ export async function getMyTraktSlug(): Promise<string | null> {
   const token = await SecureStore.getItemAsync('traktAccessToken');
   if (isKaymakSessionToken(token)) return null;
 
+  // 🔴 MİSAFİR: hiç token yok, dolayısıyla bir Trakt kimliği de YOK. İstek
+  // `Authorization` başlığı olmadan gider ve `/users/me` KESİNLİKLE 401
+  // döner — yani ağa çıkmanın hiçbir faydası yok, tek etkisi boşa giden bir
+  // round-trip (dizi/film detay sayfası başına 2-3 tane; canlı ölçüldü).
+  // `null` zaten DOĞRU cevap, artık ağa çıkmadan veriliyor — Google-only
+  // dalıyla (yukarıda) BİREBİR aynı gerekçe.
+  //
+  // Bu tek başına yeterli DEĞİL, ikinci bir kalkan olarak duruyor: 401'i
+  // "oturum sona erdi" sanan asıl kusur `traktClient.ts`'in 401 dalında
+  // kapatıldı (bkz. oradaki "KİMLİKSİZ İSTEK" notu).
+  if (!token) return null;
+
   inFlight = (async () => {
     try {
       const profile = await getUserProfile('me');

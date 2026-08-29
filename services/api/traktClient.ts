@@ -357,6 +357,33 @@ export const getTraktClient = async () => {
           isRefreshing = false;
           processQueue(error, null);
 
+          // 🔴 KİMLİKSİZ İSTEK (misafir) — bu hata sınıfının DÖRDÜNCÜ hâli,
+          // 2026-08-30'da native'de yakalandı. Ortada hiç `accessToken` yoksa
+          // istek zaten `Authorization` başlığı OLMADAN gitmiştir; Trakt'ın
+          // kişisel bir uca (`/users/me` gibi) döndürdüğü 401 "OTURUM SONA
+          // ERDİ" DEĞİL, "bu uç kimlik ister" demektir. Oysa aşağıdaki kod
+          // misafiri gerçekten çıkışa alıyordu: `notifySessionExpired()` →
+          // `AuthContext` `isGuest`'i false yapıyor → `(protected)/_layout.tsx`
+          // `<Redirect href="/" />` → kullanıcı dizi incelerken KARŞILAMA
+          // (vitrin) EKRANINA fırlıyordu.
+          //
+          // ⚠️ NEDEN BURADA, çağrı yerinde DEĞİL: aynı hata daha önce ÜÇ kez
+          // tek tek çağrı yerlerinde yamandı (`useMyTraktProfile.ts` başlığı
+          // bu tarihçeyi anlatıyor: misafir koruması + `useFeedPrivacy` +
+          // Y23/Google-only). Her yeni "ben kimim" çağrısı hatayı geri
+          // getiriyor — nitekim `getMySupabaseUserId → getMyTraktSlug`
+          // zinciri dizi/film detay sayfasında tam olarak bunu yaptı.
+          // Koruma artık TEK ve DOĞRU yerde: 401'i yorumlayan katmanda.
+          //
+          // Web'de bu hata GÖRÜNMÜYORDU: tarayıcı `api.trakt.tv/users/me`
+          // preflight'ını CORS'a takıyor, `error.response` hiç oluşmuyor ve
+          // bu blok çalışmıyor. Native'de CORS yok — 401 gerçekten geliyor.
+          const currentAccessToken = await SecureStore.getItemAsync('traktAccessToken');
+          if (!currentAccessToken) {
+            console.log('[traktClient] Kimliksiz (misafir) istek 401 aldı — oturum kapatılmadı.');
+            return Promise.reject(error);
+          }
+
           // Y23: Google-only kullanıcı için (hiç Trakt hesabı yok) refresh
           // token'ın hiç olmaması BEKLENEN bir durumdur — oturumun sona
           // erdiği anlamına gelmez. Yalnızca bu TEK istek/özellik başarısız
