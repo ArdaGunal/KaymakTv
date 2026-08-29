@@ -210,36 +210,36 @@ const depo = require(path.join(AR, 'store'));
   // ======================================================================
   T.H('Payload - gercegin kaynagi');
   // ======================================================================
-  const yaz = depo.upsertPayload({
+  const yaz = await depo.upsertPayload({
     kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr', data: traktYanit,
   });
   T.ok('Payload yazildi (gzip)', yaz.ok === true, yaz.bytesRaw + ' -> ' + yaz.bytesGz + ' bayt');
 
-  const oku = depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr' });
+  const oku = await depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr' });
   T.ok('🔴 Payload BIREBIR geri okundu (hicbir alan kaybolmadi)',
     oku.ok && oku.data.ids.tvdb === 81189 && oku.data.status === 'ended' && oku.data.title === 'Breaking Bad');
 
-  depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr', data: { ...traktYanit, status: 'returning' } });
+  await depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr', data: { ...traktYanit, status: 'returning' } });
   T.ok('Upsert: latest-wins, yeni satir ACMIYOR',
     h.prepare("SELECT count(*) c FROM payloads WHERE kaymak_id=? AND endpoint='show_detail'").get(ilk.kaymak_id).c === 1);
   T.ok('Upsert guncel veriyi donduruyor',
-    depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr' }).data.status === 'returning');
+    (await depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'tr' })).data.status === 'returning');
 
-  depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'en', data: traktYanit });
+  await depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_detail', lang: 'en', data: traktYanit });
   T.ok('🔴 DIL ayri satir - tr ve en karismiyor',
     h.prepare("SELECT count(*) c FROM payloads WHERE kaymak_id=? AND endpoint='show_detail'").get(ilk.kaymak_id).c === 2);
 
-  depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_people', data: { cast: [] } });
-  depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_people', data: { cast: [] } });
+  await depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_people', data: { cast: [] } });
+  await depo.upsertPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_people', data: { cast: [] } });
   T.ok("Dilsiz uc '-' sentineli ile TEKILLESIYOR (SQLite NULL tuzagi)",
     h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='show_people'").get().c === 1);
 
   T.ok('Bulunmayan payload not_found donuyor',
-    depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'tmdb', endpoint: 'tv_detail' }).reason === 'not_found');
+    (await depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'tmdb', endpoint: 'tv_detail' })).reason === 'not_found');
 
   // Bozuk payload: SILINMEZ, karantinaya da tasinmaz - arsiv veri atmaz
   h.prepare("UPDATE payloads SET body = ? WHERE endpoint = 'show_people'").run(Buffer.from('BOZUK'));
-  const bozuk = depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_people' });
+  const bozuk = await depo.readPayload({ kaymakId: ilk.kaymak_id, provider: 'trakt', endpoint: 'show_people' });
   T.ok('Bozuk payload: cokmuyor, corrupt donuyor', bozuk.ok === false && bozuk.reason === 'corrupt');
   T.ok('🔴 Bozuk satir YERINDE BIRAKILDI (arsiv silmez)',
     h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='show_people'").get().c === 1);

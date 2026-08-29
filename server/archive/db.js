@@ -259,6 +259,71 @@ function transaction(is) {
   }
 }
 
+// Dış (en üst seviye) asenkron işlemleri SIRAYA sokar — aşağıdaki nota bak.
+let yazimZinciri = Promise.resolve();
+
+/**
+ * `transaction()`'ın ASENKRON ikizi: iş fonksiyonu `await` edebilir.
+ *
+ * 🔴🔴 NEDEN VAR — ÖLÇÜLDÜ (2026-08-29):
+ * `node:sqlite`'ın API'si `DatabaseSync`, yani SENKRON. Bir dizinin tüm
+ * hiyerarşisini yazmak Node'un TEK iş parçacığını bloklar. Ölçüm:
+ * `general-hospital` (10.833 bölüm) yazımı olay döngüsünü geliştirme
+ * makinesinde **691 ms**, Pi'de **~5,5 sn** bloklıyor — bu süre boyunca
+ * sunucu HİÇBİR HTTP isteğine cevap veremiyor. Arşivi bir "kuyruğa almak"
+ * bunu ÇÖZMEZ, çünkü kuyruk da aynı iş parçacığında koşar.
+ *
+ * Çözüm: transaction AÇIK kalır (bütünlük ve hız korunur), ama yazıcı
+ * düzenli aralıklarla olay döngüsüne dönüş yapar (`writer.js` `nefesAl`).
+ * SQLite işlemi bağlantı ömrüne bağlıdır, tick'e değil — araya girip
+ * dönmek işlemi bozmaz. WAL sayesinde OKUYUCULAR zaten bloklanmaz.
+ *
+ * 🔴 DIŞ ÇAĞRILAR SIRAYA SOKULUR. İki arşiv yazımı iç içe geçerse aynı
+ * bağlantı üzerinde iki `BEGIN` denenir ve veri bozulur. Kuyruğun
+ * eşzamanlılığını 1'de tutmak YETMEZ — bu garanti burada, yapısal olarak
+ * veriliyor.
+ *
+ * ⚠️ DEVREDEN ÇIKAN TEK VARSAYIM: bir asenkron yazım "nefes alırken"
+ * BAŞKA bir kod `resolveOrCreate` çağırırsa, o çağrı açık işleme KATILIR
+ * (derinlik sayacı > 0). Bugün arşive yazan tek yer bu kuyruk olduğu için
+ * bu durum oluşmuyor. İleride ikinci bir yazar eklenirse (ör. A3
+ * backfill), o da MUTLAKA aynı kuyruktan geçmelidir.
+ */
+async function transactionAsync(is) {
+  const db = getDb();
+  if (!db) return null;
+
+  // İç çağrı: dış işleme katıl.
+  if (islemDerinligi > 0) {
+    islemDerinligi += 1;
+    try {
+      return await is(db);
+    } finally {
+      islemDerinligi -= 1;
+    }
+  }
+
+  // Dış çağrı: önceki yazım bitene kadar bekle (sıraya gir).
+  const oncekiler = yazimZinciri;
+  let serbestBirak;
+  yazimZinciri = new Promise((r) => { serbestBirak = r; });
+  await oncekiler.catch(() => { /* onceki yazimin hatasi bizi ilgilendirmez */ });
+
+  islemDerinligi = 1;
+  db.exec('BEGIN');
+  try {
+    const sonuc = await is(db);
+    db.exec('COMMIT');
+    return sonuc;
+  } catch (error) {
+    try { db.exec('ROLLBACK'); } catch (_) { /* zaten kapanmış olabilir */ }
+    throw error;
+  } finally {
+    islemDerinligi = 0;
+    serbestBirak();
+  }
+}
+
 /**
  * Çalışan veritabanından TUTARLI bir yedek alır.
  *
@@ -294,6 +359,7 @@ module.exports = {
   getArchiveStatus,
   getDb,
   transaction,
+  transactionAsync,
   backupTo,
   closeArchive,
   HEDEF_SEMA_SURUMU,

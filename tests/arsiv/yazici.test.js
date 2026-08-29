@@ -53,7 +53,7 @@ const SEZONLAR = [
   // ======================================================================
   T.H('Hiyerarsi aciliyor, payload TEK PARCA kaliyor');
   // ======================================================================
-  const r = yazici.archiveShowSeasons({ showId: '1388', seasons: SEZONLAR, lang: 'tr' });
+  const r = await yazici.archiveShowSeasons({ showId: '1388', seasons: SEZONLAR, lang: 'tr' });
   T.ok('Yazim basarili', r.ok === true, `${r.seasons} sezon / ${r.episodes} bolum`);
   T.ok('2 sezon + 3 bolum entity acildi', r.seasons === 2 && r.episodes === 3);
   T.ok('Toplam 6 entity (1 dizi + 2 sezon + 3 bolum)', h.prepare('SELECT count(*) c FROM entities').get().c === 6);
@@ -63,7 +63,7 @@ const SEZONLAR = [
   T.ok('Payload diziye bagli, endpoint show_seasons',
     h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='show_seasons' AND kaymak_id=?").get(r.showKaymakId).c === 1);
 
-  const geri = depo.readPayload({ kaymakId: r.showKaymakId, provider: 'trakt', endpoint: 'show_seasons', lang: 'tr' });
+  const geri = await depo.readPayload({ kaymakId: r.showKaymakId, provider: 'trakt', endpoint: 'show_seasons', lang: 'tr' });
   T.ok('Payload birebir geri okunuyor', geri.ok && geri.data.length === 2 && geri.data[0].episodes.length === 2);
 
   // ======================================================================
@@ -85,7 +85,7 @@ const SEZONLAR = [
   // ======================================================================
   T.H('Idempotanlik — A2 her yenilemede yeniden yazacak');
   // ======================================================================
-  const r2 = yazici.archiveShowSeasons({ showId: '1388', seasons: SEZONLAR, lang: 'tr' });
+  const r2 = await yazici.archiveShowSeasons({ showId: '1388', seasons: SEZONLAR, lang: 'tr' });
   T.ok('Ikinci yazim basarili', r2.ok === true);
   T.ok('🔴 CIFT KAYIT URETMIYOR (hala 6 entity)', h.prepare('SELECT count(*) c FROM entities').get().c === 6);
   T.ok('Payload hala tek satir', h.prepare('SELECT count(*) c FROM payloads').get().c === 1);
@@ -96,8 +96,8 @@ const SEZONLAR = [
   // ======================================================================
   // 📏 Gercek vaka: Trakt tanimadigi slug icin HTTP 200 + [] donduruyor.
   // Bunu arsivlemek "bu dizinin sezonu yok" yalanini KALICI yapardi.
-  T.ok('Bos dizi ([]) reddediliyor', yazici.archiveShowSeasons({ showId: 'yok', seasons: [] }).reason === 'bos_yanit');
-  T.ok('null reddediliyor', yazici.archiveShowSeasons({ showId: 'yok', seasons: null }).reason === 'bos_yanit');
+  T.ok('Bos dizi ([]) reddediliyor', (await yazici.archiveShowSeasons({ showId: 'yok', seasons: [] })).reason === 'bos_yanit');
+  T.ok('null reddediliyor', (await yazici.archiveShowSeasons({ showId: 'yok', seasons: null })).reason === 'bos_yanit');
   T.ok('Bos yanit hicbir entity yaratmadi', h.prepare('SELECT count(*) c FROM entities').get().c === 6);
   T.ok('iseYararMi: bos nesne de reddediliyor', yazici.iseYararMi({}) === false && yazici.iseYararMi({ a: 1 }) === true);
 
@@ -109,8 +109,8 @@ const SEZONLAR = [
   // transaction within a transaction" hatasi verirdi.
   let icIce = true;
   try {
-    db.transaction(() => {
-      yazici.archiveShowSeasons({ showId: '999', seasons: SEZONLAR, lang: 'en' });
+    await db.transactionAsync(async () => {
+      await yazici.archiveShowSeasons({ showId: '999', seasons: SEZONLAR, lang: 'en' });
     });
   } catch (e) { icIce = false; }
   T.ok('🔴 DIS transaction icinden yazim CALISIYOR', icIce);
@@ -123,8 +123,8 @@ const SEZONLAR = [
   const oncekiPayload = h.prepare('SELECT count(*) c FROM payloads').get().c;
   let geriAlindi = false;
   try {
-    db.transaction(() => {
-      yazici.archiveShowSeasons({ showId: '5555', seasons: SEZONLAR, lang: 'tr' });
+    await db.transactionAsync(async () => {
+      await yazici.archiveShowSeasons({ showId: '5555', seasons: SEZONLAR, lang: 'tr' });
       throw new Error('yazimin ORTASINDA patla');
     });
   } catch (e) { geriAlindi = true; }
@@ -134,7 +134,7 @@ const SEZONLAR = [
   T.ok('Yarim dizi kimligi de geri alindi', kimlik.findByExternal('trakt:show', '5555') === null);
 
   // Rollback sonrasi arsiv KULLANILABILIR kalmali (kilit sizmasi olmamali)
-  const sonra = yazici.archiveShowSeasons({ showId: '7777', seasons: SEZONLAR, lang: 'tr' });
+  const sonra = await yazici.archiveShowSeasons({ showId: '7777', seasons: SEZONLAR, lang: 'tr' });
   T.ok('Rollback sonrasi arsiv hala yazilabilir', sonra.ok === true);
 
   // ======================================================================
@@ -146,20 +146,20 @@ const SEZONLAR = [
   T.ok('yoldanKimlik: sayisal -> trakt:show', yazici.yoldanKimlik('show', '1388')[0].source === 'trakt:show');
   T.ok('yoldanKimlik: slug -> trakt:slug', yazici.yoldanKimlik('show', 'breaking-bad')[0].source === 'trakt:slug');
 
-  const d1 = yazici.archiveCatalogResponse({
+  const d1 = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'show_seasons', path: '/shows/1388/seasons',
     query: { extended: 'full,episodes', translations: 'tr' }, data: SEZONLAR,
   });
   T.ok('Dispatcher show_seasons i dogru yonlendiriyor', d1.ok === true);
   T.ok('Kapsam disi aile reddediliyor',
-    yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_people', path: '/shows/1388/people', data: { cast: [] } }).reason === 'kapsam_disi_aile');
+    (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_people', path: '/shows/1388/people', data: { cast: [] } })).reason === 'kapsam_disi_aile');
   T.ok('TMDB saglayicisi bu turda kapsam disi',
-    yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/1396', data: { id: 1 } }).reason === 'desteklenmeyen_saglayici');
+    (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/1396', data: { id: 1 } })).reason === 'desteklenmeyen_saglayici');
   T.ok('Cozulemeyen yol reddediliyor',
-    yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/bozuk/yol', data: SEZONLAR }).reason === 'yol_cozulemedi');
+    (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/bozuk/yol', data: SEZONLAR })).reason === 'yol_cozulemedi');
 
   // Kendi `ids` blogunu tasiyan duz yanit
-  const d2 = yazici.archiveCatalogResponse({
+  const d2 = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'show_detail', path: '/shows/1388',
     query: { translations: 'tr' },
     data: { title: 'Breaking Bad', year: 2008, status: 'ended', ids: { trakt: 1388, slug: 'breaking-bad', tmdb: 1396 } },

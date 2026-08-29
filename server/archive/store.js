@@ -21,7 +21,20 @@
 // 294,5 KB. Sıkıştırmasız saklamak arşivi birkaç kat büyütürdü.
 
 const zlib = require('zlib');
+const { promisify } = require('util');
 const { getDb } = require('./db');
+
+// 🔴 ASENKRON SIKIŞTIRMA — ÖLÇÜMDEN DOĞDU (2026-08-29).
+// `zlib.gzipSync` olay döngüsünü BLOKLAR. Ölçüm (`general-hospital`
+// payload'ı, 6,2 MB): `JSON.stringify` 16 ms + `gzipSync` **41 ms** =
+// 57 ms kesintisiz blok — Pi'de (≈8× yavaş) ~450 ms. Yazıcının `nefesAl`
+// düzeltmesinden SONRA kalan en büyük tek blok buydu.
+//
+// `zlib.gzip`/`gunzip` (asenkron) işi Node'un iş parçacığı havuzunda yapar;
+// olay döngüsü boşta kalır ve sunucu isteklere cevap vermeye devam eder.
+// Aynısı okuma tarafı için de geçerli: A4'ün sıcak yolu `readPayload`.
+const gzipAsync = promisify(zlib.gzip);
+const gunzipAsync = promisify(zlib.gunzip);
 
 /**
  * Dil sentinel'i. `lang` PRIMARY KEY'in parçası ve NULL OLAMAZ.
@@ -47,13 +60,13 @@ const DILSIZ = '-';
  *
  * @returns {{ok: boolean, bytesRaw?: number, bytesGz?: number, reason?: string}}
  */
-function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data, fetchedAt = Date.now() }) {
+async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data, fetchedAt = Date.now() }) {
   const db = getDb();
   if (!db) return { ok: false, reason: 'arsiv kapali' };
 
   try {
     const ham = Buffer.from(JSON.stringify(data));
-    const gz = zlib.gzipSync(ham);
+    const gz = await gzipAsync(ham);
     const simdi = Date.now();
 
     db.prepare(
@@ -84,7 +97,7 @@ function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data, fetc
  *
  * @returns {{ok: boolean, data?: any, fetchedAt?: number, updatedAt?: number, reason?: string}}
  */
-function readPayload({ kaymakId, provider, endpoint, lang = DILSIZ }) {
+async function readPayload({ kaymakId, provider, endpoint, lang = DILSIZ }) {
   const db = getDb();
   if (!db) return { ok: false, reason: 'arsiv kapali' };
 
@@ -98,7 +111,7 @@ function readPayload({ kaymakId, provider, endpoint, lang = DILSIZ }) {
   if (!satir) return { ok: false, reason: 'not_found' };
 
   try {
-    const json = zlib.gunzipSync(Buffer.from(satir.body));
+    const json = await gunzipAsync(Buffer.from(satir.body));
     return {
       ok: true,
       data: JSON.parse(json),

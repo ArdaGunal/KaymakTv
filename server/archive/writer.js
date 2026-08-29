@@ -41,9 +41,47 @@
 // `db.js` `transaction()` iç içe çağrıya dayanıklı: `resolveOrCreate` kendi
 // içinde de çağırıyor, hepsi TEK dış işleme katılıyor.
 
-const { transaction } = require('./db');
+const { transactionAsync } = require('./db');
 const { resolveOrCreate, traktIdsToExternal } = require('./identity');
 const { upsertPayload, logSync, DILSIZ } = require('./store');
+
+// ==========================================================================
+// 🔴🔴 OLAY DÖNGÜSÜ NEFESİ — ÖLÇÜMDEN DOĞDU
+// ==========================================================================
+// `node:sqlite` SENKRON (`DatabaseSync`). Bir dizinin tüm hiyerarşisini
+// kesintisiz yazmak Node'un TEK iş parçacığını bloklar. ÖLÇÜLDÜ (2026-08-29,
+// `general-hospital`, 10.833 bölüm):
+//   • geliştirme makinesi: olay döngüsü **691 ms** bloke
+//   • Pi (≈8× yavaş):       **~5,5 sn** bloke
+// Bu süre boyunca sunucu HİÇBİR HTTP isteğine cevap veremiyordu.
+//
+// 🪤 "Kuyruğa alırız" ÇÖZÜM DEĞİL — kuyruk da aynı iş parçacığında koşar.
+// Bu, ölçmeden kolayca kaçırılacak bir hataydı: kod doğru, testler yeşil,
+// ama üretimde sunucu saniyelerce ölü kalırdı.
+//
+// Çözüm: transaction AÇIK kalır (bütünlük + hız korunur), yazıcı her
+// `IS_DILIMI_MS`'de bir olay döngüsüne dönüş yapar. SQLite işlemi bağlantı
+// ömrüne bağlıdır, tick'e değil — araya girip dönmek işlemi bozmaz. WAL
+// sayesinde okuyucular zaten bloklanmıyordu.
+//
+// 🔴 SAYI DEĞİL SÜRE BÜTÇESİ: "her 100 bölümde bir nefes al" deseydik, Pi
+// ile geliştirme makinesi arasındaki 8× fark yüzünden birinde çok sık,
+// diğerinde çok seyrek nefes alırdık. Süre bütçesi her donanımda aynı
+// gecikme tavanını verir.
+const IS_DILIMI_MS = 25;
+
+/**
+ * İş dilimi dolduysa olay döngüsüne dön. Yeni dilim başlangıcını döner.
+ *
+ * `setImmediate` seçildi (`setTimeout(0)` değil): bekleyen G/Ç geri
+ * çağrılarından SONRA, ama bir sonraki timer turundan ÖNCE çalışır —
+ * yani HTTP isteklerine sıra gelir ama gereksiz gecikme eklenmez.
+ */
+async function nefesAl(dilimBasi) {
+  if (performance.now() - dilimBasi < IS_DILIMI_MS) return dilimBasi;
+  await new Promise((r) => setImmediate(r));
+  return performance.now();
+}
 
 /**
  * Trakt yolundan dizinin/filmin dış kimliğini çıkarır.
@@ -97,18 +135,18 @@ function iseYararMi(data) {
  * @returns {{ok: boolean, reason?: string, showKaymakId?: string,
  *            seasons?: number, episodes?: number, skipped?: number}}
  */
-function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = Date.now() }) {
+async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = Date.now() }) {
   if (!iseYararMi(seasons)) return { ok: false, reason: 'bos_yanit' };
 
   const disKimlik = yoldanKimlik('show', showId);
   if (!disKimlik.length) return { ok: false, reason: 'kimliksiz_istek' };
 
-  return transaction(() => {
+  return transactionAsync(async () => {
     const dizi = resolveOrCreate({ type: 'show', externalIds: disKimlik });
     if (!dizi) return { ok: false, reason: 'arsiv_kapali' };
 
     // Payload TEK PARÇA — dizinin kendisine bağlı.
-    const yazim = upsertPayload({
+    const yazim = await upsertPayload({
       kaymakId: dizi.kaymak_id, provider: 'trakt', endpoint: 'show_seasons',
       lang, data: seasons, fetchedAt,
     });
@@ -117,6 +155,8 @@ function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = Date.n
     let sezonSayisi = 0;
     let bolumSayisi = 0;
     let atlanan = 0;
+    let nefes = 0;
+    let dilimBasi = performance.now();
 
     for (const sezon of seasons) {
       if (!sezon || typeof sezon.number !== 'number') { atlanan++; continue; }
@@ -151,10 +191,19 @@ function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = Date.n
           derived: { title: bolum.title || null },
         });
         bolumSayisi++;
+
+        // 🔴 Nefes: iş dilimi dolduysa olay döngüsüne dön, sunucu bu arada
+        // isteklere cevap versin. Transaction AÇIK kalır.
+        const yeniDilim = await nefesAl(dilimBasi);
+        if (yeniDilim !== dilimBasi) { nefes++; dilimBasi = yeniDilim; }
       }
     }
 
-    return { ok: true, showKaymakId: dizi.kaymak_id, seasons: sezonSayisi, episodes: bolumSayisi, skipped: atlanan };
+    return {
+      ok: true, showKaymakId: dizi.kaymak_id,
+      seasons: sezonSayisi, episodes: bolumSayisi, skipped: atlanan,
+      breaths: nefes,
+    };
   });
 }
 
@@ -162,14 +211,14 @@ function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = Date.n
  * Kendi `ids` bloğunu TAŞIYAN düz yanıtlar (`show_detail`, `movie_detail`,
  * `episode_detail`). Hiyerarşi açılmaz — açılacak bir şey yok.
  */
-function archiveSimplePayload({ type, endpoint, data, lang = DILSIZ, fetchedAt = Date.now(), fallbackId = null }) {
+async function archiveSimplePayload({ type, endpoint, data, lang = DILSIZ, fetchedAt = Date.now(), fallbackId = null }) {
   if (!iseYararMi(data)) return { ok: false, reason: 'bos_yanit' };
 
   // Yanıtın kendi `ids`'i varsa o esastır; yoksa istek yolundaki kimliğe düşülür.
   const kimlikler = data.ids ? traktIdsToExternal(type, data.ids) : yoldanKimlik(type, fallbackId);
   if (!kimlikler.length) return { ok: false, reason: 'kimliksiz_yanit' };
 
-  return transaction(() => {
+  return transactionAsync(async () => {
     const e = resolveOrCreate({
       type,
       externalIds: kimlikler,
@@ -177,7 +226,7 @@ function archiveSimplePayload({ type, endpoint, data, lang = DILSIZ, fetchedAt =
     });
     if (!e) return { ok: false, reason: 'arsiv_kapali' };
 
-    const yazim = upsertPayload({ kaymakId: e.kaymak_id, provider: 'trakt', endpoint, lang, data, fetchedAt });
+    const yazim = await upsertPayload({ kaymakId: e.kaymak_id, provider: 'trakt', endpoint, lang, data, fetchedAt });
     return yazim.ok
       ? { ok: true, kaymakId: e.kaymak_id }
       : { ok: false, reason: yazim.reason };
@@ -202,7 +251,7 @@ const DESTEKLENEN_AILELER = new Set(['show_seasons', 'show_detail', 'movie_detai
  * 🔴 ASLA THROW ETMEZ. Arşiv yazımı bir kullanıcı isteğini rehin alamaz
  * (03_FAZLAR.md A2). Hata `sync_log`'a yazılır ve `{ok:false}` döner.
  */
-function archiveCatalogResponse({ provider, family, path, query = {}, data, fetchedAt = Date.now() }) {
+async function archiveCatalogResponse({ provider, family, path, query = {}, data, fetchedAt = Date.now() }) {
   if (provider !== 'trakt') return { ok: false, reason: 'desteklenmeyen_saglayici' };
   if (!DESTEKLENEN_AILELER.has(family)) return { ok: false, reason: 'kapsam_disi_aile' };
 
@@ -212,12 +261,12 @@ function archiveCatalogResponse({ provider, family, path, query = {}, data, fetc
     if (family === 'show_seasons') {
       const m = /^\/shows\/([^/]+)\/seasons$/.exec(path || '');
       if (!m) return { ok: false, reason: 'yol_cozulemedi' };
-      return archiveShowSeasons({ showId: m[1], seasons: data, lang, fetchedAt });
+      return await archiveShowSeasons({ showId: m[1], seasons: data, lang, fetchedAt });
     }
 
     const tip = family === 'movie_detail' ? 'movie' : family === 'episode_detail' ? 'episode' : 'show';
     const m = /^\/(?:shows|movies)\/([^/]+)/.exec(path || '');
-    return archiveSimplePayload({
+    return await archiveSimplePayload({
       type: tip, endpoint: family, data, lang, fetchedAt, fallbackId: m ? m[1] : null,
     });
   } catch (error) {
@@ -227,6 +276,7 @@ function archiveCatalogResponse({ provider, family, path, query = {}, data, fetc
 }
 
 module.exports = {
+  IS_DILIMI_MS,
   archiveCatalogResponse,
   archiveShowSeasons,
   archiveSimplePayload,

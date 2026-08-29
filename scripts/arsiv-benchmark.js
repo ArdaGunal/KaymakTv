@@ -88,7 +88,7 @@ async function cek(slug) {
  *      İlk ölçümde naif varyant, satırların zaten var olduğu bir
  *      veritabanına yazıp UPDATE yolunu ölçmüştü ve "daha hızlı" çıkmıştı.
  */
-function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
+async function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
   let sayac = 0;
   const is = () => {
     const dizi = resolveOrCreate({ type: 'show', externalIds: [{ source: 'trakt:slug', source_id: slug }] });
@@ -146,12 +146,12 @@ function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
 
     // --- İLK YAZIM (tek transaction) ---
     const t0 = performance.now();
-    const r1 = archiveShowSeasons({ showId: slug, seasons: cekim.data, lang: 'tr' });
+    const r1 = await archiveShowSeasons({ showId: slug, seasons: cekim.data, lang: 'tr' });
     const ilkSure = performance.now() - t0;
 
     // --- İKİNCİ YAZIM (idempotent — A2 her yenilemede bunu yapacak) ---
     const t1 = performance.now();
-    const r2 = archiveShowSeasons({ showId: slug, seasons: cekim.data, lang: 'tr' });
+    const r2 = await archiveShowSeasons({ showId: slug, seasons: cekim.data, lang: 'tr' });
     const ikinciSure = performance.now() - t1;
 
     const buyume = arsivBoyutu() - oncekiBoyut;
@@ -200,11 +200,11 @@ function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
   const SINIR = 3000; // tamamini iki kez yazmak gereksiz; oran bu boyutta netlesiyor
 
   temizArsiv('kiyas-tek');
-  const tek = hiyerarsiYaz(veri, 'kiyas-tek', true, SINIR);
+  const tek = await hiyerarsiYaz(veri, 'kiyas-tek', true, SINIR);
   const tekDisk = arsivBoyutu(path.join(KOK, 'kiyas-tek'));
 
   temizArsiv('kiyas-satir');
-  const satirBasina = hiyerarsiYaz(veri, 'kiyas-satir', false, SINIR);
+  const satirBasina = await hiyerarsiYaz(veri, 'kiyas-satir', false, SINIR);
   const satirDisk = arsivBoyutu(path.join(KOK, 'kiyas-satir'));
 
   console.log(`\n  TRANSACTION KARSILASTIRMASI (ayni veri, ayni satir sayisi, IKI TEMIZ arsiv):`);
