@@ -1,0 +1,250 @@
+// ==========================================================================
+// KATALOG ARŞİVİ — Bağlantı ve Göç (A1, dosya 1/3)
+// ==========================================================================
+// TEK İŞİ: SQLite bağlantısını açmak, pragmaları kurmak, şemayı güncel
+// tutmak ve "arşiv şu an kullanılabilir mi" sorusunun TEK gerçek kaynağı
+// olmak. `server/lazyfetch/paths.js`'in arşiv karşılığı — aynı felsefe:
+//
+// 🔴 BU DOSYA ASLA THROW ETMEZ. Arşiv açılamazsa (disk yok, izin yok,
+// sürücü yüklenemedi) SESSİZCE devre dışı kalır ve sunucunun geri kalanı
+// bundan hiç etkilenmez. Arşiv bir LÜKSTÜR; kullanıcının isteği onun
+// rehinesi olamaz (03_FAZLAR.md A2: "arşiv yazımı başarısız olursa istek
+// BAŞARISIZ OLMAZ").
+//
+// 🔴 ARŞİV VE CACHE'İN HATA ALANLARI AYRIDIR — bilinçli. `paths.js`
+// alt klasörlerden biri açılamazsa TÜM cache'i kapatıyor. Arşivi oraya
+// eklemek, bir arşiv sorununun önbelleği de düşürmesi demekti. İki sistem
+// aynı SSD'yi paylaşır ama birbirini düşürmez (01_MIMARI.md "cache ≠ arşiv").
+//
+// 🔴 SÜRÜCÜ: `node:sqlite` — Node 22.5+ ile GELEN yerleşik modül, harici
+// paket YOK (03_FAZLAR.md "Paket önerisi"). Alternatifi `better-sqlite3`
+// native bir modüldür: Pi'de ARM için derlenmesi gerekir, her `npm ci`
+// build toolchain ister ve Expo/EAS tarafına sızma riski taşır.
+// Pi'de ölçülen sürüm: v22.23.2 (2026-08-29) — `node:sqlite` mevcut ve
+// bayrak gerektirmiyor. Yine de `require` KORUMALI: sürücü yoksa arşiv
+// kapanır, sunucu ayakta kalır.
+
+const fs = require('fs');
+const path = require('path');
+
+// ⚠️ Korumalı yükleme — Node 22.5 ÖNCESİ bir sürümde veya `node:sqlite`'ın
+// bayrak istediği bir yapılandırmada `require` FIRLATIR. Yakalamazsak
+// `server.js` açılışta çöker; yakalarsak yalnızca arşiv kapanır.
+let sqlite = null;
+let sqliteYuklemeHatasi = null;
+try {
+  sqlite = require('node:sqlite');
+} catch (error) {
+  sqliteYuklemeHatasi = error.message;
+}
+
+const SEMA_YOLU = path.join(__dirname, 'schema.sql');
+
+// Şemanın beklediği sürüm. Artırıldığında `GOCLER` tablosuna karşılık
+// gelen adım eklenmeli — yoksa açılış "bilinmeyen sürüm" diye durur.
+const HEDEF_SEMA_SURUMU = 1;
+
+let durum = null; // { enabled, db, dbPath } | { enabled: false, reason }
+
+/**
+ * Arşivin kök dizinini çözer. **Koda gömülmez** (03_FAZLAR.md operasyonel
+ * kurallar): `ARCHIVE_ROOT` varsa o, yoksa `${LAZYFETCH_ROOT}/archive`.
+ *
+ * Ayrı bir env değişkeni bilinçli: ileride arşiv BAŞKA bir diske (ör.
+ * yedeklenen bir volume'e) taşınabilmeli — cache'in yeriyle zincirlenmiş
+ * olmamalı. `cache/` yedeklenmez, `archive/` yedeklenir.
+ */
+function arsivKokunuCoz() {
+  if (process.env.ARCHIVE_ROOT && process.env.ARCHIVE_ROOT.trim()) {
+    return process.env.ARCHIVE_ROOT.trim();
+  }
+  const lf = process.env.LAZYFETCH_ROOT;
+  if (lf && lf.trim()) return path.join(lf.trim(), 'archive');
+  return null;
+}
+
+/**
+ * Bağlantıyı açar, pragmaları kurar, şemayı göç ettirir.
+ * Hiçbir koşulda throw ETMEZ.
+ *
+ * @returns {{enabled: boolean, reason?: string, dbPath?: string}}
+ */
+function initArchive() {
+  if (durum !== null) return kisaDurum();
+
+  if (!sqlite) {
+    durum = { enabled: false, reason: `node:sqlite yuklenemedi (${sqliteYuklemeHatasi})` };
+    console.error(`[Arsiv] Devre disi — ${durum.reason}`);
+    return kisaDurum();
+  }
+
+  const kok = arsivKokunuCoz();
+  if (!kok) {
+    durum = { enabled: false, reason: 'ARCHIVE_ROOT / LAZYFETCH_ROOT tanimli degil' };
+    console.log('[Arsiv] Devre disi — ARCHIVE_ROOT veya LAZYFETCH_ROOT tanimli degil.');
+    return kisaDurum();
+  }
+
+  try {
+    fs.mkdirSync(kok, { recursive: true });
+    // Dizin VAR ama salt-okunur bir mount olabilir — gerçek yazma yetkisi
+    // asıl kanıttır (paths.js'teki aynı kontrol).
+    fs.accessSync(kok, fs.constants.W_OK);
+
+    const dbPath = path.join(kok, 'katalog.db');
+    const db = new sqlite.DatabaseSync(dbPath);
+
+    // ------------------------------------------------------------------
+    // PRAGMALAR — sırası önemli
+    // ------------------------------------------------------------------
+    // WAL: okuyucu ve yazıcı birbirini BLOKLAMAZ. A2 arka planda yazarken
+    // A4 aynı anda okuyabilmeli. Ayrıca ani kesintide (Pi'de elektrik)
+    // rollback journal'a göre belirgin şekilde dayanıklı.
+    db.exec('PRAGMA journal_mode = WAL');
+
+    // NORMAL: her yazımda fsync YAPMAZ (FULL öyle yapar). Ani kesintide
+    // en fazla SON İŞLEM kaybolur, veritabanı BOZULMAZ. Arşiv verisi
+    // sağlayıcıdan yeniden çekilebilir olduğu için bu değiş-tokuş doğru;
+    // FULL, Pi'nin SSD'sini bir arşiv yazımı için gereksiz yorardı.
+    db.exec('PRAGMA synchronous = NORMAL');
+
+    // 🔴 SQLite'ta yabancı anahtarlar VARSAYILAN OLARAK KAPALIDIR ve ayar
+    // BAĞLANTI BAŞINADIR — şemadaki `PRAGMA foreign_keys = ON` yalnızca
+    // onu çalıştıran bağlantı için geçerlidir. Burada tekrar kurulmazsa
+    // `ON DELETE RESTRICT` korumaları SESSİZCE etkisiz kalırdı.
+    db.exec('PRAGMA foreign_keys = ON');
+
+    // Yazıcı kilidi tutuyorsa hemen hata vermek yerine bekle.
+    db.exec('PRAGMA busy_timeout = 5000');
+
+    semayiGocEt(db);
+
+    durum = { enabled: true, db, dbPath, root: kok };
+    console.log(`[Arsiv] Etkin — ${dbPath}`);
+    return kisaDurum();
+  } catch (error) {
+    durum = { enabled: false, reason: error.message };
+    console.error(`[Arsiv] Devre disi — acilamadi: ${error.message}`);
+    return kisaDurum();
+  }
+}
+
+/**
+ * Şemayı hedef sürüme taşır.
+ *
+ * 🔴 ARŞİV GÖÇÜ, CACHE GEÇERSİZ KILMASININ TERSİDİR. LazyFetch zarfında
+ * `v` artınca tüm eski kayıtlar ÇÖPE gider (envelope.js) — çünkü orası bir
+ * önbellek. Burada eski kayıtlar TAŞINIR; arşiv hiçbir şeyi atmaz.
+ * Bu yüzden ileride v2 geldiğinde `GOCLER`'e "ALTER TABLE ..." adımı
+ * eklenecek, "DROP + yeniden oluştur" ASLA yazılmayacak.
+ */
+function semayiGocEt(db) {
+  const sema = fs.readFileSync(SEMA_YOLU, 'utf8');
+  // schema.sql tamamen `IF NOT EXISTS` — var olan bir veritabaninda
+  // zararsiz, bos bir veritabaninda kurulum yapar.
+  db.exec(sema);
+
+  const satir = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get();
+  const mevcut = satir ? parseInt(satir.value, 10) : 0;
+
+  if (mevcut === HEDEF_SEMA_SURUMU) return;
+
+  if (mevcut > HEDEF_SEMA_SURUMU) {
+    // Daha yeni bir kod bu dosyayı yazmış — eski kodla açmak veri
+    // bozabilir. Açmayı reddetmek, sessizce yanlış yazmaktan iyidir.
+    throw new Error(`Arsiv semasi surumu ${mevcut}, bu kod en fazla ${HEDEF_SEMA_SURUMU} destekliyor. Kodu guncelle.`);
+  }
+
+  // mevcut < HEDEF: buraya v2, v3 adımları gelecek. v1'de yapılacak bir
+  // şey yok — `schema.sql` zaten kurdu ve sürümü yazdı.
+  throw new Error(`Arsiv semasi ${mevcut} -> ${HEDEF_SEMA_SURUMU} gocu tanimli degil.`);
+}
+
+function kisaDurum() {
+  if (!durum) return { enabled: false, reason: 'baslatilmadi' };
+  if (!durum.enabled) return { enabled: false, reason: durum.reason };
+  return { enabled: true, dbPath: durum.dbPath, root: durum.root };
+}
+
+/** Açık bağlantı — arşiv kapalıysa `null`. Çağıran taraf bunu kontrol ETMELİ. */
+function getDb() {
+  if (durum === null) initArchive();
+  return durum.enabled ? durum.db : null;
+}
+
+function isArchiveEnabled() {
+  if (durum === null) initArchive();
+  return durum.enabled === true;
+}
+
+/** Teşhis/log amaçlı — neden kapalı olduğunu insan okunur döner. */
+function getArchiveStatus() {
+  if (durum === null) initArchive();
+  return kisaDurum();
+}
+
+/**
+ * Bir işi TEK işlem (transaction) içinde çalıştırır.
+ *
+ * 🔴 GEREKLİ: kimlik çözümlemesi (identity.js) birden çok tabloya yazıyor —
+ * `entities` + N adet `external_ids`. Yarıda kesilirse dış kimliği olmayan
+ * öksüz bir entity kalır ve bir daha ASLA bulunamaz (arama external_ids
+ * üzerinden yapılıyor), yani sessizce çift kayıt üretmeye başlardık.
+ *
+ * `node:sqlite`'ta yerleşik bir transaction sarmalayıcısı yok; klasik
+ * BEGIN/COMMIT/ROLLBACK.
+ */
+function transaction(is) {
+  const db = getDb();
+  if (!db) return null;
+
+  db.exec('BEGIN');
+  try {
+    const sonuc = is(db);
+    db.exec('COMMIT');
+    return sonuc;
+  } catch (error) {
+    try { db.exec('ROLLBACK'); } catch (_) { /* zaten kapanmış olabilir */ }
+    throw error;
+  }
+}
+
+/**
+ * Çalışan veritabanından TUTARLI bir yedek alır.
+ *
+ * 🔴 `cp` İLE YEDEK ALINMAZ. WAL modunda veri kısmen `-wal` dosyasındadır;
+ * yalnızca `.db` kopyalamak EKSİK, üçünü birden kopyalamak ise kopyalama
+ * sırasında yazım olursa BOZUK bir yedek üretir. `VACUUM INTO` tek dosyalık,
+ * tutarlı ve sıkıştırılmış bir kopya yazar (SQLite 3.27+).
+ */
+function backupTo(hedefYol) {
+  const db = getDb();
+  if (!db) return { ok: false, reason: 'arsiv kapali' };
+  try {
+    // SQLite yol ayracı olarak `/` bekler; Windows'ta test edilebilsin.
+    const guvenliYol = hedefYol.replace(/\\/g, '/').replace(/'/g, "''");
+    db.exec(`VACUUM INTO '${guvenliYol}'`);
+    return { ok: true, path: hedefYol, bytes: fs.statSync(hedefYol).size };
+  } catch (error) {
+    return { ok: false, reason: error.message };
+  }
+}
+
+/** Test ve düzgün kapanış için. */
+function closeArchive() {
+  if (durum && durum.enabled) {
+    try { durum.db.close(); } catch (_) { /* zaten kapali */ }
+  }
+  durum = null;
+}
+
+module.exports = {
+  initArchive,
+  isArchiveEnabled,
+  getArchiveStatus,
+  getDb,
+  transaction,
+  backupTo,
+  closeArchive,
+  HEDEF_SEMA_SURUMU,
+};

@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { baslat, LF } = require('./yardimci');
+const { baslat, LF } = require('../yardimci');
 
 const T = baslat('CEKIRDEK (L1-L5)', { kokOneki: 'lf-cekirdek-' });
 

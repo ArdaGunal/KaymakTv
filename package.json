@@ -11,7 +11,9 @@
     "serve": "npx serve -s dist -l 3048",
     "start-server": "node server.js",
     "lazyfetch:inspect": "node scripts/lazyfetch-inspect.js",
-    "test:lazyfetch": "node tests/lazyfetch/calistir.js"
+    "test": "node tests/calistir.js",
+    "test:lazyfetch": "node tests/calistir.js lazyfetch",
+    "test:arsiv": "node tests/calistir.js arsiv"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

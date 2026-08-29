@@ -18,11 +18,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-/** Proje kökü — testler `tests/lazyfetch/` altında olduğu için iki üst. */
-const PROJE_KOKU = path.join(__dirname, '..', '..');
+/** Proje kökü — bu dosya `tests/` altında, yani bir üst. */
+const PROJE_KOKU = path.join(__dirname, '..');
 
 /** `server/lazyfetch` modüllerinin kökü. MUTLAK YOL GÖMÜLMEZ. */
 const LF = path.join(PROJE_KOKU, 'server', 'lazyfetch');
+
+/** `server/archive` modüllerinin kökü — arşiv AYRI bir sistem (cache ≠ arşiv). */
+const AR = path.join(PROJE_KOKU, 'server', 'archive');
 
 /**
  * Yeni bir test koşumu başlatır.
@@ -50,6 +53,7 @@ function baslat(ad, { kokOneki = 'lf-test-' } = {}) {
     kok,
     PROJE_KOKU,
     LF,
+    AR,
 
     /** Bir bolum basligi. */
     H(baslik) {
@@ -103,4 +107,4 @@ function dosyaYaz(kok, gorecelYol, yasGun, bayt = 1000) {
   return tam;
 }
 
-module.exports = { baslat, dosyaYaz, LF, PROJE_KOKU };
+module.exports = { baslat, dosyaYaz, LF, AR, PROJE_KOKU };

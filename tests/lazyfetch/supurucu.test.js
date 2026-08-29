@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { baslat, dosyaYaz, LF } = require('./yardimci');
+const { baslat, dosyaYaz, LF } = require('../yardimci');
 
 const T = baslat('SUPURUCU (L6)', { kokOneki: 'lf-supurucu-' });
 
@@ -31,9 +31,15 @@ const GUN = 24 * 3600 * 1000;
   const taze2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/2222.json.gz', 2);
   const eski1 = dosyaYaz(T.kok, 'cache/tmdb/tv_detail/aa/3333.json.gz', 40);
   const eski2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/4444.json.gz', 45);
-  // Bu ikisi KASTEN 90 gunluk: yas elemesine takilmalari GEREKIRDI.
+  // Bu UCU de KASTEN 90 gunluk: yas elemesine takilmalari GEREKIRDI.
   const tmpDosya = dosyaYaz(T.kok, 'tmp/yarim-yazim.tmp', 90);
   const karantina = dosyaYaz(T.kok, 'quarantine/1700000000__bozuk.json.gz', 90);
+  // 🔴 ARSIV (A1): ayni SSD kokunde ama BASKA bir sistem (01_MIMARI.md
+  // "cache != arsiv"). Supurucu buraya dokunursa GERI DONULEMEZ veri kaybi
+  // olur - cache'in aksine arsiv yeniden uretilemez. Koruma yapisaldir
+  // (sweeper `cache/`ten baslar), ama yapisal korumalar da bozulabilir.
+  const arsivDb = dosyaYaz(T.kok, 'archive/katalog.db', 90);
+  const arsivWal = dosyaYaz(T.kok, 'archive/katalog.db-wal', 90);
 
   const r = await sweeper.runSweep();
 
@@ -42,6 +48,8 @@ const GUN = 24 * 3600 * 1000;
   T.ok('tmp/ dosyasi 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(tmpDosya));
   T.ok('quarantine/ dosyasi 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(karantina));
   T.ok('tmp/ ve quarantine/ yalnizca SAYILDI', r.orphanTmpFiles === 1 && r.quarantineFiles === 1);
+  T.ok('🔴 ARSIV veritabani 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(arsivDb) && fs.existsSync(arsivWal));
+  T.ok('Arsiv supurme sayimina bile GIRMIYOR (kapsam disi)', r.scanned === 4);
   T.ok('Aile ayrimi provider/family duzeyinde', r.families === 2, r.families + ' aile');
   T.ok('Taranan dosya sayisi dogru (yalnizca cache/)', r.scanned === 4, r.scanned + ' dosya');
 

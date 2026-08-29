@@ -19,7 +19,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { baslat, LF, PROJE_KOKU } = require('./yardimci');
+const { baslat, LF, PROJE_KOKU } = require('../yardimci');
 
 const T = baslat('KATALOG GECIDI (L7 / L7+)', { kokOneki: 'lf-katalog-' });
 
