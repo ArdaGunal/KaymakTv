@@ -35,6 +35,7 @@ const TAKIMLAR = [
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
   { ad: 'yazici', grup: 'arsiv', dosya: 'arsiv/yazici.test.js', aciklama: 'A2: hiyerarsi acma, tek transaction, rollback' },
+  { ad: 'kuyruk', grup: 'arsiv', dosya: 'arsiv/kuyruk.test.js', aciklama: 'A2: kuyruk, eszamanlilik-1, orchestrator kancasi' },
 ];
 
 const filtre = process.argv[2];

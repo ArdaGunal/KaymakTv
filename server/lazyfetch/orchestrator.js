@@ -62,6 +62,10 @@ const { createRefreshQueue } = require('./refreshQueue');
 const circuitBreaker = require('./circuitBreaker');
 const tokenBucket = require('./tokenBucket');
 const { NotFoundError, CircuitOpenError, RateLimitedError } = require('./errors');
+// 🆕 A2 — arşiv "ikinci lavabo"su. Tek yönlü bağımlılık: LazyFetch arşivi
+// tanır, arşiv LazyFetch'i tanımaz. Arşiv kapalıysa `enqueue` no-op'tur,
+// yani bu require bir çalışma zamanı riski taşımaz.
+const { archiveQueue } = require('../archive/queue');
 
 // Modül seviyesinde TEK paylaşılan bellek katmanı — Node'un require cache'i
 // bunu doğal bir singleton yapar (memoryCache.js başlığındaki tasarım notu).
@@ -144,6 +148,30 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
 
     await writeCacheEntry(relativePath, envelope);
     memoryCache.set(relativePath, envelope);
+
+    // 🆕 A2 — İKİNCİ LAVABO. Önbelleğe yazılan her TAZE yanıt arşive de
+    // uğrar (01_MIMARI.md: iki sistem aynı boruyu paylaşır, kuralları zıt).
+    //
+    // 🔴 SONUÇ BEKLENMİYOR ve HATA YAKALANMIYOR — `enqueue` senkron, hiçbir
+    // şey döndürmez, throw etmez. Kullanıcının isteği arşivin rehinesi
+    // olamaz (03_FAZLAR.md A2). Arşiv kapalıysa çağrı sessizce hiçbir şey
+    // yapmaz.
+    //
+    // 🔴 BURASI YALNIZCA "SAĞLAYICIDAN TAZE GELEN" YOLDUR. Cache hit'leri
+    // (fresh/stale) buraya UĞRAMAZ — zaten arşivde olan bir veriyi tekrar
+    // yazmanın anlamı yok. `no-store` yanıtları da gelmez: onlar bu satıra
+    // ulaşmadan yukarıda dönüyor (sağlayıcı saklamamamızı istedi, arşiv de
+    // saklamaz).
+    //
+    // ⚠️ Bu, orchestrator'ın arşivi TANIDIĞI tek yer. Sağlayıcı
+    // soyutlamasını bozmuyor: hangi ailenin arşivlenebilir olduğuna
+    // `writer.js` karar veriyor, orchestrator yalnızca haber veriyor.
+    archiveQueue.enqueue({
+      provider, family, path, query,
+      data: result.data,
+      fetchedAt: envelope.fetchedAt,
+    });
+
     return envelope;
   } catch (error) {
     if (error instanceof NotFoundError) {

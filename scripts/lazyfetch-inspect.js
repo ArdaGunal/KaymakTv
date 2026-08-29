@@ -297,6 +297,54 @@ function ozet(rows) {
   }
 }
 
+
+// --------------------------------------------------------------------------
+// ARŞİV (A1/A2) — cache'ten AYRI bir sistem, ayrı ölçülür
+// --------------------------------------------------------------------------
+// 🔴 Madde 260'ın kuralı: yeni bir faz yeni bir veri deposu getiriyorsa
+// denetçi AYNI TURDA güncellenir. Arşiv burada görünmeseydi operatör
+// "arşiv çalışıyor mu?" sorusunu yine ölçemezdi.
+//
+// ⚠️ Arşiv, cache'in aksine SİLİNMEZ ve yedeklenir. Buradaki sayılar
+// yalnızca BÜYÜR — düşüyorsa bir sorun var demektir.
+function arsivDurumu() {
+  let db, depo, kuyruk;
+  try {
+    db = require(path.join(__dirname, '..', 'server', 'archive', 'db'));
+    depo = require(path.join(__dirname, '..', 'server', 'archive', 'store'));
+    kuyruk = require(path.join(__dirname, '..', 'server', 'archive', 'queue'));
+  } catch (e) {
+    return; // arsiv modulleri yoksa sessizce atla
+  }
+
+  const d = db.initArchive();
+  say(`
+🗄️  KATALOG ARŞİVİ (A1/A2)`);
+  if (!d.enabled) {
+    say(`   ⚪ Kapalı — ${d.reason}`);
+    return;
+  }
+
+  const oz = depo.summary();
+  say(`   ✅ Açık — ${d.dbPath}`);
+  say(`   ${String(oz.entities).padStart(8)} yapım (dizi/film/sezon/bölüm)`);
+  say(`   ${String(oz.externalIds).padStart(8)} dış kimlik (trakt/tmdb/imdb/tvdb çaprazlaması)`);
+  say(`   ${String(oz.payloads).padStart(8)} ham yanıt · ${fmtSize(oz.bytes)}`);
+  if (oz.conflicts) say(`   ⚠️  ${oz.conflicts} kimlik çakışması — sync_log'a bak (otomatik birleştirilmedi)`);
+  if (oz.errors) say(`   ⚠️  ${oz.errors} yazım hatası — sync_log'a bak`);
+
+  const kapsam = depo.coverage();
+  if (kapsam.length) {
+    say('   ┌─ AİLE BAZINDA');
+    for (const r of kapsam) {
+      say(`   │ ${(r.provider + '/' + r.endpoint).padEnd(22)} ${String(r.kayit).padStart(5)} kayıt  ${fmtSize(r.disk_bayt).padStart(9)}  [${r.lang}]`);
+    }
+    say('   └─');
+  } else {
+    say('   ⚪ Henüz hiç kayıt yok — bir dizi ekranı açılınca dolmaya başlar.');
+  }
+}
+
 function listele(rows, aile) {
   const now = Date.now();
   const filtre = rows.filter(
@@ -440,6 +488,7 @@ async function main() {
   if (find) return ara(rows, find);
 
   ozet(rows);
+  arsivDurumu();
   say('\n💡 Daha derine:');
   say('   --list episode_detail   bölüm kayıtları (tmdb + trakt, ikisi de)');
   say('   --list trakt/          TÜM Trakt katalog kayıtları (L7+ — 8 aile)');

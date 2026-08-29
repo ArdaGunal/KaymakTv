@@ -57,6 +57,11 @@ const { initLazyFetchPaths } = require('./server/lazyfetch/paths');
 // L6 — süpürücü zamanlayıcısı. Kendi içinde "cache kapalıysa hiç kurulma"
 // kontrolü var, burada koşul yazmaya gerek yok.
 const { startSweeperSchedule } = require('./server/lazyfetch/sweeper');
+// A2 — Katalog Arşivi. LazyFetch'ten AYRI bir sistem (cache ≠ arşiv) ve
+// AYRI bir hata alanı: arşiv açılamazsa önbellek etkilenmez, sunucu da
+// çökmez (`server/archive/db.js` asla throw etmez). Arşive yazma kancası
+// `orchestrator.js`'te; burada yalnızca açılışta durumu görünür kılıyoruz.
+const { initArchive } = require('./server/archive/db');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
@@ -99,6 +104,10 @@ if (missingEnvVars.length > 0) {
 // çağırmak yalnızca operasyonel görünürlük için — davranışı değiştirmez.
 initLazyFetchPaths();
 startSweeperSchedule();
+// Erken çağrı yalnızca operasyonel görünürlük için: olmasaydı arşivin
+// durumu ilk yazım denemesine kadar log'a düşmezdi (`isArchiveEnabled`
+// zaten tembel başlatıyor). Davranışı değiştirmez.
+initArchive();
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır
