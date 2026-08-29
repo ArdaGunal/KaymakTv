@@ -58,6 +58,34 @@ function arsivBoyutu(kokDizin = path.join(KOK, 'archive')) {
   return fs.readdirSync(kokDizin).reduce((t, f) => t + fs.statSync(path.join(kokDizin, f)).size, 0);
 }
 
+/**
+ * 🔴🔴 OLAY DÖNGÜSÜ KALP ATIŞI — bu ölçümün EN ÖNEMLİ parçası.
+ *
+ * Duvar saati süresi yanıltıcıdır: arşiv yazımı arka plan işidir, 5 saniye
+ * sürmesi sorun DEĞİLDİR. Sorun, o süre boyunca sunucunun HTTP isteklerine
+ * cevap verip veremediğidir. `node:sqlite` senkron olduğu için bu gerçek
+ * bir riskti (ölçüldü: düzeltme öncesi Pi'de ~5,5 sn tam blok).
+ *
+ * Burada 10 ms'de bir tik atan bir zamanlayıcı kuruyoruz. Olay döngüsü
+ * bloklanırsa tikler kaçar; en büyük boşluk = en uzun kesintisiz blok.
+ */
+function kalpAtisiBaslat() {
+  const bosluklar = [];
+  let son = performance.now();
+  const t = setInterval(() => {
+    const simdi = performance.now();
+    bosluklar.push(simdi - son);
+    son = simdi;
+  }, 10);
+  if (typeof t.unref === 'function') t.unref();
+  return {
+    dur() {
+      clearInterval(t);
+      return bosluklar.length ? Math.max(...bosluklar) : 0;
+    },
+  };
+}
+
 /** Temiz, boş bir arşiv açar (karşılaştırmalar aynı koşullardan başlasın). */
 function temizArsiv(ad) {
   db.closeArchive();
@@ -144,10 +172,12 @@ async function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
 
     const oncekiBoyut = arsivBoyutu();
 
-    // --- İLK YAZIM (tek transaction) ---
+    // --- İLK YAZIM (tek transaction) + olay döngüsü ölçümü ---
+    const kalp = kalpAtisiBaslat();
     const t0 = performance.now();
     const r1 = await archiveShowSeasons({ showId: slug, seasons: cekim.data, lang: 'tr' });
     const ilkSure = performance.now() - t0;
+    const enUzunBlok = kalp.dur();
 
     // --- İKİNCİ YAZIM (idempotent — A2 her yenilemede bunu yapacak) ---
     const t1 = performance.now();
@@ -159,14 +189,15 @@ async function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
 
     satirlar.push({
       slug, sezonSayisi, bolumSayisi, hamBayt: cekim.bayt,
-      ilkSure, ikinciSure, buyume, satirSayisi,
-      atlanan: r1.skipped, hit: cekim.hit,
+      ilkSure, ikinciSure, buyume, satirSayisi, enUzunBlok,
+      atlanan: r1.skipped, hit: cekim.hit, nefes: r1.breaths,
       ikinciYeni: r2.ok,
     });
 
     console.log(
       `  ${slug.padEnd(20)} ${String(sezonSayisi).padStart(3)} sezon ${String(bolumSayisi).padStart(6)} bolum  ` +
-      `${kb(cekim.bayt).padStart(8)}  ilk ${ms(ilkSure).padStart(11)}  tekrar ${ms(ikinciSure).padStart(11)}  disk +${kb(buyume).padStart(8)}`
+      `${kb(cekim.bayt).padStart(8)}  sure ${ms(ilkSure).padStart(11)}  ` +
+      `EN UZUN BLOK ${ms(enUzunBlok).padStart(9)}  (${r1.breaths || 0} nefes)`
     );
     if (r1.skipped) console.log(`  ${' '.repeat(20)} ⚠️  ${r1.skipped} kayit kimliksiz/bozuk oldugu icin atlandi`);
   }
@@ -191,6 +222,18 @@ async function hiyerarsiYaz(seasons, slug, tekTransaction, sinir = Infinity) {
   console.log(`  Toplam arsiv dosyasi  : ${mb(toplamDisk)}`);
   console.log(`  Entity basina disk    : ${entityBasina.toFixed(0)} bayt`);
   console.log(`  Yazim hizi            : ${(toplamSatir / (toplamSure / 1000)).toFixed(0)} entity/sn`);
+
+  // 🔴 ASIL KRITER — duvar saati degil, BLOK suresi.
+  const enKotuBlok = Math.max(...satirlar.map((r) => r.enUzunBlok));
+  const enKotuSure = Math.max(...satirlar.map((r) => r.ilkSure));
+  console.log('');
+  console.log(`  🔴 EN UZUN OLAY DONGUSU BLOGU : ${ms(enKotuBlok)}`);
+  console.log(`     (en uzun yazim suresi ${ms(enKotuSure)} idi — arada kalan sure`);
+  console.log(`      boyunca sunucu isteklere CEVAP VEREBILIYORDU)`);
+  console.log(`     Referans: duzeltme oncesi bu deger yazim suresinin TAMAMIYDI.`);
+  if (enKotuBlok > 300) {
+    console.log(`     ⚠️  300 ms uzerinde — writer.js IS_DILIMI_MS dusurulmeli.`);
+  }
 
   // ------------------------------------------------------------------
   // TRANSACTION KARSILASTIRMASI — ADIL KOSULLARDA
