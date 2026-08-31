@@ -51,8 +51,22 @@ const { reportLazyFetch, formatSweepSummary, formatDiskAlarm } = require('./tele
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const DEFAULT_CONFIG = {
-  maxAgeMs: 30 * DAY_MS,        // 30 gündür istenmemiş kayıt gider
-  maxEntriesPerFamily: 20000,   // ~128 MB (6,4 KB × 20k) — aile başına tavan
+  // 🔴🔴 L8 İLE BİRLİKTE YÜKSELTİLDİ — 30 GÜNDÜ.
+  //
+  // Bu, L8 katalog ömrü politikasının SESSİZCE ÇÖPE GİTMESİNE yol açan
+  // tuzaktı: politika "0-30 gün taze, 30-180 gün bayat" diyor, ama süpürücü
+  // kayıtları tam 30. günde — yani BAYATLADIKLARI AN — siliyordu. Bayat
+  // pencere hiç yaşamazdı ve testler yeşil kalırdı, çünkü hiçbir test bu
+  // iki sayının ETKİLEŞİMİNİ ölçmüyordu.
+  //
+  // Yeni değer, servis edilebilir pencerenin (180 gün) ÜSTÜNDE: bir kayıt
+  // önce politika gereği ölür, sonra süpürücü toplar. Sıra bu olmalı.
+  maxAgeMs: 200 * DAY_MS,       // 180 günlük politika + 20 gün pay
+  // 🆕 L8: 20.000'di. Ölçülen büyüme (2026-09-01: `movie_detail` ~150 kayıt/
+  // gün) × 180 gün ≈ 27.000 — eski kota devreye girip politikanın sakladığı
+  // veriyi elerdi. 60.000 ≈ 384 MB (6,4 KB × 60k), 916 GB'lık diskte hiçbir
+  // şey. Kota artık "felaket freni", günlük çalışan bir eleme değil.
+  maxEntriesPerFamily: 60000,
   diskAlarmPercent: 80,         // 03_FAZLAR.md L6: "disk %80 alarmı"
 };
 

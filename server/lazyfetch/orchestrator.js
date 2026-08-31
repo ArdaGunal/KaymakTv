@@ -127,7 +127,10 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
   try {
     const result = await fetcher(path, query);
     circuitBreaker.recordSuccess(provider);
-    const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds);
+    // 🆕 L8: TTL artık aileyi ve yanıtın KENDİSİNİ de görüyor — yayını
+    // süren bir dizinin sezon listesi 30 gün değil 7 gün taze kalsın diye
+    // (routeRegistry.js "KATALOG ÖMRÜ POLİTİKASI").
+    const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds, { family, data: result.data });
     const envelope = createEnvelope({ provider, family, payload: result.data, ttlMs, graceMs });
 
     // 🆕 (L7+) SAĞLAYICI "SAKLAMA" DEDİYSE SAKLAMIYORUZ.

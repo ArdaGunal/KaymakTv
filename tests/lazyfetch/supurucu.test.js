@@ -29,26 +29,29 @@ const GUN = 24 * 3600 * 1000;
 
   const taze1 = dosyaYaz(T.kok, 'cache/tmdb/tv_detail/aa/1111.json.gz', 1);
   const taze2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/2222.json.gz', 2);
-  const eski1 = dosyaYaz(T.kok, 'cache/tmdb/tv_detail/aa/3333.json.gz', 40);
-  const eski2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/4444.json.gz', 45);
-  // Bu UCU de KASTEN 90 gunluk: yas elemesine takilmalari GEREKIRDI.
-  const tmpDosya = dosyaYaz(T.kok, 'tmp/yarim-yazim.tmp', 90);
-  const karantina = dosyaYaz(T.kok, 'quarantine/1700000000__bozuk.json.gz', 90);
+  // 🆕 L8: 40/45 GUNDU. Yas siniri 30 -> 200 gune cikinca bu dosyalar artik
+  // "eski" sayilmiyor — testin kendisi bayatladi (Madde 262'nin notu).
+  // Yeni degerler politikanin 180 gunluk penceresinin de OTESINDE.
+  const eski1 = dosyaYaz(T.kok, 'cache/tmdb/tv_detail/aa/3333.json.gz', 210);
+  const eski2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/4444.json.gz', 250);
+  // Bu UCU de KASTEN 300 gunluk: yas elemesine takilmalari GEREKIRDI.
+  const tmpDosya = dosyaYaz(T.kok, 'tmp/yarim-yazim.tmp', 300);
+  const karantina = dosyaYaz(T.kok, 'quarantine/1700000000__bozuk.json.gz', 300);
   // 🔴 ARSIV (A1): ayni SSD kokunde ama BASKA bir sistem (01_MIMARI.md
   // "cache != arsiv"). Supurucu buraya dokunursa GERI DONULEMEZ veri kaybi
   // olur - cache'in aksine arsiv yeniden uretilemez. Koruma yapisaldir
   // (sweeper `cache/`ten baslar), ama yapisal korumalar da bozulabilir.
-  const arsivDb = dosyaYaz(T.kok, 'archive/katalog.db', 90);
-  const arsivWal = dosyaYaz(T.kok, 'archive/katalog.db-wal', 90);
+  const arsivDb = dosyaYaz(T.kok, 'archive/katalog.db', 300);
+  const arsivWal = dosyaYaz(T.kok, 'archive/katalog.db-wal', 300);
 
   const r = await sweeper.runSweep();
 
-  T.ok('30 gunden eski cache kayitlari silindi', r.deletedByAge === 2 && !fs.existsSync(eski1) && !fs.existsSync(eski2));
+  T.ok('200 gunden eski cache kayitlari silindi', r.deletedByAge === 2 && !fs.existsSync(eski1) && !fs.existsSync(eski2));
   T.ok('Taze cache kayitlari KORUNDU', fs.existsSync(taze1) && fs.existsSync(taze2));
-  T.ok('tmp/ dosyasi 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(tmpDosya));
-  T.ok('quarantine/ dosyasi 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(karantina));
+  T.ok('tmp/ dosyasi 300 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(tmpDosya));
+  T.ok('quarantine/ dosyasi 300 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(karantina));
   T.ok('tmp/ ve quarantine/ yalnizca SAYILDI', r.orphanTmpFiles === 1 && r.quarantineFiles === 1);
-  T.ok('🔴 ARSIV veritabani 90 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(arsivDb) && fs.existsSync(arsivWal));
+  T.ok('🔴 ARSIV veritabani 300 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(arsivDb) && fs.existsSync(arsivWal));
   T.ok('Arsiv supurme sayimina bile GIRMIYOR (kapsam disi)', r.scanned === 4);
   T.ok('Aile ayrimi provider/family duzeyinde', r.families === 2, r.families + ' aile');
   T.ok('Taranan dosya sayisi dogru (yalnizca cache/)', r.scanned === 4, r.scanned + ' dosya');
@@ -64,10 +67,31 @@ const GUN = 24 * 3600 * 1000;
   T.H('Yapilandirma ve dayaniklilik');
 
   T.ok(
-    'Varsayilanlar: 30 gun yas / 20000 kota / %80 disk alarmi',
-    sweeper.DEFAULT_CONFIG.maxAgeMs === 30 * GUN &&
-      sweeper.DEFAULT_CONFIG.maxEntriesPerFamily === 20000 &&
+    'Varsayilanlar: 200 gun yas / 60000 kota / %80 disk alarmi',
+    sweeper.DEFAULT_CONFIG.maxAgeMs === 200 * GUN &&
+      sweeper.DEFAULT_CONFIG.maxEntriesPerFamily === 60000 &&
       sweeper.DEFAULT_CONFIG.diskAlarmPercent === 80
+  );
+
+  // 🔴🔴 L8 ETKILESIM TESTI — BU EKSIKTI VE TAM DA BU YUZDEN TEHLIKELIYDI.
+  // Supurucunun yas siniri, katalog omru politikasinin TOPLAM penceresinden
+  // (180 gun) KISA olursa, kayitlar tam bayatladiklari an SILINIR: bayat
+  // pencere hic yasamaz, SWR hic calismaz, politika sessizce cope gider.
+  // Ne supurucu testi ne TTL testi bunu tek basina yakalayabilirdi — cunku
+  // ikisi de KENDI sabitini dogru olcuyordu. Kusur ARALARINDAYDI.
+  const rr = require(path.join(LF, 'routeRegistry'));
+  T.ok(
+    '🔴 Supurucu yas siniri, katalog penceresinden UZUN olmali',
+    sweeper.DEFAULT_CONFIG.maxAgeMs > rr.KATALOG_TOPLAM_MS,
+    `supurucu ${sweeper.DEFAULT_CONFIG.maxAgeMs / GUN} gun > politika ${rr.KATALOG_TOPLAM_MS / GUN} gun`
+  );
+  T.ok(
+    '🔴 Grace tavani, politikanin bayat penceresini kirpmiyor',
+    rr.GRACE_CEILING_MS >= rr.KATALOG_TOPLAM_MS - rr.KATALOG_TAZE_MS
+  );
+  T.ok(
+    '🔴 TTL tavani, 30 gunluk tazeligi kirpmiyor',
+    rr.TTL_CEILING_MS >= rr.KATALOG_TAZE_MS
   );
 
   const kullanim = await sweeper.getDiskUsage(path.join(T.kok, 'cache'), 1000, 1);

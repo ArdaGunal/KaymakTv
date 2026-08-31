@@ -172,16 +172,61 @@ const { NotFoundError } = require(path.join(LF, 'errors'));
   // ======================================================================
   T.H('L5 - SWR + yenileme kuyrugu');
   // ======================================================================
-  T.ok('GRACE_CEILING_MS = 24 sa', rr.GRACE_CEILING_MS === 24 * 60 * 60 * 1000);
-  T.ok('Anormal uzun max-age de grace 24 sa e kirpiliyor', rr.resolveTtl(7 * 24 * 3600).graceMs === 24 * 3600 * 1000);
-  T.ok(
-    'GERCEK TMDB degerinde (3760 sn) tavan DEVREYE GIRMIYOR',
-    rr.resolveTtl(3760).graceMs === 3760 * 1000 * 4,
-    (rr.resolveTtl(3760).graceMs / 3600000).toFixed(1) + ' sa'
-  );
-  T.ok('TTL tabani 1 dk (anormal kisa kirpilir)', rr.resolveTtl(1).ttlMs === 60000);
-  T.ok('TTL tavani 7 gun', rr.resolveTtl(99999999).ttlMs === 7 * 24 * 3600 * 1000);
-  T.ok('Header hic yoksa varsayilan 1 sa', rr.resolveTtl(null).ttlMs === 3600000);
+  // 🆕 L8 — KATALOG OMRU POLITIKASI. Bu blok bilincli olarak DEGISTI:
+  // eski iddialar "saglayicinin max-age'ine uy" davranisini olcuyordu ve
+  // L8 o karari kasten tersine cevirdi (routeRegistry.js basligi).
+  // Madde 262'nin notu: test takimi da bayatlar.
+  const GUN = 24 * 3600 * 1000;
+  T.ok('Politika: 30 gun taze / 180 gun toplam',
+    rr.KATALOG_TAZE_MS === 30 * GUN && rr.KATALOG_TOPLAM_MS === 180 * GUN);
+
+  // 🔴 Aile VERILMEZSE eski davranis korunur (geriye donuk guvenli)
+  T.ok('Ailesiz cagri eski davranista: 3760 sn -> 3760 sn', rr.resolveTtl(3760).ttlMs === 3760 * 1000);
+  T.ok('Ailesiz cagri: header yoksa varsayilan 1 sa', rr.resolveTtl(null).ttlMs === 3600000);
+  T.ok('Ailesiz cagri: TTL tabani 1 dk', rr.resolveTtl(1).ttlMs === 60000);
+
+  // 🔴 ASIL DEGISIKLIK: beyaz listedeki bir aile icin politika devrede
+  const bitmis = rr.resolveTtl(3760, { family: 'movie_detail', data: { title: 'X' } });
+  T.ok('🔴 Katalog ailesi: TMDB nin 1 saatlik beyani 30 GUNE yukseltildi',
+    bitmis.ttlMs === 30 * GUN, (bitmis.ttlMs / GUN) + ' gun');
+  T.ok('Bayat pencere 180 gune tamamlaniyor',
+    bitmis.ttlMs + bitmis.graceMs === 180 * GUN, ((bitmis.ttlMs + bitmis.graceMs) / GUN) + ' gun toplam');
+
+  // 🔴 SAGLAYICI TABAN: bizden UZUN derse ona uyulur
+  const uzunBeyan = rr.resolveTtl(60 * GUN / 1000, { family: 'movie_detail', data: {} });
+  T.ok('Saglayici bizden UZUN derse ona uyuluyor', uzunBeyan.ttlMs === 60 * GUN, (uzunBeyan.ttlMs / GUN) + ' gun');
+  T.ok('Politika tavani asilmiyor (180 gun)',
+    rr.resolveTtl(9999 * 24 * 3600, { family: 'movie_detail', data: {} }).ttlMs === 180 * GUN);
+
+  // 🔴 YAYINI SUREN DIZI ISTISNASI
+  const su_an = Date.now();
+  const yayinda = { status: 'returning series' };
+  const bitti = { status: 'ended' };
+  T.ok('show_detail: "returning series" -> yayinda', rr.yayindaMi('show_detail', yayinda) === true);
+  T.ok('show_detail: "ended" -> yayinda DEGIL', rr.yayindaMi('show_detail', bitti) === false);
+  T.ok('🔴 Yayindaki dizinin kunyesi 7 GUN taze',
+    rr.resolveTtl(3760, { family: 'show_detail', data: yayinda }).ttlMs === 7 * GUN);
+  T.ok('Bitmis dizinin kunyesi 30 gun taze',
+    rr.resolveTtl(3760, { family: 'show_detail', data: bitti }).ttlMs === 30 * GUN);
+
+  // show_seasons: `status` alani YOK (olculdu) -> son bolum tarihinden anlasilir
+  const sezonYayinda = [{ number: 1, episodes: [{ first_aired: new Date(su_an - 10 * GUN).toISOString() }] }];
+  const sezonGelecek = [{ number: 1, episodes: [{ first_aired: new Date(su_an + 20 * GUN).toISOString() }] }];
+  const sezonBitmis = [{ number: 1, episodes: [{ first_aired: '2013-11-27T00:00:00.000Z' }] }];
+  T.ok('show_seasons: son bolum 10 gun once -> yayinda', rr.yayindaMi('show_seasons', sezonYayinda) === true);
+  T.ok('show_seasons: GELECEK tarihli bolum -> yayinda', rr.yayindaMi('show_seasons', sezonGelecek) === true);
+  T.ok('show_seasons: 2013 tarihli -> yayinda DEGIL', rr.yayindaMi('show_seasons', sezonBitmis) === false);
+  T.ok('🔴 Yayindaki dizinin SEZON LISTESI 7 GUN taze',
+    rr.resolveTtl(43200, { family: 'show_seasons', data: sezonYayinda }).ttlMs === 7 * GUN);
+  T.ok('Bitmis dizinin sezon listesi 30 gun taze',
+    rr.resolveTtl(43200, { family: 'show_seasons', data: sezonBitmis }).ttlMs === 30 * GUN);
+  T.ok('Bozuk/eksik veri cokmuyor, yayinda DEGIL sayiliyor',
+    rr.yayindaMi('show_seasons', null) === false && rr.yayindaMi('show_seasons', [{}]) === false &&
+    rr.yayindaMi('bilinmeyen', { status: 'returning series' }) === false);
+
+  // 🔴 NEGATIF CACHE POLITIKADAN ETKILENMEDI — 404 bilgisi 30 gun saklanamaz
+  T.ok('🔴 Negatif cache HALA 10 dk (politika onu kapsamiyor)',
+    rr.NEGATIVE_TTL_MS === 600000 && rr.NEGATIVE_GRACE_MS === 600000);
 
   const kuyruk = createRefreshQueue();
   let anlik = 0;
