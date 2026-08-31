@@ -14,6 +14,8 @@ import ErrorsTab from '../../components/devPanel/ErrorsTab';
 import SendReportModal from '../../components/devPanel/SendReportModal';
 import LiveModeToggle from '../../components/devPanel/LiveModeToggle';
 import { useDeveloperPanel } from '../../hooks/useDeveloperPanel';
+// Bildirim teşhis kartı — kendi dosyasında (bu ekran zaten 400 satır sınırına yakın).
+import { NotificationDebugCard } from '../../features/notifications/components/NotificationDebugCard';
 import { confirmAsync } from '../../utils/confirmDialog';
 import type { PerfCategory } from '../../utils/perfLog';
 
@@ -157,6 +159,8 @@ export default function DeveloperPanelScreen() {
       />
 
       <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+        <NotificationDebugCard />
+
         {/* Üstteki 5 istatistik kartı */}
         <View style={styles.statsRow}>
           <StatCard value={stats.totalMeasurements} label={t('settings:devPanelStatMeasurements', 'Ölçüm')} />

@@ -38,6 +38,13 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification.png",
+          "color": "#3b82f6"
+        }
+      ],
+      [
         "@react-native-google-signin/google-signin",
         {
           "iosUrlScheme": "com.googleusercontent.apps.12582193451-g07esrua6eegm504achp8ee94ld4nudl"

@@ -10,6 +10,9 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useFollowRequests } from '../../hooks/useFollowRequests';
 import { useNotificationStore, ActivityNotification } from '../../store/notificationStore';
+import { InboxSection } from '../../features/notifications/components/InboxSection';
+import { EnableNotificationsBanner } from '../../features/notifications/components/EnableNotificationsBanner';
+import { useInboxStore } from '../../features/notifications/inbox/useInboxStore';
 import { TraktFollowRequest } from '../../services/api/social';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 
@@ -94,6 +97,9 @@ export default function NotificationsScreen() {
   const items = useNotificationStore((s) => s.items);
   const refreshActivity = useNotificationStore((s) => s.refreshActivity);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
+  // Ekranı açmak HER İKİ listeyi de okundu sayar — rozet ikisinin toplamını
+  // gösterdiği için yalnızca birini temizlemek rozeti takılı bırakırdı.
+  const markInboxRead = useInboxStore((s) => s.markAllRead);
 
   // Pull-to-refresh: bu ekran İKİ ayrı kaynaktan besleniyor — takip istekleri
   // (`useFollowRequests`) ve aktivite bildirimleri (`useNotificationStore`,
@@ -117,7 +123,8 @@ export default function NotificationsScreen() {
     if (!accessToken || isGuest) return;
     refreshActivity();
     markAllRead();
-  }, [accessToken, isGuest, refreshActivity, markAllRead]);
+    markInboxRead();
+  }, [accessToken, isGuest, refreshActivity, markAllRead, markInboxRead]);
 
   const navigateBack = useAppBack();
 
@@ -133,6 +140,11 @@ export default function NotificationsScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
         }
       >
+        {/* Bildirimleri ac hatirlatmasi — izin yoksa ve kullanici kapatmadiysa
+            gorunur. Karar `promptBanner.ts`'te, bilesen kendi icinde null
+            donebilir; burada kosul YOK. */}
+        <EnableNotificationsBanner />
+
         {/* A. Takip İstekleri */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -160,7 +172,11 @@ export default function NotificationsScreen() {
           )}
         </View>
 
-        {/* B. Genel Bildirimler */}
+        {/* B. Icerik Bildirimleri — dusmus bildirimlerin uygulama ici izi.
+            Sosyal listenin USTUNDE: en sik gelen tur bu, en alta gomulmemeli. */}
+        <InboxSection />
+
+        {/* C. Genel Bildirimler (sosyal aktivite) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Bell size={16} color="#94a3b8" />

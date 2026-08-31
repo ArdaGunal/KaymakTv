@@ -4,9 +4,16 @@ import { Bell } from '../../../components/icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotificationStore } from '../../../store/notificationStore';
+import { useInboxStore } from '../inbox/useInboxStore';
 
 export const NotificationBadge = () => {
-  const { unreadCount, refreshActivity } = useNotificationStore();
+  const { unreadCount: socialUnread, refreshActivity } = useNotificationStore();
+  // İÇERİK bildirimleri (bugün yayında / prömiyer / film) AYRI bir listede
+  // tutuluyor — gerekçe `inbox/useInboxStore.ts` başlığında. Rozet ikisinin
+  // TOPLAMINI gösteriyor: kullanıcı açısından "okunmamış bildirim" tek bir
+  // kavram, iki ayrı sayaç görmesi anlamsız olurdu.
+  const contentUnread = useInboxStore((state) => state.unreadCount);
+  const unreadCount = socialUnread + contentUnread;
   const { accessToken, isGuest } = useAuth();
   const router = useRouter();
 

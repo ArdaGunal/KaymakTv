@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAppBack } from '../../hooks/useAppBack';
-import { Activity, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, UserX } from '../../components/icons';
+import { Activity, Bell, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, UserX } from '../../components/icons';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -172,6 +172,20 @@ export default function SettingsScreen() {
               showChevron
               onPress={() => setLanguageModalVisible(true)}
             />
+            {/* Bildirimler (docs/design/notifications.md). Misafire
+                GÖSTERİLMEZ: bildirimlerin tamamı kullanıcının Trakt
+                takvimine dayanıyor, misafirin böyle bir takvimi yok —
+                açılabilir ama hiçbir zaman bildirim üretmeyen bir ekran
+                göstermek sessiz bir yalan olurdu. */}
+            {!isGuest && accessToken && (
+              <SettingsRow
+                icon={<Bell size={20} color="#3b82f6" />}
+                label={t('notifications:screenTitle', 'Bildirimler')}
+                tintColor="#3b82f6"
+                showChevron
+                onPress={() => router.push('/(protected)/notification-settings')}
+              />
+            )}
             {/* TODO.md → Performans: F13'ten sonra (expo-image + disk cache)
                 disk kullanımı arttı, bu buton artık anlamlı. Web'de
                 kendi içinde null döner (bkz. ClearCacheRow başlığı). */}

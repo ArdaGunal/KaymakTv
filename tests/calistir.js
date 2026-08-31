@@ -36,6 +36,17 @@ const TAKIMLAR = [
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
   { ad: 'yazici', grup: 'arsiv', dosya: 'arsiv/yazici.test.js', aciklama: 'A2: hiyerarsi acma, tek transaction, rollback' },
   { ad: 'kuyruk', grup: 'arsiv', dosya: 'arsiv/kuyruk.test.js', aciklama: 'A2: kuyruk, eszamanlilik-1, orchestrator kancasi' },
+  // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,
+  // ISTEMCI kodunu test eder (`features/notifications/` saf katmani) ve bu
+  // yuzden `.mjs` + Node'un yerel TypeScript soymasini kullanir — ayrinti
+  // ve gerekcesi dosyanin kendi basliginda.
+  { ad: 'bildirim', grup: 'bildirimler', dosya: 'bildirimler/planlama.test.mjs', aciklama: 'B1: spoiler saati, secim kurallari, butce' },
+  { ad: 'metin', grup: 'bildirimler', dosya: 'bildirimler/metin-havuzu.test.mjs', aciklama: 'B2: mevsimsel pencere, ton tavani, i18n butunlugu' },
+  { ad: 'kutu', grup: 'bildirimler', dosya: 'bildirimler/kutu.test.mjs', aciklama: 'B3: defter suzme, dusen/bekleyen ayrimi, tekillestirme' },
+  { ad: 'yorgunluk', grup: 'bildirimler', dosya: 'bildirimler/yorgunluk.test.mjs', aciklama: 'B4: toplulastirma, gunluk tavan, oncelik' },
+  { ad: 'devam', grup: 'bildirimler', dosya: 'bildirimler/devam.test.mjs', aciklama: 'B5: durtme esigi, sogulma penceresi, aday secimi' },
+  { ad: 'istatistik', grup: 'bildirimler', dosya: 'bildirimler/istatistik.test.mjs', aciklama: 'B6: anlik goruntu farki, taban alma, yuvarlama' },
+  { ad: 'uzak', grup: 'bildirimler', dosya: 'bildirimler/uzak-havuz.test.mjs', aciklama: 'B7: satir dogrulama, gomulu metni ezememe, beyaz liste' },
 ];
 
 const filtre = process.argv[2];

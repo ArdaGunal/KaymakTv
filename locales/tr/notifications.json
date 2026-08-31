@@ -1,0 +1,195 @@
+{
+  "screenTitle": "Bildirimler",
+  "channels": {
+    "episodes": {
+      "name": "Bölümler",
+      "description": "Takip ettiğin dizilerin yeni bölümleri için hatırlatmalar"
+    },
+    "premieres": {
+      "name": "Sezon Prömiyerleri",
+      "description": "Beklediğin dizinin yeni sezonu başladığında"
+    },
+    "movies": {
+      "name": "Filmler",
+      "description": "İzleme listendeki filmler vizyona girdiğinde"
+    },
+    "reminders": {
+      "name": "Hatırlatmalar",
+      "description": "Yarım kalan dizilerin için sessiz hatırlatmalar"
+    },
+    "digest": {
+      "name": "Özetler",
+      "description": "Aylık izleme özetin"
+    }
+  },
+  "categories": {
+    "episodeToday": {
+      "title": "Bugün yayında",
+      "description": "Takip ettiğin bir dizinin yeni bölümü çıktığı gün haber verir"
+    },
+    "seasonPremiere": {
+      "title": "Sezon prömiyeri",
+      "description": "Takip ettiğin bir dizinin yeni sezonu başladığı gün haber verir"
+    },
+    "movieRelease": {
+      "title": "Film çıkışı",
+      "description": "İzleme listendeki bir film vizyona girdiği gün haber verir"
+    },
+    "continueWatching": {
+      "title": "Kaldığın yerden devam",
+      "description": "Uzun süredir uygulamaya girmediysen yarım kalan diziyi hatırlatır"
+    },
+    "monthlyStats": {
+      "title": "Aylık izleme özeti",
+      "description": "Ayda bir, o dönemde ne kadar izlediğini özetler"
+    }
+  },
+  "copy": {
+    "fallback": {
+      "title": "Yeni bölüm",
+      "body": "{{showTitle}} bugün yayında"
+    },
+    "episodeToday": {
+      "popcorn": {
+        "title": "Mısırları patlat! 🍿",
+        "body": "{{showTitle}} S{{seasonNumber}}B{{episodeNumber}} bugün yayında"
+      },
+      "tonight": {
+        "title": "Bu akşamın programı belli 📺",
+        "body": "{{showTitle}} yeni bölümüyle bugün seni bekliyor"
+      },
+      "fresh": {
+        "title": "Taze bölüm servisi 🛎️",
+        "body": "{{showTitle}} S{{seasonNumber}}B{{episodeNumber}} fırından yeni çıktı"
+      },
+      "remote": {
+        "title": "Kumandayı hazırla 🎬",
+        "body": "{{showTitle}} bugün yeni bölümüyle dönüyor"
+      },
+      "plain": {
+        "title": "Bugün yayında",
+        "body": "{{showTitle}} S{{seasonNumber}}B{{episodeNumber}} bugün yayınlandı"
+      },
+      "newYear": {
+        "title": "Yılbaşı maratonu 🎄",
+        "body": "{{showTitle}} S{{seasonNumber}}B{{episodeNumber}} bugün yayında"
+      }
+    },
+    "seasonPremiere": {
+      "bigNews": {
+        "title": "Büyük gün geldi! 🎉",
+        "body": "{{showTitle}} {{seasonNumber}}. sezonuyla bugün başlıyor"
+      },
+      "longWait": {
+        "title": "Bekleyiş bitti ⏳",
+        "body": "{{showTitle}} yeni sezonuyla döndü — {{seasonNumber}}. sezon bugün"
+      },
+      "plainPremiere": {
+        "title": "Sezon prömiyeri",
+        "body": "{{showTitle}} {{seasonNumber}}. sezonu bugün yayında"
+      }
+    },
+    "movieRelease": {
+      "inTheaters": {
+        "title": "Perde açıldı 🎟️",
+        "body": "{{title}} bugün vizyona girdi"
+      },
+      "plainMovie": {
+        "title": "Film çıkışı",
+        "body": "{{title}} bugün vizyonda"
+      }
+    },
+    "continueWatching": {
+      "pickUp": {
+        "title": "Kaldığın yer duruyor",
+        "body": "{{showTitle}} S{{seasonNumber}}B{{episodeNumber}} seni bekliyor"
+      },
+      "story": {
+        "title": "Hikâye yarım kalmasın",
+        "body": "{{showTitle}} dizisine {{seasonNumber}}. sezonda ara vermiştin"
+      }
+    },
+    "monthlyStats": {
+      "hours": {
+        "title": "Bu ayın karnesi 📊",
+        "body": "Son {{periodDays}} günde {{hours}} saat izledin — {{episodes}} bölüm, {{movies}} film"
+      },
+      "melting": {
+        "title": "Listeni eritiyorsun 🔥",
+        "body": "{{hours}} saat ve {{episodes}} bölüm geride kaldı"
+      },
+      "plainStats": {
+        "title": "Aylık özetin hazır",
+        "body": "Son {{periodDays}} günde {{hours}} saat izledin"
+      }
+    }
+  },
+  "sections": {
+    "general": "Genel",
+    "content": "İçerik",
+    "timing": "Zamanlama",
+    "permission": "İzin Durumu"
+  },
+  "master": {
+    "label": "Tüm bildirimler",
+    "hint": "Kapatırsan hiçbir bildirim gönderilmez, kategori tercihlerin saklı kalır"
+  },
+  "permission": {
+    "granted": "Bildirim izni verildi",
+    "grantedHint": "Bildirimler bu cihaza gönderilebilir",
+    "denied": "Bildirimler cihaz ayarlarından kapalı",
+    "deniedHint": "Uygulama içinden açılamaz, cihaz ayarlarına gitmen gerekiyor",
+    "undetermined": "Bildirim izni henüz istenmedi",
+    "undeterminedHint": "Bir kategoriyi açtığında izin isteyeceğiz",
+    "unsupported": "Bu platformda bildirim desteklenmiyor",
+    "unsupportedHint": "Bildirimler yalnızca mobil uygulamada çalışır",
+    "openSettings": "Cihaz ayarlarını aç"
+  },
+  "hour": {
+    "label": "Bildirim saati",
+    "hint": "Spoiler koruması: bölüm sabah yayınlansa bile bildirim bu saatte gelir"
+  },
+  "debug": {
+    "title": "Bildirim Teşhisi",
+    "permissionLabel": "İzin",
+    "requestPermission": "İzin iste",
+    "permissionResult": "İzin durumu: {{status}}",
+    "sendTest": "{{seconds}} sn sonra test gönder",
+    "testTitle": "KaymakTV test bildirimi",
+    "testBody": "Bu bildirim {{seconds}} saniye önce zamanlandı. Görüyorsan zincir çalışıyor.",
+    "testScheduled": "Test kuruldu ({{seconds}} sn). Tıklama hedefi: {{target}}",
+    "noTarget": "yok (kurulu plan bulunamadı)",
+    "listPending": "Bekleyenleri listele",
+    "pendingCount": "Bekleyen bildirim: {{count}}",
+    "pendingEmpty": "Hiç bekleyen bildirim yok"
+  },
+  "inbox": {
+    "sectionTitle": "İçerik Bildirimleri",
+    "empty": "Henüz düşmüş bir içerik bildirimi yok."
+  },
+  "summary": {
+    "episodeToday": {
+      "title": "Bugün {{count}} bölüm var 🍿",
+      "body": "Takip ettiğin dizilerden {{count}} yeni bölüm bugün yayında"
+    },
+    "seasonPremiere": {
+      "title": "Bugün {{count}} sezon başlıyor 🎉",
+      "body": "Takip ettiğin {{count}} dizi bugün yeni sezonuyla dönüyor"
+    },
+    "movieRelease": {
+      "title": "Bugün {{count}} film vizyonda 🎟️",
+      "body": "İzleme listendeki {{count}} film bugün vizyona girdi"
+    },
+    "monthlyStats": {
+      "title": "Aylık özet",
+      "body": "{{count}} özet hazır"
+    }
+  },
+  "banner": {
+    "title": "Yeni bölümleri kaçırma",
+    "body": "Takip ettiğin diziler yayınlandığında haberin olsun.",
+    "cta": "Bildirimleri aç",
+    "ctaDenied": "Cihaz ayarlarını aç",
+    "dismiss": "Kapat"
+  }
+}

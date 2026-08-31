@@ -1,0 +1,195 @@
+{
+  "screenTitle": "Notifications",
+  "channels": {
+    "episodes": {
+      "name": "Episodes",
+      "description": "Reminders for new episodes of the shows you follow"
+    },
+    "premieres": {
+      "name": "Season Premieres",
+      "description": "When a new season of a show you follow begins"
+    },
+    "movies": {
+      "name": "Movies",
+      "description": "When a movie on your watchlist hits theatres"
+    },
+    "reminders": {
+      "name": "Reminders",
+      "description": "Quiet reminders for shows you left unfinished"
+    },
+    "digest": {
+      "name": "Digests",
+      "description": "Your monthly viewing summary"
+    }
+  },
+  "categories": {
+    "episodeToday": {
+      "title": "Airing today",
+      "description": "Tells you on the day a new episode of a show you follow is out"
+    },
+    "seasonPremiere": {
+      "title": "Season premiere",
+      "description": "Tells you on the day a new season of a show you follow starts"
+    },
+    "movieRelease": {
+      "title": "Movie release",
+      "description": "Tells you on the day a movie on your watchlist hits theatres"
+    },
+    "continueWatching": {
+      "title": "Pick up where you left off",
+      "description": "Reminds you of an unfinished show if you have been away a while"
+    },
+    "monthlyStats": {
+      "title": "Monthly viewing summary",
+      "description": "Once a month, a recap of how much you watched"
+    }
+  },
+  "copy": {
+    "fallback": {
+      "title": "New episode",
+      "body": "{{showTitle}} airs today"
+    },
+    "episodeToday": {
+      "popcorn": {
+        "title": "Pop the popcorn! 🍿",
+        "body": "{{showTitle}} S{{seasonNumber}}E{{episodeNumber}} airs today"
+      },
+      "tonight": {
+        "title": "Tonight's plan is set 📺",
+        "body": "{{showTitle}} is waiting with a new episode today"
+      },
+      "fresh": {
+        "title": "Fresh episode served 🛎️",
+        "body": "{{showTitle}} S{{seasonNumber}}E{{episodeNumber}} is out of the oven"
+      },
+      "remote": {
+        "title": "Grab the remote 🎬",
+        "body": "{{showTitle}} returns today with a new episode"
+      },
+      "plain": {
+        "title": "Airing today",
+        "body": "{{showTitle}} S{{seasonNumber}}E{{episodeNumber}} is out today"
+      },
+      "newYear": {
+        "title": "New Year marathon 🎄",
+        "body": "{{showTitle}} S{{seasonNumber}}E{{episodeNumber}} airs today"
+      }
+    },
+    "seasonPremiere": {
+      "bigNews": {
+        "title": "The big day is here! 🎉",
+        "body": "{{showTitle}} returns today with season {{seasonNumber}}"
+      },
+      "longWait": {
+        "title": "The wait is over ⏳",
+        "body": "{{showTitle}} is back — season {{seasonNumber}} starts today"
+      },
+      "plainPremiere": {
+        "title": "Season premiere",
+        "body": "{{showTitle}} season {{seasonNumber}} airs today"
+      }
+    },
+    "movieRelease": {
+      "inTheaters": {
+        "title": "Curtains up 🎟️",
+        "body": "{{title}} is in theatres today"
+      },
+      "plainMovie": {
+        "title": "Movie release",
+        "body": "{{title}} opens today"
+      }
+    },
+    "continueWatching": {
+      "pickUp": {
+        "title": "Your spot is saved",
+        "body": "{{showTitle}} S{{seasonNumber}}E{{episodeNumber}} is waiting"
+      },
+      "story": {
+        "title": "Don't leave it unfinished",
+        "body": "You paused {{showTitle}} in season {{seasonNumber}}"
+      }
+    },
+    "monthlyStats": {
+      "hours": {
+        "title": "Your month in numbers 📊",
+        "body": "You watched {{hours}} hours in {{periodDays}} days — {{episodes}} episodes, {{movies}} movies"
+      },
+      "melting": {
+        "title": "You're burning through your list 🔥",
+        "body": "{{hours}} hours and {{episodes}} episodes behind you"
+      },
+      "plainStats": {
+        "title": "Your monthly recap",
+        "body": "You watched {{hours}} hours in the last {{periodDays}} days"
+      }
+    }
+  },
+  "sections": {
+    "general": "General",
+    "content": "Content",
+    "timing": "Timing",
+    "permission": "Permission"
+  },
+  "master": {
+    "label": "All notifications",
+    "hint": "Turning this off sends nothing; your category choices are kept"
+  },
+  "permission": {
+    "granted": "Notification permission granted",
+    "grantedHint": "Notifications can be delivered to this device",
+    "denied": "Notifications are off in device settings",
+    "deniedHint": "This cannot be turned on from inside the app; open device settings",
+    "undetermined": "Permission not requested yet",
+    "undeterminedHint": "We'll ask when you turn a category on",
+    "unsupported": "Notifications aren't supported on this platform",
+    "unsupportedHint": "Notifications only work in the mobile app",
+    "openSettings": "Open device settings"
+  },
+  "hour": {
+    "label": "Notification time",
+    "hint": "Spoiler protection: even if an episode airs in the morning, you hear at this hour"
+  },
+  "debug": {
+    "title": "Notification Diagnostics",
+    "permissionLabel": "Permission",
+    "requestPermission": "Request permission",
+    "permissionResult": "Permission status: {{status}}",
+    "sendTest": "Send test in {{seconds}}s",
+    "testTitle": "KaymakTV test notification",
+    "testBody": "This was scheduled {{seconds}} seconds ago. If you see it, the chain works.",
+    "testScheduled": "Test scheduled ({{seconds}}s). Tap target: {{target}}",
+    "noTarget": "none (no scheduled plan found)",
+    "listPending": "List pending",
+    "pendingCount": "Pending notifications: {{count}}",
+    "pendingEmpty": "No pending notifications"
+  },
+  "inbox": {
+    "sectionTitle": "Content Notifications",
+    "empty": "No content notifications yet."
+  },
+  "summary": {
+    "episodeToday": {
+      "title": "{{count}} episodes today 🍿",
+      "body": "{{count}} new episodes from the shows you follow air today"
+    },
+    "seasonPremiere": {
+      "title": "{{count}} seasons start today 🎉",
+      "body": "{{count}} shows you follow return with a new season today"
+    },
+    "movieRelease": {
+      "title": "{{count}} movies out today 🎟️",
+      "body": "{{count}} movies on your watchlist hit theatres today"
+    },
+    "monthlyStats": {
+      "title": "Monthly recap",
+      "body": "{{count}} recaps ready"
+    }
+  },
+  "banner": {
+    "title": "Don't miss new episodes",
+    "body": "Get a heads-up when the shows you follow air.",
+    "cta": "Turn on notifications",
+    "ctaDenied": "Open device settings",
+    "dismiss": "Dismiss"
+  }
+}
