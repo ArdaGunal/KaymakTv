@@ -161,7 +161,10 @@
     "noTarget": "yok (kurulu plan bulunamadı)",
     "listPending": "Bekleyenleri listele",
     "pendingCount": "Bekleyen bildirim: {{count}}",
-    "pendingEmpty": "Hiç bekleyen bildirim yok"
+    "pendingEmpty": "Hiç bekleyen bildirim yok",
+    "sendSamples": "Her kategoriden örnek gönder",
+    "samplesScheduled": "{{count}} örnek kuruldu — ilki {{seconds}} sn sonra",
+    "poolStatus": "Havuz durumu"
   },
   "inbox": {
     "sectionTitle": "İçerik Bildirimleri",

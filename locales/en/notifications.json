@@ -161,7 +161,10 @@
     "noTarget": "none (no scheduled plan found)",
     "listPending": "List pending",
     "pendingCount": "Pending notifications: {{count}}",
-    "pendingEmpty": "No pending notifications"
+    "pendingEmpty": "No pending notifications",
+    "sendSamples": "Send one sample per category",
+    "samplesScheduled": "{{count}} samples scheduled — first in {{seconds}}s",
+    "poolStatus": "Pool status"
   },
   "inbox": {
     "sectionTitle": "Content Notifications",
