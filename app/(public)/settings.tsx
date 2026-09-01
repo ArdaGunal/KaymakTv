@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
 
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
 import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
@@ -31,28 +31,25 @@ export default function Login() {
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const router = useRouter();
+  const router = useRouter();  
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
+  const { code: routerCode, error: routerError } = useLocalSearchParams<{ code?: string; error?: string }>();
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 🔴 GOOGLE GİRİŞİ BU EKRANDAN KALDIRILDI (2026-08-23, ürün kararı)
-  // ═══════════════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 🚫 GOOGLE GİRİŞİ BU EKRANDAN KALDIRILDI (2026-08-23, ürün kararı)
+  // ─────────────────────────────────────────────────────────────────────────────
   // GEREKÇE: Google-only bir kullanıcının Trakt hesabı olmadığı için dizi/film
   // TAKİBİ YAPAMIYOR — Kütüphane ve Takvim ona "Trakt'a bağlan" diyor. Bu,
   // lansmanda "uygulama bozuk" izlenimi yaratıyordu. Google artık bir GİRİŞ
   // yöntemi değil, Trakt'lı bir hesaba eklenen bir BAĞLAMA seçeneği
-  // (Ayarlar → `GoogleLinkSection`).
+  // (Ayarlar -> `GoogleLinkSection`).
   //
   // Geri alma yolu, neyin neden değiştiği ve hangi kodun bilinçli olarak
   // KORUNDUĞU: docs/design/GOOGLE_AUTH_MIGRATION.md
   //
   // ⚠️ `completeIfPending` BİLİNÇLİ OLARAK DURUYOR (UI gitti, bu kalmalı):
-  // eski akışta Google kimliğini yakalayıp Trakt'a yönlenmiş, ama henüz geri
-  // dönmemiş kullanıcılar olabilir. Onların AsyncStorage'ında bekleyen kayıt
-  // var; bu çağrı bir sonraki Trakt girişlerinde bağlamayı sessizce tamamlar.
-  // Bekleyen kayıt yoksa NO-OP. Kaldırılırsa o kullanıcılar arada kalırdı.
   const { completeIfPending: completeGoogleLinkIfPending } = useGoogleTraktLink();
 
   // Redirect URI (app.json'daki scheme ile eşleşmeli)
@@ -76,18 +73,25 @@ export default function Login() {
 
   // OAuth kodları TEK KULLANIMLIKTIR. Aşağıdaki iki yakalayıcı (expo-auth-session'ın
   // `response`'u + web'e özel URL okuması) aynı kod için BİRLİKTE tetiklenip
-  // ikinci değişim `invalid_grant` ile ilk (başarılı) girişin üzerine yazabiliyordu.
+  // hata vermesin diye tüketilen kodu kaydediyoruz.
   const exchangedCodeRef = useRef<string | null>(null);
 
   // Tarayıcıdan dönüş yanıtını (Authorization Code) yakala
   useEffect(() => {
-    if (response?.type === 'success') {
-      const { code } = response.params;
-      handleTokenExchange(code);
-    } else if (response?.type === 'error') {
+    // 1. AuthSession Response üzerinden gelen kod
+    if (response?.type === 'success' && response.params.code) {
+      handleTokenExchange(response.params.code);
+    } 
+    // 2. Expo Router (Deep Link) üzerinden gelen kod (Mobil APK için AuthSession bazen yakalayamaz)
+    else if (routerCode) {
+      handleTokenExchange(routerCode);
+    }
+    
+    // Hataları yakala
+    if (response?.type === 'error' || routerError) {
       notify(t('common:error'), t('loginCanceled'));
     }
-  }, [response]);
+  }, [response, routerCode, routerError]);
 
   // Web için Özel Yönlendirme Yakalayıcı (COOP hatalarını kesin çözmek için Pop-up yerine Top-Level yönlendirme)
   useEffect(() => {
