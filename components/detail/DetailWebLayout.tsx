@@ -16,19 +16,19 @@ interface DetailWebLayoutProps {
 
 /**
  * Masaüstü web'de dizi, film ve bölüm detaylarının ORTAK kabuğu:
- * Kapak görseli (backdrop) + %80 transparan Glassmorphism içerik kapsayıcısı (container)
+ * TAM EKRAN (100vh) kapak görseli (backdrop) + %80 transparan Glassmorphism içerik kapsayıcısı (container)
  * + asimetrik iki sütun + yapışkan sağ ray.
  *
  * ⚠️ YALNIZCA masaüstü web'de render edilir (bkz. hooks/useDetailLayout.ts).
  * Mobil ağaç bu bileşene hiç uğramaz (Mobil görünüm %100 izoledir).
  */
 export default function DetailWebLayout({ metrics, backdrop, left, rail }: DetailWebLayoutProps) {
-  const { contentWidth, railWidth, bannerHeight, contentOffset } = metrics;
+  const { contentWidth, railWidth, contentOffset } = metrics;
 
   return (
     <View style={styles.page}>
-      {/* KAPAK KATMANI — dekoratif backdrop görseli */}
-      <View style={[styles.bannerLayer, { height: bannerHeight }]} pointerEvents="none">
+      {/* KAPAK KATMANI — Tam ekran dekoratif backdrop görseli */}
+      <View style={styles.bannerLayer} pointerEvents="none">
         {backdrop ? (
           <Image
             source={{ uri: backdrop }}
@@ -39,10 +39,10 @@ export default function DetailWebLayout({ metrics, backdrop, left, rail }: Detai
         ) : (
           <View style={styles.bannerPlaceholder} />
         )}
-        {/* Arkadaki görselin kontrastını korumak için hafif gradyan */}
+        {/* Arkadaki görselin üstüne, içerik parlasın ve ekranın aşağısında kaybolsun diye tam ekran karartma */}
         <LinearGradient
-          colors={['rgba(14, 19, 29, 0.20)', 'rgba(14, 19, 29, 0.65)', '#0e131d']}
-          locations={[0, 0.6, 1]}
+          colors={['rgba(11, 17, 32, 0.45)', 'rgba(11, 17, 32, 0.85)', '#0B1120']}
+          locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
       </View>
@@ -76,21 +76,26 @@ export default function DetailWebLayout({ metrics, backdrop, left, rail }: Detai
 const styles = StyleSheet.create({
   page: {
     width: '100%',
-    backgroundColor: '#0e131d',
+    // Arkadaki sabit (fixed) bannerLayer'ın görünmesi için burası transparan olmalı!
+    backgroundColor: 'transparent',
     position: 'relative',
     minHeight: '100%',
   },
   bannerLayer: {
-    position: 'absolute',
+    // Masaüstü web'de sabit kalması ve kaydırmadan etkilenmemesi için 'fixed' ve '100vh' kullanıyoruz.
+    ...(Platform.OS === 'web' 
+      ? { position: 'fixed' as any, height: '100vh' as any } 
+      : { position: 'absolute', height: '100%' }),
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     overflow: 'hidden',
     zIndex: 0,
   },
   bannerPlaceholder: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#172033',
+    backgroundColor: '#0B1120',
   },
   container: {
     alignSelf: 'center',
@@ -101,6 +106,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 28,
+    marginBottom: 80, // İçerik bittiğinde sayfa altında boşluk kalması için
     ...(Platform.OS === 'web'
       ? ({
           backdropFilter: 'blur(16px)',

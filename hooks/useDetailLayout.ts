@@ -27,9 +27,9 @@ export interface DetailLayoutMetrics {
   contentWidth: number;
   /** Sağ sütun (sezon rayı) genişliği — toplamın ~%32'si, 300-384 arası. */
   railWidth: number;
-  /** Üstteki dekoratif arka plan görselinin yüksekliği. */
+  /** (Kullanılmıyor, geriye dönük uyumluluk için var) Üstteki dekoratif arka plan görselinin yüksekliği. */
   bannerHeight: number;
-  /** İçeriğin banner üzerinde başladığı nokta (afiş üzerine bindirilir). */
+  /** İçeriğin sayfanın en üstünden (tepeden) ne kadar aşağıda başlayacağı boşluk (margin-top). */
   contentOffset: number;
 }
 
@@ -39,10 +39,13 @@ export function useDetailLayout(): DetailLayoutMetrics {
 
   const contentWidth = Math.min(width - 48, MAX_CONTENT_WIDTH);
   const railWidth = clamp(Math.round(contentWidth * 0.32), 300, 384);
-  // Banner yüksekliği masaüstünde belirgin ve orantılı
-  const bannerHeight = clamp(Math.round(width * 0.28), 380, 500);
-  // İçerik kapsayıcısının banner üzerine oturacağı nokta (alt yarısına biner)
-  const contentOffset = Math.round(bannerHeight * 0.46);
+  
+  // Tam ekran arka plan yapısına geçtiğimiz için bannerHeight eskisi gibi 
+  // 'afiş yüksekliği' olarak kullanılmayacak.
+  const bannerHeight = 0; 
+  
+  // İçerik kapsayıcısı artık çok daha yukarıdan, ekranın en üstünden 100px aşağıda başlayacak
+  const contentOffset = 100;
 
   return { isDesktopWeb, contentWidth, railWidth, bannerHeight, contentOffset };
 }
