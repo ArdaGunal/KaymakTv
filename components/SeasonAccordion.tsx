@@ -279,7 +279,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
-    ...(Platform.OS === 'web' ? { position: 'sticky', top: -1, zIndex: 10 } as any : {}),
+    ...(Platform.OS === 'web' 
+      ? { 
+          position: 'sticky', 
+          top: -1, 
+          zIndex: 10,
+          backgroundColor: 'rgba(15, 23, 42, 0.95)', // Yazıların üst üste binmesini engellemek için tok bir renk
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        } as any 
+      : {}),
   },
   seasonTitle: {
     fontSize: 16,
