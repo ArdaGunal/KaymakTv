@@ -44,8 +44,8 @@ export function useDetailLayout(): DetailLayoutMetrics {
   // 'afiş yüksekliği' olarak kullanılmayacak.
   const bannerHeight = 0; 
   
-  // İçerik kapsayıcısı artık çok daha yukarıdan, ekranın en üstünden 100px aşağıda başlayacak
-  const contentOffset = 100;
+  // İçerik kapsayıcısı ekranın neredeyse en üstünden (sadece 32px boşlukla) başlayacak
+  const contentOffset = 32;
 
   return { isDesktopWeb, contentWidth, railWidth, bannerHeight, contentOffset };
 }

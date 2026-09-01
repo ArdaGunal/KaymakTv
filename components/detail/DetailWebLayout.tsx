@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
     zIndex: 10,
-    backgroundColor: 'rgba(14, 19, 29, 0.80)',
+    backgroundColor: 'rgba(14, 19, 29, 0.15)', // %15 opak (çok şeffaf)
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
