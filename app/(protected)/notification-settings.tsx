@@ -184,7 +184,7 @@ export default function NotificationSettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: '#0e131d',
   },
   loading: {
     flex: 1,

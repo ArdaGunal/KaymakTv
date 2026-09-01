@@ -1,11 +1,11 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAppBack } from '../../hooks/useAppBack';
-import { Activity, Bell, ExternalLink, EyeOff, FileText, Globe, Lock, LogOut, MessageCircle, PenLine, AlertTriangle, ShieldCheck, Star, Trash2, Tv, UserX } from '../../components/icons';
+import { Activity, Bell, FileText, Globe, MessageCircle, Rss, ShieldCheck, User } from '../../components/icons';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,13 +15,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import ProfileUsernameSection from '../../components/settings/ProfileUsernameSection';
 import ReportIssueModal from '../../components/settings/ReportIssueModal';
 import SettingsRow from '../../components/settings/SettingsRow';
-import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
@@ -30,8 +28,6 @@ import ClearCacheRow from '../../components/settings/ClearCacheRow';
 import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
-import { useFeedPrivacy } from '../../features/feed/hooks/useFeedPrivacy';
-import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
 
 // Sürüm numarasına ard arda dokununca gizli Geliştirici Paneli açılır
 // (Android'in "Yapı Numarası"na dokunma esprisiyle aynı mantık). 5. dokunuşta
@@ -43,23 +39,17 @@ const DEV_MODE_TAP_WINDOW_MS = 1500;
 
 const DESKTOP_BREAKPOINT = 768;
 
-const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
-
 export default function SettingsScreen() {
   const { accessToken, isGuest, authProvider } = useAuth();
-  const { handleLogout, handleDeleteAccount, handleChangeLanguage, currentLanguage,
-    isLoggingOut, isDeletingAccount } = useSettings();
+  const { handleChangeLanguage, currentLanguage } = useSettings();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [legalModalVisible, setLegalModalVisible] = useState(false);
-  const feedPrivacy = useFeedPrivacy();
-  const profilePrivacy = useProfilePrivacy();
 
   // ── Gizli Geliştirici Paneli (sürüm numarasına ard arda dokunma) ─────────
   // Kalıcı DEĞİL (AsyncStorage'a yazılmıyor): uygulama yeniden açıldığında
@@ -113,17 +103,6 @@ export default function SettingsScreen() {
   // burada yalnızca o ekrana yönlendiriyoruz (bkz. TraktAccountSection).
   const goToLogin = () => router.push('/(public)/settings');
 
-  // Trakt gizlilik ayarları yalnızca trakt.tv üzerinden değiştirilebiliyor
-  // (bkz. yukarıdaki "Gizlilik" bölümündeki not / docs/HISTORY.md Madde 134).
-  const openTraktPrivacySettings = () => {
-    Linking.openURL(TRAKT_PRIVACY_SETTINGS_URL).catch((err) => console.error('URL açılamadı:', err));
-  };
-
-  const handleDeleteConfirm = async () => {
-    await handleDeleteAccount();
-    setDeleteModalVisible(false);
-  };
-
   const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English';
 
   return (
@@ -163,6 +142,16 @@ export default function SettingsScreen() {
               Gerekçe ve geri alma: docs/design/GOOGLE_AUTH_MIGRATION.md */}
           <GoogleLinkSection />
 
+          <SettingsSection title={t('settings:accountPreferences', 'Hesap Tercihleri')}>
+            <SettingsRow
+              icon={<User size={20} color="#60a5fa" />}
+              label={t('settings:accountSettings', 'Hesap Ayarları')}
+              tintColor="#60a5fa"
+              showChevron
+              onPress={() => router.push('/(protected)/account-settings')}
+            />
+          </SettingsSection>
+
           <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
               icon={<Globe size={20} color="#60a5fa" />}
@@ -172,197 +161,34 @@ export default function SettingsScreen() {
               showChevron
               onPress={() => setLanguageModalVisible(true)}
             />
-            {/* Bildirimler (docs/design/notifications.md). Misafire
-                GÖSTERİLMEZ: bildirimlerin tamamı kullanıcının Trakt
-                takvimine dayanıyor, misafirin böyle bir takvimi yok —
-                açılabilir ama hiçbir zaman bildirim üretmeyen bir ekran
-                göstermek sessiz bir yalan olurdu. */}
+            {/* Bildirimler ve Akış Ayarları (docs/design/notifications.md).
+                Misafire GÖSTERİLMEZ: bildirimler ve akış ayarları kullanıcının
+                Trakt hesabına dayanır, misafirin böyle bir hesabı yoktur. */}
             {!isGuest && accessToken && (
-              <SettingsRow
-                icon={<Bell size={20} color="#3b82f6" />}
-                label={t('notifications:screenTitle', 'Bildirimler')}
-                tintColor="#3b82f6"
-                showChevron
-                onPress={() => router.push('/(protected)/notification-settings')}
-              />
+              <>
+                <SettingsSectionDivider />
+                <SettingsRow
+                  icon={<Bell size={20} color="#3b82f6" />}
+                  label={t('notifications:screenTitle', 'Bildirimler')}
+                  tintColor="#3b82f6"
+                  showChevron
+                  onPress={() => router.push('/(protected)/notification-settings')}
+                />
+                <SettingsSectionDivider />
+                <SettingsRow
+                  icon={<Rss size={20} color="#c084fc" />}
+                  label={t('settings:feedSettings', 'Akış Ayarları')}
+                  tintColor="#c084fc"
+                  showChevron
+                  onPress={() => router.push('/(protected)/feed-settings')}
+                />
+              </>
             )}
             {/* TODO.md → Performans: F13'ten sonra (expo-image + disk cache)
                 disk kullanımı arttı, bu buton artık anlamlı. Web'de
                 kendi içinde null döner (bkz. ClearCacheRow başlığı). */}
+            {Platform.OS !== 'web' && <SettingsSectionDivider />}
             <ClearCacheRow />
-          </SettingsSection>
-
-          {/* Misafirin bir Trakt hesabı yok — bu ayarın onun için hiçbir
-              anlamı yok, bu yüzden yalnızca gerçek kullanıcıya gösterilir. */}
-          {!isGuest && accessToken && (
-            <SettingsSection title={t('settings:feedSection', 'Akış')}>
-              {/* Y18: gizlilik ayarı kaydedilemediğinde GÖRÜNÜR uyarı.
-                  Eskiden catch yalnızca console.warn atıyor, anahtar sessizce
-                  eski hâline dönüyordu — kullanıcı fark etmezse gizlediğini
-                  SANIYORDU. Bir gizlilik kontrolünde bu kabul edilemez.
-                  Bölümün en üstünde, çünkü hangi anahtarın başarısız olduğundan
-                  bağımsız olarak görülmesi gerekiyor. */}
-              {!!feedPrivacy.saveError && (
-                <View style={styles.privacyErrorBox}>
-                  <AlertTriangle size={14} color="#f87171" />
-                  <Text style={styles.privacyErrorText}>{feedPrivacy.saveError}</Text>
-                </View>
-              )}
-
-              {/* ⚠️ BU BÖLÜMDEKİ DÖRT ANAHTAR DA "GİZLE" YÖNÜNDE:
-                  AÇIK = GİZLİ. Bu bilinçli bir tutarlılık kararı.
-
-                  ESKİDEN karışıktı: üstteki anahtar "Gizle" (açık=gizli),
-                  alttaki üçü "Paylaş" (açık=görünür) idi — yani aynı ekranda
-                  iki ZIT yön vardı. Daha kötüsü, "Gizle"yi açınca alttaki üç
-                  anahtar `false`'a düşüp KAPALI görünüyordu: kullanıcı "her
-                  şeyi gizledim" derken üç anahtarın kapanmasını görüyordu.
-                  Kullanıcı bunu test sırasında bildirdi.
-
-                  DB alanları hâlâ `publish_*` (true = paylaş) — veri modeli
-                  DOĞRU ve DEĞİŞMEDİ, yalnızca UI onu tersine çevirip
-                  gösteriyor (dönüşüm tam olarak bu dosyada, tek yerde).
-                  Artık "Tüm Aktivitemi Gizle" açıkken alt üçü de AÇIK ve
-                  soluk görünüyor — gördüğün şey anlatılan şeyle aynı.
-
-                  DB'de ayrı bir "hepsini gizle" sütunu YOK — ÜÇÜ de kapalıysa
-                  türetiliyor (bkz. useFeedPrivacy.ts: hideAll). */}
-              <SettingsSwitchRow
-                icon={<EyeOff size={20} color="#60a5fa" />}
-                label={t('settings:hideFromFeed', 'Tüm Aktivitemi Gizle')}
-                hint={t('settings:hideFromFeedHint', 'Açıkken izlediklerin, puanladıkların ve incelemelerin kimsenin akışında görünmez.')}
-                tintColor="#60a5fa"
-                value={feedPrivacy.hideAll}
-                onValueChange={feedPrivacy.setHideAll}
-                isLoading={feedPrivacy.isLoading}
-                disabled={feedPrivacy.savingKey !== null}
-              />
-
-              <SettingsSectionDivider />
-
-              {/* `hide` ↔ `publish` dönüşümü: switch AÇIK = gizli = publish false. */}
-              <SettingsSwitchRow
-                icon={<Tv size={20} color="#60a5fa" />}
-                label={t('settings:hideWatches', 'İzlediklerimi Gizle')}
-                hint={t('settings:hideWatchesHint', 'Açıkken izleme aktiviten kimsenin akışında görünmez.')}
-                tintColor="#60a5fa"
-                value={!feedPrivacy.settings.publishWatches}
-                onValueChange={(hide) => feedPrivacy.update('publishWatches', !hide)}
-                isLoading={feedPrivacy.isLoading}
-                disabled={feedPrivacy.savingKey !== null}
-              />
-
-              <SettingsSectionDivider />
-
-              <SettingsSwitchRow
-                icon={<Star size={20} color="#60a5fa" />}
-                label={t('settings:hideRatings', 'Puanlarımı Gizle')}
-                hint={t('settings:hideRatingsHint', 'Açıkken verdiğin puanlar kimsenin akışında görünmez.')}
-                tintColor="#60a5fa"
-                value={!feedPrivacy.settings.publishRatings}
-                onValueChange={(hide) => feedPrivacy.update('publishRatings', !hide)}
-                isLoading={feedPrivacy.isLoading}
-                disabled={feedPrivacy.savingKey !== null}
-              />
-
-              <SettingsSectionDivider />
-
-              {/* 021 — üstteki ikisinden ÖNEMLİ BİR FARKI var ve hint bunu
-                  açıkça söylüyor: kapatmak içeriği SİLMEZ, yalnızca akıştan
-                  gizler. İzleme/puan kapatılınca satırlar gerçekten siliniyor
-                  (Trakt'ın aynası, senkron geri getirir); inceleme ise elle
-                  yazılmış, geri getirilemez içerik (Madde 165). */}
-              <SettingsSwitchRow
-                icon={<PenLine size={20} color="#60a5fa" />}
-                label={t('settings:hideManual', 'İncelemelerimi Gizle')}
-                hint={t('settings:hideManualHint', 'Açıkken incelemelerin ve gönderilerin akışta görünmez. Silinmezler — dizi ve film sayfalarında kalmaya devam eder.')}
-                tintColor="#60a5fa"
-                value={!feedPrivacy.settings.publishManual}
-                onValueChange={(hide) => feedPrivacy.update('publishManual', !hide)}
-                isLoading={feedPrivacy.isLoading}
-                disabled={feedPrivacy.savingKey !== null}
-              />
-
-              <SettingsSectionDivider />
-
-              <SettingsRow
-                icon={<UserX size={20} color="#60a5fa" />}
-                label={t('settings:blockedUsers', 'Engellenen Kullanıcılar')}
-                tintColor="#60a5fa"
-                showChevron
-                onPress={() => router.push('/(protected)/blocked-users')}
-              />
-            </SettingsSection>
-          )}
-
-          {/* Trakt'ın hesap düzeyindeki Gizli/Açık Hesap ayarı — KaymakTV'nin
-              kendi akış gizliliğinden (yukarıdaki "Akış" bölümü) BAĞIMSIZ.
-              Misafirin bir Trakt hesabı yok, bu yüzden yalnızca gerçek
-              kullanıcıya gösterilir (yukarıdaki "Akış" bölümüyle AYNI guard).
-
-              ⛔ SALT OKUNUR — buraya bir Switch GERİ EKLEMEYİN (bkz.
-              docs/HISTORY.md Madde 134): Trakt'ın public API'si
-              `/users/settings`'e YAZMAYA izin vermiyor (yalnızca GET
-              belgelenmiş; PUT first-party bir uç nokta ve üçüncü parti
-              anahtarla her zaman 401 dönüyor). Eskiden burada bir Switch
-              vardı ve çalışıyormuş gibi görünüyordu — gerçekte Trakt'a HİÇ
-              yazmıyordu. Durum okunup gösteriliyor, değiştirmek için
-              kullanıcı trakt.tv'ye yönlendiriliyor. */}
-          {!isGuest && accessToken && (
-            <SettingsSection title={t('settings:privacySection', 'Gizlilik')}>
-              <SettingsRow
-                icon={<Lock size={20} color="#60a5fa" />}
-                label={t('settings:privateAccount', 'Hesap Gizliliği')}
-                tintColor="#60a5fa"
-                value={
-                  profilePrivacy.isLoading
-                    ? t('common:loading', 'Yükleniyor...')
-                    : profilePrivacy.isPrivate
-                    ? t('settings:privateAccountPrivate', 'Gizli')
-                    : t('settings:privateAccountPublic', 'Açık')
-                }
-              />
-
-              <SettingsSectionDivider />
-
-              <SettingsRow
-                icon={<ExternalLink size={20} color="#60a5fa" />}
-                label={t('settings:privacyManageOnTrakt', "Gizlilik ayarlarını Trakt.tv'de yönet")}
-                tintColor="#60a5fa"
-                showChevron
-                onPress={openTraktPrivacySettings}
-              />
-            </SettingsSection>
-          )}
-
-          <SettingsSection title={t('settings:accountOptions', 'Hesap Seçenekleri')}>
-            <SettingsRow
-              icon={<LogOut size={20} color="#fb923c" />}
-              label={isGuest ? t('settings:exitGuestMode', 'Misafir Modundan Çık') : t('logoutReset', 'Çıkış Yap')}
-              tintColor="#fb923c"
-              isDestructive
-              onPress={handleLogout}
-              disabled={isLoggingOut}
-            />
-
-            {/* Misafirin silinecek bir Trakt hesabı yok — bu satır (ve onay
-                modalındaki "Trakt hesabınız etkilenmez" metni) misafir için
-                anlamsız/yanıltıcı olurdu, bu yüzden yalnızca gerçek kullanıcıya
-                gösterilir. Çıkış satırı zaten aynı yerel-veri temizliğini yapıyor. */}
-            {!isGuest && (
-              <>
-                <SettingsSectionDivider />
-
-                <SettingsRow
-                  icon={<Trash2 size={20} color="#f87171" />}
-                  label={t('settings:deleteAccount')}
-                  tintColor="#f87171"
-                  isDestructive
-                  onPress={() => setDeleteModalVisible(true)}
-                  disabled={isDeletingAccount}
-                />
-              </>
-            )}
           </SettingsSection>
 
           {/* Google Play "Uygulama içeriği" gereksinimi: giriş yapmış bir
@@ -440,12 +266,6 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      <DeleteAccountModal
-        visible={deleteModalVisible}
-        loading={isDeletingAccount}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteModalVisible(false)}
-      />
 
       <ReportIssueModal
         visible={reportModalVisible}
@@ -479,28 +299,9 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  privacyErrorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.28)',
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 11,
-  },
-  privacyErrorText: {
-    color: '#fca5a5',
-    fontSize: 12,
-    flex: 1,
-    lineHeight: 17,
-  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: '#0e131d',
   },
   scroll: {
     flex: 1,
@@ -514,8 +315,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 24,
+    paddingTop: 12,
+    gap: 20,
     width: '100%',
   },
   contentDesktop: {
@@ -525,10 +326,11 @@ const styles = StyleSheet.create({
   },
   versionRow: {
     alignItems: 'center',
-    marginTop: -8,
+    marginTop: -4,
+    marginBottom: 8,
   },
   versionText: {
-    color: '#334155',
+    color: '#424654',
     fontSize: 12,
     fontWeight: '500',
   },

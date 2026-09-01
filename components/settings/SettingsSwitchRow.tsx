@@ -24,28 +24,35 @@ export default function SettingsSwitchRow({
 }: SettingsSwitchRowProps) {
   return (
     <View style={[styles.row, disabled && styles.rowDisabled]}>
-      <View style={[styles.iconSlot, tintColor ? { backgroundColor: tintColor + '18' } : null]}>{icon}</View>
+      <View
+        style={[
+          styles.iconSlot,
+          { backgroundColor: tintColor ? tintColor + '18' : 'rgba(92, 140, 245, 0.12)' },
+        ]}
+      >
+        {icon}
+      </View>
 
       <View style={styles.textWrap}>
         <Text style={styles.label} numberOfLines={1}>
           {label}
         </Text>
-        {hint && (
+        {hint ? (
           <Text style={styles.hint} numberOfLines={2}>
             {hint}
           </Text>
-        )}
+        ) : null}
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="small" color="#22d3ee" />
+        <ActivityIndicator size="small" color="#5c8cf5" />
       ) : (
         <Switch
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: '#334155', true: '#22d3ee' }}
-          thumbColor="#f8fafc"
+          trackColor={{ false: '#263044', true: '#3b82f6' }}
+          thumbColor="#ffffff"
         />
       )}
     </View>
@@ -58,33 +65,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 56,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     gap: 14,
   },
   rowDisabled: {
-    opacity: 0.4,
+    opacity: 0.45,
   },
   iconSlot: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   textWrap: {
     flex: 1,
+    justifyContent: 'center',
     gap: 2,
   },
   label: {
-    color: '#e2e8f0',
+    color: '#f1f5f9',
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   hint: {
-    color: '#64748b',
-    fontSize: 12,
-    lineHeight: 16,
+    color: '#8c90a0',
+    fontSize: 12.5,
+    lineHeight: 17,
   },
 });

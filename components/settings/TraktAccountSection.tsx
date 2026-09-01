@@ -9,23 +9,6 @@ interface TraktAccountSectionProps {
   onGoToLogin: () => void;
 }
 
-/**
- * "Hesap Ayarları" bölümü: Trakt bağlıysa durum banner'ı, değilse giriş
- * ekranına yönlendiren bir buton.
- *
- * ⚠️ BURADA OAUTH YOKTUR — ve bilinçli olarak olmamalıdır. Eskiden bu bileşen
- * kendi `useAuthRequest`/`exchangeAuthCode` akışını çalıştırıyordu, yani
- * uygulamada BİRBİRİNİN KOPYASI İKİ OAuth implementasyonu vardı
- * (`app/(public)/settings.tsx` ve `app/(protected)/account.tsx`). Bu ciddi
- * sorunlara yol açıyordu:
- *   • Trakt'a kayıtlı yönlendirme adresi TEK bir yol: `/settings`. Giriş
- *     `/account`'tan başlatılsa bile Trakt kodu `/settings`'e geri gönderiyor —
- *     yani akışı başlatan ekran ile kodu yakalayan ekran FARKLI oluyordu.
- *   • İki ekranın yakalayıcıları aynı tek-kullanımlık kodu iki kez değişmeye
- *     çalışıp `invalid_grant` üretebiliyordu.
- * Tek giriş noktası (`/settings`) bu sınıf hataların tamamını ortadan kaldırır;
- * kullanım koşulları onayı da orada TEK yerde zorlanır.
- */
 export function TraktAccountSection({ isConnected, onGoToLogin }: TraktAccountSectionProps) {
   const { t } = useTranslation(['settings', 'common']);
 
@@ -52,7 +35,7 @@ export function TraktAccountSection({ isConnected, onGoToLogin }: TraktAccountSe
             onPress={onGoToLogin}
             accessibilityRole="button"
           >
-            <LogIn size={18} color="#fff" />
+            <LogIn size={18} color="#fff" strokeWidth={2.2} />
             <Text style={styles.connectBtnText}>{t('settings:goToLogin', 'Giriş Yap')}</Text>
           </TouchableOpacity>
         </>
@@ -87,12 +70,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   notConnectedTitle: {
-    color: '#e2e8f0',
+    color: '#f1f5f9',
     fontSize: 15,
     fontWeight: '700',
   },
   notConnectedSub: {
-    color: '#64748b',
+    color: '#8c90a0',
     fontSize: 13,
     lineHeight: 20,
   },
@@ -105,7 +88,7 @@ const styles = StyleSheet.create({
     margin: 16,
     paddingVertical: 14,
     borderRadius: 12,
-    minHeight: 54,
+    minHeight: 52,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   connectBtnText: {

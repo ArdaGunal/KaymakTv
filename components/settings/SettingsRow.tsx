@@ -5,6 +5,7 @@ import { ChevronRight } from '../icons';
 interface SettingsRowProps {
   icon: React.ReactNode;
   label: string;
+  description?: string;
   value?: string;
   onPress?: () => void;
   showChevron?: boolean;
@@ -16,6 +17,7 @@ interface SettingsRowProps {
 export default function SettingsRow({
   icon,
   label,
+  description,
   value,
   onPress,
   showChevron = false,
@@ -29,22 +31,43 @@ export default function SettingsRow({
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
       disabled={disabled || !onPress}
+      accessibilityRole="button"
     >
-      <View style={[styles.iconSlot, tintColor ? { backgroundColor: tintColor + '18' } : null]}>
+      <View
+        style={[
+          styles.iconSlot,
+          {
+            backgroundColor: isDestructive
+              ? 'rgba(248, 113, 113, 0.14)'
+              : tintColor
+              ? tintColor + '18'
+              : 'rgba(92, 140, 245, 0.12)',
+          },
+        ]}
+      >
         {icon}
       </View>
 
-      <Text style={[styles.label, (isDestructive && tintColor) ? { color: tintColor } : null]} numberOfLines={1}>
-        {label}
-      </Text>
+      <View style={styles.textContainer}>
+        <Text
+          style={[
+            styles.label,
+            isDestructive ? styles.destructiveText : null,
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        {description ? (
+          <Text style={styles.description} numberOfLines={2}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
 
       <View style={styles.trailing}>
-        {value ? (
-          <Text style={styles.value}>{value}</Text>
-        ) : null}
-        {showChevron && (
-          <ChevronRight size={16} color="#64748b" />
-        )}
+        {value ? <Text style={styles.value}>{value}</Text> : null}
+        {showChevron && <ChevronRight size={18} color="#64748b" strokeWidth={2} />}
       </View>
     </TouchableOpacity>
   );
@@ -56,7 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 56,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     gap: 14,
   },
   rowDisabled: {
@@ -65,17 +88,29 @@ const styles = StyleSheet.create({
   iconSlot: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  label: {
+  textContainer: {
     flex: 1,
-    color: '#e2e8f0',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  label: {
+    color: '#f1f5f9',
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  destructiveText: {
+    color: '#f87171',
+  },
+  description: {
+    color: '#8c90a0',
+    fontSize: 12.5,
+    lineHeight: 17,
   },
   trailing: {
     flexDirection: 'row',
@@ -84,7 +119,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   value: {
-    color: '#64748b',
+    color: '#8c90a0',
     fontSize: 14,
+    fontWeight: '500',
   },
 });

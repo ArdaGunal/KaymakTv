@@ -7,17 +7,9 @@ interface SettingsHeaderProps {
   title: string;
   isDesktop: boolean;
   onBack: () => void;
-  /** Başlığın SAĞINA, aynı satıra eklenecek isteğe bağlı içerik (ör.
-   * Geliştirici Paneli'nin yenile/kopyala/gönder ikon butonları). Verilmezse
-   * (varsayılan `undefined`) düzen ESKİSİYLE BİREBİR AYNI kalır — mevcut
-   * hiçbir çağıran (account.tsx, notifications.tsx, EditProfileMobile.tsx...)
-   * bunu geçmiyor ve etkilenmiyor. */
   rightSlot?: React.ReactNode;
 }
 
-// Ayarlar ekranının geri butonlu başlığı: mobilde sade bir ikon, masaüstünde
-// "Geri" etiketli, belirgin tıklanabilir bir buton (statistics.web.tsx /
-// LibraryScreenWeb'deki geri butonu deseniyle tutarlı).
 export function SettingsHeader({ title, isDesktop, onBack, rightSlot }: SettingsHeaderProps) {
   const { t } = useTranslation('common');
 
@@ -27,11 +19,14 @@ export function SettingsHeader({ title, isDesktop, onBack, rightSlot }: Settings
         style={[styles.backButton, isDesktop && styles.backButtonDesktop]}
         onPress={onBack}
         activeOpacity={0.75}
+        accessibilityRole="button"
       >
-        <ChevronLeft size={isDesktop ? 18 : 24} color="#ffffff" />
+        <ChevronLeft size={isDesktop ? 18 : 22} color="#f1f5f9" strokeWidth={2.2} />
         {isDesktop && <Text style={styles.backButtonText}>{t('back', 'Geri')}</Text>}
       </TouchableOpacity>
-      <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      <Text style={styles.title} numberOfLines={1}>
+        {title}
+      </Text>
       {rightSlot}
     </View>
   );
@@ -42,34 +37,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   headerDesktop: {
     width: '100%',
     maxWidth: 680,
     alignSelf: 'center',
     paddingHorizontal: 0,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   title: {
     flex: 1,
-    color: '#f1f5f9',
-    fontSize: 30,
+    color: '#dee2f1',
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButtonDesktop: {
+    width: 'auto',
+    height: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    borderRadius: 12,
     backgroundColor: '#1f2937',
     ...({ cursor: 'pointer', transition: 'all 0.2s ease' } as any),
   },
