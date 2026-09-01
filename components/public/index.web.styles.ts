@@ -63,13 +63,12 @@ export const LandingCSS = `
   
   .btn-primary {
     display: flex; align-items: center; gap: 8px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dim));
+    background: #2563eb;
     color: var(--on-primary); font-size: 14px; font-weight: 700;
     padding: 10px 20px; border-radius: 12px;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: background 0.2s, transform 0.2s;
   }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35); }
+  .btn-primary:hover { background: #1d4ed8; }
 
   .hero {
     position: relative; padding: 160px 0 100px; text-align: center;
@@ -92,9 +91,7 @@ export const LandingCSS = `
       linear-gradient(90deg, var(--bg) 0%, rgba(14,19,29,0.25) 15%, rgba(14,19,29,0.25) 85%, var(--bg) 100%);
   }
   .hero-glow {
-    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-    width: 100%; height: 400px; pointer-events: none; z-index: 1;
-    background: radial-gradient(circle at top, rgba(59, 130, 246, 0.04) 0%, transparent 60%);
+    display: none;
   }
   
   .eyebrow-badge {

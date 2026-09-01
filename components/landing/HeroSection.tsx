@@ -9,7 +9,6 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Clapperboard, LogIn, Compass } from '../icons';
@@ -44,12 +43,6 @@ export default function HeroSection() {
   return (
     <View style={styles.container}>
       <PosterWall posters={posters} />
-      <LinearGradient
-        colors={['rgba(59, 130, 246, 0.03)', 'rgba(14, 19, 29, 0)']}
-        style={styles.glowTop}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
       <Animated.View
         style={[
           styles.content,
@@ -78,15 +71,8 @@ export default function HeroSection() {
             activeOpacity={0.82}
             onPress={() => router.push('/(public)/settings')}
           >
-            <LinearGradient
-              colors={['#3b82f6', '#2563eb']}
-              style={styles.primaryGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <LogIn color="#ffffff" size={17} strokeWidth={2.2} />
-              <Text style={styles.primaryButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
-            </LinearGradient>
+            <LogIn color="#ffffff" size={17} strokeWidth={2.2} />
+            <Text style={styles.primaryButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -94,7 +80,7 @@ export default function HeroSection() {
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
-            <Compass color="#7aa2f7" size={17} strokeWidth={2} />
+            <Compass color="#8c90a0" size={17} strokeWidth={2} />
             <Text style={styles.secondaryButtonText}>{t('exploreAsGuest')}</Text>
           </TouchableOpacity>
         </View>
@@ -112,13 +98,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
-  },
-  glowTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 380,
   },
   content: {
     alignItems: 'center',
@@ -186,15 +165,6 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   primaryButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  primaryGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -202,6 +172,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     minHeight: 54,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   primaryButtonText: {
     color: '#ffffff',
@@ -221,6 +194,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     backgroundColor: 'rgba(27, 32, 42, 0.8)',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   secondaryButtonText: {
     color: '#c2c6d6',
