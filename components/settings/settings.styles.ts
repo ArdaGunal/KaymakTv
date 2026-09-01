@@ -11,8 +11,12 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
-    padding: 24,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    padding: 24,
+    paddingTop: 80, // Dil butonuna ve safe area'ya yer açmak için
   },
   contentWrapper: {
     width: '100%',

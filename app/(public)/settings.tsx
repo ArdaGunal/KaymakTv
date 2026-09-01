@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
@@ -183,7 +183,8 @@ export default function Login() {
         onClose={() => setIsLangMenuVisible(false)}
       />
 
-      <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
         <View style={[styles.headerContainer, isDesktop && { alignItems: 'center', marginBottom: 40 }]}>
           <Text style={[styles.title, isDesktop && { fontSize: 36, textAlign: 'center' }]}>{t('traktAccount')}</Text>
           <Text style={[styles.subtitle, isDesktop && { textAlign: 'center', fontSize: 18 }]}>{t('traktSubtitle')}</Text>
@@ -270,6 +271,7 @@ export default function Login() {
           </>
         </View>
       </View>
+      </ScrollView>
       <LegalTermsModal
         visible={isLegalModalVisible}
         onClose={() => setIsLegalModalVisible(false)}

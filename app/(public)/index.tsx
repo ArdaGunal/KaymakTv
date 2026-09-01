@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, Text, ScrollView, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeroSection from '../../components/landing/HeroSection';
 import BentoGrid from '../../components/landing/BentoGrid';
@@ -19,6 +19,7 @@ export default function LandingPage() {
   const [langModalVisible, setLangModalVisible] = useState(false);
   const { t } = useTranslation('common');
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   if (accessToken || isGuest) {
     return <Redirect href="/(protected)/(tabs)/explore" />;
@@ -71,7 +72,11 @@ export default function LandingPage() {
             activeOpacity={0.82}
           >
             <LogIn size={14} color="#ffffff" strokeWidth={2.2} />
-            <Text style={styles.loginButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
+            {Platform.OS === 'web' || width >= 768 ? (
+              <Text style={styles.loginButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
+            ) : (
+              <Text style={styles.loginButtonText}>{t('login', 'Giriş')}</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
