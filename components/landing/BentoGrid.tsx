@@ -251,8 +251,7 @@ const styles = StyleSheet.create({
   // ── Kart Dış Kaplama ────────────────────────────────────────────────────
   cardOuter: {},
   cardMobileHalf: {
-    flex: 1,
-    minWidth: '45%',
+    width: '48%',
   },
   cardMobileFull: {
     width: '100%',
@@ -263,11 +262,11 @@ const styles = StyleSheet.create({
     maxWidth: 310,
   },
   cardAnimWrap: {
-    flex: 1,
+    flexGrow: 1,
   },
-  // ── Kart ────────────────────────────────────────────────────────────────
+  // ✨ Kart ✨
   card: {
-    flex: 1,
+    flexGrow: 1,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,

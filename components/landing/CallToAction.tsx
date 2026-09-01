@@ -50,7 +50,7 @@ export default function CallToAction() {
         <View style={[styles.ctaGroup, isDesktop && styles.ctaGroupDesktop]}>
           {/* Giriş Yap — Ana buton */}
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[styles.primaryBtn, isDesktop && { flex: 1 }]}
             activeOpacity={0.82}
             onPress={() => router.push('/(public)/settings')}
           >
@@ -61,7 +61,7 @@ export default function CallToAction() {
 
           {/* Misafir Olarak Devam Et */}
           <TouchableOpacity
-            style={styles.ghostBtn}
+            style={[styles.ghostBtn, isDesktop && { flex: 1 }]}
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
@@ -169,7 +169,6 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 14,
     backgroundColor: '#2563eb',
-    flex: 1,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   primaryText: {
@@ -191,7 +190,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     backgroundColor: 'rgba(27, 32, 42, 0.8)',
-    flex: 1,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   ghostText: {
