@@ -1,17 +1,13 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, StyleProp, ViewStyle } from 'react-native';
 
 interface StatCardProps {
   value: number;
   label: string;
-  /** Sıfırdan farklıyken vurgulanacak renk (ör. hata kartında kırmızı) —
-   * değer 0 iken her zaman nötr gri kalır, boş bir istatistik dikkat çekmemeli. */
   accentColor?: string;
+  style?: StyleProp<ViewStyle>;
 }
 
-/** `#rrggbb` → `rgba(r,g,b,alpha)`. Yalnızca bu dosyada, tek bir yerde
- * (kenarlık/ışıma rengi) kullanıldığı için ayrı bir util dosyasına
- * çıkarılmadı — accentColor her zaman sabit bir hex palet (`#ef4444` vb.). */
 function hexToRgba(hex: string, alpha: number): string {
   const clean = hex.replace('#', '');
   const value = parseInt(clean, 16);
@@ -21,7 +17,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const StatCard = memo(({ value, label, accentColor }: StatCardProps) => {
+const StatCard = memo(({ value, label, accentColor, style }: StatCardProps) => {
   const isActive = value > 0 && !!accentColor;
 
   return (
@@ -29,21 +25,29 @@ const StatCard = memo(({ value, label, accentColor }: StatCardProps) => {
       style={[
         styles.card,
         isActive && {
-          borderColor: hexToRgba(accentColor!, 0.45),
-          shadowColor: accentColor,
-          // Android'de renkli gölge (shadowColor) DESTEKLENMEZ — yalnızca gri
-          // `elevation` verir, bu da "ışıma" yerine sıradan bir kabartma
-          // gibi görünürdü. Bu yüzden Android'de ışıma KAPALI, vurgu yalnızca
-          // yukarıdaki renkli kenarlıktan gelir (zarif bir düşüş, sahte bir
-          // efekt değil). Web + iOS'ta gerçek renkli ışıma görünür.
-          shadowOpacity: Platform.OS === 'android' ? 0 : 0.5,
-          shadowOffset: { width: 0, height: 0 },
-          shadowRadius: 10,
+          borderColor: hexToRgba(accentColor!, 0.4),
+          backgroundColor: hexToRgba(accentColor!, 0.08),
         },
+        style,
       ]}
     >
-      <Text style={[styles.value, isActive && { color: accentColor }]}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
+      <Text
+        style={[
+          styles.value,
+          isActive ? { color: accentColor } : styles.valueNeutral,
+        ]}
+      >
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.label,
+          isActive && { color: hexToRgba(accentColor!, 0.9) },
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
     </View>
   );
 });
@@ -52,23 +56,29 @@ export default StatCard;
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    backgroundColor: '#111827',
-    borderRadius: 14,
+    backgroundColor: 'rgba(27, 32, 42, 0.75)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 14,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 2,
+    minHeight: 48,
   },
   value: {
+    fontSize: 17,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    letterSpacing: -0.3,
+  },
+  valueNeutral: {
     color: '#f1f5f9',
-    fontSize: 22,
-    fontWeight: '800',
   },
   label: {
-    color: '#64748b',
-    fontSize: 11,
+    color: '#8c90a0',
+    fontSize: 10.5,
     fontWeight: '600',
     textAlign: 'center',
   },

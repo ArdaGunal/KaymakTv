@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 
@@ -25,9 +25,6 @@ interface PerformanceTabProps {
   locale: string;
 }
 
-/** Geliştirici Paneli'nin Performans sekmesi — kategori çipleri, "Temizle"
- * eylemi ve ham ölçüm listesi. Süzme (selectedCategory) ekranda (dev-panel.tsx)
- * tutulur, bu bileşen SAF sunumdur. */
 export default function PerformanceTab({
   entries,
   categorySummaries,
@@ -35,8 +32,6 @@ export default function PerformanceTab({
   onSelectCategory,
   onClear,
   isLoading,
-  isRefreshing,
-  onRefresh,
   locale,
 }: PerformanceTabProps) {
   const { t } = useTranslation(['settings', 'common']);
@@ -51,17 +46,11 @@ export default function PerformanceTab({
     return result;
   }, [entries, selectedCategory, searchQuery]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: PerfMark }) => <PerfEntryRow entry={item} locale={locale} />,
-    [locale]
-  );
-  const keyExtractor = useCallback((item: PerfMark, index: number) => `${item.timestamp}-${index}`, []);
-
   const hasEntries = entries.length > 0;
   const noFilteredResults = hasEntries && filteredEntries.length === 0;
 
   return (
-    <>
+    <View style={styles.container}>
       {hasEntries && (
         <SearchBar
           value={searchQuery}
@@ -71,7 +60,11 @@ export default function PerformanceTab({
       )}
 
       {categorySummaries.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
           <CategoryChip
             label={t('settings:devPanelCategoryAll', 'Tümü')}
             active={selectedCategory === null}
@@ -85,14 +78,14 @@ export default function PerformanceTab({
               onPress={() => onSelectCategory(selectedCategory === summary.category ? null : summary.category)}
             />
           ))}
-        </View>
+        </ScrollView>
       )}
 
       {hasEntries && (
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionButton} onPress={onClear} activeOpacity={0.7}>
-            <Trash2 size={16} color="#f87171" />
-            <Text style={[styles.actionText, { color: '#f87171' }]}>{t('settings:errorLogClearAction')}</Text>
+            <Trash2 size={15} color="#f87171" />
+            <Text style={styles.actionText}>{t('settings:errorLogClearAction')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -117,14 +110,16 @@ export default function PerformanceTab({
           }
         />
       ) : (
-        <FlatList
-          data={filteredEntries}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#94a3b8" />}
-        />
+        <View style={styles.entriesList}>
+          {filteredEntries.map((item, index) => (
+            <PerfEntryRow
+              key={`${item.timestamp}-${item.name}-${index}`}
+              entry={item}
+              locale={locale}
+            />
+          ))}
+        </View>
       )}
-    </>
+    </View>
   );
 }

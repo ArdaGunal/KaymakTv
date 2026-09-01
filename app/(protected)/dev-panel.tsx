@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
-import { Copy, RefreshCw, Activity, Bug } from '../../components/icons';
+import { Copy, RefreshCw, Activity, Bug, MoreVertical } from '../../components/icons';
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import Snackbar from '../../components/Snackbar';
@@ -13,14 +13,13 @@ import PerformanceTab from '../../components/devPanel/PerformanceTab';
 import ErrorsTab from '../../components/devPanel/ErrorsTab';
 import SendReportModal from '../../components/devPanel/SendReportModal';
 import LiveModeToggle from '../../components/devPanel/LiveModeToggle';
+import { DevPanelActionsModal } from '../../components/devPanel/DevPanelActionsModal';
 import { useDeveloperPanel } from '../../hooks/useDeveloperPanel';
-// Bildirim teşhis kartı — kendi dosyasında (bu ekran zaten 400 satır sınırına yakın).
 import { NotificationDebugCard } from '../../features/notifications/components/NotificationDebugCard';
 import { confirmAsync } from '../../utils/confirmDialog';
 import type { PerfCategory } from '../../utils/perfLog';
 
 const LIVE_MODE_INTERVAL_MS = 4000;
-
 const DESKTOP_BREAKPOINT = 768;
 
 type DevPanelTab = 'performance' | 'errors';
@@ -47,14 +46,10 @@ export default function DeveloperPanelScreen() {
   const [activeTab, setActiveTab] = useState<DevPanelTab>('performance');
   const [selectedCategory, setSelectedCategory] = useState<PerfCategory | null>(null);
   const [sendModalVisible, setSendModalVisible] = useState(false);
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
 
-  // Canlı İzleme: panel bu ekrandan ÇIKINCA (unmount) veya anahtar KAPATILINCA
-  // temizlenir — arka planda sonsuza dek çalışan bir zamanlayıcı KALMAZ.
-  // `silentRefresh` kullanılır (`refresh` DEĞİL): aksi hâlde her 4 saniyede
-  // bir RefreshControl döngüsü görünür biçimde "titrerdi", kullanıcı hiçbir
-  // şeyi elle çekmediği hâlde.
   useEffect(() => {
     if (!liveMode) return;
     const interval = setInterval(() => {
@@ -115,17 +110,16 @@ export default function DeveloperPanelScreen() {
     }
   }, [errorEntries, t, showToast]);
 
-  // Başlığın sağındaki aksiyon butonları: Hata Raporu Gönder (CTA), Yenile ve Kopyala.
-  const headerActions = (
-    <View style={styles.headerActions}>
+  const headerRightSlot = isDesktop ? (
+    <View style={styles.headerActionsWeb}>
       <TouchableOpacity
-        style={styles.sendReportHeaderBtn}
+        style={styles.sendReportBtnWeb}
         onPress={() => setSendModalVisible(true)}
         activeOpacity={0.8}
         accessibilityLabel={t('settings:devPanelSendReport', 'Teşhis Raporu Gönder')}
       >
-        <Bug size={15} color="#ffffff" />
-        <Text style={styles.sendReportHeaderBtnText}>
+        <Bug size={15} color="#fb923c" />
+        <Text style={styles.sendReportBtnTextWeb}>
           {t('settings:devPanelSendReport', 'Teşhis Raporu Gönder')}
         </Text>
       </TouchableOpacity>
@@ -147,6 +141,50 @@ export default function DeveloperPanelScreen() {
         <Copy size={15} color="#94a3b8" />
       </TouchableOpacity>
     </View>
+  ) : (
+    <TouchableOpacity
+      style={styles.headerIconBtnMobile}
+      onPress={() => setMobileMenuVisible(true)}
+      activeOpacity={0.75}
+      accessibilityLabel="Daha Fazla Eylem"
+    >
+      <MoreVertical size={18} color="#f1f5f9" />
+    </TouchableOpacity>
+  );
+
+  const statsCards = (
+    <>
+      <StatCard
+        value={stats.totalMeasurements}
+        label={t('settings:devPanelStatMeasurements', 'Ölçüm')}
+        accentColor="#60a5fa"
+        style={isDesktop ? styles.statCardFlex : styles.statCardMobileItem}
+      />
+      <StatCard
+        value={stats.moderateCount}
+        label={t('settings:devPanelStatModerate', 'Orta (500ms-2sn)')}
+        accentColor="#fb923c"
+        style={isDesktop ? styles.statCardFlex : styles.statCardMobileItem}
+      />
+      <StatCard
+        value={stats.criticalCount}
+        label={t('settings:devPanelStatCritical', 'Kritik (>2sn)')}
+        accentColor="#f87171"
+        style={isDesktop ? styles.statCardFlex : styles.statCardMobileItem}
+      />
+      <StatCard
+        value={stats.errorCount24h}
+        label={t('settings:devPanelStatErrors', 'Hata (24sa)')}
+        accentColor="#f87171"
+        style={isDesktop ? styles.statCardFlex : styles.statCardMobileItem}
+      />
+      <StatCard
+        value={stats.warningCount24h}
+        label={t('settings:devPanelStatWarnings', 'Uyarı (24sa)')}
+        accentColor="#fb923c"
+        style={isDesktop ? styles.statCardFlex : styles.statCardMobileItem}
+      />
+    </>
   );
 
   return (
@@ -155,37 +193,31 @@ export default function DeveloperPanelScreen() {
         title={t('settings:devPanelTitle', 'Geliştirici Paneli')}
         isDesktop={isDesktop}
         onBack={navigateBack}
-        rightSlot={headerActions}
+        rightSlot={headerRightSlot}
       />
 
-      <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#94a3b8" />}
+      >
         <NotificationDebugCard />
 
-        {/* Üstteki 5 istatistik kartı */}
-        <View style={styles.statsRow}>
-          <StatCard value={stats.totalMeasurements} label={t('settings:devPanelStatMeasurements', 'Ölçüm')} />
-          <StatCard
-            value={stats.moderateCount}
-            label={t('settings:devPanelStatModerate', 'Orta (500ms-2sn)')}
-            accentColor="#f59e0b"
-          />
-          <StatCard
-            value={stats.criticalCount}
-            label={t('settings:devPanelStatCritical', 'Kritik (>2sn)')}
-            accentColor="#ef4444"
-          />
-          <StatCard
-            value={stats.errorCount24h}
-            label={t('settings:devPanelStatErrors', 'Hata (24sa)')}
-            accentColor="#ef4444"
-          />
-          <StatCard
-            value={stats.warningCount24h}
-            label={t('settings:devPanelStatWarnings', 'Uyarı (24sa)')}
-            accentColor="#f59e0b"
-          />
-        </View>
+        {/* 5 Kompakt Metrik Kartı */}
+        {isDesktop ? (
+          <View style={styles.statsRowWeb}>{statsCards}</View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.statsScrollMobile}
+          >
+            {statsCards}
+          </ScrollView>
+        )}
 
+        {/* Tab Seçici */}
         <View style={styles.tabRow}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'performance' && styles.tabActive]}
@@ -233,23 +265,32 @@ export default function DeveloperPanelScreen() {
             locale={i18n.language}
           />
         )}
-      </View>
+      </ScrollView>
 
-      {/* Mobilde ekranın altındaki gezinme ve güvenli alanları gözeterek belirgin Teşhis Raporu butonu */}
+      {/* Mobilde alttaki kompakt Teşhis Raporu butonu */}
       {!isDesktop && (
-        <View style={[styles.mobileBottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.mobileBottomBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <TouchableOpacity
             style={styles.mobileReportBtn}
             onPress={() => setSendModalVisible(true)}
             activeOpacity={0.85}
           >
-            <Bug size={18} color="#ffffff" />
+            <Bug size={16} color="#fb923c" />
             <Text style={styles.mobileReportBtnText}>
               {t('settings:devPanelSendReportMobile', 'Hata & Teşhis Raporu Gönder')}
             </Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Mobilde 3-Nokta Eylem Menüsü */}
+      <DevPanelActionsModal
+        visible={mobileMenuVisible}
+        onClose={() => setMobileMenuVisible(false)}
+        onSendReport={() => setSendModalVisible(true)}
+        onRefresh={refresh}
+        onCopyReport={handleCopyReport}
+      />
 
       <SendReportModal
         visible={sendModalVisible}
@@ -271,40 +312,42 @@ export default function DeveloperPanelScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: '#0e131d',
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 90,
     width: '100%',
   },
   contentDesktop: {
-    maxWidth: 680,
+    maxWidth: 720,
     alignSelf: 'center',
     paddingHorizontal: 0,
+    paddingBottom: 40,
   },
-  headerActions: {
+  headerActionsWeb: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  sendReportHeaderBtn: {
+  sendReportBtnWeb: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#dc2626',
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  sendReportHeaderBtnText: {
-    color: '#ffffff',
-    fontSize: 12.5,
+  sendReportBtnTextWeb: {
+    color: '#fb923c',
+    fontSize: 12,
     fontWeight: '700',
   },
   headerIconBtn: {
@@ -313,23 +356,44 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
-  statsRow: {
+  headerIconBtnMobile: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  statsRowWeb: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
+  },
+  statsScrollMobile: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+    marginBottom: 12,
+  },
+  statCardFlex: {
+    flex: 1,
+  },
+  statCardMobileItem: {
+    minWidth: 100,
   },
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 14,
-    padding: 4,
+    backgroundColor: 'rgba(27, 32, 42, 0.75)',
+    borderRadius: 12,
+    padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 14,
-    gap: 4,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 10,
+    gap: 3,
   },
   tab: {
     flex: 1,
@@ -337,15 +401,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 8,
+    borderRadius: 9,
   },
   tabActive: {
     backgroundColor: '#2563eb',
   },
   tabText: {
-    color: '#64748b',
-    fontSize: 13,
+    color: '#8c90a0',
+    fontSize: 12.5,
     fontWeight: '600',
   },
   tabTextActive: {
@@ -357,30 +421,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(11, 17, 32, 0.95)',
-    paddingTop: 10,
+    backgroundColor: 'rgba(14, 19, 29, 0.95)',
+    paddingTop: 8,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   mobileReportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#dc2626',
-    borderRadius: 14,
-    paddingVertical: 14,
-    shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    borderRadius: 12,
+    paddingVertical: 11,
   },
   mobileReportBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
+    color: '#fb923c',
+    fontSize: 13.5,
     fontWeight: '700',
-    letterSpacing: -0.2,
   },
 });

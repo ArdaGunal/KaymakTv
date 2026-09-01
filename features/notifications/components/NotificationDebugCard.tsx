@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Notifications from 'expo-notifications';
 import { logError } from '../../../utils/errorLog';
@@ -12,38 +12,9 @@ import { mergeRemotePool } from '../copy/remoteSchema';
 import { loadCachedRemotePool } from '../copy/remotePool';
 import type { NotificationPermissionStatus } from '../types';
 
-/**
- * Geliştirici Paneli'nin bildirim teşhis kartı.
- *
- * 🔴 VAR OLUŞ SEBEBİ: bu kart olmadan bildirim sistemini test etmenin TEK yolu
- * gerçek bir bölümün yayın gününde tercih edilen saati BEKLEMEK. Yani bir
- * hatanın fark edilmesi günler — bazı kategorilerde HAFTALAR — alabilirdi.
- * Buradaki düğmeler tüm zinciri (izin → kanal → zamanlayıcı → teslim →
- * tıklama → metin) saniyeler içinde doğrulanabilir hale getiriyor:
- *
- *   • İzin iste            — izin akışını tetikler
- *   • 10 sn sonra test     — teslim + tıklama/deep link zinciri
- *   • Bekleyenleri listele — zamanlayıcı ne yazdı? kategori dökümüyle
- *   • Örnek gönder         — HER kategoriden gerçek havuz metniyle bir örnek
- *   • Havuz durumu         — kaç varyant var, uzak havuz ulaştı mı?
- *
- * Test protokolü: `docs/runbook/BILDIRIM_TEST_PROTOKOLU.md`
- *
- * ⚠️ Test bildirimi `plannedFireAt` alanını BİLİNÇLİ OLARAK taşımıyor.
- * `scheduler.ts`'teki `readOwnPayload` o alan yoksa bildirimi "bizim değil"
- * sayıp dokunmuyor — böylece test bildirimi, arka planda çalışan bir yeniden
- * planlama turu tarafından patlamadan İPTAL EDİLMİYOR.
- */
-
 const TEST_DELAY_SECONDS = 10;
-
-/** Örnek bildirimler arasındaki boşluk — hepsi üst üste düşüp okunmaz olmasın. */
 const SAMPLE_GAP_SECONDS = 8;
 
-/**
- * Örnek metinlerde kullanılan sahte değerler. Gerçek veri BEKLEMEDEN metnin
- * nasıl görüneceğini (enterpolasyon, i18n, uzak havuz) doğrulamak için.
- */
 const SAMPLE_VARS = {
   showTitle: 'Breaking Bad',
   title: 'Dune: Part Two',
@@ -66,6 +37,8 @@ export function NotificationDebugCard() {
   const [status, setStatus] = useState<string>('');
   const [pending, setPending] = useState<PendingSummary | null>(null);
   const [permission, setPermission] = useState<NotificationPermissionStatus | null>(null);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const refreshPermission = useCallback(async () => {
     setPermission(await getPermissionStatus());
@@ -94,9 +67,6 @@ export function NotificationDebugCard() {
         return;
       }
 
-      // Kurulu GERÇEK bir planın hedefini ödünç al: böylece test bildirimine
-      // tıklamak, deep link + geri navigasyon zincirini de sınar. Plan yoksa
-      // bildirim yönlendirmesiz gider (tıklayınca uygulama açılır).
       const existing = await Notifications.getAllScheduledNotificationsAsync();
       const borrowedLink = existing
         .map((request) => (request.content?.data as { deepLink?: string } | undefined)?.deepLink)
@@ -107,7 +77,6 @@ export function NotificationDebugCard() {
         content: {
           title: t('debug.testTitle'),
           body: t('debug.testBody', { seconds: TEST_DELAY_SECONDS }),
-          // `plannedFireAt` YOK — yukarıdaki başlık notuna bak.
           data: borrowedLink ? { categoryId: 'debug', deepLink: borrowedLink } : { categoryId: 'debug' },
         },
         trigger: {
@@ -138,8 +107,6 @@ export function NotificationDebugCard() {
 
     try {
       const existing = await Notifications.getAllScheduledNotificationsAsync();
-      // Kategori dökümü: hangi kategoriden kaç plan kurulu? "Prömiyer hiç
-      // planlanmamış" gibi bir eksiği tek bakışta gösterir.
       const sayac = new Map<string, number>();
       for (const request of existing) {
         const kategori = (request.content?.data as { categoryId?: string } | undefined)?.categoryId;
@@ -163,20 +130,6 @@ export function NotificationDebugCard() {
     }
   }, [t]);
 
-  /**
-   * 🔑 ASIL TEŞHİS ARACI: her kategori için, HAVUZDAN GERÇEK METİNLE bir örnek
-   * bildirim kurar.
-   *
-   * Neden var: kategorilerin çoğu gerçek hayatta HAFTALAR sonra tetiklenir
-   * (sezon prömiyeri, aylık özet, 7 günlük dürtme). Metnin doğru göründüğünü,
-   * değişkenlerin dolduğunu ve doğru kanala düştüğünü görmek için o kadar
-   * beklemek gerekmemeli.
-   *
-   * ⚠️ Bunlar SAHTE veriyle üretilir ve `plannedFireAt` TAŞIMAZ — böylece
-   * `scheduler` onları "bizim" saymaz, arka planda iptal etmez ve uygulama
-   * içi bildirim kutusuna da GİRMEZLER (gerçek bir bildirim düşmüş gibi
-   * görünmesinler).
-   */
   const handleSendSamples = useCallback(async () => {
     if (Platform.OS === 'web') {
       setStatus(t('permission.unsupported'));
@@ -190,8 +143,6 @@ export function NotificationDebugCard() {
         return;
       }
 
-      // Uzak havuz da dahil edilir: Supabase'e eklenen bir metnin cihaza
-      // gerçekten ulaşıp ulaşmadığı ancak böyle görülebilir.
       const pool = mergeRemotePool(COPY_POOL, await loadCachedRemotePool(), i18n.language);
 
       let gonderilen = 0;
@@ -217,7 +168,6 @@ export function NotificationDebugCard() {
           content: {
             title: baslik,
             body: govde,
-            // `plannedFireAt` YOK — yukarıdaki nota bak.
             data: { categoryId: 'debug', sampleOf: category.id, variantId: variant.id },
           },
           trigger: {
@@ -237,7 +187,6 @@ export function NotificationDebugCard() {
     }
   }, [t, i18n.language]);
 
-  /** Havuzun gerçekte kaç varyant taşıdığı — uzak havuz ulaştı mı? */
   const handlePoolStatus = useCallback(async () => {
     try {
       const remote = await loadCachedRemotePool();
@@ -256,30 +205,48 @@ export function NotificationDebugCard() {
     }
   }, [i18n.language]);
 
+  const buttons = (
+    <>
+      <TouchableOpacity style={styles.button} onPress={() => void handleRequestPermission()} activeOpacity={0.8}>
+        <Text style={styles.buttonText}>{t('debug.requestPermission')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => void handleSendTest()} activeOpacity={0.8}>
+        <Text style={styles.buttonText}>{t('debug.sendTest', { seconds: TEST_DELAY_SECONDS })}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => void handleListPending()} activeOpacity={0.8}>
+        <Text style={styles.buttonText}>{t('debug.listPending')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => void handleSendSamples()} activeOpacity={0.8}>
+        <Text style={styles.buttonText}>{t('debug.sendSamples')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => void handlePoolStatus()} activeOpacity={0.8}>
+        <Text style={styles.buttonText}>{t('debug.poolStatus')}</Text>
+      </TouchableOpacity>
+    </>
+  );
+
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{t('debug.title')}</Text>
-      <Text style={styles.meta}>
-        {t('debug.permissionLabel')}: {permission ?? '…'}
-      </Text>
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.button} onPress={() => void handleRequestPermission()} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>{t('debug.requestPermission')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => void handleSendTest()} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>{t('debug.sendTest', { seconds: TEST_DELAY_SECONDS })}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => void handleListPending()} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>{t('debug.listPending')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => void handleSendSamples()} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>{t('debug.sendSamples')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => void handlePoolStatus()} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>{t('debug.poolStatus')}</Text>
-        </TouchableOpacity>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{t('debug.title')}</Text>
+        <View style={styles.permissionBadge}>
+          <Text style={styles.meta}>
+            {t('debug.permissionLabel')}: <Text style={styles.permissionValue}>{permission ?? '…'}</Text>
+          </Text>
+        </View>
       </View>
+
+      {isDesktop ? (
+        <View style={styles.buttonWrapWeb}>{buttons}</View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.buttonScrollMobile}
+        >
+          {buttons}
+        </ScrollView>
+      )}
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
 
@@ -303,25 +270,80 @@ export function NotificationDebugCard() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: 'rgba(27, 32, 42, 0.75)',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    padding: 14,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    padding: 12,
     gap: 10,
+    marginBottom: 12,
   },
-  title: { color: '#f8fafc', fontSize: 14, fontWeight: '700' },
-  meta: { color: '#94a3b8', fontSize: 12 },
-  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: {
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  permissionBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  meta: {
+    color: '#8c90a0',
+    fontSize: 11,
+  },
+  permissionValue: {
+    color: '#93c5fd',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  buttonWrapWeb: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  buttonScrollMobile: {
+    flexDirection: 'row',
+    gap: 6,
+  },
   button: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: 'rgba(59,130,246,0.16)',
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  buttonText: { color: '#60a5fa', fontSize: 12, fontWeight: '700' },
-  status: { color: '#fbbf24', fontSize: 12 },
-  pendingBlock: { gap: 4, marginTop: 4 },
-  pendingTitle: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' },
-  pendingLine: { color: '#94a3b8', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  buttonText: {
+    color: '#cbd5e1',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  status: {
+    color: '#f59e0b',
+    fontSize: 11.5,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  pendingBlock: {
+    gap: 3,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  pendingTitle: {
+    color: '#cbd5e1',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  pendingLine: {
+    color: '#8c90a0',
+    fontSize: 10.5,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
 });

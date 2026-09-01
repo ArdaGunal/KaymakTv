@@ -10,9 +10,6 @@ interface ErrorEntryRowProps {
   locale: string;
 }
 
-// Dokununca genişleyip stack/tags gösterir — kayıtların hepsini açık basmak
-// (özellikle uzun stack trace'lerle) listeyi kullanılamaz kılar. (Eskiden
-// error-log.tsx'te idi, Geliştirici Paneli'nin Hata Günlüğü sekmesine taşındı.)
 const ErrorEntryRow = memo(({ entry, locale }: ErrorEntryRowProps) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = !!entry.stack || !!entry.tags;
@@ -30,10 +27,14 @@ const ErrorEntryRow = memo(({ entry, locale }: ErrorEntryRowProps) => {
           <View style={styles.metaRow}>
             <Text style={styles.timestamp}>{formatTimestamp(entry.timestamp, locale)}</Text>
             <View style={[styles.levelBadge, isWarning ? styles.levelBadgeWarn : styles.levelBadgeError]}>
-              <Text style={styles.levelBadgeText}>{isWarning ? 'UYARI' : 'HATA'}</Text>
+              <Text style={[styles.levelBadgeText, isWarning ? styles.levelTextWarn : styles.levelTextError]}>
+                {isWarning ? 'UYARI' : 'HATA'}
+              </Text>
             </View>
           </View>
-          <Text style={styles.context} numberOfLines={1}>{entry.context}</Text>
+          <Text style={styles.context} numberOfLines={1}>
+            {entry.context}
+          </Text>
           <Text style={styles.message} numberOfLines={expanded ? undefined : 2}>
             {entry.message}
           </Text>
@@ -48,7 +49,7 @@ const ErrorEntryRow = memo(({ entry, locale }: ErrorEntryRowProps) => {
 
       {expanded && (
         <View style={styles.details}>
-          {entry.tags ? <Text style={styles.tags}>{JSON.stringify(entry.tags)}</Text> : null}
+          {entry.tags ? <Text style={styles.tags}>{JSON.stringify(entry.tags, null, 2)}</Text> : null}
           {entry.stack ? <Text style={styles.stack}>{entry.stack}</Text> : null}
         </View>
       )}
@@ -60,10 +61,10 @@ export default ErrorEntryRow;
 
 const styles = StyleSheet.create({
   row: {
-    backgroundColor: '#111827',
-    borderRadius: 14,
+    backgroundColor: 'rgba(27, 32, 42, 0.75)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     padding: 14,
   },
   rowHeader: {
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
   },
   rowHeaderText: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   rowHeaderActions: {
     flexDirection: 'row',
@@ -86,9 +87,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timestamp: {
-    color: '#64748b',
+    color: '#8c90a0',
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   levelBadge: {
     paddingHorizontal: 6,
@@ -102,15 +104,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
   levelBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#f1f5f9',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  levelTextError: {
+    color: '#f87171',
+  },
+  levelTextWarn: {
+    color: '#fbbf24',
   },
   context: {
-    color: '#f87171',
-    fontSize: 13,
+    color: '#93c5fd',
+    fontSize: 12,
     fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   message: {
     color: '#e2e8f0',
@@ -121,18 +130,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    gap: 8,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 6,
   },
   tags: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    color: '#a5b4fc',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   stack: {
-    color: '#64748b',
+    color: '#f87171',
     fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     lineHeight: 16,
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
   },
 });
