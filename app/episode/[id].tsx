@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useEpisodeActions } from '../../hooks/useEpisodeActions';
 import { useShowDetail } from '../../hooks/useShowDetail';
+import ExpandableText from '../../components/ExpandableText';
 import { useDetailLayout } from '../../hooks/useDetailLayout';
 import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
@@ -236,7 +237,7 @@ export default function EpisodeDetailScreen() {
 
                 <View style={styles.webBlock}>
                   <Text style={styles.sectionTitle}>{t('overview')}</Text>
-                  <Text style={styles.webOverview}>{overview}</Text>
+                  <ExpandableText text={overview} style={styles.webOverview} limit={250} />
                 </View>
 
                 {castSection ? <View style={[styles.webBlock, styles.webFlush]}>{castSection}</View> : null}
@@ -302,7 +303,7 @@ export default function EpisodeDetailScreen() {
         <View style={styles.contentArea}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('overview')}</Text>
-            <Text style={styles.overviewText}>{overview}</Text>
+            <ExpandableText text={overview} style={styles.overviewText} limit={150} />
           </View>
 
           {/* Y20: bölüm ekranı özgün listede YOKTU ama aynı riski taşıyor —

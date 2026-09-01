@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Home, MoreVertical, Play, Star, Heart, ListPlus, Bookmark } from '../icons';
 import ProgressBar from '../ProgressBar';
+import ExpandableText from '../ExpandableText';
 import { formatRuntime } from '../../utils/formatters';
 import { formatRating } from '../../utils/formatRating';
 import { MediaFollowStatus } from '../../utils/followStatus';
@@ -168,7 +169,7 @@ export default function MediaHeroWebView({
           )}
 
           {/* Ozet afisin ALTINDA degil YANINDA — bkz. stil dosyasindaki not. */}
-          {!!data?.overview && <Text style={s.overview}>{data.overview}</Text>}
+          {!!data?.overview && <ExpandableText text={data.overview} style={s.overview} limit={250} />}
         </View>
       </View>
 

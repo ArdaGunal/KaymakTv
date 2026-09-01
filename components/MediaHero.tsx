@@ -19,6 +19,7 @@ import { useDetailLayout } from '../hooks/useDetailLayout';
 import MediaHeroWebView from './hero/MediaHeroWebView';
 import { deriveFollowStatus, resolveFollowAction } from '../utils/followStatus';
 import { styles } from './MediaHero.styles';
+import ExpandableText from './ExpandableText';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -331,7 +332,7 @@ export default function MediaHero({
       {/* OVERVIEW */}
       {data.overview && (
         <View style={styles.overviewSection}>
-          <Text style={styles.overviewText}>{data.overview}</Text>
+          <ExpandableText text={data.overview} style={styles.overviewText} limit={150} />
         </View>
       )}
 
