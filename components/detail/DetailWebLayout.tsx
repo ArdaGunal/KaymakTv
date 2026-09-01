@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLUMN_GAP, DetailLayoutMetrics } from '../../hooks/useDetailLayout';
@@ -15,54 +15,53 @@ interface DetailWebLayoutProps {
 }
 
 /**
- * Masaüstü web'de dizi ve bölüm detaylarının ORTAK kabuğu:
- * kapak görseli + ortalanmış 1200px kapsayıcı + asimetrik iki sütun +
- * yapışkan sağ ray.
+ * Masaüstü web'de dizi, film ve bölüm detaylarının ORTAK kabuğu:
+ * Kapak görseli (backdrop) + %80 transparan Glassmorphism içerik kapsayıcısı (container)
+ * + asimetrik iki sütun + yapışkan sağ ray.
  *
  * ⚠️ YALNIZCA masaüstü web'de render edilir (bkz. hooks/useDetailLayout.ts).
- * Mobil ağaç bu bileşene hiç uğramaz.
- *
- * Kapak görseli MUTLAK KONUMDA ve içeriğin ALTINDA duruyor; içerik onun alt
- * yarısından başlıyor. Negatif margin KULLANILMADI — eski mobil düzendeki
- * `marginTop: -80` tam da "afişin yarım görünmesi" şikayetinin kaynağıydı;
- * bindirme artık z-ekseninde çözülüyor, hiçbir görsel kırpılmıyor.
+ * Mobil ağaç bu bileşene hiç uğramaz (Mobil görünüm %100 izoledir).
  */
 export default function DetailWebLayout({ metrics, backdrop, left, rail }: DetailWebLayoutProps) {
   const { contentWidth, railWidth, bannerHeight, contentOffset } = metrics;
 
   return (
     <View style={styles.page}>
-      {/* KAPAK KATMANI — dekoratif, tıklamaları yutmaz. */}
+      {/* KAPAK KATMANI — dekoratif backdrop görseli */}
       <View style={[styles.bannerLayer, { height: bannerHeight }]} pointerEvents="none">
         {backdrop ? (
           <Image
             source={{ uri: backdrop }}
             style={StyleSheet.absoluteFill}
-            // `cover`: çerçeveyi oranı bozmadan doldurur. Banner'ın kendi
-            // yüksekliği ekranla orantılı olduğu için (bkz. useDetailLayout)
-            // kırpma payı her zaman makul kalır.
             contentFit="cover"
             transition={300}
           />
         ) : (
           <View style={styles.bannerPlaceholder} />
         )}
-        {/* Alta doğru sayfa rengine erimesi — içerikle banner arasında
-            görünür bir dikiş kalmasın. */}
+        {/* Arkadaki görselin kontrastını korumak için hafif gradyan */}
         <LinearGradient
-          colors={['rgba(11,17,32,0.35)', 'rgba(11,17,32,0.80)', '#0B1120']}
-          locations={[0, 0.55, 1]}
+          colors={['rgba(14, 19, 29, 0.20)', 'rgba(14, 19, 29, 0.65)', '#0e131d']}
+          locations={[0, 0.6, 1]}
           style={StyleSheet.absoluteFill}
         />
       </View>
 
-      <View style={[styles.container, { width: contentWidth, paddingTop: contentOffset }]}>
+      {/* İÇERİK KAPSAYICISI (OVERLAP & GLASSMORPHISM) */}
+      <View
+        style={[
+          styles.container,
+          {
+            width: contentWidth,
+            marginTop: contentOffset,
+          },
+        ]}
+      >
         <View style={styles.row}>
-          {/* minWidth:0 KRİTİK: flex çocuklarının varsayılan `min-width:auto`
-              değeri, uzun başlık/özet metinleri yüzünden sütunun ray'i
-              ezmesine yol açardı. */}
+          {/* Sol sütun: Poster, başlık, künye, butonlar, oyuncular, yorumlar */}
           <View style={styles.leftColumn}>{left}</View>
 
+          {/* Sağ sütun: Sezonlar rayı */}
           {rail ? (
             <View style={[styles.railColumn, { width: railWidth }]}>
               <View style={styles.railSticky}>{rail}</View>
@@ -77,8 +76,9 @@ export default function DetailWebLayout({ metrics, backdrop, left, rail }: Detai
 const styles = StyleSheet.create({
   page: {
     width: '100%',
-    backgroundColor: '#0B1120',
+    backgroundColor: '#0e131d',
     position: 'relative',
+    minHeight: '100%',
   },
   bannerLayer: {
     position: 'absolute',
@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     overflow: 'hidden',
+    zIndex: 0,
   },
   bannerPlaceholder: {
     ...StyleSheet.absoluteFillObject,
@@ -93,15 +94,23 @@ const styles = StyleSheet.create({
   },
   container: {
     alignSelf: 'center',
-    zIndex: 1,
+    position: 'relative',
+    zIndex: 10,
+    backgroundColor: 'rgba(14, 19, 29, 0.80)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 28,
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.6)',
+        } as any)
+      : null),
   },
   row: {
     flexDirection: 'row',
-    // 🔴 `alignItems: 'flex-start'` OLMAMALI (canlı testte bulundu): o değerde
-    // sağ sütunun yüksekliği kendi içeriğine eşitleniyor, dolayısıyla yapışkan
-    // (sticky) rayın içinde KAYACAK YER kalmıyor ve ray sayfayla birlikte
-    // yukarı kaçıyordu. `stretch` (varsayılan) ile sütun satırın tamamı kadar
-    // uzuyor, ray de o alan boyunca yapışık kalabiliyor.
     alignItems: 'stretch',
     gap: COLUMN_GAP,
   },
@@ -112,11 +121,6 @@ const styles = StyleSheet.create({
   railColumn: {
     flexShrink: 0,
   },
-  // `position: sticky` React Native tiplerinde yok ama react-native-web'de
-  // birebir CSS'e geçiyor (projede TrackingAccordionList.web.tsx'te de aynı
-  // desen kullanılıyor, bkz. docs/HISTORY.md Madde 59). Sayfa kaydırıcısı
-  // ekrandaki ScrollView; ray onun içinde yapışıyor ve kendi taşmasını
-  // kendi kaydırıyor — 20 sezonluk bir dizide bile ray ekranı taşırmaz.
   railSticky: {
     position: 'sticky',
     top: 24,
