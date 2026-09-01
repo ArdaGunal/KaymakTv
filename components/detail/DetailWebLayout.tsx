@@ -39,9 +39,9 @@ export default function DetailWebLayout({ metrics, backdrop, left, rail }: Detai
         ) : (
           <View style={styles.bannerPlaceholder} />
         )}
-        {/* Arkadaki görselin üstüne, içerik parlasın ve ekranın aşağısında kaybolsun diye tam ekran karartma */}
+        {/* Arkadaki görselin üstüne, içerik okunabilsin diye daha güçlü karartma */}
         <LinearGradient
-          colors={['rgba(11, 17, 32, 0.45)', 'rgba(11, 17, 32, 0.85)', '#0B1120']}
+          colors={['rgba(11, 17, 32, 0.75)', 'rgba(11, 17, 32, 0.95)', '#0B1120']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -101,19 +101,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
     zIndex: 10,
-    backgroundColor: 'rgba(14, 19, 29, 0.15)', // %15 opak (çok şeffaf)
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 28,
+    paddingTop: 40,
+    paddingHorizontal: 0,
     marginBottom: 80, // İçerik bittiğinde sayfa altında boşluk kalması için
-    ...(Platform.OS === 'web'
-      ? ({
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.6)',
-        } as any)
-      : null),
   },
   row: {
     flexDirection: 'row',
