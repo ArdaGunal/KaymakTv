@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -148,7 +148,7 @@ export default function SeasonAccordion({
   return (
     <View style={styles.seasonContainer}>
       <TouchableOpacity
-        style={styles.seasonHeader}
+        style={[styles.seasonHeader, !isExpanded && { borderBottomLeftRadius: 15, borderBottomRightRadius: 15 }]}
         onPress={onToggle}
         activeOpacity={0.7}
       >
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 16,
     marginBottom: 12,
-    overflow: 'hidden',
+    // 'overflow: hidden' was removed because CSS sticky needs visible overflow.
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
   },
@@ -277,6 +277,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     backgroundColor: 'rgba(255,255,255,0.04)',
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    ...(Platform.OS === 'web' ? { position: 'sticky', top: -1, zIndex: 10 } as any : {}),
   },
   seasonTitle: {
     fontSize: 16,
@@ -286,6 +289,9 @@ const styles = StyleSheet.create({
   },
   episodesList: {
     padding: 12,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
   },
   episodeRow: {
     flexDirection: 'row',
