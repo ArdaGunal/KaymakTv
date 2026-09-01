@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 /**
  * Masaüstü web hero'sunun stilleri. Mobil hero (components/MediaHero.styles.ts)
@@ -12,8 +12,17 @@ export const webHeroStyles = StyleSheet.create({
   // ── Üst araç çubuğu ───────────────────────────────────────────────────
   // Mobildeki yuvarlak, yüzen ikonlar masaüstünde kayboluyordu (kullanıcı
   // "butonların görünmemesi" diye bildirdi): 1600px'lik bir kapak görselinin
-  // köşesindeki 40px'lik saydam daire fark edilmiyor. Masaüstünde ETİKETLİ,
-  // yüzeyi olan bir çubuk.
+  // Masaüstünde tüm hero içeriğini saran yarı saydam cam kapsayıcı.
+  // Kullanıcının "oval yap, yazılar okunacak kadar transparan olsun" isteği.
+  webHeroContainer: {
+    backgroundColor: 'rgba(15, 23, 42, 0.65)', // Sezonlar menüsüne uyumlu, yazılar için okunaklı transparan
+    borderRadius: 18,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    // React Native Web, stil nesnesinde backdropFilter destekler
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as any : {}),
+  },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',

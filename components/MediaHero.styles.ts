@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 // Saf stil tanımı, mantık yok.
 export const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0B1120',
+    backgroundColor: 'transparent',
   },
   backdropContainer: {
     height: 280,

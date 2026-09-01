@@ -64,7 +64,7 @@ export default function MediaHeroWebView({
   const hasUserRating = userRating !== undefined && userRating !== null;
 
   return (
-    <View>
+    <View style={s.webHeroContainer}>
       {/* Arac cubugu — mobildeki yuzen dairelerin masaustu karsiligi.
           Ikonlar BILINCLI olarak solda toplandi: sag sutun ayri bir kolon
           oldugu icin sola yaslanmayan bir ikon, sayfanin ORTASINDA asili
