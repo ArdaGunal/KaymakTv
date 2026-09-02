@@ -62,6 +62,9 @@ const { startSweeperSchedule } = require('./server/lazyfetch/sweeper');
 // çökmez (`server/archive/db.js` asla throw etmez). Arşive yazma kancası
 // `orchestrator.js`'te; burada yalnızca açılışta durumu görünür kılıyoruz.
 const { initArchive } = require('./server/archive/db');
+// A2.5 — arşiv gece yedeği. 2026-09-02'de SSD `EIO` verip arşiv birkaç saat
+// erişilemez kaldı ve tek bir kopyası yoktu (`backup.js` başlığı).
+const { startBackupSchedule } = require('./server/archive/backup');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
@@ -108,6 +111,7 @@ startSweeperSchedule();
 // durumu ilk yazım denemesine kadar log'a düşmezdi (`isArchiveEnabled`
 // zaten tembel başlatıyor). Davranışı değiştirmez.
 initArchive();
+startBackupSchedule();
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır

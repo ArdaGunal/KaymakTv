@@ -42,7 +42,7 @@
 // içinde de çağırıyor, hepsi TEK dış işleme katılıyor.
 
 const { transactionAsync } = require('./db');
-const { resolveOrCreate, traktIdsToExternal } = require('./identity');
+const { resolveOrCreate, traktIdsToExternal, findByExternal, findChild } = require('./identity');
 const { upsertPayload, logSync, DILSIZ } = require('./store');
 
 // ==========================================================================
@@ -214,6 +214,14 @@ async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = 
 async function archiveSimplePayload({ type, endpoint, data, lang = DILSIZ, fetchedAt = Date.now(), fallbackId = null }) {
   if (!iseYararMi(data)) return { ok: false, reason: 'bos_yanit' };
 
+  // 🔴 SAVUNMA (Madde 285): bu fonksiyon HİYERARŞİSİZ tipler içindir.
+  // `season`/`episode` şemada `parent_id` + `season_number` istiyor ve
+  // burası onları geçirmiyor — sessizce CHECK ihlaline gitmek yerine
+  // açıkça reddediyoruz. Bölümler `archiveEpisodeDetail`'e gider.
+  if (type === 'episode' || type === 'season') {
+    return { ok: false, reason: 'hiyerarsili_tip_yanlis_yolda' };
+  }
+
   // Yanıtın kendi `ids`'i varsa o esastır; yoksa istek yolundaki kimliğe düşülür.
   const kimlikler = data.ids ? traktIdsToExternal(type, data.ids) : yoldanKimlik(type, fallbackId);
   if (!kimlikler.length) return { ok: false, reason: 'kimliksiz_yanit' };
@@ -229,6 +237,73 @@ async function archiveSimplePayload({ type, endpoint, data, lang = DILSIZ, fetch
     const yazim = await upsertPayload({ kaymakId: e.kaymak_id, provider: 'trakt', endpoint, lang, data, fetchedAt });
     return yazim.ok
       ? { ok: true, kaymakId: e.kaymak_id }
+      : { ok: false, reason: yazim.reason };
+  });
+}
+
+/**
+ * `episode_detail` yanıtını arşive yazar — HİYERARŞİYİ ÇÖZEREK.
+ *
+ * 🔴🔴 NEDEN AYRI BİR YOL (Madde 285 — GERÇEK BİR HATA):
+ * Bu aile önce `archiveSimplePayload`'a gidiyordu ve o fonksiyon
+ * `parentId`/`seasonNumber`/`episodeNumber` HİÇ geçirmiyordu. Şemanın
+ * CHECK'i (`type NOT IN ('season','episode') OR season_number IS NOT NULL`)
+ * haklı olarak reddediyordu:
+ *
+ *     CHECK constraint failed: type NOT IN ('season','episode')
+ *                              OR season_number IS NOT NULL
+ *
+ * Üretimde 14 bölüm yazımı bu yüzden düştü (`sync_log`'da 28 satır — yazıcı
+ * + kuyruk). Hata **görünmüyordu** çünkü 48 kayıt BAŞARILI oluyordu: o
+ * bölümler `archiveShowSeasons` tarafından zaten yaratılmıştı, dolayısıyla
+ * `resolveOrCreate` bulup INSERT'e hiç girmiyordu. Yani kusur yalnızca
+ * "kullanıcı diziyi açmadan doğrudan bölüme girdiğinde" ortaya çıkıyordu.
+ *
+ * 🔴 SENTETİK KİMLİK ÜRETİLMİYOR: bölümün sezonu arşivde YOKSA kayıt
+ * yazılmaz ve `sezon_bilinmiyor` diye ATLANIR — hata değil. Sezon için
+ * uydurma bir dış kimlik üretmek, gerçek sezon geldiğinde çakışma yaratır
+ * ve arşivi kalıcı olarak kirletirdi. Dizi ekranı açıldığında
+ * `archiveShowSeasons` sezonları yazacak, bir sonraki bölüm görüntülemesi
+ * de yerine oturacak.
+ */
+async function archiveEpisodeDetail({ showId, data, lang = DILSIZ, fetchedAt = Date.now() }) {
+  if (!iseYararMi(data)) return { ok: false, reason: 'bos_yanit' };
+
+  const bolumKimlikleri = traktIdsToExternal('episode', data.ids);
+  if (!bolumKimlikleri.length) return { ok: false, reason: 'kimliksiz_yanit' };
+
+  // Sezon/bölüm numarası yanıtın KENDİSİNDE var (ölçüldü: `season`, `number`).
+  const sezonNo = typeof data.season === 'number' ? data.season : null;
+  const bolumNo = typeof data.number === 'number' ? data.number : null;
+  if (sezonNo === null || bolumNo === null) return { ok: false, reason: 'numarasiz_bolum' };
+
+  const diziKimlikleri = yoldanKimlik('show', showId);
+  if (!diziKimlikleri.length) return { ok: false, reason: 'kimliksiz_istek' };
+
+  return transactionAsync(async () => {
+    // Dizi: yoksa yaratılır (yalnızca istek yolundaki kimlikle).
+    const dizi = resolveOrCreate({ type: 'show', externalIds: diziKimlikleri });
+    if (!dizi) return { ok: false, reason: 'arsiv_kapali' };
+
+    // Sezon: ARANIR, yaratılmaz (yukarıdaki kırmızı not).
+    const sezonId = findChild({ parentId: dizi.kaymak_id, type: 'season', seasonNumber: sezonNo });
+    if (!sezonId) return { ok: false, reason: 'sezon_bilinmiyor' };
+
+    const bolum = resolveOrCreate({
+      type: 'episode',
+      externalIds: bolumKimlikleri,
+      parentId: sezonId,
+      seasonNumber: sezonNo,
+      episodeNumber: bolumNo,
+      derived: { title: data.title || null },
+    });
+
+    const yazim = await upsertPayload({
+      kaymakId: bolum.kaymak_id, provider: 'trakt', endpoint: 'episode_detail',
+      lang, data, fetchedAt,
+    });
+    return yazim.ok
+      ? { ok: true, kaymakId: bolum.kaymak_id, created: bolum.created }
       : { ok: false, reason: yazim.reason };
   });
 }
@@ -264,8 +339,17 @@ async function archiveCatalogResponse({ provider, family, path, query = {}, data
       return await archiveShowSeasons({ showId: m[1], seasons: data, lang, fetchedAt });
     }
 
-    const tip = family === 'movie_detail' ? 'movie' : family === 'episode_detail' ? 'episode' : 'show';
     const m = /^\/(?:shows|movies)\/([^/]+)/.exec(path || '');
+
+    // 🔴 `episode_detail` AYRI YOL — hiyerarşi çözülmeli (Madde 285).
+    // `archiveSimplePayload` bölüm entity'si YARATAMAZ; şemanın CHECK'i
+    // `season_number` istiyor ve o fonksiyon onu geçirmiyor.
+    if (family === 'episode_detail') {
+      if (!m) return { ok: false, reason: 'yol_cozulemedi' };
+      return await archiveEpisodeDetail({ showId: m[1], data, lang, fetchedAt });
+    }
+
+    const tip = family === 'movie_detail' ? 'movie' : 'show';
     return await archiveSimplePayload({
       type: tip, endpoint: family, data, lang, fetchedAt, fallbackId: m ? m[1] : null,
     });
@@ -279,6 +363,7 @@ module.exports = {
   IS_DILIMI_MS,
   archiveCatalogResponse,
   archiveShowSeasons,
+  archiveEpisodeDetail,
   archiveSimplePayload,
   DESTEKLENEN_AILELER,
   // Yalnızca test/ölçüm için.

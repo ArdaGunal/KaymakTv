@@ -169,5 +169,64 @@ const SEZONLAR = [
   T.ok('Turetilmis alanlar dolduruldu',
     h.prepare('SELECT title, year, status FROM entities WHERE kaymak_id=?').get(r.showKaymakId).title === 'Breaking Bad');
 
+  // ======================================================================
+  T.H('🔴 BOLUM DETAYI — uretimde 14 kez patlayan yol (Madde 285)');
+  // ======================================================================
+  // Gercek uretim hatasi:
+  //   episode_detail writer: CHECK constraint failed:
+  //     type NOT IN ('season','episode') OR season_number IS NOT NULL
+  // Sebep: `archiveSimplePayload` parentId/seasonNumber/episodeNumber
+  // GECIRMIYORDU. 48 kayit BASARILI oluyordu cunku o bolumler zaten
+  // `archiveShowSeasons` tarafindan yaratilmisti; kusur yalnizca kullanici
+  // diziyi acmadan DOGRUDAN bolume girdiginde ortaya cikiyordu.
+  const BOLUM_YANITI = {
+    ids: { imdb: 'tt0959621', tmdb: 62085, tvdb: 349232, trakt: 73482 },
+    title: 'Pilot', season: 1, number: 1, overview: 'ilk bolum',
+  };
+
+  // --- Sezon HENUZ arsivde yokken: temiz ATLAMA, hata DEGIL
+  const sezonsuz = await yazici.archiveCatalogResponse({
+    provider: 'trakt', family: 'episode_detail',
+    path: '/shows/424242/seasons/1/episodes/1',
+    query: { translations: 'tr' }, data: BOLUM_YANITI,
+  });
+  T.ok('🔴 Sezon bilinmiyorken temiz ATLIYOR (CHECK ihlali YOK)',
+    sezonsuz.ok === false && sezonsuz.reason === 'sezon_bilinmiyor', sezonsuz.reason);
+  T.ok('Atlanan bolum icin payload YAZILMADI',
+    h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='episode_detail'").get().c === 0);
+
+  // --- Sezon arsivdeyken: DOGRU yazilmali
+  const d3 = await yazici.archiveCatalogResponse({
+    provider: 'trakt', family: 'episode_detail',
+    path: '/shows/1388/seasons/1/episodes/1',
+    query: { translations: 'tr' }, data: BOLUM_YANITI,
+  });
+  T.ok('🔴 Sezon bilindiginde bolum detayi YAZILIYOR', d3.ok === true, d3.reason || '');
+  T.ok('Ayni bolum entity sine baglandi (cift kayit yok)',
+    d3.kaymakId === kimlik.findByExternal('tmdb:episode', 62085));
+
+  const bolumSatiri = h.prepare('SELECT type, season_number, episode_number, parent_id FROM entities WHERE kaymak_id=?').get(d3.kaymakId);
+  T.ok('Bolum SEZONA bagli ve numaralari dogru',
+    bolumSatiri.type === 'episode' && bolumSatiri.season_number === 1 &&
+    bolumSatiri.episode_number === 1 &&
+    bolumSatiri.parent_id === kimlik.findByExternal('trakt:season', 3950));
+
+  // --- Numarasiz yanit reddedilmeli
+  const numarasiz = await yazici.archiveCatalogResponse({
+    provider: 'trakt', family: 'episode_detail', path: '/shows/1388/seasons/1/episodes/9',
+    data: { ids: { trakt: 999111 }, title: 'Numarasiz' },
+  });
+  T.ok('Numarasiz bolum yaniti reddediliyor', numarasiz.reason === 'numarasiz_bolum', numarasiz.reason);
+
+  // --- Savunma: hiyerarsili tip yanlis yola giderse ACIKCA reddedilmeli
+  const yanlisYol = await yazici.archiveSimplePayload({
+    type: 'episode', endpoint: 'episode_detail', data: BOLUM_YANITI,
+  });
+  T.ok('🔴 archiveSimplePayload episode/season tipini ACIKCA reddediyor',
+    yanlisYol.reason === 'hiyerarsili_tip_yanlis_yolda', yanlisYol.reason);
+
+  T.ok('Bu blokta HIC CHECK ihlali sync_log a dusmedi',
+    h.prepare("SELECT count(*) c FROM sync_log WHERE detail LIKE '%CHECK constraint%'").get().c === 0);
+
   T.bitir();
 })();

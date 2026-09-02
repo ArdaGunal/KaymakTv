@@ -222,6 +222,30 @@ function findByExternal(source, sourceId) {
   return satir ? satir.kaymak_id : null;
 }
 
+/**
+ * 🆕 Hiyerarşide bir ÇOCUK entity arar — YARATMAZ.
+ *
+ * 🔴 NEDEN GEREKLİ (Madde 285): `episode_detail` yanıtı bölümün kendi
+ * `ids`'ini taşıyor ama SEZONUNUNKİNİ taşımıyor. Bölüm entity'si yaratmak
+ * için şema `parent_id` + `season_number` istiyor (CHECK). Sezonun
+ * `kaymak_id`'sini bulmanın tek yolu, diziye bağlı sezonu numarasıyla
+ * aramaktır.
+ *
+ * @returns {string|null} bulunan `kaymak_id`, yoksa `null`
+ */
+function findChild({ parentId, type, seasonNumber = null, episodeNumber = null }) {
+  const db = getDb();
+  if (!db || !parentId || !type) return null;
+  const satir = db
+    .prepare(
+      `SELECT kaymak_id FROM entities
+       WHERE parent_id = ? AND type = ?
+         AND season_number IS ? AND episode_number IS ?`
+    )
+    .get(parentId, type, seasonNumber, episodeNumber);
+  return satir ? satir.kaymak_id : null;
+}
+
 /** Bir yapımın BİLİNEN tüm dış kimlikleri — teşhis ve A3 backfill için. */
 function listExternalIds(kaymakId) {
   const db = getDb();
@@ -234,6 +258,7 @@ function listExternalIds(kaymakId) {
 module.exports = {
   resolveOrCreate,
   findByExternal,
+  findChild,
   listExternalIds,
   traktIdsToExternal,
   tmdbIdToExternal,
