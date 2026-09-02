@@ -18,6 +18,21 @@
 //
 // Ayrıntı: docs/runbook/LAZYFETCH_OPS.md
 
+// 🆕 (2026-09-02) `.env` OKUNUYOR — `LAZYFETCH_ROOT`'u elle vermeye gerek yok.
+//
+// Madde 261'de "denetçi dotenv YÜKLEMEZ" diye kayda geçmişti ve her komutta
+// `LAZYFETCH_ROOT=...` öneki yazmak gerekiyordu. Bu, uzun komutlar üretiyordu
+// ve kullanıcının terminali (RealVNC/SSH) uzun yapıştırmaları KESİYOR —
+// Madde 285'te `cmdline.txt` tam bu yüzden bozuldu.
+//
+// 🔴 Madde 261'in ASIL uyarısı geçerliliğini KORUYOR: bu betiğin log satırı
+// KENDİ sürecine aittir, sunucununkini anlatmaz. Değişen tek şey, kökün
+// nereden okunduğu.
+//
+// ⚠️ `dotenv` var olan env değişkenlerini EZMEZ — testler ve ölçüm betiği
+// kökü açıkça verdiği için etkilenmez.
+try { require('dotenv').config(); } catch (_) { /* dotenv yoksa eski davranis */ }
+
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
