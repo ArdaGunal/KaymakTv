@@ -48,7 +48,7 @@ const AR = path.join(__dirname, '..', 'server', 'archive');
 const { initLazyFetchPaths, getLazyFetchDir, getLazyFetchStatus } = require(path.join(LF, 'paths'));
 const { resolveRoute } = require(path.join(LF, 'routeRegistry'));
 const db = require(path.join(AR, 'db'));
-const { archiveCatalogResponse, archiveSimplePayload, DESTEKLENEN_AILELER } = require(path.join(AR, 'writer'));
+const { archiveCatalogResponse, DESTEKLENEN_AILELER } = require(path.join(AR, 'writer'));
 const { summary } = require(path.join(AR, 'store'));
 
 const UYGULA = process.argv.includes('--uygula');
@@ -141,20 +141,29 @@ function queryCoz(str) {
       continue;
     }
 
-    // 🔴 ASIL SORUN BURADA. Zarf, A3'ten ÖNCE yazıldıysa `requestPath`
-    // taşımıyor (dosya adı geri döndürülemez bir hash). `show_seasons`
-    // yanıtı da dizinin kendi `ids`'ini taşımadığı için o kayıtların hangi
-    // diziye ait olduğu BİLİNEMEZ — Trakt'a sormadan aktarılamazlar.
+    // 🔴🔴 `requestPath` YOKSA AKTARILMAZ — İSTİSNASIZ.
     //
-    // Kendi `ids`'ini TAŞIYAN aileler (`show_detail`, `movie_detail`,
-    // `episode_detail`) yol olmadan da kurtarılabilir.
+    // İlk sürüm burada bir kestirme deniyordu: yanıt kendi `ids`'ini
+    // taşıyorsa (`show_detail`, `movie_detail`, `episode_detail`) yol
+    // olmadan da kurtarılabilir sanılmıştı. **GERÇEK ÜRETİMDE HATA ÜRETTİ**
+    // (2026-09-02): kimlik kurtarılıyordu ama `requestQuery` de yoktu,
+    // yani DİL bilinmiyordu ve `'-'` yazılıyordu. Oysa istemci bu ailelere
+    // her zaman `translations=tr` gönderiyor. Sonuç: 523 mükerrer ve
+    // YANLIŞ ETİKETLİ satır — Türkçe içerik "dilsiz" diye kaydedildi.
+    //
+    // Ders: kimliği kurtarmak yetmez, BAĞLAMI da kurtarmak gerekir. Yol
+    // yoksa ikisi de yok demektir.
+    //
+    // ⚠️ Pratik sonuç: A3/1 öncesi yazılmış zarflar aktarılamaz. Kayıp
+    // değil — o veriyi canlı kanca zaten arşive yazmıştı. Bu betiğin asıl
+    // değeri İLERİYE dönük: arşiv yazımının başarısız olduğu (disk
+    // kesintisi, kuyruk taşması) durumlarda önbellekten kurtarma.
     const yolVar = typeof zarf.requestPath === 'string' && zarf.requestPath;
-    const kendiKimligi = zarf.payload && !Array.isArray(zarf.payload) && zarf.payload.ids;
 
-    if (!yolVar && !kendiKimligi) {
+    if (!yolVar) {
       sayac.yolsuzAtlandi++;
       yolsuzAileler.set(family, (yolsuzAileler.get(family) || 0) + 1);
-      if (AYRINTILI) say(`  atlandi (yol yok, kimlik yok): ${provider}/${family} ${path.basename(yol)}`);
+      if (AYRINTILI) say(`  atlandi (eski bicim, istek yolu yok): ${provider}/${family} ${path.basename(yol)}`);
       continue;
     }
 
@@ -164,23 +173,12 @@ function queryCoz(str) {
       continue;
     }
 
-    const query = queryCoz(zarf.requestQuery);
     let sonuc;
     try {
-      if (yolVar) {
-        sonuc = await archiveCatalogResponse({
-          provider, family, path: zarf.requestPath, query,
-          data: zarf.payload, fetchedAt: zarf.fetchedAt,
-        });
-      } else {
-        // Yol yok ama yanıt kendini tanıtıyor — tipi aileden çıkar.
-        const tip = family === 'movie_detail' ? 'movie' : family === 'episode_detail' ? 'episode' : 'show';
-        sonuc = await archiveSimplePayload({
-          type: tip, endpoint: family, data: zarf.payload,
-          lang: query.translations || query.language || '-',
-          fetchedAt: zarf.fetchedAt,
-        });
-      }
+      sonuc = await archiveCatalogResponse({
+        provider, family, path: zarf.requestPath, query: queryCoz(zarf.requestQuery),
+        data: zarf.payload, fetchedAt: zarf.fetchedAt,
+      });
     } catch (e) {
       sonuc = { ok: false, reason: e.message };
     }
@@ -210,14 +208,16 @@ function queryCoz(str) {
     }
   }
 
-  // 🔴 EN ÖNEMLİ SATIR: kurtarılamayanlar.
+  // 🔴 EN ÖNEMLİ SATIR: aktarılamayanlar SESSİZCE ATLANMAZ, sayılır.
   if (sayac.yolsuzAtlandi) {
-    say(`\n  ⚠️  ${sayac.yolsuzAtlandi} kayit KURTARILAMADI (istek yolu yok, yanit da kendini tanitmiyor):`);
+    say(`\n  ⚠️  ${sayac.yolsuzAtlandi} kayit ESKI BICIM (istek yolu yok, aktarilamaz):`);
     for (const [a, n] of [...yolsuzAileler].sort((x, y) => y[1] - x[1])) {
       say(`    ${a.padEnd(20)} ${String(n).padStart(5)}`);
     }
-    say('    Bunlar A3 kancasindan ONCE yazilmis zarflar. Yeni kayitlar');
-    say('    `requestPath` tasiyor; bu sayi zamanla kendiliginden dusecek.');
+    say('    A3/1 ONCESI yazilmis zarflar. Yol yoksa DIL de bilinmiyor —');
+    say('    kestirme yapmak yanlis etiketli mukerrer kayit uretir (2026-09-02).');
+    say('    KAYIP DEGIL: o veriyi canli kanca zaten arsive yazmisti.');
+    say('    Yeni kayitlar requestPath tasiyor; bu sayi kendiliginden dusecek.');
   }
 
   if (UYGULA) {

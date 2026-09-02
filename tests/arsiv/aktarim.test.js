@@ -64,12 +64,16 @@ function calistir(...args) {
     provider: 'trakt', family: 'show_seasons', payload: SEZONLAR,
     requestPath: '/shows/1388/seasons', requestQuery: 'extended=full,episodes&translations=tr',
   }));
-  // 2) ESKİ biçim + kendi `ids`'i VAR → yol olmadan da kurtarılır
+  // 2) 🔴 ESKİ biçim, kendi `ids`'i OLSA BİLE aktarılmaz — GERÇEK BİR
+  // HATADAN doğan kural (2026-09-02): kimlik kurtarılabiliyordu ama
+  // `requestQuery` olmadığı için DİL bilinmiyordu ve `'-'` yazılıyordu.
+  // İstemci bu aileye her zaman `translations=tr` gönderiyor; sonuç 523
+  // mükerrer, YANLIŞ ETİKETLİ satır oldu.
   zarfYaz('trakt/show_detail/bb/eski-kimlikli.json.gz', temelZarf({
     provider: 'trakt', family: 'show_detail',
     payload: { title: 'Breaking Bad', year: 2008, status: 'ended', ids: { trakt: 1388, slug: 'breaking-bad', tmdb: 1396 } },
   }));
-  // 3) 🔴 ESKİ biçim + kendi `ids`'i YOK → KURTARILAMAZ (asıl sınır vakası)
+  // 3) ESKİ biçim, kimliksiz — aynı şekilde aktarılmaz
   zarfYaz('trakt/show_seasons/cc/eski-yolsuz.json.gz', temelZarf({
     provider: 'trakt', family: 'show_seasons', payload: SEZONLAR,
   }));
@@ -99,11 +103,12 @@ function calistir(...args) {
   const kuru = calistir();
   T.ok('Betik hatasiz bitti', kuru.status === 0, 'cikis ' + kuru.status);
   T.ok('Kuru calisma oldugunu soyluyor', /KURU ÇALIŞMA/.test(kuru.stdout));
-  T.ok('2 kayit aktarilabilir gorundu', /Aktarilabilir\s+:\s*2/.test(kuru.stdout), (kuru.stdout.match(/Aktarilabilir.*/) || [''])[0].trim());
+  T.ok('Yalnizca YOLLU kayit aktarilabilir gorundu', /Aktarilabilir\s+:\s*1/.test(kuru.stdout), (kuru.stdout.match(/Aktarilabilir.*/) || [''])[0].trim());
   T.ok('Bozuk dosya sayildi, cokme YOK', /okunamayan\s+:\s*1/.test(kuru.stdout));
   T.ok('Negatif kayit ayri sayildi', /negatif kayit\s+:\s*1/.test(kuru.stdout));
   T.ok('Kapsam disi 2 (tmdb + show_people)', /kapsam disi aile\s+:\s*2/.test(kuru.stdout));
-  T.ok('🔴 Kurtarilamayan kayit RAPORLANDI', /1 kayit KURTARILAMADI/.test(kuru.stdout));
+  T.ok('🔴 Eski bicim kayitlar RAPORLANDI (sessizce atlanmadi)', /2 kayit ESKI BICIM/.test(kuru.stdout),
+    (kuru.stdout.match(/\d+ kayit ESKI BICIM/) || [''])[0]);
 
   db.initArchive();
   T.ok('🔴 KURU CALISMA arsive HICBIR SEY yazmadi',
@@ -122,18 +127,21 @@ function calistir(...args) {
   const h = db.getDb();
   const kimlik = require(path.join(AR, 'identity'));
 
-  T.ok('2 payload yazildi', h.prepare('SELECT count(*) c FROM payloads').get().c === 2,
+  T.ok('Yalnizca 1 payload yazildi (yollu olan)', h.prepare('SELECT count(*) c FROM payloads').get().c === 1,
     h.prepare('SELECT count(*) c FROM payloads').get().c + ' payload');
   T.ok('Hiyerarsi acildi (sezon + bolum entity)',
     h.prepare("SELECT count(*) c FROM entities WHERE type='episode'").get().c === 2 &&
     h.prepare("SELECT count(*) c FROM entities WHERE type='season'").get().c === 1);
   T.ok('🔴 Yollu kayit DOGRU diziye baglandi (istek yolundan)',
     kimlik.findByExternal('trakt:show', '1388') !== null);
-  T.ok('🔴 Yolsuz ama kimlikli kayit KURTARILDI (payload ids inden)',
-    kimlik.findByExternal('tmdb:show', '1396') !== null);
-  T.ok('Ikisi AYNI diziye cozuldu (cift kayit yok)',
-    kimlik.findByExternal('trakt:show', '1388') === kimlik.findByExternal('tmdb:show', '1396'),
-    h.prepare("SELECT count(*) c FROM entities WHERE type='show'").get().c + ' show entity');
+  // 🔴🔴 ASIL REGRESYON KORUMASI: yolsuz zarf HIC yazilmamali.
+  T.ok('🔴 Yolsuz zarf icin payload YAZILMADI',
+    h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='show_detail'").get().c === 0);
+  T.ok("🔴 HICBIR payload '-' diliyle yazilmadi (523 mukerrer satir hatasi)",
+    h.prepare("SELECT count(*) c FROM payloads WHERE lang='-'").get().c === 0,
+    h.prepare("SELECT count(*) c FROM payloads WHERE lang='-'").get().c + " adet [-]");
+  T.ok('Yollu kayit DOGRU dille yazildi',
+    h.prepare("SELECT count(*) c FROM payloads WHERE lang='tr'").get().c === 1);
   T.ok('🔴 Kurtarilamayan kayit YAZILMADI (cakisma da uretmedi)',
     h.prepare("SELECT count(*) c FROM sync_log WHERE event='conflict'").get().c === 0);
   T.ok('Kapsam disi aileler yazilmadi',
