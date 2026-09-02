@@ -413,4 +413,38 @@ T.ok(
   getActiveCategories(uzlasan).every((c) => uzlasan.categories[c.id]),
 );
 
+// ─────────────────────────────────────────────────────────────────────────
+T.H('BIRAKILAN icerik bildirim uretmez');
+
+// 🔴 GERCEK HATA (2026-08-31'de bulundu ve duzeltildi): `hiddenShowIds` bu
+// uygulamada "Birak" eyleminin ta kendisi (Trakt'in ilerleme gizleme ucu).
+// Kullanici bir diziyi biraktiktan sonra yeni bolumu icin bildirim almaya
+// devam etmesi, bildirimleri tamamen kapattiran turden bir kusurdur.
+const takvim = [
+  { first_aired: yerelISO(2026, 8, 15, 4, 0), episode: { season: 1, number: 2, ids: { trakt: 601 } }, show: { title: 'Devam Eden', ids: { trakt: 700 } } },
+  { first_aired: yerelISO(2026, 8, 15, 4, 0), episode: { season: 1, number: 2, ids: { trakt: 602 } }, show: { title: 'Birakilan', ids: { trakt: 701 } } },
+];
+
+T.ok(
+  'Birakilan dizi takvimden ELENDI',
+  mapCalendarToUpcoming(takvim, new Set(), [701]).map((e) => e.episodeTraktId).join(',') === '601',
+);
+T.ok(
+  'Gizli liste bos ise hicbir sey elenmez (geriye donuk uyumlu)',
+  mapCalendarToUpcoming(takvim, new Set()).length === 2,
+);
+
+const filmTakvimi = [
+  { released: '2026-09-15', movie: { title: 'Beklenen', ids: { trakt: 800 } } },
+  { released: '2026-09-15', movie: { title: 'Birakilan Film', ids: { trakt: 801 } } },
+];
+T.ok(
+  'Birakilan film takvimden ELENDI',
+  mapCalendarToUpcomingMovies(filmTakvimi, new Set(), [801]).map((f) => f.movieTraktId).join(',') === '800',
+);
+T.ok(
+  'Film gizli listesi bos ise hicbir sey elenmez',
+  mapCalendarToUpcomingMovies(filmTakvimi, new Set()).length === 2,
+);
+
 T.bitir();

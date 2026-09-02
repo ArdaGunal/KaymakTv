@@ -186,6 +186,10 @@
     "monthlyStats": {
       "title": "Aylık özet",
       "body": "{{count}} özet hazır"
+    },
+    "continueWatching": {
+      "title": "Kaldığın yerden devam",
+      "body": "{{count}} dizi seni bekliyor"
     }
   },
   "banner": {

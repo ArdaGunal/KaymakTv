@@ -186,6 +186,10 @@
     "monthlyStats": {
       "title": "Monthly recap",
       "body": "{{count}} recaps ready"
+    },
+    "continueWatching": {
+      "title": "Pick up where you left off",
+      "body": "{{count}} shows are waiting"
     }
   },
   "banner": {

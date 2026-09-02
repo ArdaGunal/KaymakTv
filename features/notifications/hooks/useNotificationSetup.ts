@@ -5,37 +5,20 @@ import * as Notifications from 'expo-notifications';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { logError } from '../../../utils/errorLog';
 import { ensureNotificationChannels } from '../channels';
+import { saveCopyHistory } from '../copy/history';
+import { refreshRemotePool } from '../copy/remotePool';
+import { NOTIFICATION_CATEGORIES } from '../registry';
+import { buildNotificationPlans } from '../scheduling/buildPlans';
+import { saveStatsSnapshot } from '../stats/snapshotStore';
 import { loadLedger, saveLedger } from '../inbox/ledger';
 import { buildLedger, sweepLedger } from '../inbox/sweep';
 import { ensureInboxHydrated, useInboxStore } from '../inbox/useInboxStore';
-import { loadCopyHistory, saveCopyHistory } from '../copy/history';
-import { pickVariant, pushRecent } from '../copy/picker';
-import { COPY_POOL, variantBodyKey, variantTitleKey } from '../copy/pool';
-import { interpolate } from '../copy/interpolate';
-import { mergeRemotePool } from '../copy/remoteSchema';
-import { loadCachedRemotePool, refreshRemotePool } from '../copy/remotePool';
 import { getPermissionStatus, requestPermission } from '../permissions';
-import { NOTIFICATION_CATEGORIES, getActiveCategories } from '../registry';
 import { applyBudget } from '../retention/budget';
 import { dedupeByEntity } from '../retention/dedupe';
-import { resolveFireTime, snapToPreferredHour } from '../scheduling/fireTime';
 import { throttlePlans } from '../scheduling/throttle';
-import {
-  buildWatchedEpisodeKeys,
-  buildWatchedMovieIds,
-  mapCalendarToUpcoming,
-  mapCalendarToUpcomingMovies,
-} from '../scheduling/mapCalendar';
-import { planEpisodeToday, planSeasonPremiere } from '../scheduling/planners/episodePlanners';
-import { planMovieRelease } from '../scheduling/planners/movieReleasePlanner';
-import { planContinueWatching } from '../scheduling/planners/continueWatchingPlanner';
-import { pickResumeCandidate } from '../scheduling/mapProgress';
-import { planMonthlyStats } from '../scheduling/planners/monthlyStatsPlanner';
-import { evaluateMonthlyStats } from '../stats/snapshot';
-import { loadStatsSnapshot, saveStatsSnapshot } from '../stats/snapshotStore';
 import { applyPlans, cancelAllOwnedNotifications } from '../scheduling/scheduler';
 import { ensurePushPrefsHydrated, usePushPrefsStore } from '../store/usePushPrefsStore';
-import type { ScheduledPlan } from '../types';
 
 /**
  * Bildirim sisteminin TEK orkestrasyon noktası
@@ -52,17 +35,9 @@ import type { ScheduledPlan } from '../types';
  * `useLibraryStore`'un zaten bellekte tuttuğu senkron çıktısından okur.
  */
 
-/** Kaç günlük ufuk planlanır. Takvim senkronu 33 gün çekiyor; altında kalıyoruz. */
-const HORIZON_DAYS = 30;
 
-/** Kaç gün uygulamaya girilmezse "kaldığın yerden devam" dürtmesi düşer. */
-const NUDGE_AWAY_DAYS = 7;
 
-/** İki dürtme arasındaki en kısa süre — kullanıcının açık "rahatsız etmesin" talebi. */
-const NUDGE_COOLDOWN_DAYS = 30;
 
-/** Aylık özet için iki anlık görüntü arasında geçmesi gereken en kısa süre. */
-const STATS_PERIOD_DAYS = 28;
 
 // Uygulama ÖN PLANDAYKEN gelen bildirimin ne olacağını belirler. Bu handler
 // kurulmazsa iOS bildirimi ön planda HİÇ göstermez — "test ederken gelmiyor"
@@ -96,6 +71,7 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
   const watchedMovies = useLibraryStore((state) => state.watchedMovies);
   const showProgressMap = useLibraryStore((state) => state.showProgressMap);
   const hiddenShowIds = useLibraryStore((state) => state.hiddenShowIds);
+  const hiddenMovieIds = useLibraryStore((state) => state.hiddenMovieIds);
   const userStats = useLibraryStore((state) => state.userStats);
 
   // Aynı planı arka arkaya uygulamayı önler. Fark hesabı zaten ucuz ama
@@ -167,183 +143,32 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
 
       await ensureNotificationChannels(t);
 
-      const active = getActiveCategories(prefs);
       const now = Date.now();
-      const plans: ScheduledPlan[] = [];
 
-      // Metin havuzunun "son gösterilenler" geçmişi (§ 4). Planlama turunun
-      // BAŞINDA bir kez okunur, SONUNDA bir kez yazılır.
-      const history = await loadCopyHistory();
-      const resolve = (iso: string) => resolveFireTime(iso, prefs.preferredHour, now);
-
-      // Uzak havuz ÖNBELLEKTEN okunur — ağ beklenmez. Tazeleme aşağıda,
-      // bildirimler kurulduktan SONRA yapılır (§ 15).
-      const remotePool = await loadCachedRemotePool();
-      const copyPool = mergeRemotePool(COPY_POOL, remotePool, i18n.language);
-
-      /**
-       * Bir kategori için metin üreticisi. Kategori başına ayrı bir "son
-       * gösterilenler" listesi tutar ve tur boyunca günceller — aynı
-       * planlamada kurulan 20 bildirimin hepsine aynı metnin düşmemesi
-       * buna bağlı.
-       */
-      const makeCopyRenderer = (meta: (typeof active)[number]) => {
-        let recentIds = history[meta.id] ?? [];
-        return {
-          render: (vars: Record<string, unknown>) => {
-            const variant = pickVariant(copyPool, {
-              categoryId: meta.id,
-              tone: meta.tone,
-              now: new Date(now),
-              recentIds,
-              random: Math.random,
-            });
-
-            // Havuz boş kalırsa bildirim metinsiz kalmasın. `picker` asla boş
-            // dönmemek üzere yazıldı; bu dal yalnızca o kategorinin TÜM
-            // varyantları havuzdan silinirse çalışır.
-            if (!variant) {
-              return { title: t('copy.fallback.title'), body: t('copy.fallback.body', vars) };
-            }
-
-            recentIds = pushRecent(recentIds, variant.id);
-
-            // Uzak varyantın metni kendisiyle gelir ve i18n'den GEÇMEZ;
-            // bu yüzden yer tutucuları `interpolate` dolduruyor — beyaz
-            // listeli, kırpılmış ve temizlenmiş biçimde (§ 15 güvenlik).
-            if (variant.text) {
-              return {
-                title: interpolate(variant.text.title, vars),
-                body: interpolate(variant.text.body, vars),
-              };
-            }
-
-            return { title: t(variantTitleKey(variant)), body: t(variantBodyKey(variant), vars) };
-          },
-          commit: () => {
-            history[meta.id] = recentIds;
-          },
-        };
-      };
-
-      const episodeMeta = active.find((category) => category.id === 'episodeToday');
-      const premiereMeta = active.find((category) => category.id === 'seasonPremiere');
-      const movieMeta = active.find((category) => category.id === 'movieRelease');
-
-      if (episodeMeta || premiereMeta) {
-        const watchedKeys = buildWatchedEpisodeKeys(watchedShows ?? []);
-        const upcoming = mapCalendarToUpcoming(calendarShows ?? [], watchedKeys);
-
-        for (const [meta, planner] of [
-          [episodeMeta, planEpisodeToday] as const,
-          [premiereMeta, planSeasonPremiere] as const,
-        ]) {
-          if (!meta) continue;
-          const copy = makeCopyRenderer(meta);
-          plans.push(
-            ...planner(upcoming, {
-              now,
-              horizonDays: HORIZON_DAYS,
-              resolveFireTime: resolve,
-              renderCopy: (vars) =>
-                copy.render({
-                  showTitle: vars.showTitle,
-                  seasonNumber: vars.seasonNumber,
-                  episodeNumber: vars.episodeNumber,
-                }),
-            }),
-          );
-          copy.commit();
-        }
-      }
-
-      const resumeMeta = active.find((category) => category.id === 'continueWatching');
-      if (resumeMeta) {
-        const candidate = pickResumeCandidate(
-          watchedShows ?? [],
-          showProgressMap ?? {},
-          hiddenShowIds ?? [],
-        );
-        const copy = makeCopyRenderer(resumeMeta);
-
-        plans.push(
-          ...planContinueWatching(candidate, {
-            now,
-            awayDays: NUDGE_AWAY_DAYS,
-            cooldownDays: NUDGE_COOLDOWN_DAYS,
-            lastNudgeFiredAt: prefs.lastNudgeFiredAt,
-            snapToPreferredHour: (target) => snapToPreferredHour(target, prefs.preferredHour),
-            renderCopy: (vars) =>
-              copy.render({
-                showTitle: vars.showTitle,
-                seasonNumber: vars.seasonNumber,
-                episodeNumber: vars.episodeNumber,
-              }),
-          }),
-        );
-        copy.commit();
-      }
-
-      // ── Aylık izleme özeti ────────────────────────────────────────────
-      // Anlık görüntü, kategori KAPALI olsa bile alınmalı: kullanıcı özeti
-      // sonradan açtığında elde bir taban bulunsun, ilk ayı boşa geçmesin.
-      const statsMeta = active.find((category) => category.id === 'monthlyStats');
-      const previousSnapshot = await loadStatsSnapshot();
-      const statsResult = evaluateMonthlyStats(
-        previousSnapshot,
-        userStats
-          ? {
-              episodeMinutes: userStats.episodes?.minutes ?? 0,
-              movieMinutes: userStats.movies?.minutes ?? 0,
-              episodesWatched: userStats.episodes?.watched ?? 0,
-              moviesWatched: userStats.movies?.watched ?? 0,
-            }
-          : null,
+      // ── Planları üret ─────────────────────────────────────────────────
+      // Karar mantığı `scheduling/buildPlans.ts`'te: bu dosya 400 satır
+      // sınırını aşmıştı ve ayrım aynı zamanda doğru sorumluluk sınırı —
+      // orası NE kurulacağına karar verir, burası yan etkiyi yönetir.
+      const built = await buildNotificationPlans({
+        prefs,
         now,
-        STATS_PERIOD_DAYS,
-      );
+        translate: t,
+        language: i18n.language,
+        calendarShows: calendarShows ?? [],
+        watchedShows: watchedShows ?? [],
+        calendarMovies: calendarMovies ?? [],
+        watchedMovies: watchedMovies ?? [],
+        showProgressMap: showProgressMap ?? {},
+        hiddenShowIds: hiddenShowIds ?? [],
+        hiddenMovieIds: hiddenMovieIds ?? [],
+        userStats: userStats ?? null,
+      });
+      const plans = built.plans;
 
-      if (statsMeta && statsResult.report) {
-        const copy = makeCopyRenderer(statsMeta);
-        plans.push(
-          ...planMonthlyStats(statsResult.report, {
-            now,
-            snapToPreferredHour: (target) => snapToPreferredHour(target, prefs.preferredHour),
-            renderCopy: (vars) =>
-              copy.render({
-                hours: vars.hours,
-                episodes: vars.episodes,
-                movies: vars.movies,
-                periodDays: vars.periodDays,
-              }),
-          }),
-        );
-        copy.commit();
+      // Anlık görüntü plan imzasından BAĞIMSIZ — hemen yazılır.
+      if (built.nextStatsSnapshot) {
+        await saveStatsSnapshot(built.nextStatsSnapshot);
       }
-
-      if (statsResult.nextSnapshot) {
-        await saveStatsSnapshot(statsResult.nextSnapshot);
-      }
-
-      if (movieMeta) {
-        const watchedMovieIds = buildWatchedMovieIds(watchedMovies ?? []);
-        const upcomingMovies = mapCalendarToUpcomingMovies(calendarMovies ?? [], watchedMovieIds);
-        const copy = makeCopyRenderer(movieMeta);
-
-        plans.push(
-          ...planMovieRelease(upcomingMovies, {
-            now,
-            horizonDays: HORIZON_DAYS,
-            resolveFireTime: resolve,
-            // `showTitle` de geçiliyor: ortak yedek metin (`copy.fallback`)
-            // onu kullanıyor ve filme özel bir yedek yazmaya değmez.
-            renderCopy: (vars) => copy.render({ title: vars.title, showTitle: vars.title }),
-          }),
-        );
-        copy.commit();
-      }
-
-      await saveCopyHistory(history);
 
       // 🔑 SIRA ÖNEMLİ: önce tekilleştir, sonra bütçele. Ters sırada, aynı
       // bölüm için üretilmiş iki planın İKİSİ birden kota yer ve elenen
@@ -370,7 +195,23 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
       const signature = budgeted.map((plan) => `${plan.identifier}@${plan.fireAt}`).join('|');
       if (signature === lastSignatureRef.current) return;
 
-      await applyPlans(budgeted);
+      // 🔴 METİN GEÇMİŞİ İMZA KONTROLÜNDEN SONRA YAZILIR — 2026-08-31'de
+      // düzeltilen gerçek bir hata:
+      //
+      // Bu fonksiyon her uygulama açılışında ve her öne gelişte çalışır ama
+      // ÇOĞU turda yeni bir şey kurmaz (imza aynı → yukarıda `return`).
+      // `saveCopyHistory` eskiden imza kontrolünün ÜSTÜNDEYDİ; yani her turda
+      // yeni varyantlar seçilip "son gösterilenler" halkasına yazılıyor, sonra
+      // planlar uygulanmadığı için o metinler kullanıcıya HİÇ GÖSTERİLMİYORDU.
+      //
+      // Sonuç, tam da önlemek istediğimiz şeydi: halka görülmemiş varyantlarla
+      // dolduğu için `picker` onları dışlıyor, dışlama listesi tükenince de
+      // "hepsini yok say" dalına düşüyordu — yani ÇEŞİTLİLİK ARTMIYOR,
+      // AZALIYORDU. Geçmiş artık yalnızca gerçekten kurulan bildirimler için
+      // ilerliyor.
+      await saveCopyHistory(built.copyHistory);
+
+      const applied = await applyPlans(budgeted);
 
       // 🔴 SIRA BİLİNÇLİ: uzak havuz tazelemesi bildirimler kurulduktan SONRA.
       // Ağı beklemek, kötü bağlantıda planlamayı geciktirir; yeni metinler bir
@@ -378,13 +219,17 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
       void refreshRemotePool(NOTIFICATION_CATEGORIES.map((category) => category.id), now);
       // Defter = ARTIK KURULU OLAN plan kümesi. Bir sonraki açılışta bu
       // kayıtlardan vakti geçmiş olanlar "düştü" sayılacak (bkz. inbox/sweep.ts).
-      await saveLedger(buildLedger(budgeted));
+      // 🔴 Defter, İSTENEN plandan değil GERÇEKTEN KURULANDAN üretilir.
+      // Kurulamayan bir plan defterde kalsaydı, süpürme onu vakti gelince
+      // "düştü" sayar ve kullanıcı hiç düşmemiş bir bildirimi uygulama içi
+      // listede görürdü.
+      await saveLedger(buildLedger(applied.applied));
       lastSignatureRef.current = signature;
     } catch (error) {
       // Bildirim planlaması uygulamanın geri kalanını ASLA çökertmemeli.
       logError('useNotificationSetup.replan', error);
     }
-  }, [accessToken, isGuest, prefs, calendarShows, watchedShows, calendarMovies, watchedMovies, showProgressMap, hiddenShowIds, userStats, markPermissionPrompted, markNudgeFired, t, i18n.language]);
+  }, [accessToken, isGuest, prefs, calendarShows, watchedShows, calendarMovies, watchedMovies, showProgressMap, hiddenShowIds, hiddenMovieIds, userStats, markPermissionPrompted, markNudgeFired, t, i18n.language]);
 
   // Tercihler diskten okunmadan planlamak, kullanıcının kapattığı bir
   // kategoriyi bir kez de olsa kurmak demek olurdu.

@@ -7,6 +7,10 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { resetFetchState } from '../services/library/fetchers';
 import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { useFeedStore } from '../features/feed/store/feedStore';
+// ⚠️ Barrel'dan (`features/notifications`) DEĞİL, doğrudan dosyadan:
+// barrel `NotificationBadge`'i de dışa açıyor ve o bu dosyayı import ediyor —
+// barrel üzerinden çağırmak import döngüsü kurardı (bkz. reset.ts başlığı).
+import { resetNotificationState } from '../features/notifications/reset';
 import { clearFeedPublishIdentity } from '../features/feed/services/feedPublish';
 import {
   invalidateFeedCache,
@@ -264,6 +268,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // için ÖNCEKİ hesabın akışı görünürdü.
       useFeedStore.getState().reset();
       clearFeedPublishIdentity();
+      // Bildirimler de aynı sınıfa girer — üstelik iki katmanlı: store'lar
+      // RAM'de singleton VE zamanlanmış bildirimler işletim sisteminde,
+      // yani `AsyncStorage.clear()`'ın hiç görmediği bir yerde. Temizlenmezse
+      // önceki hesabın dizileri için bildirim düşmeye devam eder
+      // (bkz. features/notifications/reset.ts).
+      await resetNotificationState();
       invalidateFeedCache();
       // Görünür kullanıcı kümesi de sıfırlanmalı: aksi halde yeni oturumun
       // ilk akış sorgusu ÖNCEKİ hesabın takip listesiyle filtrelenirdi.

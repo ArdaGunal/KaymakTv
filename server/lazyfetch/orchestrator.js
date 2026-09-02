@@ -54,7 +54,7 @@
 // Sonraki aynı istek sağlayıcıya HİÇ gitmeden `not-found` döner.
 
 const { resolveRoute, resolveTtl, NEGATIVE_TTL_MS, NEGATIVE_GRACE_MS } = require('./routeRegistry');
-const { buildCacheKey } = require('./key');
+const { buildCacheKey, normalizeQuery } = require('./key');
 const { createEnvelope, getEnvelopeState, markRevalidationFailed, SCHEMA_VERSION } = require('./envelope');
 const { readCacheEntry, writeCacheEntry } = require('./diskStore');
 const { createMemoryCache } = require('./memoryCache');
@@ -131,7 +131,12 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
     // süren bir dizinin sezon listesi 30 gün değil 7 gün taze kalsın diye
     // (routeRegistry.js "KATALOG ÖMRÜ POLİTİKASI").
     const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds, { family, data: result.data });
-    const envelope = createEnvelope({ provider, family, payload: result.data, ttlMs, graceMs });
+    const envelope = createEnvelope({
+      provider, family, payload: result.data, ttlMs, graceMs,
+      // 🆕 A3: zarf kendini tanımlasın — `cache/`'ten arşive aktarım bunu
+      // okuyacak (envelope.js'teki gerekçe). `normalizeQuery` sırları ayıklar.
+      requestPath: path, requestQuery: normalizeQuery(query),
+    });
 
     // 🆕 (L7+) SAĞLAYICI "SAKLAMA" DEDİYSE SAKLAMIYORUZ.
     // `storable === false` yalnızca `Cache-Control: no-store` / `no-cache` /
@@ -188,6 +193,7 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
         ttlMs: NEGATIVE_TTL_MS,
         graceMs: NEGATIVE_GRACE_MS,
         isNegative: true,
+        requestPath: path, requestQuery: normalizeQuery(query),
       });
       await writeCacheEntry(relativePath, negativeEnvelope);
       memoryCache.set(relativePath, negativeEnvelope);

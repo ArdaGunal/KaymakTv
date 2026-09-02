@@ -104,4 +104,15 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   },
 }));
 
+/**
+ * Çıkışta çağrılır (bkz. `features/notifications/reset.ts`).
+ *
+ * 🔴 GİZLİLİK: temizlenmezse, aynı cihazda hesap değiştiren kullanıcı ÖNCEKİ
+ * hesabın bildirim geçmişini (hangi diziyi takip ettiği dahil) görür.
+ */
+export function resetInboxState(): void {
+  hydrationPromise = null;
+  useInboxStore.setState({ items: [], unreadCount: 0, isHydrated: true });
+}
+
 ensureInboxHydrated();

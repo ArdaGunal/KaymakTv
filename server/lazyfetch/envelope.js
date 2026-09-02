@@ -45,12 +45,14 @@ function applyJitter(ttlMs) {
  * @param {number} opts.graceMs    `ttlMs` bittikten SONRA "bayat ama servis edilebilir" ek süre — ZORUNLU parametre, burada uydurulmaz (04_KARARLAR.md B: "gerçek sayılar telemetry ile ölçülmeden belirlenmez"), çağıran taraf (routeRegistry) her aile için kendi kararını verir
  * @param {number} [opts.schemaVersion] Varsayılan modül sabiti — yanıt şekli değişirse çağıran taraf artırır
  * @param {number} [opts.now]      Test edilebilirlik için enjekte edilebilir
+ * @param {string} [opts.requestPath]  🆕 (A3) İsteğin yolu — `/shows/1388/seasons`
+ * @param {string} [opts.requestQuery] 🆕 (A3) Normalize edilmiş, SIRLARI AYIKLANMIŞ query
  * @param {boolean} [opts.isNegative] 🆕 (L4, negatif cache): sağlayıcı "bu kaynak yok" (404) dediğinde
  *   `true` — `payload` bu durumda `null`. Aynı TTL/grace kurallarına tabi, yalnızca orchestrator'ın
  *   okuma tarafı bu bayrağı görünce "veri" yerine "yok" bilgisini yeniden üretir
  *   (bkz. `docs/Lazy Down Plan/02_ENVANTER.md` "404 için negative cache").
  */
-function createEnvelope({ provider, family, payload, ttlMs, graceMs, schemaVersion = SCHEMA_VERSION, now = Date.now(), isNegative = false }) {
+function createEnvelope({ provider, family, payload, ttlMs, graceMs, schemaVersion = SCHEMA_VERSION, now = Date.now(), isNegative = false, requestPath = null, requestQuery = null }) {
   if (!provider || !family) {
     throw new Error('[LazyFetch] createEnvelope: "provider" ve "family" zorunlu.');
   }
@@ -73,6 +75,29 @@ function createEnvelope({ provider, family, payload, ttlMs, graceMs, schemaVersi
     hardExpiresAt: expiresAt + graceMs,
     lastErrorAt: null,
     isNegative,
+
+    // 🆕 A3 — ZARF ARTIK KENDİNİ TANIMLIYOR.
+    //
+    // 🔴 NEDEN GEREKLİ: dosya adı `key.js`'in SHA-256 hash'i, yani geri
+    // döndürülemez. Zarf yalnızca `provider`+`family` taşıdığı için, diskteki
+    // bir `show_seasons` kaydının HANGİ DİZİYE ait olduğu bilinemiyordu —
+    // o yanıt dizinin kendi `ids` bloğunu taşımıyor (ölçüldü, writer.js).
+    // Sonuç: `cache/`'te duran veriyi arşive aktarmak için Trakt'a yeniden
+    // sormak gerekiyordu; tam da kaçınmak istediğimiz şey (A3).
+    //
+    // 🔴 ŞEMA SÜRÜMÜ BİLEREK ARTIRILMADI. `getEnvelopeState` yalnızca `v`'ye
+    // bakıyor; sürümü artırmak diskteki BİNLERCE kaydı anında "expired"
+    // yapardı (envelope.js kural 3). Alan EKLEMEK geriye dönük uyumludur:
+    // eski kayıtlarda `undefined` olur, okuyan taraf onu "bilinmiyor" diye
+    // ele alır.
+    //
+    // 🔴 QUERY HAM DEĞİL: `key.js`'in `normalizeQuery`'sinden geçirilmiş
+    // hali yazılır — `api_key`/`token` gibi sır parametreleri AYIKLANMIŞ ve
+    // sıra deterministik. Ham query yazmak, anahtardan özenle uzak
+    // tuttuğumuz sırları diske geri sokardı.
+    requestPath,
+    requestQuery,
+
     payload,
   };
 }

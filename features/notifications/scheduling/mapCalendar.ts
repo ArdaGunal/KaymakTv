@@ -51,7 +51,14 @@ export function buildWatchedEpisodeKeys(watchedShows: readonly unknown[]): Set<s
 export function mapCalendarToUpcoming(
   calendarShows: readonly unknown[],
   watchedKeys: ReadonlySet<string>,
+  hiddenShowIds: readonly number[] = [],
 ): UpcomingEpisode[] {
+  // 🔴 BIRAKILAN DİZİ BİLDİRİM ÜRETMEZ (2026-08-31'de düzeltildi).
+  // `hiddenShowIds`, Trakt'ın "İlerlemeyi Gizle" listesidir ve bu uygulamada
+  // **"Bırak" eyleminin ta kendisidir** (bkz. store/slices/hiddenShowsSlice.ts).
+  // Kullanıcı bir diziyi bıraktıktan sonra onun yeni bölümü için bildirim
+  // almaya devam etmesi, bildirimleri tamamen kapattıran türden bir hatadır.
+  const hidden = new Set(hiddenShowIds);
   const result: UpcomingEpisode[] = [];
 
   for (const raw of calendarShows) {
@@ -63,6 +70,7 @@ export function mapCalendarToUpcoming(
 
     const episodeTraktId = entry?.episode?.ids?.trakt;
     const showTraktId = entry?.show?.ids?.trakt;
+    if (typeof showTraktId === 'number' && hidden.has(showTraktId)) continue;
     const showTitle = entry?.show?.title;
     const seasonNumber = entry?.episode?.season;
     const episodeNumber = entry?.episode?.number;
@@ -136,7 +144,10 @@ export function buildWatchedMovieIds(watchedMovies: readonly unknown[]): Set<num
 export function mapCalendarToUpcomingMovies(
   calendarMovies: readonly unknown[],
   watchedIds: ReadonlySet<number>,
+  hiddenMovieIds: readonly number[] = [],
 ): UpcomingMovie[] {
+  // Dizilerdeki gerekçenin aynısı: bırakılan film bildirim üretmez.
+  const hidden = new Set(hiddenMovieIds);
   const result: UpcomingMovie[] = [];
 
   for (const raw of calendarMovies) {
@@ -147,6 +158,7 @@ export function mapCalendarToUpcomingMovies(
     };
 
     const movieTraktId = entry?.movie?.ids?.trakt;
+    if (typeof movieTraktId === 'number' && hidden.has(movieTraktId)) continue;
     const title = entry?.movie?.title;
     // Trakt film takviminde alan `released`; bölüm takvimiyle aynı kodu
     // paylaşan bir yanıt gelirse diye `first_aired` de kabul ediliyor.

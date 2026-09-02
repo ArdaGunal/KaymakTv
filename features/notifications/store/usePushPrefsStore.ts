@@ -139,6 +139,24 @@ export const usePushPrefsStore = create<PushPrefsState>((set, get) => ({
   },
 }));
 
+/**
+ * Çıkışta çağrılır (bkz. `features/notifications/reset.ts`).
+ *
+ * 🔴 `AsyncStorage.clear()` YETMEZ: bu store RAM'de bir singleton, yani
+ * uygulama tamamen kapatılmadan çıkış-giriş yapılırsa önceki hesabın
+ * tercihleri hafızada kalır. Projede aynı hata `followStore`, `useLibraryStore`
+ * ve `feedStore` için ayrı ayrı yaşanmıştı ("State Leakage", 2026-08-21).
+ *
+ * Hidratlama sözü de sıfırlanır; aksi halde yeni oturum diski hiç okumaz.
+ */
+export function resetPushPrefsState(): void {
+  hydrationPromise = null;
+  // Disk zaten `AsyncStorage.clear()` ile boşaltıldığı için varsayılanlar
+  // TAM OLARAK doğru hidratlanmış durumdur — `isHydrated: false` bırakmak
+  // Ayarlar ekranını sonsuz spinner'da bırakırdı.
+  usePushPrefsStore.setState({ prefs: buildDefaultPrefs(), isHydrated: true });
+}
+
 // `store/notificationStore.ts` ile aynı desen: modül yüklenirken bir kez
 // hidratlanır, çağıranların ayrıca tetiklemesi gerekmez.
 ensurePushPrefsHydrated();

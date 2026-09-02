@@ -21,9 +21,20 @@ export interface SchedulerResult {
   scheduled: number;
   cancelled: number;
   unchanged: number;
+  /**
+   * Cihazda GERÇEKTEN kurulu olan planlar (yeni kurulanlar + zaten doğru
+   * anda duranlar).
+   *
+   * 🔴 NEDEN DÖNDÜRÜLÜYOR: defter (`inbox/ledger.ts`) bundan üretilmeli,
+   * istenen plan listesinden DEĞİL. Bir planın kurulması başarısız olursa
+   * (aşağıdaki `catch`), defterde "kuruldu" diye kalırsa süpürme onu vakti
+   * gelince "düştü" sayar ve kullanıcı, uygulama içi listede HİÇ DÜŞMEMİŞ
+   * bir bildirimi görür.
+   */
+  applied: ScheduledPlan[];
 }
 
-const EMPTY_RESULT: SchedulerResult = { scheduled: 0, cancelled: 0, unchanged: 0 };
+const EMPTY_RESULT: SchedulerResult = { scheduled: 0, cancelled: 0, unchanged: 0, applied: [] };
 
 const isSupportedPlatform = (): boolean => Platform.OS !== 'web';
 
@@ -69,7 +80,7 @@ export async function applyPlans(plans: readonly ScheduledPlan[]): Promise<Sched
   }
 
   const desired = new Map(plans.map((plan) => [plan.identifier, plan]));
-  const result: SchedulerResult = { scheduled: 0, cancelled: 0, unchanged: 0 };
+  const result: SchedulerResult = { scheduled: 0, cancelled: 0, unchanged: 0, applied: [] };
 
   // ── 1) Artık istenmeyenleri ve ANI DEĞİŞENLERİ iptal et ────────────────
   // Anı değişenler de iptal edilir çünkü `expo-notifications` kurulu bir
@@ -85,6 +96,7 @@ export async function applyPlans(plans: readonly ScheduledPlan[]): Promise<Sched
     if (plan && plan.fireAt === payload.plannedFireAt) {
       // Zaten doğru anda kurulu — hiçbir sistem çağrısı yapma.
       result.unchanged += 1;
+      result.applied.push(plan);
       desired.delete(request.identifier);
       continue;
     }
@@ -132,6 +144,7 @@ export async function applyPlans(plans: readonly ScheduledPlan[]): Promise<Sched
         },
       });
       result.scheduled += 1;
+      result.applied.push(plan);
     } catch (error) {
       logError(`notifications.applyPlans.schedule:${plan.identifier}`, error);
     }
