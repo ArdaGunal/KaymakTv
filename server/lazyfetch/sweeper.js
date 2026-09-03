@@ -349,6 +349,14 @@ module.exports = {
   startSweeperSchedule,
   stopSweeperSchedule,
   DEFAULT_CONFIG,
+  // 🆕 A3/2: gece işlerinin PENCERELERİ artık birbirine bağlı ve bu bağ
+  // test ediliyor (`tests/arsiv/tamamlama.test.js`). Üçü de aynı SSD'ye
+  // dokunuyor: backfill 02-04, süpürücü 04-06, yedek 05-07. Sabiti dışa
+  // vermeseydik test "4" sayısını KENDİ İÇİNE kopyalardı ve pencere bir gün
+  // kaydırıldığında sessizce yanlış şeyi doğrulamaya devam ederdi
+  // (Madde 273: sabitleri değil, ARALARINDAKİ İLİŞKİYİ test et).
+  SWEEP_WINDOW_START_HOUR,
+  SWEEP_WINDOW_END_HOUR,
   // Yalnızca test için dışa veriliyor.
   scanCache,
   getDiskUsage,

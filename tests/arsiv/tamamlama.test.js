@@ -349,6 +349,64 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
     gorulen.find((g) => g.family === 'show_detail').query.translations === 'tr');
   T.ok('Arsive provider=trakt gecti', gorulen.every((g) => g.provider === 'trakt'));
 
+  // ==================================================================
+  T.H('Gece zamanlayicisi — PENCERE CAKISMASI ve kurulum kapilari');
+  // ==================================================================
+  const zam = require(path.join(AR, 'backfillSchedule'));
+  const yedekMod = require(path.join(AR, 'backup'));
+  const supurucu = require(path.join(AR, '..', 'lazyfetch', 'sweeper'));
+
+  // 🔴 EN KRITIK IDDIA: uc gece isi de AYNI SSD'ye dokunuyor ve pencereleri
+  // CAKISMAMALI. Bu, sabitleri degil ARALARINDAKI ILISKIYI olcuyor (M273) —
+  // biri kaydirilirsa burasi kirmizi yanar.
+  //
+  //   02:00-03:59 backfill (arsive YAZAR)
+  //   04:00-05:59 supurucu (cache/'ten SILER)
+  //   05:00-06:59 yedek    (VACUUM INTO)
+  //
+  // Ozellikle backfill < yedek sarti: `VACUUM INTO` kaynakta okuma kilidi
+  // tutar, es zamanli yazim busy_timeout'a takilip SESSIZCE kaybedilebilir.
+  // Ayrica gecenin yeni verisi AYNI GECE yedeklenmis olur (M284'te arsivin
+  // 40 MB'i tam olarak yedeksiz kalmisti).
+  T.ok('🔴 ILISKI: backfill penceresi YEDEK penceresinden ONCE biter',
+    zam.PENCERE_SONU <= yedekMod.PENCERE_BASI,
+    `backfill ${zam.PENCERE_BASI}-${zam.PENCERE_SONU} vs yedek ${yedekMod.PENCERE_BASI}-...`);
+  T.ok('🔴 ILISKI: backfill penceresi SUPURUCU ile cakismiyor',
+    zam.PENCERE_SONU <= supurucu.SWEEP_WINDOW_START_HOUR,
+    `backfill ${zam.PENCERE_BASI}-${zam.PENCERE_SONU} vs supurucu ${supurucu.SWEEP_WINDOW_START_HOUR}-...`);
+  T.ok('Pencere kendi icinde tutarli (bas < son)', zam.PENCERE_BASI < zam.PENCERE_SONU);
+
+  // 🔴 GECELIK TAVAN, PENCEREYE SIGMALI. Olculdu (M288): 171 hedef = 468 sn.
+  // Yani hedef basina ~2,74 sn. Tavan, pencerenin suresini asarsa is
+  // supurucunun uzerine tasar ve iki I/O yuku ust uste biner.
+  const SANIYE_PER_HEDEF = 468 / 171;
+  const tavanSuresiSa = (zam.GECELIK_TAVAN * SANIYE_PER_HEDEF) / 3600;
+  const pencereSa = zam.PENCERE_SONU - zam.PENCERE_BASI;
+  T.ok('🔴 ILISKI: gecelik tavan pencereye SIGIYOR (olculmus hiza gore)',
+    tavanSuresiSa < pencereSa,
+    `${zam.GECELIK_TAVAN} hedef ~= ${tavanSuresiSa.toFixed(2)} sa < ${pencereSa} sa pencere`);
+
+  // ---- Kurulum kapilari: eksik yapilandirmada SESSIZCE kurma.
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+  delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  T.ok('Supabase yapilandirmasi yoksa zamanlayici KURULMAZ',
+    zam.startBackfillSchedule() === null);
+  if (supabaseUrl) process.env.EXPO_PUBLIC_SUPABASE_URL = supabaseUrl;
+  if (supabaseKey) process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = supabaseKey;
+
+  // ---- runBackfill kapilari: THROW ETMEZ, sebep dondurur.
+  const traktId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+  delete process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
+  const rTrakt = await zam.runBackfill();
+  T.ok('Trakt client id yoksa ok:false (throw DEGIL)',
+    rTrakt.ok === false && rTrakt.reason === 'trakt_client_id_yok', JSON.stringify(rTrakt));
+  if (traktId) process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID = traktId;
+
+  T.ok('stopBackfillSchedule cagrilabiliyor (idempotent)',
+    (() => { try { zam.stopBackfillSchedule(); zam.stopBackfillSchedule(); return true; } catch (_) { return false; } })());
+
   db.closeArchive();
   T.bitir();
 })().catch((e) => {

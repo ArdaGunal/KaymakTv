@@ -65,6 +65,10 @@ const { initArchive } = require('./server/archive/db');
 // A2.5 — arşiv gece yedeği. 2026-09-02'de SSD `EIO` verip arşiv birkaç saat
 // erişilemez kaldı ve tek bir kopyası yoktu (`backup.js` başlığı).
 const { startBackupSchedule } = require('./server/archive/backup');
+// A3/2 — arşiv backfill'inin gece turu. Kapsam %100'e ELLE çıkarıldı
+// (Madde 288) ama bu bir fotoğraftı: kullanıcılar yeni yapım işaretledikçe
+// düşer. Bu zamanlayıcı olmadan A4'ün dayandığı kapsam sayısı bayatlar.
+const { startBackfillSchedule } = require('./server/archive/backfillSchedule');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
@@ -112,6 +116,10 @@ startSweeperSchedule();
 // zaten tembel başlatıyor). Davranışı değiştirmez.
 initArchive();
 startBackupSchedule();
+// 🔴 SIRA ÖNEMLİ DEĞİL (üçü de yalnızca zamanlayıcı kurar, iş yapmaz) ama
+// PENCERELER önemli ve çakışmıyor: backfill 02-04, süpürücü 04-06,
+// yedek 05-07. Gerekçesi `backfillSchedule.js` başlığında.
+startBackfillSchedule();
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır
