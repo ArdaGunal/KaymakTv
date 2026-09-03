@@ -169,12 +169,39 @@ function calistir(...args) {
   // ==================================================================
   T.H('Dayaniklilik');
   // ==================================================================
+  // 🔴 `cwd` GECICI DIZINE ALINIYOR — SUSLEME DEGIL, TESTIN CALISMASININ SARTI.
+  //
+  // Bulundugu yer: Pi, 2026-09-03 (Madde 289). Bu iddia Windows'ta YESIL,
+  // Pi'de KIRMIZI yaniyordu ve sebebi testin kendisiydi:
+  //
+  //   `arsiv-aktar.js` `dotenv.config()` cagiriyor (Madde 283'te bilerek
+  //   eklendi). dotenv `.env` dosyasini `process.cwd()`'de arar. Pi'nin
+  //   `.env`'inde `LAZYFETCH_ROOT` VAR, gelistirme makinesininkinde YOK.
+  //   Yani env'den silmek YETMIYOR — `.env` onu geri koyuyordu, LazyFetch
+  //   acik kaliyordu ve betik normal calisip 0 donuyordu.
+  //
+  // 🪤 DERSI: bu test YALNIZCA OZELLIGIN ONEMSIZ OLDUGU makinelerde
+  // geciyordu. Asil onemli oldugu makinede (arsivin yasadigi Pi) kaliyordu.
+  // Ustelik `.env` okuma ozelligiyle AYNI TURDA yazilmisti — test kendi
+  // turunun ozelligiyle celisiyordu.
+  //
+  // Cozum: cocugu `.env`'in BULUNMADIGI bir dizinde calistir. Betik kendi
+  // modullerini `__dirname` uzerinden (mutlak) cozdugu icin cwd degisimi
+  // baska hicbir seyi etkilemez. Artik sonuc makineden BAGIMSIZ.
   const kokSuz = spawnSync(process.execPath, ['--no-warnings', BETIK], {
     encoding: 'utf8',
+    cwd: T.kok,
     env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'LAZYFETCH_ROOT' && k !== 'ARCHIVE_ROOT')),
   });
   T.ok('LAZYFETCH_ROOT yokken temiz hata verip cikiyor (cokme degil)',
     kokSuz.status === 1 && /devre dışı/i.test(kokSuz.stderr || ''), 'cikis ' + kokSuz.status);
+
+  // 🔴 TESTIN KENDISINI TEST ET: `.env` gercekten devre disi mi kaldi?
+  // Bu iddia olmadan, cwd bir gun geri alinsa (ya da dotenv varsayilani
+  // degisse) ustteki iddia yine SESSIZCE makineye bagli hale gelirdi.
+  T.ok('Cocuk sureci .env okumadi (izolasyon gercek)',
+    !/LazyFetch\] Etkin/i.test((kokSuz.stdout || '') + (kokSuz.stderr || '')),
+    'cikti: ' + String(kokSuz.stderr || kokSuz.stdout || '').slice(0, 60).replace(/\n/g, ' '));
 
   T.bitir();
 })();
