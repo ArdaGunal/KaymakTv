@@ -14,6 +14,7 @@
     "arsiv": "node scripts/lazyfetch-inspect.js --arsiv",
     "arsiv:yedek": "node -e \"require('dotenv').config();require('./server/archive/backup').runBackup().then(r=>console.log(JSON.stringify(r)))\"",
     "arsiv:aktar": "node scripts/arsiv-aktar.js",
+    "arsiv:tamamla": "node scripts/arsiv-tamamla.js",
     "test": "node tests/calistir.js",
     "test:lazyfetch": "node tests/calistir.js lazyfetch",
     "test:arsiv": "node tests/calistir.js arsiv",

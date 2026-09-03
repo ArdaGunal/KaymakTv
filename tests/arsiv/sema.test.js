@@ -44,7 +44,16 @@ const depo = require(path.join(AR, 'store'));
   T.ok('synchronous = NORMAL', h.prepare('PRAGMA synchronous').get().synchronous === 1);
 
   const tablolar = h.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
-  T.ok('Tablolar olustu', JSON.stringify(tablolar) === JSON.stringify(['entities', 'external_ids', 'meta', 'payloads', 'sync_log']), tablolar.join(', '));
+  // 🔴 KESIN ESLESME BILINCLI: "en az bunlar var" deseydik, yanlislikla
+  // eklenmis bir tabloyu hic gormezdik. Liste BUYUDUGUNDE bu iddia kirmizi
+  // yanar ve ekleyenin gerekce yazmasi gerekir (Madde 262: test bayatlar,
+  // ama once sor — bayat mi, yoksa bir HATAYI mi kilitliyor?).
+  //
+  // 🆕 A3/2 (2026-09-03): `backfill_state` eklendi — backfill'in "hangi ucu
+  // ne zaman tekrar deneyelim" defteri. `sync_log` gibi OPERASYONEL kayit,
+  // katalog verisi DEGIL. Sema surumu bilerek artirilmadi (gerekcesi
+  // schema.sql'de; `tamamlama.test.js` bunu ayrica olcuyor).
+  T.ok('Tablolar olustu', JSON.stringify(tablolar) === JSON.stringify(['backfill_state', 'entities', 'external_ids', 'meta', 'payloads', 'sync_log']), tablolar.join(', '));
   T.ok('v_kapsam gorunumu olustu', h.prepare("SELECT count(*) c FROM sqlite_master WHERE type='view'").get().c === 1);
   T.ok('schema_version = ' + db.HEDEF_SEMA_SURUMU, h.prepare("SELECT value v FROM meta WHERE key='schema_version'").get().v === String(db.HEDEF_SEMA_SURUMU));
 
@@ -126,7 +135,12 @@ const depo = require(path.join(AR, 'store'));
   T.ok('SEZON kimligi tmdb:season / tvdb:season olarak etiketleniyor',
     sezonKimlikleri.some((d) => d.source === 'tmdb:season' && d.source_id === '3572') &&
     sezonKimlikleri.some((d) => d.source === 'tvdb:season' && d.source_id === '30272'));
-  T.ok('Bolumun imdb kimligi tipsiz (globalde benzersiz)',
+  // ⚠️ ETIKET DUZELTILDI (Madde 288): burasi eskiden "globalde benzersiz"
+  // diyordu. imdb hala TIPSIZ SAKLANIYOR (bu iddia dogru) ama "benzersiz
+  // oldugu icin guvenli" gerekcesi CURUDU — Trakt ayni tt... kimligini bir
+  // filme ve o filmin ozel bolum kaydina birden veriyor. Guvenlik artik
+  // saklamada degil ARAMADA: asagidaki "TIPSIZ ANAHTAR BARIYERI" blogu.
+  T.ok('Bolumun imdb kimligi TIPSIZ saklaniyor (arama tarafi bariyerli)',
     bolumKimlikleri.some((d) => d.source === 'imdb' && d.source_id === 'tt0959621'));
   T.ok('Sezon/bolumde slug YOK, uretilmiyor',
     ![...sezonKimlikleri, ...bolumKimlikleri].some((d) => d.source === 'trakt:slug'));
@@ -174,6 +188,90 @@ const depo = require(path.join(AR, 'store'));
   T.ok('🔴 Cakisma SESSIZCE birlestirilmiyor, isaretleniyor', cakisma.conflict === true);
   T.ok('Cakisma sync_log a yazildi', h.prepare("SELECT count(*) c FROM sync_log WHERE event='conflict'").get().c >= 1);
   T.ok('Var olan bag BASKA yapima cevrilmedi', kimlik.findByExternal('trakt:movie', '481') === film.kaymak_id);
+
+  // ======================================================================
+  T.H('🔴 TIPSIZ ANAHTAR BARIYERI (Madde 288) — CANLI ARSIVDEN alinan vaka');
+  // ======================================================================
+  // 📏 BU BIR VARSAYIM DEGIL, CANLI OLCUM. Pi'deki arsivde (2026-09-03)
+  // 44.287 entity'nin 9'u IKI FARKLI YAPIMIN birlesmis haliydi ve 9/9'u
+  // tipsiz `imdb` anahtarini tasiyordu. Asagidaki kimlikler o kayitlardan
+  // BIREBIR alindi (uydurulmadi).
+  //
+  // Vaka: "Sword Art Online the Movie: Ordinal Scale" Trakt'ta hem FILM
+  // (trakt:movie 258811) hem dizinin OZEL BOLUMU (trakt:episode 2612436)
+  // olarak duruyor -- ve IKISININ DE imdb'si tt5544384.
+  const SAO_IMDB = 'tt5544384';
+
+  const saoBolumSezon = kimlik.resolveOrCreate({
+    type: 'season', externalIds: [{ source: 'trakt:season', source_id: '900001' }],
+    parentId: ilk.kaymak_id, seasonNumber: 0,
+  });
+  const saoBolum = kimlik.resolveOrCreate({
+    type: 'episode',
+    externalIds: kimlik.traktIdsToExternal('episode', { trakt: 2612436, imdb: SAO_IMDB, tmdb: 1708839 }),
+    parentId: saoBolumSezon.kaymak_id, seasonNumber: 0, episodeNumber: 22,
+    derived: { title: 'Sword Art Online the Movie: Ordinal Scale' },
+  });
+  T.ok('Once BOLUM kaydi olustu (arsivde gercekte olan sira)', saoBolum.created === true);
+
+  // Simdi AYNI imdb ile FILM geliyor. Eski kodda bu, film payload'ini
+  // BOLUM entity'sine yaziyordu ve conflict sayaci 0'da kaliyordu.
+  const cakismaOncesi = h.prepare("SELECT count(*) c FROM sync_log WHERE event='conflict'").get().c;
+  const saoFilm = kimlik.resolveOrCreate({
+    type: 'movie',
+    externalIds: kimlik.traktIdsToExternal('movie', {
+      trakt: 258811, imdb: SAO_IMDB, tmdb: 413594,
+      slug: 'sword-art-online-the-movie-ordinal-scale-2017',
+    }),
+    derived: { title: 'Sword Art Online the Movie: Ordinal Scale' },
+  });
+
+  T.ok('🔴 FILM, BOLUM entity sine BIRLESTIRILMEDI', saoFilm.kaymak_id !== saoBolum.kaymak_id,
+    `film=${saoFilm.kaymak_id.slice(0, 12)} bolum=${saoBolum.kaymak_id.slice(0, 12)}`);
+  T.ok('Film KENDI entity si olarak yaratildi', saoFilm.created === true);
+  T.ok('Filmin tipi movie (episode DEGIL)',
+    h.prepare('SELECT type t FROM entities WHERE kaymak_id=?').get(saoFilm.kaymak_id).t === 'movie');
+  T.ok('Bolumun tipi episode olarak KALDI',
+    h.prepare('SELECT type t FROM entities WHERE kaymak_id=?').get(saoBolum.kaymak_id).t === 'episode');
+
+  // 🔴 SESSIZ ENGELLEME YOK. Hatanin haftalarca gorunmemesinin sebebi tam
+  // olarak bu satirin yoklugu idi (Madde 284/286: fail-soft sessizdir).
+  const cakismaSonrasi = h.prepare("SELECT count(*) c FROM sync_log WHERE event='conflict'").get().c;
+  T.ok('🔴 Engelleme sync_log a YAZILDI (sessizce gecilmedi)', cakismaSonrasi > cakismaOncesi,
+    `${cakismaOncesi} -> ${cakismaSonrasi}`);
+  T.ok('Log satiri TIPSIZ_ANAHTAR olarak isaretli',
+    h.prepare("SELECT count(*) c FROM sync_log WHERE detail LIKE 'TIPSIZ_ANAHTAR:%'").get().c >= 1);
+
+  // imdb satiri BOLUMDE kaldi -- arsiv var olan bagi baska yapima CEVIRMEZ.
+  T.ok('imdb bagi ilk sahibinde kaldi (repoint YOK)',
+    kimlik.findByExternal('imdb', SAO_IMDB) === saoBolum.kaymak_id);
+  // Ama filmin KENDI tipli kimlikleri onu bulmaya yetiyor -- A4 icin kritik.
+  T.ok('Film TIPLI kimliginden bulunabiliyor (A4 erisimi saglam)',
+    kimlik.findByExternal('trakt:movie', '258811') === saoFilm.kaymak_id);
+
+  // ---- trakt:slug de TIPSIZ: adi iki parcali ama "slug" varlik tipi degil.
+  const slugDizi = kimlik.resolveOrCreate({
+    type: 'show', externalIds: [{ source: 'trakt:slug', source_id: 'ayni-ad-2019' }],
+  });
+  const slugFilm = kimlik.resolveOrCreate({
+    type: 'movie', externalIds: [{ source: 'trakt:slug', source_id: 'ayni-ad-2019' }],
+  });
+  T.ok('🔴 Ayni slug DIZI ile FILM i birlestirmiyor', slugDizi.kaymak_id !== slugFilm.kaymak_id);
+
+  // ---- Bariyer YALNIZCA tipsiz anahtarlara: tipli anahtar eskisi gibi eslesir.
+  const tekrar = kimlik.resolveOrCreate({
+    type: 'movie', externalIds: [{ source: 'trakt:movie', source_id: '258811' }],
+  });
+  T.ok('Tipli anahtar AYNI yapimi bulmaya devam ediyor (regresyon yok)',
+    tekrar.created === false && tekrar.kaymak_id === saoFilm.kaymak_id);
+
+  // ---- Ayni tipteki eslesme imdb ile HALA calisiyor (bariyer fazla genis degil).
+  const ayniTip = kimlik.resolveOrCreate({
+    type: 'episode', externalIds: [{ source: 'imdb', source_id: SAO_IMDB }],
+    parentId: saoBolumSezon.kaymak_id, seasonNumber: 0, episodeNumber: 22,
+  });
+  T.ok('imdb AYNI tipte hala eslesiyor (bariyer dar)',
+    ayniTip.created === false && ayniTip.kaymak_id === saoBolum.kaymak_id);
 
   // ======================================================================
   T.H('Hiyerarsi ve sema kisitlari');

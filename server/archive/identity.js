@@ -19,14 +19,40 @@
 //
 // 🔴 KAYNAK ADI TİPİ İÇERİR (`tmdb:show` / `tmdb:movie`): TMDB'de dizi 1396
 // ile film 1396 FARKLI yapımlardır. Tipi gömmezsek iki ayrı yapım aynı
-// satıra çakışır ve arşiv sessizce yalan söyler. `imdb` tipsizdir —
-// IMDB kimlikleri global olarak benzersizdir (tt0903747).
+// satıra çakışır ve arşiv sessizce yalan söyler.
+//
+// 🔴 DÜZELTME (Madde 288, 2026-09-03): burada eskiden *"`imdb` tipsizdir —
+// IMDB kimlikleri global olarak benzersizdir (tt0903747)"* yazıyordu ve bu
+// varsayım ÜRETİMDE ÇÜRÜDÜ. Benzersizlik IMDB'nin kendi tarafında doğru;
+// ama TRAKT aynı `tt...` kimliğini hem bir FİLME hem o filmin "özel bölüm"
+// kaydına veriyor. Canlı ölçüm: 44.287 entity'nin 9'u bu yüzden iki ayrı
+// yapımın birleşmiş haliydi ve 9/9'u `imdb` taşıyordu. Kimlik hâlâ tipsiz
+// SAKLANIYOR (göç ayrı bir tur) ama artık tipsiz anahtarlar yalnızca AYNI
+// TİPTEKİ yapımla eşleşebiliyor — bkz. `TIPSIZ_KAYNAKLAR`.
 
 const crypto = require('crypto');
 const { getDb, transaction } = require('./db');
 
 /** `schema.sql`'deki CHECK ile aynı liste — ıraksarsa veritabanı reddeder. */
 const GECERLI_TIPLER = new Set(['show', 'movie', 'season', 'episode', 'person']);
+
+/**
+ * ADINDA TİP TAŞIMAYAN kaynaklar — `resolveOrCreate` bunlarla eşleşirken
+ * ekstra bir tip kontrolü uygular (aşağıdaki "TİPSİZ ANAHTAR BARİYERİ").
+ *
+ * 🔴 `imdb` — ÖLÇÜLDÜ (2026-09-03): dosyanın eski varsayımı ("IMDB
+ * kimlikleri global olarak benzersizdir, tip gerekmez") ÜRETİMDE ÇÜRÜDÜ.
+ * Benzersizlik IMDB'nin kendi tarafında doğru; ama TRAKT aynı `tt...`
+ * kimliğini hem bir filme hem o filmin "özel bölüm" kaydına veriyor.
+ *
+ * 🔴 `trakt:slug` — adı iki parçalı olduğu için tipli SANILABİLİR ama
+ * "slug" bir VARLIK TİPİ DEĞİL. Trakt'ta dizi slug'ları ile film
+ * slug'ları ayrı ad uzaylarında: aynı slug ikisinde birden var olabilir.
+ * `yoldanKimlik()` sayısal olmayan bir yol parçasını buraya çeviriyor,
+ * yani bu anahtar TEK BAŞINA bir yapımı çözebiliyor — bariyersiz
+ * bırakmak `imdb` ile aynı sızıntıyı açık tutardı.
+ */
+const TIPSIZ_KAYNAKLAR = new Set(['imdb', 'trakt:slug']);
 
 /**
  * `kaymak_id` üretir: `<tip>_<32 hex>`.
@@ -131,10 +157,59 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
 
     // 1) Verilen kimliklerin HANGİLERİ zaten bağlı?
     const bul = db.prepare('SELECT kaymak_id FROM external_ids WHERE source = ? AND source_id = ?');
+    const tipBul = db.prepare('SELECT type FROM entities WHERE kaymak_id = ?');
     const bulunanlar = new Set();
     for (const { source, source_id } of externalIds) {
       const satir = bul.get(source, String(source_id));
-      if (satir) bulunanlar.add(satir.kaymak_id);
+      if (!satir) continue;
+
+      // 🔴🔴 TİPSİZ ANAHTAR BARİYERİ (2026-09-03, Madde 288)
+      // ----------------------------------------------------------------
+      // Bu blok bir GERÇEK ÜRETİM HATASINDAN doğdu. Ölçüm: canlı arşivde
+      // 44.287 entity'nin 9'u İKİ FARKLI YAPIMIN birleşmiş haliydi ve
+      // 9/9'u tipsiz `imdb` anahtarını taşıyordu.
+      //
+      // Somut vaka: "Sword Art Online the Movie: Ordinal Scale" hem bir
+      // FİLM (`trakt:movie 258811`) hem de dizinin ÖZEL BÖLÜMÜ (S0E22,
+      // `trakt:episode 2612436`) olarak Trakt'ta duruyor — ve Trakt
+      // İKİSİNE DE AYNI `imdb tt5544384` kimliğini veriyor.
+      //
+      // Eski akış: `archiveShowSeasons` önce bölüm entity'sini yaratıyor
+      // (imdb ile), sonra `movie_detail` geldiğinde imdb üzerinden O
+      // BÖLÜMÜ buluyor ve film payload'ını bir BÖLÜM entity'sine yazıyordu.
+      //
+      // 🔴 EN SİNSİ TARAFI: `bulunanlar.size` 1 olduğu için ÇAKIŞMA
+      // SAYILMIYORDU — `conflict` sayacı 0'da duruyordu. Yani dosyanın
+      // kendi başlığındaki korku aynen gerçekleşti: "arşiv sessizce çift
+      // kayıt biriktirir ve bunu FARK ETMEYİZ."
+      //
+      // Kural: tipsiz bir anahtar YALNIZCA aynı tipteki bir yapımla
+      // eşleşebilir. Tipli anahtarlar (`trakt:movie`, `tmdb:show`...)
+      // zaten kendi tiplerini taşıdığı için bu bariyere ihtiyaç duymaz.
+      //
+      // ⚠️ Bu ARAMA tarafı düzeltmesidir; var olan 9 kayda DOKUNMAZ
+      // (arşiv silmez/yeniden yazmaz). Onların temizliği + `imdb`'nin
+      // `imdb:movie` gibi tiplenmesi ayrı bir bakım turunun işi —
+      // 44.287 satırlık bir UPDATE, SSD yeni BOT moduna alındığı için
+      // bilerek ertelendi (MASTER_PLAN §0 açık iş).
+      if (TIPSIZ_KAYNAKLAR.has(source)) {
+        const sahip = tipBul.get(satir.kaymak_id);
+        if (sahip && sahip.type !== type) {
+          // 🔴 SESSİZ GEÇME YOK. Bu satırın yokluğu hatanın haftalarca
+          // görünmemesinin sebebiydi (Madde 284/286: fail-soft sessizdir).
+          db.prepare(
+            'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+          ).run(
+            simdi,
+            'conflict',
+            satir.kaymak_id,
+            `TIPSIZ_ANAHTAR: "${source}/${source_id}" ${sahip.type} tipinde bir yapima bagli, istenen tip ${type} — birlestirme ENGELLENDI`
+          );
+          continue;
+        }
+      }
+
+      bulunanlar.add(satir.kaymak_id);
     }
 
     let cakisma = false;
@@ -263,4 +338,5 @@ module.exports = {
   traktIdsToExternal,
   tmdbIdToExternal,
   yeniKaymakId,
+  TIPSIZ_KAYNAKLAR,
 };

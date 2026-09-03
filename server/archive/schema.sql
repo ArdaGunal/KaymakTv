@@ -241,3 +241,44 @@ SELECT
 FROM payloads p
 JOIN entities e ON e.kaymak_id = p.kaymak_id
 GROUP BY e.type, p.provider, p.endpoint, p.lang;
+
+-- ==========================================================================
+-- backfill_state — A3/2'nin defteri: "hangi ucu ne zaman tekrar deneyelim?"
+-- ==========================================================================
+-- NEDEN VAR: `general-hospital` gibi dev diziler Trakt'ta 504 veriyor
+-- (03_FAZLAR.md A3 notu). Defter olmasaydı backfill her gece aynı ölü ucu
+-- yeniden dener, 5 ardışık hatada `circuitBreaker` trakt devresini AÇAR ve
+-- o an sitede gezinen GERÇEK kullanıcılar da katalog verisi alamaz.
+-- Yani bu tablo bir hız optimizasyonu değil, CANLI TRAFİĞİN KORUMASI.
+--
+-- ⚠️ BU TABLO KATALOG VERİSİ DEĞİL, OPERASYONEL KAYITTIR — `sync_log` ile
+-- aynı istisna kapsamında: silinebilir/sıfırlanabilir. Silinmesi yalnızca
+-- "tüm uçları yeniden dene" demektir, veri kaybı değildir. "Arşiv hiçbir
+-- şeyi silmez" kuralı `entities`/`external_ids`/`payloads` içindir.
+--
+-- 🔴 ŞEMA SÜRÜMÜ BİLEREK ARTIRILMADI (`db.js` HEDEF_SEMA_SURUMU = 1).
+-- Gerekçe ölçüldü, tercih değil: `db.js semayiGocEt()` bu dosyayı HER
+-- açılışta `db.exec(sema)` ile çalıştırıyor, yani `IF NOT EXISTS` tablo
+-- var olan bir v1 veritabanında kendiliğinden oluşuyor. Sürümü artırsaydık
+-- ve göç adımı yazmasaydık `semayiGocEt` "1 -> 2 gocu tanimli degil" diye
+-- FIRLATIR, arşiv canlıda SESSİZCE KAPANIRDI. Değişiklik saf EKLEMELİ:
+-- eski kod bu tabloyu hiç okumaz, okumadığı için de bozulmaz. Sürüm,
+-- MEVCUT bir tablonun şekli değiştiğinde artırılacak.
+CREATE TABLE IF NOT EXISTS backfill_state (
+  -- "trakt/show_seasons/1388/-" — hedefin tam kimliği (dil dahil, çünkü
+  -- `payloads` PK'sinde de dil var: `tr` ve `-` AYRI hedeflerdir).
+  hedef             TEXT PRIMARY KEY,
+  provider          TEXT NOT NULL,
+  endpoint          TEXT NOT NULL,   -- LazyFetch aile adı (payloads.endpoint ile aynı sözlük)
+  source_id         TEXT NOT NULL,   -- sağlayıcıdaki kimlik (Trakt ID)
+  lang              TEXT NOT NULL,
+  deneme            INTEGER NOT NULL DEFAULT 0,
+  son_hata          TEXT,
+  son_deneme_at     INTEGER,
+  -- Bu andan ÖNCE tekrar denenmez. Üstel geri çekilme (`backfill.js`).
+  sonraki_deneme_at INTEGER,
+  -- Dolu ise iş bitti; satır TEŞHİS için duruyor (ne zaman tamamlandı).
+  basarili_at       INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_backfill_sonraki ON backfill_state(sonraki_deneme_at);
