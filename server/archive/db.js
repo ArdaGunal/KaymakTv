@@ -198,7 +198,44 @@ function getArchiveStatus() {
 }
 
 // İç içe `transaction()` çağrılarının derinliği. Aşağıdaki kırmızı nota bak.
-let islemDerinligi = 0;
+// ==========================================================================
+// 🔴🔴 İŞLEM BAĞLAMI — MODÜL SAYACI DEĞİL, ASYNC BAĞLAM (Madde 291)
+// ==========================================================================
+// Burada eskiden `let islemDerinligi = 0` diye MODÜL SEVİYESİNDE bir sayaç
+// vardı ve "iç içe çağrı mı?" sorusu ona bakılarak cevaplanıyordu.
+//
+// 🪤 O SAYAÇ İKİ FARKLI ŞEYİ AYIRT EDEMİYOR:
+//     (a) gerçekten İÇ İÇE çağrı (dış işleme katılmalı)
+//     (b) dış işlem bir `await`te ASILIYKEN gelen BAĞIMSIZ, EŞZAMANLI çağrı
+//         (kendi işlemini açıp SIRAYA girmeli)
+//
+// İkisi de sayacı ">0" görüyordu, yani (b) sessizce (a) muamelesi görüyordu:
+// bağımsız bir yazım, başkasının transaction'ının İÇİNE giriyordu. O
+// transaction rollback olursa **bağımsız yazım da siliniyor — ama çağıran
+// BAŞARILI cevabı alıyordu.** Sessiz veri kaybı.
+//
+// 📏 ÜRETİLEBİLİR ÖLÇÜM (2026-09-04): A yazar → bekler → patlar (rollback);
+// A'nın beklemesi sırasında B yazar ve BAŞARILI döner. Sonuç: veritabanında
+// B'nin satırı YOK. Hiçbir hata log'a düşmedi.
+//
+// Neden bugüne kadar patlamadı: `archiveCatalogResponse`'ın TEK çağıranı
+// `queue.js` idi ve o eşzamanlılık-1 ile çalışıyor. A3/2'nin gece
+// zamanlayıcısı (`backfillSchedule.js`) AYNI SÜREÇTE ikinci bir bağımsız
+// çağıran ekledi — 02:00-04:00 arasında bir kullanıcı isteği canlı kancayı
+// tetiklediğinde iki yazım çakışabilir hale geldi.
+//
+// ⚠️ `queue.js` başlığındaki *"`transactionAsync` bunu ayrıca YAPISAL olarak
+// da engelliyor"* cümlesi bu yüzden YANLIŞTI: tek gerçek koruma kuyruğun
+// kendisiydi. Şimdi o cümle gerçek oluyor.
+//
+// ÇÖZÜM: `AsyncLocalStorage`. "İç içelik" artık ASYNC BAĞLAMLA belirleniyor;
+// bir `await` boyunca taşınır ama BAŞKA bir çağrı zincirine SIZMAZ — yani
+// (a) ile (b) yapısal olarak ayrılır.
+const { AsyncLocalStorage } = require('node:async_hooks');
+const islemBaglami = new AsyncLocalStorage();
+
+/** SQLite'ta şu an açık bir `BEGIN` var mı (senkron yolun teşhisi için). */
+let acikIslemVar = false;
 
 /**
  * Bir işi TEK işlem (transaction) içinde çalıştırır.
@@ -236,26 +273,37 @@ function transaction(is) {
   if (!db) return null;
 
   // İç çağrı: dış işleme katıl, kendi BEGIN'ini AÇMA.
-  if (islemDerinligi > 0) {
-    islemDerinligi += 1;
-    try {
-      return is(db);
-    } finally {
-      islemDerinligi -= 1;
-    }
+  if (islemBaglami.getStore()) return is(db);
+
+  // 🔴 DIŞ SENKRON ÇAĞRI, AMA BAŞKA BİR İŞLEM AÇIK.
+  // Senkron kod `await` edemez, yani sıraya giremez. Eskiden bu durum
+  // sessizce "iç içe" sayılıp diğerinin transaction'ına katılıyordu —
+  // sessiz veri kaybının kaynağı. Artık AÇIKÇA REDDEDİLİYOR: gürültülü
+  // bir hata, sessiz bir bozulmadan her zaman iyidir (M284/286).
+  //
+  // 📏 Bugün üretimde ERİŞİLEMEZ: `transaction()`ın tek çağıranı
+  // `identity.js resolveOrCreate` ve o HER ZAMAN `transactionAsync`
+  // içinden çağrılıyor (ölçüldü, 2026-09-04). Bu dal bir gün ateşlerse
+  // yeni bir çağrı yolu eklenmiş demektir — o çağrı `transactionAsync`
+  // kullanmalıdır.
+  if (acikIslemVar) {
+    throw new Error(
+      '[Arsiv] Es zamanli SENKRON transaction denendi: baska bir islem acik '
+      + 've senkron kod siraya giremez. Cagiran taraf transactionAsync kullanmali.'
+    );
   }
 
-  islemDerinligi = 1;
+  acikIslemVar = true;
   db.exec('BEGIN');
   try {
-    const sonuc = is(db);
+    const sonuc = islemBaglami.run({ tip: 'sync' }, () => is(db));
     db.exec('COMMIT');
     return sonuc;
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch (_) { /* zaten kapanmış olabilir */ }
     throw error;
   } finally {
-    islemDerinligi = 0;
+    acikIslemVar = false;
   }
 }
 
@@ -293,15 +341,11 @@ async function transactionAsync(is) {
   const db = getDb();
   if (!db) return null;
 
-  // İç çağrı: dış işleme katıl.
-  if (islemDerinligi > 0) {
-    islemDerinligi += 1;
-    try {
-      return await is(db);
-    } finally {
-      islemDerinligi -= 1;
-    }
-  }
+  // İç çağrı: dış işleme katıl. `AsyncLocalStorage` bağlamı `await`ler
+  // boyunca taşınır, yani gerçekten İÇ İÇE olan çağrı burayı görür;
+  // eşzamanlı ama BAĞIMSIZ bir çağrı ise kendi (boş) bağlamındadır ve
+  // aşağıdaki sıraya girer.
+  if (islemBaglami.getStore()) return await is(db);
 
   // Dış çağrı: önceki yazım bitene kadar bekle (sıraya gir).
   const oncekiler = yazimZinciri;
@@ -309,17 +353,20 @@ async function transactionAsync(is) {
   yazimZinciri = new Promise((r) => { serbestBirak = r; });
   await oncekiler.catch(() => { /* onceki yazimin hatasi bizi ilgilendirmez */ });
 
-  islemDerinligi = 1;
+  acikIslemVar = true;
   db.exec('BEGIN');
   try {
-    const sonuc = await is(db);
+    // 🔴 `is` BAĞLAM İÇİNDE çalıştırılıyor: içeriden yapılan her
+    // `transaction`/`transactionAsync` çağrısı "iç içe" olarak görülür,
+    // dışarıdan gelen eşzamanlı çağrılar GÖRMEZ.
+    const sonuc = await islemBaglami.run({ tip: 'async' }, () => is(db));
     db.exec('COMMIT');
     return sonuc;
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch (_) { /* zaten kapanmış olabilir */ }
     throw error;
   } finally {
-    islemDerinligi = 0;
+    acikIslemVar = false;
     serbestBirak();
   }
 }

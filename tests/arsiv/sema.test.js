@@ -274,6 +274,58 @@ const depo = require(path.join(AR, 'store'));
     ayniTip.created === false && ayniTip.kaymak_id === saoBolum.kaymak_id);
 
   // ======================================================================
+  T.H('🔴 ES ZAMANLI TRANSACTION IZOLASYONU (Madde 291)');
+  // ======================================================================
+  // 📏 BU IDDIA GERCEK BIR SESSIZ VERI KAYBINDAN DOGDU (2026-09-04, A4
+  // turunda bulundu). `db.js` "ic ice cagri mi?" sorusunu MODUL SEVIYESINDE
+  // bir sayacla (`islemDerinligi`) cevapliyordu ve o sayac su ikisini
+  // AYIRT EDEMIYORDU:
+  //   (a) gercekten IC ICE cagri            -> dis isleme katilmali
+  //   (b) dis islem bir `await`te ASILIYKEN gelen BAGIMSIZ cagri
+  //       -> KENDI islemini acip siraya girmeli
+  //
+  // Ikisi de sayaci ">0" goruyordu. Sonuc: bagimsiz bir yazim baskasinin
+  // transaction'ina giriyordu ve o transaction ROLLBACK olursa **bagimsiz
+  // yazim da siliniyor, ama cagiran BASARILI cevabi aliyordu.**
+  //
+  // Neden bugune kadar patlamadi: `archiveCatalogResponse`in tek cagirani
+  // `queue.js` idi (eszamanlilik-1). A3/2'nin gece zamanlayicisi ayni
+  // surece IKINCI bir bagimsiz cagiran ekledi.
+  //
+  // Cozum `AsyncLocalStorage`: ic icelik artik ASYNC BAGLAMLA belirleniyor.
+  const bekleT = (ms) => new Promise((r) => setTimeout(r, ms));
+  const yazT = (id) => h.prepare('INSERT INTO sync_log (at,event,detail) VALUES (?,?,?)').run(Date.now(), 'backfill', id);
+
+  const A = db.transactionAsync(async () => { yazT('A-geri-alinmali'); await bekleT(50); throw new Error('A patladi'); });
+  await bekleT(12);
+  const B = db.transactionAsync(async () => { yazT('B-KORUNMALI'); await bekleT(5); return 'B'; });
+  const sonuclar = await Promise.allSettled([A, B]);
+
+  T.ok('Patlayan islem reddedildi', sonuclar[0].status === 'rejected');
+  T.ok('Bagimsiz islem basarili dondu', sonuclar[1].status === 'fulfilled');
+
+  const kalanlar = h.prepare("SELECT detail FROM sync_log WHERE event='backfill'").all().map((r) => r.detail);
+  T.ok('🔴 BAGIMSIZ yazim KORUNDU (baskasinin rollback i silmedi)',
+    kalanlar.includes('B-KORUNMALI'), JSON.stringify(kalanlar));
+  T.ok('🔴 Patlayan islemin yazimi GERI ALINDI',
+    !kalanlar.includes('A-geri-alinmali'), JSON.stringify(kalanlar));
+
+  // ---- Ic ice cagri HALA dis isleme katilmali (regresyon korumasi):
+  // duzeltme fazla genis olsaydi ic cagri kendi BEGIN'ini acmaya calisir ve
+  // "cannot start a transaction within a transaction" ile patlardi.
+  const icIce = await db.transactionAsync(async () => {
+    yazT('dis-blok');
+    return db.transactionAsync(async () => { yazT('ic-blok'); return 'ic-ok'; });
+  });
+  T.ok('Ic ice transactionAsync hala calisiyor (dis isleme katiliyor)', icIce === 'ic-ok', String(icIce));
+  T.ok('Ic ice blogun IKI yazimi da islendi',
+    h.prepare("SELECT count(*) c FROM sync_log WHERE detail IN ('dis-blok','ic-blok')").get().c === 2);
+
+  // ---- Senkron `transaction()` ic icede calismali (resolveOrCreate boyle cagriliyor)
+  const senkronIcIce = await db.transactionAsync(async () => db.transaction(() => 'senkron-ok'));
+  T.ok('Senkron transaction, async islemin ICINDE calisiyor', senkronIcIce === 'senkron-ok');
+
+  // ======================================================================
   T.H('Hiyerarsi ve sema kisitlari');
   // ======================================================================
   // Sezon 1 yukaridaki gercek-sekil blogunda zaten yaratildi (trakt:season/3950)

@@ -39,6 +39,7 @@ const TAKIMLAR = [
   { ad: 'aktarim', grup: 'arsiv', dosya: 'arsiv/aktarim.test.js', aciklama: 'A3/1: cache -> arsiv aktarimi (sifir ag istegi)' },
   { ad: 'yedek', grup: 'arsiv', dosya: 'arsiv/yedek.test.js', aciklama: 'A2.5: gece yedegi, ayni-disk reddi, kopya dondurme' },
   { ad: 'tamamlama', grup: 'arsiv', dosya: 'arsiv/tamamlama.test.js', aciklama: 'A3/2: eksik tespiti, defter, ardisik hata freni' },
+  { ad: 'geridusus', grup: 'arsiv', dosya: 'arsiv/geri-dusus.test.js', aciklama: 'A4: saglayici cokunce arsive gerileme (karar A5)' },
   // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,
   // ISTEMCI kodunu test eder (`features/notifications/` saf katmani) ve bu
   // yuzden `.mjs` + Node'un yerel TypeScript soymasini kullanir — ayrinti

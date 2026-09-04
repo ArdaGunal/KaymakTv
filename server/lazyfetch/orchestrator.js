@@ -66,6 +66,11 @@ const { NotFoundError, CircuitOpenError, RateLimitedError } = require('./errors'
 // tanır, arşiv LazyFetch'i tanımaz. Arşiv kapalıysa `enqueue` no-op'tur,
 // yani bu require bir çalışma zamanı riski taşımaz.
 const { archiveQueue } = require('../archive/queue');
+// 🆕 A4 — arşivin OKUMA tarafı. Bağımlılık yönü A2'dekiyle aynı ve hâlâ
+// TEK YÖNLÜ: LazyFetch arşivi tanır, arşiv LazyFetch'i tanımaz. Arşiv
+// kapalıysa `readCatalogFromArchive` `{ok:false}` döner (throw etmez),
+// yani bu require bir çalışma zamanı riski taşımaz.
+const { readCatalogFromArchive } = require('../archive/reader');
 
 // Modül seviyesinde TEK paylaşılan bellek katmanı — Node'un require cache'i
 // bunu doğal bir singleton yapar (memoryCache.js başlığındaki tasarım notu).
@@ -351,7 +356,41 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
       console.error(`[LazyFetch] Sağlayıcı başarısız, grace fallback dönülüyor (${relativePath}): ${error.message}`);
       return envelopeToResult(envelope, 'grace-fallback');
     }
-    throw error; // elimizde hiç veri yok — hata olduğu gibi yukarı
+
+    // ==================================================================
+    // 🆕 A4 — ARŞİV GERİ DÜŞÜŞÜ (karar A5, 2026-09-04)
+    // ==================================================================
+    // Buraya düşmek şu demek: sağlayıcı çöktü VE elimizde hiçbir cache
+    // zarfı yok. A4 ÖNCESİ burada hata fırlatılırdı; kullanıcı boş ekran
+    // görürdü. Artık son bir yere daha bakıyoruz: arşive.
+    //
+    // 🔴 SIRA BİLİNÇLİ — arşiv grace fallback'in ARDINDA. Eski bir cache
+    // zarfı arşivdeki kayıttan DAHA TAZE olabilir (cache her istekte
+    // yazılır, arşiv yalnızca sağlayıcıya gidilen isteklerde + gece
+    // backfill'de). Sırayı ters kurmak en taze veriyi ıskalamak olurdu.
+    //
+    // 🔴 ARŞİVDEN GELEN VERİ CACHE'E YAZILMAZ. İki sebep:
+    //   1. `cache/` sağlayıcıdan gelenin kopyasıdır; arşivden dolduracak
+    //      olsaydık, TTL'i olmayan bir kaydı TTL'li bir depoya taze diye
+    //      yazmış olurduk ve sağlayıcı düzeldikten sonra bile eski veriyi
+    //      "taze" sayıp servis etmeye devam ederdik.
+    //   2. Kesinti bitince ilk istek sağlayıcıya gitmeli — cache'i
+    //      arşivle doldurmak o ilk isteği TTL boyunca ERTELERDİ.
+    //
+    // ⚠️ `x-lazyfetch: archive-fallback` AYRI bir durum olarak dönüyor:
+    // operatör "kullanıcı ne gördü" sorusunu ÖLÇEREK cevaplayabilmeli
+    // (Madde 261: yanlış alet yanlış teşhis üretir). `grace-fallback` ile
+    // aynı ada koysaydık, kesinti sırasında verinin cache'ten mi arşivden
+    // mi geldiğini bir daha ayırt edemezdik.
+    const arsiv = await readCatalogFromArchive({ provider, family: route.family, path, query });
+    if (arsiv.ok) {
+      console.error(
+        `[LazyFetch] Sağlayıcı başarısız + cache boş, ARŞİV geri düşüşü (${relativePath}): ${error.message}`
+      );
+      return { status: 'archive-fallback', data: arsiv.data };
+    }
+
+    throw error; // sağlayıcı da cache de arşiv de yok — hata olduğu gibi yukarı
   }
 }
 
