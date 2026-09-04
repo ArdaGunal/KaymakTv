@@ -412,6 +412,20 @@ const patla = () => { throw new Error('Trakt 504 Gateway Timeout'); };
   T.ok('Uyari metni TESHIS komutu veriyor', /journalctl/.test(metin));
   T.ok('Uyari metni ucu ve toplami iceriyor', /show_detail/.test(metin) && /7/.test(metin));
 
+  // 🪤 CANLI GONDERILEN ILK MESAJDA GORULDU (2026-09-04): ayirici bos
+  // satirlar KAYBOLMUSTU. Sebep `.filter(Boolean)` idi — opsiyonel "Veri
+  // yasi" satirini elemek icin konmustu ama bilerek konmus '' ayiricilari
+  // da eliyordu ve mesaj duvar gibi cikiyordu. Kesinti sirasinda okunacak
+  // bir uyarinin okunabilirligi sus degil, ISLEVDIR.
+  const bosSatir = (metinlik) => metinlik.split('\n').filter((l) => l === '').length;
+
+  T.ok('🔴 Uyari metninde AYIRICI bos satirlar korunuyor',
+    bosSatir(metin) === 3, `${bosSatir(metin)} bos satir`);
+
+  const yassiz = formatFallbackAlarm({ family: 'movie_detail', toplam: 9, path: '/movies/481', hata: 'ECONNRESET' });
+  T.ok('yasGun yoksa O SATIR dusuyor', !/Veri ya[sş][iı]/.test(yassiz));
+  T.ok('...ama ayiricilar YINE korunuyor', bosSatir(yassiz) === 3, `${bosSatir(yassiz)} bos satir`);
+
   // ==================================================================
   T.H('🔴 TELEMETRI ISTEGI BEKLETMEZ');
   // ==================================================================

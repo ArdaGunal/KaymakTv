@@ -145,14 +145,20 @@ function formatFallbackAlarm({ family, toplam, path, yasGun, hata }) {
     '',
     `Uç        : ${family}${path ? '  ' + path : ''}`,
     `Sağlayıcı : ${hata || 'bilinmiyor'}`,
-    yasGun === null || yasGun === undefined ? '' : `Veri yaşı : ~${yasGun} gün önce arşivlenmiş`,
+    // 🔴 `null` (boş dizge DEĞİL): aşağıdaki süzgeç yalnızca `null`'ı eler.
+    // Önce `''` dönüyordu ve `.filter(Boolean)` kullanılıyordu — o süzgeç
+    // BİLEREK KONMUŞ AYIRICI BOŞ SATIRLARI DA ELİYORDU ve mesaj duvar gibi
+    // çıkıyordu. Canlı gönderilen ilk doğrulama mesajında görüldü
+    // (2026-09-04). Kesinti sırasında okunacak bir uyarının okunabilirliği
+    // süs değil, işlevdir.
+    yasGun === null || yasGun === undefined ? null : `Veri yaşı : ~${yasGun} gün önce arşivlenmiş`,
     `Toplam    : ${toplam} geri düşüş (arşiv açıldığından beri)`,
     '',
     'Ne yapmalı: Trakt tarafında kesinti var mı bak. Sürüyorsa yapacak bir',
     'şey yok — sistem zaten doğru davranıyor.',
     '  journalctl -u kaymak -n 200 | grep "ARŞİV geri düşüşü"',
     '  npm run arsiv     # sayaçların tamamı',
-  ].filter(Boolean).join('\n');
+  ].filter((satir) => satir !== null).join('\n');
 }
 
 module.exports = {
