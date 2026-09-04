@@ -290,5 +290,50 @@ const { NotFoundError } = require(path.join(LF, 'errors'));
   } catch (e) { hataYukari = true; }
   T.ok('Elde HIC veri yoksa hata oldugu gibi yukari iletiliyor', hataYukari);
 
+  // ======================================================================
+  T.H('🔴 MODUL AILESI — bolunme sonrasi SINGLETON PAYLASIMI (Madde 295)');
+  // ======================================================================
+  // `orchestrator.js` 446 satira cikinca 400 kurali geregi bes parcaya
+  // bolundu. Bolmenin TEK gercek tehlikesi buydu: `memoryCache`,
+  // `refreshQueue` ve tek-ucus kilidi MODUL SEVIYESI SINGLETON'lardi.
+  // Parcalar bunlari kendi iclerinde yaratsaydi:
+  //   • `fetchAndStore` bir zarfi yazar, `resolveRequest` onu HIC goremezdi
+  //   • tek-ucus kilidi anlamsizlasir, thundering herd korumasi COKERDI
+  //   • `refreshQueue`'nun 2-paralel tavani ikiye bolunur (sessizce 4 olur)
+  //
+  // 🔴 HICBIRI HATA VERMEZDI — sessizce yanlis calisirdi (M284/286). Bu
+  // yuzden paylasim KIMLIK olarak (===) olculuyor, davranisla degil.
+  const state = require(path.join(LF, 'state'));
+  const fetchStore = require(path.join(LF, 'fetchAndStore'));
+  const reval = require(path.join(LF, 'revalidate'));
+  const arsivGeri = require(path.join(LF, 'archiveFallback'));
+
+  T.ok('🔴 orchestrator.memoryCache, state ile AYNI NESNE',
+    orch.memoryCache === state.memoryCache);
+  T.ok('🔴 orchestrator.refreshQueue, state ile AYNI NESNE',
+    orch.refreshQueue === state.refreshQueue);
+  T.ok('Sogutma sabiti revalidate ten yeniden disa veriliyor',
+    orch.REVALIDATE_FAILURE_COOLDOWN_MS === reval.REVALIDATE_FAILURE_COOLDOWN_MS,
+    String(orch.REVALIDATE_FAILURE_COOLDOWN_MS));
+
+  // Dis sozlesme bozulmamali: bu dosyayi tmdbProxy, traktCatalog, backfill
+  // ve testler taniyor.
+  T.ok('Dis sozlesme korundu (resolveRequest)', typeof orch.resolveRequest === 'function');
+  T.ok('Parcalar kendi islerini disa veriyor',
+    typeof fetchStore.fetchAndStore === 'function'
+    && typeof reval.triggerBackgroundRevalidate === 'function'
+    && typeof arsivGeri.tryArchiveFallback === 'function');
+
+  // 🔴 400 SATIR KURALI OLCULUYOR, VARSAYILMIYOR. Bolme "yapildi" diye
+  // kapanmis sayilmaz; bir dosya yeniden sismeye baslarsa burasi kirmizi
+  // yanar (AGENTS.md: "400 satiri gecmeye basladiginda mutlaka bolunmeli").
+  const fs2 = require('fs');
+  const aile = ['state', 'fetchAndStore', 'revalidate', 'archiveFallback', 'orchestrator'];
+  const asanlar = aile
+    .map((ad) => ({ ad, n: fs2.readFileSync(path.join(LF, ad + '.js'), 'utf8').split('\n').length }))
+    .filter((x) => x.n > 400);
+  T.ok('🔴 Ailenin HICBIR dosyasi 400 satiri asmiyor', asanlar.length === 0,
+    asanlar.length ? asanlar.map((x) => `${x.ad}=${x.n}`).join(' ') : 'en buyugu 400 altinda');
+
   T.bitir();
 })();
