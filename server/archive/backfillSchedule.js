@@ -14,7 +14,7 @@
 // zaten çalışan bir çözümü var. İkinci bir desen icat etmek, ikisinin
 // zamanla ıraksaması demekti.
 
-const { isArchiveEnabled } = require('./db');
+const { isArchiveEnabled, getDb } = require('./db');
 const { logSync } = require('./store');
 const { fetchTakipEdilenler, hedefListesi } = require('./backfillSource');
 const { tamamla, eksikleriBul } = require('./backfill');
@@ -62,6 +62,29 @@ const GECELIK_TAVAN = 200;
 
 let zamanlayici = null;
 let sonKosuGunu = null;
+
+/**
+ * 🔴 BUGÜN ZATEN KOŞULDU MU? — `sync_log`'dan okunur, bellekten DEĞİL.
+ *
+ * `sonKosuGunu` her yeniden başlatmada sıfırlanıyor. Açılış kontrolüyle
+ * birlikte bu tek başına yetmezdi: pencere içinde üç deploy = üç tur.
+ * `runBackfill` her turda `sync_log`'a `event='backfill'` satırı yazıyor
+ * (eksik olmasa bile — "sessizce hiçbir şey yapmadı" ile "çalışmadı"
+ * ayırt edilebilsin diye). O satır günün kalıcı kanıtı.
+ */
+function bugunKosulduMu(simdi = new Date()) {
+  const db = getDb();
+  if (!db) return false;
+  try {
+    const gunBasi = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate()).getTime();
+    const r = db.prepare("SELECT count(*) c FROM sync_log WHERE event = 'backfill' AND at >= ?").get(gunBasi);
+    return (r && r.c) > 0;
+  } catch (_) {
+    // Okuyamıyorsak "koşulmadı" say — bir tur fazla koşmak, hiç
+    // koşmamaktan iyidir (tur zaten eksik yoksa hiçbir şey yapmıyor).
+    return false;
+  }
+}
 
 /**
  * Bir gecelik turu çalıştırır.
@@ -153,15 +176,31 @@ function startBackfillSchedule(config = {}) {
   }
   if (zamanlayici) return zamanlayici;
 
-  zamanlayici = setInterval(() => {
+  const kontrolEt = () => {
     const simdi = new Date();
     const saat = simdi.getHours();
     const gun = simdi.toDateString();
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
     if (sonKosuGunu === gun) return;
+    if (bugunKosulduMu(simdi)) { sonKosuGunu = gun; return; }
     sonKosuGunu = gun;
     runBackfill(config).catch(() => { /* runBackfill zaten yutuyor */ });
-  }, KONTROL_ARALIGI_MS);
+  };
+
+  zamanlayici = setInterval(kontrolEt, KONTROL_ARALIGI_MS);
+
+  // ==================================================================
+  // 🔴 AÇILIŞ KONTROLÜ — bkz. `backup.js` (Madde 296)
+  // ==================================================================
+  // `setInterval` ilk kontrolü bir SAAT sonra yapar. Pencere 2 saat,
+  // aralık 1 saat: sunucu pencerenin SON SAATİNDE yeniden başlarsa o
+  // günün turu HİÇ KOŞMAZ. Backfill'de sonucu daha sinsi: kapsam sessizce
+  // düşer ve A4'ün dayandığı sayı bayatlar — kimse fark etmez.
+  //
+  // ⏳ 90 sn gecikme: sunucu önce isteklere cevap verebilir hale gelsin
+  // (backfill ağa çıkıyor ve arşive yazıyor).
+  const acilisKontrolu = setTimeout(kontrolEt, 90 * 1000);
+  if (typeof acilisKontrolu.unref === 'function') acilisKontrolu.unref();
 
   // Süreç kapanmasını engellemesin (sweeper.js/backup.js'teki aynı gerekçe).
   if (typeof zamanlayici.unref === 'function') zamanlayici.unref();
@@ -179,6 +218,7 @@ module.exports = {
   runBackfill,
   startBackfillSchedule,
   stopBackfillSchedule,
+  bugunKosulduMu,
   PENCERE_BASI,
   PENCERE_SONU,
   GECELIK_TAVAN,

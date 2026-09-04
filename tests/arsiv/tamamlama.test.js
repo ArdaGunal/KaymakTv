@@ -404,6 +404,49 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
     rTrakt.ok === false && rTrakt.reason === 'trakt_client_id_yok', JSON.stringify(rTrakt));
   if (traktId) process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID = traktId;
 
+  // ==================================================================
+  // 🔴 ACILIS KONTROLU — "sessizce atlanan gece isi" (Madde 296)
+  // ==================================================================
+  // `setInterval` ILK kontrolu bir SAAT sonra yapar. Pencere 2 saat,
+  // aralik 1 saat: sunucu pencerenin SON SAATINDE yeniden baslarsa ilk
+  // kontrol pencerenin DISINA duser ve o gunun turu HIC KOSMAZ.
+  //
+  // 📏 Bu varsayim degil, CANLI OLCUM (2026-09-04 06:12): sunucu 06:09'da
+  // yeniden baslatilmisti, yedek penceresi 05:00-07:00, ilk kontrol
+  // 07:09'a dusuyordu. O gunun yedegi atlanacakti ve kimse fark
+  // etmeyecekti.
+  //
+  // 🔴 ILISKI TESTI: aralik, pencereden KISA olmali. Esit/uzun olsaydi
+  // acilis kontrolu olmadan pencere tamamen kacirilabilirdi.
+  const pencereSaat = zam.PENCERE_SONU - zam.PENCERE_BASI;
+  T.ok('🔴 ILISKI: kontrol araligi pencereden KISA',
+    zam.KONTROL_ARALIGI_MS < pencereSaat * 3600 * 1000,
+    `${zam.KONTROL_ARALIGI_MS / 3600000} sa < ${pencereSaat} sa`);
+
+  // 🔴 Ayni-gun korumasi BELLEKTEN DEGIL, `sync_log`'dan okunmali:
+  // bellekteki bayrak her yeniden baslatmada sifirlaniyor, yani acilis
+  // kontroluyle birlikte pencere icinde uc deploy = uc tur olurdu.
+  // ⚠️ DEFTER ONCE TEMIZLENIYOR: yukaridaki "ardisik hata freni" testi
+  // `sync_log`'a zaten bir `backfill` satiri yazdi (fren tetiklendiginde
+  // logluyor). Onu temizlemeden "bugun kosulmadi" iddiasi ANLAMSIZ olurdu —
+  // ilk taslakta tam bu yuzden kirmizi yandi (2026-09-04). Test kendi
+  // baslangic durumunu KURMALI, varsaymamali.
+  const bag = db.getDb();
+  bag.prepare("DELETE FROM sync_log WHERE event = 'backfill'").run();
+  T.ok('Temiz defterde: bugun kosulmadi', zam.bugunKosulduMu(new Date()) === false);
+
+  // DUNKU bir tur BUGUNU engellememeli — yalnizca dunun satiri var.
+  bag.prepare('INSERT INTO sync_log (at, event, detail) VALUES (?, ?, ?)')
+    .run(Date.now() - 26 * 3600 * 1000, 'backfill', 'dunku tur');
+  T.ok('🔴 DUNKU tur bugunu ENGELLEMIYOR', zam.bugunKosulduMu(new Date()) === false);
+
+  // Bugunun satiri eklenince ANLASILMALI — ve bu bilgi BELLEKTEN degil
+  // `sync_log`'dan geliyor, yani yeniden baslatmaya dayanikli.
+  bag.prepare('INSERT INTO sync_log (at, event, detail) VALUES (?, ?, ?)')
+    .run(Date.now(), 'backfill', 'bugunku tur');
+  T.ok('🔴 Bugunku tur sync_log dan ANLASILIYOR (bellekten degil)',
+    zam.bugunKosulduMu(new Date()) === true);
+
   T.ok('stopBackfillSchedule cagrilabiliyor (idempotent)',
     (() => { try { zam.stopBackfillSchedule(); zam.stopBackfillSchedule(); return true; } catch (_) { return false; } })());
 

@@ -165,6 +165,33 @@ let sonYedekGunu = null;
  * Gece yedek zamanlayıcısını kurar. `server.js` açılışta bir kez çağırır.
  * Arşiv kapalıysa hiç kurulmaz (`sweeper.js`'in aynı deseni).
  */
+/**
+ * 🔴 BUGÜN ZATEN YEDEK ALINDI MI? — DİSKTEN okunur, bellekten DEĞİL.
+ *
+ * `sonYedekGunu` bellekte yaşıyor ve her yeniden başlatmada SIFIRLANIYOR.
+ * Açılış kontrolü eklenince (aşağıda) bu tek başına yetmezdi: pencere
+ * içinde üst üste üç deploy = üç yedek. Diskteki kopyalar zaten günün
+ * kalıcı kanıtı — onlara bakmak hem doğru hem bedava.
+ *
+ * ⚠️ Dosya ADINDAKİ damga UTC (`toISOString`), pencere kontrolü ise YEREL
+ * saate göre. Bu yüzden ad ayrıştırılmıyor, dosyanın `mtime`'ı yerel
+ * tarihle karşılaştırılıyor — iki saat diliminin karışması, "bugün yedek
+ * var" derken dünküne bakmak demekti.
+ */
+function bugunYedekAlindiMi(simdi = new Date()) {
+  try {
+    const dizin = yedekDizini();
+    const bugun = simdi.toDateString();
+    return fs.readdirSync(dizin)
+      .filter((f) => /^katalog-.+\.db$/.test(f))
+      .some((f) => new Date(fs.statSync(path.join(dizin, f)).mtime).toDateString() === bugun);
+  } catch (_) {
+    // Dizin yoksa/okunamıyorsa "alınmadı" say — yedek almaya çalışmak,
+    // sessizce atlamaktan iyidir.
+    return false;
+  }
+}
+
 function startBackupSchedule(config) {
   if (!isArchiveEnabled()) {
     console.log('[Arsiv yedek] Kurulmadi — arsiv devre disi.');
@@ -172,15 +199,37 @@ function startBackupSchedule(config) {
   }
   if (zamanlayici) return zamanlayici;
 
-  zamanlayici = setInterval(() => {
+  const kontrolEt = () => {
     const simdi = new Date();
     const saat = simdi.getHours();
     const gun = simdi.toDateString();
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
     if (sonYedekGunu === gun) return;
+    if (bugunYedekAlindiMi(simdi)) { sonYedekGunu = gun; return; }
     sonYedekGunu = gun;
     runBackup(config).catch(() => { /* runBackup zaten yutuyor */ });
-  }, KONTROL_ARALIGI_MS);
+  };
+
+  zamanlayici = setInterval(kontrolEt, KONTROL_ARALIGI_MS);
+
+  // ==================================================================
+  // 🔴 AÇILIŞ KONTROLÜ — GERÇEK BİR ATLAMADAN DOĞDU (Madde 296)
+  // ==================================================================
+  // `setInterval` İLK kontrolü bir SAAT SONRA yapar. Pencere 2 saat,
+  // aralık 1 saat: yani sunucu pencerenin SON SAATİNDE yeniden başlarsa
+  // ilk kontrol pencerenin DIŞINA düşer ve o günün yedeği HİÇ ALINMAZ.
+  //
+  // 📏 Bu varsayım değil, ÖLÇÜM (2026-09-04 06:12): sunucu 06:09'da
+  // yeniden başlatılmıştı, pencere 05:00-07:00, ilk kontrol 07:09'a
+  // düşüyordu. O günün yedeği atlanacaktı ve kimse fark etmeyecekti —
+  // arşivin tek kopyası kaldığı 2026-09-02 olayının (Madde 284) aynı
+  // ailesi.
+  //
+  // ⏳ 90 sn GECİKME: sunucu önce isteklere cevap verebilir hale gelsin.
+  // `VACUUM INTO` ağır bir disk işi; açılışın ilk saniyesinde başlatmak
+  // soğuk başlangıcı uzatırdı.
+  const acilisKontrolu = setTimeout(kontrolEt, 90 * 1000);
+  if (typeof acilisKontrolu.unref === 'function') acilisKontrolu.unref();
 
   // Süreç kapanmasını engellemesin (sweeper.js'teki aynı gerekçe).
   if (typeof zamanlayici.unref === 'function') zamanlayici.unref();
@@ -198,6 +247,7 @@ module.exports = {
   runBackup,
   startBackupSchedule,
   stopBackupSchedule,
+  bugunYedekAlindiMi,
   yedekDizini,
   kopyalariDondur,
   VARSAYILAN_KOPYA,
