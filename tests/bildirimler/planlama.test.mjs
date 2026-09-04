@@ -23,6 +23,7 @@ import {
   buildDefaultPrefs,
   reconcilePrefs,
   getActiveCategories,
+  NOTIFICATION_CATEGORIES,
 } from '../../features/notifications/registry.ts';
 import {
   planEpisodeToday,
@@ -30,6 +31,7 @@ import {
 } from '../../features/notifications/scheduling/planners/episodePlanners.ts';
 import { planMovieRelease } from '../../features/notifications/scheduling/planners/movieReleasePlanner.ts';
 import { dedupeByEntity } from '../../features/notifications/retention/dedupe.ts';
+import { temizlenecekler } from '../../features/notifications/retention/cleanupRules.ts';
 import {
   buildWatchedEpisodeKeys,
   buildWatchedMovieIds,
@@ -446,5 +448,62 @@ T.ok(
   'Film gizli listesi bos ise hicbir sey elenmez',
   mapCalendarToUpcomingMovies(filmTakvimi, new Set()).length === 2,
 );
+
+// ==========================================================================
+T.H('Tepsi temizligi — YALNIZCA bizim bildirimlerimiz (F2 son parca)');
+// ==========================================================================
+// 🔴 EN KRITIK IDDIA. `dismissAllNotificationsAsync()` diye tek satirlik bir
+// kestirme var ve BILEREK kullanilmiyor: cihazdaki TUM bildirimleri siler.
+// F3'te uzak push'lar gelecek, baska bir kutuphane de bildirim kurabilir.
+// Suzmeden silmek, bizim OLMAYANI silmek olurdu (scheduler.ts ayni disiplin).
+const BIZIM = new Set(['episodeToday', 'seasonPremiere', 'movieRelease', 'continueWatching', 'monthlyStats']);
+
+const tepsi = [
+  { identifier: 'a1', categoryId: 'episodeToday' },
+  { identifier: 'a2', categoryId: 'seasonPremiere' },
+  { identifier: 'yabanci-1', categoryId: 'whatsapp-message' },  // baska uygulama
+  { identifier: 'yabanci-2', categoryId: null },                // kategorisiz
+  { identifier: 'yabanci-3' },                                  // alan hic yok
+  { identifier: 'a3', categoryId: 'continueWatching' },
+];
+
+const hepsi = temizlenecekler(tepsi, BIZIM);
+T.ok('Bizim 3 bildirimimiz secildi', hepsi.length === 3, hepsi.join(','));
+T.ok('🔴 YABANCI bildirimlere DOKUNULMUYOR',
+  !hepsi.some((id) => id.startsWith('yabanci')), hepsi.join(','));
+T.ok('Kategorisi NULL olan atlandi', !hepsi.includes('yabanci-2'));
+T.ok('Kategori ALANI OLMAYAN atlandi', !hepsi.includes('yabanci-3'));
+
+// Tek kategori suzgeci — bildirime tiklanma senaryosu.
+const sadeceBolum = temizlenecekler(tepsi, BIZIM, 'episodeToday');
+T.ok('Tek kategori suzgeci calisiyor', sadeceBolum.length === 1 && sadeceBolum[0] === 'a1',
+  sadeceBolum.join(','));
+
+// 🔴 BOS KUME = HICBIR SEY SILINMEZ. Kayit defteri bir gun bos donerse
+// (yukleme hatasi, yanlis import) "hepsini sil"e DEGIL "hicbirini silme"ye
+// dusmeliyiz — guvenli taraf budur.
+T.ok('🔴 Bos sahiplik kumesi -> HICBIR SEY silinmiyor',
+  temizlenecekler(tepsi, new Set()).length === 0);
+
+// Bozuk girdiler cokmemeli (tepsi verisi cihazdan geliyor).
+T.ok('Bozuk girdiler cokmuyor',
+  temizlenecekler([null, undefined, {}, { identifier: '' }, { identifier: 'x', categoryId: 'episodeToday' }], BIZIM).length === 1);
+
+// Ayni identifier iki kez gelirse iki kez dismiss cagirmanin anlami yok.
+T.ok('Mukerrer identifier tekillesiyor',
+  temizlenecekler([
+    { identifier: 'ayni', categoryId: 'episodeToday' },
+    { identifier: 'ayni', categoryId: 'episodeToday' },
+  ], BIZIM).length === 1);
+
+T.ok('Bos tepsi bos sonuc', temizlenecekler([], BIZIM).length === 0);
+
+// 🔴 ILISKI: suzgecte kullanilan kategori kimlikleri, KAYIT DEFTERININ
+// kendisiyle ayni olmali. Test kendi listesini yazdi; defterle ayrisirsa
+// gercek kodda bir kategori sessizce temizlenmeden kalirdi (M273 deseni).
+T.ok('🔴 ILISKI: test kumesi kayit defteriyle AYNI',
+  NOTIFICATION_CATEGORIES.length === BIZIM.size
+  && NOTIFICATION_CATEGORIES.every((c) => BIZIM.has(c.id)),
+  NOTIFICATION_CATEGORIES.map((c) => c.id).join(','));
 
 T.bitir();

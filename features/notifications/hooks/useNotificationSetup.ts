@@ -15,6 +15,7 @@ import { buildLedger, sweepLedger } from '../inbox/sweep';
 import { ensureInboxHydrated, useInboxStore } from '../inbox/useInboxStore';
 import { getPermissionStatus, requestPermission } from '../permissions';
 import { applyBudget } from '../retention/budget';
+import { clearDeliveredNotifications } from '../retention/cleanup';
 import { dedupeByEntity } from '../retention/dedupe';
 import { throttlePlans } from '../scheduling/throttle';
 import { applyPlans, cancelAllOwnedNotifications } from '../scheduling/scheduler';
@@ -104,6 +105,21 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
         const nudge = fired.find((entry) => entry.categoryId === 'continueWatching');
         if (nudge) markNudgeFired(nudge.fireAt);
       }
+
+      // ── Tepsi temizliği (§ 8-(2)) ─────────────────────────────────────
+      // Kullanıcı uygulamayı 8 gün açmazsa tepside 8 "bugün yeni bölüm"
+      // birikir; uygulamayı açtığı an o yığın anlamsızlaşır — zaten geldi.
+      //
+      // 🔴 TERCİH/İZİN KONTROLLERİNDEN ÖNCE, bilerek: kullanıcı bildirimleri
+      // KAPATMIŞ olsa bile tepside duran eskiler temizlenmeli. Aşağıdaki
+      // `masterEnabled` dalı `return` ediyor, yani buranın altına konsaydı
+      // tam da en çok gerektiği durumda çalışmazdı.
+      //
+      // 🔴 `void` — beklenmiyor: temizlik bir konfor işi, planlamayı
+      // geciktirmesin (aynı gerekçe `refreshRemotePool` çağrısında da var).
+      // `clearDeliveredNotifications` asla throw etmez, kendi hatalarını
+      // yutar; yani `void` burada bir risk taşımıyor.
+      void clearDeliveredNotifications();
 
       if (!prefs.masterEnabled) {
         // Ana anahtar kapalı: kurulu her şey iptal edilir ama TERCİHLER
