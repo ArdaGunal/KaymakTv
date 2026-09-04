@@ -42,6 +42,25 @@
 
 const { getDb } = require('./db');
 
+/**
+ * İki geri düşüş arasında bu kadar SESSİZLİK olursa, ikincisi YENİ BİR
+ * KESİNTİ sayılır ve uyarı tekrar düşer.
+ *
+ * 🔴 UYARI HER OLAYDA DEĞİL, DURUM GEÇİŞİNDE. Bir Trakt kesintisi
+ * dakikada yüzlerce geri düşüş üretebilir; her birinde Discord'a mesaj
+ * atmak alarm yorgunluğundan başka bir şey üretmez ve gerçek uyarı
+ * gürültüde kaybolur.
+ *
+ * 🔴 SAYI UYDURULMADI, İLİŞKİYE DAYANDIRILDI: devre kesici 30 SANİYE
+ * açık kalıyor (`circuitBreaker.js`). Bir kesinti sırasında devre
+ * açılıp-kapanıp yeniden açılıyor; eşik o döngüden ÇOK daha uzun olmalı,
+ * yoksa tek bir kesinti onlarca "yeni kesinti" uyarısı üretirdi.
+ * 30 dakika = devre penceresinin 60 katı. `tests/arsiv/geri-dusus.test.js`
+ * bu ilişkiyi kilitliyor (Madde 273: sabitleri değil ARALARINDAKİ İLİŞKİYİ
+ * test et).
+ */
+const SESSIZLIK_ESIGI_MS = 30 * 60 * 1000;
+
 const ANAHTAR_TOPLAM = 'fallback_toplam';
 const ANAHTAR_SON = 'fallback_son_at';
 const ANAHTAR_ILK = 'fallback_ilk_at';
@@ -55,13 +74,24 @@ const AILE_ONEKI = 'fallback_aile_';
  * dönmesini engelleyemez (`queue.js`/`store.js` ile aynı sözleşme).
  *
  * @param {string} family  LazyFetch aile adı (`show_detail`, ...)
- * @returns {boolean} yazıldı mı (yalnızca teşhis/test için)
+ * @param {number} [now]   Test için enjekte edilebilir saat
+ * @returns {{ok: boolean, toplam: number, yeniKesinti: boolean}}
+ *   `yeniKesinti`: bir öncekinin üstünden `SESSIZLIK_ESIGI_MS` geçmiş mi.
+ *   Çağıran (orchestrator) uyarıyı YALNIZCA bu `true` iken gönderir.
  */
-function bumpFallback(family) {
+function bumpFallback(family, now = Date.now()) {
   const db = getDb();
-  if (!db) return false;
+  if (!db) return { ok: false, toplam: 0, yeniKesinti: false };
   try {
-    const simdi = String(Date.now());
+    // Önceki olayın zamanı, ARTIRMADAN ÖNCE okunmalı — sonra okursak
+    // kendi yazdığımız damgayı görür ve `yeniKesinti` HİÇ true olmazdı.
+    const oncekiSon = (() => {
+      const r = db.prepare('SELECT value FROM meta WHERE key = ?').get(ANAHTAR_SON);
+      return r ? parseInt(r.value, 10) || 0 : 0;
+    })();
+    const yeniKesinti = !oncekiSon || (now - oncekiSon) > SESSIZLIK_ESIGI_MS;
+
+    const simdi = String(now);
     const artir = db.prepare(
       `INSERT INTO meta (key, value) VALUES (?, '1')
        ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`
@@ -74,9 +104,11 @@ function bumpFallback(family) {
     db.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").run(ANAHTAR_ILK, simdi);
     db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
       .run(ANAHTAR_SON, simdi);
-    return true;
+
+    const t = db.prepare('SELECT value FROM meta WHERE key = ?').get(ANAHTAR_TOPLAM);
+    return { ok: true, toplam: parseInt(t && t.value, 10) || 0, yeniKesinti };
   } catch (_) {
-    return false;
+    return { ok: false, toplam: 0, yeniKesinti: false };
   }
 }
 
@@ -130,4 +162,5 @@ module.exports = {
   ANAHTAR_SON,
   ANAHTAR_ILK,
   AILE_ONEKI,
+  SESSIZLIK_ESIGI_MS,
 };

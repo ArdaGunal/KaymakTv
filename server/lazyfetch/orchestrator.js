@@ -74,6 +74,15 @@ const { readCatalogFromArchive } = require('../archive/reader');
 // 🆕 A4 — geri düşüş SAYACI. Ayrı bir modül çünkü `reader.js`'in sözleşmesi
 // "hiçbir şey yazmaz"; sayaç yazımı oraya konsaydı o sözleşme bulanırdı.
 const { bumpFallback } = require('../archive/stats');
+// 🔴 MODUL NESNESI OLARAK alınıyor, destructure EDİLMİYOR — ve bu bilinçli.
+// `const { reportLazyFetch } = require(...)` bağlantıyı require anında
+// KOPYALAR; test o kopyayı değiştiremez. Bu yol YALNIZCA sağlayıcı
+// çöktüğünde çalışıyor, yani gerçek hayatta neredeyse hiç gözlenmiyor —
+// test edilebilir olması, doğruluğunun tek güvencesi.
+// 📏 Bu satır bir testin BOŞA YANMASIYLA bulundu (2026-09-04): "istek
+// telemetriyi beklemedi" iddiası yeşildi ama telemetri HİÇ çağrılmıyordu;
+// casus destructure edilmiş kopyayı göremiyordu.
+const telemetri = require('./telemetry');
 
 // Modül seviyesinde TEK paylaşılan bellek katmanı — Node'un require cache'i
 // bunu doğal bir singleton yapar (memoryCache.js başlığındaki tasarım notu).
@@ -392,11 +401,35 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
       // artık SESSİZCE eski veri olarak görünüyor. Sayaç olmadan "sistem
       // haftalardır arşivden servis ediyor" durumunu kimse fark etmezdi.
       // Denetçi (`scripts/lazyfetch-inspect.js`) bunu okuyup basıyor.
-      bumpFallback(route.family);
-      const yas = arsiv.fetchedAt ? ` (arşiv kaydı ${Math.round((Date.now() - arsiv.fetchedAt) / 86400000)} gün önce çekilmiş)` : '';
+      const sayim = bumpFallback(route.family);
+      const yasGun = arsiv.fetchedAt ? Math.round((Date.now() - arsiv.fetchedAt) / 86400000) : null;
+      const yas = yasGun === null ? '' : ` (arşiv kaydı ${yasGun} gün önce çekilmiş)`;
       console.error(
         `[LazyFetch] Sağlayıcı başarısız + cache boş, ARŞİV geri düşüşü (${relativePath})${yas}: ${error.message}`
       );
+
+      // 🔴🔴 AWAIT YOK — VE BU BİR İHMAL DEĞİL, ZORUNLULUK.
+      // `reportLazyFetch` ağa çıkıyor ve 8 SANİYELİK bir zaman aşımı var
+      // (`telemetry.js TIMEOUT_MS`). Beklersek, zaten sağlayıcı çöktüğü
+      // için yavaşlamış olan kullanıcı isteğine 8 saniye daha eklerdik —
+      // yani "kullanıcıyı boş ekrandan kurtaran" yol, kullanıcıyı bekleten
+      // yola dönüşürdü. Telemetri bir LÜKS (telemetry.js başlığı); istek
+      // onun rehinesi olamaz.
+      //
+      // 🔴 Uyarı YALNIZCA yeni kesintide: `yeniKesinti` bir DURUM GEÇİŞİ
+      // (30 dk sessizlikten sonraki ilk olay). Her geri düşüşte bildirmek
+      // bir kesintide yüzlerce mesaj demekti — gerçek uyarı gürültüde
+      // kaybolurdu.
+      if (sayim.yeniKesinti) {
+        telemetri.reportLazyFetch({
+          reason: 'archive-fallback',
+          text: telemetri.formatFallbackAlarm({
+            family: route.family, toplam: sayim.toplam, path, yasGun, hata: error.message,
+          }),
+          tags: { family: route.family, toplam: sayim.toplam, yasGun: yasGun ?? -1 },
+        }).catch(() => { /* telemetri asla yukari sizmaz */ });
+      }
+
       return { status: 'archive-fallback', data: arsiv.data };
     }
 

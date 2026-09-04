@@ -122,10 +122,44 @@ function formatDiskAlarm(usage) {
   ].join('\n');
 }
 
+/**
+ * 🆕 A4 — arşiv geri düşüşü uyarısı (Madde 293).
+ *
+ * NE ZAMAN DÜŞER: yalnızca YENİ BİR KESİNTİ başladığında
+ * (`stats.SESSIZLIK_ESIGI_MS` sessizlikten sonraki ilk olay). Her geri
+ * düşüşte değil — bir Trakt kesintisi dakikada yüzlerce olay üretebilir ve
+ * hepsini bildirmek alarm yorgunluğundan başka bir şey üretmez.
+ *
+ * 🔴 BU MESAJ BİR ARIZA BİLDİRİMİ DEĞİL, BİR "SESSİZ ÇALIŞIYOR" BİLDİRİMİ.
+ * Kullanıcı ekranında her şey normal görünüyor; haber vermezsek kimse
+ * fark etmez. Metin bunu açıkça söylemeli, yoksa operatör "sistem çökmüş"
+ * sanıp gereksiz panikler.
+ */
+function formatFallbackAlarm({ family, toplam, path, yasGun, hata }) {
+  return [
+    '🟠 ARŞİV GERİ DÜŞÜŞÜ BAŞLADI',
+    '',
+    'Sağlayıcı (Trakt) cevap vermedi ve önbellekte de veri yoktu;',
+    'kullanıcıya ARŞİVDEN cevap verildi. **Uygulama çalışmaya devam ediyor** —',
+    'ama servis edilen veri güncel değil.',
+    '',
+    `Uç        : ${family}${path ? '  ' + path : ''}`,
+    `Sağlayıcı : ${hata || 'bilinmiyor'}`,
+    yasGun === null || yasGun === undefined ? '' : `Veri yaşı : ~${yasGun} gün önce arşivlenmiş`,
+    `Toplam    : ${toplam} geri düşüş (arşiv açıldığından beri)`,
+    '',
+    'Ne yapmalı: Trakt tarafında kesinti var mı bak. Sürüyorsa yapacak bir',
+    'şey yok — sistem zaten doğru davranıyor.',
+    '  journalctl -u kaymak -n 200 | grep "ARŞİV geri düşüşü"',
+    '  npm run arsiv     # sayaçların tamamı',
+  ].filter(Boolean).join('\n');
+}
+
 module.exports = {
   reportLazyFetch,
   formatSweepSummary,
   formatDiskAlarm,
+  formatFallbackAlarm,
   // Yalnızca test için dışa veriliyor.
   toMb,
 };

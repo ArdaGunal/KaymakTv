@@ -373,6 +373,81 @@ const patla = () => { throw new Error('Trakt 504 Gateway Timeout'); };
     /ar[sş][iı]vden cevap verildi[gğ]i/i.test(cikti));
   T.ok('Denetci son olay zamanini gosteriyor', /\n\s+son: \d{4}-\d{2}-\d{2}/.test(cikti));
 
+  // ==================================================================
+  T.H('KESINTI UYARISI — durum gecisinde, her olayda DEGIL');
+  // ==================================================================
+  stats.resetFallbackStats();
+  const T0 = 1_800_000_000_000;
+
+  const ilk = stats.bumpFallback('show_detail', T0);
+  T.ok('Ilk olay YENI KESINTI sayiliyor', ilk.yeniKesinti === true);
+  T.ok('Toplam donuyor', ilk.toplam === 1, String(ilk.toplam));
+
+  const hemenSonra = stats.bumpFallback('show_detail', T0 + 60 * 1000);
+  T.ok('🔴 1 dk sonraki olay AYNI kesinti (uyari TEKRARLAMAZ)', hemenSonra.yeniKesinti === false);
+
+  const esikAlti = stats.bumpFallback('show_detail', T0 + stats.SESSIZLIK_ESIGI_MS);
+  T.ok('Esigin TAM ustunde hala ayni kesinti', esikAlti.yeniKesinti === false);
+
+  const esikUstu = stats.bumpFallback('show_detail', T0 + stats.SESSIZLIK_ESIGI_MS * 2 + 1);
+  T.ok('🔴 Sessizlik esigi asilinca YENI kesinti', esikUstu.yeniKesinti === true);
+  T.ok('Sayac araya giren olaylari da saydi', esikUstu.toplam === 4, String(esikUstu.toplam));
+
+  // 🔴 ILISKI: sessizlik esigi, devre kesicinin ACIK KALMA suresinden COK
+  // daha uzun olmali. Bir kesinti sirasinda devre acilip-kapanip yeniden
+  // aciliyor; esik o donguye yakin olsaydi TEK bir kesinti onlarca "yeni
+  // kesinti" uyarisi uretirdi (M273: sabitleri degil ILISKIYI test et).
+  T.ok('🔴 ILISKI: sessizlik esigi >= devre penceresinin 10 kati',
+    stats.SESSIZLIK_ESIGI_MS >= cb.DEFAULT_CONFIG.trakt.openDurationMs * 10,
+    `${stats.SESSIZLIK_ESIGI_MS / 1000} sn vs ${cb.DEFAULT_CONFIG.trakt.openDurationMs / 1000} sn`);
+
+  // ---- Uyari metni: ARIZA gibi degil, "sessiz calisiyor" gibi okunmali.
+  const { formatFallbackAlarm } = require(path.join(LF, 'telemetry'));
+  const metin = formatFallbackAlarm({
+    family: 'show_detail', toplam: 7, path: '/shows/1388', yasGun: 12, hata: 'Trakt 504',
+  });
+  T.ok('Uyari metni uygulamanin CALISTIGINI soyluyor', /calismaya devam ediyor|çalışmaya devam ediyor/i.test(metin));
+  T.ok('Uyari metni verinin GUNCEL OLMADIGINI soyluyor', /güncel değil|guncel degil/i.test(metin));
+  T.ok('Uyari metni veri YASINI iceriyor', /12 gün|12 gun/.test(metin));
+  T.ok('Uyari metni TESHIS komutu veriyor', /journalctl/.test(metin));
+  T.ok('Uyari metni ucu ve toplami iceriyor', /show_detail/.test(metin) && /7/.test(metin));
+
+  // ==================================================================
+  T.H('🔴 TELEMETRI ISTEGI BEKLETMEZ');
+  // ==================================================================
+  // `reportLazyFetch` aga cikiyor ve 8 SANIYELIK zaman asimi var. Beklenseydi,
+  // zaten saglayici coktugu icin yavaslamis olan istege 8 sn daha eklenirdi:
+  // "kullaniciyi bos ekrandan kurtaran" yol, kullaniciyi BEKLETEN yola
+  // donusurdu. Telemetri bir LUKS; istek onun rehinesi olamaz.
+  stats.resetFallbackStats();
+  const telemetriModulu = require(path.join(LF, 'telemetry'));
+  const orijinalReport = telemetriModulu.reportLazyFetch;
+  let telemetriCagrildi = 0;
+  // Cok yavas bir telemetri taklidi: cozulmesi 5 sn surse bile istek
+  // BEKLEMEMELI.
+  telemetriModulu.reportLazyFetch = () => {
+    telemetriCagrildi++;
+    return new Promise((r) => setTimeout(r, 5000));
+  };
+  try {
+    const t0 = Date.now();
+    const r = await resolveRequest({
+      provider: 'trakt', path: '/movies/481',
+      query: { extended: 'full', translations: 'tr' }, fetcher: patla,
+    });
+    const gecen = Date.now() - t0;
+    T.ok('Geri dusus yine calisti', r.status === 'archive-fallback', r.status);
+    // 🔴 ONCE "GERCEKTEN CAGRILDI MI" — yoksa asagidaki "beklemedi" iddiasi
+    // BOSA YANAR: telemetri hic cagrilmasa da istek hizli olurdu. Ayni
+    // yanlis-pozitif tuzagi bu turda bir kez daha yakalandi (denetci
+    // iddiasinda `show_seasons` dizgesi zaten baska yerde vardi).
+    T.ok('Uyari GERCEKTEN tetiklendi (yoksa asagidaki iddia bosa yanar)',
+      telemetriCagrildi === 1, `${telemetriCagrildi} cagri`);
+    T.ok('🔴 Istek telemetriyi BEKLEMEDI (<1 sn)', gecen < 1000, `${gecen} ms`);
+  } finally {
+    telemetriModulu.reportLazyFetch = orijinalReport;
+  }
+
   db.closeArchive();
   T.bitir();
 })().catch((e) => {
