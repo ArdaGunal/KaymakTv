@@ -21,6 +21,20 @@
 // (dış çağrıları sıraya sokuyor). İki katman bilinçli: kuyruk niyeti
 // söyler, `transactionAsync` garantiyi verir. Biri unutulursa diğeri tutar.
 //
+// 🪤 DÜZELTME (Madde 291, 2026-09-04): YUKARIDAKİ PARAGRAF 4 EYLÜL'E KADAR
+// YANLIŞTI. "İki katman" diyordu ama ikincisi YOKTU: `transactionAsync`
+// iç içeliği modül seviyesinde bir SAYAÇLA anlıyordu ve o sayaç "iç içe
+// çağrı" ile "dış işlem await'te asılıyken gelen BAĞIMSIZ çağrı"yı ayırt
+// edemiyordu. Bağımsız yazım başkasının transaction'ına giriyor, o
+// transaction rollback olunca SESSİZCE siliniyordu — çağıran ise başarılı
+// cevabı alıyordu. Yani gerçek tek koruma BU KUYRUKTU.
+//
+// Sayaç `AsyncLocalStorage` ile değiştirildi; artık cümle gerçekten doğru.
+// 📏 Ders: bir dosyanın başlığında yazan güvence, o güvencenin VAR OLDUĞUNU
+// kanıtlamaz. Yeni bir eşzamanlı çağıran eklerken (A3/2'nin gece
+// zamanlayıcısı tam bunu yaptı) "zaten korunuyor" cümlesine değil ÖLÇÜME
+// bakılmalı.
+//
 // ==========================================================================
 // 🔴 TEKİLLEŞTİRME: aynı anahtar kuyruktaysa ÜZERİNE YAZILIR
 // ==========================================================================
