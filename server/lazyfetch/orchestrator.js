@@ -71,6 +71,9 @@ const { archiveQueue } = require('../archive/queue');
 // kapalıysa `readCatalogFromArchive` `{ok:false}` döner (throw etmez),
 // yani bu require bir çalışma zamanı riski taşımaz.
 const { readCatalogFromArchive } = require('../archive/reader');
+// 🆕 A4 — geri düşüş SAYACI. Ayrı bir modül çünkü `reader.js`'in sözleşmesi
+// "hiçbir şey yazmaz"; sayaç yazımı oraya konsaydı o sözleşme bulanırdı.
+const { bumpFallback } = require('../archive/stats');
 
 // Modül seviyesinde TEK paylaşılan bellek katmanı — Node'un require cache'i
 // bunu doğal bir singleton yapar (memoryCache.js başlığındaki tasarım notu).
@@ -384,8 +387,15 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
     // mi geldiğini bir daha ayırt edemezdik.
     const arsiv = await readCatalogFromArchive({ provider, family: route.family, path, query });
     if (arsiv.ok) {
+      // 🔴 SAYAÇ — A4'ün kendi doğurduğu kör noktayı kapatır. A4 öncesi bu
+      // durum kullanıcıya HATA olarak görünürdü (gürültülü, fark edilir);
+      // artık SESSİZCE eski veri olarak görünüyor. Sayaç olmadan "sistem
+      // haftalardır arşivden servis ediyor" durumunu kimse fark etmezdi.
+      // Denetçi (`scripts/lazyfetch-inspect.js`) bunu okuyup basıyor.
+      bumpFallback(route.family);
+      const yas = arsiv.fetchedAt ? ` (arşiv kaydı ${Math.round((Date.now() - arsiv.fetchedAt) / 86400000)} gün önce çekilmiş)` : '';
       console.error(
-        `[LazyFetch] Sağlayıcı başarısız + cache boş, ARŞİV geri düşüşü (${relativePath}): ${error.message}`
+        `[LazyFetch] Sağlayıcı başarısız + cache boş, ARŞİV geri düşüşü (${relativePath})${yas}: ${error.message}`
       );
       return { status: 'archive-fallback', data: arsiv.data };
     }

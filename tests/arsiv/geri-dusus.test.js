@@ -307,6 +307,72 @@ const patla = () => { throw new Error('Trakt 504 Gateway Timeout'); };
   T.ok('Devre KAPALIYKEN taze veri akiyordu (bastaki olcum)',
     saglikli.status === 'miss' && saglikli.data.title === 'TAZE VERI');
 
+  // ==================================================================
+  T.H('🔴 GORUNURLUK — sayaclar ve DENETCI (Madde 260 kurali)');
+  // ==================================================================
+  // A4'un dogurdugu kor nokta: A4 ONCESI acik bir devre kullaniciya HATA
+  // olarak gorunurdu; artik SESSIZCE eski veri olarak gorunuyor. Sayac ve
+  // denetci olmadan "sistem haftalardir arsivden servis ediyor" durumunu
+  // KIMSE fark etmezdi (M284/286: fail-soft sessizdir).
+  const stats = require(path.join(AR, 'stats'));
+  const sayac = stats.readFallbackStats();
+
+  // Yukaridaki entegrasyon testleri 4 basarili geri dusus uretti
+  // (show_detail, show_seasons, episode_detail, + devre acikken show_detail).
+  T.ok('Geri dususler SAYILDI', sayac.toplam >= 4, `toplam=${sayac.toplam}`);
+  T.ok('Ilk olay damgasi var', typeof sayac.ilkAt === 'number');
+  T.ok('Son olay damgasi var', typeof sayac.sonAt === 'number');
+  T.ok('Son >= ilk', sayac.sonAt >= sayac.ilkAt);
+  T.ok('Aile bazinda ayrisiyor', sayac.aileler.length >= 2,
+    sayac.aileler.map((a) => a.aile + '=' + a.adet).join(' '));
+  T.ok('show_seasons geri dususu sayildi',
+    sayac.aileler.some((a) => a.aile === 'show_seasons' && a.adet >= 1));
+
+  // 🔴 SAYAC KATALOG VERISI DEGIL: `meta` tablosunda duruyor, yani sema
+  // surumu artmadi ve `sync_log` CHECK kisiti hic ellenmedi.
+  const metaAnahtarlari = h.prepare("SELECT key FROM meta WHERE key LIKE 'fallback%'").all().length;
+  T.ok('Sayaclar meta tablosunda (sema degismedi)', metaAnahtarlari >= 3, `${metaAnahtarlari} anahtar`);
+  T.ok('Sema surumu HALA 1',
+    h.prepare("SELECT value v FROM meta WHERE key='schema_version'").get().v === String(db.HEDEF_SEMA_SURUMU));
+
+  // Arsiv kapaliyken sayac yazmak COKMEMELI (saglayici coktugunde cagriliyor).
+  T.ok('bumpFallback throw etmiyor',
+    (() => { try { stats.bumpFallback('show_detail'); return true; } catch (_) { return false; } })());
+
+  // ---- 🔴 DENETCININ BU DURUMU GERCEKTEN BASTIGI: Madde 260'in kilidi.
+  // Denetci ALT SUREC olarak calistiriliyor cunku gercek kullanimi bu.
+  const { spawnSync } = require('child_process');
+  const denetci = spawnSync(process.execPath, ['--no-warnings',
+    path.join(T.PROJE_KOKU, 'scripts', 'lazyfetch-inspect.js'), '--arsiv'], {
+    encoding: 'utf8',
+    env: { ...process.env, LAZYFETCH_ROOT: T.kok, ARCHIVE_ROOT: path.join(T.kok, 'archive') },
+  });
+  const cikti = (denetci.stdout || '') + (denetci.stderr || '');
+  T.ok('Denetci calisti', denetci.status === 0, `cikis ${denetci.status}`);
+
+  // 🪤 REGEX'LER IKI YAZIMI DA KABUL ETMELI. Denetci `LANG` UTF-8 demiyorsa
+  // ASCII'ye duser ve Turkce harfleri sadelestirir (Madde 257'nin mirasi:
+  // `SADE` haritasi) — "ARŞİVDEN SERVİS" cikitida "ARSIVDEN SERVIS" olur.
+  // Ilk taslakta bu iddia tam bu yuzden kirmizi yandi (2026-09-04).
+  T.ok('🔴 Denetci ARSIVDEN SERVIS bolumunu BASIYOR',
+    /AR[SŞ][IİI]VDEN SERV[IİI]S/i.test(cikti),
+    (cikti.match(/AR[SŞ][IİI]VDEN.*/i) || ['(bulunamadi)'])[0]);
+  // ⚠️ Sayac ALT SURECI BASLATMADAN HEMEN ONCE okunmali: yukaridaki
+  // "bumpFallback throw etmiyor" iddiasi sayaci bir artirdi, yani en
+  // bastaki `sayac` degeri artik BAYAT. (Kucuk bir ornegi, olcum aracinin
+  // kendi olctugu seyi degistirmesi tuzagi.)
+  const guncelToplam = stats.readFallbackStats().toplam;
+  T.ok('Denetci SAYIYI gosteriyor', new RegExp(`${guncelToplam}\\s*kez`).test(cikti),
+    `beklenen ${guncelToplam}`);
+
+  // 🔴 BU IDDIA ONCE YANLIS POZITIFTI: yalnizca /show_seasons/ ariyordu ve
+  // o dizge `v_kapsam` (AILE BAZINDA) tablosunda ZATEN vardi — yani geri
+  // dusus blogu hic basilmasa bile YESIL yanardi. Artik yalnizca o bloga
+  // ait, baska hicbir yerde gecmeyen bir cumle araniyor.
+  T.ok('Denetci geri dususun NE DEMEK oldugunu acikliyor',
+    /ar[sş][iı]vden cevap verildi[gğ]i/i.test(cikti));
+  T.ok('Denetci son olay zamanini gosteriyor', /\n\s+son: \d{4}-\d{2}-\d{2}/.test(cikti));
+
   db.closeArchive();
   T.bitir();
 })().catch((e) => {

@@ -367,6 +367,48 @@ function arsivDurumu() {
       say('   ' + tipler.map((t) => `${t.c} ${t.type}`).join(' · '));
     }
 
+    // ==================================================================
+    // 🔴 A4 — ARŞİV GERİ DÜŞÜŞÜ SAYAÇLARI (Madde 292)
+    // ==================================================================
+    // Madde 260'ın kuralı: "yeni bir faz davranış değiştiriyorsa ÖLÇÜM
+    // ARACI aynı turda güncellenir." A4 tam da böyle bir faz — ve
+    // değiştirdiği şey GÖRÜNÜRLÜK:
+    //
+    //   A4 ÖNCESİ: sağlayıcı çöküp cache de boşsa kullanıcı HATA görürdü.
+    //              Hata gürültülüdür, birileri fark eder.
+    //   A4 SONRASI: aynı durumda kullanıcı SESSİZCE eski arşiv verisi
+    //              görüyor. Sistem "her şey yolunda" gibi davranır.
+    //
+    // Bu blok olmasaydı denetçi ÇALIŞAN bir sistemi "sağlıklı" gösterirken
+    // haftalardır bayat veri servis edildiğini gizlerdi — Madde 260'ın
+    // kendisi bunun tersiydi (denetçi BOZUK gösteriyordu), ama ders aynı:
+    // ölçüm aracı da bayatlar.
+    let sayac = null;
+    try {
+      sayac = require(path.join(__dirname, '..', 'server', 'archive', 'stats')).readFallbackStats(db);
+    } catch (_) { /* stats modulu yoksa sessizce atla */ }
+
+    if (sayac && sayac.toplam > 0) {
+      const yasGun = sayac.sonAt ? Math.round((Date.now() - sayac.sonAt) / 86400000) : null;
+      const taze = sayac.sonAt && (Date.now() - sayac.sonAt) < 24 * 3600 * 1000;
+      say('');
+      say(`   ${taze ? '🔴' : '🟡'} ARŞİVDEN SERVİS (geri düşüş): ${sayac.toplam} kez`);
+      say(`      Bu, sağlayıcı ÇÖKTÜĞÜ ve cache'te de veri OLMADIĞI için`);
+      say(`      kullanıcıya arşivden cevap verildiği anlamına gelir.`);
+      if (sayac.ilkAt) say(`      ilk: ${new Date(sayac.ilkAt).toLocaleString('sv-SE')}`);
+      if (sayac.sonAt) {
+        say(`      son: ${new Date(sayac.sonAt).toLocaleString('sv-SE')}`
+          + (yasGun === 0 ? '  (BUGÜN)' : ` (${yasGun} gün önce)`));
+      }
+      for (const a of sayac.aileler) say(`        ${a.aile.padEnd(18)} ${String(a.adet).padStart(5)}`);
+      if (taze) {
+        say('      🔴 SON 24 SAATTE OLMUŞ — Trakt tarafında bir sorun var mı?');
+        say('         journalctl -u kaymak -n 200 | grep "ARŞİV geri düşüşü"');
+      }
+    } else {
+      say('   🟢 Arşivden servis (geri düşüş): hiç olmadı — sağlayıcı hep yetişti.');
+    }
+
     const kapsam = db.prepare('SELECT * FROM v_kapsam ORDER BY kayit DESC').all();
     if (kapsam.length) {
       say('   ┌─ AİLE BAZINDA');
