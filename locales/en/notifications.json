@@ -20,6 +20,10 @@
     "digest": {
       "name": "Digests",
       "description": "Your monthly viewing summary"
+    },
+    "social": {
+      "name": "Social",
+      "description": "Comment and like notifications"
     }
   },
   "categories": {
@@ -42,6 +46,10 @@
     "monthlyStats": {
       "title": "Monthly viewing summary",
       "description": "Once a month, a recap of how much you watched"
+    },
+    "social": {
+      "title": "Social",
+      "description": "Notifies you when someone comments on or likes your post"
     }
   },
   "copy": {

@@ -16,7 +16,7 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
 import SettingsRow from '../../components/settings/SettingsRow';
-import { Bell, Tv, Clock, AlertTriangle, Info, Smartphone, Sparkles, Film, PlayCircle, BarChart2 } from '../../components/icons';
+import { Bell, Tv, Clock, AlertTriangle, Info, Smartphone, Sparkles, Film, PlayCircle, BarChart2, MessageCircle} from '../../components/icons';
 import { useNotificationPrefs } from '../../features/notifications/hooks/useNotificationPrefs';
 import type { NotificationCategoryId } from '../../features/notifications/types';
 
@@ -37,6 +37,10 @@ const CATEGORY_ICONS: Record<NotificationCategoryId, React.ReactNode> = {
   seasonPremiere: <Sparkles size={18} color="#3b82f6" />,
   movieRelease: <Film size={18} color="#3b82f6" />,
   continueWatching: <PlayCircle size={18} color="#3b82f6" />,
+  // 🆕 F3 sosyal (yorum/begeni). `MessageCircle` BILEREK secildi: lucide
+  // diyetinden sonra (Madde 235, 1751 -> 93 ikon) yeni ikon eklemek
+  // bundle'i buyutur; bu ikon `components/icons.ts` barrel'inda ZATEN var.
+  social: <MessageCircle size={18} color="#3b82f6" />,
   monthlyStats: <BarChart2 size={18} color="#3b82f6" />,
 };
 

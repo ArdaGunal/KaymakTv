@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Tv, Sparkles, Film, Inbox, PlayCircle, BarChart2 } from '../../../components/icons';
+import { Tv, Sparkles, Film, Inbox, PlayCircle, BarChart2, MessageCircle} from '../../../components/icons';
 import { formatRelativeTime } from '../../../utils/formatRelativeTime';
 import { useInboxStore } from '../inbox/useInboxStore';
 import type { InboxItem } from '../inbox/useInboxStore';
@@ -25,6 +25,10 @@ const CATEGORY_ICONS: Record<NotificationCategoryId, React.ReactNode> = {
   seasonPremiere: <Sparkles size={18} color="#a855f7" />,
   movieRelease: <Film size={18} color="#22d3ee" />,
   continueWatching: <PlayCircle size={18} color="#94a3b8" />,
+  // 🆕 F3 sosyal (yorum/begeni). `MessageCircle` BILEREK secildi: lucide
+  // diyetinden sonra (Madde 235, 1751 -> 93 ikon) yeni ikon eklemek
+  // bundle'i buyutur; bu ikon `components/icons.ts` barrel'inda ZATEN var.
+  social: <MessageCircle size={18} color="#ec4899" />,
   monthlyStats: <BarChart2 size={18} color="#f59e0b" />,
 };
 

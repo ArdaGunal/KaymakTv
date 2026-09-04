@@ -456,7 +456,11 @@ T.H('Tepsi temizligi — YALNIZCA bizim bildirimlerimiz (F2 son parca)');
 // kestirme var ve BILEREK kullanilmiyor: cihazdaki TUM bildirimleri siler.
 // F3'te uzak push'lar gelecek, baska bir kutuphane de bildirim kurabilir.
 // Suzmeden silmek, bizim OLMAYANI silmek olurdu (scheduler.ts ayni disiplin).
-const BIZIM = new Set(['episodeToday', 'seasonPremiere', 'movieRelease', 'continueWatching', 'monthlyStats']);
+// 🆕 'social' F3'te eklendi ve bu satiri KIRMIZI yakti — iddia tam olarak
+// isini yapti. Sosyal bildirimler de tepsiden temizlenmeli: Worker
+// `categoryId: 'social'` gonderiyor, `cleanupRules` onu "bizim" saymazsa
+// sosyal bildirimler tepside birikirdi.
+const BIZIM = new Set(['episodeToday', 'seasonPremiere', 'movieRelease', 'continueWatching', 'monthlyStats', 'social']);
 
 const tepsi = [
   { identifier: 'a1', categoryId: 'episodeToday' },

@@ -31,7 +31,10 @@ export type NotificationCategoryId =
   | 'seasonPremiere'
   | 'movieRelease'
   | 'continueWatching'
-  | 'monthlyStats';
+  | 'monthlyStats'
+  // 🆕 F3 — UZAK bildirim. Yukarıdaki beşinden yapısal olarak FARKLI:
+  // cihaz zamanlamaz, sunucu gönderir (`kind: 'remote'`, aşağıya bak).
+  | 'social';
 
 /**
  * Android bildirim kanalları (SDK 26+). Kanal AÇILMADAN gönderilen bildirim
@@ -46,7 +49,11 @@ export type NotificationChannelId =
   | 'premieres'
   | 'movies'
   | 'reminders'
-  | 'digest';
+  | 'digest'
+  // 🆕 F3 — sosyal (yorum/beğeni). Worker gönderirken `channelId: 'social'`
+  // yazıyor; bu kanal AÇILMAZSA Android bildirimi varsayılan kanalda gösterir
+  // (kaybolmaz ama kullanıcı sistem ayarlarından ayrı ayarlayamaz).
+  | 'social';
 
 /**
  * Metin havuzunun ton süzgeci (F1). "Mısırları patlat!" bir bölüm bildiriminde
@@ -65,6 +72,23 @@ export type NotificationTone = 'playful' | 'neutral';
 export interface NotificationCategoryMeta {
   id: NotificationCategoryId;
   channelId: NotificationChannelId;
+  /**
+   * 🆕 F3 — bu kategoriyi KİM kuruyor?
+   *
+   * `'local'`  → cihaz zamanlıyor (`scheduling/planners/*`). Aşağıdaki
+   *              `priority` / `tone` / `budget` alanları YALNIZCA bunlar için
+   *              anlamlıdır.
+   * `'remote'` → sunucu gönderiyor (F3 push). Planlayıcısı YOKTUR ve OLAMAZ;
+   *              iOS'un 64 bekleyen bildirim tavanını da tüketmez.
+   *
+   * 🔴 NEDEN AYRAÇ GEREKTİ: kayıt defterinin kuralı *"planlayıcısı olmayan
+   * kategori ekleme"* idi — çünkü kullanıcı Ayarlar'da hiçbir şey yapmayan
+   * bir anahtar görürdü. Sosyal push o kuralın istisnası DEĞİL, farklı bir
+   * TÜRÜ: anahtarı gerçek bir işi (sunucu bildirimi) kontrol ediyor, yalnızca
+   * o iş cihazda planlanmıyor. Ayraç bu farkı TİP DÜZEYİNDE görünür kılıyor;
+   * `getActiveCategories` planlama yolunu yalnızca `'local'`e açıyor.
+   */
+  kind: 'local' | 'remote';
   /** Kullanıcı ilk kurulumda bu kategoriyi açık mı bulsun? */
   defaultEnabled: boolean;
   /** Günlük tavan aşıldığında düşük öncelikli olan düşer (F1 `throttle`). */

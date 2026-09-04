@@ -115,6 +115,16 @@ export const POOL_BY_CATEGORY: Record<NotificationCategoryId, readonly CategoryV
     { id: 'melting', weight: 1, tone: 'playful' },
     { id: 'plainStats', weight: 1, tone: 'neutral' },
   ],
+
+  // ── Sosyal (F3) — BİLEREK BOŞ ─────────────────────────────────────────
+  // 🔴 Bu kategorinin metni SUNUCUDAN geliyor (Worker `/feed/comment` ve
+  // `/feed/like` gövdeyi kendisi yazıyor: "X aktivitene yorum yaptı").
+  // Yerel bir varyant havuzu olsaydı hiç kullanılmazdı.
+  //
+  // ⚠️ `Record` yine de tam tutuluyor (yukarıdaki gerekçe: eksik kategori
+  // derlemeyi kırsın). Boş liste burada bir ihmal değil, BİLGİ: "bu
+  // kategorinin yerel metni yok".
+  social: [],
 };
 
 /**

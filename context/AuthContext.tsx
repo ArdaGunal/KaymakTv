@@ -6,6 +6,7 @@ import { useFollowStore } from '../store/followStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { resetFetchState } from '../services/library/fetchers';
 import { clearMyTraktSlug } from '../services/api/myIdentity';
+import { unregisterPushToken } from '../features/notifications/services/pushTokens';
 import { useFeedStore } from '../features/feed/store/feedStore';
 // ⚠️ Barrel'dan (`features/notifications`) DEĞİL, doğrudan dosyadan:
 // barrel `NotificationBadge`'i de dışa açıyor ve o bu dosyayı import ediyor —
@@ -229,6 +230,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const removeKeys = async () => {
     try {
+      // ── F3: push token kaydını sil ────────────────────────────────────
+      // 🔴 SIRA KRİTİK — BU SATIR `traktAccessToken` SİLİNMEDEN ÖNCE OLMALI.
+      // `unregisterPushToken` kimliği SecureStore'dan okuyup Worker'a
+      // gönderiyor; aşağıdaki silmeden SONRA çağrılsaydı gönderecek kimlik
+      // kalmaz, istek 401 döner ve cihaz kaydı sunucuda ASILI KALIRDI —
+      // yani sonraki kullanıcı giriş yapana kadar eski sahibin bildirimleri
+      // bu telefona düşmeye devam ederdi.
+      //
+      // ⚠️ `await` ediliyor: çıkış zaten bir bekleme anı ve bu iş bitmeden
+      // token'ları silersek çağrı anlamsızlaşır. `unregisterPushToken` asla
+      // throw etmez ve 8 sn zaman aşımı var, yani çıkışı kilitleyemez.
+      //
+      // ⚠️ Bu bir NEZAKET, güvence değil: ağ yoksa kayıt kalır. Asıl koruma
+      // sunucudaki `(platform, token_key)` tekilliği (035_push_tokens.sql).
+      await unregisterPushToken();
+
       await SecureStore.deleteItemAsync('traktAccessToken');
       await SecureStore.deleteItemAsync('traktRefreshToken');
       await SecureStore.deleteItemAsync('traktGuestMode');

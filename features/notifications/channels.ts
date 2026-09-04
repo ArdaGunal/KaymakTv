@@ -62,6 +62,17 @@ const CHANNEL_DEFINITIONS: readonly ChannelDefinition[] = [
     importance: Notifications.AndroidImportance.DEFAULT,
   },
   {
+    // 🆕 F3 — sosyal (yorum/beğeni). Worker gönderirken `channelId: 'social'`
+    // yazıyor; bu kanal AÇILMAZSA Android bildirimi varsayılan kanalda
+    // gösterir — kaybolmaz ama kullanıcı sistem ayarlarından ayrı
+    // ayarlayamaz (dosya başlığındaki "kanal başına ayrı" gerekçesi).
+    id: 'social',
+    i18nKey: 'social',
+    // DEFAULT: birinin yoruma/beğeniye verdiği tepki, kullanıcının BEKLEDİĞİ
+    // bir geri bildirim — sessiz olmamalı. Ama heads-up balonu da değil.
+    importance: Notifications.AndroidImportance.DEFAULT,
+  },
+  {
     id: 'reminders',
     i18nKey: 'reminders',
     // LOW = sessiz: ses çıkarmaz, yalnızca tepside belirir. Bir dürtme

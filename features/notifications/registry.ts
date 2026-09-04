@@ -15,10 +15,16 @@ import type {
  * Sonuç: yeni bir bildirim türü eklemek = buraya BİR kayıt + `planners/` altına
  * BİR saf fonksiyon. Ayarlar arayüzüne de orkestrasyona da DOKUNULMAZ.
  *
- * ⛔ PLANLAYICISI OLMAYAN KATEGORİ EKLEME. Bir kayıt burada durup da onu
- * planlayan kod yoksa, kullanıcı Ayarlar'da hiçbir şey yapmayan bir anahtar
- * görür — AI_RULES §2.5'in yasakladığı "bağlanmamış kod"un en kötü türü,
- * çünkü sessizce yalan söyler. F1/F2 kategorileri kendi turlarında eklenecek.
+ * ⛔ ANAHTARI HİÇBİR ŞEYİ KONTROL ETMEYEN KATEGORİ EKLEME. Bir kayıt burada
+ * durup da arkasında gerçek bir iş yoksa, kullanıcı Ayarlar'da hiçbir şey
+ * yapmayan bir anahtar görür — AI_RULES §2.5'in yasakladığı "bağlanmamış
+ * kod"un en kötü türü, çünkü sessizce yalan söyler.
+ *
+ * 🔴 KURAL F3'TE İNCELTİLDİ (2026-09-04). Eskiden *"planlayıcısı olmayan
+ * kategori ekleme"* diyordu. Sosyal push'un planlayıcısı YOKTUR ve OLAMAZ
+ * (sunucu gönderiyor) — ama anahtarı gerçek bir işi kontrol ediyor. Kuralın
+ * ASIL amacı "planlayıcı" değil, **anahtarın bir karşılığı olması**. Ayrım
+ * artık tipte: `kind: 'local' | 'remote'`.
  *
  * ⚠️ Planlayıcı fonksiyonu bilinçli olarak bu kayıtta DEĞİL (bkz. types.ts
  * `NotificationCategoryMeta` notu): kayıt saf veri kalsın ki Ayarlar ekranı
@@ -28,6 +34,7 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategoryMeta[] = [
   {
     id: 'episodeToday',
     channelId: 'episodes',
+    kind: 'local',
     // Kullanıcı uygulamayı ZATEN bunun için indirdi — içerik bildirimleri
     // varsayılan olarak açık gelir. (Dürtme ve istatistik kategorileri F2'de
     // varsayılan KAPALI eklenecek; ayrım bilinçli.)
@@ -43,6 +50,7 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategoryMeta[] = [
   {
     id: 'seasonPremiere',
     channelId: 'premieres',
+    kind: 'local',
     defaultEnabled: true,
     // 🔑 `episodeToday`'den YÜKSEK. Bir sezon prömiyeri her iki planlayıcının
     // da kapsamına girer; `retention/dedupe.ts` çakışmayı bu önceliğe göre
@@ -57,6 +65,7 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategoryMeta[] = [
   {
     id: 'movieRelease',
     channelId: 'movies',
+    kind: 'local',
     defaultEnabled: true,
     priority: 15,
     tone: 'playful',
@@ -66,6 +75,7 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategoryMeta[] = [
   {
     id: 'continueWatching',
     channelId: 'reminders',
+    kind: 'local',
     // 🔴 VARSAYILAN KAPALI. Kullanıcının açık talebi: "bunun rahatsız edici
     // olmasını istemiyorum". İçerik bildirimleri (kullanıcı uygulamayı bunun
     // için indirdi) açık gelir; DÜRTME gelmez — isteyen açar.
@@ -83,6 +93,7 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategoryMeta[] = [
   {
     id: 'monthlyStats',
     channelId: 'digest',
+    kind: 'local',
     // Dürtme gibi bu da varsayılan KAPALI: kullanıcı uygulamayı içerik
     // bildirimleri için indirdi, kendi hakkında rapor için değil.
     defaultEnabled: false,
@@ -93,6 +104,31 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategoryMeta[] = [
     // Ayda bir, tek bildirim.
     budget: 1,
     i18nKey: 'categories.monthlyStats',
+  },
+  // ══════════════════════════════════════════════════════════════════════
+  // 🆕 F3 — SOSYAL (UZAK). Yukarıdaki beşinden yapısal olarak FARKLI.
+  // ══════════════════════════════════════════════════════════════════════
+  {
+    id: 'social',
+    channelId: 'social',
+    // 🔴 Cihaz zamanlamaz, SUNUCU gönderir (Worker `/feed/comment` ve
+    // `/feed/like` handler'ları). Bu yüzden `planners/` altında karşılığı
+    // YOK ve olmayacak.
+    kind: 'remote',
+    // Birinin yorumu/beğenisi kullanıcının doğrudan beklediği bir geri
+    // bildirim — içerik bildirimleri gibi varsayılan AÇIK.
+    defaultEnabled: true,
+    // ── Aşağıdaki üç alan YALNIZCA 'local' kategoriler için anlamlı ──
+    // `getActiveCategories` bu kaydı planlama yoluna hiç sokmuyor, yani
+    // bu değerler HİÇ OKUNMUYOR. Alanlar zorunlu olduğu için nötr
+    // değerler yazıldı; anlamlıymış gibi görünmesinler diye bu not var.
+    // (Tip düzeyinde ayırmak — ör. ayrı bir `RemoteCategoryMeta` — kayıt
+    // defterini gezen 7 dosyayı da ayrıştırmayı gerektirirdi; kazanç
+    // maliyetini karşılamıyor.)
+    priority: 0,
+    tone: 'neutral',
+    budget: 0,
+    i18nKey: 'categories.social',
   },
 ] as const;
 
@@ -200,5 +236,16 @@ export function getActiveCategories(
   prefs: NotificationPrefs,
 ): readonly NotificationCategoryMeta[] {
   if (!prefs.masterEnabled) return [];
-  return NOTIFICATION_CATEGORIES.filter((category) => prefs.categories[category.id]);
+  return NOTIFICATION_CATEGORIES.filter(
+    // 🔴 YALNIZCA 'local'. Bu fonksiyon PLANLAMA yolunu besliyor
+    // (`buildPlans.ts`); `kind: 'remote'` bir kategori buraya sızarsa
+    // planlayıcısı olmadığı için sessizce hiç plan üretmez — zararsız
+    // görünür ama `applyBudget`/`throttlePlans` onu iOS'un 64 tavanı
+    // hesabına katmaya çalışır. Ayrımı burada, TEK yerde yapıyoruz.
+    //
+    // ⚠️ `NOTIFICATION_CATEGORIES`'in KENDİSİ süzülmez: Ayarlar ekranı,
+    // Android kanalları ve tepsi temizliği (`cleanupRules.ts`) sosyal
+    // kategoriyi GÖRMEK ZORUNDA.
+    (category) => category.kind === 'local' && prefs.categories[category.id],
+  );
 }

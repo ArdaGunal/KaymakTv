@@ -16,6 +16,7 @@ import { ensureInboxHydrated, useInboxStore } from '../inbox/useInboxStore';
 import { getPermissionStatus, requestPermission } from '../permissions';
 import { applyBudget } from '../retention/budget';
 import { clearDeliveredNotifications } from '../retention/cleanup';
+import { registerPushToken } from '../services/pushTokens';
 import { dedupeByEntity } from '../retention/dedupe';
 import { throttlePlans } from '../scheduling/throttle';
 import { applyPlans, cancelAllOwnedNotifications } from '../scheduling/scheduler';
@@ -156,6 +157,21 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
         lastSignatureRef.current = `no-permission:${permission}`;
         return;
       }
+
+      // ── F3: push token kaydı ──────────────────────────────────────────
+      // 🔴 İZİN VERİLDİKTEN SONRA, kanallardan ÖNCE fark etmez ama yeri
+      // bilinçli: yukarıdaki `permission !== 'granted'` dalı `return`
+      // ediyor, yani buraya YALNIZCA izinli kullanıcı ulaşıyor. İzinsiz
+      // token istemek bazı sürümlerde hata veriyor.
+      //
+      // 🔴 HER AÇILIŞTA: Worker `last_seen_at`'i tazeliyor ve 90 günlük ölü
+      // token süpürmesi ona bakıyor (035_push_tokens.sql). "Bir kez kaydet"
+      // deseydik, düzenli kullanan ama 3 aydır bildirim almamış kullanıcının
+      // token'ı silinirdi.
+      //
+      // 🔴 `void` — beklenmiyor: ağ işi, yerel planlamayı geciktirmesin.
+      // `registerPushToken` asla throw etmez.
+      void registerPushToken();
 
       await ensureNotificationChannels(t);
 

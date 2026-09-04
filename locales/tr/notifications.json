@@ -20,6 +20,10 @@
     "digest": {
       "name": "Özetler",
       "description": "Aylık izleme özetin"
+    },
+    "social": {
+      "name": "Sosyal",
+      "description": "Yorum ve beğeni bildirimleri"
     }
   },
   "categories": {
@@ -42,6 +46,10 @@
     "monthlyStats": {
       "title": "Aylık izleme özeti",
       "description": "Ayda bir, o dönemde ne kadar izlediğini özetler"
+    },
+    "social": {
+      "title": "Sosyal",
+      "description": "Paylaşımına yorum ya da beğeni geldiğinde haber verir"
     }
   },
   "copy": {
