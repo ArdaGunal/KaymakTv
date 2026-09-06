@@ -51,6 +51,9 @@ const TAKIMLAR = [
   { ad: 'devam', grup: 'bildirimler', dosya: 'bildirimler/devam.test.mjs', aciklama: 'B5: durtme esigi, sogulma penceresi, aday secimi' },
   { ad: 'istatistik', grup: 'bildirimler', dosya: 'bildirimler/istatistik.test.mjs', aciklama: 'B6: anlik goruntu farki, taban alma, yuvarlama' },
   { ad: 'uzak', grup: 'bildirimler', dosya: 'bildirimler/uzak-havuz.test.mjs', aciklama: 'B7: satir dogrulama, gomulu metni ezememe, beyaz liste' },
+  { ad: 'akis', grup: 'bildirimler', dosya: 'bildirimler/zaman-akisi.test.mjs', aciklama: 'B8: birlesik akis, takvim gunu gruplama, kimlik carpismasi' },
+  { ad: 'uzakkutu', grup: 'bildirimler', dosya: 'bildirimler/uzak-kutu.test.mjs', aciklama: 'B9: uzak push kutuya girisi, deep link cozumu, tekillestirme' },
+  { ad: 'saklama', grup: 'bildirimler', dosya: 'bildirimler/saklama.test.mjs', aciklama: 'B10: yas budamasi, veri kaybetmeme, sinirsiz alan tamiri' },
 ];
 
 const filtre = process.argv[2];

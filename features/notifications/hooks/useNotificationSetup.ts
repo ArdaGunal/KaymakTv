@@ -13,6 +13,7 @@ import { saveStatsSnapshot } from '../stats/snapshotStore';
 import { loadLedger, saveLedger } from '../inbox/ledger';
 import { buildLedger, sweepLedger } from '../inbox/sweep';
 import { ensureInboxHydrated, useInboxStore } from '../inbox/useInboxStore';
+import { sweepPresentedRemote } from '../inbox/remoteSweep';
 import { getPermissionStatus, requestPermission } from '../permissions';
 import { applyBudget } from '../retention/budget';
 import { clearDeliveredNotifications } from '../retention/cleanup';
@@ -106,6 +107,22 @@ export function useNotificationSetup(accessToken: string | null, isGuest: boolea
         const nudge = fired.find((entry) => entry.categoryId === 'continueWatching');
         if (nudge) markNudgeFired(nudge.fireAt);
       }
+
+      // ── Uzak bildirimleri kutuya al (§ 11) ────────────────────────────
+      // 🔴 TEPSİ TEMİZLİĞİNDEN ÖNCE OLMAK ZORUNDA — bu sıra bir tercih
+      // DEĞİL, kısıt. Aşağıdaki `clearDeliveredNotifications()` `social`'ı
+      // BİZİM kategorimiz saydığı için tepsiden siliyor; bu satır sonra
+      // gelseydi okunacak bir şey kalmaz ve sosyal bildirim kutuya HİÇ
+      // giremezdi (Madde 301'de bulunan boşluğun tam olarak kendisi).
+      //
+      // 🔴 `await` — `void` DEĞİL. Temizlik `void` ile ateşlenip
+      // beklenmiyor; ikisi de beklenmeseydi hangisinin önce biteceği
+      // garanti olmazdı ve yarış durumu doğardı.
+      //
+      // Tercih/izin kontrollerinden de önce: kullanıcı bildirimleri
+      // sonradan kapatmış olsa bile ÖNCEDEN gelmiş olanlar listeye girmeli
+      // (defter süpürmesindeki aynı gerekçe).
+      await sweepPresentedRemote();
 
       // ── Tepsi temizliği (§ 8-(2)) ─────────────────────────────────────
       // Kullanıcı uygulamayı 8 gün açmazsa tepside 8 "bugün yeni bölüm"

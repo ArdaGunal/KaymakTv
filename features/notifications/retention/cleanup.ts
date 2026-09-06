@@ -18,16 +18,22 @@ import { temizlenecekler, type PresentedInfo } from './cleanupRules';
  * (SAF) karar veriyor; bu dosya yalnızca okuma/silme yapar. Gerekçesi orada.
  *
  * ==========================================================================
- * 🔴 KUTUYU (inbox) BOZMAZ — ÖLÇÜLDÜ, VARSAYILMADI
+ * 🔴 SIRALAMA TUZAĞI VAR — UZAK BİLDİRİMLER İÇİN
  * ==========================================================================
- * İlk bakışta tehlikeli görünüyor: "tepsiyi silersek uygulama içindeki zil
- * listesi ne olacak?" Cevap: hiçbir şey. `inbox/sweep.ts` başlığı bunu zaten
- * çözmüş — kutu `getPresentedNotificationsAsync()`'e DEĞİL, diske yazılan
- * **deftere** (ledger) dayanıyor. Gerekçesi orada yazılı: tepsi zaten
- * güvenilmez, çünkü kullanıcı bildirimi kaydırıp atarsa kaybolur.
+ * ⚠️ Bu başlık eskiden *"sıralama tuzağı YOK"* diyordu ve o gün DOĞRUYDU:
+ * kutu yalnızca **deftere** (ledger) dayanıyordu, yani tepsiyi silmek onu
+ * etkilemiyordu. F3 dilim 2 bunu DEĞİŞTİRDİ.
  *
- * Yani defter yaklaşımı bu temizliği baştan güvenli kılmış. Sıralama tuzağı
- * YOK: önce de temizlense sonra da, kutu aynı kalır.
+ * **YEREL bildirimler için hâlâ tuzak yok.** `inbox/sweep.ts` başlığındaki
+ * gerekçe geçerli: kutu `getPresentedNotificationsAsync()`'e değil, diske
+ * yazılan deftere dayanıyor.
+ *
+ * 🔴 **UZAK (sosyal) bildirimler için tuzak GERÇEK.** Onları biz kurmadığımız
+ * için defterleri YOK; kutuya girmelerinin bir yolu tepsiyi okumak
+ * (`inbox/remoteSweep.ts` → `sweepPresentedRemote`). Bu fonksiyon `social`'ı
+ * bizim kategorimiz sayıp SİLDİĞİ için, süpürme BUNDAN ÖNCE çalışmak
+ * zorunda. `useNotificationSetup` çağrı sırası bu yüzden anlamlıdır ve orada
+ * `await` ile sabitlenmiştir.
  */
 
 /** `scheduler.ts` ile AYNI koruma: web'de `expo-notifications` yok. */

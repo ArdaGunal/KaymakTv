@@ -174,9 +174,20 @@
     "samplesScheduled": "{{count}} samples scheduled — first in {{seconds}}s",
     "poolStatus": "Pool status"
   },
-  "inbox": {
-    "sectionTitle": "Content Notifications",
-    "empty": "No content notifications yet."
+  "timeline": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "This week",
+    "older": "Earlier",
+    "delete": "Delete",
+    "clearAll": "Clear all",
+    "clearConfirmTitle": "Clear all?",
+    "clearConfirmBody": "Your notification list will be emptied. This cannot be undone.",
+    "clearConfirm": "Clear",
+    "clearCancel": "Cancel",
+    "swipeHint": "Swipe a row left to delete",
+    "emptyTitle": "Your inbox is empty",
+    "emptyBody": "New episodes of shows you follow and social interactions appear here."
   },
   "summary": {
     "episodeToday": {

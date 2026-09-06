@@ -66,7 +66,7 @@ export interface CopyVariant extends CategoryVariant {
  *
  * `Record<NotificationCategoryId, …>` olması bilinçli: yeni bir kategori
  * eklendiğinde buraya da liste açmayı unutursan **derleme kırılır**. Aynı
- * koruma `notification-settings.tsx` ve `InboxSection.tsx` ikon haritalarında
+ * koruma `notification-settings.tsx` ve `TimelineRow.tsx` ikon haritalarında
  * da var ve bu oturumda iki kez gerçekten işe yaradı.
  */
 export const POOL_BY_CATEGORY: Record<NotificationCategoryId, readonly CategoryVariant[]> = {

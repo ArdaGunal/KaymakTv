@@ -16,6 +16,9 @@ import yardimci from '../yardimci.js';
 import { pickResumeCandidate } from '../../features/notifications/scheduling/mapProgress.ts';
 import { planContinueWatching } from '../../features/notifications/scheduling/planners/continueWatchingPlanner.ts';
 import { snapToPreferredHour } from '../../features/notifications/scheduling/fireTime.ts';
+// 🔴 GERCEK slug uretici/ayristirici — bildirimin urettigi yol ile
+// `app/episode/[id].tsx`'in bekledigi bicim arasindaki UYUM sinaniyor.
+import { generateEpisodeSlug, parseEpisodeSlug } from '../../utils/slugHelper.ts';
 
 const { baslat } = yardimci;
 const T = baslat('KALDIGIN YERDEN DEVAM (B5)', { kokOneki: 'bildirim-devam-' });
@@ -108,6 +111,9 @@ const secenek = (ek = {}) => ({
   lastNudgeFiredAt: null,
   snapToPreferredHour: (t) => snapToPreferredHour(t, 20),
   renderCopy: (v) => ({ title: 'Kaldigin yer', body: `${v.showTitle} S${v.seasonNumber}B${v.episodeNumber}` }),
+  // `buildPlans.ts`'teki gercek builder ile AYNI.
+  buildEpisodeLink: (v) =>
+    `/episode/${generateEpisodeSlug(v.showTraktId, v.showSlug ?? undefined, v.showTitle, v.seasonNumber, v.episodeNumber, v.episodeTraktId)}`,
   ...ek,
 });
 
@@ -115,7 +121,25 @@ const durtme = planContinueWatching(aday, secenek());
 
 T.ok('Aday varsa TEK durtme uretilir', durtme.length === 1);
 T.ok('Kimlik dizi bazli ve deterministik', durtme[0].identifier === 'continueWatching:2');
-T.ok('Deep link siradaki bolume gider', durtme[0].data.deepLink === '/episode/901');
+// 🔴 BU IDDIA DA ESKIDEN HATANIN KENDISINI DOGRULUYORDU (`/episode/901`,
+// ciplak kimlik). Ekran parcali bir SLUG ayristiriyor; ciplak sayi verilince
+// bolum kimligini DIZI kimligi saniyor ve "icerik yuklenemedi" cikiyordu.
+// Yuvarlak tur: uret -> GERCEK ayristiriciyla coz -> girdiyi geri al.
+{
+  const link = durtme[0].data.deepLink;
+  T.ok('Deep link /episode/ ile baslar', link.startsWith('/episode/'), link);
+  const cozulen = parseEpisodeSlug(link.replace('/episode/', ''));
+  T.ok('Yuvarlak tur: DIZI kimligi', cozulen.showTraktId === 2, String(cozulen.showTraktId));
+  T.ok('Yuvarlak tur: SIRADAKI bolum kimligi', cozulen.epTraktId === 901, String(cozulen.epTraktId));
+  T.ok('Yuvarlak tur: sezon/bolum', cozulen.season === 4 && cozulen.episode === 7, `s${cozulen.season}e${cozulen.episode}`);
+  T.ok(
+    'DIZI ve BOLUM kimligi KARISMIYOR',
+    cozulen.showTraktId !== cozulen.epTraktId,
+    `dizi=${cozulen.showTraktId} bolum=${cozulen.epTraktId}`,
+  );
+  // Dizi slug'i YOK (ResumeCandidate tasimiyor) — basliktan uretiliyor.
+  T.ok('Slug yoksa basliktan uretilir', cozulen.showSlug.length > 0, cozulen.showSlug);
+}
 T.ok('Metin enjekte edilen renderCopy ile uretildi', durtme[0].body === 'Taze Dizi S4B7');
 
 // 🔑 ASIL VAAT: durtme her zaman en az 7 gun ILERIDE.

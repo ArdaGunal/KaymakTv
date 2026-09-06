@@ -174,9 +174,20 @@
     "samplesScheduled": "{{count}} örnek kuruldu — ilki {{seconds}} sn sonra",
     "poolStatus": "Havuz durumu"
   },
-  "inbox": {
-    "sectionTitle": "İçerik Bildirimleri",
-    "empty": "Henüz düşmüş bir içerik bildirimi yok."
+  "timeline": {
+    "today": "Bugün",
+    "yesterday": "Dün",
+    "week": "Bu hafta",
+    "older": "Daha eski",
+    "delete": "Sil",
+    "clearAll": "Tümünü temizle",
+    "clearConfirmTitle": "Tümünü temizle?",
+    "clearConfirmBody": "Bildirim listesi boşaltılacak. Bu işlem geri alınamaz.",
+    "clearConfirm": "Temizle",
+    "clearCancel": "Vazgeç",
+    "swipeHint": "Silmek için satırı sola kaydır",
+    "emptyTitle": "Bildirim kutun boş",
+    "emptyBody": "Takip ettiğin dizilerin yeni bölümleri ve sosyal etkileşimler burada görünür."
   },
   "summary": {
     "episodeToday": {

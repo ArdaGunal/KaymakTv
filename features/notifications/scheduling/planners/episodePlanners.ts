@@ -16,6 +16,19 @@ import type { NotificationCategoryId, ScheduledPlan } from '../../types';
 /** Planlayıcının ihtiyaç duyduğu MİNİMUM bölüm bilgisi. */
 export interface UpcomingEpisode {
   showTitle: string;
+  /**
+   * 🔴 DİZİNİN Trakt kimliği — bölümünkiyle KARIŞTIRMA.
+   *
+   * Deep link için ZORUNLU ve bu alan sonradan eklendi: eskiden yalnızca
+   * `episodeTraktId` taşınıyordu ve bağlantı `/episode/<bölüm id>` diye
+   * kuruluyordu. `app/episode/[id].tsx` ise bir SLUG bekliyor
+   * (`{diziId}-{diziSlug}-s{S}e{B}-{bölümId}`) ve çıplak bir sayıyı
+   * ayrıştırınca **bölüm kimliğini DİZİ kimliği sanıyordu** → ekran
+   * "içerik yüklenemedi" veriyordu (kullanıcı cihazda bildirdi).
+   */
+  showTraktId: number;
+  /** Trakt dizi slug'ı; yoksa başlıktan üretilir (bkz. `buildEpisodeLink`). */
+  showSlug: string | null;
   /** Trakt bölüm kimliği — `identifier` ve deep link bundan türer. */
   episodeTraktId: number;
   seasonNumber: number;
@@ -29,6 +42,26 @@ export interface UpcomingEpisode {
    * bölümü kullanıcı dün gece izlemiştir.
    */
   alreadyWatched: boolean;
+}
+
+/**
+ * Deep link üretimi için gereken alanlar.
+ *
+ * 🔴 NEDEN ENJEKSİYON, NEDEN `utils/slugHelper` DOĞRUDAN IMPORT EDİLMİYOR:
+ * bu dosya SAF ve testler onu `.ts` uzantısıyla doğrudan yüklüyor; Node'un
+ * tür soyma özelliği **uzantısız çalışma-zamanı import'larını çözemiyor**
+ * (bu dosyanın "saf modüller birbirini import edemez" notuyla aynı kısıt).
+ * Slug biçimini burada ELLE kurmak da olurdu ama o zaman biçim iki yerde
+ * yaşardı ve biri değişince diğeri sessizce bozulurdu. `resolveFireTime` ve
+ * `renderCopy` ile AYNI desen: kararı saf katman verir, üretimi adaptör.
+ */
+export interface EpisodeLinkVars {
+  showTraktId: number;
+  showSlug: string | null;
+  showTitle: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeTraktId: number;
 }
 
 /** Metin havuzuna geçirilecek değişkenler. */
@@ -47,6 +80,8 @@ export interface EpisodePlannerOptions {
   resolveFireTime: (firstAiredUtc: string) => number | null;
   /** i18n + metin havuzu (`copy/picker.ts`). */
   renderCopy: (vars: EpisodeCopyVars) => { title: string; body: string };
+  /** `utils/slugHelper.ts` → `generateEpisodeSlug`, bağlanmış halde. */
+  buildEpisodeLink: (vars: EpisodeLinkVars) => string;
 }
 
 const GUN_MS = 24 * 60 * 60 * 1000;
@@ -57,7 +92,7 @@ function planEpisodes(
   categoryId: NotificationCategoryId,
   accepts: (episode: UpcomingEpisode) => boolean,
 ): ScheduledPlan[] {
-  const { now, horizonDays, resolveFireTime, renderCopy } = options;
+  const { now, horizonDays, resolveFireTime, renderCopy, buildEpisodeLink } = options;
   const horizonEnd = now + horizonDays * GUN_MS;
 
   const plans: ScheduledPlan[] = [];
@@ -96,7 +131,18 @@ function planEpisodes(
       data: {
         categoryId,
         entityId: String(episode.episodeTraktId),
-        deepLink: `/episode/${episode.episodeTraktId}`,
+        // 🔴 SLUG, çıplak kimlik DEĞİL. `app/episode/[id].tsx` parçalı bir
+        // slug ayrıştırıyor; çıplak sayı verilince bölüm kimliğini DİZİ
+        // kimliği sanıp "içerik yüklenemedi" veriyordu (`UpcomingEpisode`
+        // başlığındaki gerekçe).
+        deepLink: buildEpisodeLink({
+          showTraktId: episode.showTraktId,
+          showSlug: episode.showSlug,
+          showTitle: episode.showTitle,
+          seasonNumber: episode.seasonNumber,
+          episodeNumber: episode.episodeNumber,
+          episodeTraktId: episode.episodeTraktId,
+        }),
         plannedFireAt: fireAt,
       },
     });

@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { logError } from '../../../utils/errorLog';
-import type { NotificationPayloadData } from '../types';
+import { resolveDeepLink } from '../inbox/remoteInbox';
+import { ingestRemote } from '../inbox/remoteSweep';
 
 /**
  * Bildirime tıklanınca doğru ekrana götürür (docs/design/notifications.md § 9).
@@ -42,11 +43,25 @@ export function useNotificationTap(): void {
     if (Platform.OS === 'web') return;
 
     const navigate = (response: Notifications.NotificationResponse | null): void => {
-      const data = response?.notification?.request?.content?.data as
-        | Partial<NotificationPayloadData>
-        | undefined;
-      const deepLink = data?.deepLink;
-      if (typeof deepLink !== 'string' || !deepLink.startsWith('/')) return;
+      const notification = response?.notification;
+      if (!notification) return;
+
+      // 🔴 TIKLAMA AYNI ZAMANDA BİR KUTU KAYNAĞI. Uygulama kapalıyken düşen
+      // bir UZAK bildirime kullanıcı doğrudan basarsa, tepsi süpürmesi
+      // (`sweepPresentedRemote`) ona yetişemeyebilir — çünkü sisteme basılan
+      // bildirim tepsiden düşmüş olur. Buradan da almazsak kullanıcı
+      // bildirimi görür, ekrana gider ve listede izini bulamazdı.
+      // Yerel bildirimler için zararsız: `ingestRemote` yalnızca
+      // `kind: 'remote'` kategorileri kabul ediyor, gerisini eliyor.
+      // Asla throw etmez, tekilleştirme store tarafında.
+      void ingestRemote([notification]);
+
+      // Hedef çözümü tek yerde (`remoteInbox.resolveDeepLink`): yerel
+      // planların `deepLink`i ile sunucunun gönderdiği yük AYNI kuralla
+      // okunsun, ve `deepLink` taşımayan ESKİ yükler `activityId`'den
+      // türetilebilsin.
+      const deepLink = resolveDeepLink(notification.request?.content?.data);
+      if (!deepLink) return;
 
       try {
         routerRef.current.push(deepLink as never);

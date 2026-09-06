@@ -14,6 +14,7 @@
 
 export { useNotificationSetup } from './hooks/useNotificationSetup';
 export { useNotificationTap } from './hooks/useNotificationTap';
+export { useRemoteInbox } from './hooks/useRemoteInbox';
 export { useNotificationPrefs } from './hooks/useNotificationPrefs';
 export { NotificationBadge } from './components/NotificationBadge';
 

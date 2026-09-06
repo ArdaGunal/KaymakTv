@@ -21,7 +21,36 @@ import { evaluateMonthlyStats } from '../stats/snapshot';
 import { loadStatsSnapshot } from '../stats/snapshotStore';
 import type { CopyHistory } from '../copy/history';
 import type { StatsSnapshot } from '../stats/snapshot';
+import { generateEpisodeSlug } from '../../../utils/slugHelper';
 import type { NotificationPrefs, ScheduledPlan } from '../types';
+
+/**
+ * 🔴 SLUG ÜRETİMİNİN TEK YERİ. Planlayıcılar SAF olduğu için
+ * `utils/slugHelper`'ı doğrudan import edemiyor (testler onları `.ts`
+ * uzantısıyla yüklüyor, Node'un tür soyma özelliği uzantısız çalışma-zamanı
+ * import'unu çözemiyor). Bu yüzden biçim BURADA biliniyor ve planlayıcılara
+ * enjekte ediliyor — `resolveFireTime`/`renderCopy` ile aynı desen.
+ *
+ * ⚠️ `app/episode/[id].tsx` bu slug'ı `parseEpisodeSlug` ile çözüyor.
+ * Biçim değişirse İKİSİ BİRDEN değişmeli; ikinci bir kopya tutmamamızın
+ * sebebi tam olarak bu.
+ */
+const buildEpisodeLink = (vars: {
+  showTraktId: number;
+  showSlug: string | null;
+  showTitle: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeTraktId: number;
+}): string =>
+  `/episode/${generateEpisodeSlug(
+    vars.showTraktId,
+    vars.showSlug ?? undefined,
+    vars.showTitle,
+    vars.seasonNumber,
+    vars.episodeNumber,
+    vars.episodeTraktId,
+  )}`;
 
 /**
  * Tüm kategorilerin planlarını üretir — bildirim sisteminin "ne kurulacak?"
@@ -161,6 +190,7 @@ export async function buildNotificationPlans(input: BuildPlansInput): Promise<Bu
           now,
           horizonDays: HORIZON_DAYS,
           resolveFireTime: resolve,
+          buildEpisodeLink,
           renderCopy: (vars) =>
             copy.render({
               showTitle: vars.showTitle,
@@ -184,6 +214,7 @@ export async function buildNotificationPlans(input: BuildPlansInput): Promise<Bu
     plans.push(
       ...planContinueWatching(candidate, {
         now,
+        buildEpisodeLink,
         awayDays: NUDGE_AWAY_DAYS,
         cooldownDays: NUDGE_COOLDOWN_DAYS,
         lastNudgeFiredAt: prefs.lastNudgeFiredAt,

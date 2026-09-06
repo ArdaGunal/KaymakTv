@@ -65,7 +65,7 @@ export function mapCalendarToUpcoming(
     const entry = raw as {
       first_aired?: string;
       episode?: { season?: number; number?: number; title?: string | null; ids?: { trakt?: number } };
-      show?: { title?: string; ids?: { trakt?: number } };
+      show?: { title?: string; ids?: { trakt?: number; slug?: string } };
     };
 
     const episodeTraktId = entry?.episode?.ids?.trakt;
@@ -92,6 +92,11 @@ export function mapCalendarToUpcoming(
 
     result.push({
       showTitle,
+      // Deep link için ZORUNLU (bkz. `UpcomingEpisode.showTraktId`). Bu iki
+      // alan eskiden çıkarılıyor ama SONUCA KONMUYORDU — planlayıcının eli
+      // boştu ve bağlantı çıplak bölüm kimliğiyle kuruluyordu.
+      showTraktId,
+      showSlug: typeof entry?.show?.ids?.slug === 'string' ? entry.show.ids.slug : null,
       episodeTraktId,
       seasonNumber,
       episodeNumber,

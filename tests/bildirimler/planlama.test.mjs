@@ -32,6 +32,9 @@ import {
 import { planMovieRelease } from '../../features/notifications/scheduling/planners/movieReleasePlanner.ts';
 import { dedupeByEntity } from '../../features/notifications/retention/dedupe.ts';
 import { temizlenecekler } from '../../features/notifications/retention/cleanupRules.ts';
+// 🔴 GERCEK slug uretici/ayristirici — sahte degil. Bildirimin deep link'i ile
+// `app/episode/[id].tsx`'in beklentisi arasindaki UYUM bu ikisiyle sinaniyor.
+import { generateEpisodeSlug, parseEpisodeSlug } from '../../utils/slugHelper.ts';
 import {
   buildWatchedEpisodeKeys,
   buildWatchedMovieIds,
@@ -96,6 +99,8 @@ T.H('planEpisodeToday — secim kurallari');
 
 const bolum = (id, gun, ek = {}) => ({
   showTitle: 'Test Dizisi',
+  showTraktId: 555,
+  showSlug: 'test-dizisi',
   episodeTraktId: id,
   seasonNumber: 3,
   episodeNumber: 7,
@@ -105,11 +110,16 @@ const bolum = (id, gun, ek = {}) => ({
   ...ek,
 });
 
+// `buildPlans.ts`'teki gercek builder ile AYNI: adaptorde ne yapiliyorsa o.
+const linkKur = (v) =>
+  `/episode/${generateEpisodeSlug(v.showTraktId, v.showSlug ?? undefined, v.showTitle, v.seasonNumber, v.episodeNumber, v.episodeTraktId)}`;
+
 const secenekler = {
   now: simdi,
   horizonDays: 14,
   resolveFireTime: (iso) => resolveFireTime(iso, 20, simdi),
   renderCopy: (v) => ({ title: 'Bugun yayinda', body: `${v.showTitle} S${v.seasonNumber}B${v.episodeNumber}` }),
+  buildEpisodeLink: linkKur,
 };
 
 const planlar = planEpisodeToday(
@@ -137,7 +147,43 @@ T.ok('Gecerli iki bolum planlandi', planlar.length === 2, 'uretilen: ' + planlar
 
 const ilk = planlar.find((p) => p.identifier === 'episodeToday:101');
 T.ok('Kimlik deterministik ve kategori onekli', ilk?.identifier === 'episodeToday:101');
-T.ok('Deep link bolum kimligine isaret eder', ilk?.data.deepLink === '/episode/101');
+// ─────────────────────────────────────────────────────────────────────────
+// 🔴 BU IDDIA ESKIDEN HATANIN KENDISINI DOGRULUYORDU.
+// Onceki hali: `ilk?.data.deepLink === '/episode/101'` — yani CIPLAK bolum
+// kimligi. `app/episode/[id].tsx` ise parcali bir SLUG ayristiriyor ve
+// ciplak sayiyi ayristirinca BOLUM kimligini DIZI kimligi saniyordu; ekran
+// "icerik yuklenemedi" veriyordu (kullanici cihazda bildirdi).
+//
+// Test gecerken hata canliydi: cunku test, uretilen bicimin TUKETICIYE
+// uydugunu degil, kendi yazdigi bicimle ayni oldugunu olcuyordu.
+// Cozum YUVARLAK TUR: uret -> GERCEK ayristiriciyla coz -> girdiyi geri al.
+{
+  const link = ilk?.data.deepLink ?? '';
+  T.ok('Deep link /episode/ ile baslar', link.startsWith('/episode/'), link);
+
+  const cozulen = parseEpisodeSlug(link.replace('/episode/', ''));
+  T.ok('Yuvarlak tur: DIZI kimligi geri geliyor', cozulen.showTraktId === 555, String(cozulen.showTraktId));
+  T.ok('Yuvarlak tur: sezon geri geliyor', cozulen.season === 3, String(cozulen.season));
+  T.ok('Yuvarlak tur: bolum no geri geliyor', cozulen.episode === 7, String(cozulen.episode));
+  T.ok('Yuvarlak tur: BOLUM kimligi geri geliyor', cozulen.epTraktId === 101, String(cozulen.epTraktId));
+  T.ok('Yuvarlak tur: dizi slug geri geliyor', cozulen.showSlug === 'test-dizisi', cozulen.showSlug);
+
+  // 🔴 EN KRITIK: dizi kimligi ile bolum kimligi KARISMIYOR. Eski hatada
+  // ikisi de 101 cikiyordu ve ekran yanlis diziyi cekmeye calisiyordu.
+  T.ok(
+    'DIZI ve BOLUM kimligi birbirine KARISMIYOR',
+    cozulen.showTraktId !== cozulen.epTraktId,
+    `dizi=${cozulen.showTraktId} bolum=${cozulen.epTraktId}`,
+  );
+
+  // Eski bicimin GERCEKTEN kirik oldugunu gosteren kontrol kanit.
+  const eskiBicim = parseEpisodeSlug('101');
+  T.ok(
+    'KONTROL: ciplak kimlik ayristirilinca dizi=bolum olur (eski hata)',
+    eskiBicim.showTraktId === 101 && eskiBicim.epTraktId === 101 && eskiBicim.showSlug === '',
+    'bu yuzden "icerik yuklenemedi" cikiyordu',
+  );
+}
 T.ok('Yuk (data) kategori ve varlik kimligi tasir', ilk?.data.categoryId === 'episodeToday' && ilk?.data.entityId === '101');
 T.ok('Metin enjekte edilen renderCopy ile uretildi', ilk?.body === 'Test Dizisi S3B7');
 

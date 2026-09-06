@@ -38,6 +38,19 @@ export interface ContinueWatchingOptions {
   /** `scheduling/fireTime.ts` → `snapToPreferredHour`, saati bağlanmış halde. */
   snapToPreferredHour: (targetMs: number) => number;
   renderCopy: (vars: ContinueWatchingCopyVars) => { title: string; body: string };
+  /**
+   * `utils/slugHelper.ts` → `generateEpisodeSlug`, bağlanmış halde.
+   * Gerekçe `planners/episodePlanners.ts`'teki `EpisodeLinkVars` başlığında:
+   * saf katman slug BİÇİMİNİ bilmez, adaptör üretir.
+   */
+  buildEpisodeLink: (vars: {
+    showTraktId: number;
+    showSlug: string | null;
+    showTitle: string;
+    seasonNumber: number;
+    episodeNumber: number;
+    episodeTraktId: number;
+  }) => string;
 }
 
 const GUN_MS = 24 * 60 * 60 * 1000;
@@ -86,9 +99,20 @@ export function planContinueWatching(
         entityId: String(candidate.showTraktId),
         // Sıradaki bölüm biliniyorsa doğrudan oraya; bilinmiyorsa dizi
         // sayfasına. Yarım bilgiyle kırık bir bağlantı üretmiyoruz.
+        // 🔴 Bölüm bağlantısı SLUG ister (çıplak kimlik "içerik yüklenemedi"
+        // veriyordu). Dizi bağlantısı ise çıplak kimlikle ÇALIŞIR —
+        // `app/show/[id].tsx` `parseMediaSlug` kullanıyor ve o, ilk parçayı
+        // kimlik olarak okuyor. Bu yüzden yalnızca bölüm dalı değişti.
         deepLink:
           candidate.nextEpisodeTraktId !== null
-            ? `/episode/${candidate.nextEpisodeTraktId}`
+            ? options.buildEpisodeLink({
+                showTraktId: candidate.showTraktId,
+                showSlug: null,
+                showTitle: candidate.showTitle,
+                seasonNumber: candidate.seasonNumber,
+                episodeNumber: candidate.episodeNumber,
+                episodeTraktId: candidate.nextEpisodeTraktId,
+              })
             : `/show/${candidate.showTraktId}`,
         plannedFireAt: fireAt,
       },

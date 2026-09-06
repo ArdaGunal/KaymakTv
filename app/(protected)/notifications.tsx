@@ -4,17 +4,16 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
-import { UserPlus, Bell, Check, X, Inbox } from '../../components/icons';
+import { UserPlus, Check, X } from '../../components/icons';
 
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useFollowRequests } from '../../hooks/useFollowRequests';
-import { useNotificationStore, ActivityNotification } from '../../store/notificationStore';
-import { InboxSection } from '../../features/notifications/components/InboxSection';
+import { useNotificationStore } from '../../store/notificationStore';
+import { NotificationTimeline } from '../../features/notifications/components/NotificationTimeline';
 import { EnableNotificationsBanner } from '../../features/notifications/components/EnableNotificationsBanner';
 import { useInboxStore } from '../../features/notifications/inbox/useInboxStore';
 import { TraktFollowRequest } from '../../services/api/social';
-import { formatRelativeTime } from '../../utils/formatRelativeTime';
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -67,26 +66,6 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
   );
 }
 
-function NotificationRow({ notification }: { notification: ActivityNotification }) {
-  const { t } = useTranslation('common');
-  const name = notification.name || notification.username;
-  const message =
-    notification.type === 'newFollower'
-      ? t('activityNewFollower', '{{name}} sizi takip etmeye başladı', { name })
-      : t('activityRequestApproved', '{{name}} takip isteğinizi onayladı', { name });
-  const timeAgo = formatRelativeTime(new Date(notification.createdAt).toISOString(), t);
-
-  return (
-    <View style={styles.notificationRow}>
-      <View style={styles.notificationIconWrap}>
-        <Bell size={16} color="#60a5fa" />
-      </View>
-      <Text style={styles.notificationMessage} numberOfLines={2}>{message}</Text>
-      <Text style={styles.notificationTime}>{timeAgo}</Text>
-    </View>
-  );
-}
-
 export default function NotificationsScreen() {
   const { t } = useTranslation('common');
   const { width } = useWindowDimensions();
@@ -94,7 +73,6 @@ export default function NotificationsScreen() {
   const { accessToken, isGuest } = useAuth();
 
   const { requests, isLoading: isRequestsLoading, accept, reject, refetch: refetchRequests } = useFollowRequests();
-  const items = useNotificationStore((s) => s.items);
   const refreshActivity = useNotificationStore((s) => s.refreshActivity);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
   // Ekranı açmak HER İKİ listeyi de okundu sayar — rozet ikisinin toplamını
@@ -128,6 +106,12 @@ export default function NotificationsScreen() {
 
   const navigateBack = useAppBack();
 
+  // 🔴 BOŞKEN BÖLÜM HİÇ ÇİZİLMİYOR. Eskiden "Bekleyen takip isteğiniz yok."
+  // kutusu HER ZAMAN duruyordu ve ekranın en üstünde, en sık görülen yerde,
+  // hiçbir şey söylemeyen bir kutu olarak yer kaplıyordu. Takip isteği nadir
+  // bir olay; yokken bölümü göstermemek asıl içeriği yukarı taşıyor.
+  const showRequests = isRequestsLoading || requests.length > 0;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <SettingsHeader title={t('notifications', 'Bildirimler')} isDesktop={isDesktop} onBack={navigateBack} />
@@ -145,60 +129,35 @@ export default function NotificationsScreen() {
             donebilir; burada kosul YOK. */}
         <EnableNotificationsBanner />
 
-        {/* A. Takip İstekleri */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <UserPlus size={16} color="#94a3b8" />
-            <Text style={styles.sectionTitle}>{t('followRequests', 'Takip İstekleri')}</Text>
+        {/* A. Takip İstekleri — AKSIYON gerektirdigi icin akisin USTUNDE ve
+            akisa KARISTIRILMADI: zaman siralamasina girseydi eski bir istek
+            listenin dibine gomulur ve cevapsiz kalirdi. */}
+        {showRequests && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <UserPlus size={16} color="#94a3b8" />
+              <Text style={styles.sectionTitle}>{t('followRequests', 'Takip İstekleri')}</Text>
+            </View>
+
+            {isRequestsLoading ? (
+              <View style={styles.emptyBox}>
+                <ActivityIndicator size="small" color="#3b82f6" />
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {requests.map((request, index) => (
+                  <React.Fragment key={request.id}>
+                    <FollowRequestRow request={request} onAccept={accept} onReject={reject} />
+                    {index < requests.length - 1 && <View style={styles.divider} />}
+                  </React.Fragment>
+                ))}
+              </View>
+            )}
           </View>
+        )}
 
-          {isRequestsLoading ? (
-            <View style={styles.emptyBox}>
-              <ActivityIndicator size="small" color="#3b82f6" />
-            </View>
-          ) : requests.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>{t('noFollowRequests', 'Bekleyen takip isteğiniz yok.')}</Text>
-            </View>
-          ) : (
-            <View style={styles.card}>
-              {requests.map((request, index) => (
-                <React.Fragment key={request.id}>
-                  <FollowRequestRow request={request} onAccept={accept} onReject={reject} />
-                  {index < requests.length - 1 && <View style={styles.divider} />}
-                </React.Fragment>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* B. Icerik Bildirimleri — dusmus bildirimlerin uygulama ici izi.
-            Sosyal listenin USTUNDE: en sik gelen tur bu, en alta gomulmemeli. */}
-        <InboxSection />
-
-        {/* C. Genel Bildirimler (sosyal aktivite) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Bell size={16} color="#94a3b8" />
-            <Text style={styles.sectionTitle}>{t('generalNotifications', 'Genel Bildirimler')}</Text>
-          </View>
-
-          {items.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Inbox size={28} color="#334155" />
-              <Text style={styles.emptyText}>{t('noNotifications', 'Henüz bildiriminiz yok.')}</Text>
-            </View>
-          ) : (
-            <View style={styles.card}>
-              {items.map((notification, index) => (
-                <React.Fragment key={notification.id}>
-                  <NotificationRow notification={notification} />
-                  {index < items.length - 1 && <View style={styles.divider} />}
-                </React.Fragment>
-              ))}
-            </View>
-          )}
-        </View>
+        {/* B. Birlesik bildirim akisi — icerik + sosyal, tarih gruplariyla. */}
+        <NotificationTimeline />
       </ScrollView>
     </SafeAreaView>
   );
@@ -321,33 +280,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Genel bildirim satırı
-  notificationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-  },
-  notificationIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(96,165,250,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notificationMessage: {
-    flex: 1,
-    color: '#e2e8f0',
-    fontSize: 13.5,
-    lineHeight: 19,
-  },
-  notificationTime: {
-    color: '#64748b',
-    fontSize: 11.5,
-  },
-
-  // Boş durum
+  // Boş durum (yalnızca takip istekleri yüklenirken)
   emptyBox: {
     backgroundColor: '#111827',
     borderRadius: 16,
@@ -358,10 +291,5 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     paddingHorizontal: 20,
     gap: 10,
-  },
-  emptyText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    textAlign: 'center',
   },
 });
