@@ -2,7 +2,7 @@
   "expo": {
     "name": "KaymakTV",
     "slug": "kaymak",
-    "version": "2.5.2",
+    "version": "2.5.3",
     "orientation": "portrait",
     "scheme": "kaymak",
     "userInterfaceStyle": "dark",
@@ -49,7 +49,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.12582193451-g07esrua6eegm504achp8ee94ld4nudl"
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "extra": {
       "router": {},

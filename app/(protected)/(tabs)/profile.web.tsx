@@ -11,6 +11,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useLibrarySelector } from '../../../context/LibraryContext';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useProfileLists } from '../../../hooks/useProfileLists';
+import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
 import ProfileMobile from '../../../screens/ProfileMobile';
 import WebCarousel from '../../../components/web/WebCarousel';
@@ -159,6 +160,7 @@ export default function ProfileScreenWeb() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
+  const { ozelListeler } = useKaymakYetenekleri();
   const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
@@ -265,8 +267,13 @@ export default function ProfileScreenWeb() {
         ) : (
           <>
             <View style={styles.carouselsContainer}>
-              {/* Listelerim — her zaman görünür: doluysa carousel, boşsa davetkâr kart */}
-              {lists.length > 0 ? (
+              {/* Listelerim — ⚠️ "her zaman" Kaymak hesabını KAPSAMAZ; orada özel
+                  liste altyapısı yok ve boş durum kartı kullanıcıyı çalışmayan bir
+                  akışa davet ederdi (bkz. useKaymakYetenekleri). ProfileMobile ile
+                  AYNI karar — iki yüzeyden birini atlamak, aynı hesabın telefonda
+                  görmediği bölümü web'de görmesi demek olurdu. */}
+              {ozelListeler && (
+              lists.length > 0 ? (
                 <WebCarousel
                   title={t('myLists', 'Listelerim')}
                   data={lists}
@@ -284,7 +291,7 @@ export default function ProfileScreenWeb() {
                     </View>
                   )}
                 </View>
-              )}
+              ))}
 
               {renderCarousel(t('shows'), shows, 'shows', renderShowItem)}
               {/* DÜZELTİLDİ: bu ikisi eskiden 'shows'/'movies' gönderiyordu (favori

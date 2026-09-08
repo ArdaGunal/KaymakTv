@@ -10,6 +10,28 @@ import {
   addMediaToCustomList,
   removeMediaFromCustomList
 } from '../../traktApi';
+// ==========================================================================
+// 🎯 ADAPTÖR — Faz T · T1 (kullanıcı kararı, 2026-09-07)
+// ==========================================================================
+// `progress.ts` ile AYNI desen: token tipine bakıp isteği ya Trakt'a ya
+// `services/api/library.ts`'e yönlendiriyoruz. 🔴 UI hiçbir şeyin
+// değiştiğini bilmez — çağrı imzaları aynı kaldı.
+//
+// Kilit YALNIZCA bu yönlendirme için açıktır; 400 satır kuralı için genel
+// bir refactor ya da temizlik YAPILMADI (kullanıcının dar kapsam kararı).
+//
+// ⚠️ ÖZEL LİSTE FONKSİYONLARI (`createNewList` · `toggleMediaInList` ·
+// `deleteListById` · `getOrCreateDefaultList`) ADAPTE EDİLMEDİ — Worker'da
+// liste ailesi, veritabanında `user_lists` tablosu YOK. Kapsam sürünmesini
+// önlemek için bilinçli ertelendi (kullanıcı kararı, 2026-09-07):
+// altyapı işi `BACKLOG.md` §T2'de, T1'in çekirdeği değil.
+//
+// 🔴 O YÜZDEN BU DÖRDÜ KAYMAK KULLANICISINDA AÇIKÇA HATA FIRLATIR
+// (`KaymakDesteklenmiyorError`). Asıl koruma UI'da — bu fonksiyonlara
+// götüren butonlar Kaymak kullanıcısına hiç GÖSTERİLMİYOR. Buradaki fırlatma
+// SAVUNMA HATTI: yeni bir çağrı yeri eklenirse ham bir Trakt 401'i yerine
+// ne olduğunu söyleyen bir hata alınsın.
+import * as libraryApi from '../../api/library';
 import { fetchFreshData } from '../fetchers';
 import {
   CACHE_KEYS,
@@ -39,9 +61,45 @@ import {
   ListLimitError,
 } from '../../../utils/listHelpers';
 
+/** Bu kullanıcı Faz T yolunu mu kullanıyor? (bkz. `api/library.ts`) */
+const kaymakYoluMu = () => libraryApi.kaymakKullanicisiMi();
+
+/**
+ * UI'ın `(id, type)` ikilisini Worker'ın beklediği Trakt konumuna çevirir.
+ * Tek satırlık ama DÖRT yerde tekrar ederdi; çeviri hatası bu dosyada
+ * yanlış yapıma yazmak demek olurdu.
+ */
+const konumu = (id: number, type: 'show' | 'movie'): libraryApi.TraktKonumu =>
+  type === 'show' ? { showId: id } : { movieId: id };
+
+/**
+ * Kaymak kullanıcısında henüz arkasında altyapı olmayan bir eylem denendi.
+ *
+ * Ayrı bir sınıf çünkü çağıran taraf bunu bir AĞ hatasından ayırt edebilmeli:
+ * yeniden denemek ya da "bağlantını kontrol et" demek anlamsız — özellik
+ * henüz yok. `ListLimitError` ile aynı desen (`utils/listHelpers.ts`).
+ */
+export class KaymakDesteklenmiyorError extends Error {
+  constructor(public readonly ozellik: string) {
+    super(`Bu özellik Kaymak hesabında henüz desteklenmiyor: ${ozellik}`);
+    this.name = 'KaymakDesteklenmiyorError';
+  }
+}
+
+/**
+ * Liste fonksiyonlarının savunma hattı. UI zaten butonları gizliyor
+ * (`useKaymakYetenekleri`); buraya ulaşan bir çağrı ya yeni eklenmiş bir
+ * çağrı yeridir ya da gizleme kaçağıdır — ikisi de sessizce Trakt'a gidip
+ * 401 almamalı.
+ */
+const listeKapisi = async (ozellik: string) => {
+  if (await kaymakYoluMu()) throw new KaymakDesteklenmiyorError(ozellik);
+};
+
 export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', isCurrentlyWatchlisted: boolean, mediaData: any) => {
   let previousWatchlistShows: any[] | null = null;
   let previousWatchlistMovies: any[] | null = null;
+  const kaymak = await kaymakYoluMu();
 
   if (type === 'show') {
     setWatchlistShows((prev: any) => {
@@ -64,7 +122,14 @@ export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', 
   }
 
   try {
-    if (isCurrentlyWatchlisted) {
+    if (kaymak) {
+      const konum = konumu(id, type);
+      if (isCurrentlyWatchlisted) {
+        await libraryApi.removeFromWatchlist(konum);
+      } else {
+        await libraryApi.addToWatchlist(konum);
+      }
+    } else if (isCurrentlyWatchlisted) {
       await removeFromWatchlistTrakt(id, type);
     } else {
       await addToWatchlistTrakt(id, type);
@@ -88,6 +153,7 @@ export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', 
 export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', isCurrentlyFavorited: boolean, mediaData: any) => {
   let previousFavShows: any[] | null = null;
   let previousFavMovies: any[] | null = null;
+  const kaymak = await kaymakYoluMu();
 
   if (type === 'show') {
     setFavShows((prev: any) => {
@@ -110,8 +176,21 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
   }
 
   try {
-    // Trakt API'ye özel listeye ekleme/çıkarma isteğini gönder
-    await toggleLikedMedia(id, type, !isCurrentlyFavorited);
+    if (kaymak) {
+      // ⚠️ Trakt'ta favori, gizli bir ÖZEL LİSTEDİR (`toggleLikedMedia` bir
+      // liste işlemidir). Bizde ayrı bir tablo: `user_favorites`. Bu yüzden
+      // burada liste API'sinin karşılığını aramıyoruz — `favorite` ailesi
+      // doğrudan karşılığıdır.
+      const konum = konumu(id, type);
+      if (isCurrentlyFavorited) {
+        await libraryApi.removeFromFavorites(konum);
+      } else {
+        await libraryApi.addToFavorites(konum);
+      }
+    } else {
+      // Trakt API'ye özel listeye ekleme/çıkarma isteğini gönder
+      await toggleLikedMedia(id, type, !isCurrentlyFavorited);
+    }
     recordMutationResult('toggleFavoriteStatus', true);
   } catch (err) {
     console.error('Toggle favorite hatası, rollback yapılıyor:', err);
@@ -144,6 +223,10 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
 export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie', isCurrentlyHidden: boolean) => {
   let previousHiddenShowIds: number[] | null = null;
   let previousHiddenMovieIds: number[] | null = null;
+  // 🔴 Yönlendirme kararı `beginHiddenMutation`'DAN ÖNCE alınır. Sonrasında
+  // alınsaydı `await` gizleme muhafızının penceresini gereksiz uzatırdı;
+  // muhafızın amacı pencereyi DAR tutmak (bkz. hiddenSyncGuard.ts).
+  const kaymak = await kaymakYoluMu();
 
   // Aynı anda çalışan bir tam senkron, bu iyimser güncellemeyi ESKİ bir sunucu
   // anlık görüntüsüyle geri almasın (bkz. services/library/hiddenSyncGuard.ts).
@@ -166,7 +249,13 @@ export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie
   }
 
   try {
-    if (isCurrentlyHidden) {
+    if (kaymak) {
+      if (isCurrentlyHidden) {
+        await (type === 'show' ? libraryApi.unhideShow(id) : libraryApi.unhideMovie(id));
+      } else {
+        await (type === 'show' ? libraryApi.hideShow(id) : libraryApi.hideMovie(id));
+      }
+    } else if (isCurrentlyHidden) {
       await unhideItemTrakt(id, type);
     } else {
       await hideItemTrakt(id, type);
@@ -192,6 +281,8 @@ export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie
 };
 
 export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie') => {
+  const kaymak = await kaymakYoluMu();
+
   if (type === 'show') {
     setWatchedShows((prev: any) => {
       const newWatched = prev.filter((p: any) => p.show?.ids?.trakt !== id);
@@ -240,17 +331,30 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
   }
 
   try {
-    await removeFromHistoryTrakt(id, type);
+    if (kaymak) {
+      // 🔴 DİZİ ile FİLM AYNI ÇAĞRI DEĞİL. `user_watched` satırları bölüm
+      // kimliğinde durduğu için dizi, Worker'ın alt ağaç yolundan gitmek
+      // zorunda (`unwatchShow` → `delete_watched_subtree`, migration 038).
+      // `unwatchMovie`'yi dizi için çağırmak 200 döner, sıfır satır siler.
+      await (type === 'show' ? libraryApi.unwatchShow(id) : libraryApi.unwatchMovie(id));
+    } else {
+      await removeFromHistoryTrakt(id, type);
+    }
     recordMutationResult('deleteMediaFromHistory', true);
   } catch (err) {
     console.error('Delete from history hatası:', err);
     logError('mutations.collections.deleteMediaFromHistory', err);
     recordMutationResult('deleteMediaFromHistory', false);
+    // ⚠️ TELAFİ YOLU KAYMAK KULLANICISINDA ÇALIŞMAZ: `fetchFreshData`
+    // Trakt okur, o kullanıcının Trakt token'ı yok. Yani yazma başarısız
+    // olursa iyimser silme geri ALINMAZ; kullanıcı silinmiş sanar. T1'in
+    // OKUMA yolu gelene kadar bilinen eksik (BACKLOG §T2) — sessiz değil.
     fetchFreshData(null, true);
   }
 };
 
 export const createNewList = async (name: string, description?: string) => {
+  await listeKapisi('createNewList');
   // Trakt limiti: kullanıcıya en fazla MAX_USER_LISTS izin verilir (1 slot favori
   // listesine rezerve). Kontrol store'daki (favori zaten süzülmüş) sayı üzerinden
   // yapılır — ekstra ağ isteği gerektirmez.
@@ -286,6 +390,7 @@ export const getOrCreateDefaultList = async () => {
 };
 
 export const toggleMediaInList = async (listId: number, mediaId: number, type: 'show' | 'movie', isAdding: boolean) => {
+  await listeKapisi('toggleMediaInList');
   // Ekleme öncesi 250 öğe limitini uygula (Trakt liste başına sınır).
   if (isAdding) {
     const list = (useLibraryStore.getState().customLists || []).find((l: any) => l.ids?.trakt === listId);
@@ -332,6 +437,7 @@ export const toggleMediaInList = async (listId: number, mediaId: number, type: '
 
 // Listeyi Trakt'tan siler ve store'dan iyimser olarak kaldırır.
 export const deleteListById = async (listId: number | string) => {
+  await listeKapisi('deleteListById');
   let previousLists: any[] | null = null;
   setCustomLists((prev: any) => {
     previousLists = prev;

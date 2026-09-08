@@ -7,6 +7,7 @@ import SkeletonLoader from '../../../components/SkeletonLoader';
 import InlineRater from '../../../components/InlineRater';
 import { getTrendingShows } from '../../../services/traktApi';
 import { useAuth } from '../../../context/AuthContext';
+import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { useLibrarySelector, useLibraryActions } from '../../../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +35,8 @@ export default function DizilerScreenWeb() {
   const [finishedShow, setFinishedShow] = useState<{ name: string; id: number } | null>(null);
 
   const { accessToken, isGuest, authProvider } = useAuth();
+
+  const { kutuphane } = useKaymakYetenekleri();
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Yeni izole takip modülü (İzleme sekmesi kategorileri). Masaüstü görünümü
@@ -167,7 +170,10 @@ export default function DizilerScreenWeb() {
   // create_new — bkz. docs/HISTORY.md Madde 221. Google-only (Trakt'sız)
   // kullanıcı: masaüstü Diziler görünümü de mobil eşdeğeriyle (IndexMobile)
   // AYNI kısıtlamaya tabi — kişisel Trakt senkron verisi gerektirir.
-  if (authProvider === 'google') {
+  // 🔓 KAPI AÇILDI (2026-09-07, Madde 318). Kütüphane OKUMA yolu artık var
+  // (`kaymakSync.ts`); Madde 221'in gerekçesi düştü.
+  // 🔴 Koşulu buraya geri yazma — karar `useKaymakYetenekleri`'nde TEK yerde.
+  if (!kutuphane) {
     return (
       <View style={styles.pageBackground}>
         <View style={[styles.container, { paddingTop: insets.top + 24 }]}>

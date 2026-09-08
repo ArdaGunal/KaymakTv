@@ -98,3 +98,8 @@ netlify.toml
 .netlify/
 .vercelignore
 .easignore
+
+# Yerel release imzasi (plugins/withReleaseSigning.js) — ASLA git.e girmez
+credentials/*
+!credentials/README.md
+!credentials/keystore.properties.example

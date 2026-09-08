@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useKaymakYetenekleri } from '../hooks/useKaymakYetenekleri';
 import RatingModal from './modals/RatingModal';
 import OptionsModal from './modals/OptionsModal';
 import { formatRuntime } from '../utils/formatters';
@@ -71,6 +72,7 @@ export default function MediaHero({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
+  const { ozelListeler } = useKaymakYetenekleri();
   const { showProgressMap } = useLibrary();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
@@ -184,6 +186,7 @@ export default function MediaHero({
           onOpenRating={openRating}
           onToggleFavorite={handleToggleFavorite}
           onOpenList={openList}
+          ozelListeler={ozelListeler}
           onToggleFollow={handleToggleFollow}
         />
       ) : (
@@ -284,14 +287,18 @@ export default function MediaHero({
                 modalını açar. (Eskiden mobilde dokunmak izleme listesine ekliyor,
                 liste için basılı tutmak gerekiyordu — kafa karıştırıcıydı.
                 İzleme listesi hâlâ "..." menüsünden erişilebilir.) */}
-            <TouchableOpacity
-              style={[styles.userRatingBadge, styles.iconOnlyBadge]}
-              activeOpacity={0.7}
-              onPress={openList}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <ListPlus size={16} color="#a3a3a3" />
-            </TouchableOpacity>
+            {/* Kaymak hesabında gizli — özel liste altyapısı T1'in kapsamı
+                dışında (bkz. useKaymakYetenekleri). */}
+            {ozelListeler && (
+              <TouchableOpacity
+                style={[styles.userRatingBadge, styles.iconOnlyBadge]}
+                activeOpacity={0.7}
+                onPress={openList}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <ListPlus size={16} color="#a3a3a3" />
+              </TouchableOpacity>
+            )}
           </View>
           
           {hasProgress && (
@@ -383,12 +390,17 @@ export default function MediaHero({
         onRewatch={onRewatch}
       />
 
-      <AddToListModal
-        visible={listModalVisible}
-        onClose={() => setListModalVisible(false)}
-        mediaId={data?.ids?.trakt}
-        mediaType={type}
-      />
+      {/* Modal da koşullu: rozeti gizleyip modalı bırakmak, `openList`e
+          ulaşan başka bir yol çıktığında sessizce çalışmayan bir ekran
+          açardı. */}
+      {ozelListeler && (
+        <AddToListModal
+          visible={listModalVisible}
+          onClose={() => setListModalVisible(false)}
+          mediaId={data?.ids?.trakt}
+          mediaType={type}
+        />
+      )}
     </View>
   );
 }

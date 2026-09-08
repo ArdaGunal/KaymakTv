@@ -4,6 +4,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } 
 import MovieCard from '../../../components/movies/MovieCard';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import { useAuth } from '../../../context/AuthContext';
+import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { useLibrarySelector, useLibraryActions } from '../../../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +29,8 @@ export default function MoviesScreenWeb() {
   const [finishedMovieName, setFinishedMovieName] = useState('');
 
   const { accessToken, isGuest, authProvider } = useAuth();
+
+  const { kutuphane } = useKaymakYetenekleri();
   const [refreshing, setRefreshing] = useState(false);
 
   // Katı seçici: yalnızca film dilimleri — showProgressMap vb. değiştiğinde bu ekran render OLMAZ.
@@ -114,7 +117,10 @@ export default function MoviesScreenWeb() {
   // create_new — bkz. docs/HISTORY.md Madde 221. Google-only (Trakt'sız)
   // kullanıcı: masaüstü Filmler görünümü de mobil eşdeğeriyle (MoviesMobile)
   // AYNI kısıtlamaya tabi — kişisel Trakt senkron verisi gerektirir.
-  if (authProvider === 'google') {
+  // 🔓 KAPI AÇILDI (2026-09-07, Madde 318). Kütüphane OKUMA yolu artık var
+  // (`kaymakSync.ts`); Madde 221'in gerekçesi düştü.
+  // 🔴 Koşulu buraya geri yazma — karar `useKaymakYetenekleri`'nde TEK yerde.
+  if (!kutuphane) {
     return (
       <View style={styles.pageBackground}>
         <View style={[styles.container, { paddingTop: insets.top + 24 }]}>

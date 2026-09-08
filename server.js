@@ -69,6 +69,9 @@ const { startBackupSchedule } = require('./server/archive/backup');
 // (Madde 288) ama bu bir fotoğraftı: kullanıcılar yeni yapım işaretledikçe
 // düşer. Bu zamanlayıcı olmadan A4'ün dayandığı kapsam sayısı bayatlar.
 const { startBackfillSchedule } = require('./server/archive/backfillSchedule');
+// Faz T · T0.3 — katalog kimlik aynası (Pi → Worker → Supabase). Kullanıcı
+// verisi `kaymak_id` ile bağlanacak ve Supabase o kimliği ÇÖZEBİLMELİ.
+const { startMirrorSchedule } = require('./server/archive/mirrorSchedule');
 
 const app = express();
 const PORT = process.env.PORT || 4830;
@@ -116,10 +119,15 @@ startSweeperSchedule();
 // zaten tembel başlatıyor). Davranışı değiştirmez.
 initArchive();
 startBackupSchedule();
-// 🔴 SIRA ÖNEMLİ DEĞİL (üçü de yalnızca zamanlayıcı kurar, iş yapmaz) ama
+// 🔴 SIRA ÖNEMLİ DEĞİL (dördü de yalnızca zamanlayıcı kurar, iş yapmaz) ama
 // PENCERELER önemli ve çakışmıyor: backfill 02-04, süpürücü 04-06,
-// yedek 05-07. Gerekçesi `backfillSchedule.js` başlığında.
+// yedek 05-07, AYNA 07-09. Gerekçesi `backfillSchedule.js` ve
+// `mirrorSchedule.js` başlıklarında.
 startBackfillSchedule();
+// Ayna EN SONA konuldu: gecenin backfill'i 04:00'te biter, ayna 07:00'de
+// onu da alır — yani yeni veri AYNI SABAH aynalanmış olur. Öne alsaydık her
+// gece bir gün gecikirdi ve T0'ın "ayna gecikmesi < 24 saat" ölçütü sıkışırdı.
+startMirrorSchedule();
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır

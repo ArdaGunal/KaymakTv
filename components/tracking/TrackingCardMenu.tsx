@@ -16,6 +16,7 @@ import { MoreVertical, PauseCircle, ListPlus, Heart, Share2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { useAuth } from '../../context/AuthContext';
+import { useKaymakYetenekleri } from '../../hooks/useKaymakYetenekleri';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import AddToListModal from '../AddToListModal';
 
@@ -36,7 +37,12 @@ interface TrackingCardMenuProps {
 const MENU_WIDTH = 240;
 const EDGE_MARGIN = 12;
 const ROW_HEIGHT = 46;
-const ROW_COUNT = 5; // Bırakılanlara Ekle, Listeye Ekle, Favorilere Ekle, Paylaş, Vazgeç
+// 🔴 SABİT DEĞİL: menünün YÜKSEKLİĞİNİ bu sayı belirliyor ve yükseklik,
+// menünün ekrana sığacak şekilde nereye açılacağını hesaplıyor. Kaymak
+// hesabında "Listeye Ekle" satırı gizleniyor (bkz. useKaymakYetenekleri);
+// sayıyı 5'te bırakmak menüyü olduğundan uzun sanıp gereksiz yukarı
+// kaydırırdı — görünür bir hizalama hatası.
+const ROW_COUNT_TAM = 5; // Bırakılanlara Ekle, Listeye Ekle, Favorilere Ekle, Paylaş, Vazgeç
 
 // Afiş kartlarındaki 3-nokta menüsü. Eskiden tam ekran bir bottom-sheet'ti —
 // uzun bir listede en üstteki bir kart için bile menü hep ekranın en altında
@@ -63,6 +69,7 @@ const TrackingCardMenu = memo(
   ({ id, title, mediaType, tmdbId, slug, onToggleDropped, style }: TrackingCardMenuProps) => {
     const { t } = useTranslation(['media', 'common']);
     const { isGuest } = useAuth();
+    const { ozelListeler } = useKaymakYetenekleri();
     const insets = useSafeAreaInsets();
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const triggerRef = useRef<View>(null);
@@ -135,7 +142,7 @@ const TrackingCardMenu = memo(
     // altına/üstüne veya kenarlarına taşacaksa (özellikle alt navigasyon
     // çubuğunun arkasına düşmemesi için `insets.bottom` hesaba katılarak)
     // sığacak şekilde kaydırılır.
-    const estimatedMenuHeight = ROW_COUNT * ROW_HEIGHT + 12;
+    const estimatedMenuHeight = (ozelListeler ? ROW_COUNT_TAM : ROW_COUNT_TAM - 1) * ROW_HEIGHT + 12;
     const minTop = insets.top + EDGE_MARGIN;
     const maxTop = Math.max(screenHeight - insets.bottom - estimatedMenuHeight - EDGE_MARGIN, minTop);
     const top = Math.min(Math.max(anchor.y + anchor.height + 6, minTop), maxTop);
@@ -169,10 +176,14 @@ const TrackingCardMenu = memo(
                 <Text style={styles.menuItemText}>{t('stopWatching')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={openListModal}>
-                <ListPlus size={18} color="#f1f5f9" />
-                <Text style={styles.menuItemText}>{t('addToList')}</Text>
-              </TouchableOpacity>
+              {/* Kaymak hesabında özel liste altyapısı henüz yok — satır hiç
+                  gösterilmiyor (kullanıcı kararı: uyarı değil gizleme). */}
+              {ozelListeler && (
+                <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={openListModal}>
+                  <ListPlus size={18} color="#f1f5f9" />
+                  <Text style={styles.menuItemText}>{t('addToList')}</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleToggleFavorite}>
                 <Heart size={18} color={isFavorited ? '#ef4444' : '#f1f5f9'} fill={isFavorited ? '#ef4444' : 'transparent'} />
@@ -195,7 +206,9 @@ const TrackingCardMenu = memo(
           </Pressable>
         </Modal>
 
-        <AddToListModal visible={listModalVisible} onClose={() => setListModalVisible(false)} mediaId={id} mediaType={mediaType} />
+        {ozelListeler && (
+          <AddToListModal visible={listModalVisible} onClose={() => setListModalVisible(false)} mediaId={id} mediaType={mediaType} />
+        )}
       </>
     );
   }

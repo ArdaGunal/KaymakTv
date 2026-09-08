@@ -8,6 +8,18 @@ import {
   addToWatchlistTrakt,
   getShowProgress,
 } from '../../traktApi';
+// ==========================================================================
+// 🎯 ADAPTÖR — Faz T · T1 (kullanıcı kararı, 2026-09-07)
+// ==========================================================================
+// Bu dosya `BACKLOG.md` §B'de DONDURULMUŞ'tu. Kilit YALNIZCA aşağıdaki
+// yönlendirme mantığı için açıldı; 400 satır kuralı için genel bir refactor
+// ya da temizlik YAPILMADI.
+//
+// 🔴 UI HİÇBİR ŞEYİN DEĞİŞTİĞİNİ BİLMEZ. Bileşenler hâlâ
+// `markEpisodeAsWatched(showId, season, episode)` çağırıyor; token tipine
+// göre Trakt'a mı bizim API'ye mi gideceği kararı BU DOSYADA veriliyor.
+import * as libraryApi from '../../api/library';
+import { bolumleriIsaretle, sezonuIsaretle, bolumleriGeriAl } from './optimistikIlerleme';
 import { fetchFreshData } from '../fetchers';
 import {
   CACHE_KEYS,
@@ -106,37 +118,205 @@ const reactivateShowTracking = (showId: number) => {
   });
 };
 
+// ==========================================================================
+// 🔴 İLERLEME TAZELEME — adaptörün İKİNCİ (ve kolayca atlanan) ayağı
+// ==========================================================================
+// Aşağıdaki fonksiyonların HEPSİ yazma sonrası `getShowProgress(showId)`
+// çağırıyor — bu bir TRAKT isteğidir. Google-only kullanıcının elinde Trakt
+// token'ı YOK; o çağrı 401 döner, fonksiyon `catch`e düşer ve iyimser UI
+// GERİ ALINIR. Yani yazma BAŞARILI olsa bile kullanıcı "olmadı" görürdü.
+//
+// Yalnızca yazma çağrısını yönlendirip bunu atlamak, T1'i sessizce çalışmaz
+// hâlde bırakırdı.
+//
+// ✅ ÇÖZÜLDÜ (M319): artık Kaymak kullanıcısında da GERÇEK ilerleme
+// çekiliyor — `libraryApi.fetchShowProgress(showId)`, Worker'ın
+// `/library/sync` ucunun tek dizilik kipi. Şekil Trakt'ınkiyle aynı.
+//
+// 🔴 ÖNCEKİ TUR NEDEN YETMEDİ: iyimser durumu döndürüp bırakıyorduk.
+// Ama iyimser güncelleme (aşağıda) YALNIZCA `next_episode.number`'ı
+// artırıyor; `seasons[].episodes[].completed`'a HİÇ dokunmuyor. Takip
+// kartı `next_episode` okuyor (ilerliyordu ✅), dizi detay ekranı
+// `seasons[].episodes[].completed` okuyor (`useShowDetail.ts:212`) —
+// işaretlenen bölüm "izlenmemiş" görünmeye devam ediyordu. İki farklı
+// alan, tek güncelleme.
+const kaymakYoluMu = () => libraryApi.kaymakKullanicisiMi();
+
+/** Mağazadaki mevcut ilerleme — tazeleme başarısız olursa geri düşülür. */
+const mevcutIlerleme = (showId: number) =>
+  (useLibraryStore.getState() as any)?.showProgressMap?.[showId] ?? null;
+
+/**
+ * Kaymak kullanıcısı için ilerlemeyi SUNUCUDAN tazeler, mağazaya yazar ve
+ * döndürür — Trakt dalındaki `getShowProgress` + `setShowProgressMap`
+ * ikilisinin karşılığı.
+ *
+ * ⚠️ HATA YUTULUYOR, BİLİNÇLİ: yazma ZATEN BAŞARILI olmuştur (bu fonksiyon
+ * ancak ondan sonra çağrılıyor). Tazeleme başarısız diye `catch`e düşüp
+ * iyimser durumu GERİ ALMAK, kalıcı olarak yazılmış bir işaretlemeyi
+ * ekrandan silmek olurdu — kullanıcı "olmadı" sanıp tekrar işaretler ve
+ * hayalet yeniden-izleme satırı üretir (M318'de tam olarak bu yaşandı).
+ */
+// ==========================================================================
+// 🏁 YARIŞ KORUMASI — bayat tazeleme, taze iyimser durumu EZMESİN (M322)
+// ==========================================================================
+// Kullanıcı hızlı işaretlediğinde görülen "E7 oldu, E6'ya geri döndü":
+//
+//   t=0    E5 işaretle → iyimser: sıradaki E6 → tazeleme R1 gider
+//   t=200  E6 işaretle → iyimser: sıradaki E7 → tazeleme R2 gider
+//   t=1000 R1 DÖNER — ama sunucuda E6 YAZILMADAN ÖNCE hesaplanmıştı:
+//          "E5 izlendi, sıradaki E6" → mağazaya yazılır → EKRAN GERİ DÜŞER
+//
+// 🔴 UI'I YAVAŞLATMAK BU HATAYI GİZLER, ÇÖZMEZ. Yarış ağ gecikmesinde;
+// kullanıcı yeterince hızlıysa hangi eşiği koyarsak koyalım tekrar açılır.
+//
+// İki parçalı çözüm:
+//   1. NESİL SAYACI — her mutasyon diziye ait sayacı artırır. Tazeleme
+//      döndüğünde sayaç değiştiyse yanıt BAYATTIR ve ATILIR.
+//   2. GECİKMELİ TAZELEME — arka arkaya işaretlemeler tek bir tazelemede
+//      birleşir. Hem istek sayısı düşer (oran sınırı!) hem de çalışan tek
+//      tazeleme SON yazmadan sonra olur.
+const ilerlemeNesli = new Map<number, number>();
+const bekleyenTazeleme = new Map<number, ReturnType<typeof setTimeout>>();
+
+/** Kullanıcı arka arkaya basarken tazelemeleri birleştirme penceresi. */
+const TAZELEME_GECIKMESI_MS = 700;
+
+/** Bir mutasyon başladı — bu diziye ait uçuştaki tazelemeler bayatladı. */
+const nesliArtir = (showId: number) => {
+  const n = (ilerlemeNesli.get(showId) ?? 0) + 1;
+  ilerlemeNesli.set(showId, n);
+  return n;
+};
+
+/**
+ * Tazelemeyi GECİKTİREREK planlar. Aynı dizi için bekleyen bir tazeleme
+ * varsa iptal edilir — 10 bölümü hızlıca işaretleyen kullanıcı 10 değil
+ * TEK istek üretir.
+ *
+ * ⚠️ Ateşle-unut: çağıran beklemez. İyimser durum zaten doğru (M321);
+ * tazelemenin tek işi sunucuyla teyit etmek.
+ */
+const tazelemeyiPlanla = (showId: number) => {
+  // 🔴 İYİMSER DURUMU HEMEN DİSKE YAZ — tazeleme artık BEKLENMİYOR ve
+  // kalıcılığı o yapıyordu. Yazmazsak: kullanıcı işaretler, uygulamayı
+  // hemen kapatır, 10 dakikalık TTL yüzünden açılışta senkron ATLANIR ve
+  // önbellekten yüklenen harita o işareti taşımaz — sunucuda kayıt VAR
+  // ama ekranda YOK. Dar ama gerçek bir pencere.
+  persistShowProgressMap(useLibraryStore.getState().showProgressMap);
+
+  const mevcut = bekleyenTazeleme.get(showId);
+  if (mevcut) clearTimeout(mevcut);
+  bekleyenTazeleme.set(
+    showId,
+    setTimeout(() => {
+      bekleyenTazeleme.delete(showId);
+      void kaymakIlerlemeTazele(showId, ilerlemeNesli.get(showId) ?? 0);
+    }, TAZELEME_GECIKMESI_MS),
+  );
+};
+
+const kaymakIlerlemeTazele = async (showId: number, beklenenNesil?: number) => {
+  try {
+    const taze = await libraryApi.fetchShowProgress(showId);
+
+    // 🔴 BAYAT YANIT KONTROLÜ — ağ turu sırasında kullanıcı yeni bir bölüm
+    // işaretlediyse bu yanıt onu BİLMİYOR. Yazmak, kullanıcının az önce
+    // yaptığı işi ekrandan geri almak olurdu (bildirilen "E7 → E6" hatası).
+    if (beklenenNesil !== undefined && (ilerlemeNesli.get(showId) ?? 0) !== beklenenNesil) {
+      return mevcutIlerleme(showId);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // 🔴 İKİ SESSİZ ÇIKIŞ KAPATILDI (M320)
+    // ══════════════════════════════════════════════════════════════════
+    // Buradaki `if (!taze) return` HİÇBİR iz bırakmıyordu: `logError` yok,
+    // `console.warn` da üretim derlemesinde siliniyor. Yani "tazeleme
+    // çalıştı ama boş döndü" senaryosunun cihazda GÖZLEMLENEBİLİR TEK BİR
+    // İZİ yoktu — tam olarak aradığımız semptomu üreten kör nokta.
+    if (!taze) {
+      logError(
+        'mutations.progress.kaymakIlerlemeTazele',
+        new Error(`Sunucu bu dizi için ilerleme döndürmedi (showId=${showId}).`),
+      );
+      return mevcutIlerleme(showId);
+    }
+
+    // 🔴 BOŞ İLERLEME MAĞAZAYI EZMESİN. Sunucu 200 + `seasons: []`
+    // döndürebilir (ör. aynada o dizinin sezon/bölümleri yoksa — ölçüldü:
+    // 541 dizinin 18'i böyle). Bunu yazsaydık VAR OLAN tüm tikler silinirdi
+    // ve kullanıcı ilerlemesini kaybederdi. Elimizde dolu bir kayıt varken
+    // boş bir kayıtla değiştirmek her koşulda yanlış.
+    const oncekiSezonSayisi = mevcutIlerleme(showId)?.seasons?.length ?? 0;
+    if ((taze.seasons?.length ?? 0) === 0 && oncekiSezonSayisi > 0) {
+      logError(
+        'mutations.progress.kaymakIlerlemeTazele',
+        new Error(`Sunucu BOŞ ilerleme döndürdü, mevcut korunuyor (showId=${showId}).`),
+      );
+      return mevcutIlerleme(showId);
+    }
+
+    setShowProgressMap((prev: any) => {
+      const guncel = { ...prev, [showId]: taze };
+      persistShowProgressMap(guncel);
+      return guncel;
+    });
+    return taze;
+  } catch (e) {
+    // ⚠️ `console.warn` üretimde SİLİNİYOR — tek kalıcı iz `logError`.
+    logError('mutations.progress.kaymakIlerlemeTazele', e);
+    return mevcutIlerleme(showId);
+  }
+};
+
 export const markEpisodeAsWatched = async (showId: number, season: number, episode: number) => {
   let previousState: any = null;
+  let optimistikProgress: any = null;
+  const kaymak = await kaymakYoluMu();
+  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
+  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
+  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
+  if (kaymak) nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Bölüm UI'da işaretleniyor: Show ${showId}, S${season}E${episode}`);
   reactivateShowTracking(showId);
 
+  const iyimserDamga = nowStamp();
+
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
 
-    const currentProgress = prev[showId];
-    if (!currentProgress || !currentProgress.next_episode) return prev;
+    // ══════════════════════════════════════════════════════════════════
+    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — eskiden BURASI YARIMDI
+    // ══════════════════════════════════════════════════════════════════
+    // Eski hâli YALNIZCA `next_episode.number`'ı artırıyordu. Ama
+    // `seasons[].episodes[].completed`'ı ÜÇ tüketici okuyor:
+    //   1. bölüm listesindeki yeşil tik (`useShowDetail.ts:212`)
+    //   2. "bu bölüm izlendi mi" (`useEpisodeActions.ts:54`)
+    //   3. 🔴 "ATLANAN BÖLÜM VAR MI" (`useEpisodeActions.ts:103`)
+    //
+    // Üçüncüsü kullanıcının bildirdiği hatayı üretiyordu: arka arkaya
+    // bölüm işaretleyen kullanıcı, önceki işaretlemenin sunucu turu
+    // dönmeden sonrakine basıyor; kontrol `completed: false` görüp
+    // "atladın mı?" diye soruyordu — hâlbuki az önce işaretlenmişti.
+    const yamali = bolumleriIsaretle(prev[showId], season, [episode], iyimserDamga);
+    if (!yamali) return prev;   // elde ilerleme yok — sunucu turunu bekle
 
-    const optimisticProgress = {
-      ...currentProgress,
-      next_episode: {
-        ...currentProgress.next_episode,
-        number: currentProgress.next_episode.number + 1,
-        title: 'Kaydediliyor...',
-      },
-    };
-
-    return { ...prev, [showId]: optimisticProgress };
+    optimistikProgress = yamali;
+    return { ...prev, [showId]: yamali };
   });
 
   // Damga Trakt'a ve Akış'a AYNI gönderilir (bkz. dosya başındaki not).
   const watchedAt = nowStamp();
 
   try {
-    console.log(`[API REQUEST] Trakt'a gönderiliyor...`);
-    await addEpisodeToHistory(showId, season, episode, watchedAt);
-    console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
+    if (kaymak) {
+      await libraryApi.markEpisodeWatched(showId, season, episode, watchedAt);
+    } else {
+      console.log(`[API REQUEST] Trakt'a gönderiliyor...`);
+      await addEpisodeToHistory(showId, season, episode, watchedAt);
+      console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
+    }
 
     const meta = showMetaFor(showId);
     publishActivities([
@@ -150,6 +330,25 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
         activityAt: watchedAt,
       },
     ]);
+
+    // 🔴 Kaymak kullanıcısında Trakt'a ilerleme SORULAMAZ (401) — bkz.
+    // yukarıdaki adaptör notu. İyimser durum zaten yazılı ve doğru.
+    if (kaymak) {
+      recordMutationResult('markEpisodeAsWatched', true);
+      // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
+      // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
+      // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
+      // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
+      //
+      // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
+      // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
+      // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
+      const nesil = ilerlemeNesli.get(showId) ?? 0;
+      const yerel = mevcutIlerleme(showId);
+      if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
+      tazelemeyiPlanla(showId);
+      return yerel;
+    }
 
     let newProgress = await getShowProgress(showId);
 
@@ -189,30 +388,32 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
 
 export const unwatchEpisode = async (showId: number, season: number, episode: number) => {
   let previousState: any = null;
+  const kaymak = await kaymakYoluMu();
+  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
+  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
+  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
+  if (kaymak) nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Bölüm UI'da Kaldırılıyor: Show ${showId}, S${season}E${episode}`);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
 
-    const currentProgress = prev[showId];
-    if (!currentProgress || !currentProgress.next_episode) return prev;
-
-    const optimisticProgress = {
-      ...currentProgress,
-      next_episode: {
-        ...currentProgress.next_episode,
-        number: Math.max(1, episode),
-        title: 'Geri Alınıyor...',
-      },
-    };
-
-    return { ...prev, [showId]: optimisticProgress };
+    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
+    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
+    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
+    const yamali = bolumleriGeriAl(prev[showId], season, [episode]);
+    if (!yamali) return prev;
+    return { ...prev, [showId]: yamali };
   });
 
   try {
     console.log(`[API REQUEST] Trakt'tan Bölüm Siliniyor...`);
-    await removeEpisodeFromHistoryTrakt(showId, season, episode);
+    if (kaymak) {
+      await libraryApi.unwatchEpisode(showId, season, episode);
+    } else {
+      await removeEpisodeFromHistoryTrakt(showId, season, episode);
+    }
     console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
 
     // Geri alınan bölüm akıştan da düşmeli — aksi halde kullanıcı "izlemedim"
@@ -227,6 +428,25 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
         a.showId === showId &&
         a.episodeNumber === removedCode
     );
+
+    // 🔴 Kaymak kullanıcısında Trakt'a ilerleme SORULAMAZ (401) — bkz.
+    // dosyadaki adaptör notu. İyimser durum zaten yazılı.
+    if (kaymak) {
+      recordMutationResult('unwatchEpisode', true);
+      // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
+      // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
+      // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
+      // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
+      //
+      // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
+      // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
+      // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
+      const nesil = ilerlemeNesli.get(showId) ?? 0;
+      const yerel = mevcutIlerleme(showId);
+      if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
+      tazelemeyiPlanla(showId);
+      return yerel;
+    }
 
     let newProgress = await getShowProgress(showId);
 
@@ -281,30 +501,32 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
 
 export const unwatchSeason = async (showId: number, season: number) => {
   let previousState: any = null;
+  const kaymak = await kaymakYoluMu();
+  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
+  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
+  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
+  if (kaymak) nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Sezon UI'da Kaldırılıyor: Show ${showId}, S${season}`);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
 
-    const currentProgress = prev[showId];
-    if (!currentProgress) return prev;
-
-    const optimisticProgress = {
-      ...currentProgress,
-      next_episode: {
-        season: season,
-        number: 1,
-        title: 'Sezon Geri Alınıyor...',
-      },
-    };
-
-    return { ...prev, [showId]: optimisticProgress };
+    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
+    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
+    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
+    const yamali = bolumleriGeriAl(prev[showId], season, 'tumu');
+    if (!yamali) return prev;
+    return { ...prev, [showId]: yamali };
   });
 
   try {
     console.log(`[API REQUEST] Trakt'tan Sezon Siliniyor...`);
-    await removeSeasonFromHistoryTrakt(showId, season);
+    if (kaymak) {
+      await libraryApi.unwatchSeason(showId, season);
+    } else {
+      await removeSeasonFromHistoryTrakt(showId, season);
+    }
     console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
 
     // Bkz. unwatchEpisode'daki aynı not — geri alınan sezonun TÜM bölümleri
@@ -316,6 +538,25 @@ export const unwatchSeason = async (showId: number, season: number) => {
         a.showId === showId &&
         !!a.episodeNumber?.startsWith(seasonPrefix)
     );
+
+    // 🔴 Kaymak kullanıcısında Trakt'a ilerleme SORULAMAZ (401) — bkz.
+    // dosyadaki adaptör notu. İyimser durum zaten yazılı.
+    if (kaymak) {
+      recordMutationResult('unwatchSeason', true);
+      // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
+      // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
+      // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
+      // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
+      //
+      // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
+      // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
+      // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
+      const nesil = ilerlemeNesli.get(showId) ?? 0;
+      const yerel = mevcutIlerleme(showId);
+      if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
+      tazelemeyiPlanla(showId);
+      return yerel;
+    }
 
     let newProgress = await getShowProgress(showId);
 
@@ -354,32 +595,58 @@ export const rewatchEpisode = async (showId: number, season: number, episode: nu
 
 export const markSeasonAsWatched = async (showId: number, season: number) => {
   let previousState: any = null;
+  const kaymak = await kaymakYoluMu();
+  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
+  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
+  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
+  if (kaymak) nesliArtir(showId);
   console.log(`[OPTIMISTIC UI] Sezon UI'da işaretleniyor: Show ${showId}, S${season}`);
   reactivateShowTracking(showId);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
 
-    const currentProgress = prev[showId];
-    if (!currentProgress || !currentProgress.next_episode) return prev;
-
-    const optimisticProgress = {
-      ...currentProgress,
-      next_episode: {
-        ...currentProgress.next_episode,
-        title: 'Kaydediliyor...',
-      },
-    };
-
-    return { ...prev, [showId]: optimisticProgress };
+    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
+    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
+    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
+    const yamali = sezonuIsaretle(prev[showId], season, nowStamp());
+    if (!yamali) return prev;
+    return { ...prev, [showId]: yamali };
   });
 
   const watchedAt = nowStamp();
 
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Sezon)...`);
-    await addSeasonToHistory(showId, season, watchedAt);
+    if (kaymak) {
+      await libraryApi.markSeasonWatched(showId, season, watchedAt);
+    } else {
+      await addSeasonToHistory(showId, season, watchedAt);
+    }
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
+
+    // 🔴 Kaymak kullanıcısında Trakt'a ilerleme SORULAMAZ (401) — bkz.
+    // dosyadaki adaptör notu. İyimser durum zaten yazılı.
+    // ⚠️ AKIŞ YAYINI ATLANIYOR: hangi bölümlerin işaretlendiğini ancak
+    // taze Trakt ilerlemesinden öğrenebiliyoruz. Kendi yazma olayımızdan
+    // akış üretmek T6'nın işi (plan: "akış üretimi bizim yazma olayımızdan
+    // doğmalı"). BACKLOG'a yazıldı — sessiz bir kayıp değil.
+    if (kaymak) {
+      recordMutationResult('markSeasonAsWatched', true);
+      // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
+      // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
+      // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
+      // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
+      //
+      // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
+      // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
+      // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
+      const nesil = ilerlemeNesli.get(showId) ?? 0;
+      const yerel = mevcutIlerleme(showId);
+      if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
+      tazelemeyiPlanla(showId);
+      return yerel;
+    }
 
     const newProgress = await getShowProgress(showId);
 
@@ -431,31 +698,34 @@ export const rewatchSeason = async (showId: number, season: number) => {
 
 export const markEpisodesUpToAsWatched = async (showId: number, season: number, episodes: number[]) => {
   let previousState: any = null;
+  const kaymak = await kaymakYoluMu();
+  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
+  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
+  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
+  if (kaymak) nesliArtir(showId);
   console.log(`[OPTIMISTIC UI] Bölümler toplu UI'da işaretleniyor: Show ${showId}, S${season}`);
   reactivateShowTracking(showId);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
 
-    const currentProgress = prev[showId];
-    if (!currentProgress || !currentProgress.next_episode) return prev;
-
-    const optimisticProgress = {
-      ...currentProgress,
-      next_episode: {
-        ...currentProgress.next_episode,
-        title: 'Kaydediliyor...',
-      },
-    };
-
-    return { ...prev, [showId]: optimisticProgress };
+    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
+    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
+    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
+    const yamali = bolumleriIsaretle(prev[showId], season, episodes, nowStamp());
+    if (!yamali) return prev;
+    return { ...prev, [showId]: yamali };
   });
 
   const watchedAt = nowStamp();
 
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Toplu Bölüm)...`);
-    await addEpisodesBulkToHistory(showId, season, episodes, watchedAt);
+    if (kaymak) {
+      await libraryApi.markEpisodesWatched(showId, season, episodes, watchedAt);
+    } else {
+      await addEpisodesBulkToHistory(showId, season, episodes, watchedAt);
+    }
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
 
     const meta = showMetaFor(showId);
@@ -470,6 +740,25 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
         activityAt: watchedAt,
       }))
     );
+
+    // 🔴 Kaymak kullanıcısında Trakt'a ilerleme SORULAMAZ (401) — bkz.
+    // dosyadaki adaptör notu. İyimser durum zaten yazılı.
+    if (kaymak) {
+      recordMutationResult('markEpisodesUpToAsWatched', true);
+      // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
+      // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
+      // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
+      // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
+      //
+      // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
+      // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
+      // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
+      const nesil = ilerlemeNesli.get(showId) ?? 0;
+      const yerel = mevcutIlerleme(showId);
+      if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
+      tazelemeyiPlanla(showId);
+      return yerel;
+    }
 
     const newProgress = await getShowProgress(showId);
 
@@ -539,9 +828,13 @@ export const markMovieAsWatched = async (movieId: number) => {
   const watchedAt = nowStamp();
 
   try {
-    console.log(`[API REQUEST] Trakt'a gönderiliyor (Film)...`);
-    await addMovieToHistory(movieId, watchedAt);
-    console.log(`[API SUCCESS] Film Trakt ile senkronize edildi.`);
+    if (await kaymakYoluMu()) {
+      await libraryApi.markMovieWatched(movieId, watchedAt);
+    } else {
+      console.log(`[API REQUEST] Trakt'a gönderiliyor (Film)...`);
+      await addMovieToHistory(movieId, watchedAt);
+      console.log(`[API SUCCESS] Film Trakt ile senkronize edildi.`);
+    }
 
     // Film izlemeleri artık Akış'ta görünüyor (yeni `watched_movie` tipi) —
     // eskiden akış YALNIZCA bölüm izlemelerini ve puanlamaları taşıyordu,

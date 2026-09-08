@@ -27,6 +27,9 @@ interface MediaHeroWebViewProps {
   onOpenRating: () => void;
   onToggleFavorite: () => void;
   onOpenList: () => void;
+  /** Kaymak hesabında özel liste altyapısı yok — hap gizlenir.
+   *  🔴 Karar burada DEĞİL `MediaHero`'da alınır; bu bileşen saf görünüm. */
+  ozelListeler: boolean;
   onToggleFollow: () => void;
 }
 
@@ -58,6 +61,7 @@ export default function MediaHeroWebView({
   onOpenRating,
   onToggleFavorite,
   onOpenList,
+  ozelListeler,
   onToggleFollow,
 }: MediaHeroWebViewProps) {
   const { t } = useTranslation(['media', 'common']);
@@ -149,13 +153,15 @@ export default function MediaHeroWebView({
               <Heart size={17} color={isFavorited ? '#ef4444' : '#94a3b8'} fill={isFavorited ? '#ef4444' : 'transparent'} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[s.pill, s.pillIconOnly]}
-              onPress={onOpenList}
-              activeOpacity={0.75}
-            >
-              <ListPlus size={17} color="#94a3b8" />
-            </TouchableOpacity>
+            {ozelListeler && (
+              <TouchableOpacity
+                style={[s.pill, s.pillIconOnly]}
+                onPress={onOpenList}
+                activeOpacity={0.75}
+              >
+                <ListPlus size={17} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
 
           </View>
 

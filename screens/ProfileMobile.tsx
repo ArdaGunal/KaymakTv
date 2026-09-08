@@ -7,6 +7,7 @@ import { Heart, Settings, List as ListIcon, Tv, Film, Plus } from '../components
 import HorizontalShowList from '../components/HorizontalShowList';
 import { useAuth } from '../context/AuthContext';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
+import { useKaymakYetenekleri } from '../hooks/useKaymakYetenekleri';
 import { useRouter } from 'expo-router';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ListCard from '../components/profile/ListCard';
@@ -56,6 +57,7 @@ const SectionSkeleton = () => (
 
 export default function ProfileScreen() {
   const { accessToken, isGuest } = useAuth();
+  const { ozelListeler } = useKaymakYetenekleri();
   const router = useRouter();
   const { t } = useTranslation('media');
   const insets = useSafeAreaInsets();
@@ -165,7 +167,11 @@ export default function ProfileScreen() {
             <ProfileStats />
 
             {/* Listelerim — her zaman görünür bölüm: doluysa kartlar, boşsa davetkâr
-                bilgilendirici kart, veri gelmemişse iskelet. */}
+                bilgilendirici kart, veri gelmemişse iskelet.
+                ⚠️ "Her zaman" artık Kaymak hesabını KAPSAMIYOR: orada özel liste
+                altyapısı yok, boş durum kartı da kullanıcıyı çalışmayan bir
+                akışa davet ederdi (bkz. useKaymakYetenekleri). */}
+            {ozelListeler && (
             <View style={styles.listsSection}>
               <SectionHeader
                 title={t('myLists', 'Listelerim')}
@@ -194,6 +200,7 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
+            )}
 
             {/* Diziler — Tier 1 verisi, ilk gelen bölüm */}
             {shows.length > 0 ? (

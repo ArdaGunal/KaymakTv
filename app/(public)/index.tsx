@@ -12,6 +12,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { Globe, LogIn } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
+// 🗑️ GEÇİCİ — Faz T bitince bu import, aşağıdaki `useSecretTap` çağrısı ve
+// markayı saran `TouchableOpacity` silinecek (bkz. hooks/useSecretTap.ts).
+import { useSecretTap } from '../../hooks/useSecretTap';
 
 export default function LandingPage() {
   const { accessToken, isGuest, loginAsGuest } = useAuth();
@@ -20,6 +23,13 @@ export default function LandingPage() {
   const { t } = useTranslation('common');
   const router = useRouter();
   const { width } = useWindowDimensions();
+
+  // 🗑️ GEÇİCİ GİZLİ KAPI — markaya 7 kez basınca Google girişi açılır.
+  // 🔴 Kanca, aşağıdaki erken `return`'ün ÜSTÜNDE olmak zorunda: React
+  // kancaları koşullu çağrılamaz.
+  const { bas: markaBas } = useSecretTap({
+    onUnlock: () => router.push('/(public)/gizli-giris'),
+  });
 
   if (accessToken || isGuest) {
     return <Redirect href="/(protected)/(tabs)/explore" />;
@@ -37,10 +47,14 @@ export default function LandingPage() {
       {/* ── Sticky Navbar ─────────────────────────────────────────────── */}
       <View style={styles.navbar}>
         {/* Sol: Logo */}
-        <View style={styles.navBrand}>
+        {/* 🗑️ GEÇİCİ: `TouchableOpacity` sarmalayıcısı gizli kapı için.
+            Silinirken içindeki `View` olduğu gibi bırakılır.
+            `activeOpacity={1}` — dokunuşta hiçbir görsel geri bildirim YOK;
+            kapının gizli kalması buna bağlı. */}
+        <TouchableOpacity onPress={markaBas} activeOpacity={1} style={styles.navBrand}>
           <View style={styles.brandDot} />
           <Text style={styles.brandText}>KaymakTV</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Orta: Nav linkleri (sadece geniş ekran) */}
         {Platform.OS === 'web' && (

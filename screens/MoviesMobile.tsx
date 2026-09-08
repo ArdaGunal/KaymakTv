@@ -7,6 +7,7 @@ import LoginPaywall from '../components/LoginPaywall';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SyncErrorState from '../components/SyncErrorState';
 import { useAuth } from '../context/AuthContext';
+import { useKaymakYetenekleri } from '../hooks/useKaymakYetenekleri';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +28,8 @@ export default function MoviesScreen() {
 
   const { accessToken, isGuest, authProvider } = useAuth();
 
+
+  const { kutuphane } = useKaymakYetenekleri();
   // Katı seçici: yalnızca film dilimleri okunur; dizi/progress güncellemeleri bu ekranı render etmez.
   const { watchlistMovies, calendarMovies, isMoviesLoading, hiddenMovieIds, hasSyncError } = useLibrarySelector(s => ({
     watchlistMovies: s.watchlistMovies,
@@ -105,7 +108,14 @@ export default function MoviesScreen() {
   // create_new — bkz. docs/HISTORY.md Madde 221. Google-only (Trakt'sız)
   // kullanıcı: Filmler sekmesi kişisel Trakt senkron verisi gerektirdiği
   // için "Trakt'a bağla" boş durumu gösterilir.
-  if (authProvider === 'google') {
+  // 🔓 KAPI AÇILDI (2026-09-07, Madde 318). Eskiden burada
+  // `authProvider === 'google'` gören bir erken dönüş vardı ve "Trakt'a
+  // Bağlan" gösteriyordu — Madde 221'de doğruydu çünkü Kaymak hesabında
+  // kütüphane OKUMA yolu yoktu. Artık var (`kaymakSync.ts`).
+  //
+  // 🔴 KOŞULU BURAYA GERİ YAZMA. Kapı dört ekranda dört kopyaydı; karar
+  // artık `useKaymakYetenekleri`'nde TEK yerde (`kutuphane`).
+  if (!kutuphane) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LoginPaywall

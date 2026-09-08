@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { kaymakKullanicisiMi } from '../api/library';
+import { kaymakKutuphaneSenkronu } from './kaymakSync';
 import {
   getWatchedShows,
   getWatchedMovies,
@@ -235,6 +237,35 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
   if (!accessToken) {
     setIsLoading(false);
     setIsMoviesLoading(false);
+    return;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 🎯 ADAPTÖR — Faz T · T1 okuma (kullanıcı kararı, 2026-09-07)
+  // ══════════════════════════════════════════════════════════════════════
+  // Bu dosya `BACKLOG` §B'de DAR KAPSAMLI: kilit YALNIZCA bu yönlendirme
+  // için açık, genel refactor YAPILMIYOR. Senkronun kendisi bilinçli olarak
+  // ayrı bir dosyada (`kaymakSync.ts`) — buraya 250 satır eklemek o kararı
+  // ihlal ederdi.
+  //
+  // 🔴 AŞAĞIDAKİ HİÇBİR ŞEY ÇALIŞTIRILMIYOR. Google-only kullanıcının Trakt
+  // token'ı yok; `syncHiddenLists` dahil her çağrı 401 alır. Yalnızca yazma
+  // yolunu yönlendirip okumayı akışına bırakmak, T1'i sessizce çalışmaz
+  // hâlde bırakırdı (`progress.ts`'teki aynı ders).
+  if (await kaymakKullanicisiMi()) {
+    const now0 = Date.now();
+    if (!force && (now0 - lastFetchTimeRef.current < CACHE_TTL.SYNC_INTERVAL)) {
+      setIsLoading(false);
+      setIsMoviesLoading(false);
+      return;
+    }
+    const ok = await kaymakKutuphaneSenkronu();
+    // ⚠️ TTL yalnızca BAŞARIDA damgalanır — hata damgalansaydı kullanıcı
+    // bir sonraki denemeye kadar (10 dk) eski veriyle kilitlenirdi.
+    if (ok) {
+      lastFetchTimeRef.current = Date.now();
+      safeStorageSet(CACHE_KEYS.lastFetchTime, JSON.stringify(lastFetchTimeRef.current));
+    }
     return;
   }
 

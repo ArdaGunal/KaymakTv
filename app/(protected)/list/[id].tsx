@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAppBack } from '../../../hooks/useAppBack';
+import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { ChevronLeft, Trash2, List as ListIcon, Plus, X, Lock } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { getCustomListItems } from '../../../services/traktApi';
@@ -31,6 +32,7 @@ export default function ListDetailsScreen() {
   const router = useRouter();
   const handleBack = useAppBack();
   const { deleteListById, toggleMediaInList } = useLibraryActions();
+  const { ozelListeler } = useKaymakYetenekleri();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
@@ -45,7 +47,11 @@ export default function ListDetailsScreen() {
   // Favori listesi UI'da görünmemeli; varsayılan koleksiyon silinemez.
   const isLiked = isLikedList(listName);
   const isDefault = isDefaultList(listName);
-  const canDeleteList = !isLiked && !isDefault;
+  // ⚠️ Kaymak hesabında bu ekrana UI'dan ulaşılamaz (liste bölümleri gizli),
+  // ama derin bağlantı ve geri yığını hâlâ getirebilir. Yıkıcı eylemler o
+  // durumda görünmemeli — `collections.ts`'teki `listeKapisi` zaten hata
+  // fırlatırdı, ama kullanıcıya çalışmayan bir çöp kutusu göstermek yanlış.
+  const canDeleteList = !isLiked && !isDefault && ozelListeler;
 
   const mapItems = (data: any[]): ListItem[] =>
     (data || [])
@@ -147,14 +153,18 @@ export default function ListDetailsScreen() {
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.removeBtn}
-          onPress={() => handleRemoveItem(item)}
-          disabled={isRemoving}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          {isRemoving ? <ActivityIndicator size="small" /> : <X size={18} color="#94a3b8" />}
-        </TouchableOpacity>
+        {/* Aynı gerekçe `canDeleteList`'te yazılı: Kaymak hesabında liste
+            yazma yolu yok, çalışmayan bir kaldırma butonu gösterilmez. */}
+        {ozelListeler && (
+          <TouchableOpacity
+            style={styles.removeBtn}
+            onPress={() => handleRemoveItem(item)}
+            disabled={isRemoving}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            {isRemoving ? <ActivityIndicator size="small" /> : <X size={18} color="#94a3b8" />}
+          </TouchableOpacity>
+        )}
       </View>
     );
   };

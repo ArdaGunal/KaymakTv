@@ -8,6 +8,9 @@ import Head from 'expo-router/head';
 import { LandingCSS } from '../../components/public/index.web.styles';
 import { useNavScrollStyle, useScrollRevealObserver } from '../../components/public/index.web.hooks';
 import { useLandingPosterWall } from '../../hooks/useLandingPosterWall';
+// 🗑️ GEÇİCİ — Faz T bitince bu import, `useSecretTap` çağrısı ve logodaki
+// `onClick` ikinci çağrısı silinecek (bkz. hooks/useSecretTap.ts).
+import { useSecretTap } from '../../hooks/useSecretTap';
 import { Clapperboard, Calendar, Search, BarChart2, Star, List, Users, LogIn, Globe, Compass, Lock } from '../../components/icons';
 
 const POSTER_TILE_COUNT = 21;
@@ -18,6 +21,13 @@ export default function WebLandingPage() {
   const { accessToken, isGuest, loginAsGuest } = useAuth();
   const { currentLanguage, handleChangeLanguage } = useSettings();
   const [langModalVisible, setLangModalVisible] = useState(false);
+
+  // 🗑️ GEÇİCİ GİZLİ KAPI — logoya 7 kez basınca Google girişi açılır.
+  // Mobil vitrinle (app/(public)/index.tsx) AYNI davranış; ARCHITECTURE §E
+  // gereği bu ikili yalnızca GÖRSEL olarak farklılaşabilir.
+  const { bas: markaBas } = useSecretTap({
+    onUnlock: () => router.push('/(public)/gizli-giris'),
+  });
 
   const navStyle = useNavScrollStyle();
   useScrollRevealObserver();
@@ -110,7 +120,16 @@ export default function WebLandingPage() {
 
       <nav className="nav" style={navStyle}>
         <div className="kaymak-container">
-          <a onClick={() => window.scrollTo(0, 0)} className="logo">
+          {/* 🗑️ `markaBas()` GEÇİCİ. Mevcut `scrollTo` davranışı KORUNDU —
+              gizli kapı görünür davranışı değiştirmemeli, yoksa kapının
+              varlığı sezilir. */}
+          <a
+            onClick={() => {
+              window.scrollTo(0, 0);
+              markaBas();
+            }}
+            className="logo"
+          >
             <span className="dot"></span>KaymakTV
           </a>
           
