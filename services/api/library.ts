@@ -1,5 +1,12 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+// 🔴 `expo-secure-store` DEĞİL, PLATFORM FARKINDA SARMALAYICI (2026-09-10).
+// Web'de yerel bir anahtarlık yok; ham SecureStore orada FIRLATIYOR. Bu dosya
+// havuzdaki 13 token okuyucudan (`social.ts`, `traktClient.ts`, `feedPublish.ts`
+// …) sapan İKİ dosyadan biriydi ve sapma sessizdi: aşağıdaki
+// `kaymakKullanicisiMi` her web isteğinde `catch`'e düşüp `false` dönüyordu —
+// yani Google-only kullanıcının TÜM kütüphane yazmaları Trakt'a yönleniyor ve
+// 401 alıyordu. Web'e Faz T kodu hiç dağıtılmadığı için turlarca görünmedi.
+import * as SecureStore from '../../utils/secureStorage';
 
 import { isKaymakSessionToken } from './traktClient';
 

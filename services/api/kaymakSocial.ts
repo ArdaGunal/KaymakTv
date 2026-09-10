@@ -1,5 +1,9 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+// 🔴 `expo-secure-store` DEĞİL — web'de yerel anahtarlık yok, ham SecureStore
+// orada FIRLATIR. `utils/secureStorage` web'de `localStorage`'a düşüyor.
+// ⚠️ Bu tam olarak canlıda ısırdı (2026-09-10): web'de arama "Bir şeyler ters
+// gitti" veriyordu çünkü token okuması `try` bloğunun dışında fırlıyordu.
+import * as SecureStore from '../../utils/secureStorage';
 
 /**
  * SOSYAL API'si — Worker'ın `/social/*` uçlarının istemci tarafı.
@@ -70,9 +74,13 @@ export class KaymakAramaHatasi extends Error {
 export const searchKaymakUsers = async (query: string): Promise<KaymakUserSonucu[]> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
 
-  const token = await SecureStore.getItemAsync('traktAccessToken');
-
   try {
+    // ⚠️ TOKEN OKUMASI `try` İÇİNDE. Dışarıdayken depolama hatası düz bir
+    // `Error` olarak kaçıyor ve çağıran onu `genel`e düşürüyordu — kullanıcı
+    // "Bir şeyler ters gitti" görüyor, hangi katmanın düştüğü ise hiçbir
+    // yerde yazmıyordu.
+    const token = await SecureStore.getItemAsync('traktAccessToken');
+
     const res = await axios.post(
       `${KAYMAK_WORKER_URL}/social/search`,
       { query, traktAccessToken: token },
