@@ -18,17 +18,18 @@ import { isKaymakSessionToken } from './traktClient';
  *   ✅ `progress.ts` — izleme yazmaları
  *   ✅ `collections.ts` — izleme listesi · favori · gizleme · geçmiş silme
  *      (dizi dalı `unwatchShow` → `delete_watched_subtree`, migration 038)
- *   ✅ `fetchers.ts` → `kaymakSync.ts` — OKUMA. `POST /library/sync` izleme
- *      satırlarını döndürüyor, ilerlemeyi KATALOGDAN hesaplıyor (039'un
- *      `first_aired`'ı olmadan `aired` yanlış olurdu)
+ *   ✅ `fetchers.ts` → `kaymakSync.ts` — OKUMA. `POST /library/sync`:
+ *      · izleme + ilerleme (katalogdan hesaplanıyor; 039'un `first_aired`'ı
+ *        olmadan `aired` yanlış olurdu)
+ *      · **puanlar · izleme listesi · favoriler · gizlenenler** (2026-09-08)
  *   ❌ ÖZEL LİSTELER — Worker'da liste ailesi, DB'de `user_lists` YOK.
  *      Kapsam sürünmesini önlemek için ertelendi (`BACKLOG` §D8);
  *      UI'da gizli (`useKaymakYetenekleri`), serviste `listeKapisi` fırlatır
+ *   ❌ `state` (bırakıldı) — istemcide ne yazılıyor ne okunuyor; "Bırak"
+ *      eylemi `hidden`'a bağlı (`useTrackingStore`'un kendi notu)
  *
- * ⚠️ HÂLÂ TRAKT'TAN OKUNAN ŞEYLER VAR: puanlar, izleme listesi/favori
- * LİSTELERİ, takvim ve istatistikler `fetchers.ts`'in Trakt yolunda kaldı.
- * Kaymak kullanıcısında bunlar BOŞ gelir — yazma çalışıyor, geri okuma yok.
- * Sıradaki dilim bu (`BACKLOG` §C5).
+ * ⚠️ HÂLÂ TRAKT'TAN OKUNAN: takvim ("Yaklaşanlar") ve kullanıcı
+ * istatistikleri. Kaymak kullanıcısında bunlar BOŞ gelir.
  *
  * 🔴 UI HİÇBİR ŞEYİN DEĞİŞTİĞİNİ BİLMEZ (kullanıcı kararı, 2026-09-07).
  * Bileşenler hâlâ `markEpisodeAsWatched(showId, season, episode)` çağırıyor;
@@ -200,6 +201,21 @@ export const unwatchShow = (showId: number) =>
   istek('watched', { op: 'sil', trakt: { showId }, tumu: true });
 
 // ── Puan ──────────────────────────────────────────────────────────────────
+//
+// 🔴🔴 ÖLÇEK SÖZLEŞMESİ — BURADAN GEÇEN HER SAYI 1-10'DUR
+// ==========================================================================
+// UI **5 YILDIZ** gösteriyor ama dahili ölçek **1-10** (Trakt'la aynı):
+//   `StarSlider` `width / 10` adımla çalışır; tam yıldızda
+//   `Math.ceil(discrete / 2) * 2` ile ÇİFT sayıya oturur.
+//     5 yıldız → 10 · 4 yıldız → 8 · 4,5 yıldız → 9 (TEK sayı)
+//   Geri okurken `utils/formatRating.ts` İKİYE BÖLER.
+//
+// ⚠️ İKİYLE ÇARPMA. `StarSlider` zaten 1-10 döndürüyor; çağrı yerlerindeki
+// "tekrar ×2 yapılmamalı" notları bu yüzden var (geçmişte yaşanmış hata).
+//
+// 🔴 GELECEKTEKİ "KENDİ ORTALAMAMIZ" İŞİNE NOT (`BACKLOG` §D11): ham
+// `AVG(rating)` **10 üzerinden** gelir. Gösterime çevirmeden ikiye bölünmezse
+// kullanıcı "10/10" görür — sessiz ve utandırıcı bir hata.
 
 export const rateShow = (showId: number, rating: number) =>
   istek('rating', { op: 'ekle', trakt: { showId }, rating, ratedType: 'show' });
@@ -218,6 +234,21 @@ export const unrateMovie = (movieId: number) =>
 
 export const unrateEpisode = (showId: number, season: number, episode: number) =>
   istek('rating', { op: 'sil', trakt: { showId, season, episode } });
+
+/**
+ * Bölüm puanı — YALNIZCA bölüm Trakt kimliğiyle.
+ *
+ * 🔑 NEDEN AYRI: puanlama ekranları (`useShowDetailHandlers.handleRateEpisode`)
+ * yalnızca `episodeTraktId` taşıyor; sezon/bölüm numarası ellerinde YOK ve o
+ * kimlikten TÜRETİLEMEZ. Çağrı yerlerini imza değiştirmeye zorlamak yerine
+ * Worker çözüyor (`resolveTraktLocator` → `{ episodeId }`), ayna
+ * `trakt:episode` eşlemesini zaten taşıyor.
+ */
+export const rateEpisodeById = (episodeId: number, rating: number) =>
+  istek('rating', { op: 'ekle', trakt: { episodeId }, rating, ratedType: 'episode' });
+
+export const unrateEpisodeById = (episodeId: number) =>
+  istek('rating', { op: 'sil', trakt: { episodeId } });
 
 // ── Listeler ──────────────────────────────────────────────────────────────
 
@@ -316,6 +347,23 @@ export type KutuphaneYaniti = {
   }>;
   /** `true` → yanıt EKSİK olabilir (sunucu tavanı aşıldı). Sessiz kırpma yok. */
   kirpildi: boolean;
+
+  // ── Dört koleksiyon ailesi (T1 okuma, 2026-09-08) ─────────────────────
+  // 🔴 ŞEKİL İSTEMCİNİN MAĞAZASINA GÖRE, ölçülerek belirlendi:
+  //   `userRatingsShows` → `r.show.ids.trakt` · `useShowDetailHandlers.ts:42`
+  //   `userRatingsEpisodes` → `r.episode.ids.trakt` · `app/episode/[id].tsx:115`
+  //   `hiddenShowIds` → düz `number[]`
+  // ⚠️ `state` (bırakıldı) ailesi YOK — istemcide hiç yazılmıyor/okunmuyor
+  //    ("Bırak" eylemi `hidden`'a bağlı). Bkz. Worker `koleksiyonlar.js`.
+  puanDiziler: Array<{ show: any; rating: number }>;
+  puanFilmler: Array<{ movie: any; rating: number }>;
+  puanBolumler: Array<{ episode: { ids: { trakt: number } }; rating: number }>;
+  izlemeListesiDiziler: Array<{ listed_at: string | null; show: any }>;
+  izlemeListesiFilmler: Array<{ listed_at: string | null; movie: any }>;
+  favoriDiziler: Array<{ listed_at: string | null; show: any }>;
+  favoriFilmler: Array<{ listed_at: string | null; movie: any }>;
+  gizliDiziler: number[];
+  gizliFilmler: number[];
 };
 
 /**
@@ -341,11 +389,21 @@ export const syncLibrary = async (): Promise<KutuphaneYaniti> => {
     { headers: { 'Content-Type': 'application/json' }, timeout: 30000 },
   );
   const d = res.data || {};
+  const dizi = (x: any) => (Array.isArray(x) ? x : []);
   return {
     success: d.success === true,
-    diziler: Array.isArray(d.diziler) ? d.diziler : [],
-    filmler: Array.isArray(d.filmler) ? d.filmler : [],
+    diziler: dizi(d.diziler),
+    filmler: dizi(d.filmler),
     kirpildi: d.kirpildi === true,
+    puanDiziler: dizi(d.puanDiziler),
+    puanFilmler: dizi(d.puanFilmler),
+    puanBolumler: dizi(d.puanBolumler),
+    izlemeListesiDiziler: dizi(d.izlemeListesiDiziler),
+    izlemeListesiFilmler: dizi(d.izlemeListesiFilmler),
+    favoriDiziler: dizi(d.favoriDiziler),
+    favoriFilmler: dizi(d.favoriFilmler),
+    gizliDiziler: dizi(d.gizliDiziler),
+    gizliFilmler: dizi(d.gizliFilmler),
   };
 };
 

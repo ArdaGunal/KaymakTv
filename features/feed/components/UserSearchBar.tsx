@@ -22,6 +22,10 @@ export default function UserSearchBar({
 }: UserSearchBarProps) {
   const { t } = useTranslation('feed');
 
+  // 🪪 Arama artık YALNIZCA KaymakTV kullanıcı adı kabul ediyor — Trakt
+  // profil linki ayrıştırma kaldırıldı ("EVRENSEL KAYMAK KİMLİĞİ" ilkesi:
+  // adresleme anahtarı `username`, Trakt slug'ı değil). Yer tutucu metni
+  // bunu söylemek zorunda, yoksa kullanıcı link yapıştırıp boş sonuç alır.
   return (
     <View style={styles.box}>
       <TouchableOpacity onPress={onSubmit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -32,7 +36,7 @@ export default function UserSearchBar({
         value={query}
         onChangeText={onChangeQuery}
         onSubmitEditing={onSubmit}
-        placeholder={t('searchPlaceholder', 'Kullanıcı adı veya Trakt profil linki')}
+        placeholder={t('searchPlaceholder', 'KaymakTV kullanıcı adı')}
         placeholderTextColor="#64748b"
         autoCapitalize="none"
         autoCorrect={false}

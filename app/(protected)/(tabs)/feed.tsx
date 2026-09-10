@@ -7,7 +7,7 @@ import FeedCard from '../../../features/feed/components/FeedCard';
 import MarathonFeedCard from '../../../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import UserSearchBar from '../../../features/feed/components/UserSearchBar';
-import UserProfileCard from '../../../features/feed/components/UserProfileCard';
+import UserSearchResults from '../../../features/feed/components/UserSearchResults';
 import ComposePostBar from '../../../features/feed/components/ComposePostBar';
 import ComposePostModal from '../../../features/feed/components/ComposePostModal';
 import SectionErrorBoundary from '../../../components/SectionErrorBoundary';
@@ -43,7 +43,10 @@ export default function FeedScreen() {
   const { accessToken, isGuest } = useAuth();
   const [composeVisible, setComposeVisible] = useState(false);
 
-  const hasSearchResult = !!search.profile || !!search.error;
+  // ⚠️ `results !== null` — `!!results` DEĞİL. Boş dizi ("arandı, kimse
+  // yok") falsy'dir; `!!` ile yazılsaydı "bulunamadı" mesajı hiç
+  // görünmez, arama sessizce hiçbir şey yapmamış gibi dururdu.
+  const hasSearchResult = search.results !== null || !!search.error;
 
   // "N yeni gönderi" — kullanıcı listeyi kaydırmışken canlı bir aktivite
   // geldiğinde içeriği ayağının altından KAYDIRMAK yerine (okuduğu yeri
@@ -188,14 +191,7 @@ export default function FeedScreen() {
         )}
 
         {hasSearchResult && (
-          <UserProfileCard
-            profile={search.profile}
-            error={search.error}
-            connectionState={search.connectionState}
-            isLoadingConnection={search.isLoadingConnection}
-            isFollowPending={search.isFollowPending}
-            onToggleFollow={search.toggleFollow}
-          />
+          <UserSearchResults results={search.results} error={search.error} />
         )}
 
         {isLoading ? (

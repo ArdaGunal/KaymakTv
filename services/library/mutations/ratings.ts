@@ -1,4 +1,15 @@
 import { addRating, removeRating } from '../../traktApi';
+// ==========================================================================
+// 🎯 ADAPTÖR — Faz T · T1 (2026-09-09)
+// ==========================================================================
+// 🔴 BU DOSYA M317'DE ATLANDI. `progress.ts` ve `collections.ts` adapte
+// edildi, puanlama YOLU GÖZDEN KAÇTI — Kaymak kullanıcısında puan vermek
+// doğrudan Trakt'a gidip 401 alıyordu (kullanıcı cihazda bildirdi).
+//
+// ⚠️ DERS: "yazma yollarını adapte ettim" demek, mutasyon KLASÖRÜNÜN
+// tamamını taramak demektir. İki dosyaya bakıp üçüncüyü varsaymak yetmedi.
+import * as libraryApi from '../../api/library';
+import { logError } from '../../../utils/errorLog';
 import { resolveMediaMeta } from '../mediaMeta';
 import { publishActivities, retractLocalActivity, nowStamp } from '../../../features/feed/services/feedPublish';
 import {
@@ -67,11 +78,52 @@ export const removeLocalRating = (id: number, type: 'show' | 'movie' | 'episode'
 // /sync/ratings/{shows,movies}); bölüm puanı için `addRating` doğrudan
 // çağrılmaya devam eder.
 // ─────────────────────────────────────────────────────────────────────────
+/**
+ * ==========================================================================
+ * 🌓 GÖLGE YAZIM (Dual Write) — kullanıcı kararı, 2026-09-09
+ * ==========================================================================
+ * Trakt'lı kullanıcı puan verdiğinde puan İKİ yere gider: Trakt'a (ekosistemi
+ * bozulmasın — başka Trakt uygulamalarıyla bağı sürsün) VE bizim
+ * `user_ratings`'e (puanlar tek yerde toplansın, Trakt kopsa kaybolmasın).
+ *
+ * 🔴 İSTİSNA YALNIZCA PUANLAR İÇİN. İzleme geçmişi HÂLÂ tek yönlü:
+ * Trakt'lı kullanıcının izlemesi yalnızca Trakt'a yazılıyor (devir §4.7).
+ * Kullanıcının kararı bunu açıkça sınırladı: *"İzleme geçmişine dokunmadan
+ * bu istisnayı sadece puanlar için açıyoruz."*
+ *
+ * 🔴 GÖLGE YAZIM ASLA ANA YAZMAYI BOZAMAZ. Kullanıcının eylemi Trakt'ta
+ * başarılıysa BAŞARILIDIR. Bizim kopyamız düşerse:
+ *   · en sık sebep `katalogda_yok` (409) — aynamızda olmayan bir yapım;
+ *     kullanıcının hatası değil, KAPSAM boşluğu
+ *   · T5'in içe aktarımı o satırı zaten geri getirecek
+ * Bu yüzden hata YUTULUYOR ama `logError` ile İZ BIRAKIYOR — sessiz kayıp
+ * değil, görünür bir eksik.
+ */
+const golgeYaz = async (yer: string, islem: () => Promise<unknown>) => {
+  try {
+    await islem();
+  } catch (e) {
+    logError(`mutations.ratings.golge.${yer}`, e);
+  }
+};
+
 export const rateMedia = async (id: number, type: 'show' | 'movie', rating: number) => {
   // Damga Trakt'a ve Akış'a AYNI gönderilir — bir sonraki tam senkron aynı
   // dedup anahtarını üretsin diye (bkz. mutations/progress.ts başlığı).
   const ratedAt = nowStamp();
-  const result = await addRating(id, type, rating, undefined, undefined, ratedAt);
+  const kaymak = await libraryApi.kaymakKullanicisiMi();
+  const bizeYaz = () =>
+    type === 'show' ? libraryApi.rateShow(id, rating) : libraryApi.rateMovie(id, rating);
+
+  let result;
+  if (kaymak) {
+    result = await bizeYaz();
+  } else {
+    // ANA yazma — bu düşerse çağıran hatayı görür ve iyimser UI geri alınır.
+    result = await addRating(id, type, rating, undefined, undefined, ratedAt);
+    // GÖLGE — beklenmiyor, hata yutuluyor (bkz. `golgeYaz` notu).
+    await golgeYaz(`rate.${type}`, bizeYaz);
+  }
 
   // Başlık/poster kütüphane dilimlerinden çözülür — çağıranların imzasını
   // Akış yüzünden değiştirmemek için (bkz. services/library/mediaMeta.ts).
@@ -98,7 +150,57 @@ export const rateMedia = async (id: number, type: 'show' | 'movie', rating: numb
 // temizlenir; Supabase satırını bir sonraki tam senkron geri alma mantığıyla
 // siler (bkz. mutations/progress.ts'teki aynı gerekçe).
 export const unrateMedia = async (id: number, type: 'show' | 'movie') => {
-  const result = await removeRating(id, type);
+  const kaymak = await libraryApi.kaymakKullanicisiMi();
+  const bizdenSil = () =>
+    type === 'show' ? libraryApi.unrateShow(id) : libraryApi.unrateMovie(id);
+
+  let result;
+  if (kaymak) {
+    result = await bizdenSil();
+  } else {
+    result = await removeRating(id, type);
+    // 🔴 SİLME DE GÖLGELENMELİ. Yalnızca yazmayı gölgeleseydik kullanıcı
+    // puanını kaldırdığında bizim kopyamız KALIRDI — ve T5 içe aktarımında
+    // "silinmiş puan" geri dirilirdi.
+    await golgeYaz(`unrate.${type}`, bizdenSil);
+  }
   retractLocalActivity((a) => a.activityType === 'rated' && a.showId === id && a.mediaType === type);
+  return result;
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// BÖLÜM PUANI — mutasyon katmanına ALINDI (2026-09-09)
+// ─────────────────────────────────────────────────────────────────────────
+// 🔴 ESKİDEN `useEpisodeActions` ham `addRating`i DOĞRUDAN çağırıyordu ve bu
+// dosyanın kendi notu bunu "bilinçli kapsam dışı" diye açıklıyordu (gerekçe:
+// akış şeması bölüm puanı taşımıyor). Faz T'de o gerekçe ARTIK YETMİYOR:
+// yönlendirme kararı mutasyon katmanında yaşıyor, hook'ta değil. Ham çağrı
+// kalsaydı Kaymak kullanıcısı bölüm puanlayamazdı.
+//
+// ⚠️ AKIŞA YAYIN HÂLÂ YOK — o kısım gerçekten kapsam dışı (şema dizi/film
+// puanı taşıyor). Değişen tek şey YAZMANIN NEREYE gittiği.
+//
+// 🔑 İMZA YALNIZCA `epTraktId` ALIYOR — bilinçli. İki çağrı yerinden biri
+// (`useShowDetailHandlers.handleRateEpisode`) sezon/bölüm numarası TAŞIMIYOR
+// ve o kimlikten türetilemez. Çağrı yerlerini zorlamak yerine Worker bölüm
+// kimliğini doğrudan çözüyor (`resolveTraktLocator` → `{ episodeId }`).
+// Böylece iki yol da TEK imzayı kullanıyor ve `epTraktId` zaten yerel puan
+// dilimi için elde olan tek şey.
+
+export const rateEpisodeMedia = async (epTraktId: number, rating: number) => {
+  if (await libraryApi.kaymakKullanicisiMi()) {
+    return libraryApi.rateEpisodeById(epTraktId, rating);
+  }
+  const result = await addRating(epTraktId, 'episode', rating);
+  await golgeYaz('rate.episode', () => libraryApi.rateEpisodeById(epTraktId, rating));
+  return result;
+};
+
+export const unrateEpisodeMedia = async (epTraktId: number) => {
+  if (await libraryApi.kaymakKullanicisiMi()) {
+    return libraryApi.unrateEpisodeById(epTraktId);
+  }
+  const result = await removeRating(epTraktId, 'episode');
+  await golgeYaz('unrate.episode', () => libraryApi.unrateEpisodeById(epTraktId));
   return result;
 };

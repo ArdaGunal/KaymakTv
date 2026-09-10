@@ -1,7 +1,10 @@
 import { useState, useCallback } from 'react';
 import { Alert, Share } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { addRating, removeRating } from '../services/traktApi';
+// 🔴 HAM `addRating`/`removeRating` ARTIK ÇAĞRILMIYOR (2026-09-09).
+// Bölüm puanı da mutasyon katmanından geçiyor; yönlendirme kararı (Trakt mı
+// bizim API mi) orada yaşıyor. Ham çağrı kalsaydı Kaymak kullanıcısı bölüm
+// puanlayamazdı — cihazda görülen 401'in sebebi buydu.
 import { useLibrary } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -42,6 +45,8 @@ export function useEpisodeActions({
   const {
     setLocalRating,
     removeLocalRating,
+    rateEpisodeMedia,
+    unrateEpisodeMedia,
     showProgressMap,
     unwatchEpisode,
     markEpisodeAsWatched,
@@ -59,7 +64,7 @@ export function useEpisodeActions({
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(epTraktId, 'episode', val);
-      await addRating(epTraktId, 'episode', val);
+      await rateEpisodeMedia(epTraktId, val);
       return true;
     } catch (e) {
       removeLocalRating(epTraktId, 'episode');
@@ -67,19 +72,19 @@ export function useEpisodeActions({
       console.error(e);
       return false;
     }
-  }, [epTraktId, setLocalRating, removeLocalRating, t]);
+  }, [epTraktId, rateEpisodeMedia, setLocalRating, removeLocalRating, t]);
 
   const clearRating = useCallback(async () => {
     try {
       removeLocalRating(epTraktId, 'episode');
-      await removeRating(epTraktId, 'episode');
+      await unrateEpisodeMedia(epTraktId);
       return true;
     } catch (e) {
       Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
       console.error(e);
       return false;
     }
-  }, [epTraktId, removeLocalRating, t]);
+  }, [epTraktId, unrateEpisodeMedia, removeLocalRating, t]);
 
   const toggleWatched = useCallback(async () => {
     if (isGuest) {

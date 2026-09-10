@@ -2,7 +2,9 @@ import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
-import { addRating, removeRating } from '../services/traktApi';
+// 🔴 HAM `addRating`/`removeRating` KALDIRILDI (2026-09-09). Bölüm puanı da
+// mutasyon katmanından geçiyor; yönlendirme kararı orada yaşıyor. Ham çağrı
+// kalsaydı Kaymak kullanıcısı bölüm puanlayamazdı (cihazda 401 alındı).
 
 interface UseShowDetailHandlersProps {
   traktIdNum: number;
@@ -28,10 +30,13 @@ export function useShowDetailHandlers({
     rewatchEpisode,
     // Dizi puanı artık ham `addRating` yerine mutasyon katmanından geçiyor:
     // Trakt'a yazar VE aynı damgayla Akış'a yayınlar (bkz. mutations/ratings.ts).
-    // BÖLÜM puanı kapsam dışı olduğu için `addRating`/`removeRating` doğrudan
-    // kullanılmaya devam ediyor.
+    // BÖLÜM puanı da 2026-09-09'da mutasyon katmanına alındı (Faz T):
+    // akışa yayın hâlâ yok ama YAZMANIN NEREYE gittiği artık orada karar
+    // veriliyor — Kaymak kullanıcısı için şart.
     rateMedia,
     unrateMedia,
+    rateEpisodeMedia,
+    unrateEpisodeMedia,
   } = useLibraryActions();
   const { isGuest } = useAuth();
 
@@ -72,7 +77,7 @@ export function useShowDetailHandlers({
     }
     try {
       setLocalRating(episodeTraktId, 'episode', rating);
-      await addRating(episodeTraktId, 'episode', rating);
+      await rateEpisodeMedia(episodeTraktId, rating);
       return true;
     } catch (e) {
       removeLocalRating(episodeTraktId, 'episode');
@@ -80,7 +85,7 @@ export function useShowDetailHandlers({
       console.error(e);
       return false;
     }
-  }, [isGuest, setLocalRating, removeLocalRating, t]);
+  }, [isGuest, setLocalRating, removeLocalRating, rateEpisodeMedia, t]);
 
   const handleRemoveEpisodeRating = useCallback(async (episodeTraktId: number) => {
     if (isGuest) {
@@ -89,14 +94,14 @@ export function useShowDetailHandlers({
     }
     try {
       removeLocalRating(episodeTraktId, 'episode');
-      await removeRating(episodeTraktId, 'episode');
+      await unrateEpisodeMedia(episodeTraktId);
       return true;
     } catch (e) {
       Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
       console.error(e);
       return false;
     }
-  }, [isGuest, removeLocalRating, t]);
+  }, [isGuest, removeLocalRating, unrateEpisodeMedia, t]);
 
   const handleRemoveRating = useCallback(async () => {
     if (isGuest) {
