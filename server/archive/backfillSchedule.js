@@ -105,10 +105,27 @@ function bugunKosulduMu(simdi = new Date()) {
 // akışta" kuralını sayılarla çürütür ve SSD'yi iki kat yorardı (2026-09-02
 // `EIO`, M285 — bu sayılar GEVŞETİLMEZ).
 //
-// 🔑 TAŞIMA İKİ KEZ ÇAĞRILIYOR (turdan ÖNCE ve SONRA):
-//   önce → önceki gecelerin indirdikleri artık çözülüyorsa hemen erisin;
-//   sonra → BU GECE inen yapımların satırları ertesi günü beklemesin.
-// İkisi de ucuz (tek RPC) ve `tasinan: 0` HATA DEĞİL.
+// ══════════════════════════════════════════════════════════════════════════
+// 🔴 TAŞIMA İKİ KEZ ÇAĞRILIYOR — ama ASIL İŞİ YAPAN "ÖNCE" OLANI
+// ══════════════════════════════════════════════════════════════════════════
+// ÖLÇÜLDÜ (2026-09-12, M353 — ilk gerçek tur Pi'de koştu):
+//
+//   02:00-03:59  BACKFILL → indirilen yapım **Pi arşivine** (SQLite) yazılır
+//   07:00-08:59  AYNA     → arşiv **Supabase'e** itilir (`mirror.js`)
+//
+// `046` bekleyen satırı **Supabase'in** `catalog_external_ids`'ine bakarak
+// çözüyor. Yani bu gece indirilen yapım, ayna 07:00'de koşana kadar orada
+// YOK — turdan SONRAKİ çağrı kendi gecesinin indirdiklerini **hiçbir zaman
+// göremez**. O satırlar ERTESİ gecenin "ÖNCE" çağrısında erir (~19 saat).
+//
+// ⚠️ Bu bilinçli olarak KABUL EDİLDİ (kullanıcı, 2026-09-12): veri kaybı yok,
+// politika bozulmuyor, sıra yalnızca gecikiyor. Aynayı bu pencereye sokmak
+// 02:00-04:00'e DÖRDÜNCÜ bir SSD işi eklerdi ve pencere haritasının gerekçesi
+// (M285 `EIO`) yeniden tartışılmalıydı. ⛔ "Sonraki çağrı işe yaramıyor,
+// silelim" DEME: ayna bir gün bu pencereye taşınırsa tek işe yarayan o olur,
+// ve bugün de ücreti tek bir RPC.
+//
+// `tasinan: 0` HER İKİSİNDE DE HATA DEĞİLDİR.
 
 /**
  * Aktarım artıklarını işler. 🔴 ASLA THROW ETMEZ.
@@ -163,7 +180,9 @@ async function aktarimTuru(butce, dil, fetcher) {
     ozet.sonuc = await tamamla({ hedefler: eksik, fetcher, limit: butce });
   }
 
-  // ── 3) Turdan SONRA: bu gece inenleri erit ──
+  // ── 3) Turdan SONRA ──
+  // ⚠️ Bu çağrı BU GECE inenleri eritemez (yukarıdaki ayna sırası); araya
+  // giren başka bir yol satır çözmüşse yakalar. Ücreti tek RPC.
   const sonra = await tasiBekleyenleri();
   ozet.sonrakiTasima = sonra;
 
