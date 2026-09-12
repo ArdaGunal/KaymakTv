@@ -163,16 +163,32 @@ async function fetchTakipEdilenler({ url, anonKey, fetchImpl = fetch, sayfaBoyu 
  */
 function hedefleriUret(item, dil) {
   const { traktId, type } = item;
-  if (type === 'movie') {
-    return [{
-      endpoint: 'movie_detail',
-      path: `/movies/${traktId}`,
-      query: { extended: 'full', translations: dil },
-      lang: dil,
-      source: 'trakt:movie',
-      sourceId: traktId,
-    }];
-  }
+  const cikti = type === 'movie' ? uretFilm(traktId, dil) : uretDizi(traktId, dil);
+  // 🔴 TAZELEME BAYRAĞI — T5.3'ün ASIL TUZAĞI (ölçüldü, M343): eksik bölümü
+  // olan 36 dizinin 15'i arşivde ZATEN VAR. `eksikleriBul` "bu hedef arşivde
+  // var mı?" deyip onları ATLIYOR → o bölümlerin bekleyen satırları SONSUZA
+  // KADAR erimez. `046`'nın `tazele` bayrağı buraya `zorla` olarak geçiyor;
+  // `backfill.js` onu görünce arşiv kontrolünü BİLİNÇLİ OLARAK atlıyor.
+  //
+  // ⚠️ Yalnızca `true` iken EKLENİYOR: akış hedeflerinin (bugünkü kaynak)
+  // nesne şekli DEĞİŞMESİN — `zorla: false` yazmak, "her hedefte bir zorlama
+  // alanı var" izlenimi verir ve bir gün yanlışlıkla doğruya çevrilir.
+  if (item.tazele === true) for (const h of cikti) h.zorla = true;
+  return cikti;
+}
+
+function uretFilm(traktId, dil) {
+  return [{
+    endpoint: 'movie_detail',
+    path: `/movies/${traktId}`,
+    query: { extended: 'full', translations: dil },
+    lang: dil,
+    source: 'trakt:movie',
+    sourceId: traktId,
+  }];
+}
+
+function uretDizi(traktId, dil) {
   return [
     {
       endpoint: 'show_detail',
@@ -206,8 +222,113 @@ function hedefListesi(items, dil) {
   return cikti;
 }
 
+
+// ==========================================================================
+// 📥 İKİNCİ KAYNAK — TRAKT AKTARIMININ ARTIKLARI (Faz T · T5.3)
+// ==========================================================================
+// Yukarıdaki `fetchTakipEdilenler` BUGÜNKÜ talebi okur (`feed_activities`).
+// Buradaki iki çağrı ise GEÇMİŞİN artığını okur: ilk aktarımda arşivde
+// olmayan yapımlar yüzünden `user_import_pending`'de bekleyen **875 satır**
+// (M348).
+//
+// 🔴 SUPABASE'E DOĞRUDAN GİDİLMİYOR, WORKER'DAN GEÇİLİYOR. `044`'ün
+// tabloları KİŞİSEL İZLEME GEÇMİŞİ taşıyor (kim, neyi, ne zaman) ve RLS'i
+// politikasız kapalı — anon anahtarla okunamaz, `service_role` ise Pi'ye
+// KONMAZ (`mirror.js`/`catalogSync.js` ile aynı karar: sır sızarsa patlama
+// yarıçapı tüm veri olurdu). Worker'ın `/import/eksikler` ucu bize yalnızca
+// `(source, source_id)` çiftlerini veriyor — kimin izlediğini DEĞİL.
+//
+// ⚠️ İki çağrı da ASLA THROW ETMEZ (`mirror.js`'in `partiGonder` sözleşmesi):
+// gece zamanlayıcısından çağrılıyorlar.
+
+/** Worker yapılandırması — ikisi de `mirror.js` ile AYNI ortam değişkenleri. */
+function workerAyari() {
+  const workerUrl = (process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '').replace(/\/+$/, '');
+  const secret = process.env.PI_SYNC_SECRET || '';
+  if (!workerUrl) return { ok: false, reason: 'worker_url_yok' };
+  // Worker 32 karakterin altındaki sırla ucu zaten 503 yapıyor; aynı eşiği
+  // burada da uygulayıp boşuna istek atmıyoruz.
+  if (secret.length < 32) return { ok: false, reason: 'sir_yok' };
+  return { ok: true, workerUrl, secret };
+}
+
+/** Ortak POST — JSON gönderir, JSON okur, hata yutmaz ama throw da etmez. */
+async function workerCagir(cfg, yol, govde, fetchImpl) {
+  try {
+    const res = await fetchImpl(`${cfg.workerUrl}${yol}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-kaymak-sync-secret': cfg.secret },
+      body: JSON.stringify(govde),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      return { ok: false, reason: `http_${res.status}`, detay: String(t).slice(0, 300) };
+    }
+    const j = await res.json().catch(() => null);
+    if (!j || typeof j !== 'object') return { ok: false, reason: 'bicim' };
+    return { ok: true, govde: j };
+  } catch (error) {
+    return { ok: false, reason: 'network', detay: String(error?.message || error).slice(0, 200) };
+  }
+}
+
+/**
+ * Bekleyen satırların eritilmesini TETİKLER (taşıma işi `046`'da, SQL'de).
+ *
+ * ⚠️ Turdan ÖNCE ve SONRA çağrılır: önce önceki gecelerden kalanlar, sonra
+ * BU GECE arşive girenler hemen erisin.
+ *
+ * @returns {Promise<{ok, tasinan?, kalan?, devam?, reason?}>}
+ */
+async function tasiBekleyenleri({ limit = 500, fetchImpl = fetch } = {}) {
+  const cfg = workerAyari();
+  if (!cfg.ok) return cfg;
+  const r = await workerCagir(cfg, '/import/bekleyenler', { limit }, fetchImpl);
+  if (!r.ok) return r;
+  const { tasinan, kalan, devam } = r.govde;
+  if (!Number.isFinite(tasinan) || !Number.isFinite(kalan)) return { ok: false, reason: 'bicim' };
+  return { ok: true, tasinan, kalan, devam: devam === true };
+}
+
+/**
+ * Gece indirilecek yapım listesini Worker'dan çeker.
+ *
+ * Çıktı `fetchTakipEdilenler` ile AYNI ŞEKİLDE (`{traktId, type}`) — böylece
+ * `hedefListesi` iki kaynağı da aynı biçimde işliyor, ikinci bir dönüşüm
+ * yolu doğmuyor. Fark tek alan: `tazele` (→ hedefte `zorla`).
+ *
+ * Sıra KORUNUYOR: `046` en çok bekleyen satırı olan yapımı başa koyuyor; dar
+ * gecelik bütçeyle en çok satırı eriten hedefe önce gidilsin diye.
+ *
+ * @returns {Promise<{ok, items?, kalan?, reason?}>}
+ */
+async function fetchImportHedefleri({ limit = 200, fetchImpl = fetch } = {}) {
+  const cfg = workerAyari();
+  if (!cfg.ok) return cfg;
+  const r = await workerCagir(cfg, '/import/eksikler', { limit }, fetchImpl);
+  if (!r.ok) return r;
+
+  const ham = r.govde.hedefler;
+  if (!Array.isArray(ham)) return { ok: false, reason: 'bicim' };
+
+  const items = [];
+  for (const h of ham) {
+    // Worker zaten süzüyor; burada ikinci kez bakılıyor çünkü bu değerler
+    // doğrudan Trakt URL'ine giriyor (`hedefleriUret`).
+    if (!h || typeof h !== 'object') continue;
+    const type = h.source === 'trakt:movie' ? 'movie' : h.source === 'trakt:show' ? 'show' : null;
+    if (!type) continue;
+    const traktId = String(h.source_id || '');
+    if (!/^[0-9]{1,12}$/.test(traktId)) continue;
+    items.push({ traktId, type, tazele: h.tazele === true, bekleyen: Number(h.bekleyen) || 0 });
+  }
+  return { ok: true, items };
+}
+
 module.exports = {
   fetchTakipEdilenler,
+  fetchImportHedefleri,
+  tasiBekleyenleri,
   hedefleriUret,
   hedefListesi,
   hedefAnahtari,

@@ -24,6 +24,7 @@ const { resolveOrCreate } = require(path.join(AR, 'identity'));
 const { DEFAULT_CONFIG: DEVRE_CONFIG } = require(path.join(AR, '..', 'lazyfetch', 'circuitBreaker'));
 const {
   fetchTakipEdilenler, hedefleriUret, hedefListesi, hedefAnahtari,
+  fetchImportHedefleri, tasiBekleyenleri,
 } = require(path.join(AR, 'backfillSource'));
 const {
   tamamla, eksikleriBul, arsivdeVarMi, defterOku, defterYaz, beklemedeMi,
@@ -233,6 +234,125 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   T.ok('Basari sonrasi basarili_at doldu', d3.basarili_at === simdi);
   T.ok('Basari sonrasi bekleme kalkti', d3.sonraki_deneme_at === null);
   T.ok('Basari denemeyi ARTIRMADI (tesis: kac kez ugrasildi)', d3.deneme === 2, `deneme=${d3.deneme}`);
+
+  // ==================================================================
+  T.H('🔴 TAZELEME (zorla) — arsivde VAR olan hedef YINE indirilir');
+  // ==================================================================
+  // T5.3'un ASIL TUZAGI (olculdu, M343): eksik bolumu olan 36 dizinin 15'i
+  // arsivde ZATEN VAR. `arsivdeVarMi` onlara "kapsanan" deyip atlarsa o
+  // bolumlerin `user_import_pending` satirlari SONSUZA KADAR erimez.
+
+  const tazeHedef = hedefleriUret({ traktId: '1388', type: 'show', tazele: true }, 'tr');
+  T.ok('tazele -> her hedefte zorla=true', tazeHedef.every((h) => h.zorla === true));
+
+  // Akis hedeflerinin sekli DEGISMEMELI: `zorla: false` bile yazilmiyor.
+  T.ok('🔴 tazele YOKken hedefte zorla ALANI HIC YOK',
+    hedefleriUret({ traktId: '1388', type: 'show' }, 'tr')
+      .every((h) => !Object.prototype.hasOwnProperty.call(h, 'zorla')));
+
+  // `detay` (show_detail/tr) payload'i YUKARIDA yazildi -> normalde kapsanan.
+  T.ok('Kontrol: ayni hedef zorlasiz KAPSANAN',
+    eksikleriBul([detay]).kapsanan.length === 1);
+  const tazeAyrim = eksikleriBul(tazeHedef);
+  T.ok('🔴 zorla ile arsivde OLAN hedef EKSIK sayildi',
+    tazeAyrim.kapsanan.length === 0 && tazeAyrim.eksik.length === 2,
+    `kapsanan=${tazeAyrim.kapsanan.length} eksik=${tazeAyrim.eksik.length}`);
+
+  // 🔴 GERI CEKILME DEFTERI YINE UYGULANIYOR: `zorla` "her gece yeniden
+  // dene" demek DEGIL. Surekli basarisiz bir hedef sonsuz donguye girmesin.
+  const tazeSimdi = Date.now();
+  defterYaz(tazeHedef[0], { hata: 'gecici hata', simdi: tazeSimdi });
+  const tazeAyrim2 = eksikleriBul(tazeHedef, { simdi: tazeSimdi });
+  T.ok('🔴 zorla GERI CEKILMEYI ezmiyor (beklemede 1)',
+    tazeAyrim2.beklemede.length === 1 && tazeAyrim2.eksik.length === 1,
+    `beklemede=${tazeAyrim2.beklemede.length} eksik=${tazeAyrim2.eksik.length}`);
+  T.ok('Pencere gecince zorlanan hedef yine denenebilir',
+    eksikleriBul(tazeHedef, { simdi: tazeSimdi + GERI_CEKILME_MS[0] + 1 }).eksik.length === 2);
+  defterYaz(tazeHedef[0], { basarili: true, simdi: tazeSimdi });
+
+  // `hedefListesi` bayragi TASIYOR MU (iki kaynak da ayni yoldan geciyor)
+  const karisik = hedefListesi(
+    [{ traktId: '77', type: 'movie', tazele: true }, { traktId: '78', type: 'movie' }], 'tr');
+  T.ok('hedefListesi tazele bayragini tasiyor',
+    karisik[0].zorla === true && karisik[1].zorla === undefined);
+
+  // ==================================================================
+  T.H('📥 AKTARIM KAYNAGI — Worker istemcisi (SIFIR ag istegi)');
+  // ==================================================================
+  const eskiUrl = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL;
+  const eskiSir = process.env.PI_SYNC_SECRET;
+
+  // Yapilandirma kapilari: sir/URL yoksa AGA CIKILMAZ.
+  process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL = '';
+  process.env.PI_SYNC_SECRET = 's'.repeat(48);
+  let patladi = false;
+  const hicCagirma = async () => { patladi = true; throw new Error('AGA CIKILDI'); };
+  let r = await fetchImportHedefleri({ fetchImpl: hicCagirma });
+  T.ok('Worker URL yoksa istek ATILMAZ', r.ok === false && r.reason === 'worker_url_yok' && !patladi);
+
+  process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL = 'https://worker.ornek';
+  process.env.PI_SYNC_SECRET = 'kisa';
+  r = await tasiBekleyenleri({ fetchImpl: hicCagirma });
+  T.ok('Sir 32 karakterden kisaysa istek ATILMAZ',
+    r.ok === false && r.reason === 'sir_yok' && !patladi);
+
+  process.env.PI_SYNC_SECRET = 's'.repeat(48);
+
+  // Sahte Worker — basligi ve yolu da denetliyor.
+  const wCagrilar = [];
+  const sahteWorker = (govde, { ok = true, status = 200 } = {}) => async (url, opts) => {
+    wCagrilar.push({ url, sir: opts.headers['x-kaymak-sync-secret'], govde: JSON.parse(opts.body) });
+    return { ok, status, json: async () => govde, text: async () => JSON.stringify(govde) };
+  };
+
+  r = await fetchImportHedefleri({
+    limit: 7,
+    fetchImpl: sahteWorker({
+      success: true,
+      hedefler: [
+        { source: 'trakt:show', source_id: '102', tazele: true, bekleyen: 3 },
+        { source: 'trakt:movie', source_id: '8001', tazele: false, bekleyen: 1 },
+        // 🔴 046 bunlari uretmemeli; uretirse Pi'ye GECMEMELI
+        { source: 'trakt:episode', source_id: '9001', bekleyen: 1 },
+        { source: 'trakt:show', source_id: '1),or=(id.neq.0', bekleyen: 9 },
+        { source: 'tmdb:show', source_id: '5', bekleyen: 9 },
+      ],
+    }),
+  });
+  T.ok('Hedefler alindi', r.ok === true, r.reason || '');
+  T.ok('🔴 Yalnizca dizi/film gecti (bolum, rakam disi kimlik, tmdb ELENDI)',
+    r.items.length === 2, `${r.items.length}`);
+  T.ok('Sekil fetchTakipEdilenler ile AYNI (+tazele)',
+    r.items[0].traktId === '102' && r.items[0].type === 'show' && r.items[0].tazele === true);
+  T.ok('Film tazele=false',
+    r.items[1].traktId === '8001' && r.items[1].type === 'movie' && r.items[1].tazele === false);
+  T.ok('🔑 SIRA KORUNDU (en cok bekleyen once)', r.items[0].bekleyen === 3);
+  T.ok('Dogru yol ve sir basligi', wCagrilar[0].url.endsWith('/import/eksikler')
+    && wCagrilar[0].sir === 's'.repeat(48) && wCagrilar[0].govde.limit === 7);
+
+  r = await tasiBekleyenleri({
+    limit: 500,
+    fetchImpl: sahteWorker({ success: true, tasinan: 12, kalan: 5, devam: false }),
+  });
+  T.ok('Tasima sayilari okundu', r.ok === true && r.tasinan === 12 && r.kalan === 5 && r.devam === false);
+  T.ok('Tasima dogru yola gitti', wCagrilar[wCagrilar.length - 1].url.endsWith('/import/bekleyenler'));
+
+  r = await tasiBekleyenleri({ fetchImpl: sahteWorker({ success: true, tasinan: 500, kalan: 375, devam: true }) });
+  T.ok('devam=true okunuyor (Pi tekrar cagirmali)', r.devam === true);
+
+  // Bozuk/eksik yanitlar SESSIZCE 0 SAYILMAZ.
+  r = await tasiBekleyenleri({ fetchImpl: sahteWorker({ success: true }) });
+  T.ok('🔴 Sayisiz yanit HATA (sessizce 0 degil)', r.ok === false && r.reason === 'bicim');
+  r = await fetchImportHedefleri({ fetchImpl: sahteWorker({ success: true }) });
+  T.ok('🔴 hedefler dizisi yoksa HATA', r.ok === false && r.reason === 'bicim');
+  r = await fetchImportHedefleri({ fetchImpl: sahteWorker({}, { ok: false, status: 502 }) });
+  T.ok('HTTP hatasi sebebiyle birlikte doner', r.ok === false && r.reason === 'http_502');
+  r = await tasiBekleyenleri({ fetchImpl: async () => { throw new Error('ECONNREFUSED'); } });
+  T.ok('🔴 Ag hatasi THROW ETMEZ (gece zamanlayicisi cokmesin)',
+    r.ok === false && r.reason === 'network');
+
+  process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL = eskiUrl;
+  process.env.PI_SYNC_SECRET = eskiSir;
 
   // ==================================================================
   T.H('🔴 ARDISIK HATA FRENI — devre kesici esiginin ALTINDA');

@@ -172,6 +172,24 @@ function arsivdeVarMi(h) {
 /**
  * Hedef listesini üç kovaya ayırır: `kapsanan` · `beklemede` · `eksik`.
  * SIFIR ağ isteği yapar — kuru çalışmanın (`--uygula` yok) tamamı budur.
+ *
+ * ==========================================================================
+ * 🔴 `h.zorla` — ARŞİV KONTROLÜNÜ BİLİNÇLİ OLARAK ATLAYAN TEK DAL (T5.3)
+ * ==========================================================================
+ * Ölçüldü (M343): Trakt aktarımında eksik bölümü olan **36 dizinin 15'i
+ * arşivde ZATEN VAR**. Aşağıdaki `arsivdeVarMi` o dizilere "kapsanan" deyip
+ * atlıyor — ama `show_seasons` payload'ı BAYAT olduğu için aradığımız
+ * bölümler içinde yok. Sonuç: o bölümlerin `user_import_pending` satırları
+ * SONSUZA KADAR erimez. `046`'nın `tazele` bayrağı `backfillSource.js`'te
+ * `zorla`ya çevriliyor ve zinciri tam burada kırıyor.
+ *
+ * ⚠️ GERİ ÇEKİLME DEFTERİ YİNE UYGULANIYOR (`beklemedeMi` atlanmıyor):
+ * `zorla` "her gece yeniden dene" demek DEĞİL. Sürekli başarısız olan bir
+ * hedef zorlamayla birlikte sonsuz bir gece döngüsüne dönüşürdü.
+ *
+ * ⚠️ Sebep henüz AYRIŞTIRILMADI (bayat ayna mı, kimlik haritası eksiği mi,
+ * özel sezon mu) — `BACKLOG` §C11 akrabası. Bu dal semptomu eritiyor;
+ * teşhis ayrı bir iş.
  */
 function eksikleriBul(hedefler, { simdi = Date.now() } = {}) {
   const kapsanan = [];
@@ -179,7 +197,7 @@ function eksikleriBul(hedefler, { simdi = Date.now() } = {}) {
   const eksik = [];
 
   for (const h of hedefler) {
-    if (arsivdeVarMi(h).var) { kapsanan.push(h); continue; }
+    if (!h.zorla && arsivdeVarMi(h).var) { kapsanan.push(h); continue; }
     const anahtar = hedefAnahtari(h);
     if (beklemedeMi(anahtar, simdi)) {
       beklemede.push({ ...h, defter: defterOku(anahtar) });
