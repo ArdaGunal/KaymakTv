@@ -323,9 +323,11 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
         year: e.year,
         runtime: runtime.get(e.kaymak_id) ?? null,
         tmdb_id: tmdb.get(e.kaymak_id) ?? null,
-        // §C18 — yalnızca dizi/film dolu; diğerlerinde `undefined` kalır ve
-        // Worker alanı hiç göndermez (deploy sırası koruması).
-        genres: genres.get(e.kaymak_id),
+        // 🔴 §C18 — `?? null` ŞART. `undefined` bırakılırsa `JSON.stringify`
+        // anahtarı DÜŞÜRÜR ve partideki nesneler farklı anahtar kümesine
+        // sahip olur → PostgREST `PGRST102 "All object keys must match"` ile
+        // partinin TAMAMINI reddeder (canlıda görüldü, tam ayna 0 satır yazdı).
+        genres: genres.get(e.kaymak_id) ?? null,
         // ⚠️ NULL = "bilinmiyor", "yayınlanmadı" DEĞİL (bkz. 039).
         first_aired: firstAired.get(e.kaymak_id) ?? null,
         _u: e.updated_at,
