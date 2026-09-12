@@ -124,6 +124,43 @@ function runtimeHaritasi(db) {
 }
 
 /**
+ * `kaymak_id → genres` haritası (dize dizisi) — §C18.
+ *
+ * 🔴 `runtime` İLE AYNI SINIF: arşivin `entities` tablosunda `genres` KOLONU
+ * YOK, veri gzip'li payload'ın İÇİNDE (`show_detail`/`movie_detail` kökünde
+ * `genres: ["drama","science-fiction"]`). Kopyalanamaz, ÇIKARILIR.
+ *
+ * 📏 ÖLÇÜLDÜ (2026-09-12): dizi 560 payload'ın 557'sinde (**%99,5**), film
+ * 434'ün 433'ünde (**%99,8**). 28 tekil tür; birleşik en uzun değer 74
+ * karakter. Supabase maliyeti ≈ **0,03 MB**.
+ *
+ * ⚠️ Yalnızca DİZİ ve FİLM. Sezon/bölüm payload'ında tür yok ve zaten
+ * istatistik onları kullanmıyor.
+ */
+function genresHaritasi(db) {
+  const harita = new Map();
+  for (const r of db.prepare(
+    "SELECT kaymak_id, body FROM payloads WHERE endpoint IN ('show_detail','movie_detail')"
+  ).iterate()) {
+    const j = ac(r.body);
+    const kok = Array.isArray(j) ? j[0] : j;
+    const g = kok?.genres;
+    if (!Array.isArray(g)) continue;
+    // Worker (`catalogSync.js` → `temizGenres`) ve `047`'nin CHECK'i son
+    // savunma hatları; burası ilk hat. Üçü de aynı tavanları uyguluyor.
+    const temiz = [];
+    for (const t of g) {
+      if (typeof t !== 'string') continue;
+      const s = t.trim().slice(0, 40);
+      if (s && !temiz.includes(s)) temiz.push(s);
+      if (temiz.length >= 30) break;
+    }
+    if (temiz.length > 0) harita.set(r.kaymak_id, temiz);
+  }
+  return harita;
+}
+
+/**
  * `kaymak_id → first_aired` haritası (ISO dize).
  *
  * 🔴 NEDEN VAR: ilerleme hesabındaki `aired`, YAYINLANMIŞ bölüm sayısıdır.
@@ -267,6 +304,7 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
 
     const runtime = runtimeHaritasi(db);
     const tmdb = tmdbHaritasi(db);
+    const genres = genresHaritasi(db);
     const firstAired = firstAiredHaritasi(db);
 
     // 1-3) Varlıklar — TİP SIRASINDA (FK zorunluluğu)
@@ -285,6 +323,9 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
         year: e.year,
         runtime: runtime.get(e.kaymak_id) ?? null,
         tmdb_id: tmdb.get(e.kaymak_id) ?? null,
+        // §C18 — yalnızca dizi/film dolu; diğerlerinde `undefined` kalır ve
+        // Worker alanı hiç göndermez (deploy sırası koruması).
+        genres: genres.get(e.kaymak_id),
         // ⚠️ NULL = "bilinmiyor", "yayınlanmadı" DEĞİL (bkz. 039).
         first_aired: firstAired.get(e.kaymak_id) ?? null,
         _u: e.updated_at,
