@@ -342,6 +342,12 @@ export type KutuphaneYaniti = {
     title: string | null;
     year: number | null;
     tmdbId: number | null;
+    /** 🔑 BÖLÜM BAŞINA dakika (§C17.2). Trakt'ın `show.runtime`'ıyla aynı anlam;
+     *  istemci izlenen bölüm sayısıyla çarpıyor. Katalogda yoksa `null`. */
+    runtime: number | null;
+    /** 🔑 Tür etiketleri (§C18). "Favori tür" istatistiği bunu okuyor.
+     *  `047` uygulanana kadar `null` gelir — istemci sessizce atlar. */
+    genres: string[] | null;
     ilerleme: KutuphaneIlerlemesi;
   }>;
   filmler: Array<{
@@ -349,6 +355,10 @@ export type KutuphaneYaniti = {
     title: string | null;
     year: number | null;
     tmdbId: number | null;
+    /** Filmin süresi, dakika (§C17.2). */
+    runtime: number | null;
+    /** Tür etiketleri (§C18). */
+    genres: string[] | null;
     last_watched_at: string | null;
     plays: number;
   }>;

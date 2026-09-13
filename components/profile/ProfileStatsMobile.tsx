@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useLibrarySelector } from '../../context/LibraryContext';
 import { formatWatchDuration } from '../../utils/watchTimeHelper';
 import { SECTION_PADDING_H } from './profileMetrics';
+import { gosterilecekIstatistik, yerelIstatistik } from '../../utils/yerelIstatistik';
 
 /**
  * Profilin en üstündeki borderless (çerçevesiz) mikro-şerit istatistik bileşeni.
@@ -16,7 +17,21 @@ import { SECTION_PADDING_H } from './profileMetrics';
 const ProfileStats = () => {
   const { t } = useTranslation('media');
   const router = useRouter();
-  const userStats = useLibrarySelector((s) => s.userStats);
+  // §C17.2: eskiden YALNIZCA `s.userStats` okunuyordu ve o Trakt'ın
+  // `/users/me/stats` ucundan geliyordu → Google hesabında hep `null` →
+  // bölüm HİÇ görünmüyordu. Artık kendi verimizden de hesaplanabiliyor.
+  const { userStats: sunucuStats, watchedShows, watchedMovies, showProgressMap } =
+    useLibrarySelector((s) => ({
+      userStats: s.userStats,
+      watchedShows: s.watchedShows,
+      watchedMovies: s.watchedMovies,
+      showProgressMap: s.showProgressMap,
+    }));
+
+  const userStats = useMemo(
+    () => gosterilecekIstatistik(sunucuStats, yerelIstatistik(watchedShows, watchedMovies, showProgressMap)),
+    [sunucuStats, watchedShows, watchedMovies, showProgressMap],
+  );
 
   const showsDuration = useMemo(() => {
     if (!userStats?.episodes) return null;

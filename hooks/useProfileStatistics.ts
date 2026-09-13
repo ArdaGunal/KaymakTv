@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector } from '../context/LibraryContext';
+import { gosterilecekIstatistik, yerelIstatistik } from '../utils/yerelIstatistik';
 
 export type StatsTab = 'shows' | 'movies';
 
@@ -125,18 +126,26 @@ export function useProfileStatistics(activeTab: StatsTab) {
   // HER ZAMAN topluyordu. Sonuç: kullanıcı "Filmler" sekmesine geçse bile üstteki
   // kartlar hâlâ dizi verisini (ör. "İzlenen Bölüm") gösteriyordu — sekmenin
   // hiçbir anlamı yoktu. Artık her sekme YALNIZCA kendi verisini gösteriyor.
+  // §C17.2: `userStats` Trakt'ın `/users/me/stats`'ından geliyordu ve Google
+  // hesabında hep `null`'dı → istatistik ekranı sıfır gösteriyordu. Artık
+  // sunucudan gelen TERCİH EDİLİYOR, yoksa kendi verimizden hesaplanıyor.
+  const gosterilen = useMemo(
+    () => gosterilecekIstatistik(userStats, yerelIstatistik(watchedShows, watchedMovies, showProgressMap)),
+    [userStats, watchedShows, watchedMovies, showProgressMap],
+  );
+
   const summary = useMemo<ProfileStatsSummary>(() => {
     if (activeTab === 'shows') {
       return {
-        totalMinutes: userStats?.episodes.minutes || 0,
-        watchedCount: userStats?.episodes.watched || 0,
+        totalMinutes: gosterilen?.episodes.minutes || 0,
+        watchedCount: gosterilen?.episodes.watched || 0,
       };
     }
     return {
-      totalMinutes: userStats?.movies.minutes || 0,
-      watchedCount: userStats?.movies.watched || 0,
+      totalMinutes: gosterilen?.movies.minutes || 0,
+      watchedCount: gosterilen?.movies.watched || 0,
     };
-  }, [activeTab, userStats]);
+  }, [activeTab, gosterilen]);
 
   // Diziler: "başlanan" = kütüphanede izlenen dizi sayısı, "biten" = ilerleme
   // haritasında yayınlanan tüm bölümlere yetişmiş (completed >= aired) diziler.

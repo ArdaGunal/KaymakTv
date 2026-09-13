@@ -9,13 +9,15 @@ import { useUserActivity } from '../../features/feed/hooks/useUserActivity';
 import { isMarathonActivity } from '../../features/feed/types';
 import { SECTION_PADDING_H } from './profileMetrics';
 
-interface ProfileActivityTabProps {
-  traktSlug: string | null;
-}
-
-export default function ProfileActivityTab({ traktSlug }: ProfileActivityTabProps) {
+/**
+ * KENDİ profilimin aktiviteleri. 🪪 Prop YOK (M339 · §F6): kimlik
+ * `useUserActivity` içinde `users.id` olarak çözülüyor. Eskiden
+ * `profile.ids.slug` veriliyordu — Google-only kullanıcıda boş string, sekme
+ * HİÇ yüklenmiyordu.
+ */
+export default function ProfileActivityTab() {
   const { t } = useTranslation(['media', 'common']);
-  const { data, isLoading, hasError, refresh, deleteItem } = useUserActivity(traktSlug);
+  const { data, isLoading, hasError, refresh, deleteItem } = useUserActivity();
 
   if (isLoading) {
     return (

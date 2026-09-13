@@ -48,39 +48,13 @@ import { reconcileHiddenIds } from './hiddenSyncGuard';
  * listesini cihaza indirmek demekti.
  */
 
-/** `watchedShows`/`watchedMovies` girdilerinin beklediği yapım nesnesi. */
-const yapimNesnesi = (k: { traktId: number; title: string | null; year: number | null; tmdbId: number | null }) => ({
-  // 🔴 `ids.trakt` ZORUNLU — mağazanın TÜM anahtarlaması bunun üzerinde
-  // (`trackingLogic.ts:146`). `ids.tmdb` posterin tek dayanağı.
-  ids: { trakt: k.traktId, tmdb: k.tmdbId ?? undefined },
-  title: k.title ?? '',
-  year: k.year ?? undefined,
-});
+// 🗂️ `yapimNesnesi` ve `yanitiSekillendir` `kaymakSekil.ts`'e TAŞINDI
+// (§C17.2): bu dosya `axios` zincirini içe aktardığı için düz Node test
+// koşucusunda yüklenemiyor ve "saf" olduğu yazılan şekillendirici pratikte
+// HİÇ test edilemiyordu. Yeniden dışa aktarılıyor — çağıranlar değişmedi.
+export { yanitiSekillendir } from './kaymakSekil';
+import { yanitiSekillendir } from './kaymakSekil';
 
-/**
- * Yanıtı mağaza şekline çevirir. SAF — ağ yok, yan etki yok, test edilebilir.
- */
-export const yanitiSekillendir = (yanit: KutuphaneYaniti) => {
-  const watchedShows = (yanit.diziler || []).map((d) => ({
-    show: yapimNesnesi(d),
-    // `trackingLogic` "Ara Verilenler" kovasını bu tarihe göre ayırıyor
-    // (45 günden eski). `null` bırakmak diziyi yanlış kovaya atardı.
-    last_watched_at: d.ilerleme?.last_watched_at ?? null,
-  }));
-
-  const showProgressMap: Record<number, any> = {};
-  for (const d of yanit.diziler || []) {
-    if (d?.traktId) showProgressMap[d.traktId] = d.ilerleme;
-  }
-
-  const watchedMovies = (yanit.filmler || []).map((f) => ({
-    plays: f.plays ?? 1,
-    last_watched_at: f.last_watched_at ?? null,
-    movie: yapimNesnesi(f),
-  }));
-
-  return { watchedShows, showProgressMap, watchedMovies };
-};
 
 /**
  * Kaymak kullanıcısının kütüphanesini çeker ve mağazaya yazar.

@@ -7,6 +7,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useLibrarySelector } from '../../context/LibraryContext';
 import { formatWatchDuration } from '../../utils/watchTimeHelper';
 import ProfileStatsMobile from './ProfileStatsMobile';
+import { gosterilecekIstatistik, yerelIstatistik } from '../../utils/yerelIstatistik';
 
 /**
  * Masaüstü (Web) için çerçevesiz (borderless) mikro-şerit istatistik bileşeni.
@@ -18,7 +19,21 @@ const ProfileStatsWeb = () => {
   const { t } = useTranslation('media');
   const { isDesktop } = useResponsive();
   const router = useRouter();
-  const userStats = useLibrarySelector((s) => s.userStats);
+  // §C17.2 — mobil sürümle AYNI düzeltme: `s.userStats` Trakt'ın
+  // `/users/me/stats` ucundan geliyor ve Google hesabında hep `null`.
+  // Yalnızca mobili düzeltmek, web'de aynı hatayı bırakmak olurdu.
+  const { userStats: sunucuStats, watchedShows, watchedMovies, showProgressMap } =
+    useLibrarySelector((s) => ({
+      userStats: s.userStats,
+      watchedShows: s.watchedShows,
+      watchedMovies: s.watchedMovies,
+      showProgressMap: s.showProgressMap,
+    }));
+
+  const userStats = useMemo(
+    () => gosterilecekIstatistik(sunucuStats, yerelIstatistik(watchedShows, watchedMovies, showProgressMap)),
+    [sunucuStats, watchedShows, watchedMovies, showProgressMap],
+  );
 
   const showsDuration = useMemo(() => {
     if (!userStats?.episodes) return null;

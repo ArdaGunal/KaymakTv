@@ -7,6 +7,9 @@ import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../../../context/AuthContext';
 import MediaPoster from '../../../components/MediaPoster';
+import ProgressBar from '../../../components/ProgressBar';
+import { getProgressBarColor } from '../../../utils/progressBarColor';
+import { useLibrarySelector } from '../../../context/LibraryContext';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import PosterGridSkeleton from '../../../components/skeletons/PosterGridSkeleton';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -26,9 +29,12 @@ interface GridItemProps {
   item: LibraryItem;
   type: string | string[] | undefined;
   onPress: (item: LibraryItem) => void;
+  /** 0 = çubuk çizilmez (§C17.1). İlkel değer — `memo` bozulmasın. */
+  yuzde: number;
+  renk: string;
 }
 
-const LibraryGridItemWeb = memo(({ item, type, onPress }: GridItemProps) => (
+const LibraryGridItemWeb = memo(({ item, type, onPress, yuzde, renk }: GridItemProps) => (
   <TouchableOpacity
     style={styles.card}
     {...{ className: 'web-library-card' }}
@@ -43,6 +49,11 @@ const LibraryGridItemWeb = memo(({ item, type, onPress }: GridItemProps) => (
         style={styles.poster}
       />
       <View style={styles.hoverOverlay} {...{ className: 'hover-overlay' }} />
+      {/* §C17.1 — mobil ile AYNI: posterin dibine bindirme. Kabın içinde
+          duruyor ki kart yüksekliğini değiştirmesin. */}
+      {yuzde > 0 && (
+        <ProgressBar percentage={yuzde} fillColor={renk} style={styles.ilerleme} />
+      )}
     </View>
     <Text style={styles.titleText} numberOfLines={1}>{item.title}</Text>
   </TouchableOpacity>
@@ -53,6 +64,11 @@ export default function LibraryScreenWeb() {
   const { type, status } = useLocalSearchParams();
   const router = useRouter();
   const handleBack = useAppBack();
+  // 🔴 Abonelik EKRAN düzeyinde, hücre başına DEĞİL (`ShowCard.tsx` dersi).
+  const { showProgressMap, hiddenShowIds } = useLibrarySelector((s: any) => ({
+    showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
+  }));
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
 
@@ -91,9 +107,20 @@ export default function LibraryScreenWeb() {
     router.push(`/${routeType}/${slug}?tmdbId=${item.tmdbId || ''}`);
   }, [type, router]);
 
-  const renderItem = useCallback(({ item }: { item: LibraryItem }) => (
-    <LibraryGridItemWeb item={item} type={type} onPress={handleItemPress} />
-  ), [type, handleItemPress]);
+  const renderItem = useCallback(({ item }: { item: LibraryItem }) => {
+    const diziMi = type === 'shows' || type === 'favShows';
+    const ilerleme = diziMi && item.id ? showProgressMap?.[item.id] : null;
+    const varMi = !!ilerleme && ilerleme.aired > 0 && ilerleme.completed > 0;
+    const yuzde = varMi ? (ilerleme.completed / ilerleme.aired) * 100 : 0;
+    const bitti = varMi && ilerleme.completed >= ilerleme.aired;
+    const birakildi = !!item.id && !!hiddenShowIds?.includes?.(item.id);
+    return (
+      <LibraryGridItemWeb
+        item={item} type={type} onPress={handleItemPress}
+        yuzde={yuzde} renk={getProgressBarColor(birakildi, bitti)}
+      />
+    );
+  }, [showProgressMap, hiddenShowIds, type, handleItemPress]);
 
   const keyExtractor = useCallback((item: LibraryItem) => item.key, []);
 
@@ -269,6 +296,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover'
+  },
+  ilerleme: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   hoverOverlay: {
     ...StyleSheet.absoluteFillObject,

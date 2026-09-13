@@ -19,8 +19,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAppBack } from '../hooks/useAppBack';
 import { ChevronLeft } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
-import { useLibraryActions } from '../context/LibraryContext';
-import MediaPoster from '../components/MediaPoster';
+import { useLibraryActions, useLibrarySelector } from '../context/LibraryContext';
+import { getProgressBarColor } from '../utils/progressBarColor';
+import LibraryGridItem from '../components/library/LibraryGridItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug } from '../utils/slugHelper';
@@ -36,29 +37,7 @@ const SPACING = 8;
 // hesaplanır.
 const NUM_COLUMNS = 3;
 
-interface GridItemProps {
-  item: LibraryItem;
-  type: string | string[] | undefined;
-  cardStyle: StyleProp<ViewStyle>;
-  onPress: (item: LibraryItem) => void;
-}
 
-const LibraryGridItem = memo(({ item, type, cardStyle, onPress }: GridItemProps) => (
-  <TouchableOpacity style={cardStyle} activeOpacity={0.7} onPress={() => onPress(item)}>
-    {type === 'lists' ? (
-      <View style={[styles.poster, styles.listPlaceholder]}>
-        <Text style={styles.listPlaceholderText}>{item.title}</Text>
-      </View>
-    ) : (
-      <MediaPoster
-        tmdbId={item.tmdbId}
-        type={type === 'shows' || type === 'favShows' ? 'show' : 'movie'}
-        title={item.title}
-        style={styles.poster}
-      />
-    )}
-  </TouchableOpacity>
-));
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
@@ -67,6 +46,14 @@ export default function LibraryScreen() {
   const handleBack = useAppBack();
   const { accessToken } = useAuth();
   const { t } = useTranslation('navigation');
+  // §C17.1 — kullanıcı raporu (2026-09-13): *"sadece listelerde tümünü gör
+  // deyince yok."* Profil listesine (`HorizontalShowList`) eklenen çubuk bu
+  // ekranda yoktu. 🔴 Abonelik EKRAN düzeyinde, hücre başına DEĞİL
+  // (`ShowCard.tsx`'in performans dersi).
+  const { showProgressMap, hiddenShowIds } = useLibrarySelector((s: any) => ({
+    showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
+  }));
 
   // Web ile ORTAK sözleşme: `?status=upNext` gibi bir kategori önseçimiyle
   // açılabilir (bkz. [type].web.tsx) — mobilde de aynı parametre çalışır ki
@@ -140,9 +127,27 @@ export default function LibraryScreen() {
     }
   }, [type, router]);
 
-  const renderItem = useCallback(({ item }: { item: LibraryItem }) => (
-    <LibraryGridItem item={item} type={type} cardStyle={cardStyle} onPress={handleItemPress} />
-  ), [type, cardStyle, handleItemPress]);
+  const renderItem = useCallback(({ item }: { item: LibraryItem }) => {
+    // Yalnızca DİZİ ekranlarında ilerleme var; film ve listelerde kavram yok.
+    const diziMi = type === 'shows' || type === 'favShows';
+    const ilerleme = diziMi && item.id ? showProgressMap?.[item.id] : null;
+    const varMi = !!ilerleme && ilerleme.aired > 0 && ilerleme.completed > 0;
+    const yuzde = varMi ? (ilerleme.completed / ilerleme.aired) * 100 : 0;
+    const bitti = varMi && ilerleme.completed >= ilerleme.aired;
+    const birakildi = !!item.id && !!hiddenShowIds?.includes?.(item.id);
+    return (
+      <LibraryGridItem
+        item={item}
+        type={type}
+        cardStyle={cardStyle}
+        onPress={handleItemPress}
+        yuzde={yuzde}
+        // 🔑 Renk TEK KAYNAKTAN (`utils/progressBarColor.ts`) — aynı dizi
+        // profilde ve burada FARKLI renkte görünmesin.
+        renk={getProgressBarColor(birakildi, bitti)}
+      />
+    );
+  }, [type, cardStyle, handleItemPress, showProgressMap, hiddenShowIds]);
 
   const keyExtractor = useCallback((item: LibraryItem) => item.key, []);
 
@@ -347,21 +352,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#22304A',
-  },
-  poster: {
-    width: '100%',
-    height: '100%',
-  },
-  listPlaceholder: {
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-  },
-  listPlaceholderText: {
-    color: '#e2e8f0',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
   },
 });

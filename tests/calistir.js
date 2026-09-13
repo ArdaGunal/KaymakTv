@@ -54,6 +54,11 @@ const TAKIMLAR = [
   { ad: 'akis', grup: 'bildirimler', dosya: 'bildirimler/zaman-akisi.test.mjs', aciklama: 'B8: birlesik akis, takvim gunu gruplama, kimlik carpismasi' },
   { ad: 'uzakkutu', grup: 'bildirimler', dosya: 'bildirimler/uzak-kutu.test.mjs', aciklama: 'B9: uzak push kutuya girisi, deep link cozumu, tekillestirme' },
   { ad: 'saklama', grup: 'bildirimler', dosya: 'bildirimler/saklama.test.mjs', aciklama: 'B10: yas budamasi, veri kaybetmeme, sinirsiz alan tamiri' },
+  // DORDUNCU GRUP: arayuz — istemci bilesenlerinin SAF karar katmani ve
+  // kaynak denetimleri (bildirimler/ ile ayni `.mjs` + TS soyma yolu).
+  { ad: 'avatar', grup: 'arayuz', dosya: 'arayuz/avatar.test.mjs', aciklama: 'T4: bas harf, deterministik renk, kopya avatar denetimi' },
+  { ad: 'import', grup: 'arayuz', dosya: 'arayuz/traktImport.test.mjs', aciklama: 'T5.4: hata siniflandirmasi, geri cekilme, ilerleme yuzdesi' },
+  { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17: yerel izleme istatistigi, ilerleme yuzdesi, cubuk rengi' },
 ];
 
 const filtre = process.argv[2];

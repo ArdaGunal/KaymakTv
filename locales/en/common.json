@@ -120,7 +120,6 @@
   "sortOldest": "Oldest",
   "startToday1": "Start today,",
   "startToday2": "log your first movie.",
-  "startToday2": "log your first movie.",
   "statistics": "Statistics",
   "statsPanel": "Statistics Panel",
   "statsPanelDesc": "Your total watch time, favorite genre, most watched director — all presented in numbers.",
@@ -147,5 +146,7 @@
   "weekendWatchlist": "Weekend Watchlist",
   "weeksAgo": "weeks ago",
   "write": "Write",
-  "yearsAgo": "years ago"
+  "yearsAgo": "years ago",
+  "yes": "Yes",
+  "no": "No"
 }

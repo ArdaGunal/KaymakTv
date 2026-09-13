@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../../../components/Avatar';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Settings } from '../../../components/icons';
@@ -56,18 +56,11 @@ function DesktopProfileHeader({
   const router = useRouter();
 
   const avatarUrl = profile.images?.avatar?.full;
-  const initial = profile.username.charAt(0).toUpperCase();
 
   return (
     <View style={desktopHeaderStyles.container}>
       {/* Avatar */}
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={desktopHeaderStyles.avatar} contentFit="cover" cachePolicy="disk" />
-      ) : (
-        <View style={desktopHeaderStyles.avatarFallback}>
-          <Text style={desktopHeaderStyles.avatarText}>{initial}</Text>
-        </View>
-      )}
+      <Avatar url={avatarUrl} ad={profile.username} size={80} halka />
 
       {/* Orta Kolon: İsim + Handle */}
       <View style={desktopHeaderStyles.identityCol}>
@@ -90,7 +83,7 @@ function DesktopProfileHeader({
           <TouchableOpacity 
             style={desktopHeaderStyles.statItem} 
             activeOpacity={0.7}
-            onPress={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'followers' } })}
+            onPress={() => router.push({ pathname: '/user/me/network', params: { type: 'followers' } })}
           >
             <Text style={desktopHeaderStyles.statValue}>{followersCount}</Text>
             <Text style={desktopHeaderStyles.statLabel}>{t('profileFollowers', 'Takipçi')}</Text>
@@ -101,7 +94,7 @@ function DesktopProfileHeader({
           <TouchableOpacity 
             style={desktopHeaderStyles.statItem} 
             activeOpacity={0.7}
-            onPress={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'following' } })}
+            onPress={() => router.push({ pathname: '/user/me/network', params: { type: 'following' } })}
           >
             <Text style={desktopHeaderStyles.statValue}>{followingCount}</Text>
             <Text style={desktopHeaderStyles.statLabel}>{t('profileFollowing', 'Takip Edilen')}</Text>
@@ -263,7 +256,7 @@ export default function ProfileScreenWeb() {
         </View>
 
         {activeTab === 'activity' ? (
-          <ProfileActivityTab traktSlug={profile?.ids?.slug ?? null} />
+          <ProfileActivityTab />
         ) : (
           <>
             <View style={styles.carouselsContainer}>
@@ -318,30 +311,6 @@ const desktopHeaderStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 20,
     flex: 1,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-    flexShrink: 0,
-  },
-  avatarFallback: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#1e293b',
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 30,
   },
   identityCol: {
     flexShrink: 1,

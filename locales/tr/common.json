@@ -120,7 +120,6 @@
   "sortOldest": "En Eski",
   "startToday1": "Bugün başla,",
   "startToday2": "ilk filmini kaydet.",
-  "startToday2": "ilk filmini kaydet.",
   "statistics": "İstatistikler",
   "statsPanel": "İstatistik Paneli",
   "statsPanelDesc": "Toplam izleme süren, favori türün, en çok izlediğin yönetmen — sayılarla önünde.",
@@ -147,5 +146,7 @@
   "weekendWatchlist": "Hafta Sonu İzleyeceklerim",
   "weeksAgo": "hafta önce",
   "write": "Yaz",
-  "yearsAgo": "yıl önce"
+  "yearsAgo": "yıl önce",
+  "yes": "Evet",
+  "no": "Hayır"
 }

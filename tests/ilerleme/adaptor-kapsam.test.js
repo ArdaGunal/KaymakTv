@@ -19,6 +19,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const KOK = path.resolve(__dirname, '..', '..');
+const NL = String.fromCharCode(10);
+// /user/${...slug...} bicimini yakalar
+const SLUG_ROTA = new RegExp('/user/\$\{[^}]*[Ss]lug');
+
+// 🔴 YORUMLARI AYIKLA — DENETIMIN KENDI HATASININ URUNU (2026-09-10).
+// Bolum 5 ilk yazildiginda IKI YANLIS ALARM verdi: useFollowState.ts ve
+// followStore.ts "eskiden followTraktUser cagriliyordu" diye ACIKLIYOR ve
+// ham metin taramasi o aciklamalari GERCEK CAGRI sandi.
+// 🎓 Ders: bir yasak ismi metinde arayan denetim, o ismi ANLATAN
+// dokumantasyonu da yakalar — kod ile yorumu ayirmadan tarama yapilamaz.
+const koduAyikla = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 let gecti = 0, kaldi = 0;
 const bekle = (ad, kosul, ipucu = '') => {
   console.log(`  ${kosul ? '✅' : '⛔'} ${ad}${kosul ? '' : '  → ' + ipucu}`);
@@ -133,6 +145,119 @@ bekle(
   !fs.readFileSync(path.join(MUT, 'progress.ts'), 'utf8').includes('golgeYaz'),
   'kullanıcı istisnayı açıkça puanlarla sınırladı — devir §4.7 duruyor',
 );
+
+// ── 5) SOSYAL GRAF — denetimin ESKİ KÖR NOKTASI (2026-09-10, M337) ───────
+// 🔴 BU BÖLÜM BİR HATANIN ÜRÜNÜ, TIPKI DOSYANIN GERİ KALANI GİBİ.
+// Bu denetim 14/14 YEŞİL yanarken hooks/useFollowState.ts'in Google-only
+// kullanıcıda 401 verdiğini KAÇIRDI: taraması yalnızca
+// services/library/mutations/ + services/traktApi idi; social.ts'e ve takip
+// yollarına HİÇ bakmıyordu.
+// 🎓 DERS: bir denetimin kapsamı, koruduğu sanılan alandan DAR olabilir —
+// ve yeşil ışık yanlış güven verir.
+console.log(NL + 'ozet: Sosyal graf bizim uclarimizda mi?');
+
+const followState = koduAyikla(fs.readFileSync(path.join(KOK, 'hooks', 'useFollowState.ts'), 'utf8'));
+bekle(
+  'useFollowState Trakt takip API-sini CAGIRMIYOR',
+  !/followTraktUser|unfollowTraktUser/.test(followState),
+  'Kaymak oturum tokeni Trakta gidince 401 doner (FAZ_T3_TASLAK 1.1)',
+);
+bekle('useFollowState bizim uclari kullaniyor', /followKaymakUser|unfollowKaymakUser/.test(followState));
+
+const store = koduAyikla(fs.readFileSync(path.join(KOK, 'store', 'followStore.ts'), 'utf8'));
+bekle(
+  'followStore Trakt takip listesini CEKMIYOR',
+  !/getMyFollowingSlugs/.test(store),
+  'graf artik bizde (karar 5.1) - Trakt listesi ikinci bir gercek kaynagi olurdu',
+);
+bekle(
+  'followStore disk anahtari v2',
+  /kaymak-follow-storage-v2/.test(store),
+  'eski kayit SLUG anahtarliydi; ayni anahtarla okunursa herkes takip ediliyor gorunur',
+);
+
+// EVRENSEL KAYMAK KIMLIGI: profil adresi username, trakt_slug DEGIL.
+const ROTALAR = [
+  ['features', 'feed', 'components', 'FeedCard.tsx'],
+  ['features', 'feed', 'components', 'MarathonFeedCard.tsx'],
+  ['components', 'reviews', 'ReviewItem.tsx'],
+  ['features', 'feed', 'components', 'UserSearchResults.tsx'],
+];
+for (const parcalar of ROTALAR) {
+  const yol = path.join(KOK, ...parcalar);
+  if (!fs.existsSync(yol)) continue;
+  const src = koduAyikla(fs.readFileSync(yol, 'utf8'));
+  bekle(
+    parcalar[parcalar.length - 1] + ': /user/ rotasi slug ile kurulMUYOR',
+    !SLUG_ROTA.test(src),
+    'Google-only kullanicinin slugi YOK - kirik rota (FAZ_T3_TASLAK 1.2)',
+  );
+}
+
+// ── 6) PROFİL: Trakt okumaları ROTA PARAMETRESİYLE yapılmıyor (M338) ──────
+// 🔴 BİR REGRESYONUN ÜRÜNÜ: M337'de profil rotası KaymakTV `username`'ine geçti
+// ama iki profil ekranı Trakt okumalarını hâlâ rota parametresiyle (`slug`)
+// yapıyordu. Ölçüldü: `ArdaGnl`≠`ardagnl`, `esrakilinc515_45f919`≠
+// `esrakilinc515-45f919` → 6 gerçek kullanıcının 5'inde aktivite BOŞ gelirdi;
+// Trakt'ta aynı adlı BAŞKA biri varsa onun verisi gösterilirdi. tsc bunu
+// YAKALAMADI (her iki değer de `string | null`), 22 denetimin hiçbiri de.
+console.log(NL + 'ozet: Profil ekranlari Trakt-i gercek slug ile mi okuyor?');
+const PROFIL_EKRANLARI = [
+  ['screens', 'PublicProfileMobile.tsx'],
+  ['app', '(protected)', 'user', '[slug].web.tsx'],
+];
+for (const parcalar of PROFIL_EKRANLARI) {
+  const src = koduAyikla(fs.readFileSync(path.join(KOK, ...parcalar), 'utf8'));
+  const ad = parcalar[parcalar.length - 1];
+  bekle(
+    ad + ': usePublicProfile* rota parametresiyle cagrilmiyor',
+    !/usePublicProfile(Activity|Library)?\(slug\)/.test(src),
+    'rota KaymakTV adi tasiyor - Trakt okumalari traktSlug ile yapilmali (M338)',
+  );
+  bekle(ad + ': kimlik usePublicProfileIdentity ile cozuluyor', /usePublicProfileIdentity\(/.test(src));
+}
+
+// ⚠️ JSX ölçütleri `<Bileşen` ile başlıyor: `Bileşen[^>]*` import satırından
+// başlayıp satırlar boyunca ilk `>`'a kadar kayıyor ve arada geçen alakasız
+// bir `traktSlug`'ı yakalıyordu — ilk koşuda web profilinde YANLIŞ ALARM (M339).
+// ── 7) KİMLİK: "benim mi" · engelleme · profil aktivitesi `users.id` ile (M339) ──
+// 🔴 Google-only kullanıcının Trakt slug'ı YOK. Bu üç yol slug'la sorulduğunda
+// o kullanıcı: kendi kartında "Engelle" görüyordu · kimseyi engelleyemiyordu
+// (T3 çıkış ölçütü sınanamıyordu) · kendi aktivite sekmesini göremiyordu.
+// ⚠️ `components/comments/CommentItem.tsx` BİLİNÇLİ OLARAK listede YOK: Trakt'ın
+// kendi yorumu, tek kimlik slug.
+console.log(NL + 'ozet: Kimlik users.id ile mi (benim mi / engelleme / aktivite)?');
+const KIMLIK_DENETIMI = [
+  [['features', 'feed', 'components', 'FeedCard.tsx'], 'isOwn', 'engel'],
+  [['features', 'feed', 'components', 'MarathonFeedCard.tsx'], 'isOwn', 'engel'],
+  [['features', 'feed', 'components', 'FeedCommentItem.tsx'], 'engel'],
+  [['components', 'reviews', 'ReviewItem.tsx'], 'engel'],
+  [['screens', 'PublicProfileMobile.tsx'], 'profilEngel'],
+  [['app', '(protected)', 'user', '[slug].web.tsx'], 'profilEngel'],
+  [['screens', 'ProfileMobile.tsx'], 'aktiviteSekmesi'],
+  [['app', '(protected)', '(tabs)', 'profile.web.tsx'], 'aktiviteSekmesi'],
+];
+for (const [parcalar, ...kurallar] of KIMLIK_DENETIMI) {
+  const src = koduAyikla(fs.readFileSync(path.join(KOK, ...parcalar), 'utf8'));
+  const ad = parcalar[parcalar.length - 1];
+  for (const kural of kurallar) {
+    if (kural === 'isOwn') {
+      bekle(ad + ': isOwnActivity slug ile hesaplanmiyor', !/isOwnActivity\s*=[^;]*traktSlug/.test(src),
+        'Google-only kullanici kendi kartinda Engelle gorur (M339)');
+    } else if (kural === 'engel') {
+      bekle(ad + ': hizli engelleme slug gondermiyor', !/blockUserQuick\([^)]*traktSlug/.test(src),
+        'bizim kullanicimizin icerigi userId ile engellenmeli (M339)');
+    } else if (kural === 'profilEngel') {
+      bekle(ad + ': engelleme durumu slug ile okunmuyor', !/useBlockState\([^)]*[Ss]lug/.test(src),
+        'Google-only kimseyi engelleyemez (T3 cikis olcutu, M339)');
+      bekle(ad + ': engelleme dugmesi slug almiyor', !/<BlockUserButton[^>]*traktSlug/.test(src));
+      bekle(ad + ': aktivite slug ile okunmuyor', !/usePublicProfileActivity\([^)]*[Ss]lug/.test(src));
+    } else if (kural === 'aktiviteSekmesi') {
+      bekle(ad + ': kendi aktivite sekmesine slug verilmiyor', !/<ProfileActivityTab[^>]*traktSlug/.test(src),
+        'Google-only kullanicida bos string - sekme yuklenmez (M339)');
+    }
+  }
+}
 
 console.log(`\n${kaldi ? '⛔ ' + kaldi + ' KALDI' : '🎉 TÜMÜ GEÇTİ'} — geçen ${gecti}, kalan ${kaldi}`);
 process.exit(kaldi ? 1 : 0);

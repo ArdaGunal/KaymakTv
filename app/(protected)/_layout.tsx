@@ -5,6 +5,10 @@ import { useFeedSyncTrigger } from '../../features/feed/hooks/useFeedSyncTrigger
 import { useNotificationSetup } from '../../features/notifications/hooks/useNotificationSetup';
 import { useNotificationTap } from '../../features/notifications/hooks/useNotificationTap';
 import { useRemoteInbox } from '../../features/notifications/hooks/useRemoteInbox';
+// 🔄 Trakt'ta sonradan yapılan eklemeleri sessizce getirir (§D15). Kendi
+// kapılarını taşıyor: onay yoksa, Trakt hesabı değilse ya da son tur 6 saatten
+// yeniyse HİÇBİR ŞEY yapmaz.
+import { useOtomatikFarkTuru } from '../../hooks/useOtomatikFarkTuru';
 import SyncStatusBanner from '../../components/SyncStatusBanner';
 
 export default function ProtectedLayout() {
@@ -18,6 +22,7 @@ export default function ProtectedLayout() {
   // hali acilistaki tepsi supurmesi ve tiklama yaniti kapsiyor
   // (features/notifications/inbox/remoteInbox.ts basligi).
   useRemoteInbox();
+  useOtomatikFarkTuru();
 
   if (!accessToken && !isGuest) {
     return <Redirect href="/" />;
