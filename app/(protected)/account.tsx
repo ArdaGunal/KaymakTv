@@ -22,7 +22,7 @@ import ReportIssueModal from '../../components/settings/ReportIssueModal';
 import SettingsRow from '../../components/settings/SettingsRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
-import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
+
 import { GoogleLinkSection } from '../../components/settings/GoogleLinkSection';
 import ClearCacheRow from '../../components/settings/ClearCacheRow';
 import Snackbar from '../../components/Snackbar';
@@ -40,7 +40,7 @@ const DEV_MODE_TAP_WINDOW_MS = 1500;
 const DESKTOP_BREAKPOINT = 768;
 
 export default function SettingsScreen() {
-  const { accessToken, isGuest, authProvider } = useAuth();
+  const { accessToken, isGuest } = useAuth();
   const { handleChangeLanguage, currentLanguage } = useSettings();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
@@ -100,8 +100,7 @@ export default function SettingsScreen() {
   // ── Trakt girişi ────────────────────────────────────────────────────────
   // Bu ekranda OAuth YOK. Trakt'a kayıtlı yönlendirme adresi tek bir yola
   // (`/settings`) işaret ettiği için giriş akışı da TEK ekranda yaşamalı;
-  // burada yalnızca o ekrana yönlendiriyoruz (bkz. TraktAccountSection).
-  const goToLogin = () => router.push('/(public)/settings');
+
 
   const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English';
 
@@ -118,18 +117,9 @@ export default function SettingsScreen() {
         <SettingsHeader title={t('settings', 'Ayarlar')} isDesktop={isDesktop} onBack={navigateBack} />
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-          {/* 🔴 `!!accessToken` DEĞİL (2026-08-22 canlı testinde bulundu):
-              Google-only kullanıcıda (`create_new`, Madde 221) `accessToken`
-              DOLU ama içindeki değer bir Trakt token'ı DEĞİL — Kaymak oturum
-              token'ı. Eski koşul bu kullanıcıya "Trakt hesabı bağlı ✓"
-              gösteriyordu; oysa hiç bağlı değil ve Kütüphane/Takvim ona
-              "Trakt'a bağlan" diyordu — uygulama kendi içinde ÇELİŞİYORDU.
-              Doğru kaynak `authProvider`: yalnızca gerçek Trakt token'ı
-              yazıldığında 'trakt' olur (bkz. AuthContext.saveTokens). */}
-          <TraktAccountSection
-            isConnected={authProvider === 'trakt'}
-            onGoToLogin={goToLogin}
-          />
+          {/* 📍 Trakt hesabı (bağlı/bağlan) ve Trakt verisi aktarımı bu ekranda
+              DEĞİL — Hesap Ayarları'nda (kullanıcı kararı, 2026-09-12): ana
+              ekran sadeleşsin. Bkz. app/(protected)/account-settings.tsx. */}
 
           {/* Yalnızca Google-only kullanıcı için görünür — kendi kendine
               yeterli bir bileşen, bkz. ProfileUsernameSection.tsx başlığı. */}

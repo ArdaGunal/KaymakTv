@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getUserProfile, getFollowers, getFollowing, TraktUserProfile } from '../services/api/social';
+import { getUserProfile, TraktUserProfile } from '../services/api/social';
+import { fetchKaymakGraph } from '../services/api/kaymakSocial';
 import { getMyProfile } from '../features/feed/services/profile';
+import { logError } from '../utils/errorLog';
 
 // Profil ekranındaki sosyal başlık (avatar, isim, takipçi/takip edilen
 // sayıları) için — "me" kısaltması Trakt'ın kendi konvansiyonu (bkz.
@@ -30,8 +32,18 @@ import { getMyProfile } from '../features/feed/services/profile';
 //
 // Bu kullanıcının adı/fotoğrafı ZATEN BİZDE (`AuthContext.myUsername`/
 // `myAvatarUrl`, Worker'ın `/account/profile/get`'inden gelir) — Trakt'a hiç
-// gitmeden yerel bir profil sentezleniyor. Takipçi/takip sayıları 0: Trakt'sız
-// kullanıcının Trakt sosyal grafiği YOK, bu bir hata değil GERÇEK durum.
+// gitmeden yerel bir profil sentezleniyor.
+//
+// ══════════════════════════════════════════════════════════════════════════
+// 🪪 TAKİPÇİ/TAKİP SAYILARI ARTIK BİZİM GRAFTAN — İKİ SAĞLAYICI İÇİN DE (M338)
+// ══════════════════════════════════════════════════════════════════════════
+// ⛔ ESKİDEN Trakt'lı kullanıcıda `getFollowers('me')`/`getFollowing('me')`
+// (Trakt) sayılıyordu, Google-only kullanıcıda ise sabit 0 yazılıyordu ("Trakt
+// sosyal grafı YOK, 0 gerçek durum"). T3.3'ten sonra ikisi de YANLIŞ: takip
+// grafının tek otoritesi bizim veritabanımız (karar §5.1). Eski hâliyle biri
+// takip edildiğinde kendi "Takip Edilen" sayın hiç değişmezdi.
+// Yan kazanç: Trakt'lı kullanıcıda profil açılışı Trakt'a 3 değil 1 istek atıyor
+// (iki liste yalnızca `.length` için indiriliyordu).
 export function useMyTraktProfile() {
   const { accessToken, isGuest, authProvider, myUsername, myAvatarUrl } = useAuth();
   const [profile, setProfile] = useState<TraktUserProfile | null>(null);
@@ -51,6 +63,21 @@ export function useMyTraktProfile() {
         setIsLoading(false);
         return;
       }
+
+      // Sayılar iki sağlayıcıda da AYNI kaynaktan. Düşerse önceki değer
+      // KORUNUR (0'a çekilmez) — "0 takipçi" yalanı, "sayı güncellenemedi"den
+      // kötü; ama sessiz de kalmıyor.
+      const sayilariTazele = async () => {
+        try {
+          const graf = await fetchKaymakGraph();
+          if (isMounted && !isMounted()) return;
+          setFollowersCount(graf.followersCount);
+          setFollowingCount(graf.followingCount);
+        } catch (error) {
+          logError('useMyTraktProfile.graf', error);
+        }
+      };
+
       // Google-only: Trakt'a HİÇ gitme (bkz. başlık). Kaynak SUNUCU —
       // `AuthContext.myUsername`/`myAvatarUrl` yalnızca `create_new` anında
       // yazılıyor, yani BU özellikten ÖNCE açılmış hesapların diskinde hiç
@@ -60,10 +87,12 @@ export function useMyTraktProfile() {
       if (authProvider === 'google') {
         let username = myUsername ?? '';
         let avatarUrl = myAvatarUrl ?? null;
+        let bio: string | null = null;
         try {
           const remote = await getMyProfile(accessToken);
           username = remote.username || username;
           avatarUrl = remote.avatarUrl ?? avatarUrl;
+          bio = remote.bio;
         } catch (error) {
           console.warn('[Profile] Kaymak profili okunamadı, yerel kopyaya düşülüyor:', error);
         }
@@ -76,24 +105,17 @@ export function useMyTraktProfile() {
           // Google-only kullanıcının Trakt slug'ı YOK — boş bırakmak doğru.
           ids: { slug: '' },
           images: avatarUrl ? { avatar: { full: avatarUrl } } : undefined,
+          // T4 · `043` — açıklama bizden (Trakt'lı kullanıcıda hâlâ Trakt'ın `about`'u).
+          about: bio,
         });
-        // Trakt'sız kullanıcının Trakt sosyal grafiği YOK: 0 bir hata değil,
-        // gerçek durum.
-        setFollowersCount(0);
-        setFollowingCount(0);
-        setIsLoading(false);
+        await sayilariTazele();
+        if (!isMounted || isMounted()) setIsLoading(false);
         return;
       }
       try {
-        const [myProfile, followers, following] = await Promise.all([
-          getUserProfile('me'),
-          getFollowers('me').catch(() => []),
-          getFollowing('me').catch(() => []),
-        ]);
+        const [myProfile] = await Promise.all([getUserProfile('me'), sayilariTazele()]);
         if (isMounted && !isMounted()) return;
         setProfile(myProfile);
-        setFollowersCount(followers.length);
-        setFollowingCount(following.length);
       } catch (error) {
         console.warn('[Profile] Trakt profili yüklenemedi:', error);
       } finally {

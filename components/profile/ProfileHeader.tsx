@@ -1,13 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../Avatar';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { TraktUserProfile } from '../../services/api/social';
 import { ConnectionState } from '../../hooks/useFollowState';
 
+/**
+ * Başlığın GERÇEKTEN okuduğu alanlar (M338). Eskiden tam `TraktUserProfile`
+ * istiyordu; bu, Google-only kullanıcının (Trakt profili YOK) başlığının hiç
+ * çizilememesi demekti. Kendi profilim hâlâ Trakt nesnesi veriyor — `Pick`
+ * yapısal olarak uyumlu, o çağrı değişmedi.
+ */
+export type ProfilKimligi = Pick<TraktUserProfile, 'username' | 'name' | 'about' | 'images'>;
+
 interface ProfileHeaderProps {
-  profile: TraktUserProfile;
+  profile: ProfilKimligi;
   followersCount: number;
   followingCount: number;
   // Public Profile ekranında (app/(protected)/user/[slug].tsx) kullanılıyor:
@@ -24,6 +32,9 @@ interface ProfileHeaderProps {
   onPressFollowers?: () => void;
   onPressFollowing?: () => void;
   onPressAction?: () => void;
+  /** Verilirse açıklamanın altında "bildir" bağlantısı çıkar (T4 · `043`). Çağıran
+   *  yalnızca BİZİM açıklamamız ve BAŞKASININ profili için verir. */
+  onReportBio?: () => void;
 }
 
 export default function ProfileHeader({
@@ -37,13 +48,12 @@ export default function ProfileHeader({
   onPressFollowers,
   onPressFollowing,
   onPressAction,
+  onReportBio,
 }: ProfileHeaderProps) {
   const { t } = useTranslation('media');
   const router = useRouter();
   const isFollowBusy = !isOwnProfile && (isFollowPending || isLoadingConnection);
 
-  const avatarUrl = profile.images?.avatar?.full;
-  const initial = profile.username.charAt(0).toUpperCase();
 
   const handleAction = () => {
     if (onPressAction) return onPressAction();
@@ -54,13 +64,7 @@ export default function ProfileHeader({
     <View style={styles.container}>
       {/* Üst Satır: Sol Avatar + Sağ İstatistikler & Aksiyon Butonu */}
       <View style={styles.topRow}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </View>
-        )}
+        <Avatar url={profile.images?.avatar?.full} ad={profile.username} size={72} halka />
 
         <View style={styles.rightCol}>
           <View style={styles.statsRow}>
@@ -126,6 +130,11 @@ export default function ProfileHeader({
             {profile.about}
           </Text>
         )}
+        {!!profile.about && !!onReportBio && (
+          <TouchableOpacity onPress={onReportBio} style={styles.reportBio} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Text style={styles.reportBioText}>{t('feed:reportBio', 'Açıklamayı bildir')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -141,28 +150,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 18,
     marginBottom: 10,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1e293b',
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 26,
   },
   rightCol: {
     flex: 1,
@@ -247,5 +234,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     marginTop: 6,
+  },
+  reportBio: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  reportBioText: {
+    color: '#64748b',
+    fontSize: 11.5,
+    fontWeight: '600',
   },
 });

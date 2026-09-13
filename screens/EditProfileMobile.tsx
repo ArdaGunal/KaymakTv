@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '../components/Avatar';
 import { useRouter } from 'expo-router';
 import { useAppBack } from '../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
@@ -58,8 +58,6 @@ export default function EditProfileMobile() {
     Linking.openURL(TRAKT_PROFILE_SETTINGS_URL).catch((err) => console.error('URL açılamadı:', err));
   };
 
-  const avatarUrl = profile?.images?.avatar?.full;
-  const initial = profile?.username?.charAt(0).toUpperCase() ?? '?';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -79,13 +77,7 @@ export default function EditProfileMobile() {
           ) : (
             <>
               <View style={styles.avatarSection}>
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarText}>{initial}</Text>
-                  </View>
-                )}
+                <Avatar url={profile.images?.avatar?.full} ad={profile.username} size={96} halka style={styles.avatarBosluk} />
                 <Text style={styles.displayName} numberOfLines={1}>
                   {profile.name || profile.username}
                 </Text>
@@ -198,29 +190,8 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: 10,
   },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
+  avatarBosluk: {
     marginBottom: 8,
-  },
-  avatarFallback: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#1e293b',
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 34,
   },
   displayName: {
     color: '#f8fafc',
