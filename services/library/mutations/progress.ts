@@ -142,6 +142,44 @@ const reactivateShowTracking = (showId: number) => {
 // alan, tek güncelleme.
 const kaymakYoluMu = () => libraryApi.kaymakKullanicisiMi();
 
+/**
+ * 🔄 ÇİFT YAZMA — T6 kararı (kullanıcı, 2026-09-13).
+ *
+ * Trakt'lı kullanıcı artık BİZDEN okuyor; bu yüzden işaretleme HER İKİ
+ * yere birden gitmek zorunda. Yalnızca Trakt'a yazsaydık ekran bizden
+ * okuduğu için işaretleme **fark turuna kadar (6 saat) görünmezdi**.
+ *
+ * 🔴 SIRA ÖNEMLİ — ÖNCE BİZE. Arayüzün gördüğü satır bizimki. Ters sırada
+ * Trakt tutup bizimki düşerse kullanıcı hiçbir şey görmez, tekrar işaretler
+ * ve YENİ damgayla Trakt'a gerçek bir yeniden-izleme satırı düşer (M318).
+ *
+ * 🔴 TRAKT DÜŞERSE BİZİMKİ GERİ ALINMAZ (yine M318): kalıcı yazılmış bir
+ * işaretlemeyi ekrandan silmek kullanıcıyı hayalet üretmeye iter. Trakt
+ * yazması "elden geldiğince"dir.
+ *
+ * ✅ ÇİFT SAYIM YOK: aynı `watchedAt` ikisine de gidiyor; fark turu izlemeyi
+ * Trakt'tan geri getirdiğinde `user_id,kaymak_id,watched_at` çakışması
+ * tutuyor ve aktarım "yok say" politikasıyla satırı ATLIYOR. Süpürme de
+ * yalnızca `source=trakt` siliyor, bizimki `kaymak`.
+ *
+ * @param trakte Google-only kullanıcıda `null` — Trakt token'ı yok, 401 alırdı.
+ */
+const ciftYaz = async (
+  bize: () => Promise<unknown>,
+  trakte: (() => Promise<unknown>) | null,
+): Promise<void> => {
+  await bize();
+  if (!trakte) return;
+  try {
+    await trakte();
+  } catch (error) {
+    // Yutuluyor ama SESSİZ DEĞİL — M366/M370'in dersi: bir işi çökertmemek
+    // doğru, "yapıldı" göstermek yanlış. Bizim satırımız yazıldı ve okuma
+    // yolu artık biziz; Trakt bu işaretlemeyi kaçırdı.
+    console.warn("[ciftYaz] Trakt yazması düştü, bizimki KALICI:", (error as any)?.message || error);
+  }
+};
+
 /** Mağazadaki mevcut ilerleme — tazeleme başarısız olursa geri düşülür. */
 const mevcutIlerleme = (showId: number) =>
   (useLibraryStore.getState() as any)?.showProgressMap?.[showId] ?? null;
@@ -310,13 +348,10 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
   const watchedAt = nowStamp();
 
   try {
-    if (kaymak) {
-      await libraryApi.markEpisodeWatched(showId, season, episode, watchedAt);
-    } else {
-      console.log(`[API REQUEST] Trakt'a gönderiliyor...`);
-      await addEpisodeToHistory(showId, season, episode, watchedAt);
-      console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
-    }
+    await ciftYaz(
+      () => libraryApi.markEpisodeWatched(showId, season, episode, watchedAt),
+      kaymak ? null : () => addEpisodeToHistory(showId, season, episode, watchedAt),
+    );
 
     const meta = showMetaFor(showId);
     publishActivities([
@@ -409,11 +444,10 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
 
   try {
     console.log(`[API REQUEST] Trakt'tan Bölüm Siliniyor...`);
-    if (kaymak) {
-      await libraryApi.unwatchEpisode(showId, season, episode);
-    } else {
-      await removeEpisodeFromHistoryTrakt(showId, season, episode);
-    }
+    await ciftYaz(
+      () => libraryApi.unwatchEpisode(showId, season, episode),
+      kaymak ? null : () => removeEpisodeFromHistoryTrakt(showId, season, episode),
+    );
     console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
 
     // Geri alınan bölüm akıştan da düşmeli — aksi halde kullanıcı "izlemedim"
@@ -522,11 +556,10 @@ export const unwatchSeason = async (showId: number, season: number) => {
 
   try {
     console.log(`[API REQUEST] Trakt'tan Sezon Siliniyor...`);
-    if (kaymak) {
-      await libraryApi.unwatchSeason(showId, season);
-    } else {
-      await removeSeasonFromHistoryTrakt(showId, season);
-    }
+    await ciftYaz(
+      () => libraryApi.unwatchSeason(showId, season),
+      kaymak ? null : () => removeSeasonFromHistoryTrakt(showId, season),
+    );
     console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
 
     // Bkz. unwatchEpisode'daki aynı not — geri alınan sezonun TÜM bölümleri
@@ -618,11 +651,10 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
 
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Sezon)...`);
-    if (kaymak) {
-      await libraryApi.markSeasonWatched(showId, season, watchedAt);
-    } else {
-      await addSeasonToHistory(showId, season, watchedAt);
-    }
+    await ciftYaz(
+      () => libraryApi.markSeasonWatched(showId, season, watchedAt),
+      kaymak ? null : () => addSeasonToHistory(showId, season, watchedAt),
+    );
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
 
     // 🔴 Kaymak kullanıcısında Trakt'a ilerleme SORULAMAZ (401) — bkz.
@@ -721,11 +753,10 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
 
   try {
     console.log(`[API REQUEST] Trakt'a gönderiliyor (Toplu Bölüm)...`);
-    if (kaymak) {
-      await libraryApi.markEpisodesWatched(showId, season, episodes, watchedAt);
-    } else {
-      await addEpisodesBulkToHistory(showId, season, episodes, watchedAt);
-    }
+    await ciftYaz(
+      () => libraryApi.markEpisodesWatched(showId, season, episodes, watchedAt),
+      kaymak ? null : () => addEpisodesBulkToHistory(showId, season, episodes, watchedAt),
+    );
     console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
 
     const meta = showMetaFor(showId);
@@ -828,13 +859,11 @@ export const markMovieAsWatched = async (movieId: number) => {
   const watchedAt = nowStamp();
 
   try {
-    if (await kaymakYoluMu()) {
-      await libraryApi.markMovieWatched(movieId, watchedAt);
-    } else {
-      console.log(`[API REQUEST] Trakt'a gönderiliyor (Film)...`);
-      await addMovieToHistory(movieId, watchedAt);
-      console.log(`[API SUCCESS] Film Trakt ile senkronize edildi.`);
-    }
+    const kaymakFilm = await kaymakYoluMu();
+    await ciftYaz(
+      () => libraryApi.markMovieWatched(movieId, watchedAt),
+      kaymakFilm ? null : () => addMovieToHistory(movieId, watchedAt),
+    );
 
     // Film izlemeleri artık Akış'ta görünüyor (yeni `watched_movie` tipi) —
     // eskiden akış YALNIZCA bölüm izlemelerini ve puanlamaları taşıyordu,
