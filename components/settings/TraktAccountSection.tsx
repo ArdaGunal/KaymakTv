@@ -2,98 +2,93 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { CheckCircle2, LogIn } from '../icons';
 import { useTranslation } from 'react-i18next';
-import { SettingsSection, SettingsSectionDivider } from './SettingsSection';
+import { SettingsSection } from './SettingsSection';
 
 interface TraktAccountSectionProps {
   isConnected: boolean;
   onGoToLogin: () => void;
 }
 
+/**
+ * Ayarlar → Hesap Ayarları → "Trakt Hesabı".
+ *
+ * 📍 **KONUM (kullanıcı kararı, 2026-09-12):** ana Ayarlar ekranından Hesap
+ * Ayarları'na taşındı; Google kullanıcısının Trakt'a bağlanma yolu da burada.
+ * Ana ekran sadeleşti.
+ *
+ * 🎚️ **SADE DÜZEN (aynı karar):** eskiden 52 piksellik bir buton + iki
+ * satırlık afiş vardı ve bölüm ekranın üçte birini kaplıyordu. Artık bağlıysa
+ * TEK satır (diğer ayar satırlarıyla aynı dil), değilse kısa bir açıklama +
+ * İNCE ama birincil renkli, ikonlu bir buton — "giriş butonu gibi görünsün"
+ * isteği bu yüzden renk ve ikonla korunuyor, yalnızca hacim küçüldü.
+ */
 export function TraktAccountSection({ isConnected, onGoToLogin }: TraktAccountSectionProps) {
   const { t } = useTranslation(['settings', 'common']);
 
   return (
-    <SettingsSection title={t('accountSettings', 'Hesap Ayarları')}>
+    <SettingsSection title={t('settings:traktAccountSection', 'Trakt Hesabı')}>
       {isConnected ? (
-        <View style={styles.connectedBanner}>
-          <View style={styles.connectedDot} />
-          <Text style={styles.connectedText}>{t('settings:traktConnected')}</Text>
-          <CheckCircle2 size={18} color="#4ade80" />
+        <View style={styles.durumSatiri}>
+          <CheckCircle2 size={17} color="#4ade80" />
+          <Text style={styles.durumMetin}>{t('settings:traktConnected')}</Text>
         </View>
       ) : (
-        <>
-          <View style={styles.notConnectedBanner}>
-            <Text style={styles.notConnectedTitle}>{t('settings:traktNotConnectedTitle')}</Text>
-            <Text style={styles.notConnectedSub}>{t('settings:traktNotConnectedSub')}</Text>
-          </View>
-
-          <SettingsSectionDivider />
-
+        <View style={styles.govde}>
+          <Text style={styles.aciklama}>{t('settings:traktNotConnectedSub')}</Text>
           <TouchableOpacity
-            style={styles.connectBtn}
-            activeOpacity={0.82}
+            style={styles.dugme}
+            activeOpacity={0.85}
             onPress={onGoToLogin}
             accessibilityRole="button"
           >
-            <LogIn size={18} color="#fff" strokeWidth={2.2} />
-            <Text style={styles.connectBtnText}>{t('settings:goToLogin', 'Giriş Yap')}</Text>
+            <LogIn size={15} color="#fff" strokeWidth={2.2} />
+            <Text style={styles.dugmeMetin}>{t('settings:goToLogin', 'Giriş Yap')}</Text>
           </TouchableOpacity>
-        </>
+        </View>
       )}
     </SettingsSection>
   );
 }
 
 const styles = StyleSheet.create({
-  connectedBanner: {
+  durumSatiri: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 13,
   },
-  connectedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4ade80',
-  },
-  connectedText: {
+  durumMetin: {
     flex: 1,
     color: '#4ade80',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13.5,
   },
-  notConnectedBanner: {
+  govde: {
     paddingHorizontal: 16,
-    paddingVertical: 18,
-    gap: 6,
+    paddingVertical: 13,
+    gap: 10,
   },
-  notConnectedTitle: {
-    color: '#f1f5f9',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  notConnectedSub: {
+  aciklama: {
     color: '#8c90a0',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12.5,
+    lineHeight: 18,
   },
-  connectBtn: {
+  dugme: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
+    alignSelf: 'flex-start',
     backgroundColor: '#2563eb',
-    margin: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    minHeight: 52,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 9,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
-  connectBtnText: {
+  dugmeMetin: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 13.5,
   },
 });

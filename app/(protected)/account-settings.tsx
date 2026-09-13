@@ -8,11 +8,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
+import { useRouter } from 'expo-router';
+
 import { useAppBack } from '../../hooks/useAppBack';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import SettingsRow from '../../components/settings/SettingsRow';
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
+import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
+import TraktImportSection from '../../components/settings/TraktImportSection';
 import { Lock, ExternalLink, LogOut, Trash2 } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
@@ -24,7 +28,8 @@ const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
 export default function AccountSettingsScreen() {
   const { t } = useTranslation(['settings', 'common']);
   const navigateBack = useAppBack();
-  const { accessToken, isGuest } = useAuth();
+  const { accessToken, isGuest, authProvider } = useAuth();
+  const router = useRouter();
   const { handleLogout, handleDeleteAccount, isLoggingOut, isDeletingAccount } = useSettings();
   const profilePrivacy = useProfilePrivacy();
   const { width } = useWindowDimensions();
@@ -59,6 +64,21 @@ export default function AccountSettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Bölüm 0: Trakt hesabı + veri aktarımı (kullanıcı kararı, 2026-09-12 —
+            ana Ayarlar'dan buraya taşındı).
+            🔴 `!!accessToken` DEĞİL: Google-only kullanıcıda `accessToken` DOLU ama
+            Trakt token'ı değil; doğru kaynak `authProvider` (2026-08-22 canlı testi).
+            Aktarım bölümü kendi kapısını kendi tutuyor (`useTraktImport.uygun`). */}
+        {!isGuest && (
+          <>
+            <TraktAccountSection
+              isConnected={authProvider === 'trakt'}
+              onGoToLogin={() => router.push('/(public)/settings')}
+            />
+            <TraktImportSection />
+          </>
+        )}
+
         {/* Bölüm 1: Gizlilik (Trakt hesap gizliliği - Yalnızca giriş yapmış kullanıcı) */}
         {!isGuest && accessToken && (
           <SettingsSection title={t('settings:privacySection', 'Gizlilik')}>
