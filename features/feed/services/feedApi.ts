@@ -1,6 +1,5 @@
 import axios from 'axios';
-import { getFollowingSlugs } from '../../../store/followStore';
-import { getMyTraktSlug } from '../../../services/api/myIdentity';
+import { getFollowingUserIds } from '../../../store/followStore';
 import { supabase } from './supabaseClient';
 import { FeedActivity, FeedActivityType, FeedMediaType } from '../types';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
@@ -281,10 +280,11 @@ export async function fetchFeedActivities(
  * ediyor muyum" diye sorgu atmak yerine kümeyi bir kez çözüp bellekte
  * tutuyoruz — eleme tek bir `Set.has()` çağrısı oluyor.
  */
-// Kısa ömürlü önbellek: sonsuz kaydırmada HER sayfa bu kümeye ihtiyaç duyar;
-// önbelleksiz her sayfa için fazladan bir `users` sorgusu atılırdı. Takip
-// listesi zaten `followStore`'un kendi TTL'iyle yönetiliyor, buradaki 60 sn
-// yalnızca slug→uuid çevirisini tekrarlamamak için.
+// Kısa ömürlü önbellek: sonsuz kaydırmada HER sayfa bu kümeye ihtiyaç duyar.
+// ⚠️ Eskiden buradaki 60 sn "slug→uuid çevirisini tekrarlamamak" içindi; o
+// çeviri M337'de tamamen SİLİNDİ (`followStore` artık `users.id` tutuyor).
+// Önbellek yine de duruyor çünkü `getMySupabaseUserId` + engel sorgusu hâlâ
+// ağ işi ve her sayfada tekrarlanmamalı.
 let visibleUserIdsCache: { ids: Set<string>; fetchedAt: number } | null = null;
 
 /** Takip/çıkış sonrası küme bayat kalmasın diye. */
@@ -297,33 +297,26 @@ export async function getVisibleUserIds(force = false): Promise<Set<string>> {
     return visibleUserIdsCache.ids;
   }
 
-  // Kendi slug'ım BİLİNÇLİ OLARAK dahil — kullanıcı kendi aktivitelerini de
+  // Kendi kimliğim BİLİNÇLİ OLARAK dahil — kullanıcı kendi aktivitelerini de
   // akışta görür (bkz. docs/HISTORY.md Madde 142). Takip ettiklerim + ben.
   //
-  // 🔴 `myUserId` (2026-08-22): Google-only kullanıcının (`create_new`, Madde
-  // 221) `trakt_slug`'ı NULL'dur — aşağıdaki `.in('trakt_slug', slugs)`
-  // sorgusu onu ASLA bulamaz. Sonuç canlı testte görüldü: kullanıcı KENDİ
-  // gönderisini bile göremiyordu (gönderi kaydediliyor ama akış onu
-  // sahiplenemiyor). Kimlik bu yüzden slug'tan BAĞIMSIZ olarak da çözülüyor
-  // — `getMySupabaseUserId()` disk-öncelikli ve sağlayıcıdan bağımsızdır
-  // (bkz. userBlocks.ts). Trakt kullanıcısı için davranış DEĞİŞMEZ: onun
-  // id'si zaten slug sorgusundan geliyor, `add` yalnızca aynı değeri tekrar
-  // yazar (Set).
-  const [followingSlugs, mySlug, myUserId] = await Promise.all([
-    getFollowingSlugs(),
-    getMyTraktSlug(),
+  // ⛔ SLUG→UUID ÇEVİRİSİ SİLİNDİ (M337). Burada eskiden `getFollowingSlugs()`
+  // ile Trakt slug'ları alınıp `users` tablosunda `.in('trakt_slug', slugs)`
+  // ile bizim kimliklerimize çevriliyordu. `followStore` artık DOĞRUDAN
+  // `users.id` tuttuğu için o adım (bir Supabase sorgusu + `getMyTraktSlug`
+  // çağrısı) tamamen gereksizleşti.
+  //
+  // 🎁 O çevirinin taşıdığı BİLİNEN HATA da kendiliğinden kapandı: Google-only
+  // kullanıcının `trakt_slug`'ı NULL olduğu için `.in('trakt_slug', …)` onu
+  // ASLA bulamıyordu (2026-08-22 canlı testi: kullanıcı KENDİ gönderisini bile
+  // göremiyordu). `getMySupabaseUserId()` o hatayı yamamak için eklenmişti;
+  // hâlâ duruyor çünkü "kendimi de gör" kuralını sağlayan tek şey o.
+  const [followingUserIds, myUserId] = await Promise.all([
+    getFollowingUserIds(),
     getMySupabaseUserId().catch(() => null),
   ]);
-  const slugs = Array.from(new Set(mySlug ? [...followingSlugs, mySlug] : followingSlugs));
 
-  const ids = new Set<string>();
-  if (slugs.length > 0) {
-    const { data, error } = await timeSupabaseCall('supabase.users.visibleIds', () =>
-      supabase.from('users').select('id').in('trakt_slug', slugs)
-    );
-    if (error) throw error;
-    for (const row of (data ?? []) as { id: string }[]) ids.add(row.id);
-  }
+  const ids = new Set<string>(followingUserIds);
   if (myUserId) ids.add(myUserId);
 
   if (ids.size === 0) {
@@ -396,8 +389,18 @@ const PROFILE_ACTIVITY_LIMIT = 20;
 const userFeedActivitiesCache = new Map<string, { data: FeedActivity[]; fetchedAt: number }>();
 
 /** Silme (bkz. useUserActivity.ts) sonrası önbelleğin bayat kalmaması için. */
-export function invalidateUserFeedActivitiesCache(traktSlug: string): void {
-  userFeedActivitiesCache.delete(traktSlug);
+/**
+ * 🪪 ARTIK ARGÜMAN ALMIYOR — önbelleğin TAMAMI temizlenir (M339 · §F6).
+ *
+ * Eskiden çağıranlar KENDİ slug'larını veriyordu (`me.traktSlug`,
+ * `myTraktSlug`…). Google-only kullanıcıda o değer yok → kendi gönderisini
+ * paylaşınca/silince profil önbelleği HİÇ temizlenmiyordu. Anahtar artık
+ * `users.id` ve çağıranların hepsi "kendi eylemim" noktaları; kimliği orada
+ * yeniden çözmek yerine kısa ömürlü (60 sn) bu önbelleğin tamamını boşaltmak
+ * hem basit hem doğru: başkalarının profilleri bir sonraki bakışta tazelenir.
+ */
+export function invalidateUserFeedActivitiesCache(): void {
+  userFeedActivitiesCache.clear();
 }
 
 /**
@@ -424,21 +427,23 @@ export function invalidateIdentityScopedFeedCaches(): void {
 
 // Takip ettiklerim değil, TEK bir kullanıcının TÜM izleme aktivitesi, tarih
 // penceresi olmadan (profilde "son 30 gün" kısıtı anlamlı değil).
-export async function fetchUserFeedActivities(traktSlug: string, force = false): Promise<FeedActivity[]> {
-  const cached = userFeedActivitiesCache.get(traktSlug);
+export async function fetchUserFeedActivities(userId: string, force = false): Promise<FeedActivity[]> {
+  const cached = userFeedActivitiesCache.get(userId);
   if (!force && cached && Date.now() - cached.fetchedAt < CACHE_TTL.SHORT) {
     return cached.data;
   }
 
-  // ESKİDEN: önce `users`den `id` çekip SONRA `feed_activities`i o id'yle
-  // filtreleyen 2 SIRALI istek vardı (2× ağ round-trip'i). `!inner` join +
-  // `user.trakt_slug` filtresiyle TEK isteğe indirildi — eşleşen `users`
-  // satırı yoksa join hiç satır döndürmediğinden sonuç zaten doğal olarak
-  // boş dizi olur, ayrı bir "bulunamadı" dalına gerek kalmadı.
+  // 🪪 `user_id` İLE SÜZÜLÜYOR (M339 · §F6). Bir önceki hâli `!inner` join +
+  // `user.trakt_slug` filtresiydi; Google-only kullanıcının slug'ı YOK →
+  // profilinde (ve kendi profilinde) aktivite HİÇ gelmiyordu. Ayrıca rota
+  // M337'de KaymakTV adına geçtiğinden slug ile adres uyuşmuyordu (`ArdaGnl`≠
+  // `ardagnl`). `idx_feed_activities_user_time (user_id, activity_at DESC)`
+  // indeksi TAM OLARAK bu sorgu için var — join'li slug filtresi onu
+  // kullanamıyordu. Kimlik hâlâ TEK istek.
   let query = supabase
     .from('feed_activities')
     .select(ACTIVITY_COLUMNS)
-    .eq('user.trakt_slug', traktSlug)
+    .eq('user_id', userId)
     // Bölüm incelemeleri profilde de listelenmez — kullanıcı kararı
     // "sadece o bölümün kendi sayfasında görünecek" (bkz. ana akış notu).
     .eq('in_feed', true)
@@ -472,7 +477,7 @@ export async function fetchUserFeedActivities(traktSlug: string, force = false):
   if (error) throw error;
   const mapped = ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
   await attachIsLikedByMe(mapped);
-  userFeedActivitiesCache.set(traktSlug, { data: mapped, fetchedAt: Date.now() });
+  userFeedActivitiesCache.set(userId, { data: mapped, fetchedAt: Date.now() });
   return mapped;
 }
 

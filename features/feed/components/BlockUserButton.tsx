@@ -6,7 +6,8 @@ import { useBlockState } from '../hooks/useBlockState';
 import { confirmAsync } from '../../../utils/confirmDialog';
 
 interface BlockUserButtonProps {
-  traktSlug: string;
+  /** 🪪 `users.id` — Trakt slug'ı DEĞİL (M339 · `BACKLOG` §F6). */
+  targetUserId: string;
 }
 
 /**
@@ -15,9 +16,9 @@ interface BlockUserButtonProps {
  * menüsü yerine doğrudan ikonla gösteriliyor — kilitli/açık durumu ikonun
  * kendisinden okunur.
  */
-export default function BlockUserButton({ traktSlug }: BlockUserButtonProps) {
+export default function BlockUserButton({ targetUserId }: BlockUserButtonProps) {
   const { t } = useTranslation(['feed', 'common']);
-  const { didIBlockThem, isMutating, isLoading, toggleBlock } = useBlockState(traktSlug);
+  const { didIBlockThem, isMutating, isLoading, toggleBlock } = useBlockState(targetUserId);
 
   // Durum netleşmeden yanlış aksiyon (ör. engelliyken "Engelle" göstermek)
   // sunmamak için sessizce hiçbir şey render etmiyoruz.

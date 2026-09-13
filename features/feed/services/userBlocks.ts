@@ -194,15 +194,6 @@ export async function getBlockedUserIds(force = false): Promise<Set<string>> {
   return ids;
 }
 
-/** Bir Trakt slug'ından Supabase `users.id`'sini çözer — yalnızca o kullanıcı
- *  KaymakTV'yi en az bir kez kullanmışsa (sync/publish tetiklemişse) satırı
- *  vardır; yoksa null (engellenecek/görülecek bir şeyi de yok demektir). */
-export async function getUserIdBySlug(traktSlug: string): Promise<string | null> {
-  const { data, error } = await supabase.from('users').select('id').eq('trakt_slug', traktSlug).maybeSingle();
-  if (error) throw error;
-  return data?.id ?? null;
-}
-
 /** Ben BU kişiyi engellemiş miyim (yönlü) — menüde "Engelle" mi "Engeli
  *  Kaldır" mı gösterileceğine karar vermek için. `getBlockedUserIds`'teki
  *  (yönsüz, "engelleyen VEYA engellenen") birleşimden FARKLI bir soru. */
@@ -253,22 +244,40 @@ export async function getMyBlockedUsers(): Promise<BlockedUser[]> {
     }));
 }
 
-export async function blockUser(traktAccessToken: string, blockedTraktSlug: string): Promise<void> {
+/**
+ * Engelleme hedefi (M339 · `BACKLOG` §F6).
+ *
+ * 🪪 `userId` TERCİH EDİLİR: Google-only kullanıcının Trakt slug'ı YOK, slug'la
+ * engelleme onu ne engelleyebiliyor ne engellenebilir kılıyordu. `traktSlug`
+ * yalnızca hedefin TEK kimliği Trakt olduğunda — Trakt'ın kendi yorumları
+ * (`components/comments/CommentItem.tsx`): o kişi KaymakTV'de hiç olmayabilir.
+ *
+ * ⛔ `getUserIdBySlug` bu dosyadan SİLİNDİ — tek kullanıcısı `useBlockState`'ti
+ * ve artık kimlik profil ucundan geliyor.
+ */
+export type EngelHedefi = { userId: string } | { traktSlug: string };
+
+const engelGovdesi = (traktAccessToken: string, hedef: EngelHedefi) =>
+  'userId' in hedef
+    ? { traktAccessToken, blockedUserId: hedef.userId }
+    : { traktAccessToken, blockedTraktSlug: hedef.traktSlug };
+
+export async function blockUser(traktAccessToken: string, hedef: EngelHedefi): Promise<void> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const response = await axios.post(
     `${KAYMAK_WORKER_URL}/feed/block`,
-    { traktAccessToken, blockedTraktSlug },
+    engelGovdesi(traktAccessToken, hedef),
     { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
   );
   if (!response.data?.success) throw new Error(response.data?.message || 'İşlem başarısız.');
   invalidateBlockedUserIds();
 }
 
-export async function unblockUser(traktAccessToken: string, blockedTraktSlug: string): Promise<void> {
+export async function unblockUser(traktAccessToken: string, hedef: EngelHedefi): Promise<void> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const response = await axios.post(
     `${KAYMAK_WORKER_URL}/feed/unblock`,
-    { traktAccessToken, blockedTraktSlug },
+    engelGovdesi(traktAccessToken, hedef),
     { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
   );
   if (!response.data?.success) throw new Error(response.data?.message || 'İşlem başarısız.');

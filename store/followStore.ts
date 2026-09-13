@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from '../utils/secureStorage';
-import { getMyFollowingSlugs } from '../services/api/social';
-import { isKaymakSessionToken } from '../services/api/traktClient';
+import { fetchKaymakGraph, type KaymakGraf } from '../services/api/kaymakSocial';
 // `import type`: yalnızca tip gerekiyor. Düz `import` olduğunda bu satır
 // GERÇEK bir çalışma-zamanı bağımlılığı yaratıyordu ve `useFollowState`
 // AuthContext + notificationStore'u da içeri çektiği için ortaya
@@ -14,35 +12,54 @@ import type { ConnectionState } from '../hooks/useFollowState';
 import { CACHE_TTL } from '../utils/cacheTTL';
 import { logError } from '../utils/errorLog';
 
-const STORAGE_KEY = 'kaymak-follow-storage';
+/**
+ * ==========================================================================
+ * 🪪 ANAHTAR ARTIK `users.id` — TRAKT SLUG'I DEĞİL (Faz T · T3.3, M337)
+ * ==========================================================================
+ * "EVRENSEL KAYMAK KİMLİĞİ" ilkesi (MASTER_PLAN): `trakt_slug` sosyal kimlik
+ * DEĞİLDİR. Google-only kullanıcının slug'ı YOK, dolayısıyla slug anahtarlı
+ * bir store onu HİÇ temsil edemiyordu.
+ *
+ * ⛔ ESKİ KAYNAK TRAKT'TI (`getMyFollowingSlugs`). Artık `/social/graph` —
+ * takip grafının tek otoritesi bizim veritabanımız (karar §5.1).
+ *
+ * 🔴 `STORAGE_KEY` v2'YE ÇEKİLDİ — BU SATIRI GERİ ALMA. Diskteki eski kayıt
+ * SLUG anahtarlıydı; aynı anahtarla okunsaydı hidrasyon o slug'ları `userId`
+ * sanıp herkesi "takip ediliyor" gösterirdi. Eski kayıt artık okunmuyor,
+ * ilk açılışta graf ağdan bir kez çekiliyor.
+ */
+const STORAGE_KEY = 'kaymak-follow-storage-v2';
 
 /**
- * Trakt isteği BAŞARISIZ olduktan sonra yeniden denemeden önce beklenecek süre.
+ * Ağ isteği BAŞARISIZ olduktan sonra yeniden denemeden önce beklenecek süre.
  *
  * NEDEN VAR (F6): hata dalı `isFetched`'i `false`, `fetchedAt`'i `0` bırakıyor
- * → `isStale` her zaman `true` → **her `getFollowingSlugs()` çağrısı ölü Trakt
- * isteğini yeniden deniyordu.** Akış sonsuz kaydırmada her sayfa için bu kümeye
- * ihtiyaç duyduğundan, Trakt erişilemezken her sayfa `traktClient` timeout'una
- * (20sn'ye kadar) kadar bloke olabiliyordu. Backoff bu döngüyü kırıyor.
+ * → `isStale` her zaman `true` → **her `getFollowingUserIds()` çağrısı ölü
+ * isteği yeniden deniyordu.** Akış sonsuz kaydırmada her sayfa için bu kümeye
+ * ihtiyaç duyduğundan, sunucu erişilemezken her sayfa timeout'a kadar bloke
+ * olabiliyordu. Backoff bu döngüyü kırıyor.
  */
 const FAILURE_BACKOFF_MS = 60 * 1000;
 
 interface FollowState {
+  /** 🔑 Anahtar `users.id` (UUID). Slug DEĞİL. */
   connectionStates: Record<string, ConnectionState>;
   isFetched: boolean;
   isLoading: boolean;
   fetchedAt: number;
   /** Son BAŞARISIZ denemenin zamanı; 0 = son deneme başarılı. */
   lastFailedAt: number;
-  fetchFollowingSlugs: (force?: boolean) => Promise<void>;
-  setOptimisticState: (slug: string, state: ConnectionState) => void;
+  fetchFollowGraph: (force?: boolean) => Promise<void>;
+  /** Hazır bir graf yanıtını uygular (bildirim deposu AYRI istek atmasın diye). */
+  applyGraf: (graf: KaymakGraf, baslangicNesli?: number) => void;
+  setOptimisticState: (userId: string, state: ConnectionState) => void;
   reset: () => void;
 }
 
 // `fetchedAt` de diske yazılıyor (F6). NEDEN: eskiden yalnızca RAM'deydi, yani
-// her SOĞUK AÇILIŞTA zaten kabul edilmiş olan 10 dakikalık tazelik sözleşmesi
-// çöpe atılıyor ve akış ağı beklemek zorunda kalıyordu. Diske yazmak yeni bir
-// bayatlık penceresi icat etmiyor — var olan sözleşmeyi soğuk açılışa taşıyor.
+// her SOĞUK AÇILIŞTA zaten kabul edilmiş olan tazelik sözleşmesi çöpe atılıyor
+// ve akış ağı beklemek zorunda kalıyordu. Diske yazmak yeni bir bayatlık
+// penceresi icat etmiyor — var olan sözleşmeyi soğuk açılışa taşıyor.
 const persistState = (
   connectionStates: Record<string, ConnectionState>,
   fetchedAt: number
@@ -57,9 +74,9 @@ const persistState = (
 };
 
 // Uygulama açılışında AsyncStorage'dan TEK seferlik hidrasyon. Bu artık
-// `fetchFollowingSlugs`'ın BEKLEYEBİLECEĞİ bir promise olarak saklanıyor —
+// `fetchFollowGraph`'ın BEKLEYEBİLECEĞİ bir promise olarak saklanıyor —
 // ESKİDEN modül yüklenir yüklenmez ateşlenen bağımsız bir IIFE'ydi ve
-// `fetchFollowingSlugs`in ağ isteği ile aralarında HİÇBİR sıralama garantisi
+// `fetchFollowGraph`in ağ isteği ile aralarında HİÇBİR sıralama garantisi
 // yoktu. Yavaş bir cihazda AsyncStorage okuması ağ isteğinden SONRA biterse,
 // hidrasyon `useFollowStore.setState(...)` ile connectionStates'i doğrudan
 // eski disk anlık görüntüsüyle DEĞİŞTİRİYOR ve az önce ağdan doğrulanmış
@@ -73,9 +90,8 @@ const hydrate = async (): Promise<void> => {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.connectionStates) {
         // `fetchedAt` diskten geliyorsa liste "çekilmiş" sayılır — TTL'i hâlâ
-        // tazeyse `fetchFollowingSlugs` ağa HİÇ çıkmaz. Eski kayıtlarda
-        // (F6 öncesi yazılmış) bu alan yok; o durumda 0 kalır ve davranış
-        // eskisi gibi olur (her açılışta tazele).
+        // tazeyse `fetchFollowGraph` ağa HİÇ çıkmaz. Eski kayıtlarda bu alan
+        // yok; o durumda 0 kalır ve davranış "her açılışta tazele" olur.
         const storedFetchedAt = typeof parsed.fetchedAt === 'number' ? parsed.fetchedAt : 0;
         useFollowStore.setState({
           connectionStates: parsed.connectionStates,
@@ -95,9 +111,26 @@ const ensureHydrated = (): Promise<void> => {
   return hydrationPromise;
 };
 
-// Uçuştaki `fetchFollowingSlugs` isteği — eşzamanlı çağıranlar aynı promise'i
-// bekler (bkz. fetchFollowingSlugs içindeki "ESKİ DAVRANIŞ" notu).
+// Uçuştaki `fetchFollowGraph` isteği — eşzamanlı çağıranlar aynı promise'i
+// bekler (bkz. fetchFollowGraph içindeki "ESKİ DAVRANIŞ" notu).
 let inFlightFetch: Promise<void> | null = null;
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🔴 YARIŞ KORUMASI — NESİL SAYACI (M321/M322'nin dersi, M338'de buraya)
+// ══════════════════════════════════════════════════════════════════════════
+// Senaryo: graf isteği uçuştayken kullanıcı "Takip Et"e basar → iyimser
+// 'following'. Graf yanıtı takip sunucuya ulaşmadan ÖNCE okunmuşsa, geç gelip
+// o durumu SİLER ve düğme "Takip Et"e geri döner — kullanıcı "bir şey olmadı"
+// sanır (canlıda tam bu cümle raporlandı, 2026-09-11). 10 dakikalık TTL
+// yüzünden düzelmesi de gecikir.
+// 🎓 "Yarış koşulu 'daha hızlı yap' ile çözülmez" (M322). Her iyimser değişim
+// bir nesil alır; bir graf yanıtı, isteği BAŞLADIKTAN sonra yapılmış
+// değişimleri EZEMEZ, üstüne yeniden uygular.
+let mutasyonNesli = 0;
+const sonMutasyonlar = new Map<string, { nesil: number; durum: ConnectionState }>();
+
+/** Graf isteği başlamadan önce okunur, yanıtla birlikte `applyGraf`'a verilir. */
+export const takipMutasyonNesli = (): number => mutasyonNesli;
 
 export const useFollowStore = create<FollowState>()((set, get) => ({
   connectionStates: {},
@@ -106,81 +139,48 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
   fetchedAt: 0,
   lastFailedAt: 0,
 
-  fetchFollowingSlugs: async (force = false) => {
+  fetchFollowGraph: async (force = false) => {
     // Hidrasyon bitmeden ağdan gelen sonuç birleştirilmeye BAŞLANAMAZ —
     // aksi halde az sonra tamamlanacak hidrasyon bu birleştirmeyi ezer.
     await ensureHydrated();
 
-    // 🔴 Google-only oturum (`create_new`, Madde 221): bu kullanıcının Trakt
-    // hesabı HİÇ YOK, dolayısıyla bir Trakt takip listesi de yok. İstek
-    // göndermek 401'den başka bir şey üretmez ve `lastFailedAt`'i doldurup
-    // akışın tepesinde "Takip listesi güncellenemedi — son bilinen hâli
-    // gösteriliyor" uyarısını çıkarır. Bu uyarı YANLIŞ TEŞHİSTİR: ortada
-    // güncellenemeyen bir liste yok, hiç liste yok. Kullanıcı canlı testte
-    // (2026-08-22) tam da bunu bildirdi.
-    //
-    // Boş ama BAŞARILI bir sonuç olarak işaretleniyor — `lastFailedAt` 0
-    // kalıyor, dolayısıyla `selectIsFollowingListStale` false döner.
-    const token = await SecureStore.getItemAsync('traktAccessToken');
-    if (isKaymakSessionToken(token)) {
-      set({ isFetched: true, isLoading: false, fetchedAt: Date.now(), lastFailedAt: 0 });
-      return;
-    }
+    // ⛔ ESKİDEN BURADA BİR "KAYMAK OTURUMU → BOŞ DÖN" ERKEN ÇIKIŞI VARDI.
+    // Gerekçesi doğruydu: Google-only kullanıcının Trakt takip listesi YOKTU,
+    // istek 401'den başka bir şey üretmiyordu. Artık graf BİZDE ve o
+    // kullanıcının da grafı var — erken çıkış onu kalıcı olarak "kimseyi
+    // takip etmiyor" durumunda bırakırdı. KALDIRILDI (M337).
 
     const isStale = Date.now() - get().fetchedAt >= CACHE_TTL.SYNC_INTERVAL;
     if (get().isFetched && !force && !isStale) return;
 
     // HATA BACKOFF'U — az önce başarısız olduysak hemen tekrar deneme.
     // `force` bunu aşar (kullanıcının açık bir eylemi, ör. pull-to-refresh).
-    // Bu olmadan Trakt erişilemezken akışın her sayfası ölü isteği yeniden
-    // deniyor ve timeout süresince bloke oluyordu.
     const { lastFailedAt } = get();
     if (!force && lastFailedAt > 0 && Date.now() - lastFailedAt < FAILURE_BACKOFF_MS) return;
 
     // ESKİ DAVRANIŞ: `|| get().isLoading` koşuluyla, o an başka bir çağrı
     // uçuştaysa bu çağrı BEKLEMEDEN anında dönüyordu. `await
-    // fetchFollowingSlugs()` yapıp hemen ardından `connectionStates`i okuyan
+    // fetchFollowGraph()` yapıp hemen ardından `connectionStates`i okuyan
     // çağıranlar (Akış, bildirim deposu) bu durumda HENÜZ DOLMAMIŞ bir
     // listeyi okuyup "hiç kimseyi takip etmiyorum" sonucuna varıyordu —
     // soğuk açılışta iki tüketici aynı anda tetiklendiğinde akışın boş
-    // görünmesinin sebebi buydu. ÇÖZÜM: uçuştaki promise paylaşılır, ikinci
-    // çağıran onu bekler ve güncel listeyi görür.
+    // görünmesinin sebebi buydu. ÇÖZÜM: uçuştaki promise paylaşılır.
     const existing = inFlightFetch;
     if (existing) return existing;
 
     const run = (async () => {
       set({ isLoading: true });
       try {
-        const slugs = await getMyFollowingSlugs();
-
-        set((state) => {
-          const newState = { ...state.connectionStates };
-
-          // Tüm 'following' olanları önce 'none'a çek
-          Object.keys(newState).forEach(key => {
-            if (newState[key] === 'following') {
-              delete newState[key];
-            }
-          });
-
-          // Şimdi Trakt'tan dönen 'following' listesini işle
-          slugs.forEach(slug => {
-            newState[slug] = 'following';
-          });
-
-          const now = Date.now();
-          persistState(newState, now);
-          // `lastFailedAt: 0` → başarı backoff'u temizler.
-          return { connectionStates: newState, isFetched: true, fetchedAt: now, lastFailedAt: 0 };
-        });
+        const baslangicNesli = mutasyonNesli;
+        const graf = await fetchKaymakGraph();
+        get().applyGraf(graf, baslangicNesli);
       } catch (error) {
-        console.warn('[followStore] Takip durumu okunamadı:', error);
-        logError('followStore.fetchFollowingSlugs', error);
+        console.warn('[followStore] Takip grafı okunamadı:', error);
+        logError('followStore.fetchFollowGraph', error);
         // ⚠️ `connectionStates`'e DOKUNULMUYOR — mevcut (diskten gelen) liste
-        // korunur. Trakt kesintisinde akışın çalışmaya devam etmesinin sebebi
-        // bu; F6'nın istemci tarafındaki dayanıklılığı buraya yaslanıyor.
-        // Kaydedilen tek şey başarısızlık damgası: backoff ve "bayat" rozeti
-        // bunu okuyor.
+        // korunur. Sunucu kesintisinde akışın çalışmaya devam etmesinin
+        // sebebi bu. Kaydedilen tek şey başarısızlık damgası: backoff ve
+        // "bayat" rozeti bunu okuyor.
         set({ lastFailedAt: Date.now() });
       } finally {
         set({ isLoading: false });
@@ -192,13 +192,52 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
     return run;
   },
 
-  setOptimisticState: (slug, state) => {
+  applyGraf: (graf, baslangicNesli = mutasyonNesli) => {
+    set((state) => {
+      const newState = { ...state.connectionStates };
+
+      // Sunucudan gelen liste OTORİTE: önce sunucunun yönettiği iki durumu
+      // temizle, sonra taze hâlini yaz.
+      Object.keys(newState).forEach((key) => {
+        if (newState[key] === 'following' || newState[key] === 'pending') {
+          delete newState[key];
+        }
+      });
+      graf.following.forEach((kisi) => {
+        newState[kisi.userId] = 'following';
+      });
+      // 🔑 GİZLİ HESAPLARA GÖNDERİLMİŞ İSTEKLER. Bunlar olmadan takip düğmesi
+      // "İstek gönderildi" durumunu gösteremez.
+      (graf.pendingOut ?? []).forEach((userId) => {
+        newState[userId] = 'pending';
+      });
+
+      // 🔴 İSTEK BAŞLADIKTAN SONRAKİ İYİMSER DEĞİŞİMLER EZİLMEZ (üstteki not).
+      // Daha eski değişimleri sunucu zaten görmüş sayılır → defterden düşer.
+      for (const [userId, m] of sonMutasyonlar) {
+        if (m.nesil > baslangicNesli) {
+          if (m.durum === 'none') delete newState[userId];
+          else newState[userId] = m.durum;
+        } else {
+          sonMutasyonlar.delete(userId);
+        }
+      }
+
+      const now = Date.now();
+      persistState(newState, now);
+      // `lastFailedAt: 0` → başarı backoff'u temizler.
+      return { connectionStates: newState, isFetched: true, fetchedAt: now, lastFailedAt: 0 };
+    });
+  },
+
+  setOptimisticState: (userId, state) => {
+    sonMutasyonlar.set(userId, { nesil: ++mutasyonNesli, durum: state });
     set((prev) => {
       const newState = { ...prev.connectionStates };
       if (state === 'none') {
-        delete newState[slug];
+        delete newState[userId];
       } else {
-        newState[slug] = state;
+        newState[userId] = state;
       }
       persistState(newState, prev.fetchedAt);
       return { connectionStates: newState };
@@ -209,6 +248,8 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
     // Uçuştaki istek de bırakılmalı: aksi halde çıkış sonrası tamamlanan eski
     // hesabın isteği, az önce temizlenen store'u yeniden doldururdu.
     inFlightFetch = null;
+    // Önceki hesabın iyimser defteri yeni hesaba sızmasın.
+    sonMutasyonlar.clear();
     set({
       connectionStates: {},
       isFetched: false,
@@ -219,10 +260,8 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
     // 🔴 DİSK KOPYASI DA SİLİNMELİ (F6'da fark edildi). Eskiden yalnızca RAM
     // temizleniyordu; AsyncStorage'daki liste duruyordu. Uygulama yeniden
     // başlatıldığında hidrasyon ÖNCEKİ hesabın takip listesini yüklerdi.
-    // F6 ile `fetchedAt` de diske yazıldığı için bu artık daha da tehlikeli:
+    // F6 ile `fetchedAt` de diske yazıldığı için bu daha da tehlikeli:
     // liste "taze" görünüp ağa hiç çıkılmadan kullanılabilirdi.
-    // Ayrıca `hydrationPromise` sıfırlanıyor ki bir sonraki `ensureHydrated()`
-    // yeni oturum için baştan çalışsın.
     hydrationPromise = null;
     AsyncStorage.removeItem(STORAGE_KEY).catch((error) =>
       logError('followStore.reset.clearStorage', error)
@@ -247,26 +286,24 @@ export function selectIsFollowingListStale(state: FollowState): boolean {
 }
 
 /**
- * Takip edilen kullanıcıların slug listesi — bu store'un zaten tuttuğu
- * `connectionStates`'ten türetilir, AYRI bir ağ isteği YAPILMAZ.
+ * Takip edilen kullanıcıların **`users.id`** listesi — bu store'un zaten
+ * tuttuğu `connectionStates`'ten türetilir, AYRI bir ağ isteği YAPILMAZ.
  *
- * NEDEN: Akış (`features/feed/services/feedApi.ts`) eskiden her yüklemede
- * doğrudan `getMyFollowingSlugs()` çağırıyordu — yani bu store'un 10 dakikalık
- * TTL ile zaten önbelleklediği veri için Trakt'a FAZLADAN, SIRALI bir istek
- * daha gidiyordu ve Supabase sorgusu onun bitmesini beklemek zorundaydı.
- * Artık tek gerçek kaynak burası; taze veri gerekiyorsa `fetchFollowingSlugs`
- * kendi TTL'ine göre karar verir, taze ise hiç ağa çıkmaz.
+ * 🪪 ESKİ ADI `getFollowingSlugs` İDİ. Slug döndürmediği için adı da
+ * değişti: `feedApi` artık dönen değeri DOĞRUDAN `feed_activities.user_id`
+ * filtresinde kullanıyor, arada bir slug→uuid çevirisi YOK (o adım M337'de
+ * silindi).
  *
  * `pending` (onay bekleyen) durumlar BİLİNÇLİ OLARAK dışarıda — henüz
  * onaylanmamış bir takip isteği, o kişinin aktivitelerini görme hakkı vermez.
  */
-export async function getFollowingSlugs(): Promise<string[]> {
-  await useFollowStore.getState().fetchFollowingSlugs();
+export async function getFollowingUserIds(): Promise<string[]> {
+  await useFollowStore.getState().fetchFollowGraph();
   const { connectionStates } = useFollowStore.getState();
-  return Object.keys(connectionStates).filter((slug) => connectionStates[slug] === 'following');
+  return Object.keys(connectionStates).filter((id) => connectionStates[id] === 'following');
 }
 
-// Hidrasyonu uygulama açılışında hemen tetikle (kimse henüz `fetchFollowingSlugs`
+// Hidrasyonu uygulama açılışında hemen tetikle (kimse henüz `fetchFollowGraph`
 // çağırmamış olsa bile) — `ensureHydrated()` idempotent olduğundan ilk
-// `fetchFollowingSlugs` çağrısı zaten bitmiş olan bu promise'i anında geçer.
+// `fetchFollowGraph` çağrısı zaten bitmiş olan bu promise'i anında geçer.
 ensureHydrated();

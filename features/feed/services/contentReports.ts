@@ -21,7 +21,8 @@ import { logError } from '../../../utils/errorLog';
  * beğeni, yorum ve engelleme de giriş gerektiriyor; bildirme tek istisnaydı.
  * Kimliksiz bildirim kabul etmek, kısıtın tamamını işlevsiz bırakıyordu.
  */
-export type ReportTargetType = 'activity' | 'comment' | 'trakt_comment';
+// `user_bio` (T4 · `043`) → `targetId` = açıklaması bildirilen kişinin `users.id`'si.
+export type ReportTargetType = 'activity' | 'comment' | 'trakt_comment' | 'user_bio';
 export type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'spoiler' | 'illegal' | 'other';
 
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';

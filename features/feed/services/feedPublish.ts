@@ -266,7 +266,7 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
     // da Realtime yankısıyla gelir; iyimser kart o zaman değiştirilir.
     // Önbellekleri geçersiz kıl ki bir sonraki okuma taze veriyi görsün.
     invalidateFeedCache();
-    if (me) invalidateUserFeedActivitiesCache(me.traktSlug);
+    invalidateUserFeedActivitiesCache();
     recordMutationResult('publishFeedActivity', true);
   } catch (error) {
     // Yayınlanmamış bir şeyi ekranda bırakmak kullanıcıya YALAN olurdu.
@@ -377,8 +377,7 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
     }
 
     invalidateFeedCache();
-    // `me` çözülemediyse profil önbelleği atlanır — kendi TTL'iyle tazelenir.
-    if (me) invalidateUserFeedActivitiesCache(me.traktSlug);
+    invalidateUserFeedActivitiesCache();
     recordMutationResult('publishPost', true);
     return { ok: true };
   } catch (error: any) {
@@ -408,8 +407,8 @@ export function retractLocalActivity(predicate: (a: FeedActivity) => boolean): v
   // önbelleği de geçersiz kılınmazsa, oraya dönen kullanıcı geri alınmış
   // aktiviteyi TTL dolana kadar hâlâ orada görürdü (Akış zaten canlı
   // `feedStore`'dan okuduğu için anında düşüyor, Profil ayrı bir fetch+cache
-  // kullanıyor — bkz. useUserActivity.ts). `cachedMe` henüz hiç çözülmediyse
-  // (bu oturumda bir yayın/gönderi olmadıysa) sessizce atlanır — zararı yok,
-  // önbellek kendi TTL'iyle zaten kısa sürede tazelenir.
-  if (cachedMe) invalidateUserFeedActivitiesCache(cachedMe.traktSlug);
+  // kullanıyor, bkz. useUserActivity.ts). M339: kimlik gerekmiyor — eskiden
+  // `cachedMe.traktSlug` isteniyordu ve Google-only kullanıcıda slug olmadığı
+  // için bu satır HİÇ çalışmıyordu.
+  invalidateUserFeedActivitiesCache();
 }

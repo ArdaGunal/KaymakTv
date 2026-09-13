@@ -1,48 +1,68 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getFollowers, getFollowing, TraktUserProfile } from '../services/api/social';
+import { useState, useEffect } from 'react';
+import { fetchKaymakGraph, KaymakUserSonucu } from '../services/api/kaymakSocial';
 import { useAuth } from '../context/AuthContext';
 import { useFollowStore } from '../store/followStore';
 
-export function useNetworkList(slug: string | null, type: 'followers' | 'following') {
-  const { accessToken, isGuest } = useAuth();
-  const [data, setData] = useState<TraktUserProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
-  const [hasNextPage, setHasNextPage] = useState(true);
-  const [page, setPage] = useState(1);
-  // Seçicilerle abone olunuyor (bkz. hooks/useFollowState.ts'teki aynı not) —
-  // bu ekran `connectionStates`'in tamamına ihtiyaç duymuyor, yalnızca bu üç
-  // alana. Whole-store abonelik, listedeki herhangi bir kullanıcının takip
-  // durumu değiştiğinde bu ekranın (ve altındaki FlatList'in) gereksiz yere
-  // yeniden render olmasına yol açardı.
-  const isFetched = useFollowStore((s) => s.isFetched);
-  const isStoreLoading = useFollowStore((s) => s.isLoading);
-  const fetchFollowingSlugs = useFollowStore((s) => s.fetchFollowingSlugs);
+export type NetworkUser = KaymakUserSonucu & { userId: string };
 
+/**
+ * Takipçi / takip edilen listesi — **BİZİM** graftan (Faz T · T3.3, M337).
+ *
+ * ⛔ ESKİDEN TRAKT'TAN GELİYORDU (`getFollowers`/`getFollowing`) ve 20'şerlik
+ * sayfalama yapıyordu. Google-only kullanıcı o listelerde HİÇ görünmüyordu.
+ *
+ * ⚠️ SAYFALAMA KALDIRILDI — bilinçli. `/social/graph` her iki yönü TEK
+ * yanıtta, 100 kişiye kadar döndürüyor. Sahte bir sayfalama arayüzü tutmak
+ * (tek istek, sonra "sonraki sayfa yok") çağıranı yanıltırdı. 100'ü aşan bir
+ * kullanıcı çıktığında ucun kendisine imleç eklenmeli — o gün gelmeden
+ * istemciye sayfalama iskeleti yazmak erken soyutlama olur.
+ *
+ * @param targetUserId Profili görüntülenen kişinin `users.id`'si.
+ *                     `null` → kendi ağım.
+ */
+export function useNetworkList(targetUserId: string | null, type: 'followers' | 'following') {
+  const { accessToken, isGuest } = useAuth();
+  const [data, setData] = useState<NetworkUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hata, setHata] = useState(false);
+  /** 🔒 Gizli hesabın listesi sunucuda BOŞALTILIYOR (sayılar yine geliyor). */
+  const [gizli, setGizli] = useState(false);
+
+  // Seçicilerle abone olunuyor (bkz. hooks/useFollowState.ts'teki aynı not) —
+  // bu ekran `connectionStates`'in tamamına ihtiyaç duymuyor. Whole-store
+  // abonelik, listedeki herhangi bir kullanıcının takip durumu değiştiğinde
+  // bu ekranın (ve altındaki FlatList'in) gereksiz yere yeniden render
+  // olmasına yol açardı.
+  const isFetched = useFollowStore((s) => s.isFetched);
+  const fetchFollowGraph = useFollowStore((s) => s.fetchFollowGraph);
+
+  // Kendi takip durumlarım — kartlardaki "Takip Et" düğmesi bunu okuyor.
   useEffect(() => {
     if (!accessToken || isGuest) return;
     if (!isFetched) {
-      fetchFollowingSlugs();
+      fetchFollowGraph();
     }
-  }, [accessToken, isGuest, isFetched, fetchFollowingSlugs]);
+  }, [accessToken, isGuest, isFetched, fetchFollowGraph]);
 
-  // Fetch list when slug/type changes
   useEffect(() => {
-    if (!slug) return;
-    
     let cancelled = false;
     setIsLoading(true);
-    setPage(1);
-    
-    const fetchFn = type === 'followers' ? getFollowers : getFollowing;
-    fetchFn(slug, 1, 20)
-      .then((users) => {
-        if (!cancelled) {
-          setData(users);
-          setHasNextPage(users.length === 20);
-        }
+    setHata(false);
+
+    fetchKaymakGraph(targetUserId ?? undefined)
+      .then((graf) => {
+        if (cancelled) return;
+        setGizli(graf.gizli);
+        setData(type === 'followers' ? graf.followers : graf.following);
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (cancelled) return;
+        // 🔴 SESSİZ BAŞARISIZLIK YASAK (AI_RULES §2): eskiden `.catch(() => {})`
+        // vardı ve liste boş kalıyordu — kullanıcı "kimse yok" ile "yüklenemedi"
+        // arasındaki farkı GÖREMİYORDU.
+        console.warn('[useNetworkList] Ağ listesi alınamadı:', error);
+        setHata(true);
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });
@@ -50,30 +70,7 @@ export function useNetworkList(slug: string | null, type: 'followers' | 'followi
     return () => {
       cancelled = true;
     };
-  }, [slug, type]);
+  }, [targetUserId, type]);
 
-  const fetchNextPage = useCallback(async () => {
-    if (!slug || isFetchingNextPage || !hasNextPage || isLoading) return;
-
-    setIsFetchingNextPage(true);
-    const nextPage = page + 1;
-    const fetchFn = type === 'followers' ? getFollowers : getFollowing;
-
-    try {
-      const users = await fetchFn(slug, nextPage, 20);
-      setData((prev) => {
-        // avoid duplicates
-        const newUsers = users.filter((u) => !prev.some((p) => (p.ids?.slug || p.username) === (u.ids?.slug || u.username)));
-        return [...prev, ...newUsers];
-      });
-      setPage(nextPage);
-      setHasNextPage(users.length === 20);
-    } catch (e) {
-      console.warn('Load more failed', e);
-    } finally {
-      setIsFetchingNextPage(false);
-    }
-  }, [slug, type, page, isFetchingNextPage, hasNextPage, isLoading]);
-
-  return { data, isLoading, fetchNextPage, isFetchingNextPage, isStoreLoading };
+  return { data, isLoading, hata, gizli };
 }

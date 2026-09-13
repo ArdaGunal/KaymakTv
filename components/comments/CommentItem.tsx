@@ -16,24 +16,9 @@ import { useMyTraktSlug } from '../../features/feed/hooks/useMyTraktSlug';
 import { useQuickBlock } from '../../features/feed/hooks/useQuickBlock';
 import CardMenu from '../../features/feed/components/CardMenu';
 import ReportContentModal from '../../features/feed/components/ReportContentModal';
+import Avatar from '../Avatar';
 
-function getInitials(username?: string): string {
-  if (!username) return '?';
-  return username.slice(0, 2).toUpperCase();
-}
-
-// ─── Avatar ────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  '#2563eb', '#7c3aed', '#0891b2', '#059669',
-  '#d97706', '#dc2626', '#db2777', '#65a30d',
-];
-
-function avatarColor(username?: string): string {
-  if (!username) return AVATAR_COLORS[0];
-  const code = username.charCodeAt(0) + (username.charCodeAt(1) || 0);
-  return AVATAR_COLORS[code % AVATAR_COLORS.length];
-}
+// Avatar (palet · renk · baş harf) → `components/Avatar.tsx` + `utils/avatar.ts` (M341).
 
 // ─── Spoiler Overlay ───────────────────────────────────────────────────────
 
@@ -100,8 +85,6 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
   const { blockUserQuick } = useQuickBlock();
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const username = item.user?.username || item.user?.name || 'Anonim';
-  const initials = getInitials(username);
-  const color = avatarColor(username);
   const relDate = formatRelativeTime(item.created_at, t);
   const traktSlug = item.user?.ids?.slug;
   // Kendi yorumunu bildirmek/engellemek anlamsız — ayrıca slug hiç yoksa
@@ -112,10 +95,7 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.cardHeader}>
-        {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: color }]}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+        <Avatar ad={username} size={36} />
 
         {/* Username + date */}
         <View style={styles.userInfo}>
@@ -143,7 +123,7 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
             <CardMenu
               onReport={() => setReportModalVisible(true)}
               onBlock={
-                traktSlug && accessToken && !isGuest ? () => blockUserQuick(traktSlug) : undefined
+                traktSlug && accessToken && !isGuest ? () => blockUserQuick({ traktSlug }) : undefined
               }
             />
           )}
@@ -197,19 +177,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     gap: 10,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
   },
   userInfo: {
     flex: 1,

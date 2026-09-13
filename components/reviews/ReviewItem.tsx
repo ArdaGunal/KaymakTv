@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Avatar from '../Avatar';
 import { Heart, EyeOff } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -38,16 +39,10 @@ export default function ReviewItem({ review, isOwn, onToggleLike, onEdit, onDele
   const [revealed, setRevealed] = useState(!review.noteSpoiler);
   const [reportModalVisible, setReportModalVisible] = useState(false);
 
-  const initial = (review.user.username || '?').charAt(0).toUpperCase();
-
   return (
     <View style={[styles.row, isOwn && styles.ownRow]}>
-      <TouchableOpacity
-        style={styles.avatar}
-        activeOpacity={0.7}
-        onPress={() => router.push(`/user/${review.user.traktSlug}`)}
-      >
-        <Text style={styles.avatarText}>{initial}</Text>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => router.push(`/user/${review.user.username}`)}>
+        <Avatar url={review.user.avatarUrl} ad={review.user.username} size={30} />
       </TouchableOpacity>
 
       <View style={styles.body}>
@@ -100,7 +95,7 @@ export default function ReviewItem({ review, isOwn, onToggleLike, onEdit, onDele
             onReport={!isOwn ? () => setReportModalVisible(true) : undefined}
             onBlock={
               !isOwn && accessToken && !isGuest
-                ? () => blockUserQuick(review.user.traktSlug)
+                ? () => blockUserQuick({ userId: review.user.id })
                 : undefined
             }
           />
@@ -132,22 +127,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: 'rgba(251,146,60,0.18)',
-  },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 12,
   },
   body: {
     flex: 1,

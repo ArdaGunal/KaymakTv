@@ -1,25 +1,27 @@
-import axios from 'axios';
 import { getTraktClient } from './traktClient';
-import * as SecureStore from '../../utils/secureStorage';
 
-// Trakt'ın kendi sosyal grafiği (Follow/Following) — bkz. docs/design/feed.md
-// "Mimari Pivot". KaymakTV kendi takip tablosunu tutmuyor, tüm takip
-// ilişkisi doğrudan Trakt API'sinden okunup yazılıyor. Bu uç noktaların
-// hepsi kullanıcının KENDİ token'ıyla çağrılıyor — Trakt zaten "bu isteği
-// kim yapıyor" sorusunu kendi OAuth'uyla cevapladığı için ayrı bir kimlik
-// doğrulama katmanına (Worker vb.) hiç gerek yok.
-
-// `/users/:id/follow` (POST/DELETE), `/users/hidden/*` ile AYNI aile davranışını
-// gösteriyor: tarayıcıdan doğrudan `getTraktClient()` ile çağrıldığında Trakt
-// CORS preflight'ını reddediyor (bkz. docs/HISTORY.md Madde 109 ve "takip
-// isteği gitmiyor" bug raporu — hata `useFollowState`'te sessizce yutulup
-// optimistic UI rollback'ine düştüğü için kullanıcıya hiçbir iz bırakmıyordu).
-// `services/api/users.ts`'teki TRAKT_PROXY_URL ile BİREBİR AYNI desen:
-// sunucu-sunucu isteği CORS'a hiç tabi değil. `Platform.OS` kontrolü
-// EKLENMEDİ (bkz. Madde 91) — native/web aynı yolu kullanır.
-const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
-  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
-  : '/api/trakt-proxy';
+// ══════════════════════════════════════════════════════════════════════════
+// TRAKT PROFİL OKUMALARI — artık SOSYAL GRAF DEĞİL (M338)
+// ══════════════════════════════════════════════════════════════════════════
+// ⛔ Bu dosya eskiden Trakt'ın sosyal grafını (takip/takipçi/istek) okuyup
+// yazıyordu: `docs/design/feed.md` "Mimari Pivot" kararıyla KaymakTV kendi
+// takip tablosunu tutmuyordu. Faz T · T3 bu kararı TERSİNE çevirdi — grafın
+// tek otoritesi artık bizim veritabanımız (`040_social_graph.sql`, karar §5.1)
+// ve istemci tarafı `services/api/kaymakSocial.ts`'te.
+//
+// 🗑️ M338'de SİLİNENLER (kodda SIFIR kullanım, ölçüldü): `getFollowers`,
+// `getFollowing`, `getMyFollowingSlugs`, `followTraktUser`, `unfollowTraktUser`,
+// `getFollowRequests`, `approveFollowRequest`, `denyFollowRequest` ve yalnızca
+// onların kullandığı `TRAKT_PROXY_URL`. Geri getirmek bir takip yolunu tekrar
+// Trakt'a bağlamak olurdu — Google-only kullanıcıda 401 veren sınıf
+// (`FAZ_T3_TASLAK` §1.1, M324'teki puanlama hatasıyla aynı).
+// ⚠️ Web sunucusunun proxy izin listesi (`server/security.js`) bu Trakt yazma
+// uçlarına HÂLÂ izin veriyor — `BACKLOG` §F7.
+//
+// Kalanlar yalnızca OKUMA ve yalnızca Trakt ZENGİNLEŞTİRMESİ içindir: isim,
+// biyografi, avatar ve Trakt izleme kütüphanesi. Başkası için çağrılırken
+// anahtar sunucunun döndürdüğü GERÇEK `traktSlug`'dır, rota parametresi DEĞİL
+// (bkz. `features/publicProfile/hooks/usePublicProfileIdentity.ts`).
 
 // Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor — `services/api/comments.ts`'teki
 // AYNI `cacheBustParam` deseni (bkz. docs/HISTORY.md Madde 87/102): sabit bir
@@ -51,118 +53,6 @@ export const getUserProfile = async (username: string): Promise<TraktUserProfile
   const client = await getTraktClient();
   const response = await client.get(`/users/${encodeURIComponent(username)}?extended=full&${cacheBustParam()}`);
   return response.data;
-};
-
-// `?extended=full` olmadan avatar/isim gibi alanlar eksik gelir — bkz. yukarıdaki not.
-export const getFollowers = async (username: string, page?: number, limit?: number): Promise<TraktUserProfile[]> => {
-  const client = await getTraktClient();
-  let url = `/users/${encodeURIComponent(username)}/followers?extended=full`;
-  if (page) url += `&page=${page}`;
-  if (limit) url += `&limit=${limit}`;
-  const response = await client.get(url);
-  return (response.data ?? []).map((item: any) => item?.user).filter(Boolean);
-};
-
-export const getFollowing = async (username: string, page?: number, limit?: number): Promise<TraktUserProfile[]> => {
-  const client = await getTraktClient();
-  let url = `/users/${encodeURIComponent(username)}/following?extended=full`;
-  if (page) url += `&page=${page}`;
-  if (limit) url += `&limit=${limit}`;
-  const response = await client.get(url);
-  return (response.data ?? []).map((item: any) => item?.user).filter(Boolean);
-};
-
-/**
- * Takip ettiklerimin slug listesi — akışın görünürlük kümesinin kaynağı.
- *
- * ⚠️ BİLİNÇLİ OLARAK `page`/`limit` GÖNDERİLMİYOR. Canlı ölçümle doğrulandı
- * (2026-08-17): bu uç `x-pagination-*` başlığı döndürmüyor ve tüm listeyi tek
- * yanıtta veriyor. AMA `?limit=N` parametresini **kabul ediyor** — buraya bir
- * gün `limit` eklenirse liste SESSİZCE kırpılır ve kimse fark etmez.
- *
- * ⚠️ `Array.isArray` GUARD'I SİLİNMEMELİ: `[]` (kullanıcı gerçekten kimseyi
- * takip etmiyor) ile "yanıt kabul edilemez" ayrımı, takip snapshot'ının
- * tamamının dayandığı ayrım (bkz. docs/design/FOLLOW_SNAPSHOT_PLAN.md ve Worker'daki
- * `normalizeFollowingSlugs`). Trakt bir gün 200 + HTML gövde döndürürse
- * (kapanış duyurusu, proxy sayfası) bugün `.map is not a function` TypeError'ı
- * TESADÜFEN doğru davranıyor — reject ediyor. Guard bunu niyetli ve teşhis
- * edilebilir hâle getiriyor.
- */
-export const getMyFollowingSlugs = async (): Promise<string[]> => {
-  const client = await getTraktClient();
-  const response = await client.get('/users/me/following');
-  if (!Array.isArray(response.data)) {
-    throw new Error(
-      `[social] /users/me/following beklenmeyen yanıt türü: ${typeof response.data}`
-    );
-  }
-  return response.data
-    .map((item: any) => item?.user?.ids?.slug)
-    .filter((slug: unknown): slug is string => typeof slug === 'string');
-};
-
-export interface FollowResult {
-  // Gizli (private) hesaplarda takip isteği onay bekler — Trakt dokümantasyonu
-  // ve canlı doğrulamayla teyit edildi: approvedAt null ise "istek gönderildi,
-  // onay bekleniyor", dolu bir tarihse "anında takip edildi" demektir.
-  approvedAt: string | null;
-}
-
-export const followTraktUser = async (username: string): Promise<FollowResult> => {
-  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-  const response = await axios.post(TRAKT_PROXY_URL, {}, {
-    params: { endpoint: `/users/${encodeURIComponent(username)}/follow` },
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  });
-  return { approvedAt: response.data?.approved_at ?? null };
-};
-
-// NOT: Path gerçekten `/follow` — dokümantasyon sayfasının adı "unfollow"
-// olsa da HTTP path'i aynı follow endpoint'i, yalnızca metod DELETE.
-export const unfollowTraktUser = async (username: string): Promise<void> => {
-  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-  await axios.delete(TRAKT_PROXY_URL, {
-    params: { endpoint: `/users/${encodeURIComponent(username)}/follow` },
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  });
-};
-
-// Gelen takip istekleri (hesabım gizliyken beni takip etmek isteyip onayımı
-// bekleyenler) — `/users/requests[/:id]`, `/users/:id/follow` ile AYNI
-// "kullanıcının özel/yazma verisi" ailesinden (bkz. docs/HISTORY.md Madde
-// 109/120/122). Bu oturumda internet erişimi olmadığından `curl` ile CORS
-// doğrulaması YAPILAMADI — ihtiyatlı yol seçildi, üçü de zaten var olan
-// `TRAKT_PROXY_URL` üzerinden geçiyor (server.js'te değişiklik GEREKMEDİ,
-// proxy endpoint-agnostik).
-export interface TraktFollowRequest {
-  id: number;
-  requested_at: string;
-  user: TraktUserProfile;
-}
-
-export const getFollowRequests = async (): Promise<TraktFollowRequest[]> => {
-  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-  const response = await axios.get(TRAKT_PROXY_URL, {
-    params: { endpoint: '/users/requests' },
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  });
-  return response.data ?? [];
-};
-
-export const approveFollowRequest = async (id: number): Promise<void> => {
-  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-  await axios.post(TRAKT_PROXY_URL, {}, {
-    params: { endpoint: `/users/requests/${id}` },
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  });
-};
-
-export const denyFollowRequest = async (id: number): Promise<void> => {
-  const accessToken = await SecureStore.getItemAsync('traktAccessToken');
-  await axios.delete(TRAKT_PROXY_URL, {
-    params: { endpoint: `/users/requests/${id}` },
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  });
 };
 
 export const getUserWatchedShows = async (username: string) => {

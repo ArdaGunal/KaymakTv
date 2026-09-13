@@ -1,9 +1,14 @@
 /**
  * useUserActivity — Profil sayfasının "Aktiviteler" sekmesi için veri hook'u
+ * (KENDİ profilim).
  *
  * Veri çekme/gruplama/yarış-koruması çekirdeği `useActivityFeed`'te paylaşılır
  * (Akış ve Public Profile ile AYNI kaynak) — bu hook onun üzerine yalnızca
  * SİLME yetkisini ekler.
+ *
+ * 🪪 KİMLİK ARTIK `users.id` (M339 · `BACKLOG` §F6). Eskiden çağıran
+ * `profile.ids.slug` veriyordu; Google-only kullanıcıda o değer boş string →
+ * fetcher hiç kurulmuyor ve kullanıcı KENDİ aktivite sekmesini hiç göremiyordu.
  *
  * Silme (deleteItem/deleteItems): Optimistic UI — sunucu yanıtını beklemeden
  * state'ten kaldırılır, istek başarısız olursa önceki state'e geri dönülür
@@ -19,18 +24,20 @@ import { deleteActivitiesBulk, fetchUserFeedActivities, invalidateUserFeedActivi
 import { FeedItem } from '../types';
 import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { useActivityFeed } from './useActivityFeed';
+import { useMyUserId } from './useMyUserId';
 
-export function useUserActivity(traktSlug: string | null) {
+export function useUserActivity() {
   const { accessToken, isGuest } = useAuth();
   const { t } = useTranslation(['media', 'common']);
+  const myUserId = useMyUserId();
 
   const fetcher = useCallback(
-    (force: boolean) => fetchUserFeedActivities(traktSlug as string, force),
-    [traktSlug]
+    (force: boolean) => fetchUserFeedActivities(myUserId as string, force),
+    [myUserId]
   );
 
   const { data, setData, isLoading, hasError, refresh } = useActivityFeed(
-    traktSlug ? fetcher : null,
+    myUserId ? fetcher : null,
     'Profile'
   );
 
@@ -38,7 +45,7 @@ export function useUserActivity(traktSlug: string | null) {
     async (items: FeedItem[]) => {
       if (items.length === 0) return;
 
-      // Misafir kullanıcının Trakt token'ı yok — Worker kimlik doğrulaması
+      // Misafir kullanıcının token'ı yok — Worker kimlik doğrulaması
       // yapamaz, isteği hiç göndermeden engelle.
       if (!accessToken || isGuest) {
         Alert.alert(
@@ -61,11 +68,8 @@ export function useUserActivity(traktSlug: string | null) {
         // v2: TEK silme yolu — bkz. useFeed.ts'teki aynı not.
         const rawIds = items.flatMap(resolveRawActivityIds);
         await deleteActivitiesBulk(accessToken, rawIds);
-        // Silinenler bir sonraki mount'ta önbellekten (bkz. feedApi.ts
-        // userFeedActivitiesCache) geri gelmesin diye — TTL dolana kadar
-        // beklemeye gerek yok. Akış önbelleğini `deleteActivitiesBulk`
-        // kendisi geçersiz kılıyor.
-        if (traktSlug) invalidateUserFeedActivitiesCache(traktSlug);
+        // Silinenler bir sonraki mount'ta önbellekten geri gelmesin diye.
+        invalidateUserFeedActivitiesCache();
       } catch (error) {
         console.warn('[Profile] Aktivite silinemedi:', error);
         // Sunucu başarısız oldu — optimistic değişikliği geri al.
@@ -73,7 +77,7 @@ export function useUserActivity(traktSlug: string | null) {
         Alert.alert(t('common:error'), t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.'));
       }
     },
-    [accessToken, isGuest, data, setData, t, traktSlug]
+    [accessToken, isGuest, data, setData, t]
   );
 
   const deleteItem = useCallback((item: FeedItem) => deleteItems([item]), [deleteItems]);

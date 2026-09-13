@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Avatar from '../../../components/Avatar';
 import { Zap } from '../../../components/icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,7 @@ import { MarathonActivity } from '../types';
 import { getMarathonMessage } from '../utils/marathonMessages';
 import { formatRelativeTime } from '../../../utils/formatRelativeTime';
 import { buildMediaHref } from '../utils/feedNavigation';
-import { useMyTraktSlug } from '../hooks/useMyTraktSlug';
+import { useMyUserId } from '../hooks/useMyUserId';
 import { useQuickBlock } from '../hooks/useQuickBlock';
 import { useAuth } from '../../../context/AuthContext';
 import CardMenu from './CardMenu';
@@ -38,7 +39,7 @@ interface MarathonFeedCardProps {
 export default function MarathonFeedCard({ activity, onDeleteActivity }: MarathonFeedCardProps) {
   const { t } = useTranslation('feed');
   const router = useRouter();
-  const myTraktSlug = useMyTraktSlug();
+  const myUserId = useMyUserId();
   const { accessToken, isGuest } = useAuth();
   const { blockUserQuick } = useQuickBlock();
   // "Hayalet silme" düzeltmesi (bkz. docs/HISTORY.md) — FeedCard.tsx'teki
@@ -47,14 +48,14 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
   // user_id = doğrulanan kullanıcı) başkasının satırını zaten SİLEMİYORDU —
   // ama istemci iyimser olarak kartı yine de kendi ekranından kaldırıyordu,
   // "sildim" yanılsaması yaratıyordu.
-  const isOwnActivity = !!myTraktSlug && myTraktSlug === activity.user.traktSlug;
+  // 🪪 `users.id` ile (M339 · §F6) — bkz. FeedCard'daki aynı not.
+  const isOwnActivity = !!myUserId && myUserId === activity.user.id;
   const message = getMarathonMessage(activity.user.username, activity.episodeCount);
-  const initial = activity.user.username.charAt(0).toUpperCase();
 
   const handlePressProfile = () => {
     // bkz. FeedCard.tsx'teki AYNI düzeltme notu — takip durumu (followStore)
     // kanonik `slug`'a göre anahtarlanıyor, username'e göre değil.
-    router.push(`/user/${activity.user.traktSlug || activity.user.username}`);
+    router.push(`/user/${activity.user.username}`);
   };
 
   // bkz. utils/feedNavigation.ts — dizi/film ayrımına göre doğru rota.
@@ -74,7 +75,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
         // kullanıcı KİMLİĞİ üzerinden çalıştığı için sorunsuz.
         onBlock={
           !isOwnActivity && accessToken && !isGuest
-            ? () => blockUserQuick(activity.user.traktSlug)
+            ? () => blockUserQuick({ userId: activity.user.id })
             : undefined
         }
         style={styles.menuTrigger}
@@ -82,9 +83,13 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
 
       {/* ── Sol: Avatar ──────────────────────────────────────────────────── */}
       <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
-        <View style={[styles.avatar, { borderColor: colorAlpha(message.color, '55') }]}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
+        <Avatar
+          url={activity.user.avatarUrl}
+          ad={activity.user.username}
+          size={40}
+          borderWidth={1.5}
+          borderColor={colorAlpha(message.color, '55')}
+        />
       </TouchableOpacity>
 
       {/* ── Orta: İçerik ─────────────────────────────────────────────────── */}
@@ -149,21 +154,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   // ── Avatar ──────────────────────────────────────────────────────────────
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1e293b',
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 15,
-  },
   // ── Gövde ────────────────────────────────────────────────────────────────
   body: {
     flex: 1,

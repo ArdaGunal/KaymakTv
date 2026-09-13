@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../../../components/Avatar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAppBack } from '../../../hooks/useAppBack';
 import { ChevronLeft, Rss, Check, Clock, UserPlus, Lock, WifiOff } from '../../../components/icons';
@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useFollowState } from '../../../hooks/useFollowState';
-import { usePublicProfile } from '../../../features/publicProfile/hooks/usePublicProfile';
+import { usePublicProfileIdentity } from '../../../features/publicProfile/hooks/usePublicProfileIdentity';
 import { usePublicProfileActivity } from '../../../features/publicProfile/hooks/usePublicProfileActivity';
 import { usePublicProfileLibrary } from '../../../features/publicProfile/hooks/usePublicProfileLibrary';
 import PublicProfileMobile from '../../../screens/PublicProfileMobile';
@@ -19,8 +19,8 @@ import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import BlockUserButton from '../../../features/feed/components/BlockUserButton';
 import BlockedProfileLock from '../../../features/feed/components/BlockedProfileLock';
+import ReportContentModal from '../../../features/feed/components/ReportContentModal';
 import { useBlockState } from '../../../features/feed/hooks/useBlockState';
-import { useMyTraktSlug } from '../../../features/feed/hooks/useMyTraktSlug';
 import { useAuth } from '../../../context/AuthContext';
 import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 import MediaPoster from '../../../components/MediaPoster';
@@ -39,24 +39,46 @@ export default function PublicProfileScreenWeb() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['feed', 'media', 'common']);
 
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, error } = usePublicProfile(slug);
-  // bkz. screens/PublicProfileMobile.tsx'teki AYNI düzeltme notu — rota
-  // parametresi username olabilir, followStore kanonik slug bekliyor.
-  const followSlug = profile?.ids?.slug || slug;
-  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
-  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(slug);
-  const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
+  // 🪪 KİMLİK BİZDEN, ZENGİNLEŞTİRME TRAKT'TAN — gerekçe `usePublicProfileIdentity`
+  // başlığında (M338). 🔴 `useFollowState`'e `kaymakProfil.userId` DIŞINDA
+  // hiçbir şey verilmez: iki parametre de `string | null`, TİP SİSTEMİ yanlış
+  // kimliği YAKALAMAZ (M337).
+  // Dar ekran dalı (`PublicProfileMobile`) AYNI hook'u kullanıyor.
+  const {
+    kaymakProfil,
+    profile,
+    followersCount,
+    followingCount,
+    isPrivate,
+    traktSlug,
+    bioBizden,
+    isLoading: isProfileLoading,
+    error,
+  } = usePublicProfileIdentity(slug);
 
-  // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — dar ekran dalıyla (
-  // screens/PublicProfileMobile.tsx) AYNI mantık, ayrı bir header/layout
-  // olduğu için burada da ayrıca bağlanıyor.
+  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(
+    kaymakProfil?.profile.userId ?? null,
+    kaymakProfil?.profile.username ?? null,
+  );
+  // 🪪 Aktivite ve engelleme `users.id` ile (M339 · `BACKLOG` §F6) — Google-only
+  // kullanıcıda da çalışır. ⚠️ Diziler/Filmler sekmesi hâlâ TRAKT kütüphanesi:
+  // yalnızca GERÇEK `traktSlug` ile okunur, Google-only'de boş kalır
+  // (başkasının izleme geçmişini bizden okumak gizlilik kuralları ister → T6).
+  const hedefUserId = kaymakProfil?.profile.userId ?? null;
+  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(hedefUserId);
+  const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(traktSlug);
+
+  // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel.
+  // `isBlockedEitherWay` true ise sekmeler yerine kilit ekranı gösterilir.
   const { accessToken, isGuest } = useAuth();
-  const myTraktSlug = useMyTraktSlug();
-  const { isBlockedEitherWay } = useBlockState(followSlug);
-  const canShowBlockButton =
-    !!accessToken && !isGuest && !!profile && !!myTraktSlug && profile.ids?.slug !== myTraktSlug;
+  const { isBlockedEitherWay } = useBlockState(hedefUserId);
+  // Kendi profilimde düğme YOK — `kendisi` sunucudan geliyor (eskiden iki slug
+  // karşılaştırılıyordu; Google-only'de ikisi de yoktu, düğme hiç çıkmıyordu).
+  const canShowBlockButton = !!accessToken && !isGuest && !!kaymakProfil && !kaymakProfil.kendisi;
 
   const [activeTab, setActiveTab] = useState<'activity' | 'shows' | 'movies'>('activity');
+  // T4 · `043` — açıklama raporu. Yalnızca BİZİM açıklamamız, başkasının profilinde.
+  const [bioRaporAcik, setBioRaporAcik] = useState(false);
   const { width } = useWindowDimensions();
 
   // Desktop için sabit grid boyutları
@@ -71,8 +93,6 @@ export default function PublicProfileScreenWeb() {
   }
 
   const isFollowBusy = isFollowPending || isLoadingConnection;
-  const avatarUrl = profile?.images?.avatar?.full;
-  const initial = profile?.username?.charAt(0).toUpperCase() ?? '?';
 
   return (
     <View style={styles.pageBackground}>
@@ -89,7 +109,7 @@ export default function PublicProfileScreenWeb() {
             <ChevronLeft size={18} color="#cbd5e1" />
             <Text style={styles.backButtonText}>{t('media:goBack', 'Geri Dön')}</Text>
           </TouchableOpacity>
-          {canShowBlockButton && <BlockUserButton traktSlug={followSlug as string} />}
+          {canShowBlockButton && <BlockUserButton targetUserId={hedefUserId as string} />}
         </View>
 
         {isProfileLoading ? (
@@ -111,20 +131,14 @@ export default function PublicProfileScreenWeb() {
         ) : (
           <>
             <View style={styles.headerCard}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
-              ) : (
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initial}</Text>
-                </View>
-              )}
+              <Avatar url={profile.images?.avatar?.full} ad={profile.username} size={88} halka />
 
               <View style={styles.identityCol}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name} numberOfLines={1}>
                     {profile.name || profile.username}
                   </Text>
-                  {profile.private && <Lock size={14} color="#94a3b8" />}
+                  {isPrivate && <Lock size={14} color="#94a3b8" />}
                 </View>
                 <Text style={styles.handle} numberOfLines={1}>
                   @{profile.username}
@@ -135,12 +149,17 @@ export default function PublicProfileScreenWeb() {
                     {profile.about}
                   </Text>
                 )}
+                {!!profile.about && canShowBlockButton && bioBizden && (
+                  <TouchableOpacity onPress={() => setBioRaporAcik(true)} style={styles.reportBio} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Text style={styles.reportBioText}>{t('feed:reportBio', 'Açıklamayı bildir')}</Text>
+                  </TouchableOpacity>
+                )}
 
                 <View style={styles.statsRow}>
                   <TouchableOpacity 
                     style={styles.statItem} 
                     activeOpacity={0.7}
-                    onPress={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'followers' } })}
+                    onPress={() => router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'followers' } })}
                   >
                     <Text style={styles.statValue}>{followersCount}</Text>
                     <Text style={styles.statLabel}>{t('media:profileFollowers', 'Takipçi')}</Text>
@@ -149,7 +168,7 @@ export default function PublicProfileScreenWeb() {
                   <TouchableOpacity 
                     style={styles.statItem} 
                     activeOpacity={0.7}
-                    onPress={() => router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'following' } })}
+                    onPress={() => router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'following' } })}
                   >
                     <Text style={styles.statValue}>{followingCount}</Text>
                     <Text style={styles.statLabel}>{t('media:profileFollowing', 'Takip Edilen')}</Text>
@@ -288,6 +307,14 @@ export default function PublicProfileScreenWeb() {
           </>
         )}
       </ScrollView>
+      {hedefUserId && (
+        <ReportContentModal
+          visible={bioRaporAcik}
+          targetType="user_bio"
+          targetId={hedefUserId}
+          onClose={() => setBioRaporAcik(false)}
+        />
+      )}
     </View>
   );
 }

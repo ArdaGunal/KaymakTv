@@ -19,7 +19,6 @@ import { useAuth } from '../../../context/AuthContext';
 import { fetchFeedActivities, deleteActivitiesBulk, invalidateUserFeedActivitiesCache } from '../services/feedApi';
 import { useFeedStore } from '../store/feedStore';
 import { useFeedRealtime } from './useFeedRealtime';
-import { useMyTraktSlug } from './useMyTraktSlug';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
 import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { FeedItem } from '../types';
@@ -54,7 +53,6 @@ export interface UseFeedResult {
 
 export function useFeed(): UseFeedResult {
   const { accessToken, isGuest } = useAuth();
-  const myTraktSlug = useMyTraktSlug();
   const { t } = useTranslation(['media', 'common']);
   const canLoad = !!accessToken && !isGuest;
 
@@ -213,7 +211,7 @@ export function useFeed(): UseFeedResult {
         // useUserActivity.ts) — Akış'tan silinince o da güncel kalsın diye
         // AYNI çapraz-senkron deseni (docs/HISTORY.md Madde 159'daki
         // retractLocalActivity ile birebir aynı gerekçe).
-        if (myTraktSlug) invalidateUserFeedActivitiesCache(myTraktSlug);
+        invalidateUserFeedActivitiesCache();
       } catch (error) {
         console.warn('[Feed] Aktivite silinemedi:', error);
         // Sunucu başarısız oldu — iyimser kaldırmayı geri al.
@@ -224,7 +222,7 @@ export function useFeed(): UseFeedResult {
         );
       }
     },
-    [accessToken, isGuest, myTraktSlug, t]
+    [accessToken, isGuest, t]
   );
 
   return {

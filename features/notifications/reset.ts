@@ -1,6 +1,7 @@
 import { cancelAllOwnedNotifications } from './scheduling/scheduler';
 import { resetInboxState } from './inbox/useInboxStore';
 import { resetPushPrefsState } from './store/usePushPrefsStore';
+import { resetNotificationStoreState } from '../../store/notificationStore';
 
 /**
  * Çıkışta bildirim durumunu temizler (`context/AuthContext.tsx` → `removeKeys`).
@@ -33,4 +34,7 @@ export async function resetNotificationState(): Promise<void> {
 
   resetPushPrefsState();
   resetInboxState();
+  // 🔴 SOSYAL depo da (takipçi bildirimleri · bekleyen istek defteri · cevapsız
+  // istek rozeti). Bu satır M338'e kadar YOKTU — gerekçe fonksiyonun başlığında.
+  resetNotificationStoreState();
 }

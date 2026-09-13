@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, useWindowDimensions, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../../components/Avatar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
@@ -13,41 +13,34 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { NotificationTimeline } from '../../features/notifications/components/NotificationTimeline';
 import { EnableNotificationsBanner } from '../../features/notifications/components/EnableNotificationsBanner';
 import { useInboxStore } from '../../features/notifications/inbox/useInboxStore';
-import { TraktFollowRequest } from '../../services/api/social';
+import type { GelenIstek } from '../../services/api/kaymakSocial';
 
 const DESKTOP_BREAKPOINT = 768;
 
 interface FollowRequestRowProps {
-  request: TraktFollowRequest;
-  onAccept: (id: number) => void;
-  onReject: (id: number) => void;
+  request: GelenIstek;
+  onAccept: (userId: string) => void;
+  onReject: (userId: string) => void;
 }
 
 function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps) {
   const { t } = useTranslation('common');
-  const displayName = request.user.name || request.user.username;
-  const avatarUrl = request.user.images?.avatar?.full;
-  const initial = displayName.charAt(0).toUpperCase();
+  // 🪪 `/social/requests` yalnızca KİMLİK döndürüyor; Trakt'ın ayrı "görünen
+  // ad" alanı bizde yok. Gösterim `username` ("EVRENSEL KAYMAK KİMLİĞİ").
+  const displayName = request.username ?? '?';
 
   return (
     <View style={styles.requestRow}>
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
-      ) : (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
-      )}
+      <Avatar url={request.avatarUrl} ad={displayName} size={44} />
 
       <View style={styles.requestInfo}>
-        <Text style={styles.requestName} numberOfLines={1}>{displayName}</Text>
-        <Text style={styles.requestUsername} numberOfLines={1}>@{request.user.username}</Text>
+        <Text style={styles.requestName} numberOfLines={1}>@{displayName}</Text>
       </View>
 
       <View style={styles.requestActions}>
         <TouchableOpacity
           style={styles.acceptButton}
-          onPress={() => onAccept(request.id)}
+          onPress={() => onAccept(request.userId)}
           activeOpacity={0.8}
         >
           <Check size={15} color="#ffffff" />
@@ -56,7 +49,7 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
 
         <TouchableOpacity
           style={styles.rejectButton}
-          onPress={() => onReject(request.id)}
+          onPress={() => onReject(request.userId)}
           activeOpacity={0.8}
         >
           <X size={15} color="#94a3b8" />
@@ -146,7 +139,7 @@ export default function NotificationsScreen() {
             ) : (
               <View style={styles.card}>
                 {requests.map((request, index) => (
-                  <React.Fragment key={request.id}>
+                  <React.Fragment key={request.userId}>
                     <FollowRequestRow request={request} onAccept={accept} onReject={reject} />
                     {index < requests.length - 1 && <View style={styles.divider} />}
                   </React.Fragment>
@@ -217,26 +210,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 16,
   },
   requestInfo: {
     flex: 1,

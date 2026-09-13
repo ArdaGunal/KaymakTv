@@ -62,14 +62,14 @@ export type ReviewResult =
 function invalidateAfterReviewChange(
   showId: number | undefined,
   mediaType: FeedMediaType | undefined,
-  traktSlug?: string | null,
   episodeNumber?: string
 ): void {
   // Yapım bilgisi yoksa (yalnızca akış kartından silmede olabilir) o sayfanın
   // önbelleği atlanır — kendi TTL'iyle (60sn) zaten tazelenir.
   if (showId && mediaType) invalidateMediaReviewsCache(showId, mediaType, episodeNumber);
   invalidateFeedCache();
-  if (traktSlug) invalidateUserFeedActivitiesCache(traktSlug);
+  // Kimlik gerekmiyor (M339): önbelleğin tamamı temizlenir.
+  invalidateUserFeedActivitiesCache();
 }
 
 /**
@@ -80,10 +80,7 @@ function invalidateAfterReviewChange(
  * durumunda sheet'i AÇIK bırakıp metni korur (bkz. oradaki "tünel problemi"
  * notu).
  */
-export async function publishReview(
-  input: PublishableReview,
-  myTraktSlug?: string | null
-): Promise<ReviewResult> {
+export async function publishReview(input: PublishableReview): Promise<ReviewResult> {
   if (!KAYMAK_WORKER_URL) {
     return { ok: false, message: 'Sunucu adresi tanımlı değil.' };
   }
@@ -129,7 +126,7 @@ export async function publishReview(
       );
     }
 
-    invalidateAfterReviewChange(input.showId, input.mediaType, myTraktSlug, input.episodeNumber);
+    invalidateAfterReviewChange(input.showId, input.mediaType, input.episodeNumber);
     recordMutationResult('publishReview', true);
     return { ok: true, activityId, updated: response.data?.updated === true };
   } catch (error: any) {
@@ -156,15 +153,14 @@ export async function publishReview(
  */
 export async function deleteReview(
   activityId: string,
-  media: { showId?: number; mediaType?: FeedMediaType; episodeNumber?: string },
-  myTraktSlug?: string | null
+  media: { showId?: number; mediaType?: FeedMediaType; episodeNumber?: string }
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const token = await SecureStore.getItemAsync('traktAccessToken');
   if (!token) return { ok: false, message: 'Oturum bulunamadı.' };
 
   try {
     await deleteActivitiesBulk(token, [activityId]);
-    invalidateAfterReviewChange(media.showId, media.mediaType, myTraktSlug, media.episodeNumber);
+    invalidateAfterReviewChange(media.showId, media.mediaType, media.episodeNumber);
     recordMutationResult('deleteReview', true);
     return { ok: true };
   } catch (error: any) {

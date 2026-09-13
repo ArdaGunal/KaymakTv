@@ -7,13 +7,17 @@ import { useNotificationStore } from '../../../store/notificationStore';
 import { useInboxStore } from '../inbox/useInboxStore';
 
 export const NotificationBadge = () => {
-  const { unreadCount: socialUnread, refreshActivity } = useNotificationStore();
+  const { unreadCount: socialUnread, incomingRequestCount, refreshActivity } = useNotificationStore();
   // İÇERİK bildirimleri (bugün yayında / prömiyer / film) AYRI bir listede
   // tutuluyor — gerekçe `inbox/useInboxStore.ts` başlığında. Rozet ikisinin
   // TOPLAMINI gösteriyor: kullanıcı açısından "okunmamış bildirim" tek bir
   // kavram, iki ayrı sayaç görmesi anlamsız olurdu.
   const contentUnread = useInboxStore((state) => state.unreadCount);
-  const unreadCount = socialUnread + contentUnread;
+  // 🔔 CEVAPSIZ TAKİP İSTEKLERİ DE SAYILIYOR (M338). Kullanıcı canlıda "isteği
+  // attım ama kabul edilecek yer yok" dedi: kabul yeri Bildirimler ekranında
+  // vardı ama rozet istekleri saymadığı için uygulama içinde HİÇBİR işaret
+  // yoktu. ⚠️ Bu sayı ekranı açınca sıfırlanmaz — istek cevaplanana kadar durur.
+  const unreadCount = socialUnread + contentUnread + incomingRequestCount;
   const { accessToken, isGuest } = useAuth();
   const router = useRouter();
 

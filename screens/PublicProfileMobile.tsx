@@ -14,12 +14,12 @@ import MarathonFeedCard from '../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../features/feed/components/FeedSkeleton';
 import BlockUserButton from '../features/feed/components/BlockUserButton';
 import BlockedProfileLock from '../features/feed/components/BlockedProfileLock';
-import { usePublicProfile } from '../features/publicProfile/hooks/usePublicProfile';
+import ReportContentModal from '../features/feed/components/ReportContentModal';
+import { usePublicProfileIdentity } from '../features/publicProfile/hooks/usePublicProfileIdentity';
 import { usePublicProfileActivity } from '../features/publicProfile/hooks/usePublicProfileActivity';
 import { usePublicProfileLibrary } from '../features/publicProfile/hooks/usePublicProfileLibrary';
 import { useFollowState } from '../hooks/useFollowState';
 import { useBlockState } from '../features/feed/hooks/useBlockState';
-import { useMyTraktSlug } from '../features/feed/hooks/useMyTraktSlug';
 import { useAuth } from '../context/AuthContext';
 import { isMarathonActivity } from '../features/feed/types';
 import MediaPoster from '../components/MediaPoster';
@@ -44,26 +44,43 @@ export default function PublicProfileMobile() {
 
   const { width } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<'activity' | 'shows' | 'movies'>('activity');
+  // T4 · `043` — açıklama raporu. Yalnızca BİZİM açıklamamız, başkasının profilinde.
+  const [bioRaporAcik, setBioRaporAcik] = useState(false);
 
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, error } = usePublicProfile(slug);
-  // Rota parametresi (`slug`) çağıran ekrana göre username YA DA kanonik
-  // slug olabilir (bkz. FeedCard.tsx/UserProfileCard.tsx'teki düzeltme notu)
-  // — followStore HER ZAMAN kanonik slug'a göre anahtarlandığından, profil
-  // yüklenince `profile.ids.slug`'a geçiliyor. Bu, "zaten takip ettiğim
-  // biri profilinde 'Takip Et' görünüyor" hatasına karşı ikinci bir güvence.
-  const followSlug = profile?.ids?.slug || slug;
-  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(followSlug);
-  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(slug);
-  const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(slug);
+  // 🪪 KİMLİK BİZDEN, ZENGİNLEŞTİRME TRAKT'TAN — gerekçe `usePublicProfileIdentity`
+  // başlığında (M338). 🔴 `useFollowState`'e `kaymakProfil.userId` DIŞINDA
+  // hiçbir şey verilmez: iki parametre de `string | null`, TİP SİSTEMİ yanlış
+  // kimliği YAKALAMAZ (M337).
+  const {
+    kaymakProfil,
+    profile,
+    followersCount,
+    followingCount,
+    traktSlug,
+    bioBizden,
+    isLoading: isProfileLoading,
+    error,
+  } = usePublicProfileIdentity(slug);
 
-  // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel, Trakt
-  // takip durumunu hiç etkilemez. `isBlockedEitherWay` true ise sekmeler
-  // yerine kilit ekranı gösterilir.
+  const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(
+    kaymakProfil?.profile.userId ?? null,
+    kaymakProfil?.profile.username ?? null,
+  );
+  // 🪪 Aktivite ve engelleme `users.id` ile (M339 · `BACKLOG` §F6) — Google-only
+  // kullanıcıda da çalışır. ⚠️ Diziler/Filmler sekmesi hâlâ TRAKT kütüphanesi:
+  // yalnızca GERÇEK `traktSlug` ile okunur, Google-only'de boş kalır
+  // (başkasının izleme geçmişini bizden okumak gizlilik kuralları ister → T6).
+  const hedefUserId = kaymakProfil?.profile.userId ?? null;
+  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(hedefUserId);
+  const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(traktSlug);
+
+  // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel.
+  // `isBlockedEitherWay` true ise sekmeler yerine kilit ekranı gösterilir.
   const { accessToken, isGuest } = useAuth();
-  const myTraktSlug = useMyTraktSlug();
-  const { isBlockedEitherWay } = useBlockState(followSlug);
-  const canShowBlockButton =
-    !!accessToken && !isGuest && !!profile && !!myTraktSlug && profile.ids?.slug !== myTraktSlug;
+  const { isBlockedEitherWay } = useBlockState(hedefUserId);
+  // Kendi profilimde düğme YOK — `kendisi` sunucudan geliyor (eskiden iki slug
+  // karşılaştırılıyordu; Google-only'de ikisi de yoktu, düğme hiç çıkmıyordu).
+  const canShowBlockButton = !!accessToken && !isGuest && !!kaymakProfil && !kaymakProfil.kendisi;
 
   const NUM_COLUMNS = 3;
   const SPACING = 8;
@@ -121,7 +138,7 @@ export default function PublicProfileMobile() {
           {profile ? `@${profile.username}` : t('media:profile', 'Profil')}
         </Text>
         {canShowBlockButton ? (
-          <BlockUserButton traktSlug={followSlug as string} />
+          <BlockUserButton targetUserId={hedefUserId as string} />
         ) : (
           <View style={styles.headerSpacer} />
         )}
@@ -163,11 +180,12 @@ export default function PublicProfileMobile() {
                 isFollowPending={isFollowPending}
                 isLoadingConnection={isLoadingConnection}
                 onPressAction={toggleFollow}
+                onReportBio={canShowBlockButton && bioBizden ? () => setBioRaporAcik(true) : undefined}
                 onPressFollowers={() => {
-                  if (profile) router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'followers' } });
+                  if (profile) router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'followers' } });
                 }}
                 onPressFollowing={() => {
-                  if (profile) router.push({ pathname: `/user/${profile.ids?.slug || profile.username}/network`, params: { type: 'following' } });
+                  if (profile) router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'following' } });
                 }}
               />
               <View style={styles.tabsContainer}>
@@ -219,6 +237,14 @@ export default function PublicProfileMobile() {
               </View>
             )
           }
+        />
+      )}
+      {hedefUserId && (
+        <ReportContentModal
+          visible={bioRaporAcik}
+          targetType="user_bio"
+          targetId={hedefUserId}
+          onClose={() => setBioRaporAcik(false)}
         />
       )}
     </LinearGradient>

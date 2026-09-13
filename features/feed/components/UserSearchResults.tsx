@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../../../components/Avatar';
 import { Lock } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -9,12 +9,15 @@ import { KaymakUserSonucu, AramaHatasi } from '../../../services/api/kaymakSocia
 /**
  * Arama sonuç listesi — Faz T · T3.5.
  *
- * 🪪 Gösterilen ad HER ZAMAN `username` ("EVRENSEL KAYMAK KİMLİĞİ" ilkesi).
- * `traktSlug` ekranda HİÇ görünmez; yalnızca satırın dokunulabilir olup
- * olmadığını belirler (aşağıdaki nota bak).
+ * 🪪 Gösterilen ad VE rota HER ZAMAN `username` ("EVRENSEL KAYMAK KİMLİĞİ").
  *
- * ⛔ TAKİP DÜĞMESİ YOK — T3.2'nin uçları henüz yazılmadı. Yarım çalışan bir
- * düğme göstermek, basınca 401 veren eski davranışı tekrar üretirdi.
+ * ✅ TÜM SATIRLAR AÇIK (kullanıcı kararı, 2026-09-11 · M338). Eskiden
+ * Google-only kullanıcının satırı pasifti çünkü profil ekranı tamamen
+ * Trakt'tan okuyordu. 🔴 Pasif kalsaydı iki Google-only hesap birbirini
+ * TAKİP EDEMEZDİ — profile giden tek yol bu satır — ve T3'ün çıkış ölçütü
+ * karşılanamazdı. Profil ekranı artık kimliği bizden okuyor.
+ *
+ * Takip düğmesi burada değil, profilde: satır profile götürür.
  */
 
 interface Props {
@@ -28,7 +31,7 @@ export default function UserSearchResults({ results, error }: Props) {
   const router = useRouter();
 
   if (error) {
-    // 🔴 SESSİZ KAYIP YASAK (AI_RULES §2): üç sebep üç ayrı mesaj. Hepsini
+    // 🔴 SESSİZ KAYIP YASAK (AI_RULES §2): sebepler ayrı mesajlar. Hepsini
     // "bulunamadı"ya düşürmek, oturumu düşmüş kullanıcıya "böyle biri yok"
     // yalanını söylerdi.
     const mesaj =
@@ -59,25 +62,14 @@ export default function UserSearchResults({ results, error }: Props) {
   return (
     <View style={styles.liste}>
       {results.map((kisi) => {
-        // ⚠️ NEDEN `traktSlug` KONTROLÜ: profil ekranı (`usePublicProfile*`
-        // ailesi) bugün TAMAMEN Trakt'tan okuyor. Google-only kullanıcının
-        // orada gösterilecek verisi YOK — satırı dokunulabilir yapmak boş
-        // bir ekrana götürürdü. Kullanıcı kararı (2026-09-10): Trakt'lıya
-        // git, Google-only'de pasif bırak.
-        // 🔓 T3.3'te kendi profil ekranımız gelince bu ayrım DÜŞECEK ve
-        // yönlendirme `username` üzerinden herkese açılacak.
-        const acilabilir = !!kisi.traktSlug;
-        const bashHarf = kisi.username.charAt(0).toUpperCase();
-
-        const icerik = (
-          <>
-            {kisi.avatarUrl ? (
-              <Image source={{ uri: kisi.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarBos]}>
-                <Text style={styles.avatarHarf}>{bashHarf}</Text>
-              </View>
-            )}
+        return (
+          <TouchableOpacity
+            key={kisi.id}
+            style={styles.satir}
+            activeOpacity={0.7}
+            onPress={() => router.push(`/user/${kisi.username}`)}
+          >
+            <Avatar url={kisi.avatarUrl} ad={kisi.username} size={38} />
             <View style={styles.metinAlani}>
               <View style={styles.adSatiri}>
                 <Text style={styles.ad} numberOfLines={1}>
@@ -85,33 +77,7 @@ export default function UserSearchResults({ results, error }: Props) {
                 </Text>
                 {kisi.isPrivate && <Lock size={13} color="#94a3b8" />}
               </View>
-              {!acilabilir && (
-                // Pasif satırın SEBEBİ yazılıyor — dokunup hiçbir şey
-                // olmaması kullanıcıya bozuk hissettirir.
-                <Text style={styles.pasifNot}>
-                  {t('searchProfileSoon', 'Profil sayfası yakında')}
-                </Text>
-              )}
             </View>
-          </>
-        );
-
-        if (!acilabilir) {
-          return (
-            <View key={kisi.id} style={[styles.satir, styles.satirPasif]}>
-              {icerik}
-            </View>
-          );
-        }
-
-        return (
-          <TouchableOpacity
-            key={kisi.id}
-            style={styles.satir}
-            activeOpacity={0.7}
-            onPress={() => router.push(`/user/${kisi.traktSlug}`)}
-          >
-            {icerik}
           </TouchableOpacity>
         );
       })}
@@ -133,24 +99,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  satirPasif: {
-    opacity: 0.55,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  avatarBos: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarHarf: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   metinAlani: {
     flex: 1,
   },
@@ -164,11 +112,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 1,
-  },
-  pasifNot: {
-    color: '#64748b',
-    fontSize: 11,
-    marginTop: 2,
   },
   kutu: {
     backgroundColor: 'rgba(255,255,255,0.04)',

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Avatar from '../../../components/Avatar';
 import { Heart, EyeOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { FeedComment } from '../services/feedSocial';
@@ -23,13 +24,10 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
   const { blockUserQuick } = useQuickBlock();
   const [revealed, setRevealed] = useState(!comment.spoiler);
   const [reportModalVisible, setReportModalVisible] = useState(false);
-  const initial = comment.username.charAt(0).toUpperCase();
 
   return (
     <View style={styles.row}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
+      <Avatar url={comment.avatarUrl} ad={comment.username} size={30} />
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
@@ -56,7 +54,7 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
             onDelete={isOwn ? onDelete : undefined}
             onReport={!isOwn ? () => setReportModalVisible(true) : undefined}
             onBlock={
-              !isOwn && accessToken && !isGuest ? () => blockUserQuick(comment.traktSlug) : undefined
+              !isOwn && accessToken && !isGuest ? () => blockUserQuick({ userId: comment.userId }) : undefined
             }
           />
         </View>
@@ -79,22 +77,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingVertical: 10,
-  },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 12,
   },
   body: {
     flex: 1,

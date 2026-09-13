@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import {
   getMySupabaseUserId,
-  getUserIdBySlug,
   amIBlocking,
   getBlockedUserIds,
   blockUser as blockUserApi,
@@ -23,10 +22,17 @@ export interface UseBlockStateResult {
 }
 
 /**
- * Bir Trakt slug'ı için engel durumu — profil sayfasındaki "..." menüsü VE
- * kilit ekranı bunu paylaşır.
+ * Bir kullanıcı için engel durumu — profil sayfasındaki düğme VE kilit ekranı
+ * bunu paylaşır.
+ *
+ * 🪪 HEDEF ARTIK `users.id` (M339 · `BACKLOG` §F6). Eskiden Trakt slug'ı alıp
+ * `getUserIdBySlug` ile çeviriyordu: Google-only kullanıcının slug'ı YOK → ne
+ * engelleyebiliyor ne engellenebiliyordu. T3 çıkış ölçütünün üçüncüsü
+ * ("engellenen takip edemiyor") bu yüzden Google-only hesaplar arasında
+ * SINANAMIYORDU. Profil ekranı kimliği zaten `/social/profile`'dan alıyor —
+ * çeviri adımına (ve onun Supabase sorgusuna) gerek kalmadı.
  */
-export function useBlockState(traktSlug: string | null): UseBlockStateResult {
+export function useBlockState(targetUserId: string | null): UseBlockStateResult {
   const { accessToken, isGuest } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [didIBlockThem, setDidIBlockThem] = useState(false);
@@ -34,7 +40,7 @@ export function useBlockState(traktSlug: string | null): UseBlockStateResult {
   const [isMutating, setIsMutating] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!traktSlug || !accessToken || isGuest) {
+    if (!targetUserId || !accessToken || isGuest) {
       setDidIBlockThem(false);
       setIsBlockedEitherWay(false);
       setIsLoading(false);
@@ -42,34 +48,34 @@ export function useBlockState(traktSlug: string | null): UseBlockStateResult {
     }
     setIsLoading(true);
     try {
-      const [myId, targetId] = await Promise.all([getMySupabaseUserId(), getUserIdBySlug(traktSlug)]);
-      if (!myId || !targetId || myId === targetId) {
+      const myId = await getMySupabaseUserId();
+      if (!myId || myId === targetUserId) {
         setDidIBlockThem(false);
         setIsBlockedEitherWay(false);
         return;
       }
-      const [blockedSet, iBlockThem] = await Promise.all([getBlockedUserIds(), amIBlocking(myId, targetId)]);
+      const [blockedSet, iBlockThem] = await Promise.all([getBlockedUserIds(), amIBlocking(myId, targetUserId)]);
       setDidIBlockThem(iBlockThem);
-      setIsBlockedEitherWay(blockedSet.has(targetId));
+      setIsBlockedEitherWay(blockedSet.has(targetUserId));
     } catch (error) {
       console.warn('[Feed] Engel durumu okunamadı:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [traktSlug, accessToken, isGuest]);
+  }, [targetUserId, accessToken, isGuest]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   const toggleBlock = useCallback(async () => {
-    if (!traktSlug || !accessToken || isMutating) return;
+    if (!targetUserId || !accessToken || isMutating) return;
     setIsMutating(true);
     try {
       if (didIBlockThem) {
-        await unblockUserApi(accessToken, traktSlug);
+        await unblockUserApi(accessToken, { userId: targetUserId });
       } else {
-        await blockUserApi(accessToken, traktSlug);
+        await blockUserApi(accessToken, { userId: targetUserId });
       }
       // Akış/görünürlük önbellekleri (bkz. feedApi.ts) blok değişince bayat
       // kalmasın — bu iki dosya birbirini import ETMİYOR (döngü riski), bu
@@ -83,7 +89,7 @@ export function useBlockState(traktSlug: string | null): UseBlockStateResult {
     } finally {
       setIsMutating(false);
     }
-  }, [traktSlug, accessToken, didIBlockThem, isMutating, refresh]);
+  }, [targetUserId, accessToken, didIBlockThem, isMutating, refresh]);
 
   return { isLoading, isBlockedEitherWay, didIBlockThem, isMutating, toggleBlock };
 }

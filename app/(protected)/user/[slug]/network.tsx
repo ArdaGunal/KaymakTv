@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAppBack } from '../../../../hooks/useAppBack';
@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetworkUserCard from '../../../../features/publicProfile/components/NetworkUserCard';
 import { useNetworkList } from '../../../../hooks/useNetworkList';
-import { TraktUserProfile } from '../../../../services/api/social';
+import { fetchKaymakProfile } from '../../../../services/api/kaymakSocial';
+import type { NetworkUser } from '../../../../hooks/useNetworkList';
 
 export default function NetworkScreen() {
   const { slug: rawSlug, type: rawType } = useLocalSearchParams();
@@ -21,7 +22,31 @@ export default function NetworkScreen() {
 
   const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialType);
 
-  const { data, isLoading, fetchNextPage, isFetchingNextPage, isStoreLoading } = useNetworkList(slug, activeTab);
+  // 🪪 Rota parametresi ARTIK USERNAME ("EVRENSEL KAYMAK KİMLİĞİ"). Graf ucu
+  // ise `users.id` istiyor — çeviri burada, BİR KEZ yapılıyor.
+  // ⚠️ `me` özel değeri: kendi ağım. O durumda çeviriye gerek yok, hedef
+  // `null` bırakılır ve `useNetworkList` kendi grafımı çeker.
+  const [hedefUserId, setHedefUserId] = useState<string | null>(null);
+  const [kimlikCozuluyor, setKimlikCozuluyor] = useState(slug !== 'me' && !!slug);
+
+  useEffect(() => {
+    if (!slug || slug === 'me') {
+      setHedefUserId(null);
+      setKimlikCozuluyor(false);
+      return;
+    }
+    let cancelled = false;
+    setKimlikCozuluyor(true);
+    fetchKaymakProfile(slug)
+      .then((p) => { if (!cancelled) setHedefUserId(p.profile.userId); })
+      // 🔴 Sessiz kalmıyor: kimlik çözülemezse liste boş görünür ve sebebi
+      // hiçbir yerde yazmazdı.
+      .catch((e) => { if (!cancelled) console.warn('[network] Kimlik çözülemedi:', e); })
+      .finally(() => { if (!cancelled) setKimlikCozuluyor(false); });
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  const { data, isLoading, hata, gizli } = useNetworkList(hedefUserId, activeTab);
 
   // Not: connectionState burada store'dan OKUNMUYOR — bu ekran zaten
   // `isStoreLoading` bitene kadar (yani followStore.fetchFollowingSlugs
@@ -31,9 +56,7 @@ export default function NetworkScreen() {
   // olmak, listedeki HERHANGİ bir kullanıcının takip durumu değiştiğinde bu
   // ekranın (ve dolayısıyla FlatList'in) gereksiz yere yeniden render
   // olmasına yol açardı — kalabalık takipçi listelerinde performans sorunu.
-  const renderItem = ({ item }: { item: TraktUserProfile }) => (
-    <NetworkUserCard user={item} initialConnectionState="none" />
-  );
+  const renderItem = ({ item }: { item: NetworkUser }) => <NetworkUserCard user={item} />;
 
   return (
     <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>
@@ -61,25 +84,24 @@ export default function NetworkScreen() {
           </TouchableOpacity>
         </View>
 
-        {isLoading || isStoreLoading ? (
+        {isLoading || kimlikCozuluyor ? (
           <ActivityIndicator size="large" color="#3b82f6" style={{ marginTop: 40 }} />
         ) : (
           <FlatList
             data={data}
-            keyExtractor={(item, index) => (item.ids?.slug || item.username) + index}
+            keyExtractor={(item) => item.userId}
             renderItem={renderItem}
             contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
             showsVerticalScrollIndicator={false}
-            onEndReached={fetchNextPage}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={
-              isFetchingNextPage ? (
-                <ActivityIndicator size="small" color="#3b82f6" style={{ marginVertical: 20 }} />
-              ) : null
-            }
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>{t('feed:noUsersFound', 'Bu listede kimse yok.')}</Text>
+                <Text style={styles.emptyText}>
+                  {hata
+                    ? t('feed:networkError', 'Liste yüklenemedi, tekrar dene.')
+                    : gizli
+                      ? t('feed:privateNetwork', 'Bu hesabın ağı gizli.')
+                      : t('feed:noUsersFound', 'Bu listede kimse yok.')}
+                </Text>
               </View>
             }
           />

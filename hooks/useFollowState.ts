@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { followTraktUser, unfollowTraktUser } from '../services/api/social';
+import { followKaymakUser, unfollowKaymakUser } from '../services/api/kaymakSocial';
 import { useFollowStore } from '../store/followStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { recordMutationResult } from '../utils/metrics';
@@ -23,14 +23,29 @@ const showFollowErrorAlert = (t: (key: string, fallback: string) => string) => {
 };
 
 /**
- * useFollowState — Trakt'ın kendi takip (follow) API'sini saran paylaşımlı hook.
+ * useFollowState — **BİZİM** takip grafımızı saran paylaşımlı hook.
  *
- * Bu versiyonda Zustand tabanlı `followStore` kullanılarak Optimistic UI
- * ve uygulama genelinde "Takip Ediliyor" durumunun senkron kalması (Stale Cache engeli)
- * hedeflenmiştir. Arayüzün yalan söylememesi için mutasyonlarda Rollback yapısı mevcuttur.
+ * ==========================================================================
+ * 🪪 ARTIK TRAKT'A GİTMİYOR (Faz T · T3.3, M337)
+ * ==========================================================================
+ * ⛔ ESKİ HÂLİ `followTraktUser`/`unfollowTraktUser` çağırıyordu ve YALNIZCA
+ * `isGuest`'e bakıyordu, `authProvider`'a BAKMIYORDU. Sonucu: Google-only
+ * kullanıcı "Takip Et"e basınca Kaymak oturum token'ı Trakt'a gidiyor ve
+ * **401** dönüyordu (`FAZ_T3_TASLAK` §1.1 — M324'teki puanlama hatasının
+ * AYNI SINIFI). Bu hook artık `/social/follow` · `/social/unfollow`
+ * kullanıyor; sağlayıcıya göre dallanma YOK çünkü grafın tek otoritesi biz
+ * olduk (karar §5.1).
+ *
+ * 🔑 PARAMETRE ARTIK `userId` (UUID), slug DEĞİL. Slug sosyal kimlik değil
+ * ("EVRENSEL KAYMAK KİMLİĞİ") ve Google-only kullanıcıda HİÇ YOK.
+ *
+ * Zustand tabanlı `followStore` ile Optimistic UI ve uygulama genelinde
+ * "Takip Ediliyor" durumunun senkron kalması (Stale Cache engeli)
+ * hedefleniyor. Arayüzün yalan söylememesi için mutasyonlarda Rollback var.
  */
 export function useFollowState(
-  slug: string | null,
+  targetUserId: string | null,
+  targetUsername: string | null = null,
   skipFetch: boolean = false,
   initialConnectionState: ConnectionState = 'none'
 ) {
@@ -41,22 +56,22 @@ export function useFollowState(
   // TÜM store'a abone olurdu — bir kullanıcının takip durumu değiştiğinde
   // ekrandaki (arama sonucu, takipçi/takip edilen listesi vb.) HER
   // useFollowState örneği gereksiz yere yeniden render olurdu. Yalnızca BU
-  // slug'ın değerine abone olunca her kart yalnızca kendi durumu
+  // kimliğin değerine abone olunca her kart yalnızca kendi durumu
   // değiştiğinde render olur — takipçi sayısı yüksek listelerde performans
   // farkı büyük.
   const storeConnectionState = useFollowStore(
-    useCallback((s) => (slug ? s.connectionStates[slug] : undefined), [slug])
+    useCallback((s) => (targetUserId ? s.connectionStates[targetUserId] : undefined), [targetUserId])
   );
   const isFetched = useFollowStore((s) => s.isFetched);
-  const fetchFollowingSlugs = useFollowStore((s) => s.fetchFollowingSlugs);
+  const fetchFollowGraph = useFollowStore((s) => s.fetchFollowGraph);
   const setOptimisticState = useFollowStore((s) => s.setOptimisticState);
 
   let connectionState: ConnectionState = initialConnectionState;
-  if (slug) {
+  if (targetUserId) {
      if (storeConnectionState !== undefined) {
          connectionState = storeConnectionState;
      } else if (isFetched) {
-         // Liste API'den tamamen çekildiyse ve bu slug listede YOKSA, demek ki takip edilmiyor
+         // Graf tamamen çekildiyse ve bu kimlik listede YOKSA, takip edilmiyor
          connectionState = 'none';
      }
   }
@@ -67,34 +82,37 @@ export function useFollowState(
   useEffect(() => {
     if (skipFetch) return;
     
-    if (!slug || !accessToken || isGuest) {
+    if (!targetUserId || !accessToken || isGuest) {
       setIsLoadingConnection(false);
       return;
     }
 
     if (!isFetched) {
       setIsLoadingConnection(true);
-      fetchFollowingSlugs().finally(() => {
+      fetchFollowGraph().finally(() => {
          setIsLoadingConnection(false);
       });
     } else {
       setIsLoadingConnection(false);
     }
-  }, [slug, accessToken, isGuest, skipFetch, isFetched, fetchFollowingSlugs]);
+  }, [targetUserId, accessToken, isGuest, skipFetch, isFetched, fetchFollowGraph]);
 
-  const execUnfollow = async (targetSlug: string, previousState: ConnectionState) => {
+  const execUnfollow = async (userId: string, previousState: ConnectionState) => {
     setIsFollowPending(true);
     // Optimistic Update (UI'ı anında none yap)
-    setOptimisticState(targetSlug, 'none');
-    
+    setOptimisticState(userId, 'none');
+
     try {
-      await unfollowTraktUser(targetSlug);
+      // 🔑 TEK UÇ İKİ İŞİ YAPIYOR: takibi bırakır VE gönderilmiş bekleyen
+      // isteği geri çeker. Bu yüzden burada "hangi durumdayım" dallanması
+      // YOK — bayat bir ekranın yanlış ucu çağırması imkânsız.
+      await unfollowKaymakUser(userId);
       recordMutationResult('unfollowUser', true);
     } catch (err) {
       console.warn('[useFollowState] Unfollow failed:', err);
       recordMutationResult('unfollowUser', false);
       // Hata durumunda eski state'e geri çevir (Rollback)
-      setOptimisticState(targetSlug, previousState);
+      setOptimisticState(userId, previousState);
       // Önceden yalnızca console.warn ile sessizce yutuluyordu — kullanıcı
       // butona basıp hiçbir tepki görmüyordu. Artık en azından bir işlemin
       // başarısız olduğu görünür (bkz. "takip isteği gitmiyor" bug raporu).
@@ -105,7 +123,7 @@ export function useFollowState(
   };
 
   const toggleFollow = useCallback(async () => {
-    if (!slug || isFollowPending) return;
+    if (!targetUserId || isFollowPending) return;
 
     if (!accessToken || isGuest) {
       Alert.alert(t('error', 'Hata'), t('guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
@@ -125,7 +143,7 @@ export function useFollowState(
         t('cancel', 'İptal')
       );
       if (confirmed) {
-        await execUnfollow(slug, previousState);
+        await execUnfollow(targetUserId, previousState);
       }
       return;
     }
@@ -133,37 +151,41 @@ export function useFollowState(
     // Takip Etme İşlemi (Optimistic Update)
     const previousState = connectionState;
     setIsFollowPending(true);
-    setOptimisticState(slug, 'following');
+    setOptimisticState(targetUserId, 'following');
 
     try {
-      const result = await followTraktUser(slug);
-      const actualState = result.approvedAt ? 'following' : 'pending';
-      setOptimisticState(slug, actualState);
+      // 🔑 Sunucu hedefin gizliliğine göre `takip` ya da `istek` döndürüyor —
+      // istemci bunu TAHMİN ETMİYOR. Gizli hesaba istek atan kullanıcıya
+      // "takip ediyorsun" göstermek, arayüzün yalan söylemesi olurdu.
+      const durum = await followKaymakUser(targetUserId);
+      setOptimisticState(targetUserId, durum === 'istek' ? 'pending' : 'following');
       // Onay bekleyen bir istek gönderdiysek hatırla — daha sonra karşı taraf
       // onaylayınca `notificationStore.refreshActivity()` bunu tespit edip
       // "takip isteğiniz onaylandı" bildirimi üretebilsin diye (bkz. store/notificationStore.ts).
-      if (!result.approvedAt) useNotificationStore.getState().addPendingSentSlug(slug);
+      // ⚠️ `targetUsername` de saklanıyor: onay anında profili AĞDAN çekme
+      // adımını kaldırıyor (o adım Trakt'a gidiyordu ve Google-only
+      // kullanıcıda çalışmazdı).
+      if (durum === 'istek' && targetUsername) {
+        useNotificationStore.getState().addPendingSentRequest(targetUserId, targetUsername);
+      }
       recordMutationResult('followUser', true);
     } catch (err: any) {
-      if (err?.response?.status === 409) {
-        setOptimisticState(slug, 'pending');
-        useNotificationStore.getState().addPendingSentSlug(slug);
-        recordMutationResult('followUser', true);
-      } else {
-        console.warn('[useFollowState] Follow failed:', err);
-        recordMutationResult('followUser', false);
-        // Hata durumunda geri al (Rollback)
-        setOptimisticState(slug, previousState);
-        // Önceden yalnızca console.warn ile sessizce yutuluyordu — kullanıcı
-        // butona basıp "takip ediliyor" görüp sonra hiçbir açıklama olmadan
-        // eski haline döndüğünü görüyordu (bkz. "takip isteği gitmiyor" bug
-        // raporu). Artık en azından bir hata olduğu görünür.
-        showFollowErrorAlert(t);
-      }
+      // ⛔ 409 ÖZEL DALI KALDIRILDI: Trakt "zaten istek gönderilmiş" için 409
+      // dönüyordu. Bizim `/social/follow` ucu `ignore-duplicates` ile
+      // idempotent — çift istek HATA değil, sessiz no-op + `success`.
+      console.warn('[useFollowState] Follow failed:', err);
+      recordMutationResult('followUser', false);
+      // Hata durumunda geri al (Rollback)
+      setOptimisticState(targetUserId, previousState);
+      // Önceden yalnızca console.warn ile sessizce yutuluyordu — kullanıcı
+      // butona basıp "takip ediliyor" görüp sonra hiçbir açıklama olmadan
+      // eski haline döndüğünü görüyordu (bkz. "takip isteği gitmiyor" bug
+      // raporu). Artık en azından bir hata olduğu görünür.
+      showFollowErrorAlert(t);
     } finally {
       setIsFollowPending(false);
     }
-  }, [slug, connectionState, isFollowPending, accessToken, isGuest, t, setOptimisticState]);
+  }, [targetUserId, targetUsername, connectionState, isFollowPending, accessToken, isGuest, t, setOptimisticState]);
 
   return { connectionState, isLoadingConnection, isFollowPending, toggleFollow };
 }

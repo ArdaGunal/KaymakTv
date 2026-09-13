@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../../../components/Avatar';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Tv, Sparkles, Film, Inbox, PlayCircle, BarChart2, MessageCircle, UserPlus } from '../../../components/icons';
@@ -34,17 +34,6 @@ function UnreadDot({ visible }: { visible: boolean }) {
   // Görünmezken de yer kaplar: okundu/okunmadı arasında satır metni
   // kaymasın (aksi halde liste okundu işaretlenince zıplar).
   return <View style={[styles.dot, !visible && styles.dotHidden]} />;
-}
-
-function Avatar({ url, initial }: { url: string | null; initial: string }) {
-  if (url) {
-    return <Image source={{ uri: url }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />;
-  }
-  return (
-    <View style={styles.avatarFallback}>
-      <Text style={styles.avatarText}>{initial}</Text>
-    </View>
-  );
 }
 
 export function TimelineRow({ entry }: { entry: TimelineEntry }) {
@@ -94,10 +83,10 @@ export function TimelineRow({ entry }: { entry: TimelineEntry }) {
       // 🆕 Sosyal satırlar ESKIDEN TIKLANMIYORDU (salt okunur `View` idi).
       // Bildirimin öznesi bir kullanıcı olduğuna göre profiline gitmek
       // beklenen davranış; akış kartlarındaki desenin aynısı.
-      onPress={() => router.push(`/user/${entry.slug || entry.username}` as never)}
+      onPress={() => router.push(`/user/${entry.username}` as never)}
     >
       <UnreadDot visible={!entry.read} />
-      <Avatar url={entry.avatarUrl} initial={displayName.charAt(0).toUpperCase()} />
+      <Avatar url={entry.avatarUrl} ad={displayName} size={36} />
 
       <View style={styles.textWrap}>
         <Text style={[styles.socialMessage, !entry.read && styles.socialUnread]} numberOfLines={2}>
@@ -138,18 +127,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarImage: { width: 36, height: 36, borderRadius: 18 },
-  avatarFallback: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: '#94a3b8', fontWeight: '700', fontSize: 14 },
 
   textWrap: { flex: 1, gap: 3 },
   title: { color: '#cbd5e1', fontSize: 14, fontWeight: '600' },

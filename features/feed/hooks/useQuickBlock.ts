@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { confirmAsync } from '../../../utils/confirmDialog';
-import { blockUser } from '../services/userBlocks';
+import { blockUser, type EngelHedefi } from '../services/userBlocks';
 import { invalidateFeedCache, invalidateVisibleUserIds } from '../services/feedApi';
 
 /**
@@ -16,6 +16,11 @@ import { invalidateFeedCache, invalidateVisibleUserIds } from '../services/feedA
  * yani bir kart/yorum EKRANDA görünüyorsa o kullanıcı zaten engellenmiş
  * olamaz, menüde her zaman yalnızca "Engelle" gösterilir, "Engeli Kaldır"
  * hiç gerekmez.
+ *
+ * 🪪 HEDEF `{ userId }` ya da `{ traktSlug }` (M339 · `BACKLOG` §F6). Bizim
+ * kullanıcılarımızın içeriği (akış kartı, akış yorumu, inceleme) HER ZAMAN
+ * `userId` ile — Google-only kullanıcının slug'ı YOK. `traktSlug` yalnızca
+ * Trakt'ın kendi yorumlarında: o kişi KaymakTV'de hiç olmayabilir.
  */
 export function useQuickBlock() {
   const { t } = useTranslation(['feed', 'common']);
@@ -23,7 +28,7 @@ export function useQuickBlock() {
   const [isBlocking, setIsBlocking] = useState(false);
 
   const blockUserQuick = useCallback(
-    async (traktSlug: string) => {
+    async (hedef: EngelHedefi) => {
       if (!accessToken || isGuest || isBlocking) return;
       const confirmed = await confirmAsync(
         t('blockConfirmTitle', 'Kullanıcıyı Engelle?'),
@@ -37,7 +42,7 @@ export function useQuickBlock() {
       if (!confirmed) return;
       setIsBlocking(true);
       try {
-        await blockUser(accessToken, traktSlug);
+        await blockUser(accessToken, hedef);
         invalidateVisibleUserIds();
         invalidateFeedCache();
       } catch (error) {

@@ -11,6 +11,8 @@ export interface UpdateProfilePatch {
   username?: string;
   /** `null` = fotoğrafı kaldır, `undefined` = dokunma. Yalnızca https:// kabul edilir. */
   avatarUrl?: string | null;
+  /** T4 · `043`. `null` = açıklamayı kaldır, `undefined` = dokunma. Sunucu normalize eder. */
+  bio?: string | null;
 }
 
 export interface MyProfile {
@@ -20,9 +22,32 @@ export interface MyProfile {
   avatarUrl: string | null;
   /** ISO string veya `null` — hiç değiştirilmemişse `null` (kilit yok). */
   usernameUpdatedAt: string | null;
+  /** T4 · `043`. `null` = hiç yazılmamış. */
+  bio: string | null;
 }
 
 const USERNAME_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+
+// Worker `src/lib/profileBio.js` ile AYNI sınırlar (T4 · `043`). Yalnızca
+// ekrandaki sayaç/uyarı için — gerçek kural sunucuda (`estimateCooldownRetryAt`
+// ile aynı duruş).
+export const BIO_EN_COK = 160;
+export const BIO_EN_COK_SATIR = 3;
+
+/**
+ * Sunucu normalizasyonunun GÖSTERGE kopyası: boş satırlar atılır, iç boşluk
+ * tekilleşir, uzunluk KOD NOKTASI sayılır (emoji 1). ⚠️ Görünmez karakter
+ * temizliği yalnızca sunucuda — sayaç en kötü ihtimalle birkaç fazla gösterir.
+ */
+export function bioOnizle(ham: string): { deger: string; uzunluk: number; satir: number } {
+  const satirlar = ham
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((s) => s.replace(/[ \t]+/g, ' ').trim())
+    .filter((s) => s.length > 0);
+  const deger = satirlar.join('\n');
+  return { deger, uzunluk: Array.from(deger).length, satir: satirlar.length };
+}
 
 /**
  * `usernameUpdatedAt` verilince cooldown hâlâ aktifse bitiş `Date`'ini,
@@ -52,6 +77,7 @@ export async function getMyProfile(traktAccessToken: string): Promise<MyProfile>
     username: response.data.username,
     avatarUrl: response.data.avatarUrl ?? null,
     usernameUpdatedAt: response.data.usernameUpdatedAt ?? null,
+    bio: response.data.bio ?? null,
   };
 }
 

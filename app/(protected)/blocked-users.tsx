@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '../../components/Avatar';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
 import { Ban } from '../../components/icons';
@@ -31,17 +31,10 @@ interface BlockedUserRowProps {
 
 function BlockedUserRow({ user, isRemoving, onUnblock }: BlockedUserRowProps) {
   const { t } = useTranslation('feed');
-  const initial = user.username.charAt(0).toUpperCase();
 
   return (
     <View style={styles.row}>
-      {user.avatarUrl ? (
-        <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-      ) : (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
-      )}
+      <Avatar url={user.avatarUrl} ad={user.username} size={40} />
 
       <Text style={styles.username} numberOfLines={1}>
         @{user.username}
@@ -103,7 +96,8 @@ export default function BlockedUsersScreen() {
 
     setRemovingId(user.id);
     try {
-      await unblockUser(accessToken, user.traktSlug);
+      // 🪪 `users.id` ile (M339): Google-only kişinin slug'ı yok.
+      await unblockUser(accessToken, { userId: user.id });
       invalidateVisibleUserIds();
       invalidateFeedCache();
       setUsers((list) => list.filter((u) => u.id !== user.id));
@@ -213,26 +207,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingVertical: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 15,
   },
   username: {
     flex: 1,

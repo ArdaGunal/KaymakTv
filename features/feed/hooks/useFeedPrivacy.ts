@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { getMyTraktSlug } from '../../../services/api/myIdentity';
+import { getMySupabaseUserId } from '../services/userBlocks';
 import { invalidateFeedCache, invalidateUserFeedActivitiesCache } from '../services/feedApi';
 import { useFeedStore } from '../store/feedStore';
 import { getFeedPrivacySettings, updateFeedPrivacy, FeedPrivacySettings } from '../services/feedPrivacy';
@@ -33,9 +33,12 @@ const DEFAULT_SETTINGS: FeedPrivacySettings = {
 async function applyPrivacyToFeed(next: FeedPrivacySettings): Promise<void> {
   invalidateFeedCache();
 
-  const mySlug = await getMyTraktSlug().catch(() => null);
-  if (!mySlug) return;
-  invalidateUserFeedActivitiesCache(mySlug);
+  invalidateUserFeedActivitiesCache();
+  // 🪪 Kendi kartlarım `users.id` ile tanınıyor (M339 · §F6). Eskiden slug'la
+  // tanınıyordu → Google-only kullanıcıda hiç eşleşmiyor, gizlediğini sandığı
+  // kartlar ekranda KALIYORDU — bir GİZLİLİK ayarının sessizce işlememesi.
+  const myId = await getMySupabaseUserId().catch(() => null);
+  if (!myId) return;
 
   // Worker/DB'deki karşılığı: publishWatches → watched_episode + watched_movie
   // (İKİSİ BİRDEN — bkz. handleFeedSync'teki S5 düzeltmesi),
@@ -55,7 +58,7 @@ async function applyPrivacyToFeed(next: FeedPrivacySettings): Promise<void> {
   useFeedStore
     .getState()
     .removeActivitiesWhere(
-      (a) => a.user.traktSlug === mySlug && hiddenTypes.includes(a.activityType)
+      (a) => a.user.id === myId && hiddenTypes.includes(a.activityType)
     );
 }
 

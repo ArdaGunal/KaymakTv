@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getMyTraktSlug } from '../services/api/myIdentity';
 import { fetchMediaReviews } from '../features/feed/services/feedApi';
 import { getMySupabaseUserId } from '../features/feed/services/userBlocks';
 import { setLike } from '../features/feed/services/feedSocial';
@@ -129,11 +128,9 @@ export function useMediaReviews({
 
       setIsSubmitting(true);
       try {
-        const mySlug = await getMyTraktSlug().catch(() => null);
-        const result = await publishReview(
-          { body, spoiler, showId: mediaId, mediaType, showTitle: mediaTitle, tmdbId, episodeNumber },
-          mySlug
-        );
+        const result = await publishReview({
+          body, spoiler, showId: mediaId, mediaType, showTitle: mediaTitle, tmdbId, episodeNumber,
+        });
 
         // v2: tek yazma hedefi kaldığı için "kısmen yazıldı" diye bir ara durum
         // YOK — `traktOk` sinyali de bu yüzden kalktı. Hata mesajı olduğu gibi
@@ -162,12 +159,7 @@ export function useMediaReviews({
     // silme deseniyle aynı).
     setReviews((list) => list.filter((r) => r.id !== myReview.id));
     try {
-      const mySlug = await getMyTraktSlug().catch(() => null);
-      const result = await deleteReview(
-        myReview.id,
-        { showId: mediaId, mediaType, episodeNumber },
-        mySlug
-      );
+      const result = await deleteReview(myReview.id, { showId: mediaId, mediaType, episodeNumber });
       if (!result.ok) {
         setReviews(previous);
         return result;

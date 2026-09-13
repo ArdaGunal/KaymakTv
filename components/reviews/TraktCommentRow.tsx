@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Avatar from '../Avatar';
 import { Heart, EyeOff } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { CommentData } from '../../hooks/useComments';
@@ -33,7 +34,6 @@ export default function TraktCommentRow({ comment, onPress }: TraktCommentRowPro
   const [revealed, setRevealed] = useState(!comment.spoiler);
 
   const username = comment.user?.username || comment.user?.name || 'Kullanıcı';
-  const initial = username.charAt(0).toUpperCase();
 
   return (
     <TouchableOpacity
@@ -44,9 +44,7 @@ export default function TraktCommentRow({ comment, onPress }: TraktCommentRowPro
       // verilmezse dokunma tamamen pasif.
       disabled={!onPress}
     >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
+      <Avatar ad={username} size={30} />
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
@@ -93,22 +91,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingVertical: 10,
-  },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#131c2e',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#64748b',
-    fontWeight: '700',
-    fontSize: 12,
   },
   body: {
     flex: 1,

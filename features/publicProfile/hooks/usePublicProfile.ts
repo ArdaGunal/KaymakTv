@@ -1,30 +1,34 @@
 /**
- * usePublicProfile — Public Profile ekranının üst bilgi bloğu (avatar, isim,
- * kullanıcı adı, takipçi/takip edilen sayıları) için. `getUserProfile`/
- * `getFollowers`/`getFollowing` zaten `services/api/social.ts`'te GENEL
- * fonksiyonlardı (yalnızca "me" değil, herhangi bir slug/username kabul
- * ediyor — bkz. hooks/useMyTraktProfile.ts'in "me" için aynı üçlüyü kullanan
- * mevcut deseni) — yeni bir servis fonksiyonu gerekmedi. Trakt'ın bu üç uç
- * noktası da herkese açık (auth gerektirmiyor, bkz. docs/design/feed.md), bu yüzden
- * `useMyTraktProfile.ts`'teki gibi bir accessToken/isGuest koruması burada
- * YOK — misafir bir kullanıcı bile başkasının profilini görebilir.
+ * usePublicProfile — başkasının TRAKT profilinden ZENGİNLEŞTİRME: isim,
+ * biyografi, (Trakt) avatarı.
+ *
+ * ⛔ M338'DEN BERİ KİMLİK KAYNAĞI DEĞİL. Kimlik, takipçi sayıları ve takip
+ * ilişkisi `usePublicProfileIdentity` → `/social/profile`'dan geliyor. Bu hook
+ * YALNIZCA sunucunun döndürdüğü gerçek `traktSlug` ile çağrılmalı — rota
+ * parametresiyle (KaymakTV `username`) DEĞİL; gerekçe o dosyanın başlığında.
+ *
+ * ⛔ Takipçi/takip sayıları BURADAN KALDIRILDI (artık bizim graftan). Eskiden
+ * her profil açılışı Trakt'a 3 istek atıyordu (profil + iki liste) ve iki
+ * liste yalnızca `.length` için indiriliyordu. Şimdi 1.
+ *
+ * Trakt'ın `/users/:id` ucu herkese açık (auth gerektirmiyor) — misafir de
+ * başkasının profilini görebilir, bu yüzden token koruması YOK.
  */
 
 import { useEffect, useState } from 'react';
-import { getFollowers, getFollowing, getUserProfile, TraktUserProfile } from '../../../services/api/social';
+import { getUserProfile, TraktUserProfile } from '../../../services/api/social';
 
 export type PublicProfileError = 'not_found' | 'generic';
 
-export function usePublicProfile(slug: string | null) {
+export function usePublicProfile(traktSlug: string | null) {
   const [profile, setProfile] = useState<TraktUserProfile | null>(null);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<PublicProfileError | null>(null);
 
   useEffect(() => {
-    if (!slug) {
-      setProfile(null);
+    // Anahtar değişince önceki kişinin Trakt verisi bir an bile kalmasın.
+    setProfile(null);
+    if (!traktSlug) {
       setIsLoading(false);
       return;
     }
@@ -35,18 +39,11 @@ export function usePublicProfile(slug: string | null) {
 
     (async () => {
       try {
-        const [result, followers, following] = await Promise.all([
-          getUserProfile(slug),
-          getFollowers(slug).catch(() => []),
-          getFollowing(slug).catch(() => []),
-        ]);
-        if (cancelled) return;
-        setProfile(result);
-        setFollowersCount(followers.length);
-        setFollowingCount(following.length);
+        const result = await getUserProfile(traktSlug);
+        if (!cancelled) setProfile(result);
       } catch (err: any) {
         if (cancelled) return;
-        console.warn('[PublicProfile] Profil yüklenemedi:', err);
+        console.warn('[PublicProfile] Trakt profili yüklenemedi:', err);
         setError(err?.response?.status === 404 ? 'not_found' : 'generic');
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -56,7 +53,7 @@ export function usePublicProfile(slug: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [traktSlug]);
 
-  return { profile, followersCount, followingCount, isLoading, error };
+  return { profile, isLoading, error };
 }

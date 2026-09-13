@@ -198,7 +198,11 @@ T.H('🔴 Store baglantilari — budama GERCEKTEN cagriliyor mu');
   const sosyal = oku('store', 'notificationStore.ts');
   const sosyalHydrate = kesit(sosyal, 'const hydrate', 'let hydrationPromise');
   const sosyalRefresh = kesit(sosyal, 'refreshActivity: async', 'markAllRead:');
-  const sosyalEkle = kesit(sosyal, 'addPendingSentSlug: (slug)', 'refreshActivity: async');
+  // M338 (Faz T · T3.3): anahtar Trakt slug'indan `users.id`'ye gecti —
+  // `addPendingSentSlug(slug)` → `addPendingSentRequest(userId, username)`,
+  // `seenFollowerSlugs` → `seenFollowerIds`. Bu dosya o gun GUNCELLENMEDI ve
+  // M340'ta yakalandi: asagidaki kesit bos donup iki denetim KALDI.
+  const sosyalEkle = kesit(sosyal, 'addPendingSentRequest: (userId, username)', 'refreshActivity: async');
   T.ok(
     'Kesitler bulundu (sosyal)',
     sosyalHydrate.length > 0 && sosyalRefresh.length > 0 && sosyalEkle.length > 0,
@@ -211,12 +215,18 @@ T.H('🔴 Store baglantilari — budama GERCEKTEN cagriliyor mu');
   T.ok('Bekleyen istekler EKLERKEN budaniyor', sosyalEkle.includes('trimPending('));
   T.ok('Eski duz string sekli goc ediyor', sosyalHydrate.includes('normalizePending('));
 
-  // 🔴 `seenFollowerSlugs` budamaya GIRMEMELI: o bir bildirim listesi degil,
+  // 🔴 `seenFollowerIds` budamaya GIRMEMELI: o bir bildirim listesi degil,
   // "hangi takipcileri gorduk" TABANI. Budansaydi bir sonraki yenileme
   // mevcut tum takipcileri "yeni" sayardi (Madde 301'deki ayni tuzak).
+  //
+  // 🪤 M340 dersi: bu denetim M338'den beri `seenFollowerSlugs` ariyordu —
+  // alan yeniden adlandirilinca regex HIC eslesemez oldu ve denetim her
+  // kosulda GECTI (koruma kalksa da). Olumsuz bir denetim, aradigi adin
+  // dosyada VAR oldugunu da dogrulamak zorunda.
+  T.ok('seenFollowerIds alani mevcut (asagidaki denetim bos gecmesin)', sosyal.includes('seenFollowerIds'));
   T.ok(
-    'seenFollowerSlugs budanmiyor',
-    !/pruneByAge\([^)]*seenFollowerSlugs/.test(sosyal),
+    'seenFollowerIds budanmiyor',
+    !/pruneByAge\([^)]*seenFollowerIds/.test(sosyal),
     'budansaydi bildirim yagmuru olurdu',
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import Avatar from '../../../components/Avatar';
 import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus, PenLine } from '../../../components/icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +15,7 @@ import NoteEditorModal from './NoteEditorModal';
 import FeedCommentSheet from './FeedCommentSheet';
 import ReportContentModal from './ReportContentModal';
 import { useAuth } from '../../../context/AuthContext';
-import { useMyTraktSlug } from '../hooks/useMyTraktSlug';
+import { useMyUserId } from '../hooks/useMyUserId';
 import { useQuickBlock } from '../hooks/useQuickBlock';
 import { useFeedStore } from '../store/feedStore';
 import { setLike, setActivityNote } from '../services/feedSocial';
@@ -98,17 +99,18 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
   const { t } = useTranslation('feed');
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
-  const initial = activity.user.username.charAt(0).toUpperCase();
   const router = useRouter();
   const { accessToken, isGuest } = useAuth();
-  const myTraktSlug = useMyTraktSlug();
+  const myUserId = useMyUserId();
   const { blockUserQuick } = useQuickBlock();
 
   // Sosyal katman (bkz. docs/design/FEED_SOCIAL_PLAN.md) — henüz sunucu onayı
   // gelmemiş (iyimser) kartlarda GEÇİCİ bir id var, gerçek bir like/comment
   // hedefi olamaz; bu yüzden tüm sosyal etkileşim onay gelene kadar gizli.
   const isInteractive = !activity.isPending;
-  const isOwnActivity = isInteractive && !!myTraktSlug && myTraktSlug === activity.user.traktSlug;
+  // 🪪 `users.id` ile (M339 · §F6): slug'la sorulunca Google-only kullanıcı
+  // KENDİ kartında "Sil" yerine "Engelle" görüyordu.
+  const isOwnActivity = isInteractive && !!myUserId && myUserId === activity.user.id;
   // Yalnızca kişisel not eklenmiş ya da puanlanmış aktivitelere yorum
   // yapılabilir — çıplak "izledi" logları kasıtlı olarak yorumlanamaz
   // (Worker aynı kuralı da doğruluyor, bkz. handleFeedComment).
@@ -190,7 +192,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
     // farklıysa (ör. username'de büyük harf varsa), profile.web.tsx/
     // PublicProfileMobile.tsx'teki `useFollowState` bu slug'ı store'da
     // BULAMAZ ve zaten takip edilen biri için "Takip Et" gösterirdi.
-    router.push(`/user/${activity.user.traktSlug || activity.user.username}`);
+    router.push(`/user/${activity.user.username}`);
   };
 
   // Dizi mi film mi — `mediaType` olmadan doğru rota bilinemez (ikisi de aynı
@@ -207,9 +209,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
   const card = (
     <View style={[styles.card, activity.isPending && styles.cardPending]}>
       <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
+        <Avatar url={activity.user.avatarUrl} ad={activity.user.username} size={40} />
       </TouchableOpacity>
 
       <View style={styles.body}>
@@ -230,7 +230,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
               onReport={!isOwnActivity ? () => setReportModalVisible(true) : undefined}
               onBlock={
                 !isOwnActivity && accessToken && !isGuest
-                  ? () => blockUserQuick(activity.user.traktSlug)
+                  ? () => blockUserQuick({ userId: activity.user.id })
                   : undefined
               }
             />
@@ -428,21 +428,6 @@ const styles = StyleSheet.create({
   // Sunucu onayı beklenirken hafif soluk — "gönderiliyor" hissi.
   cardPending: {
     opacity: 0.65,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 15,
   },
   body: {
     flex: 1,

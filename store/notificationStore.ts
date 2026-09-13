@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getFollowers, getUserProfile } from '../services/api/social';
-import { useFollowStore } from './followStore';
+import { fetchKaymakGraph } from '../services/api/kaymakSocial';
+import { takipMutasyonNesli, useFollowStore } from './followStore';
 import { logError } from '../utils/errorLog';
 import {
   pruneByAge,
@@ -42,14 +42,26 @@ export interface ActivityNotification {
  * vazgeçelim?" sorusu cevaplanamıyordu.
  */
 export interface PendingSentRequest {
-  slug: string;
+  /**
+   * 🪪 `users.id` — SLUG DEĞİL (M337). `followStore.connectionStates` artık
+   * `userId` ile anahtarlı; eşleşme bunun üzerinden yapılıyor. Slug kalsaydı
+   * karşılaştırma HİÇ tutmaz ve "isteğin onaylandı" bildirimi **sessizce**
+   * hiç üretilmezdi.
+   */
+  userId: string;
+  /**
+   * Bildirim metninde gösterilecek ad. 🔑 BURADA SAKLANIYOR çünkü onay
+   * tespit edildiği anda profili AĞDAN çekme adımını tamamen kaldırıyor —
+   * o adım Trakt'a gidiyordu ve Google-only kullanıcıda ÇALIŞMAZDI.
+   */
+  username: string;
   /** İsteğin gönderildiği an (epoch ms). */
   at: number;
 }
 
 interface PersistedShape {
   items: ActivityNotification[];
-  seenFollowerSlugs: string[] | null;
+  seenFollowerIds: string[] | null;
   pendingSentSlugs: PendingSentRequest[];
 }
 
@@ -66,16 +78,24 @@ const normalizePending = (raw: unknown, now: number): PendingSentRequest[] => {
   const cikti: PendingSentRequest[] = [];
   const gorulen = new Set<string>();
   for (const item of raw) {
-    let kayit: PendingSentRequest | null = null;
-    if (typeof item === 'string' && item) kayit = { slug: item, at: now };
-    else if (item && typeof item === 'object') {
-      const o = item as { slug?: unknown; at?: unknown };
-      if (typeof o.slug === 'string' && o.slug) {
-        kayit = { slug: o.slug, at: typeof o.at === 'number' && Number.isFinite(o.at) ? o.at : now };
-      }
-    }
-    if (!kayit || gorulen.has(kayit.slug)) continue;
-    gorulen.add(kayit.slug);
+    // 🔴 ESKİ BİÇİMLER (düz `string` ve `{slug, at}`) ARTIK DÜŞÜRÜLÜYOR.
+    // İkisi de SLUG taşıyordu; `userId` türetmenin bir yolu yok. Onları
+    // "userId sanıp" saklamak, hiç eşleşmeyecek ölü kayıtlar üretirdi.
+    // Kaybedilen tek şey: yükseltme anında havada olan takip istekleri için
+    // "onaylandı" bildirimi çıkmaması. İstek KAYBOLMUYOR — sunucudaki
+    // `follow_requests` satırı duruyor ve düğme `pendingOut` sayesinde doğru
+    // durumu göstermeye devam ediyor.
+    if (!item || typeof item !== 'object') continue;
+    const o = item as { userId?: unknown; username?: unknown; at?: unknown };
+    if (typeof o.userId !== 'string' || !o.userId) continue;
+    if (typeof o.username !== 'string' || !o.username) continue;
+    const kayit: PendingSentRequest = {
+      userId: o.userId,
+      username: o.username,
+      at: typeof o.at === 'number' && Number.isFinite(o.at) ? o.at : now,
+    };
+    if (gorulen.has(kayit.userId)) continue;
+    gorulen.add(kayit.userId);
     cikti.push(kayit);
   }
   return cikti;
@@ -88,10 +108,17 @@ const trimPending = (liste: readonly PendingSentRequest[], now: number): Pending
 interface NotificationState extends PersistedShape {
   unreadCount: number;
   setUnreadCount: (count: number) => void;
+  /**
+   * BANA gelen bekleyen takip isteği sayısı — zil rozeti (M338). ⚠️ "Okunmamış"
+   * DEĞİL, "cevapsız": Bildirimler ekranını açmak onu SIFIRLAMAZ; yalnızca
+   * kabul/ret düşürür. Kalıcı değil (her `refreshActivity` sunucudan tazeler).
+   */
+  incomingRequestCount: number;
+  setIncomingRequestCount: (count: number) => void;
   clearUnread: () => void;
-  /** `followTraktUser` `approvedAt: null` döndürdüğünde çağrılır — onay
-   *  bekleyen bir istek gönderdiğimizi hatırlamak için (bkz. hooks/useFollowState.ts). */
-  addPendingSentSlug: (slug: string) => void;
+  /** `followKaymakUser` `istek` döndürdüğünde çağrılır — onay bekleyen bir
+   *  istek gönderdiğimizi hatırlamak için (bkz. hooks/useFollowState.ts). */
+  addPendingSentRequest: (userId: string, username: string) => void;
   refreshActivity: () => Promise<void>;
   markAllRead: () => void;
   /** Tek bir aktivite kaydını listeden kaldırır. */
@@ -121,7 +148,11 @@ const hydrate = async (): Promise<void> => {
 
     const okunanPending = normalizePending(parsed?.pendingSentSlugs, now);
     const pendingSentSlugs = trimPending(okunanPending, now);
-    const seenFollowerSlugs = parsed?.seenFollowerSlugs ?? null;
+    // 🪪 ANAHTAR DEĞİŞTİ (M338): eski kayıt Trakt SLUG'ları tutuyordu, yenisi
+    // `users.id`. Eski alan BİLİNÇLİ OLARAK okunmuyor → `null` → bir sonraki
+    // tur yalnızca TABAN alır. Eski slug'ları kimlik sanıp karşılaştırsaydık
+    // hiçbiri eşleşmez ve TÜM mevcut takipçiler bir anda "yeni" bildirimi olurdu.
+    const seenFollowerIds = parsed?.seenFollowerIds ?? null;
 
     // Yalnızca gerçekten değiştiyse yaz (şekil göçü de bir değişikliktir).
     if (
@@ -130,12 +161,12 @@ const hydrate = async (): Promise<void> => {
       !Array.isArray(parsed?.pendingSentSlugs) ||
       parsed.pendingSentSlugs.some((x: unknown) => typeof x === 'string')
     ) {
-      persistState({ items, seenFollowerSlugs, pendingSentSlugs });
+      persistState({ items, seenFollowerIds, pendingSentSlugs });
     }
 
     useNotificationStore.setState({
       items,
-      seenFollowerSlugs,
+      seenFollowerIds,
       pendingSentSlugs,
       unreadCount: items.filter((i) => !i.read).length,
     });
@@ -153,21 +184,23 @@ const ensureHydrated = (): Promise<void> => {
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   items: [],
-  seenFollowerSlugs: null,
+  seenFollowerIds: null,
   pendingSentSlugs: [],
 
+  incomingRequestCount: 0,
+  setIncomingRequestCount: (count) => set({ incomingRequestCount: Math.max(0, count) }),
   setUnreadCount: (count) => set({ unreadCount: count }),
   clearUnread: () => set({ unreadCount: 0 }),
 
-  addPendingSentSlug: (slug) => {
+  addPendingSentRequest: (userId, username) => {
     set((state) => {
-      if (state.pendingSentSlugs.some((p) => p.slug === slug)) return state;
+      if (state.pendingSentSlugs.some((p) => p.userId === userId)) return state;
       const now = Date.now();
       // Ekleme anında da budanıyor: bu liste yalnızca burada büyüyor, yani
       // budamanın en doğal yeri burası. Açılıştaki budama, uygulamayı
       // günlerce açık tutan kullanıcı için ikinci hat.
-      const pendingSentSlugs = trimPending([...state.pendingSentSlugs, { slug, at: now }], now);
-      persistState({ items: state.items, seenFollowerSlugs: state.seenFollowerSlugs, pendingSentSlugs });
+      const pendingSentSlugs = trimPending([...state.pendingSentSlugs, { userId, username, at: now }], now);
+      persistState({ items: state.items, seenFollowerIds: state.seenFollowerIds, pendingSentSlugs });
       return { pendingSentSlugs };
     });
   },
@@ -175,61 +208,78 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   refreshActivity: async () => {
     await ensureHydrated();
     try {
-      const [followers] = await Promise.all([
-        getFollowers('me').catch(() => []),
-        useFollowStore.getState().fetchFollowingSlugs(),
-      ]);
+      // ══════════════════════════════════════════════════════════════════
+      // 🪪 KAYNAK ARTIK BİZİM GRAF (M338) — TEK istek
+      // ══════════════════════════════════════════════════════════════════
+      // Eskiden iki ayrı istek vardı: Trakt `getFollowers('me')` + graf. Artık
+      // graf yanıtı hem takip durumlarımı (followStore) hem takipçilerimi hem
+      // de bekleyen gelen istek sayısını (rozet) taşıyor.
+      //
+      // 🔴 ESKİ KODDA GİZLİ BİR BİLDİRİM FIRTINASI VARDI: Trakt çağrısı
+      // `.catch(() => [])` ile yutuluyordu. Bir kez düşünce boş liste
+      // "görülen takipçiler" diye KAYDEDİLİR, sonraki başarılı turda TÜM
+      // takipçiler "yeni" sayılırdı. Artık hata dış `catch`'e düşüyor ve
+      // HİÇBİR ŞEY yazılmıyor.
+      const nesil = takipMutasyonNesli();
+      const graf = await fetchKaymakGraph();
+      useFollowStore.getState().applyGraf(graf, nesil);
 
       const state = get();
-      const currentFollowerSlugs = followers.map((f) => f.ids?.slug).filter((s): s is string => !!s);
+      const currentFollowerIds = graf.followers.map((f) => f.userId);
       const newItems: ActivityNotification[] = [];
 
-      // Yeni takipçi diff'i — ilk çalıştırmada (seenFollowerSlugs === null)
+      // Yeni takipçi diff'i — ilk çalıştırmada (seenFollowerIds === null)
       // yalnızca taban alınır, MEVCUT tüm takipçiler "yeni" gibi bildirim
       // yağmuruna dönüşmesin diye bildirim ÜRETİLMEZ.
-      if (state.seenFollowerSlugs !== null) {
-        const seenSet = new Set(state.seenFollowerSlugs);
-        for (const follower of followers) {
-          const slug = follower.ids?.slug;
-          if (!slug || seenSet.has(slug)) continue;
+      // 🔕 PUSH YOK, YALNIZCA UYGULAMA İÇİ — kullanıcı kararı (2026-09-11):
+      // açık hesaba doğrudan takip her seferinde push atsaydı popüler hesapta
+      // spam olurdu. Bu kayıt rozet + Bildirimler satırı olarak görünür.
+      if (state.seenFollowerIds !== null) {
+        const seenSet = new Set(state.seenFollowerIds);
+        for (const follower of graf.followers) {
+          if (seenSet.has(follower.userId)) continue;
           newItems.push({
-            id: `newFollower-${slug}-${Date.now()}`,
+            id: `newFollower-${follower.userId}-${Date.now()}`,
             type: 'newFollower',
-            slug,
+            // ⚠️ `slug` alanı ADRES taşıyor (`username`) — bkz. `BACKLOG` §F4.
+            slug: follower.username,
             username: follower.username,
-            name: follower.name,
-            avatarUrl: follower.images?.avatar?.full ?? null,
+            name: null,
+            avatarUrl: follower.avatarUrl,
             createdAt: Date.now(),
             read: false,
           });
         }
       }
 
-      // Onaylanan gönderilmiş takip istekleri diff'i — bir slug artık
-      // `followStore`'un (Trakt'tan az önce yenilenen) following listesindeyse
-      // demek ki gizli hesap isteğimizi onaylamış.
+      // Onaylanan gönderilmiş takip istekleri diff'i — bir `userId` artık
+      // `followStore`'un (bizim graftan az önce yenilenen) following
+      // listesindeyse demek ki gizli hesap isteğimizi onaylamış.
+      //
+      // 🪪 KARŞILAŞTIRMA `userId` ÜZERİNDEN (M337). Slug'la yapılsaydı
+      // `connectionStates` artık `userId` anahtarlı olduğu için eşleşme HİÇ
+      // tutmaz ve bu bildirim **sessizce** hiç üretilmezdi.
       const followingConnectionStates = useFollowStore.getState().connectionStates;
       const stillPending: PendingSentRequest[] = [];
       for (const bekleyen of state.pendingSentSlugs) {
-        const slug = bekleyen.slug;
-        if (followingConnectionStates[slug] === 'following') {
-          try {
-            const profile = await getUserProfile(slug);
-            newItems.push({
-              id: `requestApproved-${slug}-${Date.now()}`,
-              type: 'requestApproved',
-              slug,
-              username: profile.username,
-              name: profile.name,
-              avatarUrl: profile.images?.avatar?.full ?? null,
-              createdAt: Date.now(),
-              read: false,
-            });
-          } catch {
-            // Profil çekilemedi; damga KORUNUYOR (tazelenmiyor) — aksi halde
-            // her yenilemede saat sıfırlanır ve kayıt hiç yaşlanmazdı.
-            stillPending.push(bekleyen);
-          }
+        if (followingConnectionStates[bekleyen.userId] === 'following') {
+          // 🔑 AĞ İSTEĞİ KALDIRILDI. Eskiden burada `getUserProfile(slug)`
+          // ile TRAKT'tan profil çekiliyordu; Google-only kullanıcıda o çağrı
+          // ÇALIŞMAZDI ve `catch` dalına düşüp kayıt sonsuza kadar "bekliyor"
+          // kalırdı. Gösterilecek ad artık isteği gönderirken kaydediliyor.
+          newItems.push({
+            id: `requestApproved-${bekleyen.userId}-${Date.now()}`,
+            type: 'requestApproved',
+            // ⚠️ `slug` alanı ADRES taşıyor: "EVRENSEL KAYMAK KİMLİĞİ"
+            // ilkesi gereği kanonik adres `username`. Alanın ADI bayat
+            // (rename tüm bildirim üreticilerine dokunur → `BACKLOG` §F4).
+            slug: bekleyen.username,
+            username: bekleyen.username,
+            name: null,
+            avatarUrl: null,
+            createdAt: Date.now(),
+            read: false,
+          });
         } else {
           stillPending.push(bekleyen);
         }
@@ -244,8 +294,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const unreadCount = items.filter((i) => !i.read).length;
       const pendingSentSlugs = trimPending(stillPending, now);
 
-      persistState({ items, seenFollowerSlugs: currentFollowerSlugs, pendingSentSlugs });
-      set({ items, seenFollowerSlugs: currentFollowerSlugs, pendingSentSlugs, unreadCount });
+      persistState({ items, seenFollowerIds: currentFollowerIds, pendingSentSlugs });
+      set({
+        items,
+        seenFollowerIds: currentFollowerIds,
+        pendingSentSlugs,
+        unreadCount,
+        incomingRequestCount: graf.pendingInCount ?? 0,
+      });
     } catch (error) {
       console.warn('[notificationStore] Aktivite güncellenemedi:', error);
       logError('notificationStore.refreshActivity', error);
@@ -256,12 +312,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set((state) => {
       if (state.unreadCount === 0) return state;
       const items = state.items.map((i) => ({ ...i, read: true }));
-      persistState({ items, seenFollowerSlugs: state.seenFollowerSlugs, pendingSentSlugs: state.pendingSentSlugs });
+      persistState({ items, seenFollowerIds: state.seenFollowerIds, pendingSentSlugs: state.pendingSentSlugs });
       return { items, unreadCount: 0 };
     });
   },
 
-  // 🔴 AŞAĞIDAKİ İKİ EYLEM `seenFollowerSlugs`e DOKUNMAZ — kritik.
+  // 🔴 AŞAĞIDAKİ İKİ EYLEM `seenFollowerIds`e DOKUNMAZ — kritik.
   // O alan "hangi takipçileri daha önce gördük" tabanıdır; bildirimi silmek
   // onu SIFIRLASAYDI, bir sonraki `refreshActivity` MEVCUT tüm takipçileri
   // "yeni" sayar ve kullanıcı sildiği bildirimlerin hepsini bir anda geri
@@ -273,7 +329,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set((state) => {
       const items = state.items.filter((i) => i.id !== id);
       if (items.length === state.items.length) return state;
-      persistState({ items, seenFollowerSlugs: state.seenFollowerSlugs, pendingSentSlugs: state.pendingSentSlugs });
+      persistState({ items, seenFollowerIds: state.seenFollowerIds, pendingSentSlugs: state.pendingSentSlugs });
       return { items, unreadCount: items.filter((i) => !i.read).length };
     });
   },
@@ -281,10 +337,39 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   clearAll: () => {
     set((state) => {
       if (state.items.length === 0) return state;
-      persistState({ items: [], seenFollowerSlugs: state.seenFollowerSlugs, pendingSentSlugs: state.pendingSentSlugs });
+      persistState({ items: [], seenFollowerIds: state.seenFollowerIds, pendingSentSlugs: state.pendingSentSlugs });
       return { items: [], unreadCount: 0 };
     });
   },
 }));
 
 ensureHydrated();
+
+/**
+ * Çıkışta sosyal bildirim deposunu sıfırlar (`features/notifications/reset.ts`).
+ *
+ * 🔴 BU FONKSİYON YOKTU (bulundu 2026-09-11, M338). `reset.ts` push
+ * tercihlerini ve içerik gelen kutusunu sıfırlıyordu ama BU store o listede
+ * değildi — başlığında anlatılan "State Leakage" sınıfının açık kalan son
+ * kapısıydı. Zustand singleton RAM'de yaşadığı için uygulama kapatılmadan
+ * çıkış-giriş yapılırsa ÖNCEKİ hesabın takipçi bildirimleri, bekleyen istek
+ * defteri ve (M338 ile eklenen) cevapsız istek rozeti yeni hesapta görünürdü.
+ *
+ * ⚠️ `seenFollowerIds` BİLİNÇLİ OLARAK `null`: yeni hesabın ilk turu yalnızca
+ * TABAN alır. Önceki hesabın listesiyle karşılaştırsaydık yeni hesabın bütün
+ * takipçileri bir anda "yeni" bildirimi olurdu.
+ */
+export function resetNotificationStoreState(): void {
+  // Bir sonraki `ensureHydrated()` yeni oturum için diskten baştan okusun.
+  hydrationPromise = null;
+  useNotificationStore.setState({
+    items: [],
+    unreadCount: 0,
+    seenFollowerIds: null,
+    pendingSentSlugs: [],
+    incomingRequestCount: 0,
+  });
+  AsyncStorage.removeItem(STORAGE_KEY).catch((error) =>
+    logError('notificationStore.reset.clearStorage', error)
+  );
+}

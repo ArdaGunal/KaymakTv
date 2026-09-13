@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Image } from 'expo-image';
+import Avatar from '../../../components/Avatar';
 import { useTranslation } from 'react-i18next';
 import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
 
@@ -22,18 +22,10 @@ interface ComposePostBarProps {
 export default function ComposePostBar({ onPress }: ComposePostBarProps) {
   const { t } = useTranslation('feed');
   const { profile } = useMyTraktProfile();
-  const avatarUrl = profile?.images?.avatar?.full;
-  const initial = profile?.username?.charAt(0).toUpperCase() ?? '?';
 
   return (
     <TouchableOpacity style={styles.wrap} onPress={onPress} activeOpacity={0.75}>
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" cachePolicy="disk" />
-      ) : (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
-      )}
+      <Avatar url={profile?.images?.avatar?.full} ad={profile?.username} size={36} />
       <Text style={styles.placeholder}>{t('composePlaceholder', 'Ne düşünüyorsun?')}</Text>
     </TouchableOpacity>
   );
@@ -51,28 +43,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 14,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    flexShrink: 0,
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 14,
   },
   placeholder: {
     color: '#64748b',

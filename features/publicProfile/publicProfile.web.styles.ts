@@ -75,29 +75,6 @@ export const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#1e293b',
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 2,
-    borderColor: 'rgba(59,130,246,0.4)',
-  },
-  avatarText: {
-    color: '#94a3b8',
-    fontWeight: '700',
-    fontSize: 30,
-  },
   identityCol: {
     flex: 1,
     gap: 4,
@@ -124,6 +101,15 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,
+  },
+  reportBio: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  reportBioText: {
+    color: '#64748b',
+    fontSize: 11.5,
+    fontWeight: '600',
   },
   statsRow: {
     flexDirection: 'row',
