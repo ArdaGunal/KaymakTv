@@ -281,7 +281,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // beklemelerinin sebebi yok.
     const [ok, takvim] = await Promise.all([
       kaymakKutuphaneSenkronu(),
-      fetchTakvim(33),
+      fetchTakvim(365),
     ]);
 
     // 🔴 `null` = alamadım → önbellektekini KORU. Boşla ezmek takvimi
@@ -376,7 +376,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // getiriyor; tier 2'deki ikinci Trakt takvim çağrısı bu yüzden kalktı.
     // `requestQueue`ya girmiyor: o kuyruk Trakt'ın oran sınırını korumak
     // için var, bu istek Trakt'a gitmiyor.
-    const pTakvim = fetchTakvim(33);
+    const pTakvim = fetchTakvim(365);
 
     // ARKA PLAN (İKİNCİL) İSTEKLER - Aşağıda ayrı ele alınacak
 
