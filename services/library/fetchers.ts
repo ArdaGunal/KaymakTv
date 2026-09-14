@@ -1,16 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { kaymakKullanicisiMi, syncLibrary } from '../api/library';
+import { kaymakKullanicisiMi, syncLibrary, fetchTakvim } from '../api/library';
 import { kaymakKutuphaneSenkronu } from './kaymakSync';
 import {
   getWatchedShows,
   getWatchedMovies,
   getCustomLists,
   getWatchlistShows,
-  getMyCalendarShows,
   getShowProgress,
   getWatchlistMovies,
-  getMyCalendarMovies,
   getUserRatings,
   getShowSeasons,
   getLikedShows,
@@ -300,11 +298,20 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // garanti ediliyor ve düşük öncelikli arka plan istekleriyle yarışmıyor.
     const pShowsData = requestQueue.enqueue(() => getWatchedShows(), 'CRITICAL').catch((e) => { console.error('getWatchedShows failed', e.message); return null; });
     const pWlistShows = requestQueue.enqueue(() => getWatchlistShows(), 'CRITICAL').catch((e) => { console.error('getWatchlistShows failed', e.message); return null; });
-    const pCalShows = requestQueue.enqueue(() => getMyCalendarShows(33), 'CRITICAL').catch((e) => { console.error('getMyCalendarShows failed', e.message); return null; });
+    // 📅 T6.2b — TAKVİM ARTIK BİZDEN. Tek istek HEM diziyi HEM filmi
+    // getiriyor; tier 2'deki ikinci Trakt takvim çağrısı bu yüzden kalktı.
+    // `requestQueue`ya girmiyor: o kuyruk Trakt'ın oran sınırını korumak
+    // için var, bu istek Trakt'a gitmiyor.
+    const pTakvim = fetchTakvim(33);
 
     // ARKA PLAN (İKİNCİL) İSTEKLER - Aşağıda ayrı ele alınacak
 
-    const [showsData, wlistShows, calShows] = await Promise.all([pShowsData, pWlistShows, pCalShows]);
+    const [showsData, wlistShows, takvim] = await Promise.all([pShowsData, pWlistShows, pTakvim]);
+
+    // 🔴 `null` = ALAMADIM (önbellek korunur) · boş dizi = gerçekten yok.
+    // Ayrım `fetchTakvim`de kuruluyor; burada sadece açılıyor.
+    const calShows = takvim ? takvim.diziler : null;
+    const calMovies = takvim ? takvim.filmler : null;
 
     // Üçü de null ise (her biri kendi .catch'iyle null'a düştüyse) kritik
     // Tier-1 isteklerinin TAMAMI başarısız demektir — ağ/sunucu sorunu. Kısmi
@@ -415,10 +422,12 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // 🔑 Önbellekteki `userStats` SİLİNMİYOR: `gosterilecekIstatistik` onu
     // yerel hesap BOŞKEN yedek olarak kullanıyor (ilk senkron bitmeden profil
     // açılırsa "0 saat" göstermekten iyi). Yalnızca TAZELENMİYOR.
+    // ⛔ `getMyCalendarMovies()` de KALKTI (T6.2b): film takvimi artık
+    // tier 1'deki TEK `fetchTakvim` çağrısından geliyor. İki Trakt takvim
+    // isteği → sıfır.
     Promise.all([
       requestQueue.enqueue(() => getWatchlistMovies(), 'NORMAL').catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
-      requestQueue.enqueue(() => getMyCalendarMovies(33), 'NORMAL').catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; }),
-    ]).then(([wlistMovies, calMovies]) => {
+    ]).then(([wlistMovies]) => {
       if (wlistMovies !== null) setWatchlistMovies(wlistMovies);
       if (calMovies !== null) setCalendarMovies(calMovies);
 

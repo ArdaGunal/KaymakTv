@@ -396,6 +396,48 @@ export type KutuphaneYaniti = {
  * ⚠️ TEK İSTEK. Dizi başına çağrı yapmak plan §6.2'nin (Y28) yasakladığı
  * desendir; Worker de içeride sabit sayıda sorgu ediyor.
  */
+/**
+ * 📅 TAKVİM — Trakt'ın İKİ ucunun yerine geçer (T6.2b).
+ *
+ * Eskiden `getMyCalendarShows(33)` + `getMyCalendarMovies(33)`, yani İKİ
+ * Trakt isteği. Aynı bilgi bizde: `catalog_entities.first_aired`.
+ *
+ * 🔑 DÖNEN ŞEKİL TRAKT'INKİYLE AYNI — `useDashboardData` ve
+ * `mapCalendar` (bildirim zamanlayıcısı) bugün o şekli okuyor:
+ *   dizi : { first_aired, episode: {season, number, title}, show: {ids, title} }
+ *   film : { first_aired, movie: {ids, title} }
+ *
+ * 🔴 HATA FIRLATMAZ ama BOŞ LİSTE DE DÖNMEZ — `null` döner.
+ *
+ * Bu ayrım kritik ve `fetchers.ts`'in kuralıdır: `null` = "alamadım,
+ * önbellektekini KORU", boş dizi = "gerçekten hiçbir şey yok". Boş
+ * dönseydik geçici bir ağ hatası kullanıcının takvimini EKRANDAN SİLERDİ.
+ * (T6.1'de tohumlamada kapatılan tuzağın aynısı — orada da dolu kaydı
+ * boşla ezmek tüm tikleri silecekti.)
+ */
+export const fetchTakvim = async (
+  gun = 33,
+): Promise<{ diziler: any[]; filmler: any[] } | null> => {
+  if (!KAYMAK_WORKER_URL) return null;
+  try {
+    const token = await SecureStore.getItemAsync('traktAccessToken');
+    const res = await axios.post(
+      `${KAYMAK_WORKER_URL}/library/takvim`,
+      { traktAccessToken: token, gun },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
+    );
+    return {
+      diziler: Array.isArray(res.data?.diziler) ? res.data.diziler : [],
+      filmler: Array.isArray(res.data?.filmler) ? res.data.filmler : [],
+    };
+  } catch (error) {
+    // Sessiz DEĞİL — M366/M370'in dersi: çökertmemek doğru, "yapıldı"
+    // göstermek yanlış. Boş takvim ekranda görünür bir sinyaldir.
+    console.warn('[takvim] alınamadı:', (error as any)?.message || error);
+    return null;
+  }
+};
+
 export const syncLibrary = async (): Promise<KutuphaneYaniti> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const token = await SecureStore.getItemAsync('traktAccessToken');
