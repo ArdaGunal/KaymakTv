@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getDateGroup, isFutureDate } from '../utils/dateHelper';
+import { getDateGroup, isFutureDate, cikisTarihiBicimle } from '../utils/dateHelper';
 
 // Bugüne göre kalan gün sayısı (gece yarısı bazlı)
 const daysUntil = (dateObj: Date): number => {
@@ -47,7 +47,7 @@ export const useMoviesDashboardData = (
         tmdbId: movie?.ids?.tmdb,
         title: (movie?.title || t('unnamedMovie')).toUpperCase(),
         year: movie.year,
-        releaseDate: releaseDateStr,
+        releaseDate: cikisTarihiBicimle(releaseDateStr),
         image: null,
         tags: ['WATCHLIST'],
       };
@@ -79,7 +79,7 @@ export const useMoviesDashboardData = (
         id: traktId,
         title: (movie?.title || t('unnamedMovie')).toUpperCase(),
         year: movie.year,
-        releaseDate: movie.released,
+        releaseDate: cikisTarihiBicimle(movie.released),
         image: null,
         tags: [],
         rawDate: dateObj.getTime(),

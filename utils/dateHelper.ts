@@ -65,3 +65,30 @@ export const isFutureDate = (dateStr: string | null | undefined): boolean => {
 export const getEpisodeKey = (traktId: number | string, season: number, episode: number): string => {
   return `${traktId}-${season}-${episode}`;
 };
+
+/**
+ * Film ÇIKIŞ TARİHİNİ ekranda gösterilecek biçime çevirir: gün-ay-yıl.
+ *
+ * 🔴 NEDEN BURADA, SUNUCUDA DEĞİL: `movie.released` makine tarafından da
+ * okunuyor (`isFutureDate`, `new Date(...)`). Sunucu biçimlenmiş bir dize
+ * gönderseydi o iki çağrı `NaN` alırdı ve film takvimden TAMAMEN düşerdi.
+ * Sunucu `YYYY-MM-DD` (makine), ekran bu fonksiyon (insan).
+ *
+ * ⚠️ YEREL-DUYARLI, sabit biçim DEĞİL: `getDateGroup` de öyle yapıyor.
+ * tr → "18.12.2026" · en → "12/18/2026". Kullanıcının istediği gün-ay-yıl
+ * Türkçede zaten bu; İngilizcede o dilin kendi sırası doğru olan.
+ *
+ * 🔴 "YYYY-MM-DD" ELDE AYRIŞTIRILIYOR: `new Date("2026-12-18")` değeri
+ * UTC gece yarısı sayar; UTC'nin gerisindeki bir saat diliminde tarih bir
+ * gün GERİ kayardı. Parçalayıp yerel tarih kurmak bunu kapatıyor.
+ */
+export const cikisTarihiBicimle = (ham?: string | null): string => {
+  if (!ham) return '';
+  const m = String(ham).match(/^(d{4})-(d{2})-(d{2})/);
+  const d = m
+    ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    : new Date(ham);
+  if (Number.isNaN(d.getTime())) return '';
+  const locale = i18n?.language === 'en' ? 'en-US' : 'tr-TR';
+  return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
