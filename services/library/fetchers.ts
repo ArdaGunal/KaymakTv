@@ -60,6 +60,28 @@ let lastFetchTimeRef = { current: 0 };
 // bittiğinde açılması bilinçlidir — asıl ağır iş (ilerleme/takvim sezonları
 // chunk döngüsü) fonksiyon erken dönüş yaptıktan SONRA arka planda sürüyor.
 let isFetchingFreshData = false;
+
+// ══════════════════════════════════════════════════════════════════════
+// 🔄 SÜREGELEN TUR — §D17 (2026-09-14)
+// ══════════════════════════════════════════════════════════════════════
+// ESKİ DAVRANIŞ İKİ AYRI SORUN TAŞIYORDU:
+//
+// 1. `force` KİLİDİ ATLAMIYORDU. Kullanıcı tazelemek için aşağı çektiğinde
+//    başka bir senkron sürüyorsa `fetchFreshData` SESSİZCE dönüyordu —
+//    ne istek gidiyor, ne geri bildirim. Spinner dönüp duruyor ve kullanıcı
+//    "tazeledim" sanıyor. (Bu oturumda ölçüm turları tam buna takıldı.)
+//
+// 2. T6.3 SONRASI ANA YOL KİLİTSİZ KALDI. Kilit `backgroundWork`in önünde
+//    duruyor ama T6.3'ün Kaymak dalı ondan ÖNCE dönüyor; yani iki
+//    pull-to-refresh üst üste iki `/library/sync` açabiliyordu. Eskiden
+//    Trakt'lı kullanıcı kilitli yoldan geçtiği için bu görünmüyordu.
+//
+// 🔑 ÇÖZÜM: süregelen turun SÖZÜNÜ tutuyoruz.
+//  · `force` (kullanıcı tetikledi) → süren turu BEKLE, bitince dön.
+//    Kullanıcının gördüğü spinner gerçek işin bitişinde kapanır.
+//  · `force` değil (arka plan) → eskisi gibi sessizce atla; arka plan
+//    turunu beklemenin kimseye faydası yok.
+let suregelenTur: Promise<void> | null = null;
 let fetchLockTimeoutId: ReturnType<typeof setTimeout> | null = null;
 const FETCH_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // senkron donarsa kilit sonsuza dek açık kalmasın
 
@@ -267,14 +289,28 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
   // senkron düşerse (`ok === false`) ve kullanıcının Trakt token'ı varsa
   // akış aşağı devam eder ve eski tur çalışır. Google-only kullanıcıda
   // düşülecek bir yol yok, orada `return` ediyoruz.
+  // 🔒 §D17 — süregelen tur varsa: kullanıcı beklesin, arka plan atlasın.
+  if (suregelenTur) {
+    if (force) {
+      // 🔴 SESSİZ DÖNÜŞ YOK. Kullanıcı bu turu KENDİ başlattı; sonucunu
+      // beklemek "hiçbir şey olmadı" göstermekten her koşulda iyidir.
+      await suregelenTur.catch(() => {});
+      return;
+    }
+    return;
+  }
+
   const kaymakKullanici = await kaymakKullanicisiMi();
   const traktVar = !kaymakKullanici && !!accessToken;
-  {
+  // 🔒 §D17 — bu tur SÖZ olarak tutuluyor ki üst üste binen çağrı onu
+  // bekleyebilsin (bkz. `suregelenTur` başlığı). Dönüş: tur BİTTİYSE
+  // `true` (çağıran döner), emniyet turuna düşülecekse `false`.
+  const turIsi = (async (): Promise<boolean> => {
     const now0 = Date.now();
     if (!force && (now0 - lastFetchTimeRef.current < CACHE_TTL.SYNC_INTERVAL)) {
       setIsLoading(false);
       setIsMoviesLoading(false);
-      return;
+      return true;
     }
 
     // Kütüphane ve takvim PARALEL: ikisi de bizim uçlarımız, birbirini
@@ -318,17 +354,29 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       // bir sonraki denemeye kadar (10 dk) eski veriyle kilitlenirdi.
       lastFetchTimeRef.current = Date.now();
       safeStorageSet(CACHE_KEYS.lastFetchTime, JSON.stringify(lastFetchTimeRef.current));
-      return;
+      return true;
     }
 
     // Buraya düşmek: BİZİM senkron başarısız oldu.
     if (kaymakKullanici) {
       setIsLoading(false);
       setIsMoviesLoading(false);
-      return;
+      return true;
     }
     console.warn('[T6.3] Kaymak senkronu düştü, Trakt emniyet turuna geçiliyor.');
+    return false;
+  })();
+
+  suregelenTur = turIsi.then(() => undefined, () => undefined);
+  let turBitti = false;
+  try {
+    turBitti = await turIsi;
+  } finally {
+    // 🔴 `finally` ŞART: tur hata fırlatırsa referans asılı kalır ve
+    // sonraki HER çağrı ölü bir sözü beklerdi.
+    suregelenTur = null;
   }
+  if (turBitti) return;
 
   // ══════════════════════════════════════════════════════════════════════
   // 🛡️ BURADAN AŞAĞISI ARTIK EMNİYET TURU (T6.3, 2026-09-14)
@@ -357,7 +405,18 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
   }
 
   if (isFetchingFreshData) {
-    console.log('fetchFreshData zaten çalışıyor, üst üste binen çağrı atlanıyor...');
+    // 🔴 §D17: BAYRAKLARI TEMİZLEMEDEN DÖNMEK yanlıştı. Aynı fonksiyonun
+    // TTL dönüşü onları temizliyor; burası temizlemiyordu, yani mağazada
+    // "yükleniyor" durumu asılı kalabiliyordu. Erken dönüşlerin HEPSİ aynı
+    // temizliği yapmalı — biri yapıp diğeri yapmazsa fark ancak yarışan
+    // bir senaryoda görünür ve o senaryo nadiren test edilir.
+    console.log(
+      force
+        ? '[D17] Zorlamali tazeleme: emniyet turu zaten calisiyor, atlaniyor.'
+        : 'fetchFreshData zaten çalışıyor, üst üste binen çağrı atlanıyor...'
+    );
+    setIsLoading(false);
+    setIsMoviesLoading(false);
     return;
   }
   isFetchingFreshData = true;
