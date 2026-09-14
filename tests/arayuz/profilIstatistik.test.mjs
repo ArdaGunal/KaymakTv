@@ -64,27 +64,38 @@ T.ok(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-T.H('Gosterilecek istatistik — sunucu ONCE, yerel YEDEK');
+T.H('Gosterilecek istatistik — T6.2: YEREL ONCE, Trakt YEDEK');
 
+// 🔄 ONCELIK TERSINE CEVRILDI (T6.2, 2026-09-14). T6.1den sonra yerel
+// hesabin uc girdisi de BIZDEN geliyor ve eksiksiz; Trakti tercih etmeye
+// devam etmek kendi verimiz dururken dis servise sormak olurdu.
 T.ok(
-  '🔑 Trakt verisi VARSA o kullanilir (yeniden izlemeleri de kapsar)',
+  '🔑 YEREL veri VARSA Trakt gelse bile YEREL kullanilir',
   (() => {
     const g = gosterilecekIstatistik(
       { episodes: { watched: 7349, minutes: 300000 }, movies: { watched: 195, minutes: 20000 } }, r);
+    return g.episodes.watched === 60 && g.movies.watched === 2;
+  })(),
+);
+T.ok('Trakt verisi YOKSA da yerel hesap calisir (Google hesabi)',
+  gosterilecekIstatistik(null, r).episodes.watched === 60);
+T.ok('undefined de yerele duser', gosterilecekIstatistik(undefined, r).movies.watched === 2);
+T.ok(
+  '🔴 YEREL BOSSA onbellekteki Trakt degeri yedek — "0 saat" gostermekten iyi',
+  (() => {
+    const g = gosterilecekIstatistik(
+      { episodes: { watched: 7349, minutes: 300000 }, movies: { watched: 195, minutes: 20000 } }, bos);
     return g.episodes.watched === 7349 && g.movies.minutes === 20000;
   })(),
 );
-T.ok('🔴 Trakt verisi YOKSA yerel hesap devreye girer (Google hesabi)',
-  gosterilecekIstatistik(null, r).episodes.watched === 60);
-T.ok('undefined de yerele duser', gosterilecekIstatistik(undefined, r).movies.watched === 2);
 T.ok(
   '🔴 HIC veri yoksa null — "0 / 0" gostermek yaniltici olurdu',
   gosterilecekIstatistik(null, bos) === null,
 );
 T.ok(
-  'sunucu govdesi bozuksa (alanlar eksik) sayilar 0a kenetlenir, coker degil',
+  'yerel bosken sunucu govdesi bozuksa sayilar 0a kenetlenir, coker degil',
   (() => {
-    const g = gosterilecekIstatistik({ episodes: { watched: 'x' } }, r);
+    const g = gosterilecekIstatistik({ episodes: { watched: 'x' } }, bos);
     return g.episodes.watched === 0 && g.movies.watched === 0;
   })(),
 );

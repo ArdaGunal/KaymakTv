@@ -108,6 +108,28 @@ export function gosterilecekIstatistik(
   userStats: any | null | undefined,
   yerel: YerelIstatistik,
 ): YerelIstatistik | null {
+  // ══════════════════════════════════════════════════════════════════════
+  // 🔄 T6.2 — ÖNCELİK TERSİNE ÇEVRİLDİ (2026-09-14)
+  // ══════════════════════════════════════════════════════════════════════
+  // ESKİDEN Trakt'ın `/users/me/stats`ı KAZANIYORDU, yerel hesap yalnızca
+  // yedekti (§C17.2: Google hesabında `userStats` hep null gelip istatistik
+  // sıfır görünüyordu — yerel hesap o yüzden yazılmıştı).
+  //
+  // T6.1'den sonra yerel hesabın üç girdisi de (`watchedShows`,
+  // `watchedMovies`, `showProgressMap`) BİZDEN geliyor ve eksiksiz. Trakt'ı
+  // tercih etmeye devam etmek, kendi verimiz dururken bir dış servise
+  // sormak olurdu — T6'nın amacının tam tersi.
+  //
+  // ⚠️ GÖRÜNÜR ETKİ: `minutes` artık katalogdaki `runtime`dan hesaplanıyor
+  // (kapsam ölçüldü M311: dizi %98,9 · film %99,8). Toplam saat Trakt'ın
+  // gösterdiğinden bir miktar DÜŞÜK çıkabilir. Bu bir gerileme değil: sayı
+  // artık BİZİM verimizle tutarlı ve Google-only kullanıcının gördüğüyle AYNI.
+  //
+  // 🔴 `userStats` YEDEK OLARAK DURUYOR, silinmedi: yerel hesap boşsa
+  // (ör. ilk senkron bitmeden profil açıldıysa) önbellekteki Trakt değeri
+  // "0 saat" göstermekten iyidir.
+  if (yerel.episodes.watched > 0 || yerel.movies.watched > 0) return yerel;
+
   if (userStats?.episodes || userStats?.movies) {
     return {
       episodes: {
@@ -120,6 +142,5 @@ export function gosterilecekIstatistik(
       },
     };
   }
-  if (yerel.episodes.watched === 0 && yerel.movies.watched === 0) return null;
-  return yerel;
+  return null;
 }

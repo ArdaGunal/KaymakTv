@@ -15,7 +15,6 @@ import {
   getShowSeasons,
   getLikedShows,
   getLikedMovies,
-  getUserStats,
   getHiddenShows,
   getHiddenMovies,
   getUpNextProgress,
@@ -403,27 +402,34 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // UI KİLİDİNİ AÇ! Ana sayfa için gerekenler geldi.
     setIsLoading(false);
 
-    // TIER 2: FİLMLER SEKME İHTİYAÇLARI (Acil) — profil istatistik kartı da
-    // hafif tek bir istek olduğundan (network limitini zorlamaz) bu tur'a eklendi.
+    // TIER 2: FİLMLER SEKME İHTİYAÇLARI (Acil)
+    //
+    // ⛔ `getUserStats()` KALDIRILDI (T6.2, 2026-09-14). Trakt'ın
+    // `/users/me/stats`ı profil istatistiğini besliyordu; artık o hesap
+    // BİZDE yapılıyor (`utils/yerelIstatistik.ts` → `gosterilecekIstatistik`,
+    // T6.2'de öncelik yerele çevrildi). Girdileri (`watchedShows`,
+    // `watchedMovies`, `showProgressMap`) T6.1'den beri zaten bizden geliyor
+    // ve eksiksiz; Trakt'a sormaya devam etmek kendi verimiz dururken dış
+    // servise sormak olurdu.
+    //
+    // 🔑 Önbellekteki `userStats` SİLİNMİYOR: `gosterilecekIstatistik` onu
+    // yerel hesap BOŞKEN yedek olarak kullanıyor (ilk senkron bitmeden profil
+    // açılırsa "0 saat" göstermekten iyi). Yalnızca TAZELENMİYOR.
     Promise.all([
       requestQueue.enqueue(() => getWatchlistMovies(), 'NORMAL').catch((e) => { console.error('getWatchlistMovies failed', e.message); return null; }),
       requestQueue.enqueue(() => getMyCalendarMovies(33), 'NORMAL').catch((e) => { console.error('getMyCalendarMovies failed', e.message); return null; }),
-      requestQueue.enqueue(() => getUserStats(), 'NORMAL').catch((e) => { console.error('getUserStats failed', e.message); return null; })
-    ]).then(([wlistMovies, calMovies, stats]) => {
+    ]).then(([wlistMovies, calMovies]) => {
       if (wlistMovies !== null) setWatchlistMovies(wlistMovies);
       if (calMovies !== null) setCalendarMovies(calMovies);
-      if (stats !== null) setUserStats(stats);
 
       setIsMoviesLoading(false); // Filmler kalkanı kalktı!
 
       const multiSetDataMovies: [string, string][] = [];
       const prevWatchlistMovies = wlistMovies !== null ? wlistMovies : useLibraryStore.getState().watchlistMovies;
       const prevCalendarMovies = calMovies !== null ? calMovies : useLibraryStore.getState().calendarMovies;
-      const prevStats = stats !== null ? stats : useLibraryStore.getState().userStats;
 
       multiSetDataMovies.push([CACHE_KEYS.watchlistMovies, JSON.stringify(prevWatchlistMovies)]);
       multiSetDataMovies.push([CACHE_KEYS.calendarMovies, JSON.stringify(prevCalendarMovies)]);
-      if (prevStats) multiSetDataMovies.push([CACHE_KEYS.userStats, JSON.stringify(prevStats)]);
       AsyncStorage.multiSet(multiSetDataMovies).catch(err => console.log(err));
     });
 
