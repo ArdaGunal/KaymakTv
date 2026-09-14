@@ -234,16 +234,80 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
     } else if (bulunanlar.size === 1) {
       kaymakId = [...bulunanlar][0];
     } else {
-      kaymakId = yeniKaymakId(type);
-      yaratildi = true;
-      db.prepare(
-        `INSERT INTO entities (kaymak_id, type, parent_id, season_number, episode_number, title, year, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        kaymakId, type, parentId, seasonNumber, episodeNumber,
-        derived.title ?? null, derived.year ?? null, derived.status ?? null,
-        simdi, simdi
-      );
+      // ══════════════════════════════════════════════════════════════════
+      // 🔄 KİMLİK DEĞİŞİMİ — DENETİMLİ YENİDEN EŞLEME (§C20, Yol b)
+      // ══════════════════════════════════════════════════════════════════
+      // Sağlayıcı bir bölümün KİMLİĞİNİ değiştirebiliyor. Ölçülen vaka:
+      // Trakt, Silo S4E1'i yer tutucu `14418567` yerine `14473624` olarak
+      // YENİDEN YARATTI. Eski satır (sezon 4, bölüm 1) yuvasında oturduğu
+      // için yeni satırın INSERT'i `idx_entities_hiyerarsi` ile reddediliyor,
+      // arşivde silme olmadığı için de veri KALICI olarak yazılamaz hâle
+      // geliyordu (M378).
+      //
+      // 🔑 Yuva doluysa bu YENİ bir yapım değil, AYNI yapımın yeni kimliği.
+      // Yeni varlık yaratmak yerine mevcut satıra bağlıyoruz.
+      //
+      // ⚠️ SESSİZ DEĞİL: olay `conflict` olarak deftere yazılıyor — şemanın
+      // en baştan öngördüğü yol (*"sağlayıcı bir düzeltme yapmış olabilir"*).
+      //
+      // 🔴 ESKİ EŞLEME EMEKLİYE AYRILIYOR. Bırakılsaydı `trakt:episode`
+      // aramaları bayat kimliği döndürür, scrobble/çift yazmada Trakt 404
+      // verirdi — tarih doğru görünürken YAZMA yolu sessizce kırılırdı
+      // (kullanıcı kararı, 2026-09-14). Silinen şey bir EŞLEME; arşivin
+      // "silme yok" invariant'ı `entities` içindir, `external_ids` değil.
+      // ⚠️ `findChild` NESNE alıyor, konumsal DEĞİL. İlk denemede konumsal
+      // çağırdım; destructuring hepsini `undefined` yaptı, fonksiyon sessizce
+      // `null` döndü ve bu dal HİÇ tetiklenmedi. Hata görünmedi çünkü
+      // davranış "yuva boş" ile aynıydı — imzayı okumadan çağırmanın bedeli.
+      const yuvaSahibi = (type === 'episode' || type === 'season')
+        ? findChild({ parentId, type, seasonNumber, episodeNumber })
+        : null;
+
+      if (yuvaSahibi) {
+        kaymakId = yuvaSahibi;
+        cakisma = true;
+        // 🔑 TİPLİ kaynakların HEPSİ emekliye aday, yalnızca `trakt:` değil.
+        // Ölçüldü (Silo): sağlayıcı `tmdb:episode`i de değiştirmişti
+        // (7746024 → 7768410); yalnız trakt'ı emekli etseydik bayat tmdb
+        // kimliği kalır ve aynı 404 riskini başka bir yoldan üretirdi.
+        //
+        // ⛔ TİPSİZ kaynaklar (`imdb`) DIŞARIDA. Onlar birden çok yapım
+        // tarafından paylaşılabiliyor (dosyanın kendi TIPSIZ_ANAHTAR notu:
+        // aynı imdb hem filme hem özel bölüme bağlı olabiliyor). Böyle bir
+        // kimliği emekli etmek başka bir yapımın bağını koparabilirdi.
+        const eskiler = db
+          .prepare('SELECT source, source_id FROM external_ids WHERE kaymak_id = ?')
+          .all(kaymakId)
+          .filter((e) => !TIPSIZ_KAYNAKLAR.has(e.source));
+        const asilmis = eskiler.filter(
+          (e) => !externalIds.some(
+            (y) => y.source === e.source && String(y.source_id) === String(e.source_id)
+          )
+        );
+        db.prepare(
+          'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+        ).run(
+          simdi,
+          'conflict',
+          kaymakId,
+          `KIMLIK_DEGISIMI: yuva (S${seasonNumber}/E${episodeNumber}) dolu. ` +
+            `gelen: ${externalIds.map((e) => `${e.source}/${e.source_id}`).join(', ')} | ` +
+            `emekli: ${asilmis.map((e) => `${e.source}/${e.source_id}`).join(', ') || 'yok'}`
+        );
+        const sil = db.prepare('DELETE FROM external_ids WHERE source = ? AND source_id = ?');
+        for (const e of asilmis) sil.run(e.source, String(e.source_id));
+      } else {
+        kaymakId = yeniKaymakId(type);
+        yaratildi = true;
+        db.prepare(
+          `INSERT INTO entities (kaymak_id, type, parent_id, season_number, episode_number, title, year, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          kaymakId, type, parentId, seasonNumber, episodeNumber,
+          derived.title ?? null, derived.year ?? null, derived.status ?? null,
+          simdi, simdi
+        );
+      }
     }
 
     // 2) EKSİK kimlikleri bağla — bu, arşivin zamanla ZENGİNLEŞMESİDİR.
