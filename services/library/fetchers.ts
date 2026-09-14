@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { kaymakKullanicisiMi, syncLibrary, fetchTakvim } from '../api/library';
+import { sezonsuzlariTamamla } from './emniyetAgi';
 import { kaymakKutuphaneSenkronu } from './kaymakSync';
 import {
   getWatchedShows,
@@ -250,28 +251,101 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
   // token'ı yok; `syncHiddenLists` dahil her çağrı 401 alır. Yalnızca yazma
   // yolunu yönlendirip okumayı akışına bırakmak, T1'i sessizce çalışmaz
   // hâlde bırakırdı (`progress.ts`'teki aynı ders).
-  if (await kaymakKullanicisiMi()) {
+  // ══════════════════════════════════════════════════════════════════════
+  // 🎯 T6.3 — ARTIK HERKES BİZDEN OKUYOR (2026-09-14)
+  // ══════════════════════════════════════════════════════════════════════
+  // Bu dal eskiden YALNIZCA Google-only kullanıcınındı. Trakt'lı kullanıcı
+  // aşağıdaki üç katmanlı Trakt turundan geçiyordu (~13 istek).
+  //
+  // T6.1 ilerlemeyi, T6.2 takvim ve istatistiği bize çevirdi; geriye
+  // `kaymakSync`in ZATEN doldurduğu alanlar kaldı — izlenenler, izleme
+  // listesi, puanlar, favoriler, gizliler. O yol Google-only kullanıcıda
+  // aylardır çalışıyor; Trakt'lı kullanıcıyı dışarıda tutan tek şey
+  // takvim/istatistik boşluğuydu ve o boşluk kapandı.
+  //
+  // 🔴 ESKİ YOL SİLİNMEDİ — AŞAĞIDA EMNİYET AĞI OLARAK DURUYOR. Bizim
+  // senkron düşerse (`ok === false`) ve kullanıcının Trakt token'ı varsa
+  // akış aşağı devam eder ve eski tur çalışır. Google-only kullanıcıda
+  // düşülecek bir yol yok, orada `return` ediyoruz.
+  const kaymakKullanici = await kaymakKullanicisiMi();
+  const traktVar = !kaymakKullanici && !!accessToken;
+  {
     const now0 = Date.now();
     if (!force && (now0 - lastFetchTimeRef.current < CACHE_TTL.SYNC_INTERVAL)) {
       setIsLoading(false);
       setIsMoviesLoading(false);
       return;
     }
-    const ok = await kaymakKutuphaneSenkronu();
-    // ⚠️ TTL yalnızca BAŞARIDA damgalanır — hata damgalansaydı kullanıcı
-    // bir sonraki denemeye kadar (10 dk) eski veriyle kilitlenirdi.
+
+    // Kütüphane ve takvim PARALEL: ikisi de bizim uçlarımız, birbirini
+    // beklemelerinin sebebi yok.
+    const [ok, takvim] = await Promise.all([
+      kaymakKutuphaneSenkronu(),
+      fetchTakvim(33),
+    ]);
+
+    // 🔴 `null` = alamadım → önbellektekini KORU. Boşla ezmek takvimi
+    // ekrandan silerdi (bkz. `fetchTakvim` başlığı).
+    if (takvim) {
+      setCalendarShows(takvim.diziler);
+      setCalendarMovies(takvim.filmler);
+      safeStorageSet(CACHE_KEYS.calendarShows, JSON.stringify(takvim.diziler));
+      safeStorageSet(CACHE_KEYS.calendarMovies, JSON.stringify(takvim.filmler));
+    }
+
+    // 📌 ÖZEL LİSTELER HÂLÂ TRAKT'TA — `BACKLOG` §D18. K5 gereği hiç
+    // aktarılmadılar, bizde verileri YOK. Kullanıcı kararı (2026-09-14):
+    // ertelendi, iptal edilmedi; ayrı faz. Faz T sonunda arayüzde kalan
+    // TEK Trakt okuması bu.
+    if (traktVar) {
+      requestQueue.enqueue(() => getCustomLists(), 'LOW')
+        .then((listeler) => {
+          if (listeler) {
+            setCustomLists(listeler);
+            safeStorageSet(CACHE_KEYS.customLists, JSON.stringify(listeler));
+          }
+        })
+        .catch((e) => logError('fetchers.customLists', e));
+    }
+
+    // 🛡️ Aynada sezon kırılımı olmayan diziler için onarım turu (tavanlı,
+    // LOW öncelikli, yalnızca Trakt token'ı olanda). Bugünkü ölçümde 0 dizi
+    // tetikliyor ama ayna geride kalırsa devreye girer.
+    void sezonsuzlariTamamla(traktVar).catch((e) => logError('fetchers.emniyetAgi', e));
+
     if (ok) {
+      // ⚠️ TTL yalnızca BAŞARIDA damgalanır — hata damgalansaydı kullanıcı
+      // bir sonraki denemeye kadar (10 dk) eski veriyle kilitlenirdi.
       lastFetchTimeRef.current = Date.now();
       safeStorageSet(CACHE_KEYS.lastFetchTime, JSON.stringify(lastFetchTimeRef.current));
+      return;
     }
-    return;
+
+    // Buraya düşmek: BİZİM senkron başarısız oldu.
+    if (kaymakKullanici) {
+      setIsLoading(false);
+      setIsMoviesLoading(false);
+      return;
+    }
+    console.warn('[T6.3] Kaymak senkronu düştü, Trakt emniyet turuna geçiliyor.');
   }
 
-  // "Bırak" listeleri BİLİNÇLİ OLARAK aşağıdaki TTL ve eşzamanlılık kilidi
-  // kontrollerinden ÖNCE, ateşle-ve-unut olarak tazelenir: iki hafif istek
-  // (toplam iki GET) karşılığında, kullanıcı uygulamaya her döndüğünde
-  // cihazlar arası "Bırak" durumu güncel olur — tam senkron TTL yüzünden
-  // atlansa ya da devam eden bir senkron kilidi tutuyor olsa bile.
+  // ══════════════════════════════════════════════════════════════════════
+  // 🛡️ BURADAN AŞAĞISI ARTIK EMNİYET TURU (T6.3, 2026-09-14)
+  // ══════════════════════════════════════════════════════════════════════
+  // Üç katmanlı Trakt turu NORMAL AKIŞTA ÇALIŞMIYOR. Buraya yalnızca
+  // yukarıdaki Kaymak senkronu DÜŞTÜYSE ve kullanıcının Trakt token'ı
+  // VARSA düşülüyor. Silinmedi çünkü gerçek bir emniyet ağı: bizim uçlar
+  // ya da Supabase geçici olarak erişilemezse kullanıcı boş ekran değil,
+  // eski (yavaş ama çalışan) yolu görür.
+  //
+  // ⚠️ Aşağıdaki yorumlarda geçen "her açılışta / her dönüşte" ifadeleri
+  // ARTIK GEÇERLİ DEĞİL — o cümleler bu blok ana yolken yazılmıştı.
+
+  // "Bırak" listeleri TTL ve eşzamanlılık kilidinden ÖNCE, ateşle-ve-unut
+  // olarak tazelenir: iki hafif istek karşılığında cihazlar arası "Bırak"
+  // durumu güncellenir. (Ana yolda bu veri `kaymakSync` üzerinden
+  // `user_hidden`dan geliyor; burada yalnızca emniyet turu için.)
   syncHiddenLists(accessToken).catch((e) => logError('fetchers.syncHiddenLists', e));
 
   const now = Date.now();
