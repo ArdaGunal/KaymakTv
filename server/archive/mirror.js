@@ -352,7 +352,7 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
     // 4) Dış kimlikler — YALNIZCA trakt:* (kapsam kararı, M311)
     const yerK = AYNALANAN_KAYNAKLAR.map(() => '?').join(',');
     const disKimlikler = db.prepare(
-      `SELECT source, source_id, kaymak_id, last_seen_at
+      `SELECT source, source_id, kaymak_id, last_seen_at, retired_at
          FROM external_ids WHERE source IN (${yerK}) AND last_seen_at > ? ORDER BY last_seen_at`
     ).all(...AYNALANAN_KAYNAKLAR, imlec);
 
@@ -361,7 +361,16 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
       for (const x of disKimlikler) if (x.last_seen_at > enYuksek) enYuksek = x.last_seen_at;
       const r = await akisiGonder(
         cfg, 'external_ids',
-        disKimlikler.map((x) => ({ source: x.source, source_id: x.source_id, kaymak_id: x.kaymak_id })),
+        // 🪦 `retired_at` DE İTİLİYOR (§C20). Emeklilik Supabase'e ancak
+        // böyle ulaşır: sorgu artımlı (`last_seen_at > imlec`) ve emekli
+        // etme `last_seen_at`i tazelediği için satır bu turda görünüyor.
+        // Pi'de SİLSEYDİK satır hiç görünmez, iki kaynak sessizce ayrışırdı.
+        disKimlikler.map((x) => ({
+          source: x.source,
+          source_id: x.source_id,
+          kaymak_id: x.kaymak_id,
+          retired_at: x.retired_at ?? null,
+        })),
         sayac
       );
       if (!r.ok) {
