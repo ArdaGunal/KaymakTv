@@ -294,8 +294,44 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
             `gelen: ${externalIds.map((e) => `${e.source}/${e.source_id}`).join(', ')} | ` +
             `emekli: ${asilmis.map((e) => `${e.source}/${e.source_id}`).join(', ') || 'yok'}`
         );
-        const sil = db.prepare('DELETE FROM external_ids WHERE source = ? AND source_id = ?');
-        for (const e of asilmis) sil.run(e.source, String(e.source_id));
+        // ══════════════════════════════════════════════════════════════
+        // ⛔ SİLME GERİ ÇEKİLDİ (2026-09-14, bağımsız inceleme)
+        // ══════════════════════════════════════════════════════════════
+        // Burada `asilmis` kimlikleri DELETE ediliyordu. İnceleme üç ayrı
+        // kusur gösterdi ve üçü de doğrulandı:
+        //
+        // 1. YOKLUK ≠ DEĞİŞİM. `asilmis` "gelen payload'da yok" diye
+        //    hesaplanıyor, ama `traktIdsToExternal` (bu dosya, ~104)
+        //    null/0/boş kimlikleri DÜŞÜRÜYOR. Trakt yeni yarattığı bir
+        //    bölümde tvdb/imdb'yi sık sık null döndürür — yani tam da
+        //    Silo gibi YENİ kayıtlarda GEÇERLİ bir eşleme silinirdi.
+        //
+        // 2. KASKAD. Sağlayıcı sezonu yeniden numaralandırırsa (başa
+        //    bölüm eklenmesi) her tur bir öncekinin sildiği kimliği
+        //    arar, bulamaz, bir sonraki yuvaya kayar — tek hata sezon
+        //    boyu yayılır. Silme olmasaydı ikinci tur `bulunanlar.size===1`
+        //    dalına düşer ve hasar tek bölümle sınırlı kalırdı.
+        //
+        // 3. AYNAYA PROPAGATE OLMUYOR. `mirror.js` artımlı çalışıyor
+        //    (`last_seen_at > imlec`); SİLİNEN satır o sorguya asla
+        //    görünmez. Yani Supabase'te eski eşleme KALIR, yenisi de
+        //    eklenir → aynı kayda bağlı İKİ trakt kimliği. Silme,
+        //    amaçladığı temizliği yapmıyor; yalnızca iki veri kaynağını
+        //    ayrıştırıyor.
+        //
+        // 🔑 Ayrıca `schema.sql` ve `stats.js` "arşiv hiçbir şeyi silmez"
+        // kuralının `entities` + `external_ids` + `payloads` için geçerli
+        // olduğunu AÇIKÇA yazıyor. Önceki yorum invariant'ı yeniden
+        // tanımlayarak bunu örtüyordu — yanlıştı.
+        //
+        // ➡️ Doğru çözüm MEZAR TAŞI: `external_ids`'e `retired_at`
+        // kolonu (saf eklemeli), çözümlemelerde `AND retired_at IS NULL`.
+        // Satır DURDUĞU için `last_seen_at` ile aynaya da propagate olur.
+        // Ayrıca koşul "yok" değil "AYNI source için FARKLI değer geldi"
+        // olmalı. Tasarlanana kadar EMEKLİYE AYIRMA YOK — yalnızca
+        // yeniden eşleme ve `conflict` kaydı. Bayat kimlik durur; bu
+        // değişiklikten ÖNCEKİ durumla aynı, yani gerileme değil.
+        void asilmis;
       } else {
         kaymakId = yeniKaymakId(type);
         yaratildi = true;
