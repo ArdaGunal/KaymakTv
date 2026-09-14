@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { kaymakKullanicisiMi } from '../api/library';
+import { kaymakKullanicisiMi, syncLibrary } from '../api/library';
 import { kaymakKutuphaneSenkronu } from './kaymakSync';
 import {
   getWatchedShows,
@@ -230,6 +230,28 @@ export const syncHiddenLists = async (accessToken: string | null) => {
 
   if (pairs.length > 0) {
     AsyncStorage.multiSet(pairs).catch((err) => console.log('Hidden cache save error:', err));
+  }
+};
+
+/**
+ * 🔑 TRAKT AKTARIMI TAMAMLANDI MI? — T6.1'in okuma kapısı.
+ *
+ * Anahtar `useOtomatikFarkTuru` ve `TraktImportSection` ile AYNI; üçüncü
+ * bir doğruluk kaynağı üretmiyoruz. `'evet'` = kullanıcı onayladı ve aktarım
+ * koştu, `'bitti'` = tamamlandı.
+ *
+ * 🔴 NEDEN ŞART: Trakt'ı yeni bağlamış, aktarımı henüz koşmamış (ya da
+ * "hayır" demiş) kullanıcının `user_*` tabloları BOŞ. Onu bizden okutmak
+ * kütüphanesini boşalmış gösterirdi — M354'ün sıra gerekçesinin aynısı.
+ */
+const traktAktarimiTamamMi = async (): Promise<boolean> => {
+  try {
+    const onay = await AsyncStorage.getItem('kaymak_trakt_import_onay_v1');
+    return onay === 'evet' || onay === 'bitti';
+  } catch {
+    // Okunamıyorsa GÜVENLİ TARAF Trakt yoludur: bilinmeyen durumda
+    // kullanıcıya boş kütüphane göstermektense fazladan istek atmak yeğdir.
+    return false;
   }
 };
 
@@ -507,16 +529,74 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       let remainingIds = uniqueIds;
       if (uniqueIds.length >= BULK_SEED_MIN_IDS) {
         try {
-          const bulk = await requestQueue.enqueue(() => getUpNextProgress(), 'NORMAL');
           const seeded: Record<string, any> = {};
           const currentMap = useLibraryStore.getState().showProgressMap;
-          for (const item of bulk as any[]) {
-            const id = item?.show?.ids?.trakt;
-            if (!id || !item?.progress) continue;
-            const existing = currentMap[id];
-            // Mevcut TAM kaydın sezon kırılımı korunur, özet alanları
-            // (aired/completed/next_episode/last_watched_at) tazelenir.
-            seeded[id] = existing ? { ...existing, ...item.progress } : item.progress;
+
+          // ══════════════════════════════════════════════════════════════
+          // 🔄 T6.1 — TOHUMU BİZDEN AL (2026-09-13)
+          // ══════════════════════════════════════════════════════════════
+          // 🔬 §D14'ÜN KÖKÜ TAM OLARAK BURASI. Trakt'ın toplu ucu
+          // (`getUpNextProgress`) dizi ÖZETİ veriyor ama SEZON KIRILIMI
+          // VERMİYOR — bu yüzden aşağıdaki filtre "sezonu yok" diyen her
+          // diziyi tam çekim kuyruğuna atıyor ve kuyruk dizi başına BİR
+          // Trakt isteği açıyordu. Kullanıcının raporunda ölçülen desen:
+          // 57 × `/shows/:id/progress/watched`, ortalama 282 ms,
+          // toplam 16,1 sn.
+          //
+          // ✅ Bizim `/library/sync` ucumuz ilerlemeyi SEZONLARIYLA ve TEK
+          // İSTEKTE veriyor. Tohum buradan gelince filtre hiçbir diziyi
+          // kuyrukta bırakmıyor — 57 istek 1'e iniyor.
+          //
+          // ⚠️ Yalnızca aktarımı TAMAMLANMIŞ kullanıcıda; aksi hâlde
+          // tablolar boş olurdu (bkz. `traktAktarimiTamamMi`).
+          // ⚠️ Takvim · özel listeler · istatistik HÂLÂ Trakt'tan — onların
+          // Kaymak karşılığı yok (T6.2'nin işi). Bu yüzden burası okuma
+          // yolunun TAMAMINI değil, YALNIZCA ilerleme tohumunu çeviriyor.
+          const sezonluTohum = new Set<number>();
+          let bizdenAlindi = false;
+          if (await traktAktarimiTamamMi()) {
+            try {
+              const yanit = await syncLibrary();
+              for (const d of yanit?.diziler ?? []) {
+                const id = d?.traktId;
+                if (!id || !d?.ilerleme) continue;
+                const sezonSayisi = (d.ilerleme as any)?.seasons?.length ?? 0;
+
+                // 🔴 BOŞ İLERLEME MAĞAZAYI EZMESİN — `kaymakIlerlemeTazele`
+                // ile AYNI guard. Aynada sezon/bölüm kırılımı olmayan
+                // diziler var (ölçüldü: 541 dizinin 18i). Elimizde DOLU bir
+                // kayıt varken boş bir kayıtla değiştirmek kullanıcının tüm
+                // tiklerini ekrandan silerdi. Böyle dizide özet alanları
+                // tazelenir, sezon kırılımı KORUNUR — ve dizi tam çekim
+                // kuyruğunda KALIR (`sezonluTohum`a eklenmiyor).
+                const existing = currentMap[id];
+                if (sezonSayisi === 0 && existing?.seasons?.length) {
+                  seeded[id] = { ...existing, ...(d.ilerleme as any), seasons: existing.seasons };
+                  continue;
+                }
+
+                seeded[id] = d.ilerleme;
+                if (sezonSayisi > 0) sezonluTohum.add(id);
+              }
+              bizdenAlindi = true;
+              console.log(`[T6.1] Tohum BİZDEN: ${Object.keys(seeded).length} dizi, ${sezonluTohum.size} tanesi sezonlu — TEK istek.`);
+            } catch (e) {
+              // Fail-soft: bizim uç düşerse Trakt yolu aynen çalışır.
+              // Sessiz değil — M366/M370'in dersi.
+              console.warn('[T6.1] Kaymak tohumu alınamadı, Trakt toplu özetine düşülüyor:', e);
+            }
+          }
+
+          if (!bizdenAlindi) {
+            const bulk = await requestQueue.enqueue(() => getUpNextProgress(), 'NORMAL');
+            for (const item of bulk as any[]) {
+              const id = item?.show?.ids?.trakt;
+              if (!id || !item?.progress) continue;
+              const existing = currentMap[id];
+              // Mevcut TAM kaydın sezon kırılımı korunur, özet alanları
+              // (aired/completed/next_episode/last_watched_at) tazelenir.
+              seeded[id] = existing ? { ...existing, ...item.progress } : item.progress;
+            }
           }
           if (Object.keys(seeded).length > 0) {
             setShowProgressMap((prev: any) => ({ ...prev, ...seeded }));
@@ -540,6 +620,10 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
             if (id) newWatchedAtMap.set(id, item.last_watched_at);
           });
           remainingIds = uniqueIds.filter((id) => {
+            // 🔄 T6.1: bizden SEZONLU tohumlanan dizinin tam çekime
+            // ihtiyacı YOK — kırılım zaten elimizde. §D14'ün 57 isteğini
+            // sıfıra indiren satır bu.
+            if (sezonluTohum.has(id as number)) return false;
             const cached = oldProgressMap.get(id as number);
             const hadSeasons = !!cached?.seasons;
             const watchedAtUnchanged = oldWatchedShowsMap.get(id) === newWatchedAtMap.get(id as number);
