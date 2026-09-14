@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS meta (
   value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '1');
+INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '2');
 INSERT OR IGNORE INTO meta (key, value) VALUES ('created_at', CAST(strftime('%s','now') AS TEXT));
 
 -- ==========================================================================
@@ -149,6 +149,21 @@ CREATE TABLE IF NOT EXISTS external_ids (
   kaymak_id     TEXT NOT NULL REFERENCES entities(kaymak_id) ON DELETE RESTRICT,
   first_seen_at INTEGER NOT NULL,
   last_seen_at  INTEGER NOT NULL,
+
+  -- 🪦 MEZAR TAŞI (v2, 2026-09-14). Sağlayıcı bir yapımın kimliğini
+  -- DEĞİŞTİREBİLİYOR: Trakt, Silo S4E1'i 14418567 yerine 14473624 olarak
+  -- yeniden yarattı. Eski satırı SİLMEK üç ayrı sebeple yanlış:
+  --   1. "Arşiv hiçbir şeyi silmez" kuralını deler (bu dosyanın kendi
+  --      kuralı, aşağıda yazılı).
+  --   2. Ayna ARTIMLI (`last_seen_at > imlec`) — silinen satır o sorguya
+  --      hiç görünmez, yani silme Supabase'e ASLA propagate olmaz ve iki
+  --      veri kaynağı sessizce ayrışır.
+  --   3. Eski kimlik bir yerden tekrar gelirse "bilinmiyor" cevabı alınır
+  --      ve salınım başlar; mezar taşı "emekli" diye cevap verir.
+  -- Dolu ise bu eşleme ARTIK ÇÖZÜMLENMEZ (çözüm sorguları
+  -- `AND retired_at IS NULL` alır) ama satır TARİH olarak durur.
+  retired_at    INTEGER,
+
   PRIMARY KEY (source, source_id)
 );
 

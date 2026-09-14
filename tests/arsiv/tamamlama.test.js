@@ -65,7 +65,17 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   T.ok('backfill_state tablosu olustu', tabloVar === 1);
 
   const surum = conn.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
-  T.ok('Sema surumu 1 kaldi (saf EKLEMELI degisiklik)', surum.value === '1', `surum=${surum.value}`);
+  // 🔴 SURUM 2 (2026-09-14): `external_ids.retired_at` mezar tasi eklendi.
+  //
+  // Neden bu degisiklik surumu ARTIRDI, digerleri artirmadi: `schema.sql`
+  // tamamen `IF NOT EXISTS` — YENI TABLO ve YENI INDEKS var olan bir
+  // veritabaninda kendiliginden olusur, goc adimi gerekmez. Ama
+  // `CREATE TABLE IF NOT EXISTS` var olan bir tabloya KOLON EKLEMEZ; o
+  // yuzden ADD COLUMN icin surumlu bir goc adimi sart.
+  //
+  // ⚠️ Bu iddia sabit bir sayiya cakiliyor ki surum KEYFI olarak
+  // artirilamasin. Artiracaksan once `db.js`e gocu yaz, sonra burayi.
+  T.ok('Sema surumu 2 (retired_at gocu)', surum.value === '2', `surum=${surum.value}`);
   T.ok('db.js hedef surumu ile TUTARLI', Number(surum.value) === db.HEDEF_SEMA_SURUMU,
     `meta=${surum.value} kod=${db.HEDEF_SEMA_SURUMU}`);
 

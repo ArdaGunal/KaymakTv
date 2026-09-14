@@ -138,7 +138,7 @@ function tmdbIdToExternal(tip, tmdbId) {
  * @returns {{kaymak_id: string, created: boolean, conflict: boolean}|null}
  *   Arşiv kapalıysa `null`.
  */
-function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, seasonNumber = null, episodeNumber = null }) {
+function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, seasonNumber = null, episodeNumber = null, kimlikEvreni = null }) {
   const db = getDb();
   if (!db) return null;
 
@@ -235,103 +235,97 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
       kaymakId = [...bulunanlar][0];
     } else {
       // ══════════════════════════════════════════════════════════════════
-      // 🔄 KİMLİK DEĞİŞİMİ — DENETİMLİ YENİDEN EŞLEME (§C20, Yol b)
+      // 🪦 KİMLİK DEĞİŞİMİ — MEZAR TAŞI İLE (§C20 · v2 · 2026-09-14)
       // ══════════════════════════════════════════════════════════════════
-      // Sağlayıcı bir bölümün KİMLİĞİNİ değiştirebiliyor. Ölçülen vaka:
-      // Trakt, Silo S4E1'i yer tutucu `14418567` yerine `14473624` olarak
-      // YENİDEN YARATTI. Eski satır (sezon 4, bölüm 1) yuvasında oturduğu
-      // için yeni satırın INSERT'i `idx_entities_hiyerarsi` ile reddediliyor,
-      // arşivde silme olmadığı için de veri KALICI olarak yazılamaz hâle
-      // geliyordu (M378).
-      //
-      // 🔑 Yuva doluysa bu YENİ bir yapım değil, AYNI yapımın yeni kimliği.
-      // Yeni varlık yaratmak yerine mevcut satıra bağlıyoruz.
-      //
-      // ⚠️ SESSİZ DEĞİL: olay `conflict` olarak deftere yazılıyor — şemanın
-      // en baştan öngördüğü yol (*"sağlayıcı bir düzeltme yapmış olabilir"*).
-      //
-      // 🔴 ESKİ EŞLEME EMEKLİYE AYRILIYOR. Bırakılsaydı `trakt:episode`
-      // aramaları bayat kimliği döndürür, scrobble/çift yazmada Trakt 404
-      // verirdi — tarih doğru görünürken YAZMA yolu sessizce kırılırdı
-      // (kullanıcı kararı, 2026-09-14). Silinen şey bir EŞLEME; arşivin
-      // "silme yok" invariant'ı `entities` içindir, `external_ids` değil.
-      // ⚠️ `findChild` NESNE alıyor, konumsal DEĞİL. İlk denemede konumsal
-      // çağırdım; destructuring hepsini `undefined` yaptı, fonksiyon sessizce
-      // `null` döndü ve bu dal HİÇ tetiklenmedi. Hata görünmedi çünkü
-      // davranış "yuva boş" ile aynıydı — imzayı okumadan çağırmanın bedeli.
+      // ⚠️ `findChild` NESNE alıyor, konumsal DEĞİL (imzayı okumadan
+      // çağırmak sessizce `null` döndürüyordu — davranış "yuva boş" ile
+      // birebir aynı olduğu için hata GÖRÜNMÜYORDU).
       const yuvaSahibi = (type === 'episode' || type === 'season')
         ? findChild({ parentId, type, seasonNumber, episodeNumber })
         : null;
 
       if (yuvaSahibi) {
+        const sahipKimlikleri = db
+          .prepare(
+            'SELECT source, source_id FROM external_ids WHERE kaymak_id = ? AND retired_at IS NULL'
+          )
+          .all(yuvaSahibi)
+          .filter((e) => !TIPSIZ_KAYNAKLAR.has(e.source));
+
+        // ────────────────────────────────────────────────────────────────
+        // 🛑 KASKAD KESİCİ — bu bir KAYDIRMA mı, kimlik değişimi mi?
+        // ────────────────────────────────────────────────────────────────
+        // Sağlayıcı sezonu YENİDEN NUMARALANDIRABİLİR (başa bölüm ekleyip
+        // hepsini kaydırmak). O zaman her yuvada "yeni kimlik" görünür ama
+        // aslında hiçbiri değişmemiştir — yalnızca yer değiştirmişlerdir.
+        // Kör bir yeniden eşleme sezonun TAMAMINI bir kaydırır ve arşivin
+        // geçmişini sessizce yeniden yazar (bağımsız inceleme, 2026-09-14).
+        //
+        // 🔑 AYIRT EDİCİ: yuva sahibinin mevcut kimliği bu YANITIN BAŞKA
+        // BİR YERİNDE geçiyorsa, o yapım hâlâ yayında demektir — sadece
+        // başka bir yuvaya taşınmış. Böyle bir durumda DOKUNMUYORUZ.
+        const kaydirma = kimlikEvreni
+          ? sahipKimlikleri.some((e) => kimlikEvreni.has(e.source + `/` + String(e.source_id)))
+          : false;
+
+        if (kaydirma) {
+          db.prepare(
+            'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+          ).run(
+            simdi,
+            'conflict',
+            yuvaSahibi,
+            'KAYDIRMA_SUPHESI: yuva (S' + seasonNumber + '/E' + episodeNumber + ') dolu ama ' +
+              'sahibinin kimligi yanitin baska yerinde de var — yeniden esleme YAPILMADI.'
+          );
+          return null;
+        }
+
         kaymakId = yuvaSahibi;
         cakisma = true;
-        // 🔑 TİPLİ kaynakların HEPSİ emekliye aday, yalnızca `trakt:` değil.
-        // Ölçüldü (Silo): sağlayıcı `tmdb:episode`i de değiştirmişti
-        // (7746024 → 7768410); yalnız trakt'ı emekli etseydik bayat tmdb
-        // kimliği kalır ve aynı 404 riskini başka bir yoldan üretirdi.
-        //
-        // ⛔ TİPSİZ kaynaklar (`imdb`) DIŞARIDA. Onlar birden çok yapım
-        // tarafından paylaşılabiliyor (dosyanın kendi TIPSIZ_ANAHTAR notu:
-        // aynı imdb hem filme hem özel bölüme bağlı olabiliyor). Böyle bir
-        // kimliği emekli etmek başka bir yapımın bağını koparabilirdi.
-        const eskiler = db
-          .prepare('SELECT source, source_id FROM external_ids WHERE kaymak_id = ?')
-          .all(kaymakId)
-          .filter((e) => !TIPSIZ_KAYNAKLAR.has(e.source));
-        const asilmis = eskiler.filter(
-          (e) => !externalIds.some(
-            (y) => y.source === e.source && String(y.source_id) === String(e.source_id)
-          )
+
+        // ────────────────────────────────────────────────────────────────
+        // 🪦 EMEKLİLİK KOŞULU: "YOK" DEĞİL, "FARKLI DEĞER GELDİ"
+        // ────────────────────────────────────────────────────────────────
+        // İlk sürüm "gelen payload'da yok" diyordu. YANLIŞTI:
+        // `traktIdsToExternal` null/0/boş kimlikleri DÜŞÜRÜYOR ve Trakt yeni
+        // yarattığı bir bölümde tvdb/imdb'yi sık sık null döndürüyor — yani
+        // tam da Silo gibi YENİ kayıtlarda GEÇERLİ bir eşleme emekli
+        // edilirdi. Artık yalnızca AYNI `source` için FARKLI bir değer
+        // geldiyse emekli ediliyor.
+        const gelenKaynaklar = new Map(
+          externalIds.map((e) => [e.source, String(e.source_id)])
         );
+        const asilmis = sahipKimlikleri.filter((e) => {
+          const gelen = gelenKaynaklar.get(e.source);
+          return gelen !== undefined && gelen !== String(e.source_id);
+        });
+
+        // 🪦 SİLMİYORUZ, MEZAR TAŞI KOYUYORUZ. Satır durduğu için:
+        //  · "arşiv hiçbir şeyi silmez" kuralı korunuyor,
+        //  · `last_seen_at` tazelendiği için AYNA bunu görüyor ve emekliliği
+        //    Supabase'e taşıyor (DELETE'in yapısal olarak yapamadığı şey),
+        //  · eski kimlik tekrar gelirse "bilinmiyor" değil "emekli" cevabı
+        //    alınıyor; salınım imkânsızlaşıyor.
+        const emekliEt = db.prepare(
+          'UPDATE external_ids SET retired_at = ?, last_seen_at = ? WHERE source = ? AND source_id = ?'
+        );
+        for (const e of asilmis) emekliEt.run(simdi, simdi, e.source, String(e.source_id));
+
+        // 🔔 Rutin kimlik değişimi bir ALARM DEĞİL (kullanıcı kararı).
+        // `sync_log.event` CHECK'i yeni değer kabul etmediği için (§C16'nın
+        // tuzağı) kayıt yine 'conflict', AMA `KIMLIK_DEGISIMI:` önekiyle —
+        // `store.js` alarm sayacında bunu ayırıyor.
         db.prepare(
           'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
         ).run(
           simdi,
           'conflict',
           kaymakId,
-          `KIMLIK_DEGISIMI: yuva (S${seasonNumber}/E${episodeNumber}) dolu. ` +
-            `gelen: ${externalIds.map((e) => `${e.source}/${e.source_id}`).join(', ')} | ` +
-            `emekli: ${asilmis.map((e) => `${e.source}/${e.source_id}`).join(', ') || 'yok'}`
+          'KIMLIK_DEGISIMI: yuva (S' + seasonNumber + '/E' + episodeNumber + '). gelen: ' +
+            externalIds.map((e) => e.source + '/' + e.source_id).join(', ') + ' | emekli: ' +
+            (asilmis.map((e) => e.source + '/' + e.source_id).join(', ') || 'yok')
         );
-        // ══════════════════════════════════════════════════════════════
-        // ⛔ SİLME GERİ ÇEKİLDİ (2026-09-14, bağımsız inceleme)
-        // ══════════════════════════════════════════════════════════════
-        // Burada `asilmis` kimlikleri DELETE ediliyordu. İnceleme üç ayrı
-        // kusur gösterdi ve üçü de doğrulandı:
-        //
-        // 1. YOKLUK ≠ DEĞİŞİM. `asilmis` "gelen payload'da yok" diye
-        //    hesaplanıyor, ama `traktIdsToExternal` (bu dosya, ~104)
-        //    null/0/boş kimlikleri DÜŞÜRÜYOR. Trakt yeni yarattığı bir
-        //    bölümde tvdb/imdb'yi sık sık null döndürür — yani tam da
-        //    Silo gibi YENİ kayıtlarda GEÇERLİ bir eşleme silinirdi.
-        //
-        // 2. KASKAD. Sağlayıcı sezonu yeniden numaralandırırsa (başa
-        //    bölüm eklenmesi) her tur bir öncekinin sildiği kimliği
-        //    arar, bulamaz, bir sonraki yuvaya kayar — tek hata sezon
-        //    boyu yayılır. Silme olmasaydı ikinci tur `bulunanlar.size===1`
-        //    dalına düşer ve hasar tek bölümle sınırlı kalırdı.
-        //
-        // 3. AYNAYA PROPAGATE OLMUYOR. `mirror.js` artımlı çalışıyor
-        //    (`last_seen_at > imlec`); SİLİNEN satır o sorguya asla
-        //    görünmez. Yani Supabase'te eski eşleme KALIR, yenisi de
-        //    eklenir → aynı kayda bağlı İKİ trakt kimliği. Silme,
-        //    amaçladığı temizliği yapmıyor; yalnızca iki veri kaynağını
-        //    ayrıştırıyor.
-        //
-        // 🔑 Ayrıca `schema.sql` ve `stats.js` "arşiv hiçbir şeyi silmez"
-        // kuralının `entities` + `external_ids` + `payloads` için geçerli
-        // olduğunu AÇIKÇA yazıyor. Önceki yorum invariant'ı yeniden
-        // tanımlayarak bunu örtüyordu — yanlıştı.
-        //
-        // ➡️ Doğru çözüm MEZAR TAŞI: `external_ids`'e `retired_at`
-        // kolonu (saf eklemeli), çözümlemelerde `AND retired_at IS NULL`.
-        // Satır DURDUĞU için `last_seen_at` ile aynaya da propagate olur.
-        // Ayrıca koşul "yok" değil "AYNI source için FARKLI değer geldi"
-        // olmalı. Tasarlanana kadar EMEKLİYE AYIRMA YOK — yalnızca
-        // yeniden eşleme ve `conflict` kaydı. Bayat kimlik durur; bu
-        // değişiklikten ÖNCEKİ durumla aynı, yani gerileme değil.
-        void asilmis;
       } else {
         kaymakId = yeniKaymakId(type);
         yaratildi = true;

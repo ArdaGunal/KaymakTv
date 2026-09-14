@@ -158,6 +158,20 @@ async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = 
     let nefes = 0;
     let dilimBasi = performance.now();
 
+    // 🛑 KASKAD KESİCİ İÇİN KİMLİK EVRENİ. Bu yanıtta görülen TÜM bölüm
+    // kimlikleri önceden toplanıyor: `resolveOrCreate` bir yuvayı dolu
+    // bulduğunda, sahibinin kimliği bu kümede de geçiyorsa olay bir
+    // kimlik değişimi DEĞİL, sezonun yeniden numaralandırılmasıdır.
+    // O durumda yeniden eşleme yapılmaz (bağımsız inceleme, 2026-09-14).
+    const kimlikEvreni = new Set();
+    for (const sezon of seasons) {
+      for (const bolum of sezon?.episodes || []) {
+        for (const k of traktIdsToExternal('episode', bolum?.ids || {})) {
+          kimlikEvreni.add(k.source + '/' + k.source_id);
+        }
+      }
+    }
+
     for (const sezon of seasons) {
       if (!sezon || typeof sezon.number !== 'number') { atlanan++; continue; }
 
@@ -189,6 +203,7 @@ async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = 
           seasonNumber: sezon.number,
           episodeNumber: bolum.number,
           derived: { title: bolum.title || null },
+          kimlikEvreni,
         });
         bolumSayisi++;
 

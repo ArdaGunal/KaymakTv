@@ -167,10 +167,33 @@ function summary() {
   if (!db) return { enabled: false };
   const e = db.prepare('SELECT count(*) c FROM entities').get().c;
   const p = db.prepare('SELECT count(*) c, COALESCE(SUM(bytes_gz),0) b FROM payloads').get();
-  const x = db.prepare('SELECT count(*) c FROM external_ids').get().c;
-  const cakisma = db.prepare("SELECT count(*) c FROM sync_log WHERE event = 'conflict'").get().c;
+  const x = db.prepare('SELECT count(*) c FROM external_ids WHERE retired_at IS NULL').get().c;
+  const emekli = db.prepare('SELECT count(*) c FROM external_ids WHERE retired_at IS NOT NULL').get().c;
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 🔔 ALARM ile RUTİN AYRILDI (kullanıcı kararı, 2026-09-14)
+  // ══════════════════════════════════════════════════════════════════════
+  // `conflicts` sayacı scriptlerde "⚠️ N YENİ kimlik çakışması" diye
+  // basılıyor (`arsiv-aktar.js`, `arsiv-tamamla.js`, `lazyfetch-inspect.js`)
+  // ve bir İNSAN BAKSIN çağrısı. Sağlayıcının bölüm kimliğini değiştirmesi
+  // ise RUTİN bir olay; aynı sayaca girerse alarm gürültüye dönüşür ve
+  // "iki farklı yapım birleşti" gibi ciddi bir vaka içinde kaybolur.
+  //
+  // ⚠️ `sync_log.event` CHECK'i yeni bir değer kabul etmiyor (§C16'nın
+  // tuzağı: `mirror` değeri tam bu yüzden reddediliyor). Bu yüzden ayrım
+  // olay tipinde değil, `detail` önekinde yapılıyor.
+  const cakisma = db.prepare(
+    "SELECT count(*) c FROM sync_log WHERE event = 'conflict'" +
+      " AND COALESCE(detail, '') NOT LIKE 'KIMLIK_DEGISIMI:%'" +
+      " AND COALESCE(detail, '') NOT LIKE 'KAYDIRMA_SUPHESI:%'"
+  ).get().c;
+  const kimlikDegisimi = db.prepare(
+    "SELECT count(*) c FROM sync_log WHERE event = 'conflict'" +
+      " AND (COALESCE(detail, '') LIKE 'KIMLIK_DEGISIMI:%'" +
+      "   OR COALESCE(detail, '') LIKE 'KAYDIRMA_SUPHESI:%')"
+  ).get().c;
   const hata = db.prepare("SELECT count(*) c FROM sync_log WHERE event = 'error'").get().c;
-  return { enabled: true, entities: e, payloads: p.c, bytes: p.b, externalIds: x, conflicts: cakisma, errors: hata };
+  return { enabled: true, entities: e, payloads: p.c, bytes: p.b, externalIds: x, externalIdsEmekli: emekli, conflicts: cakisma, kimlikDegisimi, errors: hata };
 }
 
 module.exports = {

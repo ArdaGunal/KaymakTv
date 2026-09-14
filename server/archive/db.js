@@ -56,7 +56,7 @@ const SEMA_YOLU = path.join(__dirname, 'schema.sql');
 
 // Şemanın beklediği sürüm. Artırıldığında `GOCLER` tablosuna karşılık
 // gelen adım eklenmeli — yoksa açılış "bilinmeyen sürüm" diye durur.
-const HEDEF_SEMA_SURUMU = 1;
+const HEDEF_SEMA_SURUMU = 2;
 
 let durum = null; // { enabled, db, dbPath } | { enabled: false, reason }
 
@@ -169,8 +169,21 @@ function semayiGocEt(db) {
     throw new Error(`Arsiv semasi surumu ${mevcut}, bu kod en fazla ${HEDEF_SEMA_SURUMU} destekliyor. Kodu guncelle.`);
   }
 
-  // mevcut < HEDEF: buraya v2, v3 adımları gelecek. v1'de yapılacak bir
-  // şey yok — `schema.sql` zaten kurdu ve sürümü yazdı.
+  // ── v1 -> v2: external_ids.retired_at (mezar taşı) ──────────────────
+  // 🔴 SAF EKLEMELİ. Dosyanın kendi kuralı: "eski kayıtlar TAŞINIR;
+  // DROP + yeniden oluştur ASLA yazılmayacak." `ALTER TABLE ADD COLUMN`
+  // var olan satırlara NULL yazar — yani hiçbir eşleme emekli olmaz,
+  // davranış göç öncesiyle birebir aynı kalır.
+  if (mevcut === 1) {
+    const kolonlar = db.prepare("PRAGMA table_info(external_ids)").all();
+    if (!kolonlar.some((k) => k.name === 'retired_at')) {
+      db.exec('ALTER TABLE external_ids ADD COLUMN retired_at INTEGER');
+    }
+    db.prepare("UPDATE meta SET value = '2' WHERE key = 'schema_version'").run();
+    console.log('[Arsiv] sema v1 -> v2: external_ids.retired_at eklendi.');
+    return;
+  }
+
   throw new Error(`Arsiv semasi ${mevcut} -> ${HEDEF_SEMA_SURUMU} gocu tanimli degil.`);
 }
 

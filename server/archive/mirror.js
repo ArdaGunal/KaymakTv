@@ -114,7 +114,7 @@ function runtimeHaritasi(db) {
   }
   if (traktRuntime.size > 0) {
     for (const r of db.prepare(
-      "SELECT source_id, kaymak_id FROM external_ids WHERE source = 'trakt:episode'"
+      "SELECT source_id, kaymak_id FROM external_ids WHERE source = 'trakt:episode' AND retired_at IS NULL"
     ).iterate()) {
       const rt = traktRuntime.get(String(r.source_id));
       if (rt !== undefined) harita.set(r.kaymak_id, rt);
@@ -212,7 +212,9 @@ function firstAiredHaritasi(db) {
   }
   if (traktTarih.size > 0) {
     for (const r of db.prepare(
-      "SELECT source_id, kaymak_id FROM external_ids WHERE source = 'trakt:episode'"
+      // 🪦 Emekli kimlik tarih türetmez (v2): sağlayıcının sildiği bölüm
+      // kimliğinden tarih iliştirmek bayat veriyi canlı tutardı.
+      "SELECT source_id, kaymak_id FROM external_ids WHERE source = 'trakt:episode' AND retired_at IS NULL"
     ).iterate()) {
       const d = traktTarih.get(String(r.source_id));
       if (d !== undefined) harita.set(r.kaymak_id, d);
@@ -231,7 +233,10 @@ function firstAiredHaritasi(db) {
 function tmdbHaritasi(db) {
   const harita = new Map();
   for (const r of db.prepare(
-    "SELECT source_id, kaymak_id FROM external_ids WHERE source IN ('tmdb:show','tmdb:movie','tmdb:episode')"
+    // 🪦 Emekli kimlik elenir (v2) — aksi hâlde aynı kayda bağlı İKİ
+    // tmdb kimliği olur ve `harita.set` satır sırasına göre BELİRSİZ bir
+    // değer yazar (bağımsız inceleme, 2026-09-14).
+    "SELECT source_id, kaymak_id FROM external_ids WHERE source IN ('tmdb:show','tmdb:movie','tmdb:episode') AND retired_at IS NULL"
   ).iterate()) {
     const n = Number(r.source_id);
     if (Number.isInteger(n)) harita.set(r.kaymak_id, n);
