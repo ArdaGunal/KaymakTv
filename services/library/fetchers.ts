@@ -233,27 +233,6 @@ export const syncHiddenLists = async (accessToken: string | null) => {
   }
 };
 
-/**
- * 🔑 TRAKT AKTARIMI TAMAMLANDI MI? — T6.1'in okuma kapısı.
- *
- * Anahtar `useOtomatikFarkTuru` ve `TraktImportSection` ile AYNI; üçüncü
- * bir doğruluk kaynağı üretmiyoruz. `'evet'` = kullanıcı onayladı ve aktarım
- * koştu, `'bitti'` = tamamlandı.
- *
- * 🔴 NEDEN ŞART: Trakt'ı yeni bağlamış, aktarımı henüz koşmamış (ya da
- * "hayır" demiş) kullanıcının `user_*` tabloları BOŞ. Onu bizden okutmak
- * kütüphanesini boşalmış gösterirdi — M354'ün sıra gerekçesinin aynısı.
- */
-const traktAktarimiTamamMi = async (): Promise<boolean> => {
-  try {
-    const onay = await AsyncStorage.getItem('kaymak_trakt_import_onay_v1');
-    return onay === 'evet' || onay === 'bitti';
-  } catch {
-    // Okunamıyorsa GÜVENLİ TARAF Trakt yoludur: bilinmeyen durumda
-    // kullanıcıya boş kütüphane göstermektense fazladan istek atmak yeğdir.
-    return false;
-  }
-};
 
 export const fetchFreshData = async (accessToken: string | null, force = false) => {
   if (!accessToken) {
@@ -547,14 +526,25 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
           // İSTEKTE veriyor. Tohum buradan gelince filtre hiçbir diziyi
           // kuyrukta bırakmıyor — 57 istek 1'e iniyor.
           //
-          // ⚠️ Yalnızca aktarımı TAMAMLANMIŞ kullanıcıda; aksi hâlde
-          // tablolar boş olurdu (bkz. `traktAktarimiTamamMi`).
+          // 🔴 KAPI YOK — CEVABI VERİNİN KENDİSİ VERİR (M372).
+          // İlk sürüm bunu `kaymak_trakt_import_onay_v1` bayrağına bağlamıştı.
+          // Kırılgandı ve daha kötüsü GÖZLEMLENEMEZDİ: bayrağın cihazda ne
+          // olduğu uzaktan okunamıyor, `console.log` kurulu APK'da
+          // görünmüyor — yani "tohum çalıştı mı?" sorusunun CEVAPLANACAK bir
+          // yolu yoktu. Üç tur boyunca ayırt edilemedi.
+          //
+          // ✅ Şimdi her zaman soruyoruz ve YANITA bakıyoruz: anlamlı sayıda
+          // dizi geldiyse tohum bizden, gelmediyse Trakt'ın toplu özetine
+          // düşülür. Kendi kendini doğruluyor (tablolar boşsa zaten geri
+          // düşer) ve `wrangler tail`de GÖRÜNÜYOR. Maliyet aynı: atılmayan
+          // `getUpNextProgress` de tek istekti.
+          //
           // ⚠️ Takvim · özel listeler · istatistik HÂLÂ Trakt'tan — onların
           // Kaymak karşılığı yok (T6.2'nin işi). Bu yüzden burası okuma
           // yolunun TAMAMINI değil, YALNIZCA ilerleme tohumunu çeviriyor.
           const sezonluTohum = new Set<number>();
           let bizdenAlindi = false;
-          if (await traktAktarimiTamamMi()) {
+          {
             try {
               const yanit = await syncLibrary();
               for (const d of yanit?.diziler ?? []) {
@@ -578,8 +568,16 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
                 seeded[id] = d.ilerleme;
                 if (sezonSayisi > 0) sezonluTohum.add(id);
               }
-              bizdenAlindi = true;
-              console.log(`[T6.1] Tohum BİZDEN: ${Object.keys(seeded).length} dizi, ${sezonluTohum.size} tanesi sezonlu — TEK istek.`);
+              // 🔑 ÖLÇÜT: SEZONLU tohumun KAPSAMI. "Kaç dizi döndü" yetmez,
+              // "kaçında sezon kırılımı var" gerekir.
+              //
+              // 🔴 NEDEN YARISI: tohumumuz çoğunlukla sezonsuz gelirse Trakt'ın
+              // toplu özetini atlamak, kalan her diziyi tam çekim kuyruğuna
+              // yollardı — yani §D14'ün 57 isteğini AZALTMAK yerine
+              // ÇOĞALTIRDIK. Kapsam yarıyı bulmuyorsa Trakt özetine düşmek
+              // hem daha hızlı hem daha güvenli.
+              bizdenAlindi = sezonluTohum.size >= Math.max(1, Math.floor(uniqueIds.length / 2));
+              console.log(`[T6.1] Tohum BİZDEN: ${Object.keys(seeded).length} dizi, ${sezonluTohum.size}/${uniqueIds.length} sezonlu, kullanildi=${bizdenAlindi}`);
             } catch (e) {
               // Fail-soft: bizim uç düşerse Trakt yolu aynen çalışır.
               // Sessiz değil — M366/M370'in dersi.
