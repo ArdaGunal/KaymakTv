@@ -149,6 +149,20 @@ function beklemedeMi(anahtar, simdi = Date.now()) {
  *
  * @returns {{var: boolean, kaymakId: string|null}}
  */
+/**
+ * Tazelik kuralının uygulandığı TEK uç — bölüm listesi ve tarihleri burada.
+ */
+const TAZELENEN_UC = 'show_seasons';
+
+/**
+ * Bu yaştan eski `show_seasons` yükü DEVAM EDEN dizide "eksik" sayılır.
+ *
+ * 10 gün, ölçümle seçildi: 210 devam eden dizi ÷ 10 ≈ gecede 21 hedef.
+ * `GECELIK_TAVAN=200` ve istekler arası 2,5 sn sabitlerine DOKUNMADAN
+ * sığar (21 × 2,5 sn ≈ 53 sn) ve bütçenin büyük kısmını asıl işe bırakır.
+ */
+const TAZELIK_MS = 10 * 24 * 60 * 60 * 1000;
+
 function arsivdeVarMi(h) {
   const db = getDb();
   if (!db) return { var: false, kaymakId: null };
@@ -159,13 +173,40 @@ function arsivdeVarMi(h) {
   try {
     const satir = db
       .prepare(
-        `SELECT 1 FROM payloads
+        `SELECT fetched_at FROM payloads
           WHERE kaymak_id = ? AND provider = 'trakt' AND endpoint = ? AND lang = ?`
       )
       .get(kaymakId, h.endpoint, h.lang);
-    return { var: !!satir, kaymakId };
+    if (!satir) return { var: false, kaymakId, bayat: false };
+
+    // ══════════════════════════════════════════════════════════════════
+    // 🕰️ TAZELİK BOYUTU (§C20, 2026-09-14)
+    // ══════════════════════════════════════════════════════════════════
+    // ESKİ DAVRANIŞ: yük VARSA "kapsanan" — ne kadar eski olursa olsun.
+    // Sonuç: `show_seasons` yükleri bir kez çekildikten sonra BİR DAHA
+    // ASLA tazelenmiyordu ve yaklaşan bölüm tarihleri kalıcı olarak
+    // bayatlıyordu. Ölçüldü (M377): ortanca yaş 12,5 gün ve sürekli
+    // artıyor; kullanıcı bunu Silo üzerinden yakaladı.
+    //
+    // 🔴 KAPSAM DAR, bilinçli:
+    //  · YALNIZCA `show_seasons` — bölüm listesi ve tarihleri orada.
+    //    `show_detail`/`movie_detail` bu şekilde bayatlamıyor.
+    //  · YALNIZCA DEVAM EDEN dizi. Biten/iptal dizinin bölüm listesi
+    //    değişmez; onu tazelemek boşuna istek olurdu (ölçüm: 577 dizinin
+    //    210u devam ediyor, 367si bitmiş).
+    if (h.endpoint === TAZELENEN_UC) {
+      const e = db
+        .prepare('SELECT status FROM entities WHERE kaymak_id = ?')
+        .get(kaymakId);
+      const bitti = e && (e.status === 'ended' || e.status === 'canceled');
+      if (!bitti && Date.now() - Number(satir.fetched_at) > TAZELIK_MS) {
+        return { var: false, kaymakId, bayat: true };
+      }
+    }
+
+    return { var: true, kaymakId, bayat: false };
   } catch (_) {
-    return { var: false, kaymakId };
+    return { var: false, kaymakId, bayat: false };
   }
 }
 
@@ -196,17 +237,28 @@ function eksikleriBul(hedefler, { simdi = Date.now() } = {}) {
   const beklemede = [];
   const eksik = [];
 
+  // 🔴 TAZELEME HEDEFLERİ AYRI KOVADA TUTULUYOR ve listenin SONUNA
+  // ekleniyor. Sebep ölçüldü: 210 devam eden dizinin çoğu 10-16 günlük,
+  // yani tazelik kuralı devreye girdiği ilk gece HEPSİ birden "eksik"
+  // olur. Karışık sıralasaydık gecelik bütçe (GECELIK_TAVAN) tazelemeyle
+  // dolar ve ASIL iş — hiç çekilmemiş yapımlar, aktarımın bekleyen
+  // satırları — aç kalırdı. Tazeleme bir BAKIM işidir; artan bütçeyi
+  // kullanır, önceliği asla almaz.
+  const tazeleme = [];
+
   for (const h of hedefler) {
-    if (!h.zorla && arsivdeVarMi(h).var) { kapsanan.push(h); continue; }
+    const durum = h.zorla ? { var: false, bayat: false } : arsivdeVarMi(h);
+    if (durum.var) { kapsanan.push(h); continue; }
     const anahtar = hedefAnahtari(h);
     if (beklemedeMi(anahtar, simdi)) {
       beklemede.push({ ...h, defter: defterOku(anahtar) });
       continue;
     }
-    eksik.push(h);
+    if (durum.bayat) tazeleme.push(h);
+    else eksik.push(h);
   }
 
-  return { kapsanan, beklemede, eksik };
+  return { kapsanan, beklemede, eksik: eksik.concat(tazeleme), tazeleme: tazeleme.length };
 }
 
 // ==========================================================================
