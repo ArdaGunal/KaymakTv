@@ -59,7 +59,6 @@
   "editProfileNameLabel": "Görünen Ad",
   "editProfileOpenTrakt": "Trakt.tv'de Düzenle",
   "editProfileTitle": "Profilim",
-  "editProfileTraktOnlyHint": "Profil bilgileri yalnızca Trakt.tv üzerinden düzenlenebilir.",
   "editProfileGoogleOnlyHint": "Kullanıcı adını Ayarlar > Hesap sayfasından değiştirebilirsin.",
   "editReview": "İncelemeni Düzenle",
   "emptyListText": "Dizi veya film sayfalarındaki liste butonuyla buraya içerik ekleyebilirsin.",
@@ -315,5 +314,7 @@
   "writeReview": "İnceleme Yaz",
   "yesDelete": "Evet, Sil",
   "yourComment": "Yorumunuz...",
-  "yourReviewBadge": "sen"
+  "yourReviewBadge": "sen",
+  "editProfileAboutEmpty": "Kendinden kısaca bahset",
+  "editProfileTraktNameHint": "Görünen adın ve profil fotoğrafın Trakt.tv üzerinden geliyor. Hakkımda bölümü KaymakTV tarafına ait — yukarıdan düzenleyebilirsin."
 }

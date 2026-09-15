@@ -20,7 +20,7 @@ import { useAppBack } from '../hooks/useAppBack';
 import { ChevronLeft } from '../components/icons';
 import { useAuth } from '../context/AuthContext';
 import { useLibraryActions, useLibrarySelector } from '../context/LibraryContext';
-import { getProgressBarColor } from '../utils/progressBarColor';
+import { cubukVerisi } from '../utils/ilerlemeCubugu';
 import LibraryGridItem from '../components/library/LibraryGridItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -131,10 +131,10 @@ export default function LibraryScreen() {
     // Yalnızca DİZİ ekranlarında ilerleme var; film ve listelerde kavram yok.
     const diziMi = type === 'shows' || type === 'favShows';
     const ilerleme = diziMi && item.id ? showProgressMap?.[item.id] : null;
-    const varMi = !!ilerleme && ilerleme.aired > 0 && ilerleme.completed > 0;
-    const yuzde = varMi ? (ilerleme.completed / ilerleme.aired) * 100 : 0;
-    const bitti = varMi && ilerleme.completed >= ilerleme.aired;
     const birakildi = !!item.id && !!hiddenShowIds?.includes?.(item.id);
+    // 🔑 Hesap TEK KAYNAKTAN (`utils/ilerlemeCubugu.ts`) — eskiden bu üç satır
+    // her çağıranın içine kopyalanıyordu ve §C17.1 o yüzden dört tur açıldı.
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi);
     return (
       <LibraryGridItem
         item={item}
@@ -142,9 +142,7 @@ export default function LibraryScreen() {
         cardStyle={cardStyle}
         onPress={handleItemPress}
         yuzde={yuzde}
-        // 🔑 Renk TEK KAYNAKTAN (`utils/progressBarColor.ts`) — aynı dizi
-        // profilde ve burada FARKLI renkte görünmesin.
-        renk={getProgressBarColor(birakildi, bitti)}
+        renk={renk}
       />
     );
   }, [type, cardStyle, handleItemPress, showProgressMap, hiddenShowIds]);

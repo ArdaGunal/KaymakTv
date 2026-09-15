@@ -6,7 +6,9 @@ import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { ChevronLeft, Trash2, List as ListIcon, Plus, X, Lock } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { getCustomListItems } from '../../../services/traktApi';
-import { useLibraryActions } from '../../../context/LibraryContext';
+import { useLibraryActions, useLibrarySelector } from '../../../context/LibraryContext';
+import ProgressBar from '../../../components/ProgressBar';
+import { cubukVerisi } from '../../../utils/ilerlemeCubugu';
 import MediaPoster from '../../../components/MediaPoster';
 import { ActivityIndicator } from 'react-native';
 import MediaRowSkeleton from '../../../components/skeletons/MediaRowSkeleton';
@@ -32,6 +34,15 @@ export default function ListDetailsScreen() {
   const router = useRouter();
   const handleBack = useAppBack();
   const { deleteListById, toggleMediaInList } = useLibraryActions();
+  // §C17.1 · DÖRDÜNCÜ TUR (kullanıcı, 2026-09-15): *"kütüphanedeki dizilerde
+  // ilerleme çubuğu var, sadece koleksiyonum kısmında yok."* Bu ekran kendi
+  // `renderItem`'ını yazıyor ve `LibraryGridItem`/`ShowCard`/`HorizontalShowList`
+  // üçlüsünün hiçbirini kullanmıyordu — çubuk da o yüzden buraya hiç gelmedi.
+  // 🔴 Abonelik EKRAN düzeyinde, hücre başına DEĞİL (`ShowCard.tsx`'in dersi).
+  const { showProgressMap, hiddenShowIds } = useLibrarySelector((s: any) => ({
+    showProgressMap: s.showProgressMap,
+    hiddenShowIds: s.hiddenShowIds,
+  }));
   const { ozelListeler } = useKaymakYetenekleri();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -135,6 +146,11 @@ export default function ListDetailsScreen() {
 
   const renderItem = ({ item }: { item: ListItem }) => {
     const isRemoving = removingKeys.has(item.key);
+    // İlerleme yalnızca DİZİDE anlamlı; listede film de olabilir.
+    // `mediaId` Trakt kimliği — `showProgressMap`in anahtarı da o.
+    const ilerleme = item.type === 'show' ? showProgressMap?.[item.mediaId] : null;
+    const birakildi = !!hiddenShowIds?.includes?.(item.mediaId);
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi);
     return (
       <View style={styles.row}>
         <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={() => openMedia(item)}>
@@ -151,6 +167,9 @@ export default function ListDetailsScreen() {
               </View>
               {item.year ? <Text style={styles.rowYear}>{item.year}</Text> : null}
             </View>
+            {yuzde > 0 && (
+              <ProgressBar percentage={yuzde} fillColor={renk} style={styles.ilerleme} />
+            )}
           </View>
         </TouchableOpacity>
         {/* Aynı gerekçe `canDeleteList`'te yazılı: Kaymak hesabında liste
@@ -288,6 +307,13 @@ const styles = StyleSheet.create({
   typeBadgeShow: { backgroundColor: 'rgba(59, 130, 246, 0.15)' },
   typeBadgeMovie: { backgroundColor: 'rgba(168, 85, 247, 0.15)' },
   typeBadgeText: { color: '#cbd5e1', fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
+  // Satırın altına, meta bilgisinden sonra. Kütüphane ızgarasındaki
+  // çubukla aynı ince görünüm.
+  ilerleme: {
+    marginTop: 8,
+    height: 3,
+    borderRadius: 2,
+  },
   rowYear: { color: '#64748b', fontSize: 12, fontWeight: '500' },
   removeBtn: {
     width: 44,

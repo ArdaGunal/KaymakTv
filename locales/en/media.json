@@ -59,7 +59,6 @@
   "editProfileNameLabel": "Display Name",
   "editProfileOpenTrakt": "Edit on Trakt.tv",
   "editProfileTitle": "My Profile",
-  "editProfileTraktOnlyHint": "Profile details can only be edited on Trakt.tv.",
   "editProfileGoogleOnlyHint": "You can change your username from Settings > Account.",
   "editReview": "Edit Your Review",
   "emptyListText": "Use the list button on show or movie pages to add content here.",
@@ -315,5 +314,7 @@
   "writeReview": "Write a Review",
   "yesDelete": "Yes, Delete",
   "yourComment": "Your comment...",
-  "yourReviewBadge": "you"
+  "yourReviewBadge": "you",
+  "editProfileAboutEmpty": "Tell us a little about yourself",
+  "editProfileTraktNameHint": "Your display name and profile photo come from Trakt.tv. The About section belongs to KaymakTV — you can edit it above."
 }

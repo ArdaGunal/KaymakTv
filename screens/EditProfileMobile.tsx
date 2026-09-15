@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -14,11 +14,12 @@ import Avatar from '../components/Avatar';
 import { useRouter } from 'expo-router';
 import { useAppBack } from '../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, Info } from '../components/icons';
+import { ExternalLink, Info, Pencil } from '../components/icons';
 
 import { useAuth } from '../context/AuthContext';
 import { useMyTraktProfile } from '../hooks/useMyTraktProfile';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
+import EditBioModal from '../components/modals/EditBioModal';
 import { notify } from '../utils/confirmDialog';
 
 const DESKTOP_BREAKPOINT = 768;
@@ -42,7 +43,8 @@ export default function EditProfileMobile() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  const { profile, isLoading: isProfileLoading } = useMyTraktProfile();
+  const { profile, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
+  const [bioModalVisible, setBioModalVisible] = useState(false);
 
   // Bu ekranın doğal üstü Profil sekmesi — varsayılan (Keşfet) yerine o veriliyor.
   const navigateBack = useAppBack('/(protected)/(tabs)/profile');
@@ -93,12 +95,34 @@ export default function EditProfileMobile() {
                 </Text>
               </View>
 
-              <View style={styles.card}>
-                <Text style={styles.label}>{t('media:editProfileAboutLabel', 'Hakkında')}</Text>
+              {/* ══════════════════════════════════════════════════════════
+                  ✏️ HAKKIMDA — ARTIK BURADA DÜZENLENİYOR (2026-09-15)
+                  ══════════════════════════════════════════════════════════
+                  Kullanıcı kararı: *"ayarlar yerine profili düzenle
+                  seçeneğinde olması daha mantıklı."* Satır Ayarlar'dan
+                  (`ProfileUsernameSection`) BURAYA taşındı — profil bilgisi
+                  profil ekranında düzenlenir.
+
+                  🔴 ESKİDEN BURASI TRAKT'IN `about`'UNU SALT OKUNUR
+                  GÖSTERİYORDU ve altındaki kutu *"yalnızca Trakt.tv üzerinden
+                  düzenlenebilir"* diyordu. §C15'ten sonra bu YANLIŞ bir
+                  cümleydi: gösterilen metin artık BİZİM bio'muz. Kullanıcı:
+                  *"trakt ile bağlı hakkımda kısmını sorunsuz şekilde
+                  silebiliriz, artık bizim için spagetti kod."* */}
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                onPress={() => setBioModalVisible(true)}
+              >
+                <View style={styles.cardBaslik}>
+                  <Text style={styles.label}>{t('media:editProfileAboutLabel', 'Hakkımda')}</Text>
+                  <Pencil size={15} color="#a78bfa" />
+                </View>
                 <Text style={styles.value}>
-                  {profile.about || <Text style={styles.valueEmpty}>{t('media:editProfileEmpty', 'Belirtilmemiş')}</Text>}
+                  {profile.about || <Text style={styles.valueEmpty}>{t('media:editProfileAboutEmpty', 'Kendinden kısaca bahset')}</Text>}
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               {/* 🔴 2026-08-22 — Google-only kullanıcı (`create_new`, Madde 221)
                   için bu blok YANLIŞ TEŞHİS koyuyordu: "yalnızca Trakt.tv'de
@@ -117,7 +141,7 @@ export default function EditProfileMobile() {
                     <Text style={styles.infoText}>
                       {t(
                         'media:editProfileGoogleOnlyHint',
-                        'Kullanıcı adını Ayarlar > Hesap sayfasından değiştirebilirsin.'
+                        'Kullanıcı adını Ayarlar > Hesap sayfasından değiştirebilirsin. Hakkımda bölümünü yukarıdan düzenleyebilirsin.'
                       )}
                     </Text>
                   </View>
@@ -137,8 +161,8 @@ export default function EditProfileMobile() {
                     <Info size={16} color="#60a5fa" />
                     <Text style={styles.infoText}>
                       {t(
-                        'media:editProfileTraktOnlyHint',
-                        'Profil bilgileri yalnızca Trakt.tv üzerinden düzenlenebilir.'
+                        'media:editProfileTraktNameHint',
+                        'Görünen adın ve profil fotoğrafın Trakt.tv üzerinden geliyor. Hakkımda bölümü KaymakTV tarafına ait — yukarıdan düzenleyebilirsin.'
                       )}
                     </Text>
                   </View>
@@ -155,11 +179,26 @@ export default function EditProfileMobile() {
           )}
         </View>
       </ScrollView>
+
+      {/* 🔁 Kaydedince `refetchProfile` — ekrandaki metin sunucudaki gerçekle
+          aynı kalsın. Yerel state'i elle güncellemek iki kaynak yaratırdı. */}
+      <EditBioModal
+        visible={bioModalVisible}
+        onClose={() => setBioModalVisible(false)}
+        currentBio={profile?.about ?? null}
+        onSaved={() => { void refetchProfile(); }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  cardBaslik: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#0B1120',

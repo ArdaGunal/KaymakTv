@@ -268,7 +268,14 @@ export default function TraktImportSection() {
             Kullanıcının gerçek sorusu: *"Trakt'tan sildiğim şey neden hâlâ
             burada?"* Normal senkronizasyon yalnızca EKLER (§D15); silmeyi
             yapan tur budur ve `'kaymak'` satırlara DOKUNMAZ (K4). */}
-        {tamamlanmis && (
+        {/* 🔴 `bitti` DE DAHİL (kullanıcı raporu, 2026-09-15). Eskiden koşul
+            yalnızca `tamamlanmis` (= `onay==='bitti' && durum==='bos'`) idi;
+            normal senkron biter bitmez `durum` `'bitti'` olduğu için bu
+            bağlantı da üstündeki düğme de EKRANDAN KAYBOLUYORDU. Süpürmeye
+            basabilmek için Ayarlar'dan çıkıp yeniden girmek gerekiyordu —
+            kullanıcı bunu fark edemeyip "Yeniden Senkronize Et"e bastı ve
+            süpürme mesajı yerine *"Senkronizasyon tamamlandı"* gördü. */}
+        {(tamamlanmis || bitti) && (
           <TouchableOpacity
             style={styles.ikincil}
             activeOpacity={0.7}
