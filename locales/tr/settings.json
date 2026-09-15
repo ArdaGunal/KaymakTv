@@ -179,5 +179,6 @@
   "importSweep": "Trakt'tan silinenleri de eşitle",
   "importSwept": "Eşitlendi. Trakt'ta silinmiş {{sayi}} kayıt buradan da kaldırıldı.",
   "importSweptNone": "Eşitlendi. Trakt'ta silinmiş kayıt bulunamadı.",
-  "importSweepFailed": "Yeni kayıtlar eşitlendi, ama Trakt'ta silinenler kontrol edilemedi. Tekrar deneyebilirsin."
+  "importSweepFailed": "Yeni kayıtlar eşitlendi, ama Trakt'ta silinenler kontrol edilemedi. Tekrar deneyebilirsin.",
+  "importSweptEmptyLists": "({{sayi}} listen Trakt'ta zaten boştu.)"
 }

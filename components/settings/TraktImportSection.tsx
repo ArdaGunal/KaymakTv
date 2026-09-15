@@ -42,7 +42,7 @@ type Onay = 'yok' | 'evet' | 'hayir' | 'bitti';
 
 export default function TraktImportSection() {
   const { t } = useTranslation(['settings', 'common']);
-  const { uygun, durum, son, hata, yuzde, aile, aileler, atlanan, silinen, supurmeSorunu, baslat, kapanisTuru, durdur } = useTraktImport();
+  const { uygun, durum, son, hata, yuzde, aile, aileler, atlanan, silinen, supurmeSorunu, zararsizAtlamalar, baslat, kapanisTuru, durdur } = useTraktImport();
 
   /** `null` = henüz diskten okunmadı (bu sırada HİÇBİR ŞEY çizilmez). */
   const [onay, setOnay] = useState<Onay | null>(null);
@@ -168,12 +168,23 @@ export default function TraktImportSection() {
         return t('settings:importSweepFailed',
           "Yeni kayıtlar eşitlendi, ama Trakt'ta silinenler kontrol edilemedi. Tekrar deneyebilirsin.");
       }
-      return silinen > 0
+      // 🟢 TASARIM GEREĞİ atlanan liste sayısı (§D15). Arıza değil, ama
+      // söylenmezse "silinmiş kayıt bulunamadı" eksik bir cevap olur:
+      // kullanıcı listelerinin KONTROL EDİLDİĞİNİ mi yoksa BOŞ olduğunu mu
+      // gördüğümüzü bilemez. Bilgi Worker'ın yanıtında M370'ten beri vardı.
+      const bosSayisi = zararsizAtlamalar.bos_liste ?? 0;
+      const ek = bosSayisi > 0
+        ? ' ' + t('settings:importSweptEmptyLists', {
+            sayi: bosSayisi,
+            defaultValue: "({{sayi}} listen Trakt'ta zaten boştu.)",
+          })
+        : '';
+      return (silinen > 0
         ? t('settings:importSwept', {
             sayi: silinen,
             defaultValue: "Eşitlendi. Trakt'ta silinmiş {{sayi}} kayıt buradan da kaldırıldı.",
           })
-        : t('settings:importSweptNone', "Eşitlendi. Trakt'ta silinmiş kayıt bulunamadı.");
+        : t('settings:importSweptNone', "Eşitlendi. Trakt'ta silinmiş kayıt bulunamadı.")) + ek;
     }
     if (bitti) return t('settings:importDone', 'Senkronizasyon tamamlandı.');
     if (durum === 'hata') {

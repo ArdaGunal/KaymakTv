@@ -156,17 +156,50 @@ T.ok(
 T.ok('fark turu gecmisi hala DISARIDA birakiyor (ikisi ayri kavram)',
   !FARK_AILELERI.includes('gecmis'));
 
-T.ok('sayi dogrudan okunur', supurmeOzeti(7).silinen === 7 && supurmeOzeti(7).atlandi === null);
-T.ok('sifir silme gecerli sonuc', supurmeOzeti(0).silinen === 0 && supurmeOzeti(0).atlandi === null);
-T.ok('🔴 ATLANDI sebebi KAYBOLMAZ ("0 silindi" ile ayni sey degil)',
-  supurmeOzeti({ atlandi: 'cok_sayfa' }).atlandi === 'cok_sayfa');
-T.ok('kapsam paylasimli atlamasi da gorunur',
-  supurmeOzeti({ atlandi: 'kapsam_paylasimli' }).atlandi === 'kapsam_paylasimli');
-T.ok('hata etiketlenir', supurmeOzeti({ hata: 'ag' }).atlandi === 'hata:ag');
+T.ok('sayi dogrudan okunur', supurmeOzeti(7).silinen === 7 && supurmeOzeti(7).sorun === null);
+T.ok('sifir silme gecerli sonuc', supurmeOzeti(0).silinen === 0 && supurmeOzeti(0).sorun === null);
+T.ok('🔴 GERCEK sorun KAYBOLMAZ ("0 silindi" ile ayni sey degil)',
+  supurmeOzeti({ atlandi: 'cok_sayfa' }).sorun === 'cok_sayfa');
+T.ok('hata etiketlenir', supurmeOzeti({ hata: 'ag' }).sorun === 'hata:ag');
 T.ok('bozuk/eksik deger cokme yapmaz',
   supurmeOzeti(undefined).silinen === 0 && supurmeOzeti(null).silinen === 0
   && supurmeOzeti('x').silinen === 0 && supurmeOzeti(NaN).silinen === 0);
 T.ok('negatif sayi 0a kenetlenir', supurmeOzeti(-5).silinen === 0);
+
+// ─────────────────────────────────────────────────────────────────────────
+T.H('🟢 ZARARSIZ ATLAMA != ARIZA — ve sebep artik OKUNUYOR (D15)');
+// Worker M370'te sinifi `supurulen`in BICIMINE gomdu: sayi = tur saglikli
+// kostu (zararsiz atlamada 0 gonderiyor), nesne = gercekten kontrol
+// edilemedi. Sebebi ayrica ust duzey `atlandi` alaninda yolluyor — istemci
+// o alani sekiz gun boyunca HIC okumadi ve "5 listen bostu" bilgisi
+// yanitta VARKEN atiliyordu.
+
+const bos = supurmeOzeti(0, 'bos_liste');
+T.ok('🔴 bos_liste ARIZA SAYILMIYOR', bos.sorun === null, String(bos.sorun));
+T.ok('...ama SEBEP kaybolmuyor', bos.zararsiz === 'bos_liste', String(bos.zararsiz));
+T.ok('silinen 0 kaliyor', bos.silinen === 0);
+
+const paylasimli = supurmeOzeti(0, 'kapsam_paylasimli');
+T.ok('kapsam_paylasimli da zararsiz',
+  paylasimli.sorun === null && paylasimli.zararsiz === 'kapsam_paylasimli');
+
+// 🔑 ISTEMCI ZARARSIZLAR LISTESINI KOPYALAMIYOR. Worker'a yarin yeni bir
+// zararsiz sebep eklenirse (sayi + sebep olarak gelir) istemci onu da dogru
+// siniflandirmali. Liste cogaltilsaydi istemci onu ARIZA sayardi — yani
+// M370'te duzeltilen hatanin aynisi, bu kez kalici bicimde.
+const yeniSebep = supurmeOzeti(0, 'henuz_dogmamis_sebep');
+T.ok('🔴 BILINMEYEN zararsiz sebep de ariza sayilmiyor (liste cogaltilmadi)',
+  yeniSebep.sorun === null && yeniSebep.zararsiz === 'henuz_dogmamis_sebep');
+
+// Gercek sorunda ust duzey `atlandi` da gelir; `zararsiz` alani KIRLENMEMELI
+// (yoksa UI ayni turu hem "sorun" hem "zaten bostu" diye gosterirdi).
+const gercek = supurmeOzeti({ atlandi: 'cok_sayfa' }, 'cok_sayfa');
+T.ok('🔴 cok_sayfa hala GERCEK sorun', gercek.sorun === 'cok_sayfa');
+T.ok('...ve zararsiz alanina SIZMIYOR', gercek.zararsiz === null, String(gercek.zararsiz));
+
+T.ok('silme YAPILMIS turda sebep olmaz',
+  supurmeOzeti(3, null).silinen === 3 && supurmeOzeti(3, null).zararsiz === null);
+T.ok('bos string sebep sayilmaz', supurmeOzeti(0, '').zararsiz === null);
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('cok_istek — DAKIKALIK pencere, saniyelik geri cekilme YETMEZ');

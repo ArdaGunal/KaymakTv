@@ -24,7 +24,7 @@ interface EditProfileModalProps {
   /** `handleAccountProfileGet`'ten gelen ham değer — `null` = kilit yok. */
   usernameUpdatedAt: string | null;
   /** Başarılı kayıttan SONRA çağrılır — çağıran kendi ekran state'ini
-   * (ör. `useMyGoogleProfile`'ın `profile`'ı) yeniden fetch etmeden
+   * (ör. `useMyProfile`'ın `profile`'ı) yeniden fetch etmeden
    * güncelleyebilsin diye yeni değeri taşır. */
   onSaved?: (username: string) => void;
 }

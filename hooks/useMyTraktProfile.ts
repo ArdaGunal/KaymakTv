@@ -105,17 +105,45 @@ export function useMyTraktProfile() {
           // Google-only kullanıcının Trakt slug'ı YOK — boş bırakmak doğru.
           ids: { slug: '' },
           images: avatarUrl ? { avatar: { full: avatarUrl } } : undefined,
-          // T4 · `043` — açıklama bizden (Trakt'lı kullanıcıda hâlâ Trakt'ın `about`'u).
+          // T4 · `043` — açıklama bizden. (§C15'ten sonra Trakt'lı dal da
+          // aynısını yapıyor; aşağıya bak.)
           about: bio,
         });
         await sayilariTazele();
         if (!isMounted || isMounted()) setIsLoading(false);
         return;
       }
+      // ══════════════════════════════════════════════════════════════════
+      // 🪪 TRAKT'LI KULLANICI — açıklama artık BİZDEN (§C15, 2026-09-15)
+      // ══════════════════════════════════════════════════════════════════
+      // Bu dalın eski hâli yalnızca Trakt'ı okuyordu ve kendi yorumu bunu
+      // itiraf ediyordu: *"Trakt'lı kullanıcıda hâlâ Trakt'ın `about`'u"*.
+      // Ayarlar'da açıklama yazabilen ama kendi profilinde onu göremeyen bir
+      // kullanıcı, yarım bir özellik demekti.
+      //
+      // 🔑 ÖNCELİK `usePublicProfileIdentity` İLE AYNI: bizim bio varsa o,
+      // yoksa Trakt'ın `about`'u. İki ekranın aynı kişide FARKLI açıklama
+      // göstermesi, düzeltmenin kendisinden kötü bir hata olurdu.
+      //
+      // ⏱️ Gecikme EKLEMİYOR: istek Trakt çağrısıyla PARALEL gidiyor ve
+      // hedefi Trakt değil kendi Worker'ımız — başlıktaki "3 istek → 1"
+      // kazanımı Trakt tarafında aynen duruyor.
       try {
-        const [myProfile] = await Promise.all([getUserProfile('me'), sayilariTazele()]);
+        const [myProfile, kaymakProfil] = await Promise.all([
+          getUserProfile('me'),
+          // 🔴 DÜŞERSE `null`: Trakt'ın `about`'u KORUNUR. "Boş yanıt" ile
+          // "yanıt yok" ayrı şeyler — boşla ezmek kullanıcının açıklamasını
+          // ekrandan silerdi (M381'in dersi).
+          getMyProfile(accessToken).catch((error) => {
+            logError('useMyTraktProfile.kaymakBio', error);
+            return null;
+          }),
+          sayilariTazele(),
+        ]);
         if (isMounted && !isMounted()) return;
-        setProfile(myProfile);
+        setProfile(
+          kaymakProfil?.bio ? { ...myProfile, about: kaymakProfil.bio } : myProfile
+        );
       } catch (error) {
         console.warn('[Profile] Trakt profili yüklenemedi:', error);
       } finally {

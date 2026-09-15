@@ -66,6 +66,10 @@ export function useTraktImport() {
    * `048`'in RPC'lerini görmüyordu) — kullanıcı "sorunsuz" sandı.
    */
   const [supurmeSorunu, setSupurmeSorunu] = useState<string | null>(null);
+  // 🟢 Zararsız atlamalar, sebebe göre sayılmış (§D15). UI "{{sayi}} listen
+  // zaten boştu" diyebilsin diye — Worker bu bilgiyi M370'ten beri
+  // gönderiyordu, istemci hiç okumuyordu.
+  const [zararsizAtlamalar, setZararsizAtlamalar] = useState<Record<string, number>>({});
 
   const iptalRef = useRef(false);
   const calisiyorRef = useRef(false);
@@ -114,6 +118,10 @@ export function useTraktImport() {
     // söyleniyor; "0 silindi" ile "süpürülemedi" ayrı şeyler.
     let silinenToplam = 0;
     let ilkSupurmeSorunu: string | null = null;
+    // 🟢 TASARIM GEREĞİ atlamalar, sebebe göre sayılıyor (§D15). Bunlar arıza
+    // DEĞİL ama SESSİZ de kalmamalı: kullanıcının beş listesi Trakt'ta boşsa
+    // "silinmiş kayıt bulunamadı" teknik olarak doğru, ama eksik bir cevap.
+    const zararsizSayac: Record<string, number> = {};
     try {
       for (let i = 0; i < aileler.length; i += 1) {
         const buAile = aileler[i];
@@ -143,11 +151,14 @@ export function useTraktImport() {
 
           if (sonuc) {
             if (kapanis) {
-              const o = supurmeOzeti((sonuc as any).supurulen);
+              // 🔴 `as any` KALKTI — `atlandi`nın düşmesine izin veren kaçak
+              // oydu; alan artık `ImportAdimSonucu`da tanımlı (§D15).
+              const o = supurmeOzeti(sonuc.supurulen, sonuc.atlandi);
               silinenToplam += o.silinen;
               // İLK sorun saklanır: on iki aile boyunca mesajı değiştirip
               // durmak yerine tek ve kararlı bir uyarı gösteriyoruz.
-              if (o.atlandi && !ilkSupurmeSorunu) ilkSupurmeSorunu = o.atlandi;
+              if (o.sorun && !ilkSupurmeSorunu) ilkSupurmeSorunu = o.sorun;
+              if (o.zararsiz) zararsizSayac[o.zararsiz] = (zararsizSayac[o.zararsiz] ?? 0) + 1;
             }
             if (!sessiz) setSon(sonuc);
             if (sonuc.bitti) break;          // bu aile bitti → sıradakine
@@ -182,6 +193,7 @@ export function useTraktImport() {
         if (kapanis) {
           setSilinen(silinenToplam);
           setSupurmeSorunu(ilkSupurmeSorunu);
+          setZararsizAtlamalar(zararsizSayac);
         }
         setDurum(atlananlar.length ? 'hata' : 'bitti');
       }
@@ -202,6 +214,7 @@ export function useTraktImport() {
   const kapanisTuru = useCallback(() => {
     setSilinen(null);
     setSupurmeSorunu(null);
+    setZararsizAtlamalar({});
     return kosu({ aileler: KAPANIS_AILELERI, kapanis: true });
   }, [kosu]);
 
@@ -229,8 +242,10 @@ export function useTraktImport() {
     farkTuru,
     kapanisTuru,
     silinen,
-    /** Süpürme atlandıysa/başarısızsa sebebi; `null` = süpürme gerçekten koştu. */
+    /** Süpürme GERÇEKTEN başarısızsa sebebi; `null` = tur sağlıklı koştu. */
     supurmeSorunu,
+    /** Tasarım gereği atlamalar, sebebe göre sayılmış (ör. `{bos_liste: 5}`). */
+    zararsizAtlamalar,
     durdur,
   };
 }

@@ -57,6 +57,15 @@ export interface ImportAdimSonucu {
   /** Aynı sayfayı başka bir istek işlemiş; veri kaybı yok (Worker'ın notu). */
   yaris?: boolean;
   buAdim?: { aktarilan: number; bekleyen: number; reddedilen: number };
+
+  // ── 🧹 K3 kapanış turu alanları (yalnızca `kapanis: true` isteklerinde) ──
+  // 🔴 BUNLAR TİPTE YOKTU ve çağıran taraf `(sonuc as any).supurulen` diyordu.
+  // `atlandi`nın sekiz gün boyunca okunmaması tam o `as any`in altında oldu:
+  // tip bilmediği için derleyici de "bu alanı kullanmıyorsun" diyemedi (§D15).
+  /** Silinen satır sayısı, ya da "kontrol edemedim" durumunda sebep nesnesi. */
+  supurulen?: number | { atlandi?: string; hata?: string } | null;
+  /** Atlama SEBEBİ (sınıf değil) — zararsız da olabilir, gerçek sorun da. */
+  atlandi?: string | null;
 }
 
 /**
@@ -219,20 +228,58 @@ export function farkTuruZamani(sonKosuMs: number | null, simdi = Date.now()): bo
 // çekiliyor ve her sayfanın kendi zaman dilimi süpürülüyor.
 export const KAPANIS_AILELERI: readonly ImportAilesi[] = AKTARIM_SIRASI;
 
+/** Süpürme turunun tek aile için okunur özeti. */
+export interface SupurmeOzeti {
+  /** Bu ailede kaç satır silindi. */
+  silinen: number;
+  /** 🔴 GERÇEK sorun — "kontrol edemedim". `null` ise tur sağlıklı. */
+  sorun: string | null;
+  /** 🟢 TASARIM GEREĞİ atlama sebebi (ör. `bos_liste`). Arıza DEĞİL. */
+  zararsiz: string | null;
+}
+
 /**
- * SAF — sunucunun `supurulen` alanını okunur bir sayıya/sebebe çevirir.
+ * SAF — sunucunun süpürme sonucunu (a) sayıya, (b) GERÇEK soruna,
+ * (c) ZARARSIZ atlama sebebine ayırır.
  *
  * 🔴 SESSİZ SİLME YOK: kaç satır silindiği kullanıcıya söylenebilmeli.
  * Atlanan süpürme de gizlenmez — "0 silindi" ile "süpürülemedi" AYRI şeyler.
+ *
+ * ==========================================================================
+ * 🔑 SINIFLANDIRMA BURADA TEKRARLANMIYOR — BİÇİMDEN OKUNUYOR
+ * ==========================================================================
+ * Worker'ın `supurmeRaporu`'su (M370) hangi atlamanın zararsız olduğunu
+ * ZATEN biliyor (`ZARARSIZ_ATLAMALAR`: `bos_liste` · `kapsam_paylasimli` ·
+ * `dilim_yok`) ve kararını `supurulen`in BİÇİMİNE gömüyor:
+ *
+ *   sayı   → süpürme koştu YA DA zararsızca atlandı (o hâlde 0 gönderiliyor)
+ *   nesne  → gerçekten "kontrol edemedim" (`cok_sayfa`, `hata:*`)
+ *
+ * Bu yüzden istemci o listeyi KOPYALAMIYOR. Kopyalasaydı iki taraf zamanla
+ * ıraksardı: Worker'a yeni bir zararsız sebep eklenince istemci onu arıza
+ * saymaya devam ederdi — yani M370'te düzeltilen hatanın aynısı, bu kez
+ * kalıcı biçimde.
+ *
+ * 🔴 `atlandi` ALANI ARTIK OKUNUYOR (§D15). Worker M370'te sebebi ayrı bir
+ * üst düzey alana koydu ve kendi yorumunda uyardı: *"üretilip KULLANILMAYAN
+ * alan sessiz başarısızlıktır"*. İstemci o alanı sekiz gün boyunca hiç
+ * okumadı; "5 listen zaten boştu" bilgisi yanıtta VARDI ve atılıyordu.
+ *
+ * @param supurulen Worker'ın `supurulen` alanı
+ * @param atlandi   Worker'ın ÜST DÜZEY `atlandi` alanı (sebep; sınıf değil)
  */
-export function supurmeOzeti(supurulen: unknown): { silinen: number; atlandi: string | null } {
+export function supurmeOzeti(supurulen: unknown, atlandi: unknown = null): SupurmeOzeti {
+  const sebep = typeof atlandi === 'string' && atlandi ? atlandi : null;
+
   if (typeof supurulen === 'number' && Number.isFinite(supurulen)) {
-    return { silinen: Math.max(0, supurulen), atlandi: null };
+    // Sayı geldi → tur sağlıklı. Sebep varsa ZARARSIZ bir atlamadır.
+    return { silinen: Math.max(0, supurulen), sorun: null, zararsiz: sebep };
   }
   if (supurulen && typeof supurulen === 'object') {
     const o = supurulen as Record<string, unknown>;
-    if (typeof o.atlandi === 'string') return { silinen: 0, atlandi: o.atlandi };
-    if (typeof o.hata === 'string') return { silinen: 0, atlandi: `hata:${o.hata}` };
+    if (typeof o.hata === 'string') return { silinen: 0, sorun: `hata:${o.hata}`, zararsiz: null };
+    if (typeof o.atlandi === 'string') return { silinen: 0, sorun: o.atlandi, zararsiz: null };
   }
-  return { silinen: 0, atlandi: null };
+  // Bozuk/eksik değer: sessizce "başarılı" sayma, ama sebep de uydurma.
+  return { silinen: 0, sorun: null, zararsiz: sebep };
 }
