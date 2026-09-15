@@ -56,7 +56,7 @@ const SEMA_YOLU = path.join(__dirname, 'schema.sql');
 
 // Şemanın beklediği sürüm. Artırıldığında `GOCLER` tablosuna karşılık
 // gelen adım eklenmeli — yoksa açılış "bilinmeyen sürüm" diye durur.
-const HEDEF_SEMA_SURUMU = 2;
+const HEDEF_SEMA_SURUMU = 3;
 
 let durum = null; // { enabled, db, dbPath } | { enabled: false, reason }
 
@@ -169,22 +169,87 @@ function semayiGocEt(db) {
     throw new Error(`Arsiv semasi surumu ${mevcut}, bu kod en fazla ${HEDEF_SEMA_SURUMU} destekliyor. Kodu guncelle.`);
   }
 
+  // 🔴 ADIMLAR ARDIŞIK — her biri `return` ETMEZ, `surum`u ilerletir.
+  // Eskiden v1->v2 adımı `return` ediyordu; v3 gelince v1'deki bir arşiv
+  // tek açılışta 2'ye çıkıp ORADA KALIRDI ve bir sonraki açılış «2 -> 3
+  // gocu tanimli degil» demezdi ama v3'ün beklediği şema hiç kurulmazdı.
+  let surum = mevcut;
+
   // ── v1 -> v2: external_ids.retired_at (mezar taşı) ──────────────────
   // 🔴 SAF EKLEMELİ. Dosyanın kendi kuralı: "eski kayıtlar TAŞINIR;
   // DROP + yeniden oluştur ASLA yazılmayacak." `ALTER TABLE ADD COLUMN`
   // var olan satırlara NULL yazar — yani hiçbir eşleme emekli olmaz,
   // davranış göç öncesiyle birebir aynı kalır.
-  if (mevcut === 1) {
+  if (surum === 1) {
     const kolonlar = db.prepare("PRAGMA table_info(external_ids)").all();
     if (!kolonlar.some((k) => k.name === 'retired_at')) {
       db.exec('ALTER TABLE external_ids ADD COLUMN retired_at INTEGER');
     }
     db.prepare("UPDATE meta SET value = '2' WHERE key = 'schema_version'").run();
     console.log('[Arsiv] sema v1 -> v2: external_ids.retired_at eklendi.');
-    return;
+    surum = 2;
   }
 
-  throw new Error(`Arsiv semasi ${mevcut} -> ${HEDEF_SEMA_SURUMU} gocu tanimli degil.`);
+  // ── v2 -> v3: sync_log.event CHECK'i kalkıyor (§C16) ─────────────────
+  // 🔴 BU ADIM DOSYANIN "DROP + yeniden oluştur ASLA'" KURALINA İSTİSNADIR
+  // ve istisna olduğu BİLEREK yazılmıştır (kullanıcı kararı, 2026-09-15).
+  //
+  // Kuralın amacı VERİ KAYBINI önlemek. SQLite'ta bir CHECK'i kaldırmanın
+  // tek yolu tabloyu yeniden kurmaktır (`ALTER TABLE ... DROP CONSTRAINT`
+  // yok) — SQLite'ın kendi belgelediği 12 adımlı yordam. Aşağıdaki tur
+  // her satırı `id` dahil KOPYALAR; kaybolan tek şey kısıtın kendisidir.
+  //
+  // 🔑 NEDEN GÜVENLİ — ölçülerek, varsayılarak değil (2026-09-15, Pi):
+  //  · `sync_log` 84 satır / 24 KB;
+  //  · tabloya BAĞLI view/trigger/yabancı anahtar YOK — `sqlite_master`'da
+  //    `sync_log` geçen tek nesne kendi iki indeksi;
+  //  · `sync_log` hiçbir tabloya FK vermiyor, hiçbir tablo ona vermiyor,
+  //    bu yüzden `PRAGMA foreign_keys` dansına gerek yok (ve o pragma zaten
+  //    transaction İÇİNDE etkisizdir).
+  //
+  // ⚠️ Kopya sonrası satır sayısı DOĞRULANIYOR. Eşleşmezse fırlatılır:
+  // transaction geri alınır, eski tablo yerinde kalır, arşiv açılmaz.
+  // Sessizce eksik bir defterle devam etmektense açılmamak doğrudur.
+  if (surum === 2) {
+    const oncesi = db.prepare('SELECT count(*) c FROM sync_log').get().c;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec(`
+        CREATE TABLE sync_log_yeni (
+          id        INTEGER PRIMARY KEY,
+          at        INTEGER NOT NULL,
+          event     TEXT NOT NULL,
+          provider  TEXT,
+          endpoint  TEXT,
+          kaymak_id TEXT,
+          detail    TEXT
+        );
+        INSERT INTO sync_log_yeni (id, at, event, provider, endpoint, kaymak_id, detail)
+          SELECT id, at, event, provider, endpoint, kaymak_id, detail FROM sync_log;
+      `);
+      const sonrasi = db.prepare('SELECT count(*) c FROM sync_log_yeni').get().c;
+      if (sonrasi !== oncesi) {
+        throw new Error(`sync_log kopyasi eksik: ${oncesi} -> ${sonrasi}`);
+      }
+      db.exec(`
+        DROP TABLE sync_log;
+        ALTER TABLE sync_log_yeni RENAME TO sync_log;
+        CREATE INDEX IF NOT EXISTS idx_synclog_at    ON sync_log(at);
+        CREATE INDEX IF NOT EXISTS idx_synclog_event ON sync_log(event);
+      `);
+      db.prepare("UPDATE meta SET value = '3' WHERE key = 'schema_version'").run();
+      db.exec('COMMIT');
+    } catch (error) {
+      try { db.exec('ROLLBACK'); } catch (_) { /* zaten kapali */ }
+      throw error;
+    }
+    console.log(`[Arsiv] sema v2 -> v3: sync_log.event CHECK kaldirildi (${oncesi} satir tasindi).`);
+    surum = 3;
+  }
+
+  if (surum !== HEDEF_SEMA_SURUMU) {
+    throw new Error(`Arsiv semasi ${mevcut} -> ${HEDEF_SEMA_SURUMU} gocu tanimli degil (${surum} de takildi).`);
+  }
 }
 
 function kisaDurum() {

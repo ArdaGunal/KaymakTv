@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS meta (
   value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '2');
+INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '3');
 INSERT OR IGNORE INTO meta (key, value) VALUES ('created_at', CAST(strftime('%s','now') AS TEXT));
 
 -- ==========================================================================
@@ -224,7 +224,25 @@ CREATE INDEX IF NOT EXISTS idx_payloads_guncel  ON payloads(updated_at);
 CREATE TABLE IF NOT EXISTS sync_log (
   id        INTEGER PRIMARY KEY,
   at        INTEGER NOT NULL,
-  event     TEXT NOT NULL CHECK (event IN ('upsert','conflict','error','backfill','vacuum')),
+  -- 🔴 BURADA CHECK YOK — VE BU BİLİNÇLİ (§C16, 2026-09-15).
+  --
+  -- Eskiden `CHECK (event IN ('upsert','conflict','error','backfill','vacuum'))`
+  -- vardı. `mirror.js` 2026-09-07'de doğdu ve `event:'mirror'` yazmaya başladı;
+  -- liste onu tanımadığı için INSERT reddedildi, `logSync` hatayı yuttu,
+  -- `runMirror` yine `{ok:true}` döndü. **Ayna sekiz gün boyunca her gece
+  -- koştu ve bu defterde TEK satırı olmadı.** Bir gün sessizce dursa kimse
+  -- fark etmezdi. Tablonun kendi başlığı «arşiv sessizce yalan söylemez»
+  -- diyor; tam bu tabloda söylüyordu.
+  --
+  -- 🔑 TAKASI TERSİNE ÇEVİRDİK. Bir CHECK'in önlediği şey yazım hatalı bir
+  -- olay adı — GÖRÜNÜR çöp. Bedeli ise tanımadığı her yeni olay türünün
+  -- GÖRÜNMEZ kaybı. Append-only bir operasyon defterinde ikincisi birinciden
+  -- kat kat pahalıdır: çöpü fark eder, kaybı fark edemezsin.
+  --
+  -- ➡️ Bilinen olay listesi artık `store.js` → `BILINEN_OLAYLAR`. Tanımadığı
+  -- bir değer geldiğinde satır YİNE DE YAZILIR, ama `console.warn` ile.
+  -- Denetim kalktı değil, SESSİZ olmaktan çıktı.
+  event     TEXT NOT NULL,
   provider  TEXT,
   endpoint  TEXT,
   kaymak_id TEXT,

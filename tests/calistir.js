@@ -34,6 +34,8 @@ const TAKIMLAR = [
   { ad: 'supurucu', grup: 'lazyfetch', dosya: 'lazyfetch/supurucu.test.js', aciklama: 'L6: yalnizca cache/ silinir' },
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
+  { ad: 'goc', grup: 'arsiv', dosya: 'arsiv/goc.test.js', aciklama: 'A1: sema gocu v1 -> v2 -> v3 (C16)' },
+  { ad: 'sayac', grup: 'arsiv', dosya: 'arsiv/sayac.test.js', aciklama: 'A2.6: gecelik satir sayimi, dusus alarmi (C22)' },
   { ad: 'yazici', grup: 'arsiv', dosya: 'arsiv/yazici.test.js', aciklama: 'A2: hiyerarsi acma, tek transaction, rollback' },
   { ad: 'kuyruk', grup: 'arsiv', dosya: 'arsiv/kuyruk.test.js', aciklama: 'A2: kuyruk, eszamanlilik-1, orchestrator kancasi' },
   { ad: 'aktarim', grup: 'arsiv', dosya: 'arsiv/aktarim.test.js', aciklama: 'A3/1: cache -> arsiv aktarimi (sifir ag istegi)' },

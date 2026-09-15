@@ -73,6 +73,11 @@ const { startBackfillSchedule } = require('./server/archive/backfillSchedule');
 // verisi `kaymak_id` ile bağlanacak ve Supabase o kimliği ÇÖZEBİLMELİ.
 const { startMirrorSchedule } = require('./server/archive/mirrorSchedule');
 
+// 🔴 §C22: arsivin "bir sey kayboldu mu?" organi. 2026-09-14'te `external_ids`ten
+// bir satir kayboldu ve bunu BIR GUN SONRA, tesaduffen fark edebildik —
+// kanit da koddan degil gece yedeklerinden cikti. Ayrinti `sayac.js` basligi.
+const { startSayacSchedule } = require('./server/archive/sayac');
+
 const app = express();
 const PORT = process.env.PORT || 4830;
 
@@ -128,6 +133,10 @@ startBackfillSchedule();
 // onu da alır — yani yeni veri AYNI SABAH aynalanmış olur. Öne alsaydık her
 // gece bir gün gecikirdi ve T0'ın "ayna gecikmesi < 24 saat" ölçütü sıkışırdı.
 startMirrorSchedule();
+
+// Gece haritasindaki BESINCI is: 09-11, hepsinden SONRA — gecenin tum
+// yazmalari bittikten sonraki sayi anlamli olan.
+startSayacSchedule();
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır

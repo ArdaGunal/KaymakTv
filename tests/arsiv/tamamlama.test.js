@@ -65,7 +65,8 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   T.ok('backfill_state tablosu olustu', tabloVar === 1);
 
   const surum = conn.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
-  // 🔴 SURUM 2 (2026-09-14): `external_ids.retired_at` mezar tasi eklendi.
+  // 🔴 SURUM 3 (2026-09-15): `sync_log.event` CHECK kisiti KALDIRILDI (§C16).
+  // Surum 2 (2026-09-14) `external_ids.retired_at` mezar tasini getirmisti.
   //
   // Neden bu degisiklik surumu ARTIRDI, digerleri artirmadi: `schema.sql`
   // tamamen `IF NOT EXISTS` — YENI TABLO ve YENI INDEKS var olan bir
@@ -75,7 +76,7 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   //
   // ⚠️ Bu iddia sabit bir sayiya cakiliyor ki surum KEYFI olarak
   // artirilamasin. Artiracaksan once `db.js`e gocu yaz, sonra burayi.
-  T.ok('Sema surumu 2 (retired_at gocu)', surum.value === '2', `surum=${surum.value}`);
+  T.ok('Sema surumu 3 (sync_log CHECK kaldirildi)', surum.value === '3', `surum=${surum.value}`);
   T.ok('db.js hedef surumu ile TUTARLI', Number(surum.value) === db.HEDEF_SEMA_SURUMU,
     `meta=${surum.value} kod=${db.HEDEF_SEMA_SURUMU}`);
 

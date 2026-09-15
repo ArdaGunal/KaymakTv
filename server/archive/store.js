@@ -135,15 +135,48 @@ async function readPayload({ kaymakId, provider, endpoint, lang = DILSIZ }) {
  *
  * Bu fonksiyon da THROW ETMEZ — log yazamamak, işi durdurmaz.
  */
+// Defterin TANIDIĞI olaylar. 🔴 Bu liste bir KAPI DEĞİL, bir SÖZLÜKTÜR:
+// listede olmayan bir değer yine de YAZILIR, yalnızca bir kez uyarılır.
+// Eskiden bu liste `sync_log.event` üzerinde bir CHECK'ti ve `mirror.js`'in
+// sekiz günlük çıktısını sessizce yok etti (§C16). Ayrıntı: `schema.sql`.
+const BILINEN_OLAYLAR = new Set([
+  'upsert', 'conflict', 'error', 'backfill', 'vacuum',
+  'mirror', // §C16 — CHECK bunu sekiz gun boyunca yutmustu
+  'sayac',  // §C22 — gecelik satir sayimi (sayac.js)
+]);
+
+// Aynı arızayı her yazımda bağırmamak için — journald'ı boğmadan bir kez
+// duyurmak yeterli. Ayrım MESAJA göre: yeni bir arıza biçimi yine görünür.
+const uyarilanOlaylar = new Set();
+const uyarilanHatalar = new Set();
+
 function logSync({ event, provider = null, endpoint = null, kaymakId = null, detail = null }) {
   const db = getDb();
   if (!db) return false;
+
+  if (!BILINEN_OLAYLAR.has(event) && !uyarilanOlaylar.has(event)) {
+    uyarilanOlaylar.add(event);
+    console.warn(
+      `[Arsiv] sync_log: TANINMAYAN olay '${event}' — satir yazildi, ama `
+      + 'store.js BILINEN_OLAYLAR listesine eklenmeli.'
+    );
+  }
+
   try {
     db.prepare(
       'INSERT INTO sync_log (at, event, provider, endpoint, kaymak_id, detail) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(Date.now(), event, provider, endpoint, kaymakId, detail);
     return true;
-  } catch (_) {
+  } catch (error) {
+    // 🔴 HÂLÂ THROW ETMİYOR — log yazamamak işi durdurmaz (A2 sözleşmesi).
+    // AMA ARTIK SESSİZ DEĞİL. §C16'nın asıl dersi CHECK değil BURASIYDI:
+    // `catch (_) { return false; }` üç kat savunmacı sarmalayıcının en
+    // alttakiydi ve aynanın sekiz günlük sessizliğini o üretti.
+    const imza = `${event}|${error.message}`;
+    if (!uyarilanHatalar.has(imza)) {
+      uyarilanHatalar.add(imza);
+      console.error(`[Arsiv] 🔴 sync_log YAZILAMADI (event=${event}): ${error.message}`);
+    }
     return false;
   }
 }
