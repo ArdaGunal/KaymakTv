@@ -35,7 +35,7 @@ const { findByExternal } = require('./identity');
 const { logSync } = require('./store');
 const { archiveCatalogResponse } = require('./writer');
 const { DEFAULT_CONFIG: DEVRE_CONFIG } = require('../lazyfetch/circuitBreaker');
-const { hedefAnahtari } = require('./backfillSource');
+const { hedefAnahtari, hedefleriUret } = require('./backfillSource');
 
 /** Bkz. dosya başlığı — devre kesici eşiğinin ALTINDA kalmak ZORUNDA. */
 const ARDISIK_HATA_TAVANI = 3;
@@ -232,6 +232,71 @@ function arsivdeVarMi(h) {
  * özel sezon mu) — `BACKLOG` §C11 akrabası. Bu dal semptomu eritiyor;
  * teşhis ayrı bir iş.
  */
+/**
+ * 🗂️ ÜÇÜNCÜ KAYNAK — ARŞİVİN KENDİ BAYAT DİZİLERİ (§C20, 2026-09-15)
+ *
+ * 🔬 ÖLÇÜLDÜ, kullanıcı Silo üzerinden yakaladı:
+ *   · arşivde 210 DEVAM EDEN dizi var, **171**inin `show_seasons` yükü
+ *     10 günden eski,
+ *   · ama gece kaynağı (`fetchTakipEdilenler`) `feed_activities`'den
+ *     türüyor ve yalnızca **38** dizi içeriyor.
+ * ➡️ Yani tazelik kuralı doğru çalışıyordu ama GÖREMEDİĞİ 171 dizide
+ * yaklaşan bölüm tarihleri kalıcı olarak bayatlıyordu. Silo'nun düzelmesinin
+ * tek sebebi elle zorlanmasıydı.
+ *
+ * 🔴 NEDEN `backfillSource.js`'TE DEĞİL: o dosyanın başlığı "BU DOSYA ARŞİVİ
+ * TANIMAZ" diyor ve `db.js`'i require etmiyor (kaynak katmanı ≠ karar
+ * katmanı). Arşivi okuyan tespit BURAYA ait; şekillendirmeyi yine
+ * `hedefleriUret` yapıyor, böylece hedef nesnesi TEK YERDE tanımlı kalıyor.
+ *
+ * ⛔ KAPSAM DAR: yalnızca DEVAM EDEN diziler (biten/iptal dizinin bölüm
+ * listesi değişmez) ve yalnızca `show_seasons`. Tavan var çünkü bu bir
+ * BAKIM işi: gecelik bütçeyi asıl işten çalmamalı.
+ *
+ * @returns {Array} `hedefleriUret` şeklinde hedefler (en bayat ÖNCE)
+ */
+function bayatArsivHedefleri(dil, { tavan = 30, esikMs = TAZELIK_MS, simdi = Date.now() } = {}) {
+  const db = getDb();
+  if (!db) return [];
+  try {
+    // 🔑 EN BAYAT ÖNCE: tur yarıda kesilirse en çok geride kalanlar
+    // kazanmış olur. Rastgele sırada kesilme her gece aynı diziyi
+    // atlayabilirdi.
+    const satirlar = db
+      .prepare(
+        `SELECT x.source_id AS traktId
+           FROM payloads p
+           JOIN entities e ON e.kaymak_id = p.kaymak_id
+           JOIN external_ids x ON x.kaymak_id = p.kaymak_id
+                             AND x.source = 'trakt:show'
+                             AND x.retired_at IS NULL
+          WHERE p.endpoint = 'show_seasons'
+            AND COALESCE(e.status, '') NOT IN ('ended', 'canceled')
+            AND p.fetched_at < ?
+          ORDER BY p.fetched_at ASC
+          LIMIT ?`
+      )
+      .all(simdi - esikMs, tavan);
+
+    const hedefler = [];
+    for (const r of satirlar) {
+      const n = Number(r.traktId);
+      if (!Number.isInteger(n)) continue;
+      // ⚠️ `tazele` YOK: hedef zaten "bayat" olduğu için `arsivdeVarMi`
+      // onu kendiliğinden eksik sayacak. `zorla` eklemek geri çekilme
+      // defterini de baypas ederdi — sürekli düşen bir hedef her gece
+      // yeniden denenirdi.
+      hedefler.push(...hedefleriUret({ traktId: String(n), type: "show" }, dil));
+    }
+    return hedefler.filter((h) => h.endpoint === TAZELENEN_UC);
+  } catch (error) {
+    // Sessiz DEĞİL ama turu da düşürmüyor: üçüncü kaynak bir BAKIM
+    // eklentisi, ana akışı çökertmemeli.
+    console.error('[backfill] bayat arsiv hedefleri okunamadi:', error?.message || error);
+    return [];
+  }
+}
+
 function eksikleriBul(hedefler, { simdi = Date.now() } = {}) {
   const kapsanan = [];
   const beklemede = [];
@@ -384,6 +449,7 @@ async function tamamla({
 
 module.exports = {
   tamamla,
+  bayatArsivHedefleri,
   eksikleriBul,
   arsivdeVarMi,
   defterOku,

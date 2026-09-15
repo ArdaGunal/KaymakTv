@@ -19,7 +19,7 @@ const { logSync } = require('./store');
 const {
   fetchTakipEdilenler, hedefListesi, fetchImportHedefleri, tasiBekleyenleri,
 } = require('./backfillSource');
-const { tamamla, eksikleriBul } = require('./backfill');
+const { tamamla, eksikleriBul, bayatArsivHedefleri } = require('./backfill');
 const { getLazyFetchStatus } = require('../lazyfetch/paths');
 const { createTraktCatalogFetcher } = require('../lazyfetch/providers/trakt');
 
@@ -230,6 +230,28 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
 
     // ── ÖNCELİK 2 · AKIŞ HEDEFLERİ (bugünkü talep) ──
     const hedefler = hedefListesi(kaynak.items, dil);
+
+    // ── ÖNCELİK 3 · ARŞİVİN BAYAT DİZİLERİ (§C20, 2026-09-15) ──────────
+    // 🔬 ÖLÇÜLDÜ: akış kaynağı yalnızca **38** dizi getiriyor
+    // (`feed_activities`), oysa arşivde **210** devam eden dizi var ve
+    // **171**inin `show_seasons` yükü 10 günden eski. Yani tazelik kuralı
+    // doğru çalışıyordu ama göremediği 171 dizide yaklaşan bölüm tarihleri
+    // kalıcı olarak bayatlıyordu — Silo bunlardan biriydi ve ancak ELLE
+    // zorlanarak düzeldi (M377–M379).
+    //
+    // 🔴 SONA EKLENİYOR, başa değil. Bu bir BAKIM işi: gecelik bütçeyi
+    // (`GECELIK_TAVAN`) asıl işten — hiç çekilmemiş yapımlar ve aktarımın
+    // bekleyen satırları — çalmamalı. Tazeleme hedeflerini `eksikleriBul`
+    // içinde sona koyarken verdiğimiz kararın aynısı.
+    //
+    // ⚠️ SABİTLERE DOKUNULMADI: tavan 30, yani 171 dizi ~6 gecede tam tur,
+    // sonra kararlı durumda ~17/gece (171 ÷ 10 günlük eşik).
+    // `GECELIK_TAVAN=200` ve 2,5 sn aralık aynen duruyor.
+    const bayatlar = bayatArsivHedefleri(dil, { tavan: 30 });
+    if (bayatlar.length) {
+      hedefler.push(...bayatlar);
+    }
+
     const { kapsanan, beklemede, eksik } = eksikleriBul(hedefler);
     const kapsamYuzde = hedefler.length ? ((kapsanan.length / hedefler.length) * 100).toFixed(1) : '0.0';
 
