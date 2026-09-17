@@ -19,7 +19,8 @@ const { logSync } = require('./store');
 const {
   fetchTakipEdilenler, hedefListesi, fetchImportHedefleri, tasiBekleyenleri,
 } = require('./backfillSource');
-const { tamamla, eksikleriBul, bayatArsivHedefleri } = require('./backfill');
+const { eksikleriBul, bayatArsivHedefleri } = require('./backfill');
+const { tamamla } = require('./backfillTamamla');
 const { getLazyFetchStatus } = require('../lazyfetch/paths');
 const { createTraktCatalogFetcher } = require('../lazyfetch/providers/trakt');
 
@@ -264,14 +265,18 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
     // yolunda göründüğü gecelerde beklemeye devam ederdi.
     const sonuc = eksik.length
       ? await tamamla({ hedefler: eksik, fetcher, limit })
-      : { denenen: 0, yazilan: 0, bulunamadi: 0, basarisiz: 0, onbellekten: 0, agdanCekilen: 0, atlanan: 0, ardisikHata: 0, durduranSebep: null };
+      : { denenen: 0, yazilan: 0, bulunamadi: 0, basarisiz: 0, onbellekten: 0, agdanCekilen: 0, zorlaCekilen: 0, yedektenDonen: 0, atlanan: 0, ardisikHata: 0, durduranSebep: null };
 
     logSync({
       event: 'backfill', provider: 'trakt',
       detail: eksik.length
         ? `akis: denenen ${sonuc.denenen}, yazilan ${sonuc.yazilan}, `
           + `bulunamadi ${sonuc.bulunamadi}, basarisiz ${sonuc.basarisiz}, `
-          + `onbellekten ${sonuc.onbellekten}, kalan ${sonuc.atlanan}`
+          // 🆕 §C23: `zorla` = önbellek 10 günden eski olduğu için Trakt'a ZORLA
+          // gidilen tazeleme hedefi. M387'de bu sayı olmadığı için "onbellekten 30"
+          // satırının neyi gizlediği ancak zarflar tek tek açılarak anlaşıldı.
+          + `onbellekten ${sonuc.onbellekten}, zorla ${sonuc.zorlaCekilen ?? 0}, kalan ${sonuc.atlanan}`
+          + (sonuc.yedektenDonen ? `, yedekten ${sonuc.yedektenDonen}` : '')
           + (sonuc.durduranSebep ? `, DURDU: ${sonuc.durduranSebep}` : '')
           + ` | kapsam oncesi %${kapsamYuzde}`
         : `akis: eksik YOK, kapsam %${kapsamYuzde} (${kapsanan.length}/${hedefler.length}), beklemede ${beklemede.length}`,

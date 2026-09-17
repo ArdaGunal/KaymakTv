@@ -44,7 +44,8 @@ const { DEFAULT_CONFIG: DEVRE_CONFIG } = require(path.join(LF, 'circuitBreaker')
 const db = require(path.join(AR, 'db'));
 const { summary } = require(path.join(AR, 'store'));
 const { fetchTakipEdilenler, hedefListesi, hedefAnahtari } = require(path.join(AR, 'backfillSource'));
-const { tamamla, eksikleriBul, ARDISIK_HATA_TAVANI, ISTEKLER_ARASI_MS } = require(path.join(AR, 'backfill'));
+const { eksikleriBul, ARDISIK_HATA_TAVANI, ISTEKLER_ARASI_MS } = require(path.join(AR, 'backfill'));
+const { tamamla } = require(path.join(AR, 'backfillTamamla'));
 
 const argv = process.argv.slice(2);
 const UYGULA = argv.includes('--uygula');
@@ -194,6 +195,8 @@ const tarih = (ms) => (ms ? new Date(ms).toISOString().slice(0, 16).replace('T',
   if (sonuc.basarisiz) say(`  BASARISIZ    : ${sonuc.basarisiz}`);
   say(`  agdan cekilen: ${sonuc.agdanCekilen}`);
   say(`  onbellekten  : ${sonuc.onbellekten}  (cache/ tazeydi, aga hic cikilmadi)`);
+  say(`  zorla        : ${sonuc.zorlaCekilen ?? 0}  (§C23: onbellek 10 gunden eskiydi, Trakt'a zorla gidildi)`);
+  if (sonuc.yedektenDonen) say(`  yedekten     : ${sonuc.yedektenDonen}  (saglayiciya ulasilamadi — YAZILMADI)`);
   if (sonuc.atlanan) say(`  denenmeyen   : ${sonuc.atlanan}`);
 
   if (sonuc.durduranSebep === 'ardisik_hata') {

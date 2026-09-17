@@ -27,9 +27,10 @@ const {
   fetchImportHedefleri, tasiBekleyenleri,
 } = require(path.join(AR, 'backfillSource'));
 const {
-  tamamla, eksikleriBul, arsivdeVarMi, defterOku, defterYaz, beklemedeMi,
-  geriCekilme, ARDISIK_HATA_TAVANI, GERI_CEKILME_MS,
+  eksikleriBul, arsivdeVarMi, defterOku, defterYaz, beklemedeMi,
+  geriCekilme, ARDISIK_HATA_TAVANI, GERI_CEKILME_MS, TAZELIK_MS,
 } = require(path.join(AR, 'backfill'));
+const { tamamla } = require(path.join(AR, 'backfillTamamla'));
 
 /** Sahte Supabase `fetch` — sayfalamayı gerçekçi taklit eder. */
 function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
@@ -436,7 +437,9 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   const uyuKaydet = async (ms) => { uykular.push(ms); };
   const arsivleTamam = async () => ({ ok: true });
 
-  const tazeden = async () => ({ status: 'fresh', data: [{ ids: { trakt: 1 } }] });
+  // 🆕 §C23: gerçek orkestratör önbellek isabetinde artık `fetchedAt` DÖNDÜRÜYOR.
+  // Sahte de öyle dönmeli — damgasız isabet artık YAZILMIYOR (aşağıda ayrı iddia).
+  const tazeden = async () => ({ status: 'fresh', data: [{ ids: { trakt: 1 } }], fetchedAt: Date.now() - 1000 });
   const s4 = await tamamla({
     hedefler: cokHedef.slice(0, 5), fetcher: () => {}, resolve: tazeden,
     arsivle: arsivleTamam, beklemeMs: 2500, uyuFn: uyuKaydet,
@@ -479,6 +482,132 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   T.ok('Arsive HEDEFIN query\'si gecti (dil dogru)',
     gorulen.find((g) => g.family === 'show_detail').query.translations === 'tr');
   T.ok('Arsive provider=trakt gecti', gorulen.every((g) => g.provider === 'trakt'));
+
+  // ==================================================================
+  T.H('🔴 §C23-A — ARSIVIN DAMGASI YALAN SOYLEMEZ');
+  // ==================================================================
+  // M387'de canli veriyle olculdu: iki gecede 60 "tazelemenin" 28'i sahteydi.
+  // Onbellekten gelen 15,9 gunluk veri `fetchedAt` gecirilmedigi icin
+  // `upsertPayload` varsayilani `Date.now()` ile "bu gece cekildi" diye yazildi.
+  const ESKI = Date.now() - 16 * 24 * 3600 * 1000; // M387'deki gercek yas
+  const damgalar = [];
+  const damgaKaydet = async (arg) => { damgalar.push(arg.fetchedAt); return { ok: true }; };
+
+  const s7 = await tamamla({
+    hedefler: cokHedef.slice(0, 2), fetcher: () => {},
+    resolve: async () => ({ status: 'fresh', data: [{ ids: { trakt: 1 } }], fetchedAt: ESKI }),
+    arsivle: damgaKaydet, beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('🔴 Onbellek isabetinde damga ZARFTAN geldi (simdi DEGIL)',
+    damgalar.length === 2 && damgalar.every((d) => d === ESKI), damgalar.map((d) => new Date(d).toISOString()).join(','));
+  T.ok('...ve yine de yazildi (veri dogru, yalnizca yasi dogru)', s7.yazilan === 2);
+
+  damgalar.length = 0;
+  const s8 = await tamamla({
+    hedefler: cokHedef.slice(0, 2), fetcher: () => {},
+    resolve: async () => ({ status: 'stale', data: [{ ids: { trakt: 1 } }], fetchedAt: ESKI }),
+    arsivle: damgaKaydet, beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('Bayat (SWR) isabette de damga zarftan', damgalar.every((d) => d === ESKI) && s8.yazilan === 2);
+
+  // 🔴 Damgasi olmayan isabet YAZILMAZ: `Date.now()` ile doldurmak tam da
+  // duzeltilen yalani geri getirirdi.
+  damgalar.length = 0;
+  const s9 = await tamamla({
+    hedefler: cokHedef.slice(0, 2), fetcher: () => {},
+    resolve: async () => ({ status: 'fresh', data: [{ ids: { trakt: 1 } }] }),
+    arsivle: damgaKaydet, beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('🔴 DAMGASIZ onbellek isabeti arsive YAZILMADI', damgalar.length === 0 && s9.yazilan === 0, `yazilan=${s9.yazilan}`);
+  T.ok('...basarisiz sayildi (sessizce yutulmadi)', s9.basarisiz === 2);
+  T.ok('...ama ardisik hata FRENINI tetiklemedi (saglayici sucsuz)', s9.durduranSebep === null, String(s9.durduranSebep));
+
+  damgalar.length = 0;
+  const TAZE = Date.now() - 50;
+  await tamamla({
+    hedefler: cokHedef.slice(0, 1), fetcher: () => {},
+    resolve: async () => ({ status: 'miss', data: [{ ids: { trakt: 1 } }], fetchedAt: TAZE }),
+    arsivle: damgaKaydet, beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('Aga gidildiyse damga zarftan (gercek cekilme ani)', damgalar[0] === TAZE);
+
+  damgalar.length = 0;
+  const once = Date.now();
+  await tamamla({
+    hedefler: cokHedef.slice(0, 1), fetcher: () => {},
+    resolve: async () => ({ status: 'passthru', data: [{ ids: { trakt: 1 } }] }),
+    arsivle: damgaKaydet, beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('Aga gidilip damga yoksa Date.now() — o durumda DOGRU olan bu', damgalar[0] >= once);
+
+  // ==================================================================
+  T.H('🔴 §C23 — saglayiciya ULASILAMADI: yedekten donen veri tazeleme DEGIL');
+  // ==================================================================
+  // Orkestrator saglayici cokunce firlatmiyor, eski veriyi donuyor. Eskiden
+  // backfill bunu "agdan cekildi" sayip "simdi" damgasiyla yaziyordu VE
+  // `ardisikHata`yi sifirliyordu — Trakt cokukken fren hic calismiyordu.
+  for (const durum of ['grace-fallback', 'archive-fallback']) {
+    damgalar.length = 0;
+    const sY = await tamamla({
+      hedefler: cokHedef.slice(0, 10), fetcher: () => {},
+      resolve: async () => ({ status: durum, data: [{ ids: { trakt: 1 } }], fetchedAt: ESKI }),
+      arsivle: damgaKaydet, beklemeMs: 0, uyuFn: async () => {},
+    });
+    T.ok(`🔴 ${durum}: arsive YAZILMADI`, damgalar.length === 0 && sY.yazilan === 0, `yazilan=${sY.yazilan}`);
+    T.ok(`${durum}: basarisiz + yedektenDonen sayildi`, sY.basarisiz === ARDISIK_HATA_TAVANI && sY.yedektenDonen === ARDISIK_HATA_TAVANI,
+      `basarisiz=${sY.basarisiz} yedekten=${sY.yedektenDonen}`);
+    T.ok(`🔴 ${durum}: ARDISIK HATA FRENI calisti (devre kesiciden once durdu)`, sY.durduranSebep === 'ardisik_hata', String(sY.durduranSebep));
+    T.ok(`${durum}: agdan/onbellekten sayilmadi`, sY.agdanCekilen === 0 && sY.onbellekten === 0);
+  }
+
+  // ==================================================================
+  T.H('🔴 §C23-B — tazelik bakimi LazyFetch onbellegini YAS SINIRIYLA atlar');
+  // ==================================================================
+  // LazyFetch sezon arasi diziye 30 gun taze diyor; §C20 10 gun. Tazelik
+  // bakimi LazyFetch'in icinden gectigi icin onun kurali kazaniyordu.
+  const gorulenIstek = [];
+  const istekKaydet = async (opts) => { gorulenIstek.push(opts); return { status: 'miss', data: [{ ids: { trakt: 1 } }], fetchedAt: Date.now() }; };
+
+  const normalHedef = cokHedef[0];
+  const bakimHedefi = { ...cokHedef[1], tazelikBakimi: true };
+  await tamamla({
+    hedefler: [normalHedef, bakimHedefi], fetcher: () => {}, resolve: istekKaydet,
+    arsivle: async () => ({ ok: true }), beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('🔴 Tazelik bakimi hedefi YAS SINIRI gecti (TAZELIK_MS)',
+    gorulenIstek[1] && gorulenIstek[1].maxEnvelopeAgeMs === TAZELIK_MS, String(gorulenIstek[1] && gorulenIstek[1].maxEnvelopeAgeMs));
+  T.ok('🔴 NORMAL hedef sinir GECMEDI (onbellek kazanci korunur)',
+    gorulenIstek[0] && gorulenIstek[0].maxEnvelopeAgeMs === undefined, String(gorulenIstek[0] && gorulenIstek[0].maxEnvelopeAgeMs));
+
+  const sZ = await tamamla({
+    hedefler: [bakimHedefi, bakimHedefi], fetcher: () => {},
+    resolve: async () => ({ status: 'miss-refetched', data: [{ ids: { trakt: 1 } }], fetchedAt: Date.now(), forced: true }),
+    arsivle: async () => ({ ok: true }), beklemeMs: 0, uyuFn: async () => {},
+  });
+  T.ok('zorlaCekilen OLCULUYOR (M387\'de bu sayi yoktu)', sZ.zorlaCekilen === 2 && sZ.agdanCekilen === 2, `zorla=${sZ.zorlaCekilen}`);
+
+  // ── eksikleriBul isareti — §C20'nin tazeleme kovasi (daha once HIC birim testi yoktu) ──
+  const devamEden = resolveOrCreate({
+    type: 'show',
+    externalIds: [{ source: 'trakt:show', source_id: '424242' }],
+    derived: { title: 'Sezon Arasi Dizi', status: 'returning series' },
+  });
+  const biten = resolveOrCreate({
+    type: 'show',
+    externalIds: [{ source: 'trakt:show', source_id: '434343' }],
+    derived: { title: 'Bitmis Dizi', status: 'ended' },
+  });
+  const sezonHedefi = (id) => hedefleriUret({ traktId: id, type: 'show' }, 'tr').find((h) => h.endpoint === 'show_seasons');
+  await upsertPayload({ kaymakId: devamEden.kaymak_id, provider: 'trakt', endpoint: 'show_seasons', lang: '-', data: [], fetchedAt: ESKI });
+  await upsertPayload({ kaymakId: biten.kaymak_id, provider: 'trakt', endpoint: 'show_seasons', lang: '-', data: [], fetchedAt: ESKI });
+
+  const kova = eksikleriBul([sezonHedefi('424242'), sezonHedefi('434343')]);
+  const isaretli = kova.eksik.find((h) => h.sourceId === '424242');
+  T.ok('Devam eden + 16 gunluk show_seasons → EKSIK (tazeleme kovasi)', !!isaretli && kova.tazeleme === 1, `tazeleme=${kova.tazeleme}`);
+  T.ok('🔴 ...ve tazelikBakimi ile ISARETLENDI', isaretli && isaretli.tazelikBakimi === true);
+  T.ok('Bitmis dizi tazelenmez (kapsanan)', kova.kapsanan.some((h) => h.sourceId === '434343'));
+  T.ok('Hic cekilmemis (eksik) hedef ISARETLENMEZ — zorla cekime gerek yok, onbellek zaten yok',
+    eksikleriBul([bilinmeyen]).eksik.every((h) => h.tazelikBakimi !== true));
 
   // ==================================================================
   T.H('Gece zamanlayicisi — PENCERE CAKISMASI ve kurulum kapilari');

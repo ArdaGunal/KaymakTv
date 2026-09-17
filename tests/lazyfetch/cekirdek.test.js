@@ -291,6 +291,101 @@ const { NotFoundError } = require(path.join(LF, 'errors'));
   T.ok('Elde HIC veri yoksa hata oldugu gibi yukari iletiliyor', hataYukari);
 
   // ======================================================================
+  T.H('🔴 §C23 — fetchedAt DONUYOR + maxEnvelopeAgeMs (tazelik bakimi)');
+  // ======================================================================
+  // M387: gece backfill'i onbellekten gelen 15,9 gunluk veriyi "bu gece
+  // cekildi" diye arsive yazdi. Iki kusur: (A) sonuc zarfin gercek
+  // `fetchedAt`ini tasimiyordu, (B) LazyFetch'in 30 gunluk TTL'i arsivin 10
+  // gunluk tazelik kuralini eziyordu. Bu iddialar GERCEK karar agacini
+  // (disk zarfi + fetcher) sinar — `tamamla` testleri sahte resolve kullanir.
+  // `GUN` bu blokta yukarida (L5 bolumu) ayni degerle zaten tanimli.
+  const eskiZarf = async (yol, { yasMs, payload }) => {
+    const k = key.buildCacheKey({ provider: 'tmdb', family: 'tv_detail', path: yol });
+    const z = env.createEnvelope({ provider: 'tmdb', family: 'tv_detail', payload, ttlMs: 30 * GUN, graceMs: 150 * GUN });
+    z.fetchedAt = Date.now() - yasMs;          // cekilme ani ESKI…
+    z.expiresAt = Date.now() + 14 * GUN;       // …ama TTL'e gore hala TAZE (M387'deki durum)
+    z.hardExpiresAt = z.expiresAt + 150 * GUN;
+    await disk.writeCacheEntry(k.relativePath, z);
+    return z;
+  };
+
+  const zA = await eskiZarf('/tv/999020', { yasMs: 16 * GUN, payload: { v: 'ESKI' } });
+  const rA = await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999020',
+    fetcher: async () => { throw new Error('cagrilmamaliydi'); },
+  });
+  T.ok('🔴 (A) Onbellek isabeti zarfin GERCEK fetchedAt\'ini tasiyor', rA.status === 'fresh' && rA.fetchedAt === zA.fetchedAt,
+    `status=${rA.status} fetchedAt=${rA.fetchedAt} zarf=${zA.fetchedAt}`);
+  T.ok('🔴 Sinir VERILMEZSE davranis BIREBIR eski: 16 gunluk ama TTL-taze zarf servis edildi (kullanici istegi icin dogru)',
+    rA.data.v === 'ESKI');
+
+  let cagriB = 0;
+  await eskiZarf('/tv/999021', { yasMs: 16 * GUN, payload: { v: 'ESKI' } });
+  const onceB = Date.now();
+  const rB = await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999021', maxEnvelopeAgeMs: 10 * GUN,
+    fetcher: async () => { cagriB++; return { data: { v: 'YENI' }, maxAgeSeconds: 600 }; },
+  });
+  T.ok('🔴 (B) Sinir asildi → TTL "taze" dese de saglayiciya GIDILDI', cagriB === 1 && rB.data.v === 'YENI', `${cagriB} cagri, v=${rB.data && rB.data.v}`);
+  T.ok('(B) sonuc forced:true ve miss-refetched (olculebilir)', rB.forced === true && rB.status === 'miss-refetched', `status=${rB.status}`);
+  T.ok('(B) yeni sonucun damgasi GERCEK cekilme ani', rB.fetchedAt >= onceB, `${rB.fetchedAt - onceB} ms`);
+
+  let cagriC = 0;
+  await eskiZarf('/tv/999022', { yasMs: 3 * GUN, payload: { v: 'GENC' } });
+  const rC = await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999022', maxEnvelopeAgeMs: 10 * GUN,
+    fetcher: async () => { cagriC++; return { data: { v: 'YENI' }, maxAgeSeconds: 600 }; },
+  });
+  T.ok('🔴 (B) Sinirin ALTINDAKI zarf onbellekten dondu — bosuna Trakt istegi YOK', cagriC === 0 && rC.status === 'fresh' && rC.data.v === 'GENC',
+    `${cagriC} cagri`);
+  T.ok('(B) zorlanmayan sonucta forced YOK', rC.forced === undefined);
+
+  const zD = await eskiZarf('/tv/999023', { yasMs: 16 * GUN, payload: { v: 'ESKI' } });
+  const rD = await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999023', maxEnvelopeAgeMs: 10 * GUN,
+    fetcher: async () => { throw new Error('Trakt coktu'); },
+  });
+  T.ok('🔴 Zorla cekim COKERSE eski zarf GRACE FALLBACK olarak doner (kesinti dayanikliligi dusmedi)',
+    rD.status === 'grace-fallback' && rD.data.v === 'ESKI', `status=${rD.status}`);
+  T.ok('🔴 ...ve damgasi ESKI kalir (yalan yok)', rD.fetchedAt === zD.fetchedAt);
+
+  // 🔑 KONTROL (aleti sına): damgasız zarf SINIR VERILMEDEN istenirse onbellekten
+  // donmeli. Donmuyorsa asagidaki "eski sayildi" iddiasi yanlis sebeple
+  // (ornegin disk okumasi zarfi reddettigi icin) geciyor demektir.
+  const kKontrol = key.buildCacheKey({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999026' });
+  const zKontrol = env.createEnvelope({ provider: 'tmdb', family: 'tv_detail', payload: { v: 'DAMGASIZ' }, ttlMs: 30 * GUN, graceMs: 150 * GUN });
+  delete zKontrol.fetchedAt;
+  await disk.writeCacheEntry(kKontrol.relativePath, zKontrol);
+  let cagriKontrol = 0;
+  const rKontrol = await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999026',
+    fetcher: async () => { cagriKontrol++; return { data: { v: 'YENI' }, maxAgeSeconds: 600 }; },
+  });
+  T.ok('KONTROL: damgasiz zarf sinirsiz istekte GECERLI (onbellekten dondu)', cagriKontrol === 0 && rKontrol.status === 'fresh',
+    `${cagriKontrol} cagri, status=${rKontrol.status}`);
+
+  let cagriE = 0;
+  const kE = key.buildCacheKey({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999024' });
+  const zE = env.createEnvelope({ provider: 'tmdb', family: 'tv_detail', payload: { v: 'DAMGASIZ' }, ttlMs: 30 * GUN, graceMs: 150 * GUN });
+  delete zE.fetchedAt;
+  await disk.writeCacheEntry(kE.relativePath, zE);
+  await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999024', maxEnvelopeAgeMs: 10 * GUN,
+    fetcher: async () => { cagriE++; return { data: { v: 'YENI' }, maxAgeSeconds: 600 }; },
+  });
+  T.ok('Damgasi okunamayan zarf GENC OLDUGU KANITLANAMADIGI icin eski sayildi', cagriE === 1, `${cagriE} cagri`);
+
+  let cagriF = 0;
+  await eskiZarf('/tv/999025', { yasMs: 16 * GUN, payload: { v: 'ESKI' } });
+  for (const kotu of [0, -5, NaN, 'on gun']) {
+    await orch.resolveRequest({
+      provider: 'tmdb', path: '/tv/999025', maxEnvelopeAgeMs: kotu,
+      fetcher: async () => { cagriF++; return { data: { v: 'YENI' }, maxAgeSeconds: 600 }; },
+    });
+  }
+  T.ok('Gecersiz sinir (0/negatif/NaN/metin) YOK SAYILIR — kazara zorla cekim yok', cagriF === 0, `${cagriF} cagri`);
+
+  // ======================================================================
   T.H('🔴 MODUL AILESI — bolunme sonrasi SINGLETON PAYLASIMI (Madde 295)');
   // ======================================================================
   // `orchestrator.js` 446 satira cikinca 400 kurali geregi bes parcaya

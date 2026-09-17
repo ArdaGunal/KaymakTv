@@ -51,10 +51,43 @@ const { fetchAndStore } = require('./fetchAndStore');
 const { triggerBackgroundRevalidate, REVALIDATE_FAILURE_COOLDOWN_MS } = require('./revalidate');
 const { tryArchiveFallback } = require('./archiveFallback');
 
-/** Bir zarfı `resolveRequest`'in dış sözleşmesine çevirir — `isNegative` ise `data` her zaman `null` ve status `not-found`'a sabitlenir. */
+/**
+ * Bir zarfı `resolveRequest`'in dış sözleşmesine çevirir — `isNegative` ise `data` her zaman `null` ve status `not-found`'a sabitlenir.
+ *
+ * 🆕 §C23 (2026-09-17) — `fetchedAt` ARTIK DÖNÜYOR.
+ * Verinin SAĞLAYICIDAN gerçekten çekildiği an. Önbellek isabetinde bu, isteğin
+ * ANI DEĞİL zarfın yazıldığı andır — ve aradaki fark 30 güne çıkabilir
+ * (`routeRegistry.js`: sezon arası dizi 30 gün taze).
+ *
+ * 🔴 NEDEN: bu alan dönmüyordu, çağıran taraf da bilmediği için `Date.now()`
+ * varsayıyordu. Gece backfill'i önbellekten gelen 15,9 günlük veriyi arşive
+ * "bu gece çekildi" damgasıyla yazdı; §C20'nin tazelik kuralı kandırıldı —
+ * iki gecede 60 "tazelemenin" 28'i sahteydi (M387, canlı veriyle ölçüldü).
+ * Eklemeli bir alan: mevcut çağıranlar (`tmdbProxy.js`, `traktCatalog.js`)
+ * onu okumadığı için etkilenmez.
+ */
 function envelopeToResult(envelope, status) {
   if (envelope.isNegative) return { status: 'not-found', data: null };
-  return { status, data: envelope.payload };
+  return { status, data: envelope.payload, fetchedAt: envelope.fetchedAt };
+}
+
+/**
+ * 🆕 §C23-B — zarf, çağıranın KABUL EDEBİLECEĞİNDEN eski mi?
+ *
+ * LazyFetch'in kendi tazelik politikası (TTL) KULLANICI İSTEĞİ için
+ * tasarlandı: sezon arası bir diziyi 30 gün taze saymak, Trakt'a gereksiz
+ * istek atmamak demek ve orada doğru. Ama arşivin tazelik bakımı (§C20)
+ * farklı bir soru soruyor — "bu veri 10 günden eski mi?" — ve LazyFetch'in
+ * cevabı bu soruyu ezmemeli.
+ *
+ * ⚠️ `fetchedAt` okunamıyorsa GENÇ OLDUĞU KANITLANAMAZ → eski say. Sınır
+ * isteyen çağıran, sınırı kanıtlayamayan zarfı kabul etmemeli.
+ */
+function zarfCokEski(envelope, maxEnvelopeAgeMs, now = Date.now()) {
+  if (!(Number.isFinite(maxEnvelopeAgeMs) && maxEnvelopeAgeMs > 0)) return false;
+  const fetchedAt = Number(envelope.fetchedAt);
+  if (!Number.isFinite(fetchedAt)) return true;
+  return now - fetchedAt > maxEnvelopeAgeMs;
 }
 
 /**
@@ -71,8 +104,15 @@ function envelopeToResult(envelope, status) {
  *   'no-store' | 'grace-fallback' | 'archive-fallback' (🆕 A4) |
  *   'not-found' (🆕 L4 — `data` bu durumda her zaman `null`; çağıran taraf,
  *   ör. `tmdbProxy.js`, buna HTTP 404 karşılığı verir)
+ *   🆕 §C23: zarftan gelen her sonuç `fetchedAt` taşır (bkz. `envelopeToResult`).
+ *   Zorla yenilenen istekte ayrıca `forced: true`.
+ * @param {number} [opts.maxEnvelopeAgeMs] 🆕 §C23-B — verilirse, zarfın `fetchedAt`'i
+ *   bundan ESKİYSE LazyFetch'in "taze/bayat" kararı YOK SAYILIR ve sağlayıcıya
+ *   gidilir. Verilmezse davranış birebir eskisi gibidir. Bugün TEK çağıranı
+ *   arşivin tazelik bakımı (`backfill.js`). Sağlayıcı çökerse eski zarf yine
+ *   GRACE FALLBACK olarak döner — sınır, kesinti dayanıklılığını düşürmez.
  */
-async function resolveRequest({ provider, path, query = {}, fetcher }) {
+async function resolveRequest({ provider, path, query = {}, fetcher, maxEnvelopeAgeMs = null }) {
   if (typeof fetcher !== 'function') {
     throw new Error('[LazyFetch] resolveRequest: "fetcher" zorunlu bir fonksiyon olmalı.');
   }
@@ -109,7 +149,12 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
     }
   }
 
-  if (envelope) {
+  // 🆕 §C23-B: çağıranın yaş sınırını aşan zarf, TTL'i ne derse desin
+  // "elimizde yok" sayılır. Zarf ATILMIYOR — aşağıda sağlayıcı çökerse grace
+  // fallback olarak hâlâ kullanılacak.
+  const zorla = !!envelope && zarfCokEski(envelope, maxEnvelopeAgeMs);
+
+  if (envelope && !zorla) {
     const state = getEnvelopeState(envelope, SCHEMA_VERSION);
     if (state === 'fresh') {
       return envelopeToResult(envelope, 'fresh');
@@ -141,7 +186,11 @@ async function resolveRequest({ provider, path, query = {}, fetcher }) {
     // ölçmeden görür. Madde 261'in dersi (yanlış alet yanlış teşhis üretir)
     // burada peşinen uygulanıyor.
     const status = freshEnvelope.__notStored ? 'no-store' : envelope ? 'miss-refetched' : 'miss';
-    return envelopeToResult(freshEnvelope, status);
+    const sonuc = envelopeToResult(freshEnvelope, status);
+    // Ölçülebilirlik: gece turu "kaç dizi GERÇEKTEN zorla tazelendi" sorusunu
+    // statüden çıkaramaz ('miss-refetched' süresi dolmuş zarfta da gelir).
+    if (zorla) sonuc.forced = true;
+    return sonuc;
   } catch (error) {
     // ------------------------------------------------------------------
     // BAŞARISIZLIK MERDİVENİ — sıra bilinçli, gerekçesi `04_KARARLAR.md` §A5

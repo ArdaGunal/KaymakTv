@@ -1,6 +1,11 @@
 // ==========================================================================
 // KATALOG ARŞİVİ — Backfill Motoru (A3 Adım 2, dosya 2/2)
 // ==========================================================================
+// 📁 AİLE HARİTASI — 400 satırı aşınca BÖLÜNDÜ (2026-09-17, §C23)
+//   backfill.js         BU DOSYA · Defter + Tespit → "ne eksik, ne beklemede, ne bayat?"
+//   backfillTamamla.js  Çalıştırma (`tamamla`)     → "eksik olanı nasıl alıp yazarım?"
+// Bağımlılık TEK YÖNLÜ: o dosya buradan alır, bu dosya onu tanımaz.
+//
 // TEK İŞİ: hedef listesini alıp "arşivde eksik olanı" bulmak, hız sınırlı
 // biçimde tamamlamak ve başarısız ucu DEFTERE İŞARETLEMEK.
 //
@@ -32,9 +37,6 @@
 
 const { getDb } = require('./db');
 const { findByExternal } = require('./identity');
-const { logSync } = require('./store');
-const { archiveCatalogResponse } = require('./writer');
-const { DEFAULT_CONFIG: DEVRE_CONFIG } = require('../lazyfetch/circuitBreaker');
 const { hedefAnahtari, hedefleriUret } = require('./backfillSource');
 
 /** Bkz. dosya başlığı — devre kesici eşiğinin ALTINDA kalmak ZORUNDA. */
@@ -319,136 +321,26 @@ function eksikleriBul(hedefler, { simdi = Date.now() } = {}) {
       beklemede.push({ ...h, defter: defterOku(anahtar) });
       continue;
     }
-    if (durum.bayat) tazeleme.push(h);
+    // 🆕 §C23-B: tazeleme hedefi İŞARETLENİYOR. `tamamla` bu işareti görünce
+    // LazyFetch'e yaş sınırı geçer — yoksa önbellekteki 15,9 günlük zarf
+    // "taze" sayılıp aynen geri yazılıyordu (M387).
+    //
+    // 🔑 İşaret burada, KAYNAKTA DEĞİL: bir hedefin bu kovaya düşmesi §C20
+    // kuralının ta kendisi (arşivde var, `show_seasons` 10 günden bayat).
+    // Üçüncü kaynağın hedeflerinin hepsi buraya düşer — ama TAKİP EDİLEN
+    // (akış) dizilerin bayatlamışları da. İşaret yalnızca üçüncü kaynağa
+    // konsaydı, aynı dizi iki listede olduğunda işaretsiz akış kopyası önce
+    // koşar ve en önemli diziler aklanmaya devam ederdi.
+    if (durum.bayat) tazeleme.push({ ...h, tazelikBakimi: true });
     else eksik.push(h);
   }
 
   return { kapsanan, beklemede, eksik: eksik.concat(tazeleme), tazeleme: tazeleme.length };
 }
 
-// ==========================================================================
-// Çalıştırma
-// ==========================================================================
-
-/**
- * Eksik hedefleri tamamlar.
- *
- * 🔴 `resolveRequest` (orchestrator) ÜZERİNDEN GİDİLİR, Trakt'a doğrudan
- * DEĞİL. Sebep: token bucket + devre kesici + tek-uçuş + `cache/` yeniden
- * kullanımı bedavaya gelir ve backfill kendi sağlayıcı kodunu yazmaz
- * (AI_RULES §2.5: aynı iş iki yerde durmaz). Somut kazanç: hedef zaten
- * önbellekte tazeyse AĞA HİÇ ÇIKILMAZ, veri oradan alınıp arşive yazılır.
- *
- * 🔴 ARŞİVE YAZIM `archiveCatalogResponse` İLE DOĞRUDAN YAPILIR,
- * `archiveQueue` ile DEĞİL. Kuyruk "ateşle ve unut"tur; backfill'in ise
- * SONUCU bilmesi gerekiyor — defterine "başarılı mı" yazacak. Kuyruğa
- * atsaydık defter, yazımın gerçekten olduğunu bilmeden "tamam" derdi:
- * fail-soft'un sessizliğini deftere kopyalamak (Madde 284/286'nın deseni).
- *
- * ⚠️ Sağlayıcıya gerçekten gidilen durumda orchestrator'ın A2 kancası da
- * aynı yanıtı kuyruğa atar — yani o kayıt iki kez upsert edilir. Zararsız
- * (upsert idempotent, `db.js transactionAsync` çağrıları sıraya sokuyor) ve
- * bilinçli: tekilleştirmek için kancayı atlatmak, canlı yolun garantisini
- * backfill'in varlığına bağlamak olurdu.
- *
- * @param {Object} opts
- * @param {Array}  opts.hedefler       Tamamlanacak (eksik) hedefler
- * @param {Function} opts.fetcher      LazyFetch sağlayıcı adaptörü
- * @param {Function} [opts.resolve]    `resolveRequest` (test için enjekte)
- * @param {Function} [opts.arsivle]    `archiveCatalogResponse` (test için)
- * @param {number} [opts.limit]        En fazla kaç hedef denensin
- * @param {number} [opts.beklemeMs]
- * @param {Function} [opts.ilerleme]   Her hedeften sonra çağrılır (CLI çıktısı)
- */
-async function tamamla({
-  hedefler,
-  fetcher,
-  resolve = null,
-  arsivle = archiveCatalogResponse,
-  limit = Infinity,
-  beklemeMs = ISTEKLER_ARASI_MS,
-  ardisikHataTavani = ARDISIK_HATA_TAVANI,
-  ilerleme = () => {},
-  uyuFn = uyu,
-} = {}) {
-  const resolveRequest = resolve || require('../lazyfetch/orchestrator').resolveRequest;
-
-  const sayac = {
-    denenen: 0, yazilan: 0, basarisiz: 0, bulunamadi: 0,
-    agdanCekilen: 0, onbellekten: 0, atlanan: 0,
-  };
-  let ardisikHata = 0;
-  let durduranSebep = null;
-
-  for (const h of hedefler) {
-    if (sayac.denenen >= limit) { durduranSebep = 'limit'; break; }
-
-    // 🔴 FREN BURADA. Devre kesici uyanmadan ÖNCE duruyoruz.
-    if (ardisikHata >= ardisikHataTavani) {
-      durduranSebep = 'ardisik_hata';
-      logSync({
-        event: 'backfill', provider: 'trakt', endpoint: h.endpoint,
-        detail: `DURDURULDU: ${ardisikHata} ardisik hata (devre kesici esigi ${DEVRE_CONFIG.trakt.failureThreshold})`,
-      });
-      break;
-    }
-
-    sayac.denenen++;
-    let sonuc;
-    try {
-      sonuc = await resolveRequest({ provider: 'trakt', path: h.path, query: h.query, fetcher });
-    } catch (error) {
-      ardisikHata++;
-      sayac.basarisiz++;
-      defterYaz(h, { hata: error.message });
-      logSync({ event: 'backfill', provider: 'trakt', endpoint: h.endpoint, detail: `hata: ${error.message}` });
-      ilerleme({ hedef: h, durum: 'hata', hata: error.message, ardisikHata });
-      continue;
-    }
-
-    // 🔴 `not-found` HATA DEĞİL: sağlayıcı sağlıklı cevap verdi, içerik yok.
-    // Ardışık hata sayacına DÜŞMEZ — düşseydi, arşivden silinmiş üç yapım
-    // üst üste geldiğinde backfill kendini boşuna durdururdu. Ama deftere
-    // YAZILIR ki her gece yeniden denenmesin.
-    if (sonuc.status === 'not-found' || !sonuc.data) {
-      ardisikHata = 0;
-      sayac.bulunamadi++;
-      defterYaz(h, { hata: 'not-found' });
-      ilerleme({ hedef: h, durum: 'bulunamadi' });
-      continue;
-    }
-
-    const agaGidildi = sonuc.status !== 'fresh' && sonuc.status !== 'stale';
-    if (agaGidildi) sayac.agdanCekilen++; else sayac.onbellekten++;
-
-    const yazim = await arsivle({
-      provider: 'trakt', family: h.endpoint, path: h.path, query: h.query, data: sonuc.data,
-    });
-
-    if (yazim && yazim.ok) {
-      ardisikHata = 0;
-      sayac.yazilan++;
-      defterYaz(h, { basarili: true });
-      ilerleme({ hedef: h, durum: 'yazildi', kaynak: sonuc.status });
-    } else {
-      // 🔴 YAZIM hatası ardışık sayaca DÜŞMEZ: sağlayıcı suçsuz, sorun
-      // bizde (disk/şema). Devre kesiciyi Trakt'a karşı açmak yanlış teşhis
-      // olurdu. Yine de deftere yazılır ve sayılır.
-      sayac.basarisiz++;
-      defterYaz(h, { hata: (yazim && yazim.reason) || 'bilinmeyen' });
-      ilerleme({ hedef: h, durum: 'yazilamadi', hata: yazim && yazim.reason });
-    }
-
-    // Yalnızca gerçekten ağa çıktıysak beklenir.
-    if (agaGidildi && beklemeMs > 0) await uyuFn(beklemeMs);
-  }
-
-  sayac.atlanan = Math.max(hedefler.length - sayac.denenen, 0);
-  return { ...sayac, ardisikHata, durduranSebep };
-}
-
 module.exports = {
-  tamamla,
+  // ⚠️ `tamamla` ARTIK `./backfillTamamla`da (2026-09-17 bölünmesi). Buradan
+  // yeniden dışa VERİLMİYOR — döngüsel require olurdu; bkz. o dosyanın başlığı.
   bayatArsivHedefleri,
   eksikleriBul,
   arsivdeVarMi,
@@ -456,6 +348,8 @@ module.exports = {
   defterYaz,
   beklemedeMi,
   geriCekilme,
+  uyu,
+  TAZELIK_MS,
   ARDISIK_HATA_TAVANI,
   ISTEKLER_ARASI_MS,
   GERI_CEKILME_MS,
