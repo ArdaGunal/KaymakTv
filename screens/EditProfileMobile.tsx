@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,18 +22,17 @@ import EditBioModal from '../components/modals/EditBioModal';
 import { notify } from '../utils/confirmDialog';
 
 const DESKTOP_BREAKPOINT = 768;
-const TRAKT_PROFILE_SETTINGS_URL = 'https://trakt.tv/settings/profile';
-
 /**
- * Profil önizlemesi — **SALT OKUNUR** (bkz. docs/HISTORY.md Madde 134).
+ * Profilim — önizleme + **Hakkımda düzenleme** (bizim sistemimiz).
  *
- * Bu ekran eskiden düzenlenebilir bir formdu (TextInput'lar + Kaydet). Ama
- * Trakt'ın public API'si profil ayarlarını YAZMAYA İZİN VERMİYOR: `/users/settings`
- * için yalnızca `GET` belgelenmiş; `PUT` Trakt'ın kendi web uygulamasına ait
- * first-party bir uç nokta ve üçüncü parti anahtarla her zaman `401` dönüyor
- * (canlı olarak doğrulandı). Kullanıcıyı "kaydettim ama olmuyor" döngüsünde
- * bırakmamak için form kaldırıldı; artık bilgiler sergileniyor ve düzenleme
- * için trakt.tv'ye yönlendiriliyor.
+ * Tarihçe: bu ekran bir form idi, Trakt'ın public API'si profil yazmaya izin
+ * vermediği için (Madde 134) salt okunur önizlemeye ve trakt.tv'ye yönlendirmeye
+ * çevrildi. 2026-09-15'te Hakkımda bizim tablomuza (`043`) taşınıp burada
+ * düzenlenebilir oldu; 2026-09-17'de Trakt'a yönlendiren kutu ve buton
+ * kaldırıldı (kullanıcı: *"tamamen bizim sistemde olcak bu kısımlar"*).
+ *
+ * ⚠️ Trakt'lı hesapta görünen ad ve fotoğraf hâlâ Trakt'tan OKUNUYOR ve şu an
+ * düzenleme yolu yok — bizim sisteme taşınması ayrı iş (BACKLOG).
  */
 export default function EditProfileMobile() {
   const router = useRouter();
@@ -55,10 +53,6 @@ export default function EditProfileMobile() {
     navigateBack();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGuest]);
-
-  const openTraktSettings = () => {
-    Linking.openURL(TRAKT_PROFILE_SETTINGS_URL).catch((err) => console.error('URL açılamadı:', err));
-  };
 
 
   return (
@@ -134,7 +128,7 @@ export default function EditProfileMobile() {
                   — Ayarlar'daki "Kullanıcı Adı" satırı (bkz.
                   `components/settings/ProfileUsernameSection.tsx`, Madde
                   227) — burada YENİDEN İNŞA ETMEK yerine oraya yönlendiriyoruz. */}
-              {authProvider === 'google' ? (
+              {authProvider === 'google' && (
                 <>
                   <View style={styles.infoBox}>
                     <Info size={16} color="#60a5fa" />
@@ -155,26 +149,17 @@ export default function EditProfileMobile() {
                     <Text style={styles.traktBtnText}>{t('common:goToSettings')}</Text>
                   </TouchableOpacity>
                 </>
-              ) : (
-                <>
-                  <View style={styles.infoBox}>
-                    <Info size={16} color="#60a5fa" />
-                    <Text style={styles.infoText}>
-                      {t(
-                        'media:editProfileTraktNameHint',
-                        'Görünen adın ve profil fotoğrafın Trakt.tv üzerinden geliyor. Hakkımda bölümü KaymakTV tarafına ait — yukarıdan düzenleyebilirsin.'
-                      )}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity style={styles.traktBtn} onPress={openTraktSettings} activeOpacity={0.85}>
-                    <ExternalLink size={17} color="#fff" />
-                    <Text style={styles.traktBtnText}>
-                      {t('media:editProfileOpenTrakt', "Trakt.tv'de Düzenle")}
-                    </Text>
-                  </TouchableOpacity>
-                </>
               )}
+              {/* 🗑️ TRAKT DALI KALDIRILDI (kullanıcı kararı, 2026-09-17).
+                  Burada Trakt'lı hesaba *"Görünen adın ve profil fotoğrafın
+                  Trakt.tv üzerinden geliyor…"* kutusu ve **"Trakt.tv'de Düzenle"**
+                  butonu vardı. Kullanıcı: *"tamamen bizim sistemde olcak bu
+                  kısımlar."*
+                  ⚠️ BİLİNEN BOŞLUK: Trakt'lı hesabın görünen adı ve fotoğrafı
+                  HÂLÂ Trakt'tan okunuyor ve bu butonla birlikte onları
+                  düzenlemenin yolu kalmadı. Bizim sisteme taşınması ayrı iş —
+                  BACKLOG'da kayıtlı. Hakkımda zaten bizde ve yukarıdaki kartla
+                  düzenleniyor. */}
             </>
           )}
         </View>

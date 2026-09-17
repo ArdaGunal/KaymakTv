@@ -57,7 +57,6 @@
   "editProfileAboutLabel": "About",
   "editProfileEmpty": "Not set",
   "editProfileNameLabel": "Display Name",
-  "editProfileOpenTrakt": "Edit on Trakt.tv",
   "editProfileTitle": "My Profile",
   "editProfileGoogleOnlyHint": "You can change your username from Settings > Account.",
   "editReview": "Edit Your Review",
@@ -315,6 +314,5 @@
   "yesDelete": "Yes, Delete",
   "yourComment": "Your comment...",
   "yourReviewBadge": "you",
-  "editProfileAboutEmpty": "Tell us a little about yourself",
-  "editProfileTraktNameHint": "Your display name and profile photo come from Trakt.tv. The About section belongs to KaymakTV — you can edit it above."
+  "editProfileAboutEmpty": "Tell us a little about yourself"
 }

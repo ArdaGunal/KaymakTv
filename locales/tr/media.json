@@ -57,7 +57,6 @@
   "editProfileAboutLabel": "Hakkında",
   "editProfileEmpty": "Belirtilmemiş",
   "editProfileNameLabel": "Görünen Ad",
-  "editProfileOpenTrakt": "Trakt.tv'de Düzenle",
   "editProfileTitle": "Profilim",
   "editProfileGoogleOnlyHint": "Kullanıcı adını Ayarlar > Hesap sayfasından değiştirebilirsin.",
   "editReview": "İncelemeni Düzenle",
@@ -315,6 +314,5 @@
   "yesDelete": "Evet, Sil",
   "yourComment": "Yorumunuz...",
   "yourReviewBadge": "sen",
-  "editProfileAboutEmpty": "Kendinden kısaca bahset",
-  "editProfileTraktNameHint": "Görünen adın ve profil fotoğrafın Trakt.tv üzerinden geliyor. Hakkımda bölümü KaymakTV tarafına ait — yukarıdan düzenleyebilirsin."
+  "editProfileAboutEmpty": "Kendinden kısaca bahset"
 }
