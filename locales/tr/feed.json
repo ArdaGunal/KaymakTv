@@ -77,11 +77,17 @@
   "save": "Kaydet",
   "searchError": "Bir şeyler ters gitti, tekrar dene.",
   "searchNotFound": "Bu kullanıcı adında biri bulunamadı.",
-  "searchPlaceholder": "Kullanıcı adı veya Trakt profil linki",
+  "searchPlaceholder": "Kullanıcı adı ara",
   "shareActivityMsg": "KaymakTV'de bu gönderiye göz at:",
   "spoilerReveal": "Spoiler var — görmek için dokun",
   "spoilerToggle": "Spoiler içeriyor",
   "unblock": "Engeli Kaldır",
   "unblockConfirmMessage": "Bu kullanıcının aktivitelerini tekrar görmeye başlayacaksın.",
-  "unblockConfirmTitle": "Engeli Kaldır?"
+  "unblockConfirmTitle": "Engeli Kaldır?",
+  "searchOpen": "Kişi ara",
+  "searchClose": "Kapat",
+  "searchClear": "Temizle",
+  "searchHint": "Takip etmek istediğin kişinin KaymakTV kullanıcı adını yaz.",
+  "searchTooShort": "Aramak için en az 2 karakter yaz.",
+  "searchAuthError": "Oturumun doğrulanamadı. Tekrar giriş yapman gerekebilir."
 }

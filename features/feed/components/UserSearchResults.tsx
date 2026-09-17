@@ -24,9 +24,14 @@ interface Props {
   /** `null` = hiç aranmadı · `[]` = arandı, kimse yok. İKİSİ AYRI. */
   results: KaymakUserSonucu[] | null;
   error: AramaHatasi | null;
+  /**
+   * 🆕 Kişi seçilince, profile gitmeden HEMEN ÖNCE çağrılır — arama paneli
+   * kendini kapatabilsin (yoksa profil açılır ama panel üstünde asılı kalırdı).
+   */
+  onSelect?: (kisi: KaymakUserSonucu) => void;
 }
 
-export default function UserSearchResults({ results, error }: Props) {
+export default function UserSearchResults({ results, error, onSelect }: Props) {
   const { t } = useTranslation('feed');
   const router = useRouter();
 
@@ -67,7 +72,10 @@ export default function UserSearchResults({ results, error }: Props) {
             key={kisi.id}
             style={styles.satir}
             activeOpacity={0.7}
-            onPress={() => router.push(`/user/${kisi.username}`)}
+            onPress={() => {
+              onSelect?.(kisi);
+              router.push(`/user/${kisi.username}`);
+            }}
           >
             <Avatar url={kisi.avatarUrl} ad={kisi.username} size={38} />
             <View style={styles.metinAlani}>

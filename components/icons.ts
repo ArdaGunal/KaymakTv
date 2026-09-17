@@ -98,6 +98,7 @@ export { default as RotateCw } from '../node_modules/lucide-react-native/dist/es
 export { default as Rss } from '../node_modules/lucide-react-native/dist/esm/icons/rss.mjs';
 export { default as Search } from '../node_modules/lucide-react-native/dist/esm/icons/search.mjs';
 export { default as SearchX } from '../node_modules/lucide-react-native/dist/esm/icons/search-x.mjs';
+export { default as UserSearch } from '../node_modules/lucide-react-native/dist/esm/icons/user-search.mjs';
 export { default as Send } from '../node_modules/lucide-react-native/dist/esm/icons/send.mjs';
 export { default as Settings } from '../node_modules/lucide-react-native/dist/esm/icons/settings.mjs';
 export { default as Share2 } from '../node_modules/lucide-react-native/dist/esm/icons/share-2.mjs';

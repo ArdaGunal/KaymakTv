@@ -6,13 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import FeedCard from '../../../features/feed/components/FeedCard';
 import MarathonFeedCard from '../../../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
-import UserSearchBar from '../../../features/feed/components/UserSearchBar';
-import UserSearchResults from '../../../features/feed/components/UserSearchResults';
+import UserSearchButton from '../../../features/feed/components/UserSearchButton';
 import ComposePostBar from '../../../features/feed/components/ComposePostBar';
 import ComposePostModal from '../../../features/feed/components/ComposePostModal';
 import SectionErrorBoundary from '../../../components/SectionErrorBoundary';
 import { useFeed } from '../../../features/feed/hooks/useFeed';
-import { useUserSearch } from '../../../features/feed/hooks/useUserSearch';
 import { useAuth } from '../../../context/AuthContext';
 import { useFollowStore, selectIsFollowingListStale } from '../../../store/followStore';
 import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
@@ -38,15 +36,9 @@ export default function FeedScreen() {
   } = useFeed();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
-  const search = useUserSearch();
   const listRef = useRef<FlatList<FeedItem>>(null);
   const { accessToken, isGuest } = useAuth();
   const [composeVisible, setComposeVisible] = useState(false);
-
-  // ⚠️ `results !== null` — `!!results` DEĞİL. Boş dizi ("arandı, kimse
-  // yok") falsy'dir; `!!` ile yazılsaydı "bulunamadı" mesajı hiç
-  // görünmez, arama sessizce hiçbir şey yapmamış gibi dururdu.
-  const hasSearchResult = search.results !== null || !!search.error;
 
   // "N yeni gönderi" — kullanıcı listeyi kaydırmışken canlı bir aktivite
   // geldiğinde içeriği ayağının altından KAYDIRMAK yerine (okuduğu yeri
@@ -139,31 +131,30 @@ export default function FeedScreen() {
               yoktu — realtime kısa süreliğine koparsa web kullanıcısı sekmeyi
               kapatıp açmadan asla tazeleyemezdi. Yalnızca web'de görünen bu
               buton aynı `refresh()`'i çağırarak parite sağlıyor. */}
-          {Platform.OS === 'web' && (
-            <TouchableOpacity
-              style={styles.refreshButton}
-              onPress={refresh}
-              disabled={isRefreshing}
-              activeOpacity={0.7}
-            >
-              <RefreshCw size={16} color={isRefreshing ? '#334155' : '#94a3b8'} />
-            </TouchableOpacity>
-          )}
+          <View style={styles.titleActions}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                style={styles.refreshButton}
+                onPress={refresh}
+                disabled={isRefreshing}
+                activeOpacity={0.7}
+              >
+                <RefreshCw size={16} color={isRefreshing ? '#334155' : '#94a3b8'} />
+              </TouchableOpacity>
+            )}
+            {/* 🔎 Kişi arama artık bir SİMGE (2026-09-17). Kullanıcı: *"kişi arama
+                kısmını sembol haline getirelim, ona basınca kişi aranabilen bir
+                menü çıksın."* Panel ve arama mantığı `UserSearchButton` içinde;
+                aynı bileşen Profil → Ağım ekranında da kullanılıyor. */}
+            <UserSearchButton />
+          </View>
         </View>
 
-        {/* Arama çubuğu ÜSTTE sabit kalıyor — kullanıcı kararı: "Ne
-            düşünüyorsun?" kutusu arama çubuğunun üstündeyken daha az fark
-            ediliyordu, altına alınınca daha görünür oluyor. */}
-        <UserSearchBar
-          query={search.query}
-          onChangeQuery={search.setQuery}
-          onSubmit={search.search}
-          onClear={search.clear}
-          isSearching={search.isSearching}
-          hasResult={hasSearchResult}
-        />
+        {/* 🆕 2026-09-17: arama çubuğu simgeye dönüşünce bu kutu sayfanın EN
+            ÜSTÜNE çıktı (kullanıcı: *"en üstteki ne düşünüyorsun butonu sayfada
+            en üstte durcak"*).
 
-        {/* "Ne düşünüyorsun?" kutusu — bağımsız gönderi ("Fikir Paylaş")
+            "Ne düşünüyorsun?" kutusu — bağımsız gönderi ("Fikir Paylaş")
             özelliğinin TEK giriş noktası, kullanıcının kararı: FAB değil,
             akışın doğal bir parçası hissettiren sabit bir kutu. Misafirin
             paylaşacak bir kimliği yok, bu yüzden yalnızca gerçek kullanıcıya
@@ -188,10 +179,6 @@ export default function FeedScreen() {
               {t('feed:followListStale', 'Takip listesi güncellenemedi — son bilinen hâli gösteriliyor.')}
             </Text>
           </View>
-        )}
-
-        {hasSearchResult && (
-          <UserSearchResults results={search.results} error={search.error} />
         )}
 
         {isLoading ? (
@@ -321,6 +308,11 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.5,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   refreshButton: {
     width: 34,

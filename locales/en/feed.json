@@ -78,11 +78,17 @@
   "save": "Save",
   "searchError": "Something went wrong, try again.",
   "searchNotFound": "No one found with that username.",
-  "searchPlaceholder": "Username or Trakt profile link",
+  "searchPlaceholder": "Search by username",
   "shareActivityMsg": "Check out this post on KaymakTV:",
   "spoilerReveal": "Contains a spoiler — tap to reveal",
   "spoilerToggle": "Contains spoiler",
   "unblock": "Unblock",
   "unblockConfirmMessage": "You'll start seeing their activity again.",
-  "unblockConfirmTitle": "Unblock this user?"
+  "unblockConfirmTitle": "Unblock this user?",
+  "searchOpen": "Search people",
+  "searchClose": "Close",
+  "searchClear": "Clear",
+  "searchHint": "Type the KaymakTV username of the person you want to follow.",
+  "searchTooShort": "Type at least 2 characters to search.",
+  "searchAuthError": "Couldn't verify your session. You may need to sign in again."
 }

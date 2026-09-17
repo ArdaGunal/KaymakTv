@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetworkUserCard from '../../../../features/publicProfile/components/NetworkUserCard';
+import UserSearchButton from '../../../../features/feed/components/UserSearchButton';
 import { useNetworkList } from '../../../../hooks/useNetworkList';
 import { fetchKaymakProfile } from '../../../../services/api/kaymakSocial';
 import type { NetworkUser } from '../../../../hooks/useNetworkList';
@@ -71,7 +72,14 @@ export default function NetworkScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {slug === 'me' ? t('media:network', 'Ağım') : `@${slug}`}
         </Text>
-        <View style={styles.headerSpacer} />
+        {/* 🔎 Kişi arama — YALNIZCA kendi ağımda (2026-09-17, kullanıcı: *"aynı sembol
+            profilimde ağım tarafında da olsun"*). Akıştaki simgeyle AYNI bileşen.
+            Başkasının ağında boş kutu kalıyor ki başlık ortada dursun. */}
+        {slug === 'me' ? (
+          <UserSearchButton style={styles.aramaBtn} iconColor="#fff" iconSize={20} />
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       <View style={styles.contentWrapper}>
@@ -146,6 +154,14 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  // Geri düğmesiyle (`iconBtn`) aynı görünüm — başlık iki yandan dengeli dursun.
+  aramaBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 0,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   tabsContainer: {
     flexDirection: 'row',
