@@ -31,6 +31,7 @@ import { useMyTraktProfile } from '../hooks/useMyTraktProfile';
 import { useTranslation } from 'react-i18next';
 import LoginPaywall from '../components/LoginPaywall';
 import { NotificationBadge } from '../features/notifications/components/NotificationBadge';
+import ScreenHeader from '../components/ScreenHeader';
 
 const mapMedia = (items: any[], type: 'show' | 'movie') =>
   items.map((item: any) => ({
@@ -124,20 +125,23 @@ export default function ProfileScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Güvenli Alana (Safe Area) Hizalı Üst Başlık Satırı */}
-      <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>{t('profileTitle', 'Profil')}</Text>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <NotificationBadge />
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => router.push('/(protected)/account')}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Settings size={20} color="#cbd5e1" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ScreenHeader
+        title={t('profileTitle', 'Profil')}
+        style={styles.headerBar}
+        actions={
+          <>
+            <NotificationBadge />
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => router.push('/(protected)/account')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Settings size={20} color="#cbd5e1" />
+            </TouchableOpacity>
+          </>
+        }
+      />
 
       <ScrollView
         style={styles.container}
@@ -284,18 +288,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0B1120' },
   headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: SECTION_PADDING_H,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  headerTitle: {
-    color: '#f8fafc',
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.4,
   },
   settingsButton: {
     padding: 8,

@@ -17,6 +17,7 @@ import MediaRowSkeleton from '../../../components/skeletons/MediaRowSkeleton';
 import ShowCard from '../../../components/ShowCard';
 import SearchBar from '../../../components/SearchBar';
 import SearchTabs from '../../../components/SearchTabs';
+import ScreenHeader from '../../../components/ScreenHeader';
 import ExploreWebGrid from '../../../components/explore/ExploreWebGrid';
 import { useExplore } from '../../../hooks/useExplore';
 import { useAuth } from '../../../context/AuthContext';
@@ -78,11 +79,13 @@ export default function ExploreScreen() {
     );
   }
 
-  // Mobil: arama çubuğu + Dizi/Film sekmesi, listenin DIŞINDA (üstünde) sabit
-  // bir blok olarak render edilir — kullanıcı ne kadar aşağı kaydırırsa
-  // kaydırsın her zaman görünür kalır.
+  // Mobil: başlık + arama çubuğu + Dizi/Film sekmesi, listenin DIŞINDA
+  // (üstünde) sabit bir blok olarak render edilir — kullanıcı ne kadar aşağı
+  // kaydırırsa kaydırsın her zaman görünür kalır. Başlık Akış ve Profil'le
+  // AYNI noktada (`ScreenHeader`), arama onun hemen altında (2026-09-17).
   const renderPinnedBar = () => (
     <View style={styles.pinnedBar}>
+      <ScreenHeader title={t('navigation:explore')} />
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -92,19 +95,11 @@ export default function ExploreScreen() {
     </View>
   );
 
-  // Kaydırılabilir kısım: başlık + bölüm etiketi/boş durum metni — bunlar
-  // sabitlenmez, listeyle birlikte kayar.
+  // Kaydırılabilir kısım: yalnızca aramada boş durum metni. "Trend Diziler /
+  // Filmler" etiketi kaldırıldı (kullanıcı kararı, 2026-09-17) — sekme zaten
+  // neyin listelendiğini söylüyor.
   const renderHeader = () => (
-    <View style={isDesktop ? styles.headerContainerWeb : styles.headerContainer}>
-      <Text style={[styles.headerTitle, isDesktop && styles.headerTitleWeb]}>
-        {t('navigation:explore')}
-      </Text>
-
-      {!isSearching && (
-        <Text style={styles.sectionTitle}>
-          {activeTab === 'show' ? t('trendShows') : t('trendMovies')}
-        </Text>
-      )}
+    <View style={styles.headerContainer}>
       {isSearching && !loading && currentData.length === 0 && (
         <Text style={styles.emptyText}>{t('common:noResults')}</Text>
       )}
@@ -123,6 +118,7 @@ export default function ExploreScreen() {
   // (aşağıdaki `renderDesktopScrollHeader`) içinde, sayfayla birlikte kayar.
   const renderDesktopSearchBar = () => (
     <View style={styles.desktopSearchBarWeb}>
+      <ScreenHeader title={t('navigation:explore')} style={styles.desktopTitleWeb} />
       <View style={styles.desktopSearchInnerWeb}>
         <SearchBar
           value={searchQuery}
@@ -143,15 +139,12 @@ export default function ExploreScreen() {
     </View>
   );
 
-  // Kaydırılabilir kısım: başlık + Diziler/Filmler sekmesi + bölüm etiketi —
-  // bunlar sabitlenmez, `ExploreWebGrid`'in `ListHeaderComponent`'i olarak
-  // içerikle birlikte kayar.
+  // Kaydırılabilir kısım: Diziler/Filmler sekmesi + boş durum metni — bunlar
+  // sabitlenmez, `ExploreWebGrid`'in `ListHeaderComponent`'i olarak içerikle
+  // birlikte kayar. Başlık mobildeki gibi en üstte, sabit blokta.
   const renderDesktopScrollHeader = () => (
     <>
       <View style={styles.desktopTopSectionWeb}>
-        <Text style={[styles.headerTitle, styles.headerTitleWeb]}>
-          {t('navigation:explore')}
-        </Text>
         <SearchTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -160,11 +153,6 @@ export default function ExploreScreen() {
       </View>
 
       <View style={styles.headerContainerWeb}>
-        {!isSearching && (
-          <Text style={styles.sectionTitle}>
-            {activeTab === 'show' ? t('trendShows') : t('trendMovies')}
-          </Text>
-        )}
         {isSearching && !loading && currentData.length === 0 && (
           <Text style={styles.emptyText}>{t('common:noResults')}</Text>
         )}
@@ -269,7 +257,7 @@ const styles = StyleSheet.create({
   },
   pinnedBar: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 0,
     paddingBottom: 4,
     backgroundColor: '#0B1120',
     borderBottomWidth: 1,
@@ -282,7 +270,7 @@ const styles = StyleSheet.create({
     maxWidth: 1280,
     alignSelf: 'center',
     paddingHorizontal: 32,
-    paddingTop: 20,
+    paddingTop: 16,
     paddingBottom: 4,
   },
   // Tam genişlik sekme: SearchTabs'ın kendi container'ı flexDirection:'row'
@@ -301,6 +289,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B1120',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  desktopTitleWeb: {
+    width: '100%',
+    maxWidth: 1280,
+    paddingHorizontal: 32,
   },
   desktopSearchInnerWeb: {
     flexDirection: 'row',
@@ -332,33 +325,14 @@ const styles = StyleSheet.create({
     } as any),
   },
   headerContainer: {
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 8,
   },
   headerContainerWeb: {
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 8,
     maxWidth: 1280,
     alignSelf: 'center',
     width: '100%',
     paddingHorizontal: 32,
-  },
-  headerTitle: {
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  headerTitleWeb: {
-    fontSize: 34,
-    marginBottom: 12,
-    letterSpacing: -0.5,
-  },
-  sectionTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
   },
   listContainer: {
     paddingHorizontal: 16,

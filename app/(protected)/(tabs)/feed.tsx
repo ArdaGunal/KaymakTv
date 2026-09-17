@@ -9,6 +9,7 @@ import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import UserSearchButton from '../../../features/feed/components/UserSearchButton';
 import ComposePostBar from '../../../features/feed/components/ComposePostBar';
 import ComposePostModal from '../../../features/feed/components/ComposePostModal';
+import ScreenHeader from '../../../components/ScreenHeader';
 import SectionErrorBoundary from '../../../components/SectionErrorBoundary';
 import { useFeed } from '../../../features/feed/hooks/useFeed';
 import { useAuth } from '../../../context/AuthContext';
@@ -121,34 +122,36 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{t('feed', 'Akış')}</Text>
-
-          {/* react-native-web'de RefreshControl bir no-op (bkz. node_modules/
-              react-native-web/src/exports/RefreshControl — onRefresh'i hiç
-              çağırmaz, sadece düz bir View render eder). Yani mobilde parmakla
-              aşağı çekip yenileyebilirken web'de bunu tetiklemenin HİÇBİR yolu
-              yoktu — realtime kısa süreliğine koparsa web kullanıcısı sekmeyi
-              kapatıp açmadan asla tazeleyemezdi. Yalnızca web'de görünen bu
-              buton aynı `refresh()`'i çağırarak parite sağlıyor. */}
-          <View style={styles.titleActions}>
-            {Platform.OS === 'web' && (
-              <TouchableOpacity
-                style={styles.refreshButton}
-                onPress={refresh}
-                disabled={isRefreshing}
-                activeOpacity={0.7}
-              >
-                <RefreshCw size={16} color={isRefreshing ? '#334155' : '#94a3b8'} />
-              </TouchableOpacity>
-            )}
-            {/* 🔎 Kişi arama artık bir SİMGE (2026-09-17). Kullanıcı: *"kişi arama
-                kısmını sembol haline getirelim, ona basınca kişi aranabilen bir
-                menü çıksın."* Panel ve arama mantığı `UserSearchButton` içinde;
-                aynı bileşen Profil → Ağım ekranında da kullanılıyor. */}
-            <UserSearchButton />
-          </View>
-        </View>
+        <ScreenHeader
+          title={t('feed', 'Akış')}
+          style={styles.header}
+          actions={
+            <>
+              {/* react-native-web'de RefreshControl bir no-op (bkz. node_modules/
+                  react-native-web/src/exports/RefreshControl — onRefresh'i hiç
+                  çağırmaz, sadece düz bir View render eder). Yani mobilde parmakla
+                  aşağı çekip yenileyebilirken web'de bunu tetiklemenin HİÇBİR yolu
+                  yoktu — realtime kısa süreliğine koparsa web kullanıcısı sekmeyi
+                  kapatıp açmadan asla tazeleyemezdi. Yalnızca web'de görünen bu
+                  buton aynı `refresh()`'i çağırarak parite sağlıyor. */}
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  onPress={refresh}
+                  disabled={isRefreshing}
+                  activeOpacity={0.7}
+                >
+                  <RefreshCw size={16} color={isRefreshing ? '#334155' : '#94a3b8'} />
+                </TouchableOpacity>
+              )}
+              {/* 🔎 Kişi arama artık bir SİMGE (2026-09-17). Kullanıcı: *"kişi arama
+                  kısmını sembol haline getirelim, ona basınca kişi aranabilen bir
+                  menü çıksın."* Panel ve arama mantığı `UserSearchButton` içinde;
+                  aynı bileşen Profil → Ağım ekranında da kullanılıyor. */}
+              <UserSearchButton />
+            </>
+          }
+        />
 
         {/* 🆕 2026-09-17: arama çubuğu simgeye dönüşünce bu kutu sayfanın EN
             ÜSTÜNE çıktı (kullanıcı: *"en üstteki ne düşünüyorsun butonu sayfada
@@ -290,29 +293,15 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 0,
     width: '100%',
   },
   contentDesktop: {
     maxWidth: 680,
     alignSelf: 'center',
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  title: {
-    color: '#f1f5f9',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  titleActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  header: {
+    marginBottom: 8,
   },
   refreshButton: {
     width: 34,

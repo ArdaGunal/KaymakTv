@@ -14,6 +14,7 @@ import { useProfileLists } from '../../../hooks/useProfileLists';
 import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
 import ProfileMobile from '../../../screens/ProfileMobile';
+import ScreenHeader from '../../../components/ScreenHeader';
 import WebCarousel from '../../../components/web/WebCarousel';
 import EpisodeCard from '../../../components/EpisodeCard';
 import MovieCard from '../../../components/movies/MovieCard';
@@ -217,9 +218,12 @@ export default function ProfileScreenWeb() {
     <View style={styles.pageBackground}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Akış ve Keşfet'le AYNI başlık satırı (2026-09-17). */}
+        <ScreenHeader title={t('profileTitle', 'Profil')} style={styles.pageHeader} />
+
         {/* ── Desktop Header: Avatar + Kimlik + İstatistik + Ayarlar ───────── */}
         <View style={styles.desktopTopBar}>
           {isProfileLoading || !profile ? (
@@ -401,6 +405,9 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     marginHorizontal: 'auto' as any,
     paddingHorizontal: 24,
+  },
+  pageHeader: {
+    marginBottom: 12,
   },
   // ── Üst Bar: Desktop header + Ayarlar butonu yan yana ──────────────────────
   desktopTopBar: {
