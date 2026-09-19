@@ -31,6 +31,7 @@ const { spawnSync } = require('child_process');
 // birinin kuralının diğerine sızmasını zorlaştırır.
 const TAKIMLAR = [
   { ad: 'cekirdek', grup: 'lazyfetch', dosya: 'lazyfetch/cekirdek.test.js', aciklama: 'L1-L5: disk, tek-ucus, disiplin, SWR' },
+  { ad: 'kopru', grup: 'lazyfetch', dosya: 'lazyfetch/trakt-koprusu.test.js', aciklama: 'M414: trakt-proxy beyaz listesi (arama acik, kapsam dar)' },
   { ad: 'supurucu', grup: 'lazyfetch', dosya: 'lazyfetch/supurucu.test.js', aciklama: 'L6: yalnizca cache/ silinir' },
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },

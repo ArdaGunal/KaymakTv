@@ -1,4 +1,18 @@
-import { getTraktClient } from './traktClient';
+import axios from 'axios';
+
+// 🔴 M414 — ARAMA KÖPRÜDEN GEÇER, TRAKT'A DOĞRUDAN GİTMEZ.
+// `getTraktClient()` doğrudan `https://api.trakt.tv`'ye gidiyor; tarayıcıdan
+// çağrıldığında Trakt CORS preflight'ını reddediyor ve arama HER SORGUDA
+// «Arama sırasında bir hata oluştu» ile bitiyordu (canlıda ölçüldü, misafir
+// oturumu: `/search/show` ve `/search/movie` → `ERR_NETWORK`, konsolda
+// «No 'Access-Control-Allow-Origin'»). Uç PUBLIC — kimlik gerektirmiyor, yani
+// `shows.ts`/`movies.ts`'in trend uçlarıyla AYNI sınıf: çözüm de aynı,
+// `/api/trakt-proxy` (beyaz liste: server/security.js).
+// ⚠️ Hem web hem native AYNI yolu kullanır (watchlist.ts'in deseni): tek yol =
+// tek davranış, platformlar ıraksamaz.
+const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
+  : '/api/trakt-proxy';
 
 // ARAMA SONUÇLARI BİLİNÇLİ OLARAK ÇEVRİLMEZ (karar: bkz. docs/HISTORY.md Madde 105)
 //
@@ -20,8 +34,9 @@ import { getTraktClient } from './traktClient';
 // yukarıdaki gerekçeyi yeniden değerlendirin.
 export const searchTrakt = async (query: string, type: 'show' | 'movie') => {
   try {
-    const client = await getTraktClient();
-    const response = await client.get(`/search/${type}?query=${encodeURIComponent(query)}&extended=full`);
+    const response = await axios.get(TRAKT_PROXY_URL, {
+      params: { endpoint: `/search/${type}`, query, extended: 'full' },
+    });
     return response.data;
   } catch (error) {
     console.error('Trakt API HatasÄ± (searchTrakt):', error);

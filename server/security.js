@@ -138,6 +138,12 @@ const TRAKT_ENDPOINT_ALLOWLIST = {
     /^\/users\/settings$/, // getUserSettings / getProfilePrivacy
     /^\/shows\/trending$/, // getTrendingShows (karşılama ekranı poster duvarı — kimliksiz/public veri)
     /^\/movies\/trending$/, // getTrendingMovies (karşılama ekranı poster duvarı — kimliksiz/public veri)
+    // 🆕 M414 — Keşfet araması. `/search/:type` PUBLIC ve kimlik istemiyor;
+    // doğrudan çağrılınca tarayıcı CORS'a takılıyordu (canlıda ölçüldü:
+    // «No 'Access-Control-Allow-Origin'» → "Arama sırasında bir hata oluştu").
+    // Trend uçlarıyla AYNI gerekçe ve AYNI kapı. `query` gibi parametreler
+    // köprüde `endpoint` dışındaki tüm query'lerle birlikte aktarılıyor.
+    /^\/search\/(show|movie)$/, // searchTrakt
   ],
   POST: [
     /^\/users\/hidden\/(progress_watched|calendar)$/, // hideItemTrakt
