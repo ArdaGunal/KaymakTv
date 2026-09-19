@@ -236,7 +236,7 @@ export default function FeedScreen() {
                   <Rss size={40} color="#334155" />
                   <Text style={styles.emptyTitle}>{t('feed:emptyTitle', 'Akışın Boş')}</Text>
                   <Text style={styles.emptyText}>
-                    {t('feed:emptyText', "Trakt'ta takip ettiğin kişilerin izleme aktiviteleri burada görünecek.")}
+                    {t('feed:emptyText', 'Takip ettiğin kişilerin izleme aktiviteleri burada görünecek.')}
                   </Text>
                 </View>
               )

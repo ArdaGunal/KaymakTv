@@ -1,18 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useFonts } from 'expo-font';
-import { Quicksand_700Bold } from '@expo-google-fonts/quicksand/700Bold';
+import { Outfit_600SemiBold } from '@expo-google-fonts/outfit/600SemiBold';
 
 // Ana sekmelerin (Akış · Keşfet · Profil) ORTAK başlık satırı. Üç ekranda
 // başlık aynı noktada, aynı font ve boyutta durur; sağ tarafa ekranın kendi
 // düğmeleri (`actions`) konur. Yatay boşluğu çağıran verir — her ekranın
 // içerik kenarı farklı (akış 680 px ortalı, keşfet 1280 px).
 //
-// Font yalnızca 700 ağırlığıyla, alt yoldan içe aktarılır (paketin kökü beş
-// ağırlığın hepsini pakete katar). Yüklenene kadar sistem fontu görünür —
+// Font Outfit 600 (kullanıcı seçimi, 2026-09-18 — Quicksand beğenilmedi, F10).
+// Yalnızca bu ağırlık alt yoldan içe aktarılır (paketin kökü dokuz ağırlığın
+// hepsini pakete katar). Yüklenene kadar sistem fontu görünür —
 // yerel bir varlık olduğu için bu an milisaniyeler sürer, ekranı bekletmeye
 // değmez.
-export const SCREEN_TITLE_FONT = 'Quicksand_700Bold';
+export const SCREEN_TITLE_FONT = 'Outfit_600SemiBold';
 
 interface ScreenHeaderProps {
   title: string;
@@ -21,7 +22,7 @@ interface ScreenHeaderProps {
 }
 
 export default function ScreenHeader({ title, actions, style }: ScreenHeaderProps) {
-  const [fontLoaded] = useFonts({ [SCREEN_TITLE_FONT]: Quicksand_700Bold });
+  const [fontLoaded] = useFonts({ [SCREEN_TITLE_FONT]: Outfit_600SemiBold });
 
   return (
     <View style={[styles.row, style]}>
@@ -52,8 +53,8 @@ const styles = StyleSheet.create({
   title: {
     color: '#f1f5f9',
     fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    letterSpacing: 0,
     flexShrink: 1,
   },
   // Özel fontta `fontWeight` Android'de sentetik kalınlaştırmaya yol açar —
