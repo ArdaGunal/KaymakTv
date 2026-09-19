@@ -106,14 +106,17 @@ const zamanAsimi = (ms) => new Promise((r) => { const t = setTimeout(r, ms); if 
  */
 async function eksikteCek(istek, { clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID, fetcher = null } = {}) {
   const t0 = Date.now();
-  const bitir = (ok, durum, ek = {}) => ({ ok, durum, ms: Date.now() - t0, ...ek });
+  // Adım süreleri (ms) — "neden yavaş" sorusu tahminle değil bununla cevaplanır.
+  const adim = { cekim: 0, yazim: 0, aktarim: 0 };
+  const bitir = (ok, durum, ek = {}) => ({ ok, durum, ms: Date.now() - t0, adim, ...ek });
+  const olc = async (ad, is) => { const t = Date.now(); try { return await is(); } finally { adim[ad] += Date.now() - t; } };
   const db = getDb();
   if (!db) return bitir(false, 'arsiv_kapali');
 
   // 1) Arşivde zaten var mı?
   let d = arsivDurumu(db, istek);
   if (d.kok && d.yeterli) {
-    const a = await anlikAktarim.hemen(d.kok);
+    const a = await olc('aktarim', () => anlikAktarim.hemen(d.kok));
     return a.ok ? bitir(true, 'arsivden_aktarildi') : bitir(false, 'aktarim_hatasi', { neden: a.reason });
   }
 
@@ -124,17 +127,17 @@ async function eksikteCek(istek, { clientId = process.env.EXPO_PUBLIC_TRAKT_CLIE
   let bulunamadi = false;
   try {
     for (const { path, query } of cekilecekler(istek)) {
-      const r = await resolveRequest({ provider: 'trakt', path, query, fetcher: cekici, maxEnvelopeAgeMs: ZORLA_YAS_MS });
+      const r = await olc('cekim', () => resolveRequest({ provider: 'trakt', path, query, fetcher: cekici, maxEnvelopeAgeMs: ZORLA_YAS_MS }));
       if (r.status === 'not-found' || r.data === null) { bulunamadi = true; break; }
       // Sağlayıcı düştü, eski zarf/arşiv döndü → yeni yazım YOK. Bunu
       // «Trakt'ta yok» diye raporlamak yanlış teşhis olurdu.
       if (r.status === 'grace-fallback' || r.status === 'archive-fallback') {
         return bitir(false, 'saglayici_hatasi', { neden: r.status });
       }
-      await Promise.race([
+      await olc('yazim', () => Promise.race([
         archiveQueue.bekle({ provider: 'trakt', family: path.endsWith('/seasons') ? 'show_seasons' : (istek.tur === 'movie' ? 'movie_detail' : 'show_detail'), path, query }),
         zamanAsimi(YAZIM_BEKLEME_MS),
-      ]);
+      ]));
     }
   } catch (error) {
     return bitir(false, 'saglayici_hatasi', { neden: String(error?.message || error).slice(0, 120) });
@@ -144,7 +147,7 @@ async function eksikteCek(istek, { clientId = process.env.EXPO_PUBLIC_TRAKT_CLIE
   // 3) Yeniden bak, aktar
   d = arsivDurumu(db, istek);
   if (!d.kok) return bitir(false, 'traktta_yok');
-  const a = await anlikAktarim.hemen(d.kok);
+  const a = await olc('aktarim', () => anlikAktarim.hemen(d.kok));
   if (!a.ok) return bitir(false, 'aktarim_hatasi', { neden: a.reason });
   // Kök aktarıldı ama istenen bölüm Trakt'ta da yok (henüz yayınlanmamış vb.)
   return d.yeterli ? bitir(true, 'cekildi_aktarildi') : bitir(false, 'cekildi_eksik');

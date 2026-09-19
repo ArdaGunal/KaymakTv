@@ -52,7 +52,7 @@ router.post('/', (req, res, next) => {
   if (istek.hata) return res.status(400).json({ ok: false, durum: 'gecersiz', alan: istek.hata });
   try {
     const sonuc = await eksikteCek(istek);
-    console.log(`[katalog-cek] ${istek.tur}:${istek.traktId}${istek.sezon !== null ? ` s${istek.sezon}` : ''} -> ${sonuc.durum} (${sonuc.ms} ms)`);
+    console.log(`[katalog-cek] ${istek.tur}:${istek.traktId}${istek.sezon !== null ? ` s${istek.sezon}` : ''} -> ${sonuc.durum} (${sonuc.ms} ms · cekim ${sonuc.adim?.cekim} · yazim ${sonuc.adim?.yazim} · aktarim ${sonuc.adim?.aktarim})`);
     return res.status(200).json(sonuc);
   } catch (error) {
     console.error('[katalog-cek] beklenmeyen hata:', error?.message || error);
