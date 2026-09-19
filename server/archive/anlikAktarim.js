@@ -110,6 +110,7 @@ function createAnlikAktarim({
     const kokler = [...kuyruk.keys()].slice(0, partiKok);
     if (kokler.length === 0) return;
     ucusta = true;
+    const t0 = Date.now();
     let sonuc;
     try {
       const fazlar = fazlariKur(kokler);
@@ -120,6 +121,10 @@ function createAnlikAktarim({
     } finally {
       ucusta = false;
     }
+    // Uçuş başına TEK satır (gündüz birkaç, gece ~10). Yeniden denemeler
+    // ancak böyle görünür — ilk canlı denemede 23 sn'lik aktarım sessizdi.
+    const denemeler = kokler.map((k) => kuyruk.get(k)?.deneme ?? 0);
+    console.log(`[anlik-aktarim] ${kokler.length} kok · ${sonuc.ok ? 'ok' : 'HATA ' + sonuc.reason + ' ' + (sonuc.detay || '').slice(0, 160)} · ${Date.now() - t0} ms · deneme ${Math.max(...denemeler)}`);
 
     if (sonuc.ok) {
       istatistik.gonderilen += kokler.length;

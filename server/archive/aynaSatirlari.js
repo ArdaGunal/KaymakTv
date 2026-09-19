@@ -4,7 +4,7 @@
 // TEK İŞİ: arşivdeki varlıkları Worker'ın `/catalog/sync` ucunun beklediği
 // satırlara çevirmek. İKİ çağıranı var:
 //   • `mirror.js`      — gece aynası, TÜM arşiv (`kapsam = null`)
-//   • `tekilAktarim.js` — §C30 anlık aktarım, yalnızca verilen KÖK(ler)in
+//   • `anlikAktarim.js` — §C30 anlık aktarım, yalnızca verilen KÖK(ler)in
 //                          alt ağacı (dizi → sezonlar → bölümler)
 //
 // 🔴 NEDEN TEK DOSYA: iki yol satırı AYRI kursaydı er ya da geç ıraksardı.
@@ -99,6 +99,11 @@ function haritalariKur(db, kapsam = null) {
 
   const kok = kapsamEki(kapsam && kapsam.kokler);
   const alt = kapsamEki(kapsam && kapsam.altAgac);
+  // 📏 ÖLÇÜLDÜ (Pi, 2026-09-19): `source = ? AND kaymak_id IN (json_each)`
+  // planlayıcıyı `(source, source_id)` PK'sine yönlendiriyor → 55 bin
+  // `trakt:episode` satırı taranıyor (~250 ms/çağrı). Kapsamlı sorguda
+  // `+source` ile o indeks devre dışı, `idx_external_kaymak` kullanılıyor.
+  const kaynak = kapsam ? '+source' : 'source';
 
   // Dizi/film KÖKÜ: runtime · genres · first_aired (film: released)
   for (const r of db.prepare(
@@ -137,7 +142,7 @@ function haritalariKur(db, kapsam = null) {
     // 🪦 Emekli kimlik türetmez (v2): sağlayıcının sildiği bölüm kimliğinden
     // değer iliştirmek bayat veriyi canlı tutardı.
     for (const r of db.prepare(
-      "SELECT source_id, kaymak_id FROM external_ids WHERE source = 'trakt:episode' AND retired_at IS NULL" + alt.sql
+      `SELECT source_id, kaymak_id FROM external_ids WHERE ${kaynak} = 'trakt:episode' AND retired_at IS NULL` + alt.sql
     ).iterate(...alt.p)) {
       const rt = traktRuntime.get(String(r.source_id));
       if (rt !== undefined) runtime.set(r.kaymak_id, rt);
@@ -149,7 +154,7 @@ function haritalariKur(db, kapsam = null) {
   // 🪦 Emekli kimlik elenir — aksi hâlde aynı kayda bağlı İKİ tmdb kimliği
   // olur ve değer satır sırasına göre BELİRSİZ olur.
   for (const r of db.prepare(
-    "SELECT source_id, kaymak_id FROM external_ids WHERE source IN ('tmdb:show','tmdb:movie','tmdb:episode') AND retired_at IS NULL" + alt.sql
+    `SELECT source_id, kaymak_id FROM external_ids WHERE ${kaynak} IN ('tmdb:show','tmdb:movie','tmdb:episode') AND retired_at IS NULL` + alt.sql
   ).iterate(...alt.p)) {
     const n = Number(r.source_id);
     if (Number.isInteger(n)) tmdb.set(r.kaymak_id, n);
@@ -217,7 +222,7 @@ function altAgacFazlari(db, kokler) {
   const yerK = AYNALANAN_KAYNAKLAR.map(() => '?').join(',');
   const kimlikler = db.prepare(
     `SELECT source, source_id, kaymak_id, retired_at FROM external_ids
-      WHERE source IN (${yerK}) AND kaymak_id IN (SELECT value FROM json_each(?))
+      WHERE +source IN (${yerK}) AND kaymak_id IN (SELECT value FROM json_each(?))
       ORDER BY last_seen_at`
   ).all(...AYNALANAN_KAYNAKLAR, kimlikJ).map(disKimlikSatiri);
   if (kimlikler.length) fazlar.push({ faz: 'external_ids', satirlar: kimlikler });
