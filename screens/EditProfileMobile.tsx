@@ -19,7 +19,9 @@ import { useAuth } from '../context/AuthContext';
 import { useMyTraktProfile } from '../hooks/useMyTraktProfile';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import EditBioModal from '../components/modals/EditBioModal';
-import { notify } from '../utils/confirmDialog';
+import EditDisplayNameModal from '../components/modals/EditDisplayNameModal';
+import { useUpdateProfile } from '../hooks/useUpdateProfile';
+import { confirmAsync, notify } from '../utils/confirmDialog';
 
 const DESKTOP_BREAKPOINT = 768;
 /**
@@ -31,8 +33,10 @@ const DESKTOP_BREAKPOINT = 768;
  * düzenlenebilir oldu; 2026-09-17'de Trakt'a yönlendiren kutu ve buton
  * kaldırıldı (kullanıcı: *"tamamen bizim sistemde olcak bu kısımlar"*).
  *
- * ⚠️ Trakt'lı hesapta görünen ad ve fotoğraf hâlâ Trakt'tan OKUNUYOR ve şu an
- * düzenleme yolu yok — bizim sisteme taşınması ayrı iş (BACKLOG).
+ * §C24 (2026-09-18): görünen ad ve fotoğraf da BİZDE. Trakt'taki ad/fotoğraf
+ * Worker'da ilk istekte bir kez kopyalanıyor; burada görünen ad DÜZENLENİR,
+ * fotoğraf yalnızca KALDIRILIR (K3 — gerçek yükleme §D19). Kullanıcı adı
+ * Trakt'lı hesapta değişmez (K2); Google'lıda Ayarlar > Hesap'ta.
  */
 export default function EditProfileMobile() {
   const router = useRouter();
@@ -43,6 +47,26 @@ export default function EditProfileMobile() {
 
   const { profile, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [bioModalVisible, setBioModalVisible] = useState(false);
+  const [adModalVisible, setAdModalVisible] = useState(false);
+  const { save: kaydet, isSaving: fotografKaldiriliyor } = useUpdateProfile();
+
+  // K3 — fotoğraf yalnızca kaldırılabilir. Geri alınamaz (Trakt'taki bir daha
+  // kopyalanmaz), bu yüzden onay isteniyor.
+  const fotografiKaldir = async () => {
+    const onay = await confirmAsync(
+      t('media:editProfileRemovePhotoTitle', 'Fotoğrafı kaldır'),
+      t('media:editProfileRemovePhotoMessage', 'Profil fotoğrafın kaldırılacak. Bu işlem geri alınamaz.'),
+      t('media:editProfileRemovePhotoConfirm', 'Kaldır'),
+      t('common:cancel', 'Vazgeç')
+    );
+    if (!onay) return;
+    const ok = await kaydet({ avatarUrl: null });
+    if (ok) {
+      void refetchProfile();
+    } else {
+      notify(t('common:error', 'Hata'), t('media:editProfileRemovePhotoFailed', 'Fotoğraf kaldırılamadı. Tekrar dene.'));
+    }
+  };
 
   // Bu ekranın doğal üstü Profil sekmesi — varsayılan (Keşfet) yerine o veriliyor.
   const navigateBack = useAppBack('/(protected)/(tabs)/profile');
@@ -80,14 +104,40 @@ export default function EditProfileMobile() {
                 <Text style={styles.handle} numberOfLines={1}>
                   @{profile.username}
                 </Text>
+                {!!profile.images?.avatar?.full && (
+                  <TouchableOpacity
+                    style={styles.fotografKaldir}
+                    onPress={fotografiKaldir}
+                    disabled={fotografKaldiriliyor}
+                    accessibilityRole="button"
+                    activeOpacity={0.7}
+                  >
+                    {fotografKaldiriliyor ? (
+                      <ActivityIndicator size="small" color="#f87171" />
+                    ) : (
+                      <Text style={styles.fotografKaldirMetin}>
+                        {t('media:editProfileRemovePhoto', 'Fotoğrafı kaldır')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <View style={styles.card}>
-                <Text style={styles.label}>{t('media:editProfileNameLabel', 'Görünen Ad')}</Text>
+              {/* ✏️ GÖRÜNEN AD — §C24 · `053` (K1). Hakkımda kartının kalıbı. */}
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                onPress={() => setAdModalVisible(true)}
+              >
+                <View style={styles.cardBaslik}>
+                  <Text style={styles.label}>{t('media:editProfileNameLabel', 'Görünen Ad')}</Text>
+                  <Pencil size={15} color="#a78bfa" />
+                </View>
                 <Text style={styles.value}>
-                  {profile.name || <Text style={styles.valueEmpty}>{t('media:editProfileEmpty', 'Belirtilmemiş')}</Text>}
+                  {profile.name || <Text style={styles.valueEmpty}>{t('media:editProfileNameEmpty', 'Adını ekle')}</Text>}
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               {/* ══════════════════════════════════════════════════════════
                   ✏️ HAKKIMDA — ARTIK BURADA DÜZENLENİYOR (2026-09-15)
@@ -155,11 +205,8 @@ export default function EditProfileMobile() {
                   Trakt.tv üzerinden geliyor…"* kutusu ve **"Trakt.tv'de Düzenle"**
                   butonu vardı. Kullanıcı: *"tamamen bizim sistemde olcak bu
                   kısımlar."*
-                  ⚠️ BİLİNEN BOŞLUK: Trakt'lı hesabın görünen adı ve fotoğrafı
-                  HÂLÂ Trakt'tan okunuyor ve bu butonla birlikte onları
-                  düzenlemenin yolu kalmadı. Bizim sisteme taşınması ayrı iş —
-                  BACKLOG'da kayıtlı. Hakkımda zaten bizde ve yukarıdaki kartla
-                  düzenleniyor. */}
+                  ✅ Doğan boşluk §C24 ile kapandı (2026-09-18): görünen ad ve
+                  fotoğraf artık bizde, yukarıdaki kartlarla yönetiliyor. */}
             </>
           )}
         </View>
@@ -173,11 +220,32 @@ export default function EditProfileMobile() {
         currentBio={profile?.about ?? null}
         onSaved={() => { void refetchProfile(); }}
       />
+      <EditDisplayNameModal
+        visible={adModalVisible}
+        onClose={() => setAdModalVisible(false)}
+        currentName={profile?.name ?? null}
+        onSaved={() => { void refetchProfile(); }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  fotografKaldir: {
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.35)',
+    minHeight: 30,
+    justifyContent: 'center',
+  },
+  fotografKaldirMetin: {
+    color: '#f87171',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   cardBaslik: {
     flexDirection: 'row',
     alignItems: 'center',

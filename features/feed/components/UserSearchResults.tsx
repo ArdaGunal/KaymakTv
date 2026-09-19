@@ -81,10 +81,17 @@ export default function UserSearchResults({ results, error, onSelect }: Props) {
             <View style={styles.metinAlani}>
               <View style={styles.adSatiri}>
                 <Text style={styles.ad} numberOfLines={1}>
-                  @{kisi.username}
+                  {kisi.displayName || `@${kisi.username}`}
                 </Text>
                 {kisi.isPrivate && <Lock size={13} color="#94a3b8" />}
               </View>
+              {/* §C24 — görünen ad BENZERSİZ DEĞİL; kimliği @username ayırt
+                  eder, bu yüzden ad varken de altında HER ZAMAN duruyor. */}
+              {!!kisi.displayName && (
+                <Text style={styles.kullaniciAdi} numberOfLines={1}>
+                  @{kisi.username}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
         );
@@ -120,6 +127,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 1,
+  },
+  kullaniciAdi: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 1,
   },
   kutu: {
     backgroundColor: 'rgba(255,255,255,0.04)',

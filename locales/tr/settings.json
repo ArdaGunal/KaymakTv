@@ -180,5 +180,11 @@
   "importSwept": "Eşitlendi. Trakt'ta silinmiş {{sayi}} kayıt buradan da kaldırıldı.",
   "importSweptNone": "Eşitlendi. Trakt'ta silinmiş kayıt bulunamadı.",
   "importSweepFailed": "Yeni kayıtlar eşitlendi, ama Trakt'ta silinenler kontrol edilemedi. Tekrar deneyebilirsin.",
-  "importSweptEmptyLists": "({{sayi}} listen Trakt'ta zaten boştu.)"
+  "importSweptEmptyLists": "({{sayi}} listen Trakt'ta zaten boştu.)",
+  "editDisplayNameTitle": "Görünen Ad",
+  "displayNamePlaceholder": "Adın ve soyadın",
+  "displayNameHint": "Profilinde @kullanıcı adının üstünde görünür. Boş bırakırsan yalnızca kullanıcı adın görünür.",
+  "displayNameSaved": "Görünen adın güncellendi.",
+  "usernameRuleChars": "Yalnızca İngilizce harf, rakam ve alt çizgi (_) kullanılabilir.",
+  "usernameRuleLength": "Kullanıcı adı 3–30 karakter olmalı."
 }

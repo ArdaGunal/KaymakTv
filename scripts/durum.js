@@ -133,6 +133,9 @@ async function canliKontrol() {
     try {
       const bio = await supabaseSor('users?select=bio&limit=1');
       sonuc.supabase['043 (users.bio)'] = bio.kod === '42501' ? 'UYGULANDI' : bio.kod === '42703' ? 'YOK' : `? (${bio.kod || bio.http})`;
+      // §C24 · 053 — bio ile aynı sonda: anon'a KAPALI kolon → 42501 = var, 42703 = yok.
+      const ad = await supabaseSor('users?select=display_name&limit=1');
+      sonuc.supabase['053 (display_name)'] = ad.kod === '42501' ? 'UYGULANDI' : ad.kod === '42703' ? 'YOK' : `? (${ad.kod || ad.http})`;
       const durum = await supabaseSor('user_import_state?select=user_id&limit=1');
       sonuc.supabase['044 (import tablolari)'] = durum.http === 200 ? 'UYGULANDI' : `? (${durum.kod || durum.http})`;
       // 🔑 RPC karsiligi ayni ayrim: PGRST202 = fonksiyon YOK · 42501 =

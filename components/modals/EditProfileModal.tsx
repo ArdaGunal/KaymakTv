@@ -8,12 +8,17 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { X } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
-import { estimateCooldownRetryAt } from '../../features/feed/services/profile';
+import {
+  estimateCooldownRetryAt,
+  kullaniciAdiSorunu,
+  KULLANICI_ADI_EN_COK,
+} from '../../features/feed/services/profile';
 import Snackbar from '../Snackbar';
 import { profileSheetStyles as styles } from './profileSheetStyles';
 
@@ -57,7 +62,10 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
   const retryAt = estimateCooldownRetryAt(usernameUpdatedAt);
   const trimmed = value.trim();
   const unchanged = trimmed === currentUsername.trim();
-  const invalid = trimmed.length === 0 || trimmed.length > 30;
+  // §S3 (M402): Worker'ın kuralının göstergesi — değişmemiş (eski) ad hiç
+  // gönderilmiyor, o yüzden yalnız DEĞİŞEN ad denetlenir.
+  const kuralSorunu = unchanged ? null : kullaniciAdiSorunu(trimmed);
+  const invalid = trimmed.length === 0 || kuralSorunu !== null;
 
   const handleClose = () => {
     if (isSaving) return;
@@ -99,12 +107,22 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
               style={[styles.input, !!retryAt && styles.inputDisabled]}
               value={value}
               onChangeText={setValue}
-              maxLength={30}
+              maxLength={KULLANICI_ADI_EN_COK}
               editable={!retryAt && !isSaving}
               placeholder={t('settings:usernamePlaceholder', 'Kullanıcı adın')}
               placeholderTextColor="#64748b"
               autoFocus={!retryAt}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+
+            {kuralSorunu && (
+              <Text style={localStyles.kuralUyari}>
+                {kuralSorunu === 'karakter'
+                  ? t('settings:usernameRuleChars', 'Yalnızca İngilizce harf, rakam ve alt çizgi (_) kullanılabilir.')
+                  : t('settings:usernameRuleLength', 'Kullanıcı adı 3–30 karakter olmalı.')}
+              </Text>
+            )}
 
             {cooldownText && (
               <View style={[styles.notice, styles.noticeInfo]}>
@@ -140,3 +158,13 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
     </>
   );
 }
+
+// §S3 (M402) — kullanıcı adı kural uyarısı (Worker `usernameRules.js` göstergesi).
+const localStyles = StyleSheet.create({
+  kuralUyari: {
+    color: '#fbbf24',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
+  },
+});

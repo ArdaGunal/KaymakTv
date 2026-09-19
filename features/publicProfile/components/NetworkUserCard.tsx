@@ -81,9 +81,13 @@ export default function NetworkUserCard({ user }: NetworkUserCardProps) {
         <Avatar url={user.avatarUrl} ad={user.username} size={42} />
         <View style={styles.adAlani}>
           <View style={styles.adSatiri}>
-            <Text style={styles.ad} numberOfLines={1}>@{user.username}</Text>
+            <Text style={styles.ad} numberOfLines={1}>{user.displayName || `@${user.username}`}</Text>
             {user.isPrivate && <Lock size={13} color="#94a3b8" />}
           </View>
+          {/* §C24 — ad benzersiz değil; @username ad varken de görünür. */}
+          {!!user.displayName && (
+            <Text style={styles.kullaniciAdi} numberOfLines={1}>@{user.username}</Text>
+          )}
         </View>
       </TouchableOpacity>
 
@@ -120,6 +124,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  kullaniciAdi: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 1,
   },
   ad: {
     color: '#f1f5f9',

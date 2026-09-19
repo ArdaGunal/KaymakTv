@@ -25,16 +25,21 @@ interface FollowRequestRowProps {
 
 function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps) {
   const { t } = useTranslation('common');
-  // 🪪 `/social/requests` yalnızca KİMLİK döndürüyor; Trakt'ın ayrı "görünen
-  // ad" alanı bizde yok. Gösterim `username` ("EVRENSEL KAYMAK KİMLİĞİ").
-  const displayName = request.username ?? '?';
+  // 🪪 Adres ve kimlik `username` ("EVRENSEL KAYMAK KİMLİĞİ"). §C24 (`053`)
+  // ile görünen ad da geliyor — varsa üstte, @username HER ZAMAN altında
+  // (ad benzersiz değil; isteği KİMİN attığını @username söyler).
+  const kullaniciAdi = request.username ?? '?';
+  const gorunenAd = request.displayName || null;
 
   return (
     <View style={styles.requestRow}>
-      <Avatar url={request.avatarUrl} ad={displayName} size={44} />
+      <Avatar url={request.avatarUrl} ad={kullaniciAdi} size={44} />
 
       <View style={styles.requestInfo}>
-        <Text style={styles.requestName} numberOfLines={1}>@{displayName}</Text>
+        <Text style={styles.requestName} numberOfLines={1}>{gorunenAd || `@${kullaniciAdi}`}</Text>
+        {!!gorunenAd && (
+          <Text style={styles.requestHandle} numberOfLines={1}>@{kullaniciAdi}</Text>
+        )}
       </View>
 
       <View style={styles.requestActions}>
@@ -219,6 +224,11 @@ const styles = StyleSheet.create({
     color: '#f1f5f9',
     fontSize: 14,
     fontWeight: '700',
+  },
+  requestHandle: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 1,
   },
   requestUsername: {
     color: '#64748b',

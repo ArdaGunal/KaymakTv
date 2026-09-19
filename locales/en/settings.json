@@ -180,5 +180,11 @@
   "importSwept": "Synced. {{sayi}} items deleted on Trakt were removed here too.",
   "importSweptNone": "Synced. No items were deleted on Trakt.",
   "importSweepFailed": "New items synced, but deletions on Trakt could not be checked. You can try again.",
-  "importSweptEmptyLists": "({{sayi}} of your lists were already empty on Trakt.)"
+  "importSweptEmptyLists": "({{sayi}} of your lists were already empty on Trakt.)",
+  "editDisplayNameTitle": "Display name",
+  "displayNamePlaceholder": "Your full name",
+  "displayNameHint": "Shown above your @username on your profile. Leave it empty to show only your username.",
+  "displayNameSaved": "Your display name was updated.",
+  "usernameRuleChars": "Use only English letters, numbers and underscores (_).",
+  "usernameRuleLength": "Username must be 3–30 characters."
 }

@@ -1,10 +1,15 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseErisimTokeni } from './supabaseKimlik';
 
-// Supabase Auth KULLANILMIYOR (kimlik doğrulama Trakt OAuth üzerinden) —
-// bu yüzden oturum kalıcılığı/otomatik token yenileme kapatıldı. Bu client
-// yalnızca anon key + RLS (SELECT-only, bkz. supabase/schema/001_feed_schema.sql)
-// ile veri okumak için kullanılır.
+// Supabase Auth KULLANILMIYOR (kimlik doğrulama Trakt OAuth / Kaymak oturumu
+// üzerinden). §S1/§S2 · yol B (M403): Worker'ın bastığı 1 saatlik belge
+// `accessToken` ile her isteğe (PostgREST + Realtime) takılıyor → RLS izleyiciyi
+// (`auth.uid()` = users.id) tanıyor. Belge yoksa (misafir, Worker düştü)
+// supabase-js anon anahtara düşer. Ayrıntı: `supabaseKimlik.ts`.
+//
+// ⚠️ `accessToken` seçeneği varken `supabase.auth.*` erişimi FIRLATIR —
+// projede kullanılmıyor (grep, M403) ve kullanılmamalı.
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
@@ -44,11 +49,5 @@ export const supabase = createClient(
   // istek atılırsa çözümlenemez ve normal bir ağ hatası olarak döner.
   isConfigured ? supabaseUrl : 'https://supabase-yapilandirilmadi.invalid',
   isConfigured ? supabaseAnonKey : 'yapilandirilmadi',
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  },
+  isConfigured ? { accessToken: supabaseErisimTokeni } : undefined,
 );

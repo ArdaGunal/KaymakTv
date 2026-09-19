@@ -20,6 +20,8 @@ import {
 } from '../features/feed/services/feedApi';
 import { invalidateMySupabaseUserId, invalidateBlockedUserIds } from '../features/feed/services/userBlocks';
 import { recordPerfMark } from '../utils/perfLog';
+import { supabase } from '../features/feed/services/supabaseClient';
+import { supabaseKimlikKaynaginiAyarla } from '../features/feed/services/supabaseKimlik';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -70,6 +72,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     loadKeys();
   }, []);
+
+  // §S1/§S2 · yol B (M403) — Supabase belgesi bu kimliğe bağlı. Kimlik
+  // değişince önbellek sıfırlanır ve Realtime yeni belgeyle yeniden yetkilenir
+  // (yoksa açık kanal bir önceki kişinin — ya da anon'un — yetkisiyle kalırdı).
+  useEffect(() => {
+    supabaseKimlikKaynaginiAyarla(isGuest ? null : accessToken);
+    supabase.realtime.setAuth().catch((error: unknown) => {
+      console.warn('[AuthContext] Realtime yetkisi yenilenemedi:', error);
+    });
+  }, [accessToken, isGuest]);
 
   // traktClient.ts'teki 401 interceptor'ı, refresh token da geçersiz/yoksa
   // SecureStore'daki token'ları sessizce siler — ama bu React state'ini

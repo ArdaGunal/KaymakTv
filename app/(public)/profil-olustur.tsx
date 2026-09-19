@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
+import { kullaniciAdiSorunu, KULLANICI_ADI_EN_COK } from '../../features/feed/services/profile';
 
 /**
  * Google-only kayıt (`create_new`, HISTORY Madde 221) sonrası GÖSTERİLEN
@@ -38,7 +39,10 @@ export default function ProfilOlusturScreen() {
 
   const trimmed = username.trim();
   const usernameChanged = trimmed.length > 0 && trimmed !== (myUsername ?? '').trim();
-  const invalid = trimmed.length === 0 || trimmed.length > 30;
+  // §S3 (M402): yalnız DEĞİŞEN ad sıkı kurala tabi — Worker'ın türettiği ad
+  // zaten kurala uygun; değiştirilmezse doğrulanmadan geçilir.
+  const kuralSorunu = usernameChanged ? kullaniciAdiSorunu(trimmed) : null;
+  const invalid = trimmed.length === 0 || kuralSorunu !== null;
 
   const goToApp = () => router.replace('/(protected)/(tabs)/explore');
 
@@ -91,10 +95,20 @@ export default function ProfilOlusturScreen() {
             style={styles.input}
             value={username}
             onChangeText={setUsername}
-            maxLength={30}
+            maxLength={KULLANICI_ADI_EN_COK}
             placeholder={t('settings:usernamePlaceholder', 'Kullanıcı adın')}
             placeholderTextColor="#64748b"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
+
+          {kuralSorunu && (
+            <Text style={localStyles.kuralUyari}>
+              {kuralSorunu === 'karakter'
+                ? t('settings:usernameRuleChars', 'Yalnızca İngilizce harf, rakam ve alt çizgi (_) kullanılabilir.')
+                : t('settings:usernameRuleLength', 'Kullanıcı adı 3–30 karakter olmalı.')}
+            </Text>
+          )}
 
           {error && (
             <View style={styles.notice}>
@@ -226,5 +240,15 @@ const styles = StyleSheet.create({
   skipBtnText: {
     color: '#94a3b8',
     fontSize: 14,
+  },
+});
+
+// §S3 (M402) — kullanıcı adı kural uyarısı (Worker `usernameRules.js` göstergesi).
+const localStyles = StyleSheet.create({
+  kuralUyari: {
+    color: '#fbbf24',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
   },
 });

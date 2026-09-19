@@ -75,15 +75,20 @@ export function usePublicProfileIdentity(username: string | null) {
   const profile: ProfilKimligi | null = kaymakProfil
     ? {
         username: kaymakProfil.profile.username,
-        name: traktProfil?.name ?? null,
+        // 🪪 §C24 · `053` — AD VE FOTOĞRAF YALNIZCA BİZDEN (2026-09-18).
+        // ⛔ Eskiden ikisi de bizde yoksa Trakt'ınkine düşüyordu. Artık Worker
+        // Trakt'taki ad/fotoğrafı ilk istekte bir kez kopyalıyor; kullanıcı
+        // fotoğrafını KALDIRDIYSA bizdeki `null` gerçektir — Trakt'ınkini
+        // göstermek kaldırmayı başkasının ekranında geri almak olurdu (K3).
+        // Bedeli: deploy'dan sonra uygulamayı henüz açmamış bir Trakt'lı
+        // kullanıcı, açana kadar harfli daire ve yalnızca @adıyla görünür.
+        name: kaymakProfil.profile.displayName ?? null,
         // T4 · `043` — BİZİM açıklamamız öncelikli; yoksa (Trakt'lı ve henüz
         // yazmamış kullanıcı) Trakt'ın `about`'u.
         about: kaymakProfil.profile.bio ?? traktProfil?.about ?? null,
-        // Bizim avatarımız öncelikli (Google fotoğrafı ya da kullanıcının
-        // seçtiği); yoksa Trakt'ınki.
         images: kaymakProfil.profile.avatarUrl
           ? { avatar: { full: kaymakProfil.profile.avatarUrl } }
-          : traktProfil?.images,
+          : undefined,
       }
     : null;
 

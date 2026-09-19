@@ -13,6 +13,8 @@ export interface UpdateProfilePatch {
   avatarUrl?: string | null;
   /** T4 · `043`. `null` = açıklamayı kaldır, `undefined` = dokunma. Sunucu normalize eder. */
   bio?: string | null;
+  /** §C24 · `053`. `null` = görünen adı kaldır, `undefined` = dokunma. Sunucu normalize eder. */
+  displayName?: string | null;
 }
 
 export interface MyProfile {
@@ -24,6 +26,8 @@ export interface MyProfile {
   usernameUpdatedAt: string | null;
   /** T4 · `043`. `null` = hiç yazılmamış. */
   bio: string | null;
+  /** §C24 · `053`. `null` = yok → arayüz @username gösterir. */
+  displayName: string | null;
 }
 
 const USERNAME_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
@@ -33,6 +37,34 @@ const USERNAME_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
 // ile aynı duruş).
 export const BIO_EN_COK = 160;
 export const BIO_EN_COK_SATIR = 3;
+
+// Worker `src/lib/usernameRules.js` ile AYNI kural (§S3/§S12, M402): YENİ ya
+// da DEĞİŞEN kullanıcı adı yalnız [A-Za-z0-9_], 3–30. Burası yalnız GÖSTERGE —
+// ayrılmış adlar (`me`, `admin`…) bilinçli olarak kopyalanmadı; sunucu reddeder
+// ve mesajı ekranda görünür (iki yerde yaşayan bir liste ıraksardı).
+export const KULLANICI_ADI_EN_AZ = 3;
+export const KULLANICI_ADI_EN_COK = 30;
+export type KullaniciAdiSorunu = 'kisa' | 'uzun' | 'karakter';
+
+export function kullaniciAdiSorunu(ham: string): KullaniciAdiSorunu | null {
+  const deger = ham.trim();
+  if (deger.length < KULLANICI_ADI_EN_AZ) return 'kisa';
+  if (deger.length > KULLANICI_ADI_EN_COK) return 'uzun';
+  if (!/^[A-Za-z0-9_]+$/.test(deger) || !/[A-Za-z0-9]/.test(deger)) return 'karakter';
+  return null;
+}
+
+// Worker `src/lib/profileDisplayName.js` ile AYNI sınır (§C24 · `053`).
+export const AD_EN_COK = 50;
+
+/**
+ * Görünen adın sunucu normalizasyonunun GÖSTERGE kopyası: TEK satır, iç boşluk
+ * tekilleşir, uzunluk KOD NOKTASI. Görünmez karakter temizliği yalnızca sunucuda.
+ */
+export function adOnizle(ham: string): { deger: string; uzunluk: number } {
+  const deger = ham.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim();
+  return { deger, uzunluk: Array.from(deger).length };
+}
 
 /**
  * Sunucu normalizasyonunun GÖSTERGE kopyası: boş satırlar atılır, iç boşluk
@@ -78,6 +110,7 @@ export async function getMyProfile(traktAccessToken: string): Promise<MyProfile>
     avatarUrl: response.data.avatarUrl ?? null,
     usernameUpdatedAt: response.data.usernameUpdatedAt ?? null,
     bio: response.data.bio ?? null,
+    displayName: response.data.displayName ?? null,
   };
 }
 

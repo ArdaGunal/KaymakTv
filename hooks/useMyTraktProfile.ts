@@ -88,11 +88,15 @@ export function useMyTraktProfile() {
         let username = myUsername ?? '';
         let avatarUrl = myAvatarUrl ?? null;
         let bio: string | null = null;
+        let displayName: string | null = null;
         try {
           const remote = await getMyProfile(accessToken);
           username = remote.username || username;
-          avatarUrl = remote.avatarUrl ?? avatarUrl;
+          // 🔑 Sunucu yanıt VERDİYSE onun fotoğrafı esastır — `null` "kaldırıldı"
+          // demektir, yerel kopyaya düşülmez (§C24: kaldırma kalıcı olmalı).
+          avatarUrl = remote.avatarUrl;
           bio = remote.bio;
+          displayName = remote.displayName;
         } catch (error) {
           console.warn('[Profile] Kaymak profili okunamadı, yerel kopyaya düşülüyor:', error);
         }
@@ -100,7 +104,9 @@ export function useMyTraktProfile() {
         setProfile({
           username,
           private: false,
-          name: username || null,
+          // §C24 · `053` — görünen ad bizden. `null` → ekran @username'e düşer
+          // (eskiden burada kullanıcı adı "ad" gibi tekrar ediliyordu).
+          name: displayName,
           vip: false,
           // Google-only kullanıcının Trakt slug'ı YOK — boş bırakmak doğru.
           ids: { slug: '' },
@@ -141,8 +147,30 @@ export function useMyTraktProfile() {
           sayilariTazele(),
         ]);
         if (isMounted && !isMounted()) return;
+        // ══════════════════════════════════════════════════════════════
+        // 🪪 §C24 · AD VE FOTOĞRAF DA BİZDEN (2026-09-18)
+        // ══════════════════════════════════════════════════════════════
+        // Kullanıcı: *"tamamen bizim sistemde olacak bu kısımlar."* Worker
+        // Trakt'taki adı ve fotoğrafı ilk istekte BİR KEZ kopyalıyor — ve bu
+        // `getMyProfile` çağrısının kendisi o istek, yani yanıt geldiğinde
+        // kopya çoktan yazılmış oluyor. Bu yüzden Trakt'a GERİ DÜŞÜLMEZ:
+        // kullanıcı fotoğrafını kaldırdıysa `null` gerçektir; Trakt'ınkini
+        // göstermek kaldırmayı ekranda geri almak olurdu.
+        //
+        // 🔴 Bizim yanıt YOKSA (`null` — ağ düştü) Trakt'ın profili aynen
+        // gösterilir: "yanıt yok" ≠ "boş yanıt" (M381'in dersi).
+        //
+        // `username` hâlâ Trakt'tan (`@` altındaki satır ve rotalar) — K2:
+        // Trakt'lı hesapta kullanıcı adı değişmiyor, ikisi aynı.
         setProfile(
-          kaymakProfil?.bio ? { ...myProfile, about: kaymakProfil.bio } : myProfile
+          kaymakProfil
+            ? {
+                ...myProfile,
+                name: kaymakProfil.displayName,
+                images: kaymakProfil.avatarUrl ? { avatar: { full: kaymakProfil.avatarUrl } } : undefined,
+                about: kaymakProfil.bio ?? myProfile.about,
+              }
+            : myProfile
         );
       } catch (error) {
         console.warn('[Profile] Trakt profili yüklenemedi:', error);

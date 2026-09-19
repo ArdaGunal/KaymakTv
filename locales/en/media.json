@@ -314,5 +314,11 @@
   "yesDelete": "Yes, Delete",
   "yourComment": "Your comment...",
   "yourReviewBadge": "you",
-  "editProfileAboutEmpty": "Tell us a little about yourself"
+  "editProfileAboutEmpty": "Tell us a little about yourself",
+  "editProfileNameEmpty": "Add your name",
+  "editProfileRemovePhoto": "Remove photo",
+  "editProfileRemovePhotoTitle": "Remove photo",
+  "editProfileRemovePhotoMessage": "Your profile photo will be removed. This can't be undone.",
+  "editProfileRemovePhotoConfirm": "Remove",
+  "editProfileRemovePhotoFailed": "Couldn't remove the photo. Try again."
 }

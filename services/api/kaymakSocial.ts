@@ -38,6 +38,12 @@ export interface KaymakUserSonucu {
   id: string;
   /** 🔑 KANONİK ADRES. Gösterim ve (T3.2'den sonra) takip bunun üzerinden. */
   username: string;
+  /**
+   * §C24 · `053` — gerçek ad. BENZERSİZ DEĞİL: kimliği `username` ayırt eder,
+   * bu yüzden gösterildiği her yerde @username de yanında durmalı. Opsiyonel:
+   * `053` öncesi Worker bu alanı döndürmüyor. `null` = yok.
+   */
+  displayName?: string | null;
   avatarUrl: string | null;
   /** Gizli hesap: "Takip Et" yerine "İstek Gönder" gösterilir. */
   isPrivate: boolean;
@@ -198,6 +204,8 @@ export const unfollowKaymakUser = async (targetUserId: string): Promise<void> =>
 export interface GelenIstek {
   userId: string;
   username: string | null;
+  /** §C24 · `053`. */
+  displayName?: string | null;
   avatarUrl: string | null;
   createdAt: string;
 }

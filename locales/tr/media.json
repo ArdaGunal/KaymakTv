@@ -314,5 +314,11 @@
   "yesDelete": "Evet, Sil",
   "yourComment": "Yorumunuz...",
   "yourReviewBadge": "sen",
-  "editProfileAboutEmpty": "Kendinden kısaca bahset"
+  "editProfileAboutEmpty": "Kendinden kısaca bahset",
+  "editProfileNameEmpty": "Adını ekle",
+  "editProfileRemovePhoto": "Fotoğrafı kaldır",
+  "editProfileRemovePhotoTitle": "Fotoğrafı kaldır",
+  "editProfileRemovePhotoMessage": "Profil fotoğrafın kaldırılacak. Bu işlem geri alınamaz.",
+  "editProfileRemovePhotoConfirm": "Kaldır",
+  "editProfileRemovePhotoFailed": "Fotoğraf kaldırılamadı. Tekrar dene."
 }
