@@ -53,10 +53,27 @@ const { archiveCatalogResponse } = require('./writer');
 // yazım Pi'de en kötü 5,6 sn sürüyor, yani 200 iş ≈ 18 dakikalık birikim.
 const MAX_KUYRUK = 200;
 
-function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResponse } = {}) {
+/**
+ * @param {Object} [opts]
+ * @param {(is: Object, sonuc: Object) => void} [opts.sonrasi] 🆕 §C30 —
+ *   BAŞARILI her yazımdan SONRA çağrılır (anlık aktarımın tetikleyicisi).
+ *   Hatası yutulur: aktarım, arşiv yazımını asla bozamaz.
+ */
+function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResponse, sonrasi = null } = {}) {
   const bekleyenler = new Map(); // anahtar -> is
   const sira = [];               // anahtar sirasi (FIFO)
   let calisiyor = false;
+  let calisanAnahtar = null;
+  // 🆕 §C30 — anahtar -> [resolve]. Eksikte çekme, zorla tazelediği yanıtın
+  // arşive YAZILDIĞINI görmeden aktarım yapamaz (yoksa boş ağaç aktarır).
+  const bekleyiciler = new Map();
+
+  function bekleyicileriCoz(anahtar) {
+    const liste = bekleyiciler.get(anahtar);
+    if (!liste) return;
+    bekleyiciler.delete(anahtar);
+    for (const r of liste) r();
+  }
 
   const istatistik = { alinan: 0, yazilan: 0, atlanan: 0, hata: 0, dusurulen: 0, tekillesen: 0 };
 
@@ -74,12 +91,17 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
         const anahtar = sira.shift();
         const is = bekleyenler.get(anahtar);
         bekleyenler.delete(anahtar);
-        if (!is) continue;
+        if (!is) { bekleyicileriCoz(anahtar); continue; }
+        calisanAnahtar = anahtar;
 
         try {
           const sonuc = await worker(is);
-          if (sonuc && sonuc.ok) istatistik.yazilan += 1;
-          else {
+          if (sonuc && sonuc.ok) {
+            istatistik.yazilan += 1;
+            if (sonrasi) {
+              try { sonrasi(is, sonuc); } catch (_) { /* aktarım yazımı bozamaz */ }
+            }
+          } else {
             istatistik.atlanan += 1;
             // "Kapsam dışı aile" gürültü değil, normal akış — loglanmaz.
             // Gerçek bir başarısızlık (bozuk veri, disk) ise iz bırakır.
@@ -92,6 +114,11 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
           // koşulda çökmemeli, yoksa sonraki tüm arşiv yazımları ölür.
           istatistik.hata += 1;
           logSync({ event: 'error', provider: is.provider, endpoint: is.family, detail: `kuyruk cokmesi: ${error.message}` });
+        } finally {
+          calisanAnahtar = null;
+          // Aynı anahtar bu arada YENİDEN kuyruğa girdiyse bekleyen, o yeni
+          // yazımı da beklesin — daha taze veri onda.
+          if (!bekleyenler.has(anahtar)) bekleyicileriCoz(anahtar);
         }
       }
     } finally {
@@ -121,6 +148,7 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
           if (sira.length >= maxQueue) {
             const dusen = sira.shift();
             bekleyenler.delete(dusen);
+            bekleyicileriCoz(dusen);
             istatistik.dusurulen += 1;
           }
           bekleyenler.set(anahtar, is);
@@ -147,6 +175,21 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
       }
     },
 
+    /**
+     * 🆕 §C30 — bu isteğin yazımı (kuyrukta ya da çalışıyorsa) bitene kadar
+     * bekler; hiç kuyrukta değilse HEMEN döner. Tavanı çağıran koyar
+     * (`Promise.race`) — kuyruk tıkanırsa sonsuza dek beklenmesin.
+     */
+    bekle(is) {
+      const anahtar = anahtarUret(is);
+      if (!bekleyenler.has(anahtar) && calisanAnahtar !== anahtar) return Promise.resolve();
+      return new Promise((resolve) => {
+        const liste = bekleyiciler.get(anahtar) || [];
+        liste.push(resolve);
+        bekleyiciler.set(anahtar, liste);
+      });
+    },
+
     /** Teşhis/telemetri — denetçi ve L6 telemetrisi buradan okuyacak. */
     getStats() {
       return { ...istatistik, bekleyen: sira.length, calisiyor };
@@ -164,7 +207,11 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
 // Modül seviyesinde TEK paylaşılan kuyruk — `orchestrator.js`'in
 // `memoryCache`/`refreshQueue` singleton deseniyle aynı. İki kuyruk olsaydı
 // eşzamanlılık-1 garantisi anlamsız kalırdı.
-const archiveQueue = createArchiveQueue();
+// 🆕 §C30 — her başarılı yazım anlık aktarımı tetikler. `require` GEÇ:
+// `anlikAktarim` → `mirror` → ... zinciri kuyruğun yüklenmesini beklemesin.
+const archiveQueue = createArchiveQueue({
+  sonrasi: (_is, sonuc) => require('./anlikAktarim').yazimSonrasi(sonuc),
+});
 
 module.exports = {
   archiveQueue,

@@ -148,6 +148,9 @@ app.use('/api/tmdb', require('./server/tmdbProxy'));
 // zıt güvenlik sözleşmeleri; gerekçe: server/traktCatalog.js başlığı.
 app.use('/api/trakt-catalog', require('./server/traktCatalog'));
 
+// §C30 — Worker'ın eksikte çekme kapısı (sırlı + kendi sınırlayıcısı).
+app.use('/api/katalog-cek', require('./server/katalogCek'));
+
 // ==========================================
 // TRAKT GENERIC PROXY (CORS Köprüsü)
 // ==========================================
