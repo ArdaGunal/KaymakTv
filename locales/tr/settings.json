@@ -123,12 +123,8 @@
   "logoutError": "Çıkış yapılırken hata oluştu.",
   "logoutReset": "Çıkış Yap ve Sıfırla",
   "pollingAuth": "Giriş bekleniyor...",
-  "privacyManageOnTrakt": "Gizlilik ayarlarını Trakt.tv'de yönet",
   "privacyPolicyRowLabel": "Gizlilik Politikası",
   "privacySection": "Gizlilik",
-  "privateAccount": "Hesap Gizliliği",
-  "privateAccountPrivate": "Gizli",
-  "privateAccountPublic": "Açık",
   "profileOnboardingSubtitle": "Google hesabınla girdiğin ad ve fotoğraf aşağıda — istersen değiştir, istersen böyle bırak.",
   "profileOnboardingTitle": "Profilini Tamamla",
   "profileSection": "Profil",
@@ -186,5 +182,13 @@
   "displayNameHint": "Profilinde @kullanıcı adının üstünde görünür. Boş bırakırsan yalnızca kullanıcı adın görünür.",
   "displayNameSaved": "Görünen adın güncellendi.",
   "usernameRuleChars": "Yalnızca İngilizce harf, rakam ve alt çizgi (_) kullanılabilir.",
-  "usernameRuleLength": "Kullanıcı adı 3–30 karakter olmalı."
+  "usernameRuleLength": "Kullanıcı adı 3–30 karakter olmalı.",
+  "privateAccountSwitch": "Gizli hesap",
+  "privateAccountHint": "Gizli hesapta izlediklerini ve paylaşımlarını yalnızca onayladığın takipçiler görür.",
+  "makePublicTitle": "Hesabını herkese aç",
+  "makePublicMessage": "Hesabın herkese açık olacak ve bekleyen tüm takip istekleri otomatik olarak onaylanacak.",
+  "makePublicConfirm": "Herkese Aç",
+  "privacySavedTitle": "Hesabın artık herkese açık",
+  "requestsAutoApproved": "{{count}} bekleyen takip isteği onaylandı.",
+  "privacyChangeFailed": "Gizlilik ayarı kaydedilemedi."
 }

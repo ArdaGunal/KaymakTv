@@ -28,6 +28,8 @@ export interface MyProfile {
   bio: string | null;
   /** §C24 · `053`. `null` = yok → arayüz @username gösterir. */
   displayName: string | null;
+  /** §C29 — hesap gizliliği; iki hesap türünde de BİZİM ayarımız (Trakt değil). */
+  isPrivate: boolean;
 }
 
 const USERNAME_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
@@ -111,7 +113,35 @@ export async function getMyProfile(traktAccessToken: string): Promise<MyProfile>
     usernameUpdatedAt: response.data.usernameUpdatedAt ?? null,
     bio: response.data.bio ?? null,
     displayName: response.data.displayName ?? null,
+    isPrivate: !!response.data.isPrivate,
   };
+}
+
+/**
+ * §C29 · G2 — hesabı gizli/açık yapar (`POST /account/privacy`). Açığa
+ * geçişte bekleyen takip istekleri sunucuda TEK işlemde onaylanır (kullanıcı
+ * kararı A); dönen sayı ekranda bildirmek için.
+ */
+export async function setAccountPrivacy(
+  traktAccessToken: string,
+  isPrivate: boolean
+): Promise<{ isPrivate: boolean; onaylananIstek: number }> {
+  if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+  let response;
+  try {
+    response = await axios.post(
+      `${KAYMAK_WORKER_URL}/account/privacy`,
+      { traktAccessToken, isPrivate },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+    );
+  } catch (error: any) {
+    if (error?.response?.data) response = error.response;
+    else throw error;
+  }
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || 'Gizlilik ayarı kaydedilemedi.');
+  }
+  return { isPrivate: !!response.data.isPrivate, onaylananIstek: Number(response.data.onaylananIstek) || 0 };
 }
 
 export class ProfileUpdateError extends Error {

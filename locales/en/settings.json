@@ -123,12 +123,8 @@
   "logoutError": "An error occurred while logging out.",
   "logoutReset": "Log Out and Reset",
   "pollingAuth": "Waiting for login...",
-  "privacyManageOnTrakt": "Manage privacy settings on Trakt.tv",
   "privacyPolicyRowLabel": "Privacy Policy",
   "privacySection": "Privacy",
-  "privateAccount": "Account Privacy",
-  "privateAccountPrivate": "Private",
-  "privateAccountPublic": "Public",
   "profileOnboardingSubtitle": "Here's the name and photo from your Google account — change them or keep them as is.",
   "profileOnboardingTitle": "Complete Your Profile",
   "profileSection": "Profile",
@@ -186,5 +182,13 @@
   "displayNameHint": "Shown above your @username on your profile. Leave it empty to show only your username.",
   "displayNameSaved": "Your display name was updated.",
   "usernameRuleChars": "Use only English letters, numbers and underscores (_).",
-  "usernameRuleLength": "Username must be 3–30 characters."
+  "usernameRuleLength": "Username must be 3–30 characters.",
+  "privateAccountSwitch": "Private account",
+  "privateAccountHint": "With a private account, only followers you approve can see what you watch and post.",
+  "makePublicTitle": "Make your account public",
+  "makePublicMessage": "Your account will be public and all pending follow requests will be approved automatically.",
+  "makePublicConfirm": "Make Public",
+  "privacySavedTitle": "Your account is now public",
+  "requestsAutoApproved": "{{count}} pending follow requests were approved.",
+  "privacyChangeFailed": "Couldn't save your privacy setting."
 }

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Linking,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -14,16 +13,17 @@ import { useAppBack } from '../../hooks/useAppBack';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 import SettingsRow from '../../components/settings/SettingsRow';
+import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
 import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
 import TraktImportSection from '../../components/settings/TraktImportSection';
-import { Lock, ExternalLink, LogOut, Trash2 } from '../../components/icons';
+import { Lock, LogOut, Trash2 } from '../../components/icons';
+import { confirmAsync, notify } from '../../utils/confirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
 
 const DESKTOP_BREAKPOINT = 768;
-const TRAKT_PRIVACY_SETTINGS_URL = 'https://trakt.tv/settings/privacy';
 
 export default function AccountSettingsScreen() {
   const { t } = useTranslation(['settings', 'common']);
@@ -37,10 +37,38 @@ export default function AccountSettingsScreen() {
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
-  const openTraktPrivacySettings = () => {
-    Linking.openURL(TRAKT_PRIVACY_SETTINGS_URL).catch((err) =>
-      console.error('URL açılamadı:', err)
-    );
+  // §C29 (M406) — gizlilik BİZDE. Açığa geçiş bekleyen istekleri otomatik
+  // onaylıyor (kullanıcı kararı A) ve geri alınamıyor → önce onay.
+  const gizliligiDegistir = async (yeni: boolean) => {
+    if (!yeni) {
+      const onay = await confirmAsync(
+        t('settings:makePublicTitle', 'Hesabını herkese aç'),
+        t(
+          'settings:makePublicMessage',
+          'Hesabın herkese açık olacak ve bekleyen tüm takip istekleri otomatik olarak onaylanacak.'
+        ),
+        t('settings:makePublicConfirm', 'Herkese Aç'),
+        t('common:cancel', 'İptal')
+      );
+      if (!onay) return;
+    }
+    try {
+      const { onaylananIstek } = await profilePrivacy.setPrivacy(yeni);
+      if (onaylananIstek > 0) {
+        notify(
+          t('settings:privacySavedTitle', 'Hesabın artık herkese açık'),
+          t('settings:requestsAutoApproved', {
+            count: onaylananIstek,
+            defaultValue: '{{count}} bekleyen takip isteği onaylandı.',
+          })
+        );
+      }
+    } catch (error: any) {
+      notify(
+        t('common:error', 'Hata'),
+        error?.message || t('settings:privacyChangeFailed', 'Gizlilik ayarı kaydedilemedi.')
+      );
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -79,30 +107,23 @@ export default function AccountSettingsScreen() {
           </>
         )}
 
-        {/* Bölüm 1: Gizlilik (Trakt hesap gizliliği - Yalnızca giriş yapmış kullanıcı) */}
+        {/* Bölüm 1: Gizlilik — §C29 (M406): iki hesap türünde de BİZİM ayarımız.
+            Eskiden Trakt'tan salt okunuyor ve «Trakt.tv'de yönet» bağlantısı
+            veriliyordu; Google-only hesap hiç gizli olamıyordu. */}
         {!isGuest && accessToken && (
           <SettingsSection title={t('settings:privacySection', 'Gizlilik')}>
-            <SettingsRow
+            <SettingsSwitchRow
               icon={<Lock size={20} color="#60a5fa" />}
-              label={t('settings:privateAccount', 'Hesap Gizliliği')}
+              label={t('settings:privateAccountSwitch', 'Gizli hesap')}
+              hint={t(
+                'settings:privateAccountHint',
+                'Gizli hesapta izlediklerini ve paylaşımlarını yalnızca onayladığın takipçiler görür.'
+              )}
               tintColor="#60a5fa"
-              value={
-                profilePrivacy.isLoading
-                  ? t('common:loading', 'Yükleniyor...')
-                  : profilePrivacy.isPrivate
-                  ? t('settings:privateAccountPrivate', 'Gizli')
-                  : t('settings:privateAccountPublic', 'Açık')
-              }
-            />
-
-            <SettingsSectionDivider />
-
-            <SettingsRow
-              icon={<ExternalLink size={20} color="#60a5fa" />}
-              label={t('settings:privacyManageOnTrakt', "Gizlilik ayarlarını Trakt.tv'de yönet")}
-              tintColor="#60a5fa"
-              showChevron
-              onPress={openTraktPrivacySettings}
+              value={profilePrivacy.isPrivate}
+              onValueChange={gizliligiDegistir}
+              disabled={profilePrivacy.isLoading || profilePrivacy.isSaving}
+              isLoading={profilePrivacy.isLoading || profilePrivacy.isSaving}
             />
           </SettingsSection>
         )}

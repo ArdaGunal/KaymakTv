@@ -9,4 +9,3 @@ export * from './ratings';
 export * from './watchlist';
 export * from './lists';
 export * from './calendar';
-export * from './settings';
