@@ -19,6 +19,7 @@ import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import SkeletonLoader from '../../../components/SkeletonLoader';
 import BlockUserButton from '../../../features/feed/components/BlockUserButton';
 import BlockedProfileLock from '../../../features/feed/components/BlockedProfileLock';
+import PrivateProfileLock from '../../../features/publicProfile/components/PrivateProfileLock';
 import ReportContentModal from '../../../features/feed/components/ReportContentModal';
 import { useBlockState } from '../../../features/feed/hooks/useBlockState';
 import { useAuth } from '../../../context/AuthContext';
@@ -52,6 +53,7 @@ export default function PublicProfileScreenWeb() {
     isPrivate,
     traktSlug,
     bioBizden,
+    gizliKilitli,
     isLoading: isProfileLoading,
     error,
   } = usePublicProfileIdentity(slug);
@@ -65,8 +67,9 @@ export default function PublicProfileScreenWeb() {
   // yalnızca GERÇEK `traktSlug` ile okunur, Google-only'de boş kalır
   // (başkasının izleme geçmişini bizden okumak gizlilik kuralları ister → T6).
   const hedefUserId = kaymakProfil?.profile.userId ?? null;
-  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(hedefUserId);
-  const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(traktSlug);
+  // 🔒 §C29 (M409): gizli + takipçi değilse kütüphane/aktivite için HİÇ istek atılmaz.
+  const { data: activityData, isLoading: isActivityLoading, hasError: isActivityError, refresh: refreshActivity } = usePublicProfileActivity(gizliKilitli ? null : hedefUserId);
+  const { shows, movies, isLoadingShows, isLoadingMovies } = usePublicProfileLibrary(gizliKilitli ? null : traktSlug);
 
   // Engelleme (bkz. docs/design/FEED_SOCIAL_PLAN.md §4) — KaymakTV'ye özel.
   // `isBlockedEitherWay` true ise sekmeler yerine kilit ekranı gösterilir.
@@ -209,6 +212,8 @@ export default function PublicProfileScreenWeb() {
 
             {isBlockedEitherWay ? (
               <BlockedProfileLock />
+            ) : gizliKilitli ? (
+              <PrivateProfileLock />
             ) : (
               <>
             <View style={styles.tabsContainer}>

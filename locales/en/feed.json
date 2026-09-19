@@ -90,5 +90,7 @@
   "searchClear": "Clear",
   "searchHint": "Type the KaymakTV username of the person you want to follow.",
   "searchTooShort": "Type at least 2 characters to search.",
-  "searchAuthError": "Couldn't verify your session. You may need to sign in again."
+  "searchAuthError": "Couldn't verify your session. You may need to sign in again.",
+  "privateProfileTitle": "This Account Is Private",
+  "privateProfileText": "Send a follow request to see what they watch and post."
 }

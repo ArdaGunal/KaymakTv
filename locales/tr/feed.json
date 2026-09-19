@@ -89,5 +89,7 @@
   "searchClear": "Temizle",
   "searchHint": "Takip etmek istediğin kişinin KaymakTV kullanıcı adını yaz.",
   "searchTooShort": "Aramak için en az 2 karakter yaz.",
-  "searchAuthError": "Oturumun doğrulanamadı. Tekrar giriş yapman gerekebilir."
+  "searchAuthError": "Oturumun doğrulanamadı. Tekrar giriş yapman gerekebilir.",
+  "privateProfileTitle": "Bu Hesap Gizli",
+  "privateProfileText": "İzlediklerini ve paylaşımlarını görmek için takip isteği gönder."
 }

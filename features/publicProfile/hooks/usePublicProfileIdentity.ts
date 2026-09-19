@@ -98,6 +98,22 @@ export function usePublicProfileIdentity(username: string | null) {
     followersCount: kaymakProfil?.followersCount ?? 0,
     followingCount: kaymakProfil?.followingCount ?? 0,
     isPrivate: kaymakProfil?.profile.isPrivate ?? false,
+    /**
+     * 🔒 §C29 (M409) — gizli hesap + takipçi değil + kendi profili değil.
+     * `true` ise ekran sekmeleri KİLİTLER ve kütüphane/aktivite için HİÇ istek
+     * atmaz. Kullanıcı gözlemi: *"hesabı gizliye almama rağmen takip etmediğim
+     * kişiler profilimi ve akışı her yeri görüyor."* Sebep: Diziler/Filmler
+     * sekmeleri Trakt'ın açık API'sinden okunuyor ve BİZİM gizlilik ayarımızı
+     * bilmiyor (Trakt gizliliği yönettiği dönemin kalıntısı). Aktivite 057'yle
+     * zaten boş dönüyordu; kilit ikisini birden kapatıyor.
+     * Yükleme sürerken (`kaymakProfil` yok) kilit YOK — sekmeler de boş ve
+     * hook'lar `null` kimlikle istek atmıyor.
+     */
+    gizliKilitli:
+      !!kaymakProfil &&
+      !!kaymakProfil.profile.isPrivate &&
+      !kaymakProfil.kendisi &&
+      kaymakProfil.iliski !== 'takip',
     /** Görünen açıklama BİZİM mi? Yalnızca o raporlanabilir — Trakt'ın `about`'u
      *  Trakt'ın moderasyonunda, `content_reports`'ta karşılığı yok. */
     bioBizden: !!kaymakProfil?.profile.bio,
