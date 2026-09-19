@@ -1,3 +1,13 @@
+// 🔴 DNS — BU SATIR İLK DNS ÇAĞRISINDAN ÖNCE ÇALIŞMALI (§C30, M411, ölçüldü).
+// Pi'de glibc A + AAAA sorgularını AYNI soketten paralel yolluyor; ağdaki bir
+// cihaz birini düşürüyor → her `getaddrinfo` çözümleyicinin 5 sn zaman aşımını
+// bekliyordu (`getent ahosts` 5.047 ms · `single-request-reopen` ile 40 ms).
+// `fetch` (undici) her iki aileyi sorduğu için ayna/aktarım/backfill'in her yeni
+// bağlantısı 5 sn ödüyordu; axios (`family: 4`) etkilenmiyordu. glibc bu
+// seçeneği ilk çözümde `RES_OPTIONS`'tan okur. Sistem ayarına dokunmaz; ortamda
+// zaten bir değer varsa ona saygı duyar.
+if (!process.env.RES_OPTIONS) process.env.RES_OPTIONS = 'single-request-reopen';
+
 require('dotenv').config();
 
 // ⚠️ DNS GECİKMESİ (Madde 234 — ölçüldü, İKİ TURDA teşhis düzeltildi):
