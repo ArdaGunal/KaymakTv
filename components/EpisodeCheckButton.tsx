@@ -5,6 +5,7 @@ import { useLibraryActions } from '../context/LibraryContext';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { sonucuBeklemeli } from '../utils/isaretlemeBekleme';
 
 interface EpisodeCheckButtonProps {
   traktId: number;
@@ -52,6 +53,18 @@ export default function EpisodeCheckButton({
     busyRef.current = true;
     const myRequestId = ++requestIdRef.current;
     const watchedInfo = { season, episode };
+    // 🔴 M413 — dizinin İLK işaretlemesinde iyimser güncelleme yapılamıyor
+    // (mağazada ilerleme kaydı yok); kalıcı tik sunucu turunu bekliyor.
+    // O durumda yeşil + kilit işlem SONUÇLANANA kadar tutulur: hem tik
+    // "gitmez" hem de arada ikinci basış ikinci izleme kaydı üretemez.
+    // Karar mutasyon mağazayı değiştirmeden ÖNCE okunmalı.
+    const sonucuBekle = sonucuBeklemeli(useLibraryStore.getState().showProgressMap[traktId]);
+    const serbestBirak = () => {
+      if (requestIdRef.current !== myRequestId) return;
+      setIsSuccess(false);
+      onSuccessStateChange?.(false);
+      busyRef.current = false;
+    };
 
     setIsSuccess(true);
     onSuccessStateChange?.(true, watchedInfo);
@@ -62,6 +75,8 @@ export default function EpisodeCheckButton({
 
     mutationPromise
       .then((newProgress) => {
+        // Bu noktada ilerleme mağazaya yazılmış ve kalıcı tik çizilmiş olur.
+        if (sonucuBekle) serbestBirak();
         if (!newProgress?.next_episode) {
           setIsFinishedLocal(true);
           if (onShowFinished && showName) {
@@ -74,19 +89,10 @@ export default function EpisodeCheckButton({
         Alert.alert(t('common:error'), t('episodeMarkError'));
         // Bu tepki hâlâ güncelse (üstüne yeni bir dokunuş binmediyse) iyimser
         // görünümü geri al. Aksi halde daha yeni bir işlemi bozmamak için dokunma.
-        if (requestIdRef.current === myRequestId) {
-          setIsSuccess(false);
-          onSuccessStateChange?.(false);
-          busyRef.current = false;
-        }
+        serbestBirak();
       });
 
-    setTimeout(() => {
-      if (requestIdRef.current !== myRequestId) return;
-      setIsSuccess(false);
-      onSuccessStateChange?.(false);
-      busyRef.current = false;
-    }, SUCCESS_HOLD_MS);
+    if (!sonucuBekle) setTimeout(serbestBirak, SUCCESS_HOLD_MS);
   };
 
   const handleCheckIn = () => {
