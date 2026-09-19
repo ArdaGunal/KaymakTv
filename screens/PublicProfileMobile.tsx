@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAppBack } from '../hooks/useAppBack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -126,6 +126,28 @@ export default function PublicProfileMobile() {
     );
   };
 
+  // Başlık iki dalda kullanılıyor: normal listenin `ListHeaderComponent`'i ve
+  // gizli hesap kilidinin üstü (§C29, M409).
+  const profilBasligi = profile ? (
+    <ProfileHeader
+      profile={profile}
+      followersCount={followersCount}
+      followingCount={followingCount}
+      isOwnProfile={false}
+      connectionState={connectionState}
+      isFollowPending={isFollowPending}
+      isLoadingConnection={isLoadingConnection}
+      onPressAction={toggleFollow}
+      onReportBio={canShowBlockButton && bioBizden ? () => setBioRaporAcik(true) : undefined}
+      onPressFollowers={() => {
+        router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'followers' } });
+      }}
+      onPressFollowing={() => {
+        router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'following' } });
+      }}
+    />
+  ) : null;
+
   return (
     <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -161,7 +183,13 @@ export default function PublicProfileMobile() {
       ) : isBlockedEitherWay ? (
         <BlockedProfileLock />
       ) : gizliKilitli ? (
-        <PrivateProfileLock />
+        // 🔒 §C29 (M409): kilit YALNIZ sekmelerin yerine — başlık (fotoğraf,
+        // @ad, takipçi sayıları, istek düğmesi) görünür kalır. Kullanıcı:
+        // *"kullanıcı adı, takipçi sayısı ve profil fotosu gösterilsin."*
+        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
+          {profilBasligi}
+          <PrivateProfileLock />
+        </ScrollView>
       ) : (
         <FlatList
           key={activeTab === 'activity' ? 'list-1' : `grid-${NUM_COLUMNS}`}
@@ -177,23 +205,7 @@ export default function PublicProfileMobile() {
           initialNumToRender={activeTab === 'activity' ? 10 : 15}
           ListHeaderComponent={
             <View>
-              <ProfileHeader
-                profile={profile}
-                followersCount={followersCount}
-                followingCount={followingCount}
-                isOwnProfile={false}
-                connectionState={connectionState}
-                isFollowPending={isFollowPending}
-                isLoadingConnection={isLoadingConnection}
-                onPressAction={toggleFollow}
-                onReportBio={canShowBlockButton && bioBizden ? () => setBioRaporAcik(true) : undefined}
-                onPressFollowers={() => {
-                  if (profile) router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'followers' } });
-                }}
-                onPressFollowing={() => {
-                  if (profile) router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'following' } });
-                }}
-              />
+              {profilBasligi}
               <View style={styles.tabsContainer}>
                 <TouchableOpacity style={[styles.tab, activeTab === 'activity' && styles.activeTab]} onPress={() => setActiveTab('activity')}>
                   <Text style={[styles.tabText, activeTab === 'activity' && styles.activeTabText]}>Aktiviteler</Text>
