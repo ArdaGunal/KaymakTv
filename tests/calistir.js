@@ -70,6 +70,7 @@ const TAKIMLAR = [
   { ad: 'atlanan', grup: 'arayuz', dosya: 'arayuz/atlanan-bolumler.test.mjs', aciklama: 'M418/M419: atlanan bolum hesabi + denetim duzeltmeleri' },
   { ad: 'plan', grup: 'arayuz', dosya: 'arayuz/isaretleme-plani.test.mjs', aciklama: 'M421: cok sezonlu plan + isaretleme denetimi onarimlari' },
   { ad: 'ilerleme', grup: 'arayuz', dosya: 'arayuz/ilerleme-kurallari.test.mjs', aciklama: 'M422: yuzde/siradaki bolum kurallari + iyimser iskelet' },
+  { ad: 'istek', grup: 'arayuz', dosya: 'arayuz/takip-istegi.test.mjs', aciklama: 'M424: ret satiri siler (sessiz duvar kalkti) + 059' },
 ];
 
 const filtre = process.argv[2];

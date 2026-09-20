@@ -260,6 +260,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       // `connectionStates` artık `userId` anahtarlı olduğu için eşleşme HİÇ
       // tutmaz ve bu bildirim **sessizce** hiç üretilmezdi.
       const followingConnectionStates = useFollowStore.getState().connectionStates;
+      // 🔴 M424 — SUNUCUDA DURAN İSTEKLER (tek doğru kaynak). Ret artık
+      // satırı SİLİYOR ("sessiz duvar" kaldırıldı); reddedilen ya da geri
+      // çekilen istek `pendingOut`'ta GÖRÜNMEZ. Eskiden bu kayıt yalnız
+      // ONAY'da çözülüyordu, reddedilince yaş budamasına kadar ölü olarak
+      // duruyordu (denetimin 4. kusuru).
+      const sunucudakiIstekler = new Set(graf.pendingOut ?? []);
       const stillPending: PendingSentRequest[] = [];
       for (const bekleyen of state.pendingSentSlugs) {
         if (followingConnectionStates[bekleyen.userId] === 'following') {
@@ -280,9 +286,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             createdAt: Date.now(),
             read: false,
           });
-        } else {
+        } else if (sunucudakiIstekler.has(bekleyen.userId)) {
           stillPending.push(bekleyen);
         }
+        // else: istek sunucuda YOK (reddedildi ya da geri çekildi) → kayıt düşer.
       }
 
       // Yenileme turu da buduyor: uygulama günlerce açık kalabilir ve
