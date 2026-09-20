@@ -178,6 +178,10 @@ const ciftYaz = async (
     // doğru, "yapıldı" göstermek yanlış. Bizim satırımız yazıldı ve okuma
     // yolu artık biziz; Trakt bu işaretlemeyi kaçırdı.
     console.warn("[ciftYaz] Trakt yazması düştü, bizimki KALICI:", (error as any)?.message || error);
+    // 🔴 M419 (bağımsız denetim): tek iz `console.warn`'du ve bu dosyanın
+    // kendi kuralı «tek kalıcı iz `logError`» diyor. Trakt'a hiç ulaşmayan
+    // işaretlemenin cihazda gözlemlenebilir bir izi kalmıyordu.
+    logError('mutations.progress.ciftYaz', error);
   }
 };
 
@@ -255,6 +259,33 @@ const tazelemeyiPlanla = (showId: number) => {
   );
 };
 
+/**
+ * 🔴 M419 (bağımsız denetim) — GERİ ALMA DA NESİL KORUMALI.
+ * `previousState` mutasyonun BAŞINDA çekilmiş fotoğraf. Eski hâl onu
+ * koşulsuz yazıyordu: E5 asılı kalıp 15 sn sonra düşerse, arada BAŞARILI
+ * olan E6'nın işareti de ekrandan siliniyordu. Üstelik geri alma diske
+ * YAZILMIYORDU (mağaza ile önbellek ıraksıyordu) ve yeni bir tazeleme de
+ * planlanmıyordu, yani ekran uygulama yeniden açılana kadar yanlış kalıyordu.
+ *
+ * Nesil değiştiyse (araya yeni bir mutasyon girdiyse) geri alma YAPILMAZ;
+ * doğruyu sunucudan getirmek üzere tazeleme planlanır.
+ */
+const geriAlVeyaTazele = (showId: number, nesilBaslangic: number, previousState: any) => {
+  if ((ilerlemeNesli.get(showId) ?? 0) !== nesilBaslangic) {
+    tazelemeyiPlanla(showId);
+    return;
+  }
+  // ⚠️ `undefined` de yazılmamalı: dizinin ilk işaretlemesinde `prev[showId]`
+  // yoktur ve haritaya açık `undefined` koymak sayım/gezinti yapan kodlar
+  // için gizli bir tuzaktır.
+  if (previousState === null || previousState === undefined) return;
+  setShowProgressMap((prev: any) => {
+    const guncel = { ...prev, [showId]: previousState };
+    persistShowProgressMap(guncel);
+    return guncel;
+  });
+};
+
 const kaymakIlerlemeTazele = async (showId: number, beklenenNesil?: number) => {
   try {
     const taze = await libraryApi.fetchShowProgress(showId);
@@ -315,7 +346,7 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
   // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
   // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  nesliArtir(showId);
+  const nesilBaslangic = nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Bölüm UI'da işaretleniyor: Show ${showId}, S${season}E${episode}`);
   reactivateShowTracking(showId);
@@ -396,9 +427,7 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
     logError('mutations.progress.markEpisodeAsWatched', error);
     recordMutationResult('markEpisodeAsWatched', false);
-    if (previousState !== null) {
-      setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
-    }
+    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
     throw error;
   }
 };
@@ -409,7 +438,7 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
   // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
   // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  nesliArtir(showId);
+  const nesilBaslangic = nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Bölüm UI'da Kaldırılıyor: Show ${showId}, S${season}E${episode}`);
 
@@ -474,13 +503,7 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
     logError('mutations.progress.unwatchEpisode', error);
     recordMutationResult('unwatchEpisode', false);
-    if (previousState !== null) {
-      setShowProgressMap((prev: any) => {
-        const updated = { ...prev, [showId]: previousState };
-        persistShowProgressMap(updated);
-        return updated;
-      });
-    }
+    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
     throw error;
   }
 };
@@ -491,7 +514,7 @@ export const unwatchSeason = async (showId: number, season: number) => {
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
   // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
   // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  nesliArtir(showId);
+  const nesilBaslangic = nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Sezon UI'da Kaldırılıyor: Show ${showId}, S${season}`);
 
@@ -553,13 +576,7 @@ export const unwatchSeason = async (showId: number, season: number) => {
     console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
     logError('mutations.progress.unwatchSeason', error);
     recordMutationResult('unwatchSeason', false);
-    if (previousState !== null) {
-      setShowProgressMap((prev: any) => {
-        const updated = { ...prev, [showId]: previousState };
-        persistShowProgressMap(updated);
-        return updated;
-      });
-    }
+    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
     throw error;
   }
 };
@@ -574,7 +591,7 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
   // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
   // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  nesliArtir(showId);
+  const nesilBaslangic = nesliArtir(showId);
   console.log(`[OPTIMISTIC UI] Sezon UI'da işaretleniyor: Show ${showId}, S${season}`);
   reactivateShowTracking(showId);
 
@@ -628,9 +645,7 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
     console.error(`[API ERROR] Sezon işaretleme başarısız, eski haline dönülüyor!`, error);
     logError('mutations.progress.markSeasonAsWatched', error);
     recordMutationResult('markSeasonAsWatched', false);
-    if (previousState !== null) {
-      setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
-    }
+    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
     throw error;
   }
 };
@@ -649,7 +664,7 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
   // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
   // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  nesliArtir(showId);
+  const nesilBaslangic = nesliArtir(showId);
   console.log(`[OPTIMISTIC UI] Bölümler toplu UI'da işaretleniyor: Show ${showId}, S${season}`);
   reactivateShowTracking(showId);
 
@@ -716,9 +731,7 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
     console.error(`[API ERROR] Toplu bölüm işaretleme başarısız, eski haline dönülüyor!`, error);
     logError('mutations.progress.markEpisodesUpToAsWatched', error);
     recordMutationResult('markEpisodesUpToAsWatched', false);
-    if (previousState !== null) {
-      setShowProgressMap((prev: any) => ({ ...prev, [showId]: previousState }));
-    }
+    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
     throw error;
   }
 };

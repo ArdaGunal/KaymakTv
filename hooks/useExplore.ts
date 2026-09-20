@@ -188,6 +188,10 @@ export function useExplore(): ExploreState & ExploreActions {
     } finally {
       if (activeSearchRef.current === currentSearch) {
         setLoading(false);
+        // 🔴 M419 — `setRefreshing(false)` YALNIZCA `fetchTrending`'de vardı.
+        // Arama açıkken aşağı çekilince (ya da hata ekranındaki "Tekrar
+        // Dene"ye basılınca) spinner sonsuza kadar dönüyordu.
+        setRefreshing(false);
       }
     }
   };

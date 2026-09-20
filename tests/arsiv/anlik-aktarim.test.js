@@ -106,6 +106,33 @@ const kokleri = (cagri) => cagri[0].satirlar.map((s) => s.kaymak_id);
   }
 
   // ======================================================================
+  T.H('🔴 Ucus SIRASINDA gelen is BAYAT fotoğrafla basarili sayilmaz (M419)');
+  // §C30'un ana akisi: dizi koku yazilir -> pencere dolar -> ucus baslar ->
+  // sezon/bolumler yazilir -> hemen() cagrilir. Eski kodda bu cagri ucustaki
+  // girdiye yapisiyor ve fazlar CEKILDIKTEN SONRA yazilan bolumler hic
+  // gonderilmeden {ok:true} aliyordu: Pi "aktarildi" der, Supabase'de bolum
+  // YOKTUR, kullanici 409 alir.
+  {
+    const cagrilar = [];
+    let surum = 'yalniz-kok';
+    const gonder = async (fazlar) => { await bekle(60); cagrilar.push(fazlar[0].satirlar[0].surum); return { ok: true }; };
+    const a = createAnlikAktarim({
+      gonder,
+      fazlariKur: (kokler) => [{ faz: 'entities', satirlar: [{ kaymak_id: kokler[0], surum }] }],
+      pencereMs: 5, acik: () => true,
+    });
+    a.ekle('show_Y');                 // ilk is: yalniz kok fotografi
+    await bekle(20);                  // ucus basladi (gonder icinde bekliyor)
+    surum = 'bolumler-dahil';         // arsive bolumler simdi yazildi
+    const s2 = await a.hemen('show_Y');
+    T.ok('hemen() IKINCI ucusu tetikledi (tek ucusa yapismadi)', cagrilar.length === 2, `${cagrilar.length} gonderim`);
+    T.ok('Ikinci gonderim TAZE fotografla gitti',
+      cagrilar[0] === 'yalniz-kok' && cagrilar[1] === 'bolumler-dahil', cagrilar.join(' -> '));
+    T.ok('hemen() sonucu ikinci ucustan geldi', s2.ok === true);
+    T.ok('Kuyruk bos kaldi (sizinti yok)', a.getStats().bekleyen === 0, JSON.stringify(a.getStats()));
+  }
+
+  // ======================================================================
   T.H('Arsiv kuyrugu kancalari: sonrasi + bekle');
   // ======================================================================
   {

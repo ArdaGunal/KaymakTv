@@ -6,6 +6,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { sonucuBeklemeli } from '../utils/isaretlemeBekleme';
+import { atlananBolumler } from '../utils/atlananBolumler';
 
 interface EpisodeCheckButtonProps {
   traktId: number;
@@ -77,7 +78,12 @@ export default function EpisodeCheckButton({
       .then((newProgress) => {
         // Bu noktada ilerleme mağazaya yazılmış ve kalıcı tik çizilmiş olur.
         if (sonucuBekle) serbestBirak();
-        if (!newProgress?.next_episode) {
+        // 🔴 M418: `newProgress` NULL olabilir — `kaymakIlerlemeTazele`
+        // sunucu düşerse/boş dönerse mağazadaki değeri döndürüyor ve dizinin
+        // İLK işaretlemesinde o değer yok. Null'ı "sıradaki bölüm yok" diye
+        // okumak, tek bölüm işaretleyen kullanıcıya KONFETİ + "diziyi puanla"
+        // göstermek ve düğmeyi kalıcı kilitlemek demekti.
+        if (newProgress && !newProgress.next_episode) {
           setIsFinishedLocal(true);
           if (onShowFinished && showName) {
             onShowFinished(showName, traktId);
@@ -103,28 +109,11 @@ export default function EpisodeCheckButton({
 
     if (busyRef.current || isSuccess || isFinishedLocal) return;
 
+    // 🔴 M418 — atlananlar SEZON LİSTESİNDEN hesaplanır, `1..N-1` döngüsüyle
+    // DEĞİL. Eski hâl, numaraları kesintisiz sanıp olmayan bölümleri
+    // işaretlemeye çalışıyordu (canlı hata: 21020 S5'te yalnız 19-21 var).
     const progress = useLibraryStore.getState().showProgressMap[traktId];
-    let skippedEpisodes: number[] = [];
-
-    if (progress && progress.seasons) {
-      const currentSeasonProgress = progress.seasons.find((s: any) => s.number === season);
-      if (currentSeasonProgress && currentSeasonProgress.episodes) {
-        for (let i = 1; i < episode; i++) {
-          const ep = currentSeasonProgress.episodes.find((e: any) => e.number === i);
-          if (!ep || !ep.completed) {
-            skippedEpisodes.push(i);
-          }
-        }
-      } else {
-        for (let i = 1; i < episode; i++) {
-          skippedEpisodes.push(i);
-        }
-      }
-    } else {
-      for (let i = 1; i < episode; i++) {
-        skippedEpisodes.push(i);
-      }
-    }
+    const skippedEpisodes = atlananBolumler(progress, season, episode);
 
     if (skippedEpisodes.length > 0) {
       Alert.alert(

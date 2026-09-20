@@ -96,11 +96,12 @@ function createAnlikAktarim({
     zamanlayici = setTimeout(() => { zamanlayici = null; calistir().catch(() => {}); }, ms);
   }
 
-  function sonuclandir(kokler, sonuc) {
+  /** Uçuştaki girdilerin bekleyenlerini çözer (kuyruğa DOKUNMAZ). */
+  function sonuclandir(ucus, kokler, sonuc) {
     for (const k of kokler) {
-      const g = kuyruk.get(k);
+      const g = ucus.get(k);
       if (!g) continue;
-      kuyruk.delete(k);
+      ucus.delete(k);
       for (const r of g.bekleyenler) r(sonuc);
     }
   }
@@ -109,6 +110,19 @@ function createAnlikAktarim({
     if (ucusta) return;
     const kokler = [...kuyruk.keys()].slice(0, partiKok);
     if (kokler.length === 0) return;
+    // 🔴 UÇUŞA ALINAN KÖKLER KUYRUKTAN ÇIKAR (bağımsız denetim, M419).
+    // Eskiden girdiler uçuş BİTENE kadar kuyrukta duruyordu; uçuş sürerken
+    // gelen `ekle`/`hemen` aynı girdiye yapışıyor ve fazlar ÇEKİLDİKTEN
+    // SONRA arşive yazılan satırlar hiç gönderilmeden `{ok:true}` alıyordu.
+    // §C30'un ana akışında tam da bu oluyordu: dizi kökü yazılır → pencere
+    // dolar → uçuş başlar → sezon/bölümler yazılır → `hemen()` o uçuşa
+    // yapışır → "aktarıldı" denir ama BÖLÜMLER GİTMEMİŞTİR.
+    // Artık uçuş sırasında gelen iş YENİ bir girdi (ve yeni fotoğraf) açar.
+    const ucus = new Map();
+    for (const k of kokler) {
+      ucus.set(k, kuyruk.get(k));
+      kuyruk.delete(k);
+    }
     ucusta = true;
     const t0 = Date.now();
     let sonuc;
@@ -123,18 +137,18 @@ function createAnlikAktarim({
     }
     // Uçuş başına TEK satır (gündüz birkaç, gece ~10). Yeniden denemeler
     // ancak böyle görünür — ilk canlı denemede 23 sn'lik aktarım sessizdi.
-    const denemeler = kokler.map((k) => kuyruk.get(k)?.deneme ?? 0);
+    const denemeler = kokler.map((k) => ucus.get(k)?.deneme ?? 0);
     console.log(`[anlik-aktarim] ${kokler.length} kok · ${sonuc.ok ? 'ok' : 'HATA ' + sonuc.reason + ' ' + (sonuc.detay || '').slice(0, 160)} · ${Date.now() - t0} ms · deneme ${Math.max(...denemeler)}`);
 
     if (sonuc.ok) {
       istatistik.gonderilen += kokler.length;
-      sonuclandir(kokler, sonuc);
+      sonuclandir(ucus, kokler, sonuc);
     } else {
       // Yeniden dene: deneme sayısı artar, tavanı aşan bırakılır.
       const birakilan = [];
       let enBuyuk = 0;
       for (const k of kokler) {
-        const g = kuyruk.get(k);
+        const g = ucus.get(k);
         if (!g) continue;
         g.deneme += 1;
         if (g.deneme >= denemeTavani) birakilan.push(k);
@@ -146,8 +160,20 @@ function createAnlikAktarim({
           event: 'error', provider: 'supabase', endpoint: 'anlik_aktarim',
           detail: `birakildi ${birakilan.length} kok (${sonuc.reason}); gece aynasi tasiyacak`,
         });
-        sonuclandir(birakilan, sonuc);
+        sonuclandir(ucus, birakilan, sonuc);
       }
+      // Kalanlar kuyruğa GERİ konur (uçuş sırasında aynı kök yeniden
+      // eklendiyse onun taze girdisi korunur, denemesi devralınır).
+      for (const [k, g] of ucus) {
+        const yeni = kuyruk.get(k);
+        if (yeni) {
+          yeni.deneme = Math.max(yeni.deneme, g.deneme);
+          yeni.bekleyenler.push(...g.bekleyenler);
+        } else {
+          kuyruk.set(k, g);
+        }
+      }
+      ucus.clear();
       if (kuyruk.size) {
         istatistik.tekrar += 1;
         planla(ilkBeklemeMs * 2 ** Math.max(0, enBuyuk - 1));

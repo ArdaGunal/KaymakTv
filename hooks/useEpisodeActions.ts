@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 // bizim API mi) orada yaşıyor. Ham çağrı kalsaydı Kaymak kullanıcısı bölüm
 // puanlayamazdı — cihazda görülen 401'in sebebi buydu.
 import { useLibrary } from '../context/LibraryContext';
+import { atlananBolumler } from '../utils/atlananBolumler';
 import { useAuth } from '../context/AuthContext';
 
 interface UseEpisodeActionsArgs {
@@ -104,15 +105,18 @@ export function useEpisodeActions({
 
       // Bu bölümden ÖNCE izlenmemiş bölümler var mı — varsa kullanıcıya
       // "öncekileri de işaretleyeyim mi" diye sorulur.
-      const progress = showProgressMap[showTraktId];
-      const skippedEpisodes: number[] = [];
-      const currentSeasonProgress = progress?.seasons?.find((s: any) => s.number === sNum);
-      for (let i = 1; i < eNum; i++) {
-        const ep = currentSeasonProgress?.episodes?.find((e: any) => e.number === i);
-        if (!ep || !ep.completed) skippedEpisodes.push(i);
-      }
+      // 🔴 M418: hesap SEZON LİSTESİNDEN (bkz. utils/atlananBolumler.ts);
+      // `1..N-1` döngüsü olmayan bölümleri uyduruyordu.
+      const skippedEpisodes = atlananBolumler(showProgressMap[showTraktId], sNum, eNum);
 
+      // 🔴 M418 — DİYALOG DALINDA DA KİLİT. `Alert.alert` bloklamıyor;
+      // eski hâlde `toggleWatched` hemen `finally`'ye düşüp kilidi açıyordu,
+      // gerçek yazma ise diyaloğun `onPress`'inde SONRA koşuyordu. Kullanıcı
+      // o aralıkta ikinci kez basınca ikinci bir `watchedAt` üretiliyor ve
+      // sunucuda İKİNCİ bir izleme satırı oluşuyordu (M318 sınıfı hayalet
+      // yeniden izleme). `EpisodeCheckButton` bu korumayı M413'te aldı.
       const performCheckIn = async (isBulk: boolean, eps: number[]) => {
+        setIsCheckLoading(true);
         try {
           if (isBulk) {
             await markEpisodesUpToAsWatched(showTraktId, sNum, eps);
@@ -122,6 +126,8 @@ export function useEpisodeActions({
         } catch (e) {
           console.error(e);
           Alert.alert(t('common:error'), 'Bölüm işaretlenirken bir hata oluştu.');
+        } finally {
+          setIsCheckLoading(false);
         }
       };
 

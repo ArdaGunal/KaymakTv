@@ -9,6 +9,7 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import MediaPoster from '../MediaPoster';
 import { Star, Plus, Check } from '../icons';
@@ -19,6 +20,7 @@ import { generateMediaSlug } from '../../utils/slugHelper';
 import PosterGridSkeleton from '../skeletons/PosterGridSkeleton';
 import { formatRating } from '../../utils/formatRating';
 import { getMediaFollowStatus } from '../../utils/followStatus';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
 
@@ -40,6 +42,8 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
     hiddenMovieIds: s.hiddenMovieIds,
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
+  const { isGuest } = useAuth();
+  const { t } = useTranslation(['media', 'common']);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shadowAnim = useRef(new Animated.Value(0)).current;
@@ -83,10 +87,28 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
     }
   };
 
-  const handleWatchlist = (e: any) => {
+  // 🔴 M419 — `ShowCard.tsx`'in İKİZİ; üç kusuru vardı ve orada yoktu:
+  // (1) misafir kapısı yok → misafir yanlış teşhisli hata görüyordu,
+  // (2) `await`/`catch` yok → mutasyon throw edince YAKALANMAYAN promise
+  //     reddi oluyor, kullanıcı HİÇBİR geri bildirim almıyordu (AI_RULES §2:
+  //     sessiz başarısızlık yasak),
+  // (3) çift basış koruması yok (M416'da ShowCard'a eklenmişti).
+  const busyRef = useRef(false);
+  const handleWatchlist = async (e: any) => {
     e.stopPropagation?.();
-    if (!traktId || isWatched) return;
-    toggleWatchlistStatus(traktId, type, isWatchlisted, media);
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
+    if (!traktId || isWatched || busyRef.current) return;
+    busyRef.current = true;
+    try {
+      await toggleWatchlistStatus(traktId, type, isWatchlisted, media);
+    } catch (error) {
+      Alert.alert(t('common:error'), t('listAddError'));
+    } finally {
+      busyRef.current = false;
+    }
   };
 
   return (

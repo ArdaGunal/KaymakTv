@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
+import { useAuth } from '../context/AuthContext';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { getProgressBarColor } from '../utils/progressBarColor';
 import { getMediaFollowStatus } from '../utils/followStatus';
@@ -26,6 +27,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
     hiddenMovieIds: s.hiddenMovieIds,
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
+  const { isGuest } = useAuth();
 
   const media = data?.show || data?.movie;
   
@@ -67,6 +69,14 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const busyRef = useRef(false);
   const handleToggleWatchlist = async (e: any) => {
     e.stopPropagation();
+    // 🔴 M419 — MİSAFİR KAPISI. Eskiden misafir basınca kart iyimser yeşile
+    // dönüyor, istek 401 alıyor, geri alınıyordu ve kullanıcı "listeye
+    // eklenemedi" gibi YANLIŞ TEŞHİS eden bir mesaj görüyordu. Proje
+    // genelindeki desen (EpisodeCheckButton, MediaHero, OptionsModal…).
+    if (isGuest) {
+      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return;
+    }
     if (!traktId || busyRef.current) return;
 
     busyRef.current = true;
