@@ -68,21 +68,23 @@ T.ok('Izlenmisler (1 ve 3) ekran listesinden de elenir',
 T.H('Kaynak denetimi: iki cagri yerinde de dongu KALMADI');
 const dugme = fs.readFileSync(path.join(KOK, 'components', 'EpisodeCheckButton.tsx'), 'utf8');
 const kanca = fs.readFileSync(path.join(KOK, 'hooks', 'useEpisodeActions.ts'), 'utf8');
-T.ok('EpisodeCheckButton ortak hesabi kullaniyor', /atlananBolumler\(progress, season, episode, sezonBolumleri\)/.test(dugme));
-T.ok('useEpisodeActions ortak hesabi kullaniyor', /atlananBolumler\(showProgressMap\[showTraktId\], sNum, eNum\)/.test(kanca));
+// M421: hesap `atlananPlan`a tasindi (cok sezonlu). Ortak karar SARTI ayni:
+// iki cagri yeri de kendi dongusunu YAZMAMALI.
+T.ok('EpisodeCheckButton ortak karari kullaniyor', /atlananPlan\(progress, season, episode, evren\)/.test(dugme));
+T.ok('useEpisodeActions ortak karari kullaniyor', /atlananPlan\(showProgressMap\[showTraktId\], sNum, eNum\)/.test(kanca));
 const akordiyon = fs.readFileSync(path.join(KOK, 'components', 'SeasonAccordion.tsx'), 'utf8');
 T.ok('SeasonAccordion YAYINLANMIS bolum listesini geciriyor',
   /sezonBolumleri=\{yayinlanmisNumaralar\}/.test(akordiyon)
   && /isEpisodeAired\(ep, season\.aired_episodes \|\| 0\)/.test(akordiyon));
-T.ok('Dugme listeyi hesaba geciriyor',
-  /atlananBolumler\(progress, season, episode, sezonBolumleri\)/.test(dugme));
+T.ok('Dugme sezon evrenini hesaba geciriyor', /const evren: SezonListesi\[\] \| null = tumSezonlar/.test(dugme));
 T.ok('Elle yazilmis 1..N-1 dongusu iki dosyada da YOK',
   !/for \(let i = 1; i < (episode|eNum); i\+\+\)/.test(dugme + kanca));
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('M419 kaynak denetimleri');
 T.ok('Null ilerleme "dizi bitti" SAYILMIYOR', /if \(newProgress && !newProgress\.next_episode\)/.test(dugme));
-T.ok('Diyalog dalinda kilit acik kaliyor', /performCheckIn = async \(isBulk: boolean, eps: number\[\]\) => \{\s*\n\s*setIsCheckLoading\(true\);/.test(kanca));
+T.ok('Diyalog dalinda kilit acik kaliyor',
+  /performCheckIn = async \(planlanan[^)]*\) => \{\s+setIsCheckLoading\(true\);/.test(kanca));
 const kesfet = fs.readFileSync(path.join(KOK, 'hooks', 'useExplore.ts'), 'utf8');
 T.ok('Arama yolunda refreshing kapaniyor',
   (kesfet.match(/setRefreshing\(false\)/g) || []).length >= 2);

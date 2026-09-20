@@ -44,6 +44,10 @@ export const useMoviesDashboardData = (
 
       const formattedObj = {
         id: traktId,
+        // 🆕 M421 (denetim E) — HAM film nesnesi: kart "izledim" derken
+        // iyimser girdiyi bununla kuruyor (`title` burada BÜYÜK HARFE
+        // çevrildiği için görünüm modeli o iş için kullanılamaz).
+        raw: movie,
         tmdbId: movie?.ids?.tmdb,
         title: (movie?.title || t('unnamedMovie')).toUpperCase(),
         year: movie.year,
@@ -77,6 +81,7 @@ export const useMoviesDashboardData = (
 
       upcomingTemp.push({
         id: traktId,
+        raw: movie,
         title: (movie?.title || t('unnamedMovie')).toUpperCase(),
         year: movie.year,
         releaseDate: cikisTarihiBicimle(movie.released),

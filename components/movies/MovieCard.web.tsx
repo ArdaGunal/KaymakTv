@@ -74,7 +74,10 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardPro
 
     setTimeout(async () => {
       try {
-        await markMovieAsWatched(data.id);
+        // 🔴 M421 (denetim E) — FİLM NESNESİ DE GEÇİYOR: iyimser "izlendi"
+        // girdisi film izleme listesinde DEĞİLSE ancak bununla kurulabiliyor
+        // (takvim/öneri kartından işaretlenen film eskiden ekranda değişmiyordu).
+        await markMovieAsWatched(data.id, data.raw || data.movie || null);
         if (onMovieFinished) {
           onMovieFinished(data.title);
         }

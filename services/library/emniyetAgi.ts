@@ -1,5 +1,6 @@
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { getShowProgress } from '../traktApi';
+import { fetchShowProgress } from '../api/library';
 import { requestQueue } from '../api/requestQueue';
 import { logError } from '../../utils/errorLog';
 import { CACHE_KEYS, writeChunkedRecord, setShowProgressMap } from './utils';
@@ -33,7 +34,11 @@ export async function sezonsuzlariTamamla(
   traktTokenVar: boolean,
   tavan = 20,
 ): Promise<number> {
-  if (!traktTokenVar) return 0;
+  // 🔴 M421 (denetim G) — ESKİDEN BURADA `if (!traktTokenVar) return 0` VARDI.
+  // Onarım Trakt'tan okuduğu için Google-only kullanıcıda emniyet ağı HİÇ
+  // çalışmıyordu: sezon kırılımı boş kalan dizide tikler ve "atlananlar"
+  // hesabı kalıcı olarak yanlış kalıyordu. T6.1'den beri ilerlemenin kanonik
+  // kaynağı BİZ olduğumuz için onarım da bizden okunabilir.
 
   const harita = (useLibraryStore.getState() as any)?.showProgressMap || {};
   const eksik = Object.keys(harita)
@@ -52,7 +57,9 @@ export async function sezonsuzlariTamamla(
       try {
         // 🔴 `LOW` öncelik: bu bir onarım turu, kullanıcının beklediği veri
         // değil. Kritik isteklerin önüne geçmemeli.
-        const p = await requestQueue.enqueue(() => getShowProgress(id), 'LOW');
+        const p = traktTokenVar
+          ? await requestQueue.enqueue(() => getShowProgress(id), 'LOW')
+          : await fetchShowProgress(id);
         if (p?.seasons?.length) gelen[id] = p;
       } catch (e) {
         // Sessiz DEĞİL ama turu da düşürmüyor — diğer diziler denenmeye

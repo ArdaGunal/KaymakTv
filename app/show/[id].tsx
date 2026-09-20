@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
@@ -117,6 +117,20 @@ export default function ShowDetailScreen() {
     handleRewatchEpisode: hookHandleRewatchEpisode,
     handleUndoUnwatch,
   } = useShowDetailHandlers({ traktIdNum, id, t });
+
+  // 🆕 M421 — TÜM sezonların YAYINLANMIŞ bölüm numaraları. `SeasonAccordion`
+  // yalnız kendi sezonunu biliyor; çok sezonlu plan için evren burada kurulur
+  // (ekranın katalog verisi — ilerleme kaydı beklenmez, M420'nin dersi).
+  const tumSezonlar = useMemo(
+    () => (computedSeasons || []).map((s: any) => ({
+      sezon: s.number,
+      bolumler: (s.episodes || [])
+        .filter((ep: any) => (ep.first_aired ? new Date(ep.first_aired) <= new Date() : ep.number <= (s.aired_episodes || 0)))
+        .map((ep: any) => ep.number)
+        .filter((n: any) => typeof n === 'number'),
+    })),
+    [computedSeasons],
+  );
 
   const handleUnwatchEpisode = async () => {
     const success = await hookHandleUnwatchEpisode(selectedEpisode);
@@ -370,6 +384,10 @@ export default function ShowDetailScreen() {
                     isExpanded={expandedSeasons[season.number]}
                     onToggle={() => toggleSeason(season.number)}
                     seasonProgress={season.seasonProgress}
+                    // 🆕 M421 — "öncekileri de işaretle" ÖNCEKİ SEZONLARI da
+                    // kapsıyor; evren ekranın katalog verisinden geliyor.
+                    tumSezonlar={tumSezonlar}
+                    showMedia={showData}
                   />
                 </SectionErrorBoundary>
               ))}

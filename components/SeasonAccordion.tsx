@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, Platform } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,10 @@ interface SeasonAccordionProps {
    * görünüm değişmiyor.
    */
   activeEpisodeNumber?: number | null;
+  /** 🆕 M421 — dizinin TÜM sezonlarının yayınlanmış bölümleri (çok sezonlu plan). */
+  tumSezonlar?: { sezon: number; bolumler: number[] }[];
+  /** 🆕 M421 — dizi nesnesi: ilk işaretlemede "izlenenler"e eklemek için. */
+  showMedia?: any;
 }
 
 export default function SeasonAccordion({
@@ -43,10 +47,11 @@ export default function SeasonAccordion({
   onToggle,
   seasonProgress,
   activeEpisodeNumber = null,
+  tumSezonlar,
+  showMedia,
 }: SeasonAccordionProps) {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
-  const [seasonLoading, setSeasonLoading] = useState(false);
   // Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" seçimi — 3 seçenekli
   // olduğundan (Vazgeç dahil) tek bir window.confirm'e sığmaz, bu yüzden native bir
   // bottom-sheet modal kullanılıyor (EpisodeOptionsModal.tsx ile aynı desen).
@@ -79,15 +84,20 @@ export default function SeasonAccordion({
     ? t('specials', 'Özel Bölümler')
     : t('seasonNum', { number: season.number });
 
+  // 🔴 M421 (denetim F) — DÖNEN SİMGE YOK: iyimser durum zaten doğru, simge
+  // onu ağ turu bitene kadar gizliyordu (M413/M416/M417/M420 ile aynı ders).
+  // Çift basış görünmez kilitle engelleniyor.
+  const seasonBusyRef = useRef(false);
   const runSeasonAction = async (action: () => Promise<any>) => {
-    setSeasonLoading(true);
+    if (seasonBusyRef.current) return;
+    seasonBusyRef.current = true;
     try {
       await action();
     } catch (e) {
       console.error(e);
       notify(t('common:error'), t('seasonMarkError', 'Sezon işaretlenirken bir hata oluştu.'));
     } finally {
-      setSeasonLoading(false);
+      seasonBusyRef.current = false;
     }
   };
 
@@ -111,7 +121,7 @@ export default function SeasonAccordion({
   // Yanlışlıkla basmaya çok müsait bir buton: her iki yön de (işaretle / geri al)
   // artık onay istiyor ve yayınlanmamış bölümler asla işaretlenmiyor.
   const handleMarkSeason = async () => {
-    if (seasonLoading) return;
+    if (seasonBusyRef.current) return;
 
     if (isGuest) {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
@@ -152,8 +162,8 @@ export default function SeasonAccordion({
     runSeasonAction(() =>
       unairedCount > 0
         // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
-        ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number))
-        : markSeasonAsWatched(showTraktId, season.number)
+        ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number), showMedia)
+        : markSeasonAsWatched(showTraktId, season.number, showMedia)
     );
   };
 
@@ -171,14 +181,9 @@ export default function SeasonAccordion({
            <TouchableOpacity
               onPress={handleMarkSeason}
               style={[styles.markSeasonBtn, isSeasonWatched && styles.markSeasonBtnWatched]}
-              disabled={seasonLoading}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
            >
-              {seasonLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <CheckCheck color="#ffffff" size={20} />
-              )}
+              <CheckCheck color="#ffffff" size={20} />
            </TouchableOpacity>
            {isExpanded ? <ChevronUp color="#a3a3a3" /> : <ChevronDown color="#a3a3a3" />}
         </View>
@@ -235,6 +240,8 @@ export default function SeasonAccordion({
                         // 🆕 M420 — yalnızca YAYINLANMIŞ bölümler: yayınlanmamışı
                         // işaretlemek sunucuda "gelecek tarih" diye reddedilir.
                         sezonBolumleri={yayinlanmisNumaralar}
+                        tumSezonlar={tumSezonlar}
+                        showMedia={showMedia}
                       />
                    )}
                  </View>

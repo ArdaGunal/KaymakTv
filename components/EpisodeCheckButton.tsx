@@ -6,7 +6,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { sonucuBeklemeli } from '../utils/isaretlemeBekleme';
-import { atlananBolumler } from '../utils/atlananBolumler';
+import { atlananPlan, planToplami, planTekBolumMu, SezonListesi, IsaretlemePlani } from '../utils/atlananBolumler';
 
 interface EpisodeCheckButtonProps {
   traktId: number;
@@ -16,6 +16,11 @@ interface EpisodeCheckButtonProps {
   /** 🆕 M420 — sezonda VAR OLAN (ve yayınlanmış) bölüm numaraları. Verilirse
    *  "öncekileri de işaretle" sorusu ilerleme kaydının yüklenmesini BEKLEMEZ. */
   sezonBolumleri?: number[];
+  /** 🆕 M421 — dizinin TÜM sezonlarının yayınlanmış bölüm numaraları.
+   *  "Öncekileri de işaretle" artık ÖNCEKİ SEZONLARI da kapsıyor. */
+  tumSezonlar?: SezonListesi[];
+  /** 🆕 M421 — dizi nesnesi: ilk işaretlemede "izlenenler"e eklemek için. */
+  showMedia?: any;
   onShowFinished?: (showName: string, showId: number) => void;
   // info: basılma ANINDAKİ bölüm bilgisi. Store güncellenince data sıradaki
   // bölüme kaydığı için, "hangi bölüm izlendi" mesajı bu snapshot'tan yazılır.
@@ -33,6 +38,8 @@ export default function EpisodeCheckButton({
   episode,
   showName,
   sezonBolumleri,
+  tumSezonlar,
+  showMedia,
   onShowFinished,
   onSuccessStateChange,
 }: EpisodeCheckButtonProps) {
@@ -43,7 +50,7 @@ export default function EpisodeCheckButton({
   // Store aboneliği YOK: bu buton listedeki her kartta var; abone olsaydı her
   // store değişimi yüzlerce butonu yeniden çizerdi. Aksiyonlar abonesiz hook'tan,
   // progress ise yalnızca basılma ANINDA getState() ile okunur.
-  const { markEpisodeAsWatched, markEpisodesUpToAsWatched } = useLibraryActions();
+  const { markEpisodeAsWatched, planiIsaretle } = useLibraryActions();
   const { isGuest } = useAuth();
   const { t } = useTranslation(['media', 'common']);
 
@@ -53,7 +60,7 @@ export default function EpisodeCheckButton({
   // YENİ AKIŞ: ekran ANINDA (iyimser) tepki verir; gerçek Trakt senkronizasyonu
   // arka planda sürer. "Dizi bitti mi?" kontrolü sunucu verisini gerektirdiği
   // için arka planda gelir ve kartın bir sonraki bölüme geçişini beklemez.
-  const performCheckIn = (isBulk: boolean, episodesToMark: number[] = []) => {
+  const performCheckIn = (plan: IsaretlemePlani[] | null) => {
     if (busyRef.current) return;
     busyRef.current = true;
     const myRequestId = ++requestIdRef.current;
@@ -74,9 +81,9 @@ export default function EpisodeCheckButton({
     setIsSuccess(true);
     onSuccessStateChange?.(true, watchedInfo);
 
-    const mutationPromise = isBulk
-      ? markEpisodesUpToAsWatched(traktId, season, episodesToMark)
-      : markEpisodeAsWatched(traktId, season, episode);
+    const mutationPromise = plan
+      ? planiIsaretle(traktId, plan, showMedia)
+      : markEpisodeAsWatched(traktId, season, episode, showMedia);
 
     mutationPromise
       .then((newProgress) => {
@@ -116,28 +123,40 @@ export default function EpisodeCheckButton({
     // 🔴 M418 — atlananlar SEZON LİSTESİNDEN hesaplanır, `1..N-1` döngüsüyle
     // DEĞİL. Eski hâl, numaraları kesintisiz sanıp olmayan bölümleri
     // işaretlemeye çalışıyordu (canlı hata: 21020 S5'te yalnız 19-21 var).
+    // 🔴 M421 — plan ÖNCEKİ SEZONLARI da kapsar (ürün kararı: 2. sezona
+    // geçen kullanıcı 1. sezonu bitirmiştir). Evren önce ekranın listesi,
+    // yoksa ilerleme kaydı; hiçbiri yoksa yalnız bu bölüm.
     const progress = useLibraryStore.getState().showProgressMap[traktId];
-    const skippedEpisodes = atlananBolumler(progress, season, episode, sezonBolumleri);
+    const evren: SezonListesi[] | null = tumSezonlar
+      || (sezonBolumleri ? [{ sezon: season, bolumler: sezonBolumleri }] : null);
+    const plan = atlananPlan(progress, season, episode, evren);
 
-    if (skippedEpisodes.length > 0) {
-      Alert.alert(
-        t('skippedEpisodesTitle'),
-        t('skippedEpisodesMsg'),
-        [
-          {
-            text: t('common:markOnlyThis'),
-            onPress: () => performCheckIn(false, []),
-            style: 'cancel'
-          },
-          {
-            text: t('common:markPreviousToo'),
-            onPress: () => performCheckIn(true, [...skippedEpisodes, episode])
-          }
-        ]
-      );
-    } else {
-      performCheckIn(false, []);
+    if (planTekBolumMu(plan, season, episode)) {
+      performCheckIn(null);
+      return;
     }
+
+    // 🔴 SAYI GÖSTERİLİYOR: geri alması zor bir toplu işlem tek dokunuşla
+    // yapılıyor; kullanıcı kaç bölüm işaretleyeceğini ONAYDAN ÖNCE görmeli.
+    const toplam = planToplami(plan);
+    const sezonSayisi = plan.length;
+    Alert.alert(
+      t('skippedEpisodesTitle'),
+      sezonSayisi > 1
+        ? t('skippedEpisodesMsgCokSezon', { count: toplam, seasons: sezonSayisi })
+        : t('skippedEpisodesMsgSayili', { count: toplam }),
+      [
+        {
+          text: t('markOnlyThisEpisode', 'Yalnızca Bu Bölüm'),
+          onPress: () => performCheckIn(null),
+          style: 'cancel',
+        },
+        {
+          text: t('common:markPreviousToo'),
+          onPress: () => performCheckIn(plan),
+        },
+      ]
+    );
   };
 
   return (

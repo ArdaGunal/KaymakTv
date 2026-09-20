@@ -59,3 +59,77 @@ export function atlananBolumler(
     .filter((n) => n < bolumNo && !izlenen.has(n))
     .sort((a, b) => a - b);
 }
+
+// ==========================================================================
+// ÇOK SEZONLU PLAN (M421)
+// ==========================================================================
+// 🔴 ÜRÜN KARARI (kullanıcı, 2026-09-20): *"2. sezona geçen bir kullanıcı
+// mantıken 1. sezonu da bitirmiştir."* Eski davranış YALNIZCA aktif sezonu
+// tarıyordu; S2E2'ye basıp "evet" diyen kullanıcıda S1 olduğu gibi kalıyordu.
+//
+// ⚠️ ÖZEL SEZON (0) PLANA GİRMEZ: kamera arkası/yorum bölümleri "önceki
+// bölüm" sayılmaz; Trakt da ilerleme hesabına katmıyor (`optimistikIlerleme`
+// ve Worker `ilerleme.js` aynı kuralı uyguluyor).
+//
+// ⚠️ YAYINLANMAMIŞ BÖLÜM PLANA GİRMEZ: çağıran YALNIZCA yayınlanmış
+// numaraları vermeli (`isEpisodeAired`), yoksa sunucu "gelecek damga" diye
+// reddeder ve iki taraf ıraksar.
+
+/** Bir sezonun ekranda bilinen (yayınlanmış) bölüm numaraları. */
+export type SezonListesi = { sezon: number; bolumler: number[] };
+
+/** İşaretlenecek iş: sezon → bölüm numaraları (artan). */
+export type IsaretlemePlani = { sezon: number; bolumler: number[] };
+
+/**
+ * SAF — seçilen bölüm DAHİL, ondan önce gelen TÜM izlenmemiş bölümler
+ * (önceki sezonlar dahil).
+ *
+ * @param sezonListeleri ekranın bildiği sezon/bölüm evreni. Boşsa ilerleme
+ *   kaydındaki sezonlar kullanılır (ikisi de yoksa plan yalnız seçilen bölüm).
+ * @returns sezon numarasına göre artan plan; her sezonun bölümleri artan
+ */
+export function atlananPlan(
+  ilerleme: IlerlemeBenzeri,
+  sezonNo: number,
+  bolumNo: number,
+  sezonListeleri?: SezonListesi[] | null,
+): IsaretlemePlani[] {
+  const ilerlemeSezonlari = ilerleme?.seasons || [];
+  const evren: SezonListesi[] = Array.isArray(sezonListeleri) && sezonListeleri.length > 0
+    ? sezonListeleri
+    : ilerlemeSezonlari.map((s) => ({
+      sezon: s?.number as number,
+      bolumler: (s?.episodes || []).map((b) => b?.number as number).filter((n) => typeof n === 'number'),
+    }));
+
+  const plan: IsaretlemePlani[] = [];
+  for (const s of evren) {
+    if (typeof s?.sezon !== 'number' || s.sezon <= 0 || s.sezon > sezonNo) continue;
+    const izlenen = new Set(
+      (ilerlemeSezonlari.find((x) => x?.number === s.sezon)?.episodes || [])
+        .filter((b) => b?.completed && typeof b.number === 'number')
+        .map((b) => b!.number as number),
+    );
+    const bolumler = (s.bolumler || [])
+      .filter((n) => typeof n === 'number')
+      // Seçilen sezonda YALNIZCA seçilen bölüme kadar; öncekilerde hepsi.
+      .filter((n) => (s.sezon === sezonNo ? n <= bolumNo : true))
+      .filter((n) => !izlenen.has(n) || (s.sezon === sezonNo && n === bolumNo))
+      .sort((a, b) => a - b);
+    if (bolumler.length) plan.push({ sezon: s.sezon, bolumler });
+  }
+
+  // Evren bilinmiyorsa (yeni dizi, ekran listesi yok) en azından seçilen bölüm.
+  if (plan.length === 0) return [{ sezon: sezonNo, bolumler: [bolumNo] }];
+  return plan.sort((a, b) => a.sezon - b.sezon);
+}
+
+/** Plandaki toplam bölüm sayısı — onay metni sayıyı GÖSTERMEK ZORUNDA. */
+export const planToplami = (plan: IsaretlemePlani[]): number =>
+  plan.reduce((t, p) => t + p.bolumler.length, 0);
+
+/** Plan yalnızca seçilen bölümden mi ibaret? (soru sormaya gerek yok) */
+export const planTekBolumMu = (plan: IsaretlemePlani[], sezonNo: number, bolumNo: number): boolean =>
+  plan.length === 1 && plan[0].sezon === sezonNo
+  && plan[0].bolumler.length === 1 && plan[0].bolumler[0] === bolumNo;

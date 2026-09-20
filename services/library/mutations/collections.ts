@@ -32,7 +32,7 @@ import {
 // SAVUNMA HATTI: yeni bir çağrı yeri eklenirse ham bir Trakt 401'i yerine
 // ne olduğunu söyleyen bir hata alınsın.
 import * as libraryApi from '../../api/library';
-import { fetchFreshData } from '../fetchers';
+import { retractLocalActivity } from '../../../features/feed/services/feedPublish';
 import {
   CACHE_KEYS,
   safeStorageSet,
@@ -283,6 +283,18 @@ export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie
 export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie') => {
   const kaymak = await kaymakYoluMu();
 
+  // 🔴 M421 (denetim C) — GERİ ALMA İÇİN FOTOĞRAF. Eski hâl iyimser siliyor,
+  // yazma düşerse HİÇBİR ŞEY geri almıyordu; tek "telafi" `fetchFreshData(null)`
+  // çağrısıydı ve o fonksiyon ilk satırında `if (!accessToken) return` diyor —
+  // yani telafi HİÇBİR kullanıcıda çalışmıyordu (ölü kod).
+  const onceki = {
+    watchedShows: useLibraryStore.getState().watchedShows,
+    watchedMovies: useLibraryStore.getState().watchedMovies,
+    showProgressMap: useLibraryStore.getState().showProgressMap,
+    calendarShows: useLibraryStore.getState().calendarShows,
+    calendarSeasonsMap: useLibraryStore.getState().calendarSeasonsMap,
+  };
+
   if (type === 'show') {
     setWatchedShows((prev: any) => {
       const newWatched = prev.filter((p: any) => p.show?.ids?.trakt !== id);
@@ -340,16 +352,32 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
     } else {
       await removeFromHistoryTrakt(id, type);
     }
+    // 🔴 M421 (denetim I) — AKIŞTAKİ KAYIT DA GERİ ÇEKİLİR. Bölüm geri
+    // almada bu vardı (`progress.ts`), film/dizi geçmişi silmede YOKTU:
+    // kullanıcı "izlemedim" dese bile akışta "izledi" kartı kalıyordu.
+    retractLocalActivity((a: any) =>
+      a.showId === id
+      && (type === 'movie'
+        ? a.activityType === 'watched_movie'
+        : a.activityType === 'watched_episode'));
+
     recordMutationResult('deleteMediaFromHistory', true);
   } catch (err) {
     console.error('Delete from history hatası:', err);
     logError('mutations.collections.deleteMediaFromHistory', err);
     recordMutationResult('deleteMediaFromHistory', false);
-    // ⚠️ TELAFİ YOLU KAYMAK KULLANICISINDA ÇALIŞMAZ: `fetchFreshData`
-    // Trakt okur, o kullanıcının Trakt token'ı yok. Yani yazma başarısız
-    // olursa iyimser silme geri ALINMAZ; kullanıcı silinmiş sanar. T1'in
-    // OKUMA yolu gelene kadar bilinen eksik (BACKLOG §T2) — sessiz değil.
-    fetchFreshData(null, true);
+    // 🔴 M421 — GERÇEK GERİ ALMA (eski "telafi" ölü koddu, bkz. yukarısı).
+    setWatchedShows(onceki.watchedShows);
+    safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(onceki.watchedShows));
+    setWatchedMovies(onceki.watchedMovies);
+    safeStorageSet(CACHE_KEYS.watchedMovies, JSON.stringify(onceki.watchedMovies));
+    setShowProgressMap(onceki.showProgressMap);
+    persistShowProgressMap(onceki.showProgressMap);
+    setCalendarShows(onceki.calendarShows);
+    safeStorageSet(CACHE_KEYS.calendarShows, JSON.stringify(onceki.calendarShows));
+    setCalendarSeasonsMap(onceki.calendarSeasonsMap);
+    safeStorageSet(CACHE_KEYS.calendarSeasonsMap, JSON.stringify(onceki.calendarSeasonsMap));
+    throw err;
   }
 };
 

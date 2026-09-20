@@ -20,6 +20,7 @@ import {
 import * as libraryApi from '../../api/library';
 import { bolumleriIsaretle, sezonuIsaretle, bolumleriGeriAl } from './optimistikIlerleme';
 import { izlenenFilmeEkle } from './optimistikFilm';
+import { izlenenDiziyeEkle, izlemeListesindenDus } from './optimistikDizi';
 import { fetchFreshData } from '../fetchers';
 import {
   CACHE_KEYS,
@@ -27,6 +28,8 @@ import {
   setWatchedMovies,
   setWatchedShows,
   setWatchlistMovies,
+  setWatchlistShows,
+  setCalendarMovies,
   setShowProgressMap,
   persistShowProgressMap,
 } from '../utils';
@@ -105,16 +108,38 @@ const unhideMovieIfNeeded = (movieId: number) => {
 //      (Henüz `watchedShows`'ta hiç yoksa — örn. yalnızca watchlist'ten gelen
 //      bir dizi — dokunmuyoruz: trackingLogic zaten "son izleme bilinmiyor"
 //      durumunu güvenli varsayılan olarak aktif sayıyor.)
-const reactivateShowTracking = (showId: number) => {
+const reactivateShowTracking = (showId: number, mediaData?: any) => {
   unhideShowIfNeeded(showId);
+
+  // 🔴 M421 — İZLEME LİSTESİNDEN DÜŞÜR (ürün kararı, kullanıcı 2026-09-20:
+  // "Diziler, ilk bölüm izlendiği an İzleme Listesinden düşmeli"). Filmde bu
+  // davranış zaten vardı. Düşen girdi aynı zamanda `watchedShows`'a
+  // ekleyeceğimiz dizi nesnesinin en güvenilir kaynağı.
+  let listedenDusen: any = null;
+  setWatchlistShows((prev: any[]) => {
+    const { liste, dusen } = izlemeListesindenDus(prev, showId);
+    if (!dusen) return prev;
+    listedenDusen = dusen;
+    safeStorageSet(CACHE_KEYS.watchlistShows, JSON.stringify(liste));
+    return liste;
+  });
 
   setWatchedShows((prev: any[]) => {
     const idx = (prev || []).findIndex((item: any) => item?.show?.ids?.trakt === showId);
-    if (idx === -1) return prev;
-    const updated = [...prev];
-    updated[idx] = { ...updated[idx], last_watched_at: new Date().toISOString() };
-    safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(updated));
-    return updated;
+    if (idx !== -1) {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], last_watched_at: new Date().toISOString() };
+      safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(updated));
+      return updated;
+    }
+    // 🔴 M421 (denetim B) — DİZİ LİSTEDE YOKSA EKLE. Eski hâl `return prev`
+    // diyordu: ilk kez işaretlenen dizi "izlenenler"e hiç girmiyor, dizi
+    // seviyesi durum/sekme/rozet tam senkrona kadar yanlış kalıyordu.
+    const dizi = listedenDusen?.show || mediaData || null;
+    const eklenmis = izlenenDiziyeEkle(prev, showId, dizi);
+    if (eklenmis === prev) return prev;
+    safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(eklenmis));
+    return eklenmis;
   });
 };
 
@@ -339,7 +364,7 @@ const kaymakIlerlemeTazele = async (showId: number, beklenenNesil?: number) => {
   }
 };
 
-export const markEpisodeAsWatched = async (showId: number, season: number, episode: number) => {
+export const markEpisodeAsWatched = async (showId: number, season: number, episode: number, mediaData?: any) => {
   let previousState: any = null;
   let optimistikProgress: any = null;
   const kaymak = await kaymakYoluMu();
@@ -349,7 +374,7 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
   const nesilBaslangic = nesliArtir(showId);
 
   console.log(`[OPTIMISTIC UI] Bölüm UI'da işaretleniyor: Show ${showId}, S${season}E${episode}`);
-  reactivateShowTracking(showId);
+  reactivateShowTracking(showId, mediaData);
 
   const iyimserDamga = nowStamp();
 
@@ -585,7 +610,7 @@ export const rewatchEpisode = async (showId: number, season: number, episode: nu
   return markEpisodeAsWatched(showId, season, episode);
 };
 
-export const markSeasonAsWatched = async (showId: number, season: number) => {
+export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any) => {
   let previousState: any = null;
   const kaymak = await kaymakYoluMu();
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
@@ -593,7 +618,7 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
   // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
   const nesilBaslangic = nesliArtir(showId);
   console.log(`[OPTIMISTIC UI] Sezon UI'da işaretleniyor: Show ${showId}, S${season}`);
-  reactivateShowTracking(showId);
+  reactivateShowTracking(showId, mediaData);
 
   setShowProgressMap((prev: any) => {
     previousState = prev[showId];
@@ -654,93 +679,108 @@ export const markSeasonAsWatched = async (showId: number, season: number) => {
 // — aynı sezonu ikinci kez göndermek, önce geçmişi silmeden doğrudan "tekrar
 // izlendi" anlamına gelir. Bu yüzden markSeasonAsWatched'ın aynısı, sadece
 // niyeti (ve ayrı optimistic UI mesajını) netleştirmek için ayrı isimle.
-export const rewatchSeason = async (showId: number, season: number) => {
-  return markSeasonAsWatched(showId, season);
+export const rewatchSeason = async (showId: number, season: number, mediaData?: any) => {
+  return markSeasonAsWatched(showId, season, mediaData);
 };
 
-export const markEpisodesUpToAsWatched = async (showId: number, season: number, episodes: number[]) => {
+export type IsaretlemePlani = { sezon: number; bolumler: number[] };
+
+/**
+ * ÇOK SEZONLU TOPLU İŞARETLEME (M421).
+ *
+ * 🔴 ÜRÜN KARARI (kullanıcı, 2026-09-20): *"2. sezona geçen bir kullanıcı
+ * mantıken 1. sezonu da bitirmiştir."* Eski `markEpisodesUpToAsWatched` TEK
+ * sezon alıyordu ve zincirin dört katmanında (karar → çağrı → mutasyon → uç)
+ * sezon sınırı vardı; "öncekileri de işaretle" bu yüzden önceki sezonlara
+ * hiç dokunamıyordu.
+ *
+ * ⚠️ SEZON BAŞINA BİR İSTEK, SIRAYLA: Worker'ın `/library/watched` gövdesi
+ * tek sezon taşıyor (`trakt: {showId, season, episodes}`). Paralel değil
+ * sıralı: hem sunucuda tutarlı sıra, hem de 200 bölümlük planda ani yük yok.
+ *
+ * ⚠️ AKIŞA YALNIZCA SEÇİLEN BÖLÜM YAYINLANIR: 200 bölümlük bir plan akışı
+ * 200 kartla doldururdu. Kullanıcının EYLEMİ "buraya kadar izledim"dir;
+ * akışın taşıdığı bilgi de o bölümdür.
+ */
+export const planiIsaretle = async (
+  showId: number,
+  plan: IsaretlemePlani[],
+  mediaData?: any,
+) => {
+  const temiz = (plan || [])
+    .filter((p) => p && Number.isInteger(p.sezon) && Array.isArray(p.bolumler) && p.bolumler.length > 0)
+    .map((p) => ({ sezon: p.sezon, bolumler: [...p.bolumler].sort((a, b) => a - b) }))
+    .sort((a, b) => a.sezon - b.sezon);
+  if (temiz.length === 0) return mevcutIlerleme(showId);
+
   let previousState: any = null;
   const kaymak = await kaymakYoluMu();
-  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
-  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
-  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
   const nesilBaslangic = nesliArtir(showId);
-  console.log(`[OPTIMISTIC UI] Bölümler toplu UI'da işaretleniyor: Show ${showId}, S${season}`);
-  reactivateShowTracking(showId);
-
-  setShowProgressMap((prev: any) => {
-    previousState = prev[showId];
-
-    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
-    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
-    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
-    const yamali = bolumleriIsaretle(prev[showId], season, episodes, nowStamp());
-    if (!yamali) return prev;
-    return { ...prev, [showId]: yamali };
-  });
+  const toplam = temiz.reduce((t, p) => t + p.bolumler.length, 0);
+  console.log(`[OPTIMISTIC UI] Plan işaretleniyor: Show ${showId}, ${temiz.length} sezon, ${toplam} bölüm`);
+  reactivateShowTracking(showId, mediaData);
 
   const watchedAt = nowStamp();
 
+  setShowProgressMap((prev: any) => {
+    previousState = prev[showId];
+    // 🔴 EKSİKSİZ İYİMSER YAMA (M321): tüm sezonlar TEK turda yamanır,
+    // yoksa ekran plan ilerledikçe parça parça güncellenir.
+    let yamali = prev[showId];
+    for (const p of temiz) {
+      const sonuc = bolumleriIsaretle(yamali, p.sezon, p.bolumler, watchedAt);
+      if (sonuc) yamali = sonuc;
+    }
+    if (!yamali || yamali === prev[showId]) return prev;
+    return { ...prev, [showId]: yamali };
+  });
+
   try {
-    console.log(`[API REQUEST] Trakt'a gönderiliyor (Toplu Bölüm)...`);
-    await ciftYaz(
-      () => libraryApi.markEpisodesWatched(showId, season, episodes, watchedAt),
-      kaymak ? null : () => addEpisodesBulkToHistory(showId, season, episodes, watchedAt),
-    );
-    console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
+    for (const p of temiz) {
+      await ciftYaz(
+        () => libraryApi.markEpisodesWatched(showId, p.sezon, p.bolumler, watchedAt),
+        kaymak ? null : () => addEpisodesBulkToHistory(showId, p.sezon, p.bolumler, watchedAt),
+      );
+    }
 
     const meta = showMetaFor(showId);
-    publishActivities(
-      episodes.map((num) => ({
-        activityType: 'watched_episode' as const,
+    const sonSezon = temiz[temiz.length - 1];
+    const sonBolum = sonSezon.bolumler[sonSezon.bolumler.length - 1];
+    publishActivities([
+      {
+        activityType: 'watched_episode',
         showId,
-        mediaType: 'show' as const,
+        mediaType: 'show',
         showTitle: meta.title,
         tmdbId: meta.tmdbId,
-        episodeNumber: formatEpisodeCode(season, num),
+        episodeNumber: formatEpisodeCode(sonSezon.sezon, sonBolum),
         activityAt: watchedAt,
-      }))
-    );
+      },
+    ]);
 
-    // 🔄 T6.1 — İLERLEME ARTIK HER ZAMAN BİZDEN TAZELENİYOR.
-    // Bu blok eskiden YALNIZCA Kaymak kullanıcısınındı; Trakt'lı kullanıcı
-    // aşağıdaki `getShowProgress(showId)` yolundan geçiyordu — DİZİ BAŞINA
-    // BİR TRAKT İSTEĞİ, planın §6.2'de Y28 diye yasakladığı desen ve
-    // §D14'ün 57 isteğinin kaynağı. T6 kararıyla okuma yolu BİZ olduğumuz
-    // için o kuyruk kaldırıldı.
-    //
-    // ⛔ TRAKT'A GERİ DÜŞÜŞ EKLENMEDİ — bilinçli. Geri düşüş tam da
-    // öldürdüğümüz dizi-başına isteği geri getirirdi. `kaymakIlerlemeTazele`
-    // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
-    // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
     recordMutationResult('markEpisodesUpToAsWatched', true);
-    // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
-    // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
-    // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
-    // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
-    //
-    // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
-    // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
-    // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
     const nesil = ilerlemeNesli.get(showId) ?? 0;
     const yerel = mevcutIlerleme(showId);
     if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
     tazelemeyiPlanla(showId);
     return yerel;
   } catch (error) {
-    console.error(`[API ERROR] Toplu bölüm işaretleme başarısız, eski haline dönülüyor!`, error);
-    logError('mutations.progress.markEpisodesUpToAsWatched', error);
+    console.error('[API ERROR] Plan işaretleme başarısız, eski haline dönülüyor!', error);
+    logError('mutations.progress.planiIsaretle', error);
     recordMutationResult('markEpisodesUpToAsWatched', false);
     geriAlVeyaTazele(showId, nesilBaslangic, previousState);
     throw error;
   }
 };
 
-/**
- * @param mediaData 🆕 M417 — filmin kendisi (çağıran ekranın elindeki Trakt
- *   nesnesi). Film İZLEME LİSTESİNDE DEĞİLKEN iyimser girdi ancak bununla
- *   kurulabiliyor; verilmezse eski davranış (ekran sunucu senkronunu bekler).
- */
+/** Tek sezonluk kısayol — eski çağrı yerleri (sezon işaretleme) için. */
+export const markEpisodesUpToAsWatched = async (
+  showId: number,
+  season: number,
+  episodes: number[],
+  mediaData?: any,
+) => planiIsaretle(showId, [{ sezon: season, bolumler: episodes }], mediaData);
+
 export const markMovieAsWatched = async (movieId: number, mediaData?: any) => {
   let previousWatchlist: any = null;
   let previousWatched: any = null;
@@ -778,6 +818,17 @@ export const markMovieAsWatched = async (movieId: number, mediaData?: any) => {
       return newWatched;
     }
     return prev;
+  });
+
+  // 🔴 M421 (denetim K) — İZLENEN FİLM TAKVİMDEN DÜŞER. Dizi tarafında bu
+  // temizlik `deleteMediaFromHistory`'de vardı, film işaretlemede karşılığı
+  // yoktu: izlenmiş film "Yakında" listesinde durmaya devam ediyordu.
+  setCalendarMovies((prev: any[]) => {
+    const liste = Array.isArray(prev) ? prev : [];
+    const yeni = liste.filter((p: any) => p?.movie?.ids?.trakt !== movieId);
+    if (yeni.length === liste.length) return prev;
+    safeStorageSet(CACHE_KEYS.calendarMovies, JSON.stringify(yeni));
+    return yeni;
   });
 
   const watchedAt = nowStamp();

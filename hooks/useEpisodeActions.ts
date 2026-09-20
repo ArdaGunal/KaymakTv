@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 // bizim API mi) orada yaşıyor. Ham çağrı kalsaydı Kaymak kullanıcısı bölüm
 // puanlayamazdı — cihazda görülen 401'in sebebi buydu.
 import { useLibrary } from '../context/LibraryContext';
-import { atlananBolumler } from '../utils/atlananBolumler';
+import { atlananPlan, planToplami, planTekBolumMu } from '../utils/atlananBolumler';
 import { useAuth } from '../context/AuthContext';
 
 interface UseEpisodeActionsArgs {
@@ -51,7 +51,7 @@ export function useEpisodeActions({
     showProgressMap,
     unwatchEpisode,
     markEpisodeAsWatched,
-    markEpisodesUpToAsWatched,
+    planiIsaretle,
   } = useLibrary();
 
   const [isCheckLoading, setIsCheckLoading] = useState(false);
@@ -105,9 +105,11 @@ export function useEpisodeActions({
 
       // Bu bölümden ÖNCE izlenmemiş bölümler var mı — varsa kullanıcıya
       // "öncekileri de işaretleyeyim mi" diye sorulur.
-      // 🔴 M418: hesap SEZON LİSTESİNDEN (bkz. utils/atlananBolumler.ts);
-      // `1..N-1` döngüsü olmayan bölümleri uyduruyordu.
-      const skippedEpisodes = atlananBolumler(showProgressMap[showTraktId], sNum, eNum);
+      // 🔴 M418/M421: hesap SEZON LİSTESİNDEN ve ÖNCEKİ SEZONLARI da kapsar
+      // (bkz. utils/atlananBolumler.ts). Bu ekranda katalog listesi yok;
+      // evren ilerleme kaydından geliyor (dizi sayfasındaki kadar erken
+      // değil ama davranış aynı).
+      const plan = atlananPlan(showProgressMap[showTraktId], sNum, eNum);
 
       // 🔴 M418 — DİYALOG DALINDA DA KİLİT. `Alert.alert` bloklamıyor;
       // eski hâlde `toggleWatched` hemen `finally`'ye düşüp kilidi açıyordu,
@@ -115,11 +117,11 @@ export function useEpisodeActions({
       // o aralıkta ikinci kez basınca ikinci bir `watchedAt` üretiliyor ve
       // sunucuda İKİNCİ bir izleme satırı oluşuyordu (M318 sınıfı hayalet
       // yeniden izleme). `EpisodeCheckButton` bu korumayı M413'te aldı.
-      const performCheckIn = async (isBulk: boolean, eps: number[]) => {
+      const performCheckIn = async (planlanan: { sezon: number; bolumler: number[] }[] | null) => {
         setIsCheckLoading(true);
         try {
-          if (isBulk) {
-            await markEpisodesUpToAsWatched(showTraktId, sNum, eps);
+          if (planlanan) {
+            await planiIsaretle(showTraktId, planlanan);
           } else {
             await markEpisodeAsWatched(showTraktId, sNum, eNum);
           }
@@ -131,31 +133,34 @@ export function useEpisodeActions({
         }
       };
 
-      if (skippedEpisodes.length > 0) {
+      if (!planTekBolumMu(plan, sNum, eNum)) {
+        const toplam = planToplami(plan);
         Alert.alert(
           t('skippedEpisodesTitle', { defaultValue: 'Atlanan Bölümler Var' }),
-          t('skippedEpisodesMsg', { defaultValue: 'Önceki izlemediğiniz bölümleri de izlendi olarak işaretlemek ister misiniz?' }),
+          plan.length > 1
+            ? t('skippedEpisodesMsgCokSezon', { count: toplam, seasons: plan.length })
+            : t('skippedEpisodesMsgSayili', { count: toplam }),
           [
             {
-              text: t('common:markOnlyThis', { defaultValue: 'Yalnızca Bu Bölüm' }),
-              onPress: () => performCheckIn(false, []),
+              text: t('markOnlyThisEpisode', { defaultValue: 'Yalnızca Bu Bölüm' }),
+              onPress: () => performCheckIn(null),
               style: 'cancel',
             },
             {
               text: t('common:markPreviousToo', { defaultValue: 'Öncekileri de İşaretle' }),
-              onPress: () => performCheckIn(true, [...skippedEpisodes, eNum]),
+              onPress: () => performCheckIn(plan),
             },
           ]
         );
       } else {
-        await performCheckIn(false, []);
+        await performCheckIn(null);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setIsCheckLoading(false);
     }
-  }, [isGuest, season, episode, isWatchedLocal, showProgressMap, showTraktId, unwatchEpisode, markEpisodeAsWatched, markEpisodesUpToAsWatched, t]);
+  }, [isGuest, season, episode, isWatchedLocal, showProgressMap, showTraktId, unwatchEpisode, markEpisodeAsWatched, planiIsaretle, t]);
 
   const share = useCallback(async () => {
     try {
