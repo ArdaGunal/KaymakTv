@@ -65,6 +65,7 @@ const TAKIMLAR = [
   { ad: 'import', grup: 'arayuz', dosya: 'arayuz/traktImport.test.mjs', aciklama: 'T5.4: hata siniflandirmasi, geri cekilme, ilerleme yuzdesi' },
   { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17: yerel izleme istatistigi, ilerleme yuzdesi, cubuk rengi' },
   { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M413: ilk isaretlemede tik sonuca kadar tutulur' },
+  { ad: 'arama', grup: 'arayuz', dosya: 'arayuz/arama.test.mjs', aciklama: 'M415: Kesfet aramasi 1 harften baslar' },
 ];
 
 const filtre = process.argv[2];

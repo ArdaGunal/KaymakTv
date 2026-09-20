@@ -3,8 +3,11 @@ import { getTrendingShows, getTrendingMovies, searchTrakt } from '../services/tr
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { SearchTabType } from '../components/SearchTabs';
+// Arama eşiği (1 karakter) ve gerekçesi: utils/arama.ts (M415).
+import { aramaAcikMi } from '../utils/arama';
 
 const PAGE_SIZE = 7;
+
 
 export interface ExploreState {
   trendingShows: any[];
@@ -149,7 +152,7 @@ export function useExplore(): ExploreState & ExploreActions {
   const loadMoreFailed = activeTab === 'show' ? showLoadMoreFailed : movieLoadMoreFailed;
 
   const fetchMore = () => {
-    if (searchQuery.trim().length > 2 || loadingMore || loading || loadMoreFailed) return;
+    if (aramaAcikMi(searchQuery) || loadingMore || loading || loadMoreFailed) return;
     void doFetchMore();
   };
 
@@ -191,7 +194,7 @@ export function useExplore(): ExploreState & ExploreActions {
 
   const onRefresh = () => {
     setRefreshing(true);
-    if (searchQuery.trim().length > 2) {
+    if (aramaAcikMi(searchQuery)) {
       fetchSearch(searchQuery);
     } else {
       fetchTrending(true, true);
@@ -210,7 +213,7 @@ export function useExplore(): ExploreState & ExploreActions {
   useEffect(() => {
     if (!accessToken && !isGuest) return;
 
-    if (searchQuery.trim().length > 2) {
+    if (aramaAcikMi(searchQuery)) {
       setLoading(true);
       setSearchShows([]);
       setSearchMovies([]);
@@ -227,7 +230,7 @@ export function useExplore(): ExploreState & ExploreActions {
   // Language change → re-fetch
   useEffect(() => {
     if ((accessToken || isGuest) && (trendingShows.length > 0 || trendingMovies.length > 0)) {
-      if (searchQuery.trim().length > 2) {
+      if (aramaAcikMi(searchQuery)) {
         fetchSearch(searchQuery);
       } else {
         fetchTrending(true, true);
@@ -235,7 +238,7 @@ export function useExplore(): ExploreState & ExploreActions {
     }
   }, [i18n.language]);
 
-  const isSearching = searchQuery.trim().length > 2;
+  const isSearching = aramaAcikMi(searchQuery);
   const currentData = isSearching
     ? (activeTab === 'show' ? searchShows : searchMovies)
     : (activeTab === 'show' ? trendingShows : trendingMovies);
