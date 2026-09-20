@@ -39,6 +39,17 @@ T.ok('Indeks tek kolonla yeniden kuruluyor',
   /CREATE INDEX IF NOT EXISTS idx_follow_requests_target\s*\n?\s*ON follow_requests\(target_id\)/.test(m));
 T.ok('Tek islem (BEGIN/COMMIT)', /BEGIN;/.test(m) && /COMMIT;/.test(m));
 T.ok('Idempotent (IF EXISTS kullaniliyor)', (m.match(/IF EXISTS/g) || []).length >= 2);
+// 🔴 KOLONA BAKAN FONKSIYONLAR: kolon dusunce gövdesinde `state` gecen her
+// fonksiyon CALISMA ANINDA patlar. Ikisi de 059'da yeniden taniminlaniyor.
+T.ok('approve_follow_request yeniden tanimlanmis ve state sarti kalkmis',
+  /CREATE OR REPLACE FUNCTION public\.approve_follow_request/.test(m)
+  && !/AND state\s*=\s*'pending'/.test(m));
+T.ok('gizliligi_ayarla yeniden tanimlanmis (acigA gecince bekleyenleri onaylar)',
+  /CREATE OR REPLACE FUNCTION public\.gizliligi_ayarla/.test(m));
+T.ok('Iki fonksiyonun yetkisi ROLLERIN ADIYLA geri aliniyor (M405 dersi)',
+  (m.match(/FROM PUBLIC, anon, authenticated;/g) || []).length === 2
+  && (m.match(/GRANT EXECUTE[\s\S]*?TO service_role;/g) || []).length === 2);
+T.ok('PostgREST sema onbellegi tazeleniyor', /NOTIFY pgrst, 'reload schema';/.test(m));
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('Istemci — yerel "gonderilmis istek" kaydi artik cozuluyor');
