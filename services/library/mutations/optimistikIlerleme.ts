@@ -112,6 +112,44 @@ const yenidenHesapla = (ilerleme: Ilerleme, simdi: number): Ilerleme => {
 };
 
 /**
+ * Ekranın katalog verisinden İSKELET ilerleme kurar (M422).
+ *
+ * 🔴 NEDEN GEREKLİ: `bolumleriIsaretle` elde ilerleme YOKSA `null` dönüyor ve
+ * iyimser güncelleme yapılamıyordu. Dizi ilk kez işaretlendiğinde (özellikle
+ * "öncekileri de işaretle" ile ONLARCA bölüm) ekran sunucu turunu bekliyordu:
+ * kullanıcı "5x3'ü işaretledim, yalnız o bölüm tikli göründü; gir-çık yapınca
+ * hepsi tikli" diye bildirdi. Uzun dizide bu bekleme saniyeler sürüyor.
+ *
+ * ⚠️ BU UYDURMA DEĞİL: bölüm listesi ekranın ZATEN çizdiği katalog verisi
+ * (`useShowDetail` → `computedSeasons`). Sunucu turu dönünce kanonik hesapla
+ * değiştirilir; `yenidenHesapla` sayaçları ve `next_episode`'u buradan türetir.
+ */
+export const iskeletKur = (
+  sezonlar: { number: number; episodes?: { number: number; first_aired?: string | null; title?: string | null }[] }[] | null | undefined,
+  simdi: number = Date.now(),
+): Ilerleme | null => {
+  if (!Array.isArray(sezonlar) || sezonlar.length === 0) return null;
+  const kopya: Ilerleme = {
+    seasons: sezonlar
+      .filter((s) => typeof s?.number === 'number')
+      .map((s) => ({
+        number: s.number,
+        episodes: (s.episodes || [])
+          .filter((b) => typeof b?.number === 'number')
+          .map((b) => ({
+            number: b.number,
+            completed: false,
+            last_watched_at: null,
+            title: b.title ?? null,
+            first_aired: b.first_aired ?? null,
+          })),
+      })),
+  };
+  if (!kopya.seasons?.some((s) => (s.episodes || []).length > 0)) return null;
+  return yenidenHesapla(kopya, simdi);
+};
+
+/**
  * Bir veya birden çok bölümü İZLENDİ olarak iyimser işaretler.
  *
  * ⚠️ `null` DÖNEBİLİR: elde ilerleme yoksa (kullanıcı diziyi ilk kez

@@ -18,7 +18,7 @@ import {
 // `markEpisodeAsWatched(showId, season, episode)` çağırıyor; token tipine
 // göre Trakt'a mı bizim API'ye mi gideceği kararı BU DOSYADA veriliyor.
 import * as libraryApi from '../../api/library';
-import { bolumleriIsaretle, sezonuIsaretle, bolumleriGeriAl } from './optimistikIlerleme';
+import { bolumleriIsaretle, sezonuIsaretle, bolumleriGeriAl, iskeletKur } from './optimistikIlerleme';
 import { izlenenFilmeEkle } from './optimistikFilm';
 import { izlenenDiziyeEkle, izlemeListesindenDus } from './optimistikDizi';
 import { fetchFreshData } from '../fetchers';
@@ -364,7 +364,7 @@ const kaymakIlerlemeTazele = async (showId: number, beklenenNesil?: number) => {
   }
 };
 
-export const markEpisodeAsWatched = async (showId: number, season: number, episode: number, mediaData?: any) => {
+export const markEpisodeAsWatched = async (showId: number, season: number, episode: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
   let previousState: any = null;
   let optimistikProgress: any = null;
   const kaymak = await kaymakYoluMu();
@@ -394,8 +394,11 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
     // bölüm işaretleyen kullanıcı, önceki işaretlemenin sunucu turu
     // dönmeden sonrakine basıyor; kontrol `completed: false` görüp
     // "atladın mı?" diye soruyordu — hâlbuki az önce işaretlenmişti.
-    const yamali = bolumleriIsaretle(prev[showId], season, [episode], iyimserDamga);
-    if (!yamali) return prev;   // elde ilerleme yok — sunucu turunu bekle
+    // 🔴 M422 — ilerleme yoksa ekranın katalog verisinden iskelet (bkz.
+    // `iskeletKur`); yoksa ilk işaretlemede ekran sunucu turunu bekliyordu.
+    const temel = prev[showId] || iskeletKur(iskeletSezonlar);
+    const yamali = bolumleriIsaretle(temel, season, [episode], iyimserDamga);
+    if (!yamali) return prev;   // elde ilerleme de iskelet de yok
 
     optimistikProgress = yamali;
     return { ...prev, [showId]: yamali };
@@ -610,7 +613,7 @@ export const rewatchEpisode = async (showId: number, season: number, episode: nu
   return markEpisodeAsWatched(showId, season, episode);
 };
 
-export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any) => {
+export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
   let previousState: any = null;
   const kaymak = await kaymakYoluMu();
   // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
@@ -626,7 +629,8 @@ export const markSeasonAsWatched = async (showId: number, season: number, mediaD
     // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
     // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
     // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
-    const yamali = sezonuIsaretle(prev[showId], season, nowStamp());
+    // 🔴 M422 — ilerleme yoksa ekranın katalog verisinden iskelet.
+    const yamali = sezonuIsaretle(prev[showId] || iskeletKur(iskeletSezonlar), season, nowStamp());
     if (!yamali) return prev;
     return { ...prev, [showId]: yamali };
   });
@@ -706,6 +710,7 @@ export const planiIsaretle = async (
   showId: number,
   plan: IsaretlemePlani[],
   mediaData?: any,
+  iskeletSezonlar?: any[] | null,
 ) => {
   const temiz = (plan || [])
     .filter((p) => p && Number.isInteger(p.sezon) && Array.isArray(p.bolumler) && p.bolumler.length > 0)
@@ -726,7 +731,11 @@ export const planiIsaretle = async (
     previousState = prev[showId];
     // 🔴 EKSİKSİZ İYİMSER YAMA (M321): tüm sezonlar TEK turda yamanır,
     // yoksa ekran plan ilerledikçe parça parça güncellenir.
-    let yamali = prev[showId];
+    // 🔴 M422 — İLERLEME YOKSA EKRANIN KATALOG VERİSİNDEN İSKELET KUR.
+    // Aksi hâlde `bolumleriIsaretle` null döner, iyimser güncelleme HİÇ
+    // yapılmaz ve kullanıcı (özellikle çok bölümlü planda) sunucu turunu
+    // bekler: "yalnız bastığım bölüm tikli göründü, gir-çık yapınca hepsi".
+    let yamali = prev[showId] || iskeletKur(iskeletSezonlar);
     for (const p of temiz) {
       const sonuc = bolumleriIsaretle(yamali, p.sezon, p.bolumler, watchedAt);
       if (sonuc) yamali = sonuc;
@@ -779,7 +788,8 @@ export const markEpisodesUpToAsWatched = async (
   season: number,
   episodes: number[],
   mediaData?: any,
-) => planiIsaretle(showId, [{ sezon: season, bolumler: episodes }], mediaData);
+  iskeletSezonlar?: any[] | null,
+) => planiIsaretle(showId, [{ sezon: season, bolumler: episodes }], mediaData, iskeletSezonlar);
 
 export const markMovieAsWatched = async (movieId: number, mediaData?: any) => {
   let previousWatchlist: any = null;

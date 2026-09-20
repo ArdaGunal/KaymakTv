@@ -121,6 +121,21 @@ export default function ShowDetailScreen() {
   // 🆕 M421 — TÜM sezonların YAYINLANMIŞ bölüm numaraları. `SeasonAccordion`
   // yalnız kendi sezonunu biliyor; çok sezonlu plan için evren burada kurulur
   // (ekranın katalog verisi — ilerleme kaydı beklenmez, M420'nin dersi).
+  // 🆕 M422 — iyimser İSKELET için ham sezon verisi (TÜM bölümler + yayın
+  // tarihi). `tumSezonlar` yalnız yayınlanmış NUMARALARI taşıyor; iskelet
+  // `first_aired`'a da ihtiyaç duyuyor (sayaçlar ve `next_episode` ondan).
+  const iskeletSezonlar = useMemo(
+    () => (computedSeasons || []).map((s: any) => ({
+      number: s.number,
+      episodes: (s.episodes || []).map((ep: any) => ({
+        number: ep.number,
+        first_aired: ep.first_aired ?? null,
+        title: ep.title ?? null,
+      })),
+    })),
+    [computedSeasons],
+  );
+
   const tumSezonlar = useMemo(
     () => (computedSeasons || []).map((s: any) => ({
       sezon: s.number,
@@ -387,6 +402,7 @@ export default function ShowDetailScreen() {
                     // 🆕 M421 — "öncekileri de işaretle" ÖNCEKİ SEZONLARI da
                     // kapsıyor; evren ekranın katalog verisinden geliyor.
                     tumSezonlar={tumSezonlar}
+                    iskeletSezonlar={iskeletSezonlar}
                     showMedia={showData}
                   />
                 </SectionErrorBoundary>

@@ -21,6 +21,9 @@ interface EpisodeCheckButtonProps {
   tumSezonlar?: SezonListesi[];
   /** 🆕 M421 — dizi nesnesi: ilk işaretlemede "izlenenler"e eklemek için. */
   showMedia?: any;
+  /** 🆕 M422 — ham sezon verisi: ilerleme kaydı yokken iyimser iskelet
+   *  (aksi hâlde çok bölümlü planda ekran sunucu turunu bekliyordu). */
+  iskeletSezonlar?: any[];
   onShowFinished?: (showName: string, showId: number) => void;
   // info: basılma ANINDAKİ bölüm bilgisi. Store güncellenince data sıradaki
   // bölüme kaydığı için, "hangi bölüm izlendi" mesajı bu snapshot'tan yazılır.
@@ -39,6 +42,7 @@ export default function EpisodeCheckButton({
   showName,
   sezonBolumleri,
   tumSezonlar,
+  iskeletSezonlar,
   showMedia,
   onShowFinished,
   onSuccessStateChange,
@@ -82,8 +86,8 @@ export default function EpisodeCheckButton({
     onSuccessStateChange?.(true, watchedInfo);
 
     const mutationPromise = plan
-      ? planiIsaretle(traktId, plan, showMedia)
-      : markEpisodeAsWatched(traktId, season, episode, showMedia);
+      ? planiIsaretle(traktId, plan, showMedia, iskeletSezonlar)
+      : markEpisodeAsWatched(traktId, season, episode, showMedia, iskeletSezonlar);
 
     mutationPromise
       .then((newProgress) => {

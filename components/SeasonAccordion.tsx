@@ -34,6 +34,8 @@ interface SeasonAccordionProps {
   tumSezonlar?: { sezon: number; bolumler: number[] }[];
   /** 🆕 M421 — dizi nesnesi: ilk işaretlemede "izlenenler"e eklemek için. */
   showMedia?: any;
+  /** 🆕 M422 — ham sezon verisi: ilerleme kaydı yokken iyimser iskelet. */
+  iskeletSezonlar?: any[];
 }
 
 export default function SeasonAccordion({
@@ -48,6 +50,7 @@ export default function SeasonAccordion({
   seasonProgress,
   activeEpisodeNumber = null,
   tumSezonlar,
+  iskeletSezonlar,
   showMedia,
 }: SeasonAccordionProps) {
   const { t } = useTranslation(['media', 'common']);
@@ -162,8 +165,8 @@ export default function SeasonAccordion({
     runSeasonAction(() =>
       unairedCount > 0
         // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
-        ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number), showMedia)
-        : markSeasonAsWatched(showTraktId, season.number, showMedia)
+        ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number), showMedia, iskeletSezonlar)
+        : markSeasonAsWatched(showTraktId, season.number, showMedia, iskeletSezonlar)
     );
   };
 
@@ -241,6 +244,7 @@ export default function SeasonAccordion({
                         // işaretlemek sunucuda "gelecek tarih" diye reddedilir.
                         sezonBolumleri={yayinlanmisNumaralar}
                         tumSezonlar={tumSezonlar}
+                        iskeletSezonlar={iskeletSezonlar}
                         showMedia={showMedia}
                       />
                    )}

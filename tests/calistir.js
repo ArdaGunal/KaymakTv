@@ -69,6 +69,7 @@ const TAKIMLAR = [
   { ad: 'film', grup: 'arayuz', dosya: 'arayuz/film-izleme.test.mjs', aciklama: 'M417: listede olmayan film isaretlenince ekranda gorunur' },
   { ad: 'atlanan', grup: 'arayuz', dosya: 'arayuz/atlanan-bolumler.test.mjs', aciklama: 'M418/M419: atlanan bolum hesabi + denetim duzeltmeleri' },
   { ad: 'plan', grup: 'arayuz', dosya: 'arayuz/isaretleme-plani.test.mjs', aciklama: 'M421: cok sezonlu plan + isaretleme denetimi onarimlari' },
+  { ad: 'ilerleme', grup: 'arayuz', dosya: 'arayuz/ilerleme-kurallari.test.mjs', aciklama: 'M422: yuzde/siradaki bolum kurallari + iyimser iskelet' },
 ];
 
 const filtre = process.argv[2];
