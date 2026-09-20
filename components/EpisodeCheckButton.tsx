@@ -13,6 +13,9 @@ interface EpisodeCheckButtonProps {
   season: number;
   episode: number;
   showName?: string;
+  /** 🆕 M420 — sezonda VAR OLAN (ve yayınlanmış) bölüm numaraları. Verilirse
+   *  "öncekileri de işaretle" sorusu ilerleme kaydının yüklenmesini BEKLEMEZ. */
+  sezonBolumleri?: number[];
   onShowFinished?: (showName: string, showId: number) => void;
   // info: basılma ANINDAKİ bölüm bilgisi. Store güncellenince data sıradaki
   // bölüme kaydığı için, "hangi bölüm izlendi" mesajı bu snapshot'tan yazılır.
@@ -29,6 +32,7 @@ export default function EpisodeCheckButton({
   season,
   episode,
   showName,
+  sezonBolumleri,
   onShowFinished,
   onSuccessStateChange,
 }: EpisodeCheckButtonProps) {
@@ -113,7 +117,7 @@ export default function EpisodeCheckButton({
     // DEĞİL. Eski hâl, numaraları kesintisiz sanıp olmayan bölümleri
     // işaretlemeye çalışıyordu (canlı hata: 21020 S5'te yalnız 19-21 var).
     const progress = useLibraryStore.getState().showProgressMap[traktId];
-    const skippedEpisodes = atlananBolumler(progress, season, episode);
+    const skippedEpisodes = atlananBolumler(progress, season, episode, sezonBolumleri);
 
     if (skippedEpisodes.length > 0) {
       Alert.alert(

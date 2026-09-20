@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
@@ -62,6 +62,18 @@ export default function SeasonAccordion({
   // kısmen izlenmiş sezonlarda buton normal "kalanları işaretle" akışına düşer.
   const airedInSeason = seasonProgress?.aired || 0;
   const isSeasonWatched = !!seasonProgress && airedInSeason > 0 && seasonProgress.completed >= airedInSeason;
+
+  // 🆕 M420 — sezonda VAR OLAN ve YAYINLANMIŞ bölüm numaraları. Bu liste
+  // katalogdan geliyor (ekran zaten çizmek için kullanıyor) ve "öncekileri de
+  // işaretleyeyim mi?" sorusunun ilerleme kaydını beklememesini sağlıyor:
+  // yeni eklenen dizide o kayıt ilk işaretlemeden 2-3 sn SONRA geliyor.
+  const yayinlanmisNumaralar = useMemo(
+    () => (season.episodes || [])
+      .filter((ep: any) => isEpisodeAired(ep, season.aired_episodes || 0))
+      .map((ep: any) => ep.number)
+      .filter((n: any) => typeof n === 'number'),
+    [season.episodes, season.aired_episodes],
+  );
 
   const seasonLabel = season.number === 0
     ? t('specials', 'Özel Bölümler')
@@ -220,6 +232,9 @@ export default function SeasonAccordion({
                         season={season.number}
                         episode={ep.number}
                         showName={showTitle}
+                        // 🆕 M420 — yalnızca YAYINLANMIŞ bölümler: yayınlanmamışı
+                        // işaretlemek sunucuda "gelecek tarih" diye reddedilir.
+                        sezonBolumleri={yayinlanmisNumaralar}
                       />
                    )}
                  </View>

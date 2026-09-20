@@ -47,11 +47,35 @@ T.ok('Sezonun bolum listesi bos/yok -> bos',
   && JSON.stringify(atlananBolumler({ seasons: [{ number: 1 }] }, 1, 5)) === '[]');
 
 // ─────────────────────────────────────────────────────────────────────────
+T.H('M420 — ekranin bolum listesi verilince ILERLEME BEKLENMEZ');
+// Kullanici: "arka arkaya 1-2 sn icinde isaretlersem soru sorulmuyor."
+// Kok: yeni dizide ilerleme kaydi ilk isaretlemeden 2-3 sn SONRA geliyor;
+// o pencerede sezon "bolumsuz" gorunuyordu.
+T.ok('Ilerleme YOKKEN ekran listesiyle atlananlar bulunur',
+  JSON.stringify(atlananBolumler(null, 1, 5, [1, 2, 3, 4, 5])) === '[1,2,3,4]');
+T.ok('Ilerleme YARIM (yalniz E1 izlendi) + ekran listesi -> 2,3,4',
+  JSON.stringify(atlananBolumler(
+    { seasons: [{ number: 1, episodes: [b(1, true)] }] }, 1, 5, [1, 2, 3, 4, 5])) === '[2,3,4]');
+T.ok('Ekran listesi bosluklu olsa da UYDURMA YOK (canli vaka)',
+  JSON.stringify(atlananBolumler(null, 5, 21, [19, 20, 21])) === '[19,20]');
+T.ok('Ekran listesi bos/verilmemisse eski davranis (ilerlemeye bakar)',
+  JSON.stringify(atlananBolumler(DUZ, 1, 5, [])) === '[2,4]'
+  && JSON.stringify(atlananBolumler(DUZ, 1, 5)) === '[2,4]');
+T.ok('Izlenmisler (1 ve 3) ekran listesinden de elenir',
+  JSON.stringify(atlananBolumler(DUZ, 1, 6, [1, 2, 3, 4, 5])) === '[2,4,5]');
+
+// ─────────────────────────────────────────────────────────────────────────
 T.H('Kaynak denetimi: iki cagri yerinde de dongu KALMADI');
 const dugme = fs.readFileSync(path.join(KOK, 'components', 'EpisodeCheckButton.tsx'), 'utf8');
 const kanca = fs.readFileSync(path.join(KOK, 'hooks', 'useEpisodeActions.ts'), 'utf8');
-T.ok('EpisodeCheckButton ortak hesabi kullaniyor', /atlananBolumler\(progress, season, episode\)/.test(dugme));
+T.ok('EpisodeCheckButton ortak hesabi kullaniyor', /atlananBolumler\(progress, season, episode, sezonBolumleri\)/.test(dugme));
 T.ok('useEpisodeActions ortak hesabi kullaniyor', /atlananBolumler\(showProgressMap\[showTraktId\], sNum, eNum\)/.test(kanca));
+const akordiyon = fs.readFileSync(path.join(KOK, 'components', 'SeasonAccordion.tsx'), 'utf8');
+T.ok('SeasonAccordion YAYINLANMIS bolum listesini geciriyor',
+  /sezonBolumleri=\{yayinlanmisNumaralar\}/.test(akordiyon)
+  && /isEpisodeAired\(ep, season\.aired_episodes \|\| 0\)/.test(akordiyon));
+T.ok('Dugme listeyi hesaba geciriyor',
+  /atlananBolumler\(progress, season, episode, sezonBolumleri\)/.test(dugme));
 T.ok('Elle yazilmis 1..N-1 dongusu iki dosyada da YOK',
   !/for \(let i = 1; i < (episode|eNum); i\+\+\)/.test(dugme + kanca));
 
