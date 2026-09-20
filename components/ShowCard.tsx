@@ -1,5 +1,5 @@
-import React, { useState, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useRef, memo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Star, Plus, Check } from './icons';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
@@ -26,7 +26,6 @@ const ShowCard = memo(({ data }: { data: any }) => {
     hiddenMovieIds: s.hiddenMovieIds,
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
-  const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
 
   const media = data?.show || data?.movie;
   
@@ -58,17 +57,25 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
   const progressColor = getProgressBarColor(isDropped, isFinished);
 
+  // 🔴 M416 — DÖNEN SİMGE YOK, DURUM ZATEN ANINDA DOĞRU.
+  // `toggleWatchlistStatus` mağazayı İYİMSER günceller (collections.ts:105-121)
+  // ve hata olursa kendisi geri alır. Eski hâl ağ turu bitene kadar
+  // `ActivityIndicator` gösteriyordu; yani zaten güncellenmiş olan yeşil tiki
+  // GİZLİYORDU. §C30'dan sonra o tur eksikte çekmeyi de içerebiliyor
+  // (ölçüldü: 0,5–2,5 sn) — kullanıcı «3-4 sn buton dönüyor» diye bildirdi.
+  // Çift basış `busyRef` ile engelleniyor (görünür durum değişmeden).
+  const busyRef = useRef(false);
   const handleToggleWatchlist = async (e: any) => {
     e.stopPropagation();
-    if (!traktId || isWatchlistLoading) return;
-    
-    setIsWatchlistLoading(true);
+    if (!traktId || busyRef.current) return;
+
+    busyRef.current = true;
     try {
       await toggleWatchlistStatus(traktId, type, isWatchlisted, media);
     } catch (error) {
       Alert.alert(t('common:error'), t('listAddError'));
     } finally {
-      setIsWatchlistLoading(false);
+      busyRef.current = false;
     }
   };
 
@@ -103,11 +110,9 @@ const ShowCard = memo(({ data }: { data: any }) => {
           <TouchableOpacity
             style={[styles.watchlistButton, isFollowing && styles.watchlistButtonActive]}
             onPress={handleToggleWatchlist}
-            disabled={isWatchlistLoading || isWatched}
+            disabled={isWatched}
           >
-            {isWatchlistLoading ? (
-            <ActivityIndicator size="small" />
-            ) : isFollowing ? (
+            {isFollowing ? (
               <Check size={18} color="#10b981" strokeWidth={3} />
             ) : (
               <Plus size={18} color="#a3a3a3" strokeWidth={2.5} />
