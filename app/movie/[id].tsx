@@ -147,6 +147,11 @@ export default function MovieDetailScreen() {
       Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
+    // 🔴 M420 — DÖNEN SİMGE YOK (M416/M417 ile aynı gerekçe): hem
+    // `markMovieAsWatched` hem `deleteMediaFromHistory` mağazayı İYİMSER
+    // güncelliyor, yani rozet basar basmaz doğru. Simge o doğru durumu ağ
+    // turu bitene kadar gizliyordu (kullanıcı: "2-3 sn yuvarlak dönüyor").
+    // Çift basış görünmez kilitle engelleniyor.
     if (actionLoading) return;
     try {
       setActionLoading(true);
@@ -228,9 +233,7 @@ export default function MovieDetailScreen() {
             disabled={actionLoading}
             activeOpacity={0.8}
           >
-            {actionLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : isWatched ? (
+            {isWatched ? (
               <>
                 <CheckCheck color="#ffffff" size={20} style={{ marginRight: 8 }} />
                 <Text style={styles.actionButtonText}>{t('watched')}</Text>
