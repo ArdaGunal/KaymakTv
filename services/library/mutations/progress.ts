@@ -19,6 +19,7 @@ import {
 // göre Trakt'a mı bizim API'ye mi gideceği kararı BU DOSYADA veriliyor.
 import * as libraryApi from '../../api/library';
 import { bolumleriIsaretle, sezonuIsaretle, bolumleriGeriAl } from './optimistikIlerleme';
+import { izlenenFilmeEkle } from './optimistikFilm';
 import { fetchFreshData } from '../fetchers';
 import {
   CACHE_KEYS,
@@ -722,7 +723,12 @@ export const markEpisodesUpToAsWatched = async (showId: number, season: number, 
   }
 };
 
-export const markMovieAsWatched = async (movieId: number) => {
+/**
+ * @param mediaData 🆕 M417 — filmin kendisi (çağıran ekranın elindeki Trakt
+ *   nesnesi). Film İZLEME LİSTESİNDE DEĞİLKEN iyimser girdi ancak bununla
+ *   kurulabiliyor; verilmezse eski davranış (ekran sunucu senkronunu bekler).
+ */
+export const markMovieAsWatched = async (movieId: number, mediaData?: any) => {
   let previousWatchlist: any = null;
   let previousWatched: any = null;
   let movieItemToMove: any = null;
@@ -750,16 +756,11 @@ export const markMovieAsWatched = async (movieId: number) => {
 
   setWatchedMovies((prev: any) => {
     previousWatched = prev;
-    const exists = prev.find((p: any) => p.movie.ids.trakt === movieId);
-    if (!exists && movieItemToMove) {
-      const newWatched = [
-        {
-          plays: 1,
-          last_watched_at: new Date().toISOString(),
-          movie: movieItemToMove.movie
-        },
-        ...prev
-      ];
+    // 🔴 M417: eskiden girdi YALNIZCA `movieItemToMove` (izleme listesinden
+    // taşınan film) varken ekleniyordu → listede olmayan film işaretlenince
+    // ekran hiç değişmiyordu. Karar ve gerekçe: `optimistikFilm.ts`.
+    const newWatched = izlenenFilmeEkle(prev, movieId, movieItemToMove?.movie || mediaData);
+    if (newWatched !== prev) {
       safeStorageSet(CACHE_KEYS.watchedMovies, JSON.stringify(newWatched));
       return newWatched;
     }

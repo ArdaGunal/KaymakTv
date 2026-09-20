@@ -66,6 +66,7 @@ const TAKIMLAR = [
   { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17: yerel izleme istatistigi, ilerleme yuzdesi, cubuk rengi' },
   { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M413: ilk isaretlemede tik sonuca kadar tutulur' },
   { ad: 'arama', grup: 'arayuz', dosya: 'arayuz/arama.test.mjs', aciklama: 'M415: Kesfet aramasi 1 harften baslar' },
+  { ad: 'film', grup: 'arayuz', dosya: 'arayuz/film-izleme.test.mjs', aciklama: 'M417: listede olmayan film isaretlenince ekranda gorunur' },
 ];
 
 const filtre = process.argv[2];

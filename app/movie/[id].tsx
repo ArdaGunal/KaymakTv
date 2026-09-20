@@ -153,7 +153,7 @@ export default function MovieDetailScreen() {
       if (isWatched) {
         await deleteMediaFromHistory(traktIdNum, 'movie');
       } else {
-        await markMovieAsWatched(traktIdNum);
+        await markMovieAsWatched(traktIdNum, movieData);
       }
     } catch (e) {
       console.error(e);
@@ -168,7 +168,7 @@ export default function MovieDetailScreen() {
       return;
     }
     try {
-      await markMovieAsWatched(traktIdNum);
+      await markMovieAsWatched(traktIdNum, movieData);
       setRewatchSnackbarVisible(true);
     } catch (e) {
       console.error(e);
