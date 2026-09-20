@@ -2,7 +2,7 @@
   "expo": {
     "name": "KaymakTV",
     "slug": "kaymak",
-    "version": "2.5.7",
+    "version": "2.5.8",
     "orientation": "portrait",
     "scheme": "kaymak",
     "userInterfaceStyle": "dark",
@@ -22,7 +22,7 @@
         "backgroundColor": "#171717"
       },
       "package": "com.ardagnl.kaymak",
-      "versionCode": 6,
+      "versionCode": 7,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WRITE_EXTERNAL_STORAGE",
