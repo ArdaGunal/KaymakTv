@@ -22,6 +22,7 @@ import SeasonAccordion from '../../components/SeasonAccordion';
 import { useDetailLayout } from '../../hooks/useDetailLayout';
 import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
+import { sezonEvreniKur } from '../../utils/sezonEvreni';
 import ShowDetailOverlays from '../../components/detail/ShowDetailOverlays';
 
 
@@ -118,32 +119,12 @@ export default function ShowDetailScreen() {
     handleUndoUnwatch,
   } = useShowDetailHandlers({ traktIdNum, id, t });
 
-  // 🆕 M421 — TÜM sezonların YAYINLANMIŞ bölüm numaraları. `SeasonAccordion`
-  // yalnız kendi sezonunu biliyor; çok sezonlu plan için evren burada kurulur
-  // (ekranın katalog verisi — ilerleme kaydı beklenmez, M420'nin dersi).
-  // 🆕 M422 — iyimser İSKELET için ham sezon verisi (TÜM bölümler + yayın
-  // tarihi). `tumSezonlar` yalnız yayınlanmış NUMARALARI taşıyor; iskelet
-  // `first_aired`'a da ihtiyaç duyuyor (sayaçlar ve `next_episode` ondan).
-  const iskeletSezonlar = useMemo(
-    () => (computedSeasons || []).map((s: any) => ({
-      number: s.number,
-      episodes: (s.episodes || []).map((ep: any) => ({
-        number: ep.number,
-        first_aired: ep.first_aired ?? null,
-        title: ep.title ?? null,
-      })),
-    })),
-    [computedSeasons],
-  );
-
-  const tumSezonlar = useMemo(
-    () => (computedSeasons || []).map((s: any) => ({
-      sezon: s.number,
-      bolumler: (s.episodes || [])
-        .filter((ep: any) => (ep.first_aired ? new Date(ep.first_aired) <= new Date() : ep.number <= (s.aired_episodes || 0)))
-        .map((ep: any) => ep.number)
-        .filter((n: any) => typeof n === 'number'),
-    })),
+  // 🆕 M421/M425 — ORTAK TÜREV (utils/sezonEvreni.ts): "öncekileri de işaretle"
+  // planı (M421) ve iyimser iskelet (M422) için. Eskiden burada elle
+  // yazılıydı ve yalnız MOBİL dala bağlanmıştı; web ayrı ağaçtan geçtiği
+  // için üç düzeltme de webde devre dışıydı.
+  const { tumSezonlar, iskeletSezonlar } = useMemo(
+    () => sezonEvreniKur(computedSeasons),
     [computedSeasons],
   );
 
@@ -342,6 +323,10 @@ export default function ShowDetailScreen() {
                 expandedSeasons={expandedSeasons}
                 onToggleSeason={toggleSeason}
                 onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt })}
+                // 🆕 M425 — webde de işaretleme kararları ve iyimser iskelet.
+                tumSezonlar={tumSezonlar}
+                iskeletSezonlar={iskeletSezonlar}
+                showMedia={showData}
               />
             }
           />

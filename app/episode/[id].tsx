@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
@@ -27,6 +27,7 @@ import ExpandableText from '../../components/ExpandableText';
 import { useDetailLayout } from '../../hooks/useDetailLayout';
 import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
+import { sezonEvreniKur } from '../../utils/sezonEvreni';
 import EpisodeHeroWeb from '../../components/detail/EpisodeHeroWeb';
 import EpisodeHeroMobile from '../../components/detail/EpisodeHeroMobile';
 import { styles } from '../../components/detail/episodeDetail.styles';
@@ -90,6 +91,9 @@ export default function EpisodeDetailScreen() {
   // `useShowDetail` `traktId` 0 iken aga hic cikmaz (kendi korumasi),
   // dolayisiyla mobilde tek bir ekstra istek bile olusmaz.
   const railData = useShowDetail(layout.isDesktopWeb ? traktIdNum : 0, showTmdbId, showProgressMap[traktIdNum]);
+  // 🆕 M425 — bu sayfadaki sezon rayı da gerçek bir işaretleme yüzeyi:
+  // kararlar ve iyimser iskelet için aynı türevler (utils/sezonEvreni.ts).
+  const railEvren = useMemo(() => sezonEvreniKur(railData.computedSeasons), [railData.computedSeasons]);
   const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({ [Number(season)]: true });
 
   const actions = useEpisodeActions({
@@ -247,6 +251,9 @@ export default function EpisodeDetailScreen() {
             rail={
               <SeasonsRailWeb
                 seasons={railData.computedSeasons || []}
+                tumSezonlar={railEvren.tumSezonlar}
+                iskeletSezonlar={railEvren.iskeletSezonlar}
+                showMedia={railData.mediaData?.summary}
                 showTraktId={traktIdNum}
                 showSlug={showSlug}
                 showTitle={showName}

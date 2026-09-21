@@ -16,6 +16,12 @@ interface SeasonsRailWebProps {
   /** Bölüm sayfasında: hangi sezon/bölümdeyiz (vurgulanır). */
   activeSeasonNumber?: number | null;
   activeEpisodeNumber?: number | null;
+  /** 🆕 M425 — işaretleme kararlarının ekran verisi (bkz. utils/sezonEvreni.ts).
+   *  Bu ray WEB'in TEK sezon listesi; bunlar geçmezse M420/M421/M422
+   *  düzeltmelerinin üçü de webde devre dışı kalır. */
+  tumSezonlar?: { sezon: number; bolumler: number[] }[];
+  iskeletSezonlar?: any[];
+  showMedia?: any;
 }
 
 /**
@@ -36,6 +42,9 @@ export default function SeasonsRailWeb({
   onSelectEpisode,
   activeSeasonNumber = null,
   activeEpisodeNumber = null,
+  tumSezonlar,
+  iskeletSezonlar,
+  showMedia,
 }: SeasonsRailWebProps) {
   const { t } = useTranslation('media');
 
@@ -62,6 +71,9 @@ export default function SeasonsRailWeb({
               onToggle={() => onToggleSeason(season.number)}
               seasonProgress={season.seasonProgress}
               activeEpisodeNumber={season.number === activeSeasonNumber ? activeEpisodeNumber : null}
+              tumSezonlar={tumSezonlar}
+              iskeletSezonlar={iskeletSezonlar}
+              showMedia={showMedia}
             />
           </SectionErrorBoundary>
         ))}

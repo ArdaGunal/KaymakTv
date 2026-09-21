@@ -119,13 +119,40 @@ T.ok('Uc mutasyon da ilerleme yoksa iskelete dusuyor',
   (prog.match(/iskeletKur\(iskeletSezonlar\)/g) || []).length === 3,
   String((prog.match(/iskeletKur\(iskeletSezonlar\)/g) || []).length));
 const ekran = oku('app', 'show', '[id].tsx');
-T.ok('Dizi sayfasi ham sezon verisini kuruyor ve geciriyor',
-  /const iskeletSezonlar = useMemo/.test(ekran) && /iskeletSezonlar=\{iskeletSezonlar\}/.test(ekran));
+// M425: turev artik ORTAK yardimcida (utils/sezonEvreni.ts), ekranda elle degil.
+T.ok('Dizi sayfasi iskelet verisini kuruyor ve geciriyor',
+  /const \{ tumSezonlar, iskeletSezonlar \} = useMemo/.test(ekran)
+  && /iskeletSezonlar=\{iskeletSezonlar\}/.test(ekran));
 const dugme = oku('components', 'EpisodeCheckButton.tsx');
 T.ok('Dugme iskeleti IKI mutasyona da geciriyor',
   /planiIsaretle\(traktId, plan, showMedia, iskeletSezonlar\)/.test(dugme)
   && /markEpisodeAsWatched\(traktId, season, episode, showMedia, iskeletSezonlar\)/.test(dugme));
 const akordiyon = oku('components', 'SeasonAccordion.tsx');
 T.ok('Sezon isaretleme de iskeleti geciriyor', /showMedia, iskeletSezonlar\)/.test(akordiyon));
+
+// ─────────────────────────────────────────────────────────────────────────
+T.H('🔴 WEB yolu da ayni verileri aliyor (M425)');
+// Web dizi sayfasi AYRI bir agactan geciyor: SeasonsRailWeb -> SeasonAccordion.
+// Bu ray proplari gecirmezse M420 (soru esigi), M421 (cok sezonlu plan) ve
+// M422 (iyimser iskelet) WEBDE DEVRE DISI kalir — kullanici "webde isaretleyince
+// tik kayboluyor" diye bildirdi.
+const evren = oku('utils', 'sezonEvreni.ts');
+T.ok('Ortak turev dosyasi var (uc cagiran icin tek yer)',
+  /export function sezonEvreniKur/.test(evren)
+  && /tumSezonlar/.test(evren) && /iskeletSezonlar/.test(evren));
+const ray = oku('components', 'detail', 'SeasonsRailWeb.tsx');
+T.ok('Web rayi uc propu ALIYOR', /tumSezonlar\?:/.test(ray) && /iskeletSezonlar\?:/.test(ray) && /showMedia\?:/.test(ray));
+T.ok('Web rayi uc propu SeasonAccordiona GECIRIYOR',
+  /tumSezonlar=\{tumSezonlar\}/.test(ray) && /iskeletSezonlar=\{iskeletSezonlar\}/.test(ray) && /showMedia=\{showMedia\}/.test(ray));
+const dizi = oku('app', 'show', '[id].tsx');
+T.ok('Dizi sayfasi ortak turevi kullaniyor (elle kopya YOK)',
+  /sezonEvreniKur\(computedSeasons\)/.test(dizi)
+  && !/ep\.number <= \(s\.aired_episodes \|\| 0\)/.test(dizi));
+T.ok('Dizi sayfasi HEM mobil akordiyona HEM web rayina geciriyor',
+  (dizi.match(/iskeletSezonlar=\{iskeletSezonlar\}/g) || []).length === 2);
+const bolum = oku('app', 'episode', '[id].tsx');
+T.ok('Bolum sayfasindaki ray da aliyor',
+  /sezonEvreniKur\(railData\.computedSeasons\)/.test(bolum)
+  && /iskeletSezonlar=\{railEvren\.iskeletSezonlar\}/.test(bolum));
 
 T.bitir();
