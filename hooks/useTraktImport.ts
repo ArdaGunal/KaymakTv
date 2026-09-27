@@ -17,7 +17,10 @@ import {
   tumunuDurdurur,
   yenidenDenenebilir,
 } from '../services/api/traktImportCekirdek';
-import { logError } from '../utils/errorLog';
+import { logError, logWarning } from '../utils/errorLog';
+import { adimHatasiLogSeviyesi } from '../services/import/aktarimCekirdek';
+import { kilitAl, kilitBirak } from '../services/import/aktarimKilidi';
+import { kutuphaneyiTazele } from '../services/import/aktarimBaglanti';
 
 export type ImportDurumu = 'bos' | 'suruyor' | 'duraklatildi' | 'bitti' | 'hata';
 
@@ -39,9 +42,10 @@ export type ImportDurumu = 'bos' | 'suruyor' | 'duraklatildi' | 'bitti' | 'hata'
  * 2. **Geçici hatada bekleyip devam, kalıcı hatada DUR.** Ardışık üç hatada
  *    (`ARDISIK_HATA_TAVANI`) döngü kendini durdurur — Pi'nin backfill motorunun
  *    aynı deseni (`backfill.js`).
- * 3. **Aynı anda tek döngü** (`calisiyorRef`): kullanıcı düğmeye iki kez
- *    basarsa ikinci döngü açılmaz; sunucu tarafında da sayaçlar koşullu
- *    güncellemeyle korunuyor ama istemci gereksiz istek atmamalı.
+ * 3. **Cihazda aynı anda tek döngü** — MODÜL kilidi (`aktarimKilidi.ts`, §C33).
+ *    Eskiden örnek başına bir `calisiyorRef` vardı; hook iki yerde çağrıldığı
+ *    için (Ayarlar + `_layout`) iki döngü aynı anda koşabiliyordu. Kilit
+ *    otomatik motorla PAYLAŞILIYOR: motor sürerken elle tur açılmaz.
  */
 export function useTraktImport() {
   const { authProvider, isGuest } = useAuth();
@@ -72,7 +76,6 @@ export function useTraktImport() {
   const [zararsizAtlamalar, setZararsizAtlamalar] = useState<Record<string, number>>({});
 
   const iptalRef = useRef(false);
-  const calisiyorRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -103,8 +106,7 @@ export function useTraktImport() {
     /** 🧹 K3: fark + Trakt'tan SİLİNENLERİN süpürülmesi. */
     kapanis?: boolean;
   } = {}) => {
-    if (!uygun || calisiyorRef.current) return;
-    calisiyorRef.current = true;
+    if (!uygun || !kilitAl('elle')) return;
     iptalRef.current = false;
     if (!sessiz) {
       setHata(null);
@@ -146,7 +148,11 @@ export function useTraktImport() {
           } catch (e) {
             adimHatasi = e instanceof ImportHatasi ? e.bilgi : { tur: 'genel', mesaj: (e as Error)?.message || 'Bilinmeyen hata.' };
             ardisikHata += 1;
-            logError('useTraktImport.adim', e);
+            // 🔕 §C33 LOG POLİTİKASI: geçici hata döngüde zaten yeniden
+            // deneniyor — Discord'a "hata" diye düşmesi 27 Eylül'deki yanlış
+            // alarmı üretti. Yalnız beklenmeyen (`genel`) Discord'a gider.
+            if (adimHatasiLogSeviyesi(adimHatasi) === 'hata') logError('useTraktImport.adim', e);
+            else logWarning('useTraktImport.adim', e);
           }
 
           if (sonuc) {
@@ -197,8 +203,11 @@ export function useTraktImport() {
         }
         setDurum(atlananlar.length ? 'hata' : 'bitti');
       }
+      // 🔴 YAZILAN SATIRLAR EKRANA GELSİN (§C33): eskiden tur bitince
+      // kütüphane TAZELENMİYORDU; veri 10 dakikalık TTL dolunca görünüyordu.
+      void kutuphaneyiTazele().catch((e) => logWarning('useTraktImport.tazele', e));
     } finally {
-      calisiyorRef.current = false;
+      kilitBirak('elle');
     }
   }, [uygun]);
 

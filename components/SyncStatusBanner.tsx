@@ -3,6 +3,7 @@ import { Animated, StyleSheet, Text, View, ActivityIndicator, Platform } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySyncStatus } from '../hooks/useLibrarySyncStatus';
+import { useAktarimGorunumu } from '../hooks/useAktarimGorunumu';
 
 // Cache'ten anında dolan (TTL geçerli) açılışlarda banner GÖZ KIRPMAMALI —
 // yalnızca senkron gerçekten bu kadar sürerse gösterilir. `useEffect` içindeki
@@ -21,7 +22,11 @@ const HIDDEN_OFFSET = -12;
  * güvenli şekilde) görselleştirir.
  */
 export default function SyncStatusBanner() {
-  const isSyncing = useLibrarySyncStatus();
+  // 🔕 §C33: otomatik aktarım sürerken motor kütüphaneyi 8 sn'de bir
+  // tazeliyor; bu kaplama her tazelemede belirip kaybolur ve `AktarimBandi`nın
+  // üstünde yanıp sönerdi. Bant aynı bilgiyi (sayılarla) zaten veriyor.
+  const { aktarimSuruyor } = useAktarimGorunumu();
+  const isSyncing = useLibrarySyncStatus() && !aktarimSuruyor;
   const { t } = useTranslation('common');
   const insets = useSafeAreaInsets();
 

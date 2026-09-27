@@ -71,6 +71,7 @@ const TAKIMLAR = [
   { ad: 'plan', grup: 'arayuz', dosya: 'arayuz/isaretleme-plani.test.mjs', aciklama: 'M421: cok sezonlu plan + isaretleme denetimi onarimlari' },
   { ad: 'ilerleme', grup: 'arayuz', dosya: 'arayuz/ilerleme-kurallari.test.mjs', aciklama: 'M422: yuzde/siradaki bolum kurallari + iyimser iskelet' },
   { ad: 'istek', grup: 'arayuz', dosya: 'arayuz/takip-istegi.test.mjs', aciklama: 'M424: ret satiri siler (sessiz duvar kalkti) + 059' },
+  { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 
 const filtre = process.argv[2];

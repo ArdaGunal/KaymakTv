@@ -14,6 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { useMoviesDashboardData } from '../hooks/useMoviesDashboardData';
 import { groupByDateGroup } from '../utils/groupByDateGroup';
 import SegmentedTabControl from '../components/index/SegmentedTabControl';
+import AktarimBandi from '../components/library/AktarimBandi';
+import { useAktarimGorunumu } from '../hooks/useAktarimGorunumu';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +24,8 @@ export default function MoviesScreen() {
   const [activeTab, setActiveTab] = useState('izleme');
   const [renderedTab, setRenderedTab] = useState('izleme');
   const { t, i18n } = useTranslation('media');
+  // §C33: aktarım sürerken "boş" / "senkron başarısız" YALANI gösterilmez.
+  const aktarim = useAktarimGorunumu();
 
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedMovieName, setFinishedMovieName] = useState('');
@@ -70,9 +74,9 @@ export default function MoviesScreen() {
   // "Boş" ile "senkron başarısız oldu" ayrımı — bkz. SyncErrorState.tsx /
   // screens/IndexMobile.tsx'teki AYNI mantık.
   const showWatchlistSyncError =
-    renderedTab === 'izleme' && !isMoviesLoading && watchlistMoviesList.length === 0 && hasSyncError;
+    renderedTab === 'izleme' && !isMoviesLoading && watchlistMoviesList.length === 0 && hasSyncError && !aktarim.aktarimSuruyor;
   const showUpcomingSyncError =
-    renderedTab === 'yaklasan' && groupedUpcomingMovies.length === 0 && hasSyncError;
+    renderedTab === 'yaklasan' && groupedUpcomingMovies.length === 0 && hasSyncError && !aktarim.aktarimSuruyor;
 
   const handleMovieFinished = useCallback((movieName: string) => {
     setFinishedMovieName(movieName);
@@ -136,6 +140,9 @@ export default function MoviesScreen() {
         upcomingLabel={t('upcomingTab')}
       />
 
+      {/* §C33 — otomatik Trakt aktarımı sürerken ince, engellemeyen bant. */}
+      <AktarimBandi />
+
       {isMoviesLoading && accessToken ? (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
           <View style={{ marginBottom: 16 }}>
@@ -167,7 +174,7 @@ export default function MoviesScreen() {
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
           }
           ListEmptyComponent={
-            <Text style={styles.emptyText}>{t('noUpcomingMovies')}</Text>
+            <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noUpcomingMovies')}</Text>
           }
         />
       ) : showWatchlistSyncError ? (
@@ -187,7 +194,7 @@ export default function MoviesScreen() {
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
           }
           ListEmptyComponent={
-            <Text style={styles.emptyText}>{t('noWatchlistMovies')}</Text>
+            <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noWatchlistMovies')}</Text>
           }
         />
       )}

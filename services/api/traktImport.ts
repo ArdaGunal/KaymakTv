@@ -9,6 +9,7 @@ import {
   ImportHataBilgisi,
   hataTuruCoz,
 } from './traktImportCekirdek';
+import type { AktarimOzeti } from '../import/aktarimCekirdek';
 
 /**
  * TRAKT İÇE AKTARIMI — Worker `/import/trakt`'ın istemci tarafı (Faz T · T5.4).
@@ -82,4 +83,43 @@ export async function traktImportAdimi(
     throw new ImportHatasi(hataTuruCoz(response.status, response.data));
   }
   return response.data as ImportAdimSonucu;
+}
+
+/**
+ * 📊 Aktarımın tek istekte özeti — Worker `POST /import/durum` (§C33).
+ *
+ * Otomatik motorun açılış sorusu: ilk aktarım tamam mı, hangi aileler eksik,
+ * başka bir cihaz şu an sürüyor mu? SALT OKUMA; Trakt'a gitmez. Hatalar
+ * `traktImportAdimi` ile AYNI sınıflara çevrilir (`ImportHatasi`), motor
+ * ikisine aynı kararları uygular.
+ */
+export async function traktImportOzeti(): Promise<AktarimOzeti> {
+  if (!KAYMAK_WORKER_URL) {
+    throw new ImportHatasi({ tur: 'genel', mesaj: 'Sunucu adresi tanımlı değil.' });
+  }
+  let token: string | null = null;
+  try {
+    token = await SecureStore.getItemAsync('traktAccessToken');
+  } catch {
+    token = null;
+  }
+  if (!token) {
+    throw new ImportHatasi({ tur: 'yetki', mesaj: 'Aktarım için giriş yapmalısın.' });
+  }
+
+  let response;
+  try {
+    response = await axios.post(
+      `${KAYMAK_WORKER_URL}/import/durum`,
+      { traktAccessToken: token },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+  } catch (error: any) {
+    throw new ImportHatasi(hataTuruCoz(error?.response?.status, error?.response?.data ?? { message: error?.message }));
+  }
+  const d = response.data;
+  if (!d?.success || typeof d.ilkTamam !== 'boolean' || !Array.isArray(d.eksikAileler) || !d.aileler) {
+    throw new ImportHatasi(hataTuruCoz(response.status, d));
+  }
+  return { ilkTamam: d.ilkTamam, eksikAileler: d.eksikAileler, aileler: d.aileler, toplam: d.toplam ?? { aktarilan: 0, bekleyen: 0 } };
 }

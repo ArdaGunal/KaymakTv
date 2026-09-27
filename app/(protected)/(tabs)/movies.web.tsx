@@ -15,6 +15,8 @@ import MoviesMobile from '../../../screens/MoviesMobile';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useMoviesDashboardData } from '../../../hooks/useMoviesDashboardData';
 import { groupByDateGroup } from '../../../utils/groupByDateGroup';
+import AktarimBandi from '../../../components/library/AktarimBandi';
+import { useAktarimGorunumu } from '../../../hooks/useAktarimGorunumu';
 
 export default function MoviesScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -24,6 +26,8 @@ export default function MoviesScreenWeb() {
   const [activeTab, setActiveTab] = useState('izleme');
   const [renderedTab, setRenderedTab] = useState('izleme');
   const { t, i18n } = useTranslation('media');
+  // §C33: aktarım sürerken "boş" YALANI gösterilmez (mobil ikizle aynı kural).
+  const aktarim = useAktarimGorunumu();
 
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedMovieName, setFinishedMovieName] = useState('');
@@ -167,6 +171,9 @@ export default function MoviesScreenWeb() {
           </TouchableOpacity>
         </View>
 
+        {/* §C33 — otomatik Trakt aktarımı bandı (mobil ikiziyle aynı bileşen). */}
+        <AktarimBandi />
+
         {isMoviesLoading && accessToken ? (
           <View style={{ marginTop: 24 }}>
              {/* İskelet başlığı da gerçek karusel başlığıyla aynı olmalı ki
@@ -187,7 +194,7 @@ export default function MoviesScreenWeb() {
               </React.Fragment>
             ))
           ) : (
-            <Text style={styles.emptyText}>{t('noUpcomingMovies')}</Text>
+            <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noUpcomingMovies')}</Text>
           )
         ) : (
           <>
@@ -198,7 +205,7 @@ export default function MoviesScreenWeb() {
             {renderCarousel(t('filterWatchlist'), watchlistMoviesList, 'watchlist')}
 
             {watchlistMoviesList.length === 0 && (
-              <Text style={styles.emptyText}>{t('noWatchlistMovies')}</Text>
+              <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noWatchlistMovies')}</Text>
             )}
           </>
         )}

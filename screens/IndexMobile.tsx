@@ -16,12 +16,16 @@ import SegmentedTabControl from '../components/index/SegmentedTabControl';
 import UpcomingSectionList from '../components/index/UpcomingSectionList';
 import TrackingAccordionList from '../components/tracking/TrackingAccordionList';
 import CelebrationOverlay from '../components/index/CelebrationOverlay';
+import AktarimBandi from '../components/library/AktarimBandi';
+import { useAktarimGorunumu } from '../hooks/useAktarimGorunumu';
 
 export default function DizilerScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('izleme');
   const [renderedTab, setRenderedTab] = useState('izleme');
   const { t, i18n } = useTranslation('media');
+  // §C33: aktarım sürerken "boş" / "senkron başarısız" YALANI gösterilmez.
+  const aktarim = useAktarimGorunumu();
 
   const [showConfetti, setShowConfetti] = useState(false);
   const [finishedShow, setFinishedShow] = useState<{ name: string; id: number } | null>(null);
@@ -134,9 +138,10 @@ export default function DizilerScreen() {
   // `trackingLoading` bittikten SONRA hâlâ boşsa VE son senkron tamamen
   // başarısız olduysa (internet yok vb.), gerçek bir boş durum yerine hata +
   // "Tekrar Dene" gösterilir.
-  const showTrackingSyncError = renderedTab === 'izleme' && !trackingLoading && isEmpty && hasSyncError;
+  const showTrackingSyncError =
+    renderedTab === 'izleme' && !trackingLoading && isEmpty && hasSyncError && !aktarim.aktarimSuruyor;
   const showUpcomingSyncError =
-    renderedTab === 'yaklasan' && groupedUpcomingShows.length === 0 && hasSyncError;
+    renderedTab === 'yaklasan' && groupedUpcomingShows.length === 0 && hasSyncError && !aktarim.aktarimSuruyor;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -146,6 +151,9 @@ export default function DizilerScreen() {
         watchlistLabel={t('watchlistTab')}
         upcomingLabel={t('upcomingTab')}
       />
+
+      {/* §C33 — otomatik Trakt aktarımı sürerken ince, engellemeyen bant. */}
+      <AktarimBandi />
 
       {showSkeleton ? (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -167,7 +175,7 @@ export default function DizilerScreen() {
           refreshing={refreshing}
           onRefresh={onRefresh}
           insets={insets}
-          emptyLabel={t('noUpcomingShows')}
+          emptyLabel={aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noUpcomingShows')}
         />
       ) : showTrackingSyncError ? (
         <SyncErrorState onRetry={onRefresh} />
@@ -182,7 +190,7 @@ export default function DizilerScreen() {
           refreshing={refreshing}
           onRefresh={onRefresh}
           insets={insets}
-          emptyLabel={t('noShowsInCategory')}
+          emptyLabel={aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noShowsInCategory')}
         />
       )}
 

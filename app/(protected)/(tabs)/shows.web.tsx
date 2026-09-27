@@ -19,6 +19,8 @@ import LoginPaywall from '../../../components/LoginPaywall';
 import { useDashboardData } from '../../../hooks/useDashboardData';
 import { useTrackingShows } from '../../../hooks/useTrackingShows';
 import { groupByDateGroup } from '../../../utils/groupByDateGroup';
+import AktarimBandi from '../../../components/library/AktarimBandi';
+import { useAktarimGorunumu } from '../../../hooks/useAktarimGorunumu';
 
 export default function DizilerScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -28,6 +30,8 @@ export default function DizilerScreenWeb() {
   const [activeTab, setActiveTab] = useState('izleme');
   const [renderedTab, setRenderedTab] = useState('izleme');
   const { t, i18n } = useTranslation('media');
+  // §C33: aktarım sürerken "boş" YALANI gösterilmez (mobil ikizle aynı kural).
+  const aktarim = useAktarimGorunumu();
 
   const [trendingFallback, setTrendingFallback] = useState<any[]>([]);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
@@ -216,6 +220,9 @@ export default function DizilerScreenWeb() {
           </TouchableOpacity>
         </View>
 
+        {/* §C33 — otomatik Trakt aktarımı bandı (mobil ikiziyle aynı bileşen). */}
+        <AktarimBandi />
+
         {trackingSkeleton ? (
           <View style={{ marginTop: 8 }}>
             <Text style={styles.categoryTitle}>{t('upNext')}</Text>
@@ -236,7 +243,7 @@ export default function DizilerScreenWeb() {
           groupedUpcomingShows.length > 0 ? (
             groupedUpcomingShows.map((group) => <React.Fragment key={group.title}>{renderCarousel(group.title, group.data)}</React.Fragment>)
           ) : (
-            <Text style={styles.emptyText}>{t('noUpcomingShows')}</Text>
+            <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noUpcomingShows')}</Text>
           )
         ) : !accessToken ? (
           <>
@@ -253,7 +260,7 @@ export default function DizilerScreenWeb() {
             {renderTrackCarousel(t('paused'), categories.paused, 'paused')}
             {renderTrackCarousel(t('notStarted'), categories.notStarted, 'notStarted')}
 
-            {isEmpty && <Text style={styles.emptyText}>{t('noShowsInCategory')}</Text>}
+            {isEmpty && <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noShowsInCategory')}</Text>}
           </>
         )}
 

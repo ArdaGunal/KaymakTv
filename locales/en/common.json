@@ -148,5 +148,13 @@
   "write": "Write",
   "yearsAgo": "years ago",
   "yes": "Yes",
-  "no": "No"
+  "no": "No",
+  "importEmptyWhileSyncing": "Your Trakt library is being imported — your data will appear here shortly.",
+  "importBannerRunning": "Importing your Trakt library in the background",
+  "importBannerOtherDevice": "Your Trakt library is being imported on another device",
+  "importBannerCount": "{{islenen}} / {{toplam}}",
+  "importBannerHint": "Your data will appear here shortly — feel free to keep using the app.",
+  "importBannerOffline": "Waiting for an internet connection — the import will resume where it left off.",
+  "importBannerDone": "Your Trakt library is ready ✓",
+  "importBannerPending": "{{sayi}} items are being added to the catalog; they will appear after the nightly update."
 }

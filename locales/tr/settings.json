@@ -190,5 +190,10 @@
   "makePublicConfirm": "Herkese Aç",
   "privacySavedTitle": "Hesabın artık herkese açık",
   "requestsAutoApproved": "{{count}} bekleyen takip isteği onaylandı.",
-  "privacyChangeFailed": "Gizlilik ayarı kaydedilemedi."
+  "privacyChangeFailed": "Gizlilik ayarı kaydedilemedi.",
+  "importAuto": "Trakt kütüphanen otomatik aktarılıyor. Uygulamayı kullanmaya devam edebilirsin.",
+  "importAutoWaitingNet": "İnternet bağlantısı bekleniyor — kaldığı yerden devam edecek.",
+  "importAutoOtherDevice": "Aktarım başka bir cihazında sürüyor.",
+  "importAutoDeferred": "Trakt verilerinin bir kısmı henüz aktarılamadı. Uygulamaya her döndüğünde otomatik yeniden denenir.",
+  "importRetryNow": "Şimdi tekrar dene"
 }
