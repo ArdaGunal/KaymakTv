@@ -25,7 +25,7 @@ const HAZIR_SURESI_MS = 4000;
  */
 export default function AktarimBandi() {
   const { t } = useTranslation('common');
-  const { faz, islenen, toplam, bekleyen, kapatildi, kapat } = useAktarimStore();
+  const { faz, yuzde, bekleyen, kapatildi, kapat } = useAktarimStore();
 
   const hazirBekleyensiz = faz === 'bitti' && bekleyen === 0 && !kapatildi;
   useEffect(() => {
@@ -34,10 +34,9 @@ export default function AktarimBandi() {
     return () => clearTimeout(z);
   }, [hazirBekleyensiz, kapat]);
 
-  const sayilar = toplam > 0
-    ? t('importBannerCount', { islenen: islenen.toLocaleString(), toplam: toplam.toLocaleString(), defaultValue: '{{islenen}} / {{toplam}}' })
-    : '';
-  const yuzde = toplam > 0 ? Math.min(100, Math.round((islenen / toplam) * 100)) : 4;
+  // 📝 YÜZDE (kullanıcı kararı): "3474/9473" yerine "%37". `null` iken
+  // (geçmişin toplamı henüz bilinmiyor) sayı yok, çubuk ince başlar.
+  const yuzdeMetni = yuzde !== null ? t('importBannerPercent', { yuzde, defaultValue: '%{{yuzde}}' }) : '';
 
   if (faz === 'suruyor' || faz === 'baska_cihaz') {
     return (
@@ -46,10 +45,10 @@ export default function AktarimBandi() {
           {faz === 'baska_cihaz'
             ? t('importBannerOtherDevice', 'Trakt kütüphanen başka bir cihazında aktarılıyor')
             : t('importBannerRunning', 'Senkronize ediliyor — lütfen uygulamayı kapatmayın')}
-          {sayilar ? <Text style={styles.sayi}>{`  ·  ${sayilar}`}</Text> : null}
+          {yuzdeMetni ? <Text style={styles.sayi}>{`  ·  ${yuzdeMetni}`}</Text> : null}
         </Text>
         <View style={styles.cubukArka}>
-          <View style={[styles.cubukDolu, { width: `${yuzde}%` }]} />
+          <View style={[styles.cubukDolu, { width: `${yuzde ?? 4}%` }]} />
         </View>
       </View>
     );

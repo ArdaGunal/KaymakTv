@@ -152,8 +152,8 @@
   "importEmptyWhileSyncing": "Your Trakt library is being imported — your data will appear here shortly.",
   "importBannerRunning": "Syncing — please don't close the app",
   "importBannerOtherDevice": "Your Trakt library is being imported on another device",
-  "importBannerCount": "{{islenen}} / {{toplam}}",
   "importBannerOffline": "Waiting for an internet connection — the import will resume where it left off.",
   "importBannerDone": "Your Trakt library is ready ✓",
-  "importBannerPending": "{{sayi}} items are being added to the catalog; they will appear after the nightly update."
+  "importBannerPending": "{{sayi}} items are being added to the catalog; they will appear after the nightly update.",
+  "importBannerPercent": "{{yuzde}}%"
 }

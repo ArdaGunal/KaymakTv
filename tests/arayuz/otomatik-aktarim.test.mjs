@@ -28,7 +28,7 @@ const firsat = () => new Promise((r) => setImmediate(r));
 // ─────────────────────────────────────────────────────────────────────────
 // Sahte sunucu + sahte dunya
 // ─────────────────────────────────────────────────────────────────────────
-function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileOk = true, damgalar = {}, takilma = {}, kilitDolu = false, disaridanIlerleyen = null } = {}) {
+function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileOk = true, damgalar = {}, ucuslar = {}, takilma = {}, kilitDolu = false, disaridanIlerleyen = null } = {}) {
   let damgaNo = 0;
   const durum = {};
   for (const a of AILELER) {
@@ -36,7 +36,7 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
   }
   const k = {
     adim: [], ozet: 0, tazele: 0, yenile: 0, log: [], fazlar: [], bekleme: [],
-    ucusta: 0, enCokUcusta: 0, damgaYazilan: null, takilmaYazilan: null,
+    ucusta: 0, enCokUcusta: 0, damgaYazilan: null, takilmaYazilan: null, ucusYazilan: null, yuzdeler: [],
   };
   let cevrimici = true;
   let onPlanda = true;
@@ -108,10 +108,12 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
     // Gercekteki gibi KALICI: yazilan damga bir sonraki okumada geri gelir.
     damgaOku: async () => ({ ...damgalar, ...(k.damgaYazilan || {}) }),
     damgaYaz: async (d) => { k.damgaYazilan = d; },
+    ucusOku: async () => ({ ...ucuslar, ...(k.ucusYazilan || {}) }),
+    ucusYaz: async (u) => { k.ucusYazilan = u; },
     takilmaOku: async () => ({ ...takilma }),
     takilmaYaz: async (s) => { k.takilmaYazilan = s; },
     log: (seviye, baglam) => k.log.push({ seviye, baglam }),
-    yayinla: (d) => k.fazlar.push(d.faz),
+    yayinla: (d) => { k.fazlar.push(d.faz); k.yuzdeler.push(d.yuzde); },
   };
   return {
     bag, k, durum,
@@ -165,6 +167,24 @@ T.ok('🔴 taze ama KENDI damgam -> baska cihaz DEGIL (zorla kapat/ac)',
 T.ok('bayat (>=15 sn) -> devralinir', C.baskaCihazSuruyorMu(oz({ durum: 'suruyor', yasSn: 20, guncellendiAt: 'X' }), {}) === false);
 
 // ─────────────────────────────────────────────────────────────────────────
+T.H('Saf cekirdek — yuzde (kullanici karari: sayi yerine yuzde)');
+const sy = (toplam, aktarilan, bitti = false) => ({ toplam, aktarilan, bekleyen: 0, reddedilen: 0, bitti });
+T.ok('gecmisin toplami bilinmiyorsa yuzde YOK (kucuk aileler %100 gosterip sonra %3 e dusmesin)',
+  C.ilerlemeOzeti({ gecmis: sy(null, 0), puan_film: sy(5, 5, true) }).yuzde === null);
+T.ok('yuzde asagi yuvarlanir: 370/1000 -> 37', C.ilerlemeOzeti({ gecmis: sy(1000, 370) }).yuzde === 37);
+T.ok('🔴 islenen toplama ulassa da en fazla %99 (bitis tazelemesi surerken %100 celiskisi yok)',
+  C.ilerlemeOzeti({ gecmis: sy(1000, 1000) }).yuzde === 99);
+T.ok('gecmis bitmis, toplami null -> yine hesaplanir', C.ilerlemeOzeti({ gecmis: sy(null, 50, true), liste_dizi: sy(100, 20) }).yuzde === 46);
+
+T.H('Saf cekirdek — istek ortasinda oldurulme (M428)');
+const taze = oz({ durum: 'suruyor', yasSn: 3, guncellendiAt: 'KAYIP' });
+T.ok('🔴 yabanci gorunen taze damga + 3 sn onceki KENDI ucus notum -> baska cihaz DEGIL',
+  C.baskaCihazSuruyorMu(taze, { gecmis: 'ESKI' }, { gecmis: 997_000 }, 1_000_000) === false);
+T.ok('ucus notu 90 sn eski -> gercekten baska cihaz olabilir (gozlemci)',
+  C.baskaCihazSuruyorMu(taze, { gecmis: 'ESKI' }, { gecmis: 910_000 }, 1_000_000) === true);
+T.ok('baska ailenin ucus notu bu aileyi AKLAMAZ',
+  C.baskaCihazSuruyorMu(taze, {}, { liste_dizi: 999_000 }, 1_000_000) === true);
+
 T.H('Motor — sifirdan aktarim (DalekCan vakasi)');
 {
   const d = dunya({ sayfalar: { gecmis: 3 } });
@@ -178,6 +198,9 @@ T.H('Motor — sifirdan aktarim (DalekCan vakasi)');
   T.ok('hic Discord kaydi yok', discord(d.k).length === 0);
   T.ok('bant fazlari: kontrol -> suruyor -> bitti', d.k.fazlar[0] === 'kontrol' && d.k.fazlar.includes('suruyor') && d.k.fazlar.at(-1) === 'bitti');
   T.ok('kendi damgalari saklandi', !!d.k.damgaYazilan && Object.keys(d.k.damgaYazilan).length >= 1);
+  T.ok('her adimdan once ucus notu yazildi (12 aile)', !!d.k.ucusYazilan && Object.keys(d.k.ucusYazilan).length === 12);
+  const sayisal = d.k.yuzdeler.filter((y) => typeof y === 'number');
+  T.ok('yuzde yayinlandi, hic %100 u gecmedi ve %99 u asmadi', sayisal.length > 0 && Math.max(...sayisal) <= 99, JSON.stringify(sayisal));
 }
 
 T.H('Motor — kaldigi yerden devam');
@@ -274,6 +297,21 @@ T.H('Motor — cift cihaz (gozlemci modu)');
   const d = dunya({ kilitDolu: true, disaridanIlerleyen: (durum, n) => { if (n >= 3) for (const a of AILELER) durum[a].bitti = true; } });
   const f = await aktarimMotoruKur(d.bag, C).baslat();
   T.ok('🔴 bu cihazda elle tur surerken motor ADIM ATMAZ (tek dongu)', d.k.adim.length === 0 && f === 'bitti');
+}
+
+T.H('Motor — istek ortasinda oldurulup yeniden acilma (M428, cihaz testi)');
+{
+  // Onceki oturum gecmisin 4. sayfasini istedi, sunucu isledi (damga KAYIP),
+  // yanit gelmeden uygulama olduruldu. Yerelde yalniz eski damga + ucus notu var.
+  const d = dunya({
+    sayfalar: { gecmis: 6 },
+    baslangic: { gecmis: { sayfa: 4, damga: 'KAYIP', yasSn: 2 } },
+    damgalar: { gecmis: 'ESKI' },
+    ucuslar: { gecmis: 997_000 },
+  });
+  const f = await aktarimMotoruKur(d.bag, C).baslat();
+  T.ok('🔴 "baska cihaz" DEMEDEN hemen devam eder', !d.k.fazlar.includes('baska_cihaz') && f === 'bitti', JSON.stringify(d.k.fazlar.slice(0, 4)));
+  T.ok('kaldigi yerden: gecmis yalniz 2 adim (5 ve 6)', d.k.adim.filter((a) => a === 'gecmis').length === 2);
 }
 
 T.H('Motor — durdurma ve hesap degisimi');

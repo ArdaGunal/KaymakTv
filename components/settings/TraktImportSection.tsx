@@ -50,7 +50,7 @@ export default function TraktImportSection() {
   // düğmeyi göstermek "bastım, bir şey olmadı" yalanı olurdu).
   const motorSuruyor = durum === 'bos' && MOTOR_SURUYOR.has(motor.faz);
   const motorErtelendi = durum === 'bos' && motor.faz === 'ertelendi';
-  const motorYuzde = motor.toplam > 0 ? Math.min(100, Math.round((motor.islenen / motor.toplam) * 100)) : null;
+  const motorYuzde = motor.yuzde;
 
   // 🔴 "YENİDEN SENKRONİZE ET" ARTIK GERÇEKTEN ÇEKİYOR (§C33). Eskiden tam
   // turu `yenile` OLMADAN çağırıyordu: tamamlanmış her aile sunucuda anında
@@ -166,13 +166,9 @@ export default function TraktImportSection() {
           </View>
         )}
 
-        {motorSuruyor && motor.toplam > 0 && (
+        {motorSuruyor && motorYuzde !== null && (
           <Text style={styles.sayac}>
-            {t('settings:importCounters', {
-              aktarilan: motor.islenen,
-              toplam: motor.toplam,
-              defaultValue: '{{aktarilan}} / {{toplam}} kayıt',
-            })}
+            {t('common:importBannerPercent', { yuzde: motorYuzde, defaultValue: '%{{yuzde}}' })}
           </Text>
         )}
 

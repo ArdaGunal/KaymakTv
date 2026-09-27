@@ -24,6 +24,8 @@ import { aktarimMotoruKur, type AktarimMotoru, type AdimYaniti } from './aktarim
 
 /** Bu cihazın son ürettiği sunucu damgaları (gözlemci modu kendini tanısın). */
 const DAMGA_ANAHTARI = 'kaymak_aktarim_damga_v1';
+/** M428 — aile → son isteğin cihaz saati (istek ortasında öldürülmeyi tanımak için). */
+const UCUS_ANAHTARI = 'kaymak_aktarim_ucus_v1';
 /** Oturumlar arası takılma sayacı (Discord yalnız 3. oturumda). */
 const TAKILMA_ANAHTARI = 'kaymak_aktarim_takilma_v1';
 
@@ -125,6 +127,8 @@ export function aktarimMotoru(): AktarimMotoru {
       kilitBirak: () => kilitBirak('motor'),
       damgaOku: () => jsonOku<Record<string, string>>(DAMGA_ANAHTARI, {}),
       damgaYaz: (d) => jsonYaz(DAMGA_ANAHTARI, d),
+      ucusOku: () => jsonOku<Record<string, number>>(UCUS_ANAHTARI, {}),
+      ucusYaz: (u) => jsonYaz(UCUS_ANAHTARI, u),
       takilmaOku: () => jsonOku<Record<string, number>>(TAKILMA_ANAHTARI, {}),
       takilmaYaz: (s) => jsonYaz(TAKILMA_ANAHTARI, s),
       log: (seviye, baglam, hata) => (seviye === 'hata' ? logError(baglam, hata) : logWarning(baglam, hata)),

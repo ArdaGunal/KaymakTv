@@ -21,6 +21,11 @@ export const KUCUK_SERIT_SAYISI = 2;
 export const TAZELEME_ARALIGI_MS = 8_000;
 /** Bitmemiş bir aile bu kadar saniye içinde BAŞKASI tarafından ilerletildiyse → gözlemci. */
 export const BASKA_CIHAZ_TAZE_SN = 15;
+/**
+ * Önceki oturumdan kalan "uçuştaki adım" notu bu kadar taze ise, sunucudaki
+ * taze damga BİZİMDİR (M428). Adım en fazla ~30 sn (axios zaman aşımı) sürer.
+ */
+export const KENDI_UCUS_PENCERESI_MS = 60_000;
 /** Gözlemcinin durum sorma aralığı. */
 export const GOZLEM_ARALIGI_MS = 10_000;
 /** Ardışık başarılı adımlar arası nefes (Worker'ın IP sınırının altında kalmak için). */
@@ -79,16 +84,29 @@ export function aktarimPlani(eksik: readonly ImportAilesi[]): { gecmis: boolean;
  * uygulama kendi 5 sn önceki ilerlemesini "başka cihaz" sanıp kullanıcıya
  * yalan söylerdi (cihaz testi 2). Damgalar sunucunun (`guncellendiAt`),
  * karşılaştırma dizgi eşitliği — saat kayması yok.
+ *
+ * 🔴 M428 — İSTEK ORTASINDA ÖLDÜRÜLME: uygulama bir adım UÇUŞTAYKEN kapatılırsa
+ * istek sunucuda tamamlanır ama yanıt (ve damgası) cihaza HİÇ ulaşmaz. Cihaz
+ * o taze damgayı tanımaz ve 11–22 sn "başka bir cihazında aktarılıyor" der —
+ * cihaz testinde 5 yeniden açılışın 3'ünde görüldü. Çözüm: her adımdan ÖNCE
+ * yazılan "uçuş notu" (`ucuslarim`, CİHAZ saati) — son 60 sn içinde o aileye
+ * bu cihaz istek attıysa taze damga bizimdir. Cihaz saati yalnız cihaz
+ * saatiyle karşılaştırılıyor: kayma yok.
  */
 export function baskaCihazSuruyorMu(
   ozet: AktarimOzeti,
   kendiDamgalarim: Readonly<Record<string, string>>,
+  ucuslarim: Readonly<Record<string, number>> = {},
+  simdiMs = 0,
 ): boolean {
   return ozet.eksikAileler.some((aile) => {
     const a = ozet.aileler[aile];
     if (!a || a.durum !== 'suruyor') return false;
     if (a.yasSn === null || a.yasSn >= BASKA_CIHAZ_TAZE_SN) return false;
-    return !!a.guncellendiAt && a.guncellendiAt !== kendiDamgalarim[aile];
+    if (!a.guncellendiAt || a.guncellendiAt === kendiDamgalarim[aile]) return false;
+    const ucus = ucuslarim[aile];
+    const benimUcusum = typeof ucus === 'number' && simdiMs - ucus >= 0 && simdiMs - ucus < KENDI_UCUS_PENCERESI_MS;
+    return !benimUcusum;
   });
 }
 
@@ -232,7 +250,16 @@ export interface AileSayaci {
 }
 
 /**
- * Bant için tek sayı çifti: işlenen / toplam.
+ * Bant için ilerleme: işlenen / toplam ve YÜZDE.
+ *
+ * 📝 YÜZDE (kullanıcı kararı, 2026-09-28): *"3474/9473 yerine yüzdelik
+ * göstersek insanlar için daha anlamlı olur."*
+ *   • `null` — `gecmis`in toplamı henüz bilinmiyorsa. Küçük aileler ilk
+ *     saniyelerde bitiyor; o anda hesaplanan yüzde "%100" gösterip sonra
+ *     "%3"e DÜŞERDİ (geçmişin 7 bin satırı paydaya yeni girer).
+ *   • en fazla 99 — işlenen toplama ulaştıktan sonra bitiş tazelemeleri ve
+ *     son kontrol ~15 sn sürüyor; o arada "%100 · senkronize ediliyor"
+ *     çelişkisi olmasın. %100'ün yerini "hazır ✓" alır.
  *
  * 🔑 Pay İŞLENEN satır (aktarılan + bekleyen + reddedilen) — yalnız
  * `aktarilan` sayılsaydı katalogda bekleyenler yüzünden çubuk %100'e hiç
@@ -244,6 +271,7 @@ export function ilerlemeOzeti(sayaclar: Readonly<Record<string, AileSayaci>>): {
   toplam: number;
   bekleyen: number;
   bitenAile: number;
+  yuzde: number | null;
 } {
   let islenen = 0;
   let toplam = 0;
@@ -256,7 +284,10 @@ export function ilerlemeOzeti(sayaclar: Readonly<Record<string, AileSayaci>>): {
     toplam += s.bitti ? buAile : Math.max(s.toplam ?? 0, buAile);
     if (s.bitti) bitenAile += 1;
   }
-  return { islenen, toplam, bekleyen, bitenAile };
+  const g = sayaclar.gecmis;
+  const gecmisBilinmiyor = !!g && !g.bitti && g.toplam === null;
+  const yuzde = gecmisBilinmiyor || toplam <= 0 ? null : Math.min(99, Math.floor((islenen * 100) / toplam));
+  return { islenen, toplam, bekleyen, bitenAile, yuzde };
 }
 
 /** Özetteki bir aileyi sayaca çevirir (motor açılışta bununla tohumlanır). */

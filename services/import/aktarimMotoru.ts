@@ -18,59 +18,24 @@
 //   5. Token — 401'de paylaşılan tek-uçuşlu yenileme, şerit başına bir kez.
 //   6. Log — Discord yalnız kurtarılamayan için (`hataKarari.log`).
 
-import type { ImportAdimSonucu, ImportAilesi, ImportHataBilgisi } from '../api/traktImportCekirdek';
+import type { ImportAilesi, ImportHataBilgisi } from '../api/traktImportCekirdek';
 import type * as CekirdekModulu from './aktarimCekirdek';
 import type { AileSayaci, AktarimOzeti, TazelemeOlayi } from './aktarimCekirdek';
 
 type Cekirdek = typeof CekirdekModulu;
 
-/**
- * `tamam` = ilk aktarım bu oturumdan ÖNCE bitmişti (bant yok).
- * `bitti` = BU oturumda bitti (bant kısa bir "hazır" gösterir).
- */
-export type MotorFazi =
-  | 'bos' | 'kontrol' | 'suruyor' | 'ag_bekleniyor' | 'baska_cihaz' | 'bitti' | 'tamam' | 'ertelendi';
+import type {
+  AdimYaniti,
+  AktarimMotoru,
+  MotorBagimliliklari,
+  MotorDurumu,
+  MotorFazi,
+} from './aktarimTurleri';
 
-export interface MotorDurumu {
-  faz: MotorFazi;
-  islenen: number;
-  toplam: number;
-  bekleyen: number;
-  bitenAile: number;
-  toplamAile: number;
-}
+// Tipler ayrı dosyada (M428); eski içe aktarma yolları kırılmasın diye yeniden ihraç.
+export type { AdimYaniti, AktarimMotoru, MotorBagimliliklari, MotorDurumu, MotorFazi } from './aktarimTurleri';
 
-export type AdimYaniti = ImportAdimSonucu & { guncellendiAt?: string };
-
-export interface MotorBagimliliklari {
-  ozetOku(): Promise<AktarimOzeti>;
-  adimAt(aile: ImportAilesi): Promise<AdimYaniti>;
-  /** Trakt token'ını yeniler; başarısızsa `false` (oturum kapanışı bağlamanın işi). */
-  tokenYenile(): Promise<boolean>;
-  tazele(): Promise<void>;
-  bekle(ms: number): Promise<void>;
-  /** Çevrimiçi VE ön planda olunca çözülür. */
-  kosulBekle(): Promise<void>;
-  cevrimiciMi(): boolean;
-  onPlandaMi(): boolean;
-  simdi(): number;
-  kilitAl(): boolean;
-  kilitBirak(): void;
-  damgaOku(): Promise<Record<string, string>>;
-  damgaYaz(d: Record<string, string>): Promise<void>;
-  takilmaOku(): Promise<Record<string, number>>;
-  takilmaYaz(s: Record<string, number>): Promise<void>;
-  log(seviye: 'uyari' | 'hata', baglam: string, hata: unknown): void;
-  yayinla(d: MotorDurumu): void;
-}
-
-export interface AktarimMotoru {
-  baslat(): Promise<MotorFazi>;
-  durdur(): void;
-  durum(): MotorDurumu;
-}
-
-const BOS: MotorDurumu = { faz: 'bos', islenen: 0, toplam: 0, bekleyen: 0, bitenAile: 0, toplamAile: 0 };
+const BOS: MotorDurumu = { faz: 'bos', islenen: 0, toplam: 0, bekleyen: 0, bitenAile: 0, toplamAile: 0, yuzde: null };
 
 /** `ImportHatasi` değilse beklenmeyen bir istisnadır (programlama hatası) → `genel`. */
 function hataBilgisi(e: unknown): ImportHataBilgisi {
@@ -189,7 +154,7 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
     };
 
     // ── sürücü: gecmis şeridi + küçük aileler için ortak kuyruklu şeritler ──
-    const sur = async (eksik: readonly ImportAilesi[], damgalar: Record<string, string>) => {
+    const sur = async (eksik: readonly ImportAilesi[], damgalar: Record<string, string>, ucuslar: Record<string, number>) => {
       const plan = c.aktarimPlani(eksik);
       const kuyruk = [...plan.kucukler];
       const ertelenen: ImportAilesi[] = [];
@@ -208,6 +173,10 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
             continue;
           }
           try {
+            // M428: isteğin ÖNCESİNDE not düş — ortasında öldürülürsek bir
+            // sonraki açılış sunucudaki taze damganın bize ait olduğunu bilsin.
+            ucuslar[aile] = bag.simdi();
+            await bag.ucusYaz({ ...ucuslar }).catch(() => {});
             const s = await bag.adimAt(aile);
             if (bitmeli()) return;
             ardisik = 0;
@@ -318,15 +287,20 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
       }
 
       const damgalar = await bag.damgaOku().catch(() => ({} as Record<string, string>));
+      const ucuslar = await bag.ucusOku().catch(() => ({} as Record<string, number>));
+      // Önceki oturumun uçuş notları YALNIZ ilk kararda sayılır; sonraki
+      // turlarda kendi yeni notlarımız gerçek bir yabancı sürücüyü örtmesin.
+      let oncekiUcuslar: Record<string, number> = { ...ucuslar };
       let ertelenen: ImportAilesi[] = [];
 
       while (!iptal() && ozet && !ozet.ilkTamam) {
-        const baska = c.baskaCihazSuruyorMu(ozet, damgalar);
+        const baska = c.baskaCihazSuruyorMu(ozet, damgalar, oncekiUcuslar, bag.simdi());
+        oncekiUcuslar = {};
         if (!baska && bag.kilitAl()) {
           yayin('suruyor');
           let sonuc: Awaited<ReturnType<typeof sur>>;
           try {
-            sonuc = await sur(ozet.eksikAileler, damgalar);
+            sonuc = await sur(ozet.eksikAileler, damgalar, ucuslar);
           } finally {
             bag.kilitBirak();
           }

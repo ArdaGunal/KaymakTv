@@ -152,8 +152,8 @@
   "importEmptyWhileSyncing": "Trakt kütüphanen aktarılıyor — verilerin birazdan burada belirecek.",
   "importBannerRunning": "Senkronize ediliyor — lütfen uygulamayı kapatmayın",
   "importBannerOtherDevice": "Trakt kütüphanen başka bir cihazında aktarılıyor",
-  "importBannerCount": "{{islenen}} / {{toplam}}",
   "importBannerOffline": "İnternet bağlantısı bekleniyor — aktarım kaldığı yerden devam edecek.",
   "importBannerDone": "Trakt kütüphanen hazır ✓",
-  "importBannerPending": "{{sayi}} kayıt kataloğa ekleniyor; gece güncellemesiyle görünecek."
+  "importBannerPending": "{{sayi}} kayıt kataloğa ekleniyor; gece güncellemesiyle görünecek.",
+  "importBannerPercent": "%{{yuzde}}"
 }

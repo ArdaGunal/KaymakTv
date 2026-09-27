@@ -23,6 +23,7 @@ export const useAktarimStore = create<AktarimStore>((set) => ({
   bekleyen: 0,
   bitenAile: 0,
   toplamAile: 0,
+  yuzde: null,
   kapatildi: false,
   kapat: () => set({ kapatildi: true }),
 }));
