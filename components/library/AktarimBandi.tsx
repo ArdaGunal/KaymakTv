@@ -14,6 +14,11 @@ const HAZIR_SURESI_MS = 4000;
  * uygulamayı kapatmasın (hatta silmesin). Sayılar her adımda değişir; bu,
  * bir şeyin gerçekten aktığının en ucuz kanıtı.
  *
+ * 📝 METİN (kullanıcı kararı, 2026-09-28): *"senkronize ediliyor, lütfen
+ * uygulamayı kapatmayın yazsın, bu yeter."* Tek satır, açık talimat — K2
+ * gereği uygulama kapalıyken aktarım İLERLEMİYOR, bunu söylemek dürüst olan.
+ * Okumayan kapatırsa zarar yok: açılışta kaldığı yerden sürer.
+ *
  * Yalnızca okur (`aktarimStore`); hiçbir karar vermez. Dört ekrana da
  * (mobil + web ikizleri) aynı bileşen yerleşiyor — devirdeki 2. ders: bir
  * ekran düzeltmesi web ikizini unutursa sessizce yarım kalır.
@@ -40,15 +45,12 @@ export default function AktarimBandi() {
         <Text style={styles.baslik}>
           {faz === 'baska_cihaz'
             ? t('importBannerOtherDevice', 'Trakt kütüphanen başka bir cihazında aktarılıyor')
-            : t('importBannerRunning', 'Trakt kütüphanen arka planda aktarılıyor')}
+            : t('importBannerRunning', 'Senkronize ediliyor — lütfen uygulamayı kapatmayın')}
           {sayilar ? <Text style={styles.sayi}>{`  ·  ${sayilar}`}</Text> : null}
         </Text>
         <View style={styles.cubukArka}>
           <View style={[styles.cubukDolu, { width: `${yuzde}%` }]} />
         </View>
-        <Text style={styles.alt}>
-          {t('importBannerHint', 'Verilerin birazdan burada belirecek — uygulamayı kullanmaya devam edebilirsin.')}
-        </Text>
       </View>
     );
   }

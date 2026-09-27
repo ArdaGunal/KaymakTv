@@ -127,7 +127,7 @@ export default function TraktImportSection() {
       if (motor.faz === 'baska_cihaz') {
         return t('settings:importAutoOtherDevice', 'Aktarım başka bir cihazında sürüyor.');
       }
-      return t('settings:importAuto', 'Trakt kütüphanen otomatik aktarılıyor. Uygulamayı kullanmaya devam edebilirsin.');
+      return t('settings:importAuto', 'Senkronize ediliyor — lütfen uygulamayı kapatmayın.');
     }
     if (motorErtelendi) {
       return t('settings:importAutoDeferred',

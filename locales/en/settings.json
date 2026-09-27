@@ -191,7 +191,7 @@
   "privacySavedTitle": "Your account is now public",
   "requestsAutoApproved": "{{count}} pending follow requests were approved.",
   "privacyChangeFailed": "Couldn't save your privacy setting.",
-  "importAuto": "Your Trakt library is being imported automatically. Feel free to keep using the app.",
+  "importAuto": "Syncing — please don't close the app.",
   "importAutoWaitingNet": "Waiting for an internet connection — it will resume where it left off.",
   "importAutoOtherDevice": "The import is running on another device.",
   "importAutoDeferred": "Some of your Trakt data could not be imported yet. It will retry automatically whenever you return to the app.",
