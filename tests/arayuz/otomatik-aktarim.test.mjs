@@ -42,6 +42,7 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
   let onPlanda = true;
   let kosulBekleyenler = [];
   let kilit = kilitDolu;
+  let ekSure = 0;
 
   const ozet = () => {
     const aileler = {};
@@ -102,7 +103,7 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
     kosulBekle: () => new Promise((r) => kosulBekleyenler.push(r)),
     cevrimiciMi: () => cevrimici,
     onPlandaMi: () => onPlanda,
-    simdi: () => 1_000_000 + k.adim.length * 10_000,
+    simdi: () => 1_000_000 + k.adim.length * 10_000 + ekSure,
     kilitAl: () => { if (kilit) return false; kilit = true; return true; },
     kilitBirak: () => { kilit = false; },
     // Gercekteki gibi KALICI: yazilan damga bir sonraki okumada geri gelir.
@@ -118,7 +119,7 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
   return {
     bag, k, durum,
     agKes: () => { cevrimici = false; },
-    agGel: () => { cevrimici = true; const b = kosulBekleyenler; kosulBekleyenler = []; b.forEach((r) => r()); },
+    agGel: (gecenMs = 0) => { ekSure += gecenMs; cevrimici = true; const b = kosulBekleyenler; kosulBekleyenler = []; b.forEach((r) => r()); },
     kilitBirak: () => { kilit = false; },
   };
 }
@@ -312,6 +313,48 @@ T.H('Motor — istek ortasinda oldurulup yeniden acilma (M428, cihaz testi)');
   const f = await aktarimMotoruKur(d.bag, C).baslat();
   T.ok('🔴 "baska cihaz" DEMEDEN hemen devam eder', !d.k.fazlar.includes('baska_cihaz') && f === 'bitti', JSON.stringify(d.k.fazlar.slice(0, 4)));
   T.ok('kaldigi yerden: gecmis yalniz 2 adim (5 ve 6)', d.k.adim.filter((a) => a === 'gecmis').length === 2);
+}
+
+T.H('Motor — uzun duraklamadan sonra yeniden bakis (M429, web+telefon testi)');
+{
+  // Web sekmesi arka planda 35 sn durakladi; o arada telefon devraldi.
+  // Uyaninca DOGRUDAN surmek yerine sunucuya sorup gozlemci olmali.
+  const d = dunya({
+    sayfalar: { gecmis: 8 },
+    hatalar: { gecmis: [{ tur: 'gecici', mesaj: 'Network Error', agiKes: true }] },
+    disaridanIlerleyen: (durum, n) => {
+      if (n === 2) { durum.gecmis.damga = 'TELEFON'; durum.gecmis.yasSn = 1; }
+      if (n >= 3) for (const a of AILELER) durum[a].bitti = true;
+    },
+  });
+  const m = aktarimMotoruKur(d.bag, C);
+  const p = m.baslat();
+  for (let i = 0; i < 60 && !d.k.fazlar.includes('ag_bekleniyor'); i += 1) await firsat();
+  const adimOnce = d.k.adim.filter((a) => a === 'gecmis').length;
+  d.agGel(35_000);
+  const f = await p;
+  T.ok('🔴 uyaninca sunucuya sordu ve BASKA CIHAZI gordu (gozlemci)', d.k.fazlar.includes('baska_cihaz'), JSON.stringify(d.k.fazlar.slice(-6)));
+  T.ok('uyandiktan sonra gecmise HIC adim atmadi (ustune binmedi)', d.k.adim.filter((a) => a === 'gecmis').length === adimOnce);
+  T.ok('oteki bitirince bitti', f === 'bitti');
+}
+{
+  // Kisa kesinti (8 sn): yeniden bakmaya gerek yok, ayni oturum surer.
+  const d = dunya({ sayfalar: { gecmis: 3 }, hatalar: { gecmis: [{ tur: 'gecici', mesaj: 'Network Error', agiKes: true }] } });
+  const p = aktarimMotoruKur(d.bag, C).baslat();
+  for (let i = 0; i < 60 && !d.k.fazlar.includes('ag_bekleniyor'); i += 1) await firsat();
+  const ozetOnce = d.k.ozet;
+  d.agGel(8_000);
+  const f = await p;
+  T.ok('kisa kesintide ekstra durum sorgusu YOK (yalniz bitis kontrolu)', f === 'bitti' && d.k.ozet === ozetOnce + 1, `ozet ${ozetOnce} -> ${d.k.ozet}`);
+}
+{
+  // Uzun duraklama ama kimse surmuyor: yeniden bakar ve KENDISI devam eder.
+  const d = dunya({ sayfalar: { gecmis: 4 }, hatalar: { gecmis: [{ tur: 'gecici', mesaj: 'Network Error', agiKes: true }] } });
+  const p = aktarimMotoruKur(d.bag, C).baslat();
+  for (let i = 0; i < 60 && !d.k.fazlar.includes('ag_bekleniyor'); i += 1) await firsat();
+  d.agGel(60_000);
+  const f = await p;
+  T.ok('uzun duraklama, rakip yok -> kendi damgasini tanir ve bitirir', f === 'bitti' && !d.k.fazlar.includes('baska_cihaz') && AILELER.every((a) => d.durum[a].bitti));
 }
 
 T.H('Motor — durdurma ve hesap degisimi');

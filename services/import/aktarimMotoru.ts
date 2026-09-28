@@ -163,13 +163,24 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
       let yenileme: Promise<boolean> | null = null;
       const bitmeli = () => durdu || baskaCihaz || iptal();
 
+      // 🔴 M429 — UZUN DURAKLAMADAN SONRA KÖRÜ KÖRÜNE DEVAM YOK. Cihaz testinde
+      // arka plana düşen web sekmesi 35 sn sonra uyanıp, o arada devralmış
+      // telefonun ÜSTÜNE yeniden sürdü (iki sürücü; veri korundu ama istekler
+      // boşa gitti). Duraklama gözlemci eşiğini aştıysa şeritler çıkar, ana
+      // döngü sunucuya sorup sürücü mü gözlemci mi olacağına yeniden karar verir.
+      const bekleVeYenidenBak = async () => {
+        const t0 = bag.simdi();
+        await kosulBekle();
+        if (bag.simdi() - t0 >= c.BASKA_CIHAZ_TAZE_SN * 1000) baskaCihaz = true;
+      };
+
       const aileSur = async (aile: ImportAilesi) => {
         let ardisik = 0;
         let yaris = 0;
         let yenilemeDenendi = false;
         while (!bitmeli()) {
           if (!bag.cevrimiciMi() || !bag.onPlandaMi()) {
-            await kosulBekle();
+            await bekleVeYenidenBak();
             continue;
           }
           try {
@@ -225,7 +236,7 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
             switch (k.eylem) {
               case 'ag_bekle':
                 ardisik -= 1;
-                await kosulBekle();
+                await bekleVeYenidenBak();
                 break;
               case 'bekle_tekrar':
                 await uyu(k.beklemeMs);
