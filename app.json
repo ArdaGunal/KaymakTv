@@ -22,6 +22,7 @@
         "backgroundColor": "#171717"
       },
       "package": "com.ardagnl.kaymak",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 8,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
