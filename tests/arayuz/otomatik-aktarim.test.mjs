@@ -17,6 +17,8 @@ import * as C from '../../services/import/aktarimCekirdek.ts';
 import { aktarimMotoruKur } from '../../services/import/aktarimMotoru.ts';
 
 const { baslat } = yardimci;
+const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const oku = (...y) => fs.readFileSync(path.join(KOK, ...y), 'utf8');
 const T = baslat('ARAYUZ OTOMATIK AKTARIM (C33)', { kokOneki: 'arayuz-otomatik-' });
 
 const AILELER = [
@@ -43,6 +45,7 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
   let kosulBekleyenler = [];
   let kilit = kilitDolu;
   let ekSure = 0;
+  let depoSilindi = false;
 
   const ozet = () => {
     const aileler = {};
@@ -107,9 +110,9 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
     kilitAl: () => { if (kilit) return false; kilit = true; return true; },
     kilitBirak: () => { kilit = false; },
     // Gercekteki gibi KALICI: yazilan damga bir sonraki okumada geri gelir.
-    damgaOku: async () => ({ ...damgalar, ...(k.damgaYazilan || {}) }),
+    damgaOku: async () => (depoSilindi ? {} : { ...damgalar, ...(k.damgaYazilan || {}) }),
     damgaYaz: async (d) => { k.damgaYazilan = d; },
-    ucusOku: async () => ({ ...ucuslar, ...(k.ucusYazilan || {}) }),
+    ucusOku: async () => (depoSilindi ? {} : { ...ucuslar, ...(k.ucusYazilan || {}) }),
     ucusYaz: async (u) => { k.ucusYazilan = u; },
     takilmaOku: async () => ({ ...takilma }),
     takilmaYaz: async (s) => { k.takilmaYazilan = s; },
@@ -121,6 +124,7 @@ function dunya({ sayfalar = { gecmis: 3 }, baslangic = {}, hatalar = {}, yenileO
     agKes: () => { cevrimici = false; },
     agGel: (gecenMs = 0) => { ekSure += gecenMs; cevrimici = true; const b = kosulBekleyenler; kosulBekleyenler = []; b.forEach((r) => r()); },
     kilitBirak: () => { kilit = false; },
+    depoyuSil: () => { depoSilindi = true; },
   };
 }
 
@@ -357,6 +361,31 @@ T.H('Motor — uzun duraklamadan sonra yeniden bakis (M429, web+telefon testi)')
   T.ok('uzun duraklama, rakip yok -> kendi damgasini tanir ve bitirir', f === 'bitti' && !d.k.fazlar.includes('baska_cihaz') && AILELER.every((a) => d.durum[a].bitti));
 }
 
+T.H('Motor — cikis/giris ayni surecte (M430, cihaz testi)');
+{
+  // Cikis AsyncStorage.clear() yapiyor: kalici damga + ucus notlari GIDER.
+  // Ayni surecte yeniden giriste motor kendi son ilerlemesini tanimali.
+  const d = dunya({ sayfalar: { gecmis: 40 } });
+  const m = aktarimMotoruKur(d.bag, C);
+  const p1 = m.baslat();
+  for (let i = 0; i < 25; i += 1) await firsat();
+  m.durdur();
+  await p1;
+  d.depoyuSil();
+  const fazOnce = d.k.fazlar.length;
+  const f = await m.baslat();
+  T.ok('🔴 depo silinse de yeniden giriste "baska cihaz" DENMEZ', !d.k.fazlar.slice(fazOnce).includes('baska_cihaz'), JSON.stringify(d.k.fazlar.slice(fazOnce, fazOnce + 4)));
+  T.ok('kaldigi yerden bitirir', f === 'bitti' && d.durum.gecmis.bitti);
+}
+{
+  const auth = oku('context', 'AuthContext.tsx');
+  const bas = auth.indexOf('const removeKeys');
+  const durdur = auth.indexOf('aktarimiDurdur()', bas);
+  const push = auth.indexOf('await unregisterPushToken()', bas);
+  const token = auth.indexOf("deleteItemAsync('traktAccessToken')", bas);
+  T.ok('🔴 cikista motor TOKENLARDAN ONCE durur (bos tokenla "yenileme" yok)', durdur > bas && durdur < push && durdur < token);
+}
+
 T.H('Motor — durdurma ve hesap degisimi');
 {
   const d = dunya({ sayfalar: { gecmis: 50 } });
@@ -375,8 +404,6 @@ T.H('Motor — durdurma ve hesap degisimi');
 }
 
 T.H('Kaynak denetimi — baglantilar geri sizmasin');
-const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const oku = (...y) => fs.readFileSync(path.join(KOK, ...y), 'utf8');
 const var_ = (...y) => fs.existsSync(path.join(KOK, ...y));
 
 const layout = oku('app', '(protected)', '_layout.tsx');

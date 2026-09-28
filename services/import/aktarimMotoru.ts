@@ -46,6 +46,12 @@ function hataBilgisi(e: unknown): ImportHataBilgisi {
 
 export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): AktarimMotoru {
   let nesil = 0;
+  // 🔴 M430 — damga ve uçuş notlarının BELLEK kopyası (motor örneği yaşadıkça).
+  // Çıkış `AsyncStorage.clear()` yapıyor; aynı süreçte yeniden girişte kendi
+  // son ilerlememizi tanımasaydık 10 sn "başka bir cihazında" derdik
+  // (cihaz testi 03:22:03 → 03:22:13).
+  const bellekDamga: Record<string, string> = {};
+  const bellekUcus: Record<string, number> = {};
   let calisan: Promise<MotorFazi> | null = null;
   let durum: MotorDurumu = BOS;
   let iptalCoz: () => void = () => {};
@@ -187,6 +193,7 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
             // M428: isteğin ÖNCESİNDE not düş — ortasında öldürülürsek bir
             // sonraki açılış sunucudaki taze damganın bize ait olduğunu bilsin.
             ucuslar[aile] = bag.simdi();
+            bellekUcus[aile] = ucuslar[aile];
             await bag.ucusYaz({ ...ucuslar }).catch(() => {});
             const s = await bag.adimAt(aile);
             if (bitmeli()) return;
@@ -212,6 +219,7 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
               };
               if (s.guncellendiAt) {
                 damgalar[aile] = s.guncellendiAt;
+                bellekDamga[aile] = s.guncellendiAt;
                 bag.damgaYaz({ ...damgalar }).catch(() => {});
               }
               yayin();
@@ -297,8 +305,8 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
         return 'tamam';
       }
 
-      const damgalar = await bag.damgaOku().catch(() => ({} as Record<string, string>));
-      const ucuslar = await bag.ucusOku().catch(() => ({} as Record<string, number>));
+      const damgalar = { ...(await bag.damgaOku().catch(() => ({}))), ...bellekDamga } as Record<string, string>;
+      const ucuslar = { ...(await bag.ucusOku().catch(() => ({}))), ...bellekUcus } as Record<string, number>;
       // Önceki oturumun uçuş notları YALNIZ ilk kararda sayılır; sonraki
       // turlarda kendi yeni notlarımız gerçek bir yabancı sürücüyü örtmesin.
       let oncekiUcuslar: Record<string, number> = { ...ucuslar };

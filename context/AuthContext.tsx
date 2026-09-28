@@ -7,6 +7,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { resetFetchState } from '../services/library/fetchers';
 import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { unregisterPushToken } from '../features/notifications/services/pushTokens';
+import { aktarimiDurdur } from '../services/import/aktarimBaglanti';
 import { useFeedStore } from '../features/feed/store/feedStore';
 // ⚠️ Barrel'dan (`features/notifications`) DEĞİL, doğrudan dosyadan:
 // barrel `NotificationBadge`'i de dışa açıyor ve o bu dosyayı import ediyor —
@@ -242,6 +243,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const removeKeys = async () => {
     try {
+      // ── §C33 / M430: otomatik aktarım motoru TOKEN'LARDAN ÖNCE durur ──
+      // Aksi hâlde silme ile bir sonraki render arasında adım atan şerit
+      // boş token'la "yenileme" deniyor, Discord'a hata ve oturum-sona-erdi
+      // sinyali düşüyordu.
+      aktarimiDurdur();
+
       // ── F3: push token kaydını sil ────────────────────────────────────
       // 🔴 SIRA KRİTİK — BU SATIR `traktAccessToken` SİLİNMEDEN ÖNCE OLMALI.
       // `unregisterPushToken` kimliği SecureStore'dan okuyup Worker'a

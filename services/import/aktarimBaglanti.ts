@@ -95,6 +95,18 @@ export async function kutuphaneyiTazele(): Promise<void> {
 
 let motor: AktarimMotoru | null = null;
 
+/**
+ * 🔴 M430 — ÇIKIŞIN İLK İŞİ. `AuthContext.removeKeys` token'ları siliyordu;
+ * motor ise ancak bir sonraki render'da (`uygun` false) duruyordu. O arada
+ * adım atan şerit token'ı BOŞ bulup "yenileme" deniyor, `refreshAccessToken`
+ * refresh token'ı da bulamayınca Discord'a hata yazıp oturum-sona-erdi
+ * sinyali veriyordu (cihaz testi: bir çıkışta 3 Discord mesajı).
+ * Motor hiç kurulmadıysa hiçbir şey yapmaz (kurmaz).
+ */
+export function aktarimiDurdur(): void {
+  motor?.durdur();
+}
+
 /** Uygulamanın TEK aktarım motoru. */
 export function aktarimMotoru(): AktarimMotoru {
   if (motor) return motor;
