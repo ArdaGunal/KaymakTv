@@ -91,11 +91,16 @@ const oku = (...y) => fs.readFileSync(path.join(KOK, ...y), 'utf8');
 const prog = oku('services', 'library', 'mutations', 'progress.ts');
 const ortak = oku('services', 'library', 'mutations', 'progressState.ts');
 const motor = oku('services', 'library', 'outbox', 'engine.ts');
-T.ok('planiIsaretle cok sezonlu ve SIRAYLA yaziyor',
+// M465 (H7, kullanici izni): «SIRAYLA» kurali gevsetildi — ILK parca tek
+// basina (Pi katalog cekmesi), kalanlar en cok 4'lu dalga. Trakt hala sirali.
+T.ok('planiIsaretle cok sezonlu; ilk parca tek, kalanlar sinirli dalga, Trakt sirali',
   /export const planiIsaretle/.test(prog)
   && /parts: temiz.map\(\(p\) => \(\{ season: p.sezon, episodes: p.bolumler \}\)\)/.test(prog)
-  && /for \(let i = 0; i < job.parts.length; i\+\+\)/.test(motor)
-  && /await ports.kaymak\(job, part, s\)/.test(motor) && !/Promise.all/.test(motor));
+  && /await ports.kaymak\(job, part, s\)/.test(motor)
+  && /if \(bekleyen.length > 0\) await kaymakYaz\(bekleyen\[0\]\)/.test(motor)
+  && /const KAYMAK_DALGA = 4;/.test(motor)
+  && /for \(let i = 0; i < job.parts.length; i\+\+\)[\s\S]{0,200}job.trakt && !part.traktDone/.test(motor)
+  && (motor.match(/Promise.all/g) || []).length === 1);
 T.ok('markEpisodesUpToAsWatched artik plana deleniyor',
   /markEpisodesUpToAsWatched[\s\S]{0,220}planiIsaretle\(showId, \[\{ sezon: season, bolumler: episodes \}\]/.test(prog));
 T.ok('reactivateShowTracking izleme listesinden DUSURUYOR + izlenenlere EKLIYOR',

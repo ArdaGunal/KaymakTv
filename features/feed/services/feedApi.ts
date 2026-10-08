@@ -36,7 +36,13 @@ const FEED_WINDOW_DAYS = 30;
 // yoktu — 30. kayıttan sonrasına ulaşmanın hiçbir yolu yoktu). Artık sonsuz
 // kaydırmanın sayfa boyutu: ilk ekranı hızlı doldururken her ek isteği de
 // küçük tutan bir denge.
-const PAGE_SIZE = 15;
+// M465 · 15 → 40 (H5, kullanıcı izniyle dar dokunuş). Maraton gruplaması
+// (useFeed) 15 satırı çoğu zaman 1–2 karta indiriyordu; ekran dolmayınca
+// onEndReached sayfaları SIRAYLA çekiyordu (ölçüm: akış+beğeni çifti 4×,
+// ~3 sn — Supabase Singapur, her tur ~250 ms). İmleç/önbellek/realtime aynı;
+// yalnız aynı veri daha az gidiş-dönüşle gelir. Beğeni sorgusu 40 kimlikle
+// URL'de ~1,5 KB.
+const PAGE_SIZE = 40;
 
 /**
  * BİLEŞİK (keyset) sayfalama imleci.

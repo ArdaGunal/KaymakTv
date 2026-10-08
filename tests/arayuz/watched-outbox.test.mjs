@@ -254,6 +254,46 @@ const auth = fs.readFileSync(path.join(root, 'context/AuthContext.tsx'), 'utf8')
 T.ok('Cikista AsyncStorage.clear yerine kuyruk haric anahtarlar temizlenir', /filter\(\(key\) =>\s*!key.startsWith\(OUTBOX_PREFIX\)/.test(auth) && /await AsyncStorage.multiRemove\(cacheKeys\)/.test(auth));
 const main = fs.readFileSync(path.join(root, 'services/library/mutations/progress.ts'), 'utf8');
 T.ok('progress.ts 400 satirin altinda', main.split(/\r?\n/).length <= 400);
+T.H('M465 H7: ilk parca tek, kalanlar sinirli dalga, Trakt sirali, kill/replay');
+{
+  const parts = Array.from({ length: 7 }, (_, i) => ({ season: i + 1, episodes: [1, 2] }));
+  let ucusta = 0, enCok = 0; const sira = [];
+  const ilkBitti = { v: false }; let ilkBitmedenBasladi = false;
+  const w = harness(undefined, undefined, undefined, {
+    kaymak: async (j, p) => {
+      if (p.season !== 1 && !ilkBitti.v) ilkBitmedenBasladi = true;
+      ucusta++; enCok = Math.max(enCok, ucusta); sira.push(p.season);
+      await new Promise((r) => setTimeout(r, 15));
+      ucusta--; if (p.season === 1) ilkBitti.v = true;
+    },
+  });
+  await w.engine.start(A); await w.engine.enqueue({ ...draft(), parts }); await w.engine.drain();
+  T.ok('Ilk parca TEK basina, digerleri ondan sonra', sira[0] === 1 && !ilkBitmedenBasladi);
+  T.ok('Kalanlar paralel ama en cok 4', enCok > 1 && enCok <= 4, `enCok=${enCok}`);
+  T.ok('Yedi sezonun hepsi yazildi, kuyruk bos', sira.length === 7 && w.engine.pending().length === 0);
+
+  // Kill/replay: 3. sezonda patla → yeniden baslayinca YALNIZ bitmeyenler.
+  const disk = new Map(); const yazilan = [];
+  let patlat = true;
+  const k1 = harness(disk, undefined, undefined, {
+    kaymak: async (j, p) => { if (patlat && p.season === 3) throw new Error('ag'); yazilan.push(p.season); },
+  });
+  await k1.engine.start(A); await k1.engine.enqueue({ ...draft(), parts }); await k1.engine.drain().catch(() => {});
+  const ilkTur = new Set(yazilan); patlat = false; yazilan.length = 0;
+  const k2 = harness(disk, undefined, undefined, { kaymak: async (j, p) => { yazilan.push(p.season); } });
+  await k2.engine.start(A); await k2.engine.drain();
+  T.ok('Replay yalniz bitmemis parcalari tekrarlar', yazilan.includes(3) && yazilan.every((s) => !ilkTur.has(s)), `ilk=${[...ilkTur]} replay=${yazilan}`);
+
+  // Trakt hesabinda Trakt yazmalari SIRALI kalir.
+  let tUcusta = 0, tEnCok = 0;
+  const t = harness(undefined, undefined, undefined, {
+    trakt: async () => { tUcusta++; tEnCok = Math.max(tEnCok, tUcusta); await new Promise((r) => setTimeout(r, 5)); tUcusta--; },
+  });
+  await t.engine.start({ owner: 'T', token: 't', trakt: true });
+  await t.engine.enqueue({ ...draft(), parts: parts.slice(0, 4) }); await t.engine.drain();
+  T.ok('Trakt yazmalari esanli DEGIL (idempotent degil)', tEnCok === 1);
+}
+
 const rootLayout = fs.readFileSync(path.join(root, 'app/_layout.tsx'), 'utf8');
 const protectedLayout = fs.readFileSync(path.join(root, 'app/(protected)/_layout.tsx'), 'utf8');
 T.ok('Soguk detay deep link dahil TEK kok kuyruk surucusu', /useWatchedOutbox\(\)/.test(rootLayout)

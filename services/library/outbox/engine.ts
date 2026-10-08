@@ -1,5 +1,8 @@
 import { OUTBOX_PREFIX, validateJob, type WatchedDraft, type WatchedJob, type WatchedPart, type OutboxSession } from './types';
 
+/** M465 · Bizim sunucuya aynı anda gönderilen en çok sezon parçası. */
+const KAYMAK_DALGA = 4;
+
 type Ports = {
   read: (key: string) => Promise<string | null>;
   write: (key: string, value: string) => Promise<void>;
@@ -108,19 +111,36 @@ export function createWatchedOutbox(ports: Ports) {
             continue;
           }
           let job = JSON.parse(JSON.stringify(pendingJob)) as WatchedJob;
-          for (let i = 0; i < job.parts.length; i++) {
-            let part = job.parts[i];
+          for (const part of job.parts) {
             if (!valid(s, gen)) return;
             if (part.episodes === '*') {
               part.episodes = await ports.expand(job, part, s);
               if (!part.episodes.length) throw new Error('İşaretlenecek bölüm bulunamadı.');
               await update(s, gen, job.id, job);
             }
-            if (!part.kaymakDone) {
-              await ports.kaymak(job, part, s);
-              part.kaymakDone = true;
-              await update(s, gen, job.id, job);
-            }
+          }
+          // M465 · H7: bizim yazmamız aynı damgayla tekrar güvenli (idempotent)
+          // → çok sezonlu plan sezon sezon SIRAYLA değil. Ölçüm: 4 sezon ≈
+          // 4 × 1,3 sn ≈ 5,6 sn bekliyordu. 🔴 İLK PARÇA TEK BAŞINA: katalogda
+          // eksik varsa Worker o yazmada Pi'den çeker (`cozVeGerekirseCek`);
+          // paralel yazmalar aynı eksiği görüp Pi'nin TEK kovalı oran sınırına
+          // aynı anda yüklenmesin. Kalanlar en çok 4'lü dalgalarla. Her parçanın
+          // kontrol noktası kendi yazması bitince diske iner; kill/replay yalnız
+          // bitmemiş parçaları tekrarlar. Trakt aşağıda SIRALI kalır.
+          const bekleyen = job.parts.filter((p) => !p.kaymakDone);
+          const kaymakYaz = async (part: WatchedPart) => {
+            await ports.kaymak(job, part, s);
+            part.kaymakDone = true;
+            await update(s, gen, job.id, job);
+          };
+          if (bekleyen.length > 0) await kaymakYaz(bekleyen[0]);
+          for (let i = 1; i < bekleyen.length; i += KAYMAK_DALGA) {
+            if (!valid(s, gen)) return;
+            await Promise.all(bekleyen.slice(i, i + KAYMAK_DALGA).map(kaymakYaz));
+          }
+          for (let i = 0; i < job.parts.length; i++) {
+            let part = job.parts[i];
+            if (!valid(s, gen)) return;
             if (job.trakt && !part.traktDone) {
               if (!valid(s, gen)) return;
               // Trakt POST idempotent DEĞİL: uçuş notu önce diske, belirsiz
