@@ -1,3 +1,5 @@
+import { agIzleyiciKur } from '../utils/agIzleyici';
+agIzleyiciKur(); // yalnız EXPO_PUBLIC_AG_IZLE=1 test APK'sında; bkz. utils/agIzleyici.ts
 import '../locales/index'; // Initialize i18n
 import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';

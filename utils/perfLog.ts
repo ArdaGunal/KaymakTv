@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { agIsaret } from './agIzleyici';
 
 const PERF_LOG_KEY = '@kaymak_perf_log_v1';
 const MAX_ENTRIES = 60;
@@ -69,6 +70,7 @@ export const recordPerfMark = (
     durationMs: Math.round(durationMs),
     ...(statusCode ? { statusCode } : {}),
   };
+  if (category === 'startup') agIsaret(name, entry.durationMs);
 
   writeQueue = writeQueue.then(async () => {
     try {
