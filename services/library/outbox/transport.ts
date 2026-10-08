@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { OutboxSession, WatchedJob, WatchedPart } from './types';
+import { temsilciBolum } from './types';
 import { formatEpisodeCode } from '../../../features/feed/services/feedPublish';
 import type { KutuphaneYaniti } from '../../api/library';
 
@@ -81,12 +82,15 @@ export async function writeTraktWatched(job: WatchedJob, part: WatchedPart, s: O
 }
 
 export async function publishWatched(job: WatchedJob, s: OutboxSession) {
-  if (!job.media?.title || (job.mediaType === 'show' && !job.activity)) return;
+  // M467: dizi işi açık `activity` taşımasa da (sezon çift tiki) temsilci bölüm
+  // yayınlanır — bkz. types.ts `temsilciBolum`.
+  const bolum = temsilciBolum(job);
+  if (!job.media?.title || (job.mediaType === 'show' && !bolum)) return;
   const activity = {
     activityType: job.mediaType === 'movie' ? 'watched_movie' : 'watched_episode',
     showId: job.mediaId, mediaType: job.mediaType, showTitle: job.media.title,
     tmdbId: job.media.ids?.tmdb, activityAt: job.watchedAt,
-    ...(job.activity ? { episodeNumber: formatEpisodeCode(job.activity.season, job.activity.episode) } : {}),
+    ...(bolum ? { episodeNumber: formatEpisodeCode(bolum.season, bolum.episode) } : {}),
   };
   await workerPost('/feed/publish', { activities: [activity] }, s);
 }

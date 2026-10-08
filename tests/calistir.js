@@ -79,6 +79,7 @@ const TAKIMLAR = [
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
   { ad: 'push-kayit', grup: 'arayuz', dosya: 'arayuz/push-kayit.test.mjs', aciklama: 'M466: push kaydi tekrarlanamaz (Discord 429 koku)' },
+  { ad: 'sezon-akis', grup: 'arayuz', dosya: 'arayuz/sezon-akis.test.mjs', aciklama: 'M467: her isaretleme yolu akisa tek temsilci olay' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 
