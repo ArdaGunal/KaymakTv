@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { tekUcus } from '../../../utils/tekUcus';
 
 // Profil güncelleme (kullanıcı adı + Google profil fotoğrafı kabul/red) —
 // Google-only kullanıcı onboarding'i VE Ayarlar/Hesap'tan sonraki
@@ -96,7 +97,11 @@ export function estimateCooldownRetryAt(usernameUpdatedAt: string | null): Date 
   return retryAt > new Date() ? retryAt : null;
 }
 
-export async function getMyProfile(traktAccessToken: string): Promise<MyProfile> {
+// M461 · Eşzamanlı çağrılar (useMyProfile + useMyTraktProfile + useProfilePrivacy
+// aynı anda) tek isteği paylaşır. Anahtar token: farklı hesaplar asla karışmaz.
+export const getMyProfile = tekUcus((token: string) => token, getMyProfileTekil);
+
+async function getMyProfileTekil(traktAccessToken: string): Promise<MyProfile> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const response = await axios.post(
     `${KAYMAK_WORKER_URL}/account/profile/get`,

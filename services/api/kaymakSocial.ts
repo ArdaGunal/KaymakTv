@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { tekUcus } from '../../utils/tekUcus';
 // 🔴 `expo-secure-store` DEĞİL — web'de yerel anahtarlık yok, ham SecureStore
 // orada FIRLATIR. `utils/secureStorage` web'de `localStorage`'a düşüyor.
 // ⚠️ Bu tam olarak canlıda ısırdı (2026-09-10): web'de arama "Bir şeyler ters
@@ -171,9 +172,13 @@ export interface KaymakGraf {
  * doludur (Worker'ın kararı) — istemci `gizli` bayrağına bakıp listeyi
  * göstermemeli, sayıyı gösterebilir.
  */
-export const fetchKaymakGraph = async (targetUserId?: string): Promise<KaymakGraf> => {
-  return (await sosyalIstek('/social/graph', targetUserId ? { targetUserId } : {})) as KaymakGraf;
-};
+// M461 · Tek uçuş: profil ilk açılışında aynı graf eşzamanlı 2–3 kez isteniyordu.
+// Pencere yalnız bir isteğin süresi; bitince sonraki çağrı yine taze okur.
+export const fetchKaymakGraph = tekUcus(
+  (targetUserId?: string) => targetUserId || '<ben>',
+  async (targetUserId?: string): Promise<KaymakGraf> =>
+    (await sosyalIstek('/social/graph', targetUserId ? { targetUserId } : {})) as KaymakGraf,
+);
 
 /**
  * Takip et — `POST /social/follow`.
