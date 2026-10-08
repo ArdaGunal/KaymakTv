@@ -75,6 +75,7 @@ const TAKIMLAR = [
   { ad: 'watched-outbox', grup: 'arayuz', dosya: 'arayuz/watched-outbox.test.mjs', aciklama: 'M439: kalici ACK, kill/replay, hesap izolasyonu, Trakt dedup' },
   { ad: 'watched-visibility', grup: 'arayuz', dosya: 'arayuz/watched-visibility.test.mjs', aciklama: 'M441: gecici kart kaybi, kanonik next, 429 boyunca gorunurluk' },
   { ad: 'hidden-outbox', grup: 'arayuz', dosya: 'arayuz/hidden-outbox.test.mjs', aciklama: 'M447: Birak/Geri Al disk ACK, kill/replay, ters niyet, hesap izolasyonu' },
+  { ad: 'surum-kapisi', grup: 'arayuz', dosya: 'arayuz/surum-kapisi.test.mjs', aciklama: 'M458: surum kapisi agi beklemez, onbellekten anlik karar' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

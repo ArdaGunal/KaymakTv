@@ -1,20 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Application from 'expo-application';
-import { isVersionBelow } from '../../../utils/semver';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettingsStore } from '../../../store/appSettingsStore';
 import { STORE_URL } from '../../../utils/constants';
 import { recordPerfMark } from '../../../utils/perfLog';
 import { logWarning } from '../../../utils/errorLog';
-
-// `getAppSettings()`'te (bkz. appSettingsApi.ts) hiçbir ağ katmanı zaman
-// aşımı uygulamıyordu — istek hata DÖNMEDEN asılı kalırsa (captive portal,
-// DNS zaman aşımı, çok yavaş bağlantı) `VersionGate` kullanıcıyı SÜRESİZ
-// `status === 'checking'` (boş koyu ekran) durumunda bırakırdı; aşağıdaki
-// `catch` bloğu hiç tetiklenmezdi çünkü ortada bir hata YOK, yalnızca bitmeyen
-// bir Promise var. Bu süre dolunca da fail-open ilkesi (yukarıdaki dosya başı
-// notu) aynen uygulanır — `settings` `null` sayılır, kullanıcı engellenmez.
-const VERSION_GATE_TIMEOUT_MS = 5000;
+import { SURUM_ONBELLEK_ANAHTARI, onbellegiCoz, surumKarari } from '../services/surumKarari';
 
 export type VersionGateStatus = 'checking' | 'ok' | 'blocked';
 
@@ -24,27 +16,22 @@ export interface VersionGateResult {
   updateUrl: string | null;
 }
 
-export interface VersionGateResult {
-  status: VersionGateStatus;
-  /** Yalnızca `status === 'blocked'` iken dolu. */
-  updateUrl: string | null;
-}
-
 /**
- * "Zorunlu Güncelleme" kontrolü — uygulama açılışında, Trakt/Auth
- * işlemlerinden TAMAMEN BAĞIMSIZ ve onlardan ÖNCE çalışması için
- * `app/_layout.tsx`'te `AuthProvider`'ın DIŞINDA (üstünde) çağrılır.
+ * "Zorunlu Güncelleme" kontrolü — `app/_layout.tsx`'te `AuthProvider`'ın
+ * DIŞINDA (üstünde) çağrılır. Web her zaman `'ok'` (en güncel sürüm sunulur).
  *
- * Yalnızca NATİF (Android/iOS) tarafında çalışır — web derlemesi her zaman
- * ardından yayınlanan en güncel sürümü sunduğundan bu kontrolden bilinçli
- * olarak muaftır ve `status` anında `'ok'` olarak sabitlenir (hiçbir ağ
- * isteği atılmaz).
+ * M458 · AĞI BEKLEMEZ. Eskiden `app_settings` gelene kadar (1–5 sn, Singapur
+ * bölgesi) boş ekran gösteriliyordu. Şimdi:
+ *  1. Cihazdaki son sonuç okunur (ms'ler). Bu sürüm orada ENGELLİ ise anında
+ *     `blocked` — eski sürüm tek bir Trakt/Auth isteği bile atmaz.
+ *  2. Değilse anında `ok`; sunucu kontrolü ARKA PLANDA sürer, sonucu saklanır.
+ *     Sunucu asgari sürümü yükselttiyse kapı o an kapanır (ilk açılışta ~1–2
+ *     sn gecikmeyle, sonraki açılışlarda 1. adımla anında).
+ *  3. Sunucu sınırı düşürdüyse saklanan engel de kalkar.
  *
- * FAIL-OPEN prensibi: Supabase'e erişilemiyorsa (ağ hatası, satır eksik, RLS
- * yanlış yapılandırılmış vb.) kullanıcı ASLA kilitlenmez — bu kontrol
- * "varsa ekstra güvenlik"tir, uygulamanın çekirdek işlevi değil. Bir Supabase
- * kesintisi yüzünden TÜM kullanıcı tabanını uygulama dışında bırakmak,
- * önlemeye çalıştığı sorundan kat kat daha büyük bir sorun yaratırdı.
+ * FAIL-OPEN: ağ/RLS/satır hatası kullanıcıyı ASLA kilitlemez; bu kontrol
+ * "varsa ekstra güvenlik"tir. Bir Supabase kesintisi tüm kullanıcıları dışarıda
+ * bırakmamalı.
  */
 export function useVersionGate(): VersionGateResult {
   const [status, setStatus] = useState<VersionGateStatus>(Platform.OS === 'web' ? 'ok' : 'checking');
@@ -52,50 +39,37 @@ export function useVersionGate(): VersionGateResult {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-
     let cancelled = false;
-    const startedAt = Date.now();
+    // Cihazda GERÇEKTEN kurulu native sürüm (Constants.expoConfig değil).
+    const kurulu = Application.nativeApplicationVersion;
+    const uygula = (karar: ReturnType<typeof surumKarari>) => {
+      if (cancelled) return;
+      setUpdateUrl(karar.durum === 'blocked' ? karar.updateUrl || STORE_URL : null);
+      setStatus(karar.durum);
+    };
 
     (async () => {
+      let kayit = null;
       try {
-        // Cihazda GERÇEKTEN kurulu olan native sürüm — `Constants.expoConfig`
-        // derleme zamanındaki config'i yansıtır, kurulu APK'nın kendisini değil.
-        const currentVersion = Application.nativeApplicationVersion;
-        if (!currentVersion) {
-          if (!cancelled) setStatus('ok');
-          return;
-        }
+        kayit = onbellegiCoz(await AsyncStorage.getItem(SURUM_ONBELLEK_ANAHTARI));
+      } catch {
+        // Okunamayan önbellek = önbellek yok (fail-open).
+      }
+      uygula(surumKarari(kurulu, kayit));
 
-        // `fetchSettings()` arka planda devam etmeye bırakılır (iptal
-        // edilmez) — yarışı zaman aşımı kazansa bile istek bitince store'u
-        // günceller, bir sonraki açılışta tekrar beklemeye gerek kalmaz.
-        const settings = await Promise.race([
-          useAppSettingsStore.getState().fetchSettings(),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), VERSION_GATE_TIMEOUT_MS)),
-        ]);
-        if (cancelled) return;
-
-        if (!settings) {
-          setStatus('ok');
-          return;
-        }
-
-        if (isVersionBelow(currentVersion, settings.minRequiredVersion)) {
-          setUpdateUrl(settings.updateUrl || STORE_URL);
-          setStatus('blocked');
-        } else {
-          setStatus('ok');
-        }
+      const startedAt = Date.now();
+      try {
+        const settings = await useAppSettingsStore.getState().fetchSettings();
+        if (!settings) return; // erişilemedi → mevcut karar kalır
+        const yeni = { minRequiredVersion: settings.minRequiredVersion, updateUrl: settings.updateUrl };
+        AsyncStorage.setItem(SURUM_ONBELLEK_ANAHTARI, JSON.stringify(yeni)).catch(() => {});
+        uygula(surumKarari(kurulu, yeni));
       } catch (error) {
         console.error('Sürüm kontrolü hatası (fail-open, uygulama engellenmiyor):', error);
-        // Kullanıcıyı engellemiyor (fail-open) — bu yüzden Geliştirici
-        // Paneli'nde bir HATA değil, bir UYARI olarak görünmeli.
         logWarning('versionGate.check', error);
-        if (!cancelled) setStatus('ok');
       } finally {
-        // `cancelled` olsa bile ölçüm anlamlıdır (kontrol gerçekten bu kadar
-        // sürdü) — yalnızca state güncellemeleri iptalde atlanır, ölçüm değil.
-        recordPerfMark('Sürüm Kontrolü', 'startup', Date.now() - startedAt);
+        // Artık açılışı bloklamıyor; panelde yalnız arka plan süresi olarak görünür.
+        recordPerfMark('Sürüm Kontrolü (arka plan)', 'startup', Date.now() - startedAt);
       }
     })();
 

@@ -12,10 +12,8 @@ export default function VersionGate({ children }: { children: React.ReactNode })
   const { status, updateUrl } = useVersionGate();
 
   if (status === 'checking') {
-    // `app/_layout.tsx`'teki mevcut auth-loading View'iyle BİREBİR aynı koyu
-    // boş ekran — web'de bu dal anında atlanır (status hep 'ok' başlar),
-    // native'de kontrol tipik olarak bir kaç yüz ms sürer; kullanıcı görünür
-    // bir "flaş" yaşamaz.
+    // `app/_layout.tsx`'teki auth-loading View'iyle BİREBİR aynı koyu ekran.
+    // M458: yalnız cihazdaki önbellek okunurken (ms'ler); ağ BEKLENMEZ.
     return <View style={styles.loading} />;
   }
 
