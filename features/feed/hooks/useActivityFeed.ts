@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FeedActivity, FeedItem } from '../types';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
+import { useAktiviteSurumu } from '../store/aktiviteSurumu';
 
 export interface UseActivityFeedResult {
   data: FeedItem[];
@@ -92,6 +93,18 @@ export function useActivityFeed(
       runIdRef.current++;
     };
   }, [run]);
+
+  // M468 · A1: kendi aktivitem yerelde geri çekilince (geçmiş silme, puan
+  // kaldırma, izleme geri alma) açık liste sessizce tazelenir. İlk değer
+  // atlanır (yukarıdaki mount yüklemesi zaten koşuyor); önbellek çağıran
+  // tarafından temizlendiği için `run(false)` sunucudan taze okur.
+  const surum = useAktiviteSurumu((s) => s.surum);
+  const ilkSurumRef = useRef(surum);
+  useEffect(() => {
+    if (surum === ilkSurumRef.current) return;
+    ilkSurumRef.current = surum;
+    run(false);
+  }, [surum, run]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);

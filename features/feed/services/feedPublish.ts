@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAktiviteSurumu } from '../store/aktiviteSurumu';
 import * as SecureStore from '../../../utils/secureStorage';
 import { refreshTraktToken } from '../../../services/api/auth';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
@@ -411,4 +412,6 @@ export function retractLocalActivity(predicate: (a: FeedActivity) => boolean): v
   // `cachedMe.traktSlug` isteniyordu ve Google-only kullanıcıda slug olmadığı
   // için bu satır HİÇ çalışmıyordu.
   invalidateUserFeedActivitiesCache();
+  // M468 · A1: açık Profil › Aktiviteler listesi de tazelensin (bkz. aktiviteSurumu.ts).
+  useAktiviteSurumu.getState().artir();
 }

@@ -80,6 +80,7 @@ const TAKIMLAR = [
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
   { ad: 'push-kayit', grup: 'arayuz', dosya: 'arayuz/push-kayit.test.mjs', aciklama: 'M466: push kaydi tekrarlanamaz (Discord 429 koku)' },
   { ad: 'sezon-akis', grup: 'arayuz', dosya: 'arayuz/sezon-akis.test.mjs', aciklama: 'M467: her isaretleme yolu akisa tek temsilci olay' },
+  { ad: 'aktivite-tazeleme', grup: 'arayuz', dosya: 'arayuz/aktivite-tazeleme.test.mjs', aciklama: 'M468/A1: silme sonrasi acik aktivite listesi tazelenir' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 
