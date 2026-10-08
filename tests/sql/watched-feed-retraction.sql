@@ -8,7 +8,16 @@ END $$;
 CREATE ROLE anon;
 CREATE ROLE authenticated;
 CREATE ROLE service_role;
+-- M454: 060 yerelde yeşildi çünkü bu fixture'da in_feed/is_visible DÜZ
+-- sütundu (canlıda GENERATED) ve Postgres 15'ti (canlı 17.6). Artık canlının
+-- 024/025 ifadeleri, 057/031 politikaları ve PG17 ile koşulur.
+CREATE SCHEMA auth;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
+  $f$ SELECT nullif(current_setting('test.uid', true), '')::uuid $f$;
 CREATE TABLE public.users(id uuid PRIMARY KEY);
+CREATE FUNCTION public.kaymak_hesap_acik(uuid) RETURNS boolean LANGUAGE sql STABLE AS $f$ SELECT true $f$;
+CREATE FUNCTION public.kaymak_engel_benimle(uuid) RETURNS boolean LANGUAGE sql STABLE AS $f$ SELECT false $f$;
+CREATE FUNCTION public.kaymak_takip_ediyorum(uuid) RETURNS boolean LANGUAGE sql STABLE AS $f$ SELECT true $f$;
 CREATE TABLE public.catalog_entities(
   kaymak_id text PRIMARY KEY, type text, parent_id text REFERENCES catalog_entities,
   season_number int, episode_number int);
@@ -21,15 +30,68 @@ CREATE TABLE public.user_watched(
 CREATE TABLE public.feed_activities(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid REFERENCES users,
   activity_type text, show_id bigint, media_type text, episode_number text,
-  activity_at timestamptz, in_feed bool DEFAULT true, is_visible bool DEFAULT true);
+  activity_at timestamptz, report_count int NOT NULL DEFAULT 0,
+  author_hides_manual boolean NOT NULL DEFAULT false,
+  in_feed boolean GENERATED ALWAYS AS (
+    NOT (activity_type = 'reviewed' AND episode_number IS NOT NULL)
+    AND NOT (activity_type IN ('reviewed', 'posted') AND author_hides_manual)
+    AND report_count < 3) STORED,
+  is_visible boolean GENERATED ALWAYS AS (report_count < 3) STORED);
 CREATE TABLE public.deleted_feed_activities(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid REFERENCES users,
   activity_type text CHECK(activity_type IN ('watched_episode','watched_movie','started_show','completed_show','rated')),
   show_id bigint NOT NULL, media_type text, episode_number text, activity_at timestamptz NOT NULL);
-CREATE TABLE public.feed_comments(id int PRIMARY KEY, activity_id uuid REFERENCES feed_activities ON DELETE CASCADE);
-CREATE TABLE public.feed_likes(id int PRIMARY KEY, activity_id uuid REFERENCES feed_activities ON DELETE CASCADE);
+CREATE TABLE public.comments(id int PRIMARY KEY, activity_id uuid REFERENCES feed_activities ON DELETE CASCADE,
+  report_count int NOT NULL DEFAULT 0, is_visible boolean GENERATED ALWAYS AS (report_count < 3) STORED);
+CREATE TABLE public.feed_activity_likes(id int PRIMARY KEY, activity_id uuid REFERENCES feed_activities ON DELETE CASCADE);
+ALTER TABLE feed_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+-- Canlı tanımlar (2026-10-08 pg_policies okuması).
+CREATE POLICY feed_activities_misafir ON feed_activities FOR SELECT TO anon
+  USING (is_visible AND activity_type = 'posted' AND kaymak_hesap_acik(user_id));
+CREATE POLICY feed_activities_uye ON feed_activities FOR SELECT TO authenticated
+  USING (is_visible AND (user_id = auth.uid() OR (NOT kaymak_engel_benimle(user_id)
+    AND (kaymak_hesap_acik(user_id) OR kaymak_takip_ediyorum(user_id)))));
+CREATE POLICY comments_select_visible ON comments FOR SELECT
+  USING (is_visible AND EXISTS (SELECT 1 FROM feed_activities fa WHERE fa.id = comments.activity_id AND fa.is_visible));
+GRANT USAGE ON SCHEMA auth TO anon, authenticated;
+GRANT SELECT ON feed_activities, comments TO anon, authenticated;
 \i /tmp/060.sql
 \i /tmp/060.sql
+-- Canlı M451/M452 hatasının yerel kanıtı: 060 tek başına 428C9 verir ve
+-- geçmiş silmesi de geri alınır.
+INSERT INTO users VALUES ('99999999-9999-9999-9999-999999999999');
+INSERT INTO catalog_entities VALUES ('movie_bug','movie',null,null,null);
+INSERT INTO catalog_external_ids VALUES ('trakt:movie','999999','movie_bug');
+INSERT INTO user_watched VALUES ('99999999-9999-9999-9999-999999999999','movie_bug','2026-10-01 12:00Z');
+INSERT INTO feed_activities(user_id,activity_type,show_id,media_type,activity_at)
+VALUES ('99999999-9999-9999-9999-999999999999','watched_movie',999999,'movie','2026-10-01 12:00Z');
+DO $$ BEGIN
+  BEGIN
+    PERFORM delete_watched_with_feed('99999999-9999-9999-9999-999999999999',ARRAY['movie_bug'],true);
+    RAISE EXCEPTION '060 hatası yeniden üretilemedi';
+  EXCEPTION WHEN generated_always THEN RAISE NOTICE 'PASS: 060 canlıdaki gibi 428C9 verir';
+  END;
+  IF (SELECT count(*) FROM user_watched WHERE kaymak_id='movie_bug') <> 1 THEN
+    RAISE EXCEPTION 'FAIL: 428C9 sonrası geçmiş korunmadı';
+  END IF;
+END $$;
+\i /tmp/061.sql
+\i /tmp/061.sql
+DO $$ BEGIN
+  -- İki ayrı ifade: tek ifadede alt sorgu, RPC'nin UPDATE'inden önceki görüntüyü okur.
+  IF delete_watched_with_feed('99999999-9999-9999-9999-999999999999',ARRAY['movie_bug'],true) <> '{"silinen":1,"geri_cekilen":1}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: 061 sonrası sayaçlar';
+  END IF;
+  IF NOT (SELECT is_retracted AND NOT in_feed AND NOT is_visible FROM feed_activities WHERE show_id=999999) THEN
+    RAISE EXCEPTION 'FAIL: 061 sonrası canlı hata senaryosu';
+  END IF;
+  RAISE NOTICE 'PASS: 061 sonrası canlı hata senaryosu geçer';
+  -- Ana senaryonun sayımlarına karışmasın.
+  DELETE FROM feed_activities WHERE user_id='99999999-9999-9999-9999-999999999999';
+  DELETE FROM deleted_feed_activities WHERE user_id='99999999-9999-9999-9999-999999999999';
+  DELETE FROM users WHERE id='99999999-9999-9999-9999-999999999999';
+END $$;
 CREATE FUNCTION public.test_assert(ok boolean, label text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM TRUE THEN RAISE EXCEPTION 'FAIL: %', label; END IF;
 RAISE NOTICE 'PASS: %', label; END $$;
@@ -67,8 +129,8 @@ VALUES
 ('11111111-1111-1111-1111-111111111111','posted',100,'movie',null,'2026-10-01 12:00Z'),
 ('11111111-1111-1111-1111-111111111111','rated',100,'movie',null,'2026-10-01 12:00Z'),
 ('22222222-2222-2222-2222-222222222222','watched_episode',100,'show','S01E01','2026-10-01 12:00Z');
-INSERT INTO feed_comments SELECT 1,id FROM feed_activities WHERE activity_type='watched_movie' AND activity_at='2026-10-01 12:00Z';
-INSERT INTO feed_likes SELECT 1,activity_id FROM feed_comments;
+INSERT INTO comments(id,activity_id) SELECT 1,id FROM feed_activities WHERE activity_type='watched_movie' AND activity_at='2026-10-01 12:00Z';
+INSERT INTO feed_activity_likes SELECT 1,activity_id FROM comments;
 
 SELECT test_assert(NOT has_function_privilege('anon','delete_watched_with_feed(uuid,text[],boolean,timestamptz)','EXECUTE'), 'anon RPC kapalı');
 SELECT test_assert(NOT has_function_privilege('authenticated','delete_watched_with_feed(uuid,text[],boolean,timestamptz)','EXECUTE'), 'authenticated RPC kapalı');
@@ -79,7 +141,7 @@ SELECT test_assert(delete_watched_with_feed('11111111-1111-1111-1111-11111111111
 SELECT test_assert((SELECT count(*)=1 FROM user_watched WHERE kaymak_id='movie_a'), 'diğer yeniden izleme korunur');
 SELECT test_assert((SELECT count(*)=1 FROM feed_activities WHERE activity_type='watched_movie' AND in_feed AND is_visible), 'diğer film olayı korunur');
 SELECT test_assert((SELECT count(*)=2 FROM feed_activities WHERE activity_type='watched_movie'), 'film feed hard-delete edilmez');
-SELECT test_assert((SELECT count(*)=1 FROM feed_comments) AND (SELECT count(*)=1 FROM feed_likes), 'yorum ve beğeni CASCADE kaybı yok');
+SELECT test_assert((SELECT count(*)=1 FROM comments) AND (SELECT count(*)=1 FROM feed_activity_likes), 'yorum ve beğeni CASCADE kaybı yok');
 SELECT test_assert((SELECT count(*)=3 FROM feed_activities WHERE activity_type IN ('posted','reviewed','rated') AND is_visible AND in_feed), 'not inceleme puan korunur');
 SELECT test_assert(delete_watched_with_feed('11111111-1111-1111-1111-111111111111',ARRAY['season_a'],true) = '{"silinen":2,"geri_cekilen":3}'::jsonb, 'sezon iki bölüm ve eski alias');
 SELECT test_assert((SELECT count(*)=1 FROM user_watched WHERE kaymak_id='episode_a100'), 'diğer sezon korunur');
@@ -149,6 +211,24 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 SELECT test_assert(true, 'gerçek rol ile anon ret/service_role RPC');
+
+-- M454: 061 sonrası düzeltmenin kendisi.
+SELECT test_assert((SELECT count(*)=3 FROM pg_policies WHERE policyname IN ('feed_activities_misafir','feed_activities_uye','comments_select_visible')), 'üç RLS politikası SET EXPRESSION sonrası yerinde');
+SELECT test_assert((SELECT bool_and(is_retracted AND NOT in_feed AND NOT is_visible AND report_count = 0) FROM feed_activities WHERE user_id='11111111-1111-1111-1111-111111111111' AND activity_type='watched_movie' AND activity_at='2026-10-01 12:00Z' AND show_id=100), 'geri çekilen: bayrak + iki kapı kapalı, report_count aynı');
+-- Moderasyonla zaten gizli eski olay da geri çekilir.
+INSERT INTO catalog_entities VALUES ('movie_mod','movie',null,null,null);
+INSERT INTO catalog_external_ids VALUES ('trakt:movie','777','movie_mod');
+INSERT INTO feed_activities(user_id,activity_type,show_id,media_type,activity_at,report_count)
+VALUES ('11111111-1111-1111-1111-111111111111','watched_movie',777,'movie','2026-10-01 12:00Z',3);
+SELECT test_assert(delete_watched_with_feed('11111111-1111-1111-1111-111111111111',ARRAY['movie_mod'],true) = '{"silinen":0,"geri_cekilen":1}'::jsonb, 'moderasyonla gizli olay da geri çekilir');
+-- RLS: üye geri çekilen olayı ve yorumunu göremez; diğerlerini görür.
+SET test.uid = '22222222-2222-2222-2222-222222222222';
+SET ROLE authenticated;
+SELECT test_assert((SELECT count(*)=0 FROM comments), 'geri çekilen olayın yorumu RLS ile gizli');
+SELECT test_assert((SELECT count(*)=0 FROM feed_activities WHERE is_retracted), 'geri çekilen olay RLS ile gizli');
+SELECT test_assert((SELECT count(*)>0 FROM feed_activities), 'geri çekilmeyen olaylar görünür');
+RESET ROLE;
+SELECT test_assert((SELECT count(*)=1 FROM comments) AND (SELECT count(*)=1 FROM feed_activity_likes), 'yorum/beğeni satırları duruyor');
 
 -- Çok bölümlü dizide tek SQL çağrısı; 1500 kimlik HTTP URL'e taşınmaz.
 INSERT INTO catalog_entities VALUES ('show_big','show',null,null,null),('season_big','season','show_big',1,null);
