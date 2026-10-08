@@ -52,6 +52,8 @@ interface FollowState {
   fetchFollowGraph: (force?: boolean) => Promise<void>;
   /** Hazır bir graf yanıtını uygular (bildirim deposu AYRI istek atmasın diye). */
   applyGraf: (graf: KaymakGraf, baslangicNesli?: number) => void;
+  /** Taze profil yanıtı TTL'li grafı düzeltir; yeni kullanıcı eylemini ezmez. */
+  applyProfileConnection: (userId: string, state: ConnectionState, baslangicNesli: number) => Promise<void>;
   setOptimisticState: (userId: string, state: ConnectionState) => void;
   reset: () => void;
 }
@@ -244,10 +246,20 @@ export const useFollowStore = create<FollowState>()((set, get) => ({
     });
   },
 
+  applyProfileConnection: async (userId, state, baslangicNesli) => {
+    await ensureHydrated();
+    if (mutasyonNesli !== baslangicNesli) return;
+    // Aynı nesil koruması, profilden ÖNCE başlayan graf yanıtının bu taze
+    // sunucu bilgisini ezmesini de önler. Global graf TTL'i yenilenmez.
+    get().setOptimisticState(userId, state);
+  },
+
   reset: () => {
     // Uçuştaki istek de bırakılmalı: aksi halde çıkış sonrası tamamlanan eski
     // hesabın isteği, az önce temizlenen store'u yeniden doldururdu.
     inFlightFetch = null;
+    // Önceki oturumda başlayan profil yanıtı yeni hesaba uygulanmasın.
+    mutasyonNesli++;
     // Önceki hesabın iyimser defteri yeni hesaba sızmasın.
     sonMutasyonlar.clear();
     set({

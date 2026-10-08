@@ -1,886 +1,157 @@
-import {
-  addEpisodeToHistory,
-  addSeasonToHistory,
-  addEpisodesBulkToHistory,
-  removeEpisodeFromHistoryTrakt,
-  removeSeasonFromHistoryTrakt,
-  addMovieToHistory,
-  addToWatchlistTrakt,
-} from '../../traktApi';
-// ==========================================================================
-// 🎯 ADAPTÖR — Faz T · T1 (kullanıcı kararı, 2026-09-07)
-// ==========================================================================
-// Bu dosya `BACKLOG.md` §B'de DONDURULMUŞ'tu. Kilit YALNIZCA aşağıdaki
-// yönlendirme mantığı için açıldı; 400 satır kuralı için genel bir refactor
-// ya da temizlik YAPILMADI.
-//
-// 🔴 UI HİÇBİR ŞEYİN DEĞİŞTİĞİNİ BİLMEZ. Bileşenler hâlâ
-// `markEpisodeAsWatched(showId, season, episode)` çağırıyor; token tipine
-// göre Trakt'a mı bizim API'ye mi gideceği kararı BU DOSYADA veriliyor.
-import * as libraryApi from '../../api/library';
-import { bolumleriIsaretle, sezonuIsaretle, bolumleriGeriAl, iskeletKur } from './optimistikIlerleme';
+// M439: kalıcı işaretleme sınırı. YEŞİL TİK ancak günlük diske yazıldıktan sonra.
+// Kuyruk/taşıma outbox/ içinde; eski yarış ve geri alma ayrı modüllerde.
+// İzin yalnız kapanışta veri kaybı içindir; fetchers.ts/feedApi.ts değiştirilmedi.
+import { bolumleriIsaretle, sezonuIsaretle, iskeletKur } from './optimistikIlerleme';
 import { izlenenFilmeEkle } from './optimistikFilm';
-import { izlenenDiziyeEkle, izlemeListesindenDus } from './optimistikDizi';
-import { fetchFreshData } from '../fetchers';
-import {
-  CACHE_KEYS,
-  safeStorageSet,
-  setWatchedMovies,
-  setWatchedShows,
-  setWatchlistMovies,
-  setWatchlistShows,
-  setCalendarMovies,
-  setShowProgressMap,
-  persistShowProgressMap,
-} from '../utils';
 import { useLibraryStore } from '../../../store/useLibraryStore';
-import { toggleHiddenFromProgress } from './collections';
-import { logError } from '../../../utils/errorLog';
+import { CACHE_KEYS, safeStorageSet, persistShowProgressMap, setShowProgressMap, setWatchlistMovies, setWatchedMovies, setCalendarMovies } from '../utils';
+import { queueWatched, resumeWatchedOutbox } from '../outbox/runtime';
+import type { WatchedDraft } from '../outbox/types';
 import { recordMutationResult } from '../../../utils/metrics';
-import {
-  publishActivities,
-  retractLocalActivity,
-  formatEpisodeCode,
-  nowStamp,
-} from '../../../features/feed/services/feedPublish';
+import { nowStamp } from '../../../features/feed/services/feedPublish';
 import { resolveMediaMeta } from '../mediaMeta';
-
-// ─────────────────────────────────────────────────────────────────────────
-// AKIŞA ANINDA YAYIN
-//
-// ESKİ DAVRANIŞ: bir bölümü/filmi işaretlemek yalnızca Trakt'a yazıyordu;
-// aktivitenin Akış'a düşmesi için uygulamanın kapanıp yeniden açılması ve
-// oradaki `/feed/sync`in çalışması gerekiyordu. Artık Trakt yazımı başarılı
-// olur olmaz aktivite Akış'a da yayınlanıyor.
-//
-// İKİ KURAL:
-//  1. ATEŞLE-VE-UNUT — yayın, kullanıcının "izledim" akışını ASLA bloklamaz
-//     ve başarısız olsa bile izleme işlemini başarısız SAYDIRMAZ (yayın
-//     kendi içinde iyimser kartı geri alıp loglar).
-//  2. AYNI ZAMAN DAMGASI — Trakt'a `watched_at`/`rated_at` olarak gönderilen
-//     damganın AYNISI yayınlanır. Bir sonraki tam senkron Trakt'tan aynı
-//     damgayı okuyup aynı dedup anahtarını üretir; satır ne kopyalanır ne
-//     de "Trakt'ta yok" sanılıp silinir.
-// ─────────────────────────────────────────────────────────────────────────
-
-/** Yayın için gereken meta (başlık + poster id) — bkz. services/library/mediaMeta.ts */
-const showMetaFor = (showId: number) => resolveMediaMeta(showId, 'show');
-
-// Kullanıcı "Bırak" ile Trakt'ta gizlediği bir diziyi/filmi sonradan yeniden
-// izlemeye başlarsa gizleme otomatik kaldırılır — aksi halde dizi/film Trakt'ın
-// gizlenen listesinde takılı kalır ve ana vitrin listelerine asla geri dönmez.
-//
-// Gizleme kaldırma mantığı BİLİNÇLİ OLARAK burada tekrar YAZILMAZ:
-// `toggleHiddenFromProgress` zaten iyimser güncelleme + diske yazma + hata
-// halinde rollback + metrik kaydı + senkron yarış koruması (hiddenSyncGuard)
-// içeriyor. Buradaki ilk sürüm bu adımların yalnızca bir kısmını kopyalamıştı
-// ve rollback'i yoktu — istek başarısız olduğunda yerel durum "gizli değil",
-// Trakt "gizli" kalıyor, ilk senkronda dizi kullanıcının gözü önünde geri
-// gizleniyordu. Tek kaynağa devredilerek bu sapma kapatıldı.
-//
-// Çağrı ateşle-ve-unut: kullanıcının "izledim" akışını bloklamamalı, bu yüzden
-// `await` edilmez; hata halinde `toggleHiddenFromProgress` kendi rollback'ini
-// zaten yapar.
-const unhideShowIfNeeded = (showId: number) => {
-  if (!useLibraryStore.getState().hiddenShowIds.includes(showId)) return;
-  toggleHiddenFromProgress(showId, 'show', true).catch((e) =>
-    console.error('Otomatik gizleme kaldırma (show) hatası:', e)
-  );
-};
-
-const unhideMovieIfNeeded = (movieId: number) => {
-  if (!useLibraryStore.getState().hiddenMovieIds.includes(movieId)) return;
-  toggleHiddenFromProgress(movieId, 'movie', true).catch((e) =>
-    console.error('Otomatik gizleme kaldırma (movie) hatası:', e)
-  );
-};
-
-// Kullanıcı bir dizinin yeni bir bölümünü/sezonunu izlediğinde (tek bölüm,
-// toplu bölüm veya sezon işaretleme — geri alma DEĞİL), o dizi artık "aktif
-// izleniyor" sayılmalı: Diziler > İzleme sekmesindeki normal bir dizi gibi
-// davranmalı.
-//   1. "Bırak" ile Trakt'ta gizlenmişse gizleme kaldırılır (Bırak, tarihten/
-//      ilerlemeden tamamen bağımsız, en yüksek öncelikli bir kova olduğu için
-//      progress güncellemesi tek başına bunu geçersiz kılamaz — açıkça temizlemek gerekir).
-//   2. `watchedShows`'taki `last_watched_at` "şimdi"ye çekilir — aksi halde
-//      "Ara Verilenler" (45 günden eski) kovasındaki bir dizi, eski tarih
-//      hâlâ orada dururken bölüm işaretlese bile pasif görünmeye devam ederdi.
-//      (Henüz `watchedShows`'ta hiç yoksa — örn. yalnızca watchlist'ten gelen
-//      bir dizi — dokunmuyoruz: trackingLogic zaten "son izleme bilinmiyor"
-//      durumunu güvenli varsayılan olarak aktif sayıyor.)
-const reactivateShowTracking = (showId: number, mediaData?: any) => {
-  unhideShowIfNeeded(showId);
-
-  // 🔴 M421 — İZLEME LİSTESİNDEN DÜŞÜR (ürün kararı, kullanıcı 2026-09-20:
-  // "Diziler, ilk bölüm izlendiği an İzleme Listesinden düşmeli"). Filmde bu
-  // davranış zaten vardı. Düşen girdi aynı zamanda `watchedShows`'a
-  // ekleyeceğimiz dizi nesnesinin en güvenilir kaynağı.
-  let listedenDusen: any = null;
-  setWatchlistShows((prev: any[]) => {
-    const { liste, dusen } = izlemeListesindenDus(prev, showId);
-    if (!dusen) return prev;
-    listedenDusen = dusen;
-    safeStorageSet(CACHE_KEYS.watchlistShows, JSON.stringify(liste));
-    return liste;
-  });
-
-  setWatchedShows((prev: any[]) => {
-    const idx = (prev || []).findIndex((item: any) => item?.show?.ids?.trakt === showId);
-    if (idx !== -1) {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], last_watched_at: new Date().toISOString() };
-      safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(updated));
-      return updated;
-    }
-    // 🔴 M421 (denetim B) — DİZİ LİSTEDE YOKSA EKLE. Eski hâl `return prev`
-    // diyordu: ilk kez işaretlenen dizi "izlenenler"e hiç girmiyor, dizi
-    // seviyesi durum/sekme/rozet tam senkrona kadar yanlış kalıyordu.
-    const dizi = listedenDusen?.show || mediaData || null;
-    const eklenmis = izlenenDiziyeEkle(prev, showId, dizi);
-    if (eklenmis === prev) return prev;
-    safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(eklenmis));
-    return eklenmis;
-  });
-};
-
-// ==========================================================================
-// 🔴 İLERLEME TAZELEME — adaptörün İKİNCİ (ve kolayca atlanan) ayağı
-// ==========================================================================
-// 🔄 T6.1 SONRASI DURUM (2026-09-13): yazma sonrası ilerleme HER KULLANICIDA
-// `libraryApi.fetchShowProgress(showId)` ile BİZDEN tazeleniyor — Worker'ın
-// `/library/sync` ucunun tek dizilik kipi, şekil Trakt'ınkiyle aynı.
-// `getShowProgress` (Trakt, dizi başına istek) bu dosyadan TAMAMEN KALKTI.
-//
-// 📜 TARİHÇE — buraya nasıl gelindi:
-// Eskiden hepsi yazma sonrası Trakt'ın `getShowProgress`ini çağırıyordu.
-// Google-only kullanıcının Trakt token'ı YOK; o çağrı 401 döner, fonksiyon
-// `catch`e düşer ve iyimser UI GERİ ALINIR — yazma BAŞARILI olsa bile
-// kullanıcı "olmadı" görürdü. M319 bunu Kaymak kullanıcısı için çözdü;
-// T6.1 aynı yolu Trakt'lı kullanıcıya da açtı ve dizi-başına Trakt
-// isteğini (§D14 / Y28) tamamen kaldırdı.
-//
-// 🔴 ÖNCEKİ TUR NEDEN YETMEDİ: iyimser durumu döndürüp bırakıyorduk.
-// Ama iyimser güncelleme (aşağıda) YALNIZCA `next_episode.number`'ı
-// artırıyor; `seasons[].episodes[].completed`'a HİÇ dokunmuyor. Takip
-// kartı `next_episode` okuyor (ilerliyordu ✅), dizi detay ekranı
-// `seasons[].episodes[].completed` okuyor (`useShowDetail.ts:212`) —
-// işaretlenen bölüm "izlenmemiş" görünmeye devam ediyordu. İki farklı
-// alan, tek güncelleme.
-const kaymakYoluMu = () => libraryApi.kaymakKullanicisiMi();
-
-/**
- * 🔄 ÇİFT YAZMA — T6 kararı (kullanıcı, 2026-09-13).
- *
- * Trakt'lı kullanıcı artık BİZDEN okuyor; bu yüzden işaretleme HER İKİ
- * yere birden gitmek zorunda. Yalnızca Trakt'a yazsaydık ekran bizden
- * okuduğu için işaretleme **fark turuna kadar (6 saat) görünmezdi**.
- *
- * 🔴 SIRA ÖNEMLİ — ÖNCE BİZE. Arayüzün gördüğü satır bizimki. Ters sırada
- * Trakt tutup bizimki düşerse kullanıcı hiçbir şey görmez, tekrar işaretler
- * ve YENİ damgayla Trakt'a gerçek bir yeniden-izleme satırı düşer (M318).
- *
- * 🔴 TRAKT DÜŞERSE BİZİMKİ GERİ ALINMAZ (yine M318): kalıcı yazılmış bir
- * işaretlemeyi ekrandan silmek kullanıcıyı hayalet üretmeye iter. Trakt
- * yazması "elden geldiğince"dir.
- *
- * ✅ ÇİFT SAYIM YOK: aynı `watchedAt` ikisine de gidiyor; fark turu izlemeyi
- * Trakt'tan geri getirdiğinde `user_id,kaymak_id,watched_at` çakışması
- * tutuyor ve aktarım "yok say" politikasıyla satırı ATLIYOR. Süpürme de
- * yalnızca `source=trakt` siliyor, bizimki `kaymak`.
- *
- * @param trakte Google-only kullanıcıda `null` — Trakt token'ı yok, 401 alırdı.
- */
-const ciftYaz = async (
-  bize: () => Promise<unknown>,
-  trakte: (() => Promise<unknown>) | null,
-): Promise<void> => {
-  await bize();
-  if (!trakte) return;
-  try {
-    await trakte();
-  } catch (error) {
-    // Yutuluyor ama SESSİZ DEĞİL — M366/M370'in dersi: bir işi çökertmemek
-    // doğru, "yapıldı" göstermek yanlış. Bizim satırımız yazıldı ve okuma
-    // yolu artık biziz; Trakt bu işaretlemeyi kaçırdı.
-    console.warn("[ciftYaz] Trakt yazması düştü, bizimki KALICI:", (error as any)?.message || error);
-    // 🔴 M419 (bağımsız denetim): tek iz `console.warn`'du ve bu dosyanın
-    // kendi kuralı «tek kalıcı iz `logError`» diyor. Trakt'a hiç ulaşmayan
-    // işaretlemenin cihazda gözlemlenebilir bir izi kalmıyordu.
-    logError('mutations.progress.ciftYaz', error);
-  }
-};
-
-/** Mağazadaki mevcut ilerleme — tazeleme başarısız olursa geri düşülür. */
-const mevcutIlerleme = (showId: number) =>
-  (useLibraryStore.getState() as any)?.showProgressMap?.[showId] ?? null;
-
-/**
- * Kaymak kullanıcısı için ilerlemeyi SUNUCUDAN tazeler, mağazaya yazar ve
- * döndürür — Trakt dalındaki `getShowProgress` + `setShowProgressMap`
- * ikilisinin karşılığı.
- *
- * ⚠️ HATA YUTULUYOR, BİLİNÇLİ: yazma ZATEN BAŞARILI olmuştur (bu fonksiyon
- * ancak ondan sonra çağrılıyor). Tazeleme başarısız diye `catch`e düşüp
- * iyimser durumu GERİ ALMAK, kalıcı olarak yazılmış bir işaretlemeyi
- * ekrandan silmek olurdu — kullanıcı "olmadı" sanıp tekrar işaretler ve
- * hayalet yeniden-izleme satırı üretir (M318'de tam olarak bu yaşandı).
- */
-// ==========================================================================
-// 🏁 YARIŞ KORUMASI — bayat tazeleme, taze iyimser durumu EZMESİN (M322)
-// ==========================================================================
-// Kullanıcı hızlı işaretlediğinde görülen "E7 oldu, E6'ya geri döndü":
-//
-//   t=0    E5 işaretle → iyimser: sıradaki E6 → tazeleme R1 gider
-//   t=200  E6 işaretle → iyimser: sıradaki E7 → tazeleme R2 gider
-//   t=1000 R1 DÖNER — ama sunucuda E6 YAZILMADAN ÖNCE hesaplanmıştı:
-//          "E5 izlendi, sıradaki E6" → mağazaya yazılır → EKRAN GERİ DÜŞER
-//
-// 🔴 UI'I YAVAŞLATMAK BU HATAYI GİZLER, ÇÖZMEZ. Yarış ağ gecikmesinde;
-// kullanıcı yeterince hızlıysa hangi eşiği koyarsak koyalım tekrar açılır.
-//
-// İki parçalı çözüm:
-//   1. NESİL SAYACI — her mutasyon diziye ait sayacı artırır. Tazeleme
-//      döndüğünde sayaç değiştiyse yanıt BAYATTIR ve ATILIR.
-//   2. GECİKMELİ TAZELEME — arka arkaya işaretlemeler tek bir tazelemede
-//      birleşir. Hem istek sayısı düşer (oran sınırı!) hem de çalışan tek
-//      tazeleme SON yazmadan sonra olur.
-const ilerlemeNesli = new Map<number, number>();
-const bekleyenTazeleme = new Map<number, ReturnType<typeof setTimeout>>();
-
-/** Kullanıcı arka arkaya basarken tazelemeleri birleştirme penceresi. */
-const TAZELEME_GECIKMESI_MS = 700;
-
-/** Bir mutasyon başladı — bu diziye ait uçuştaki tazelemeler bayatladı. */
-const nesliArtir = (showId: number) => {
-  const n = (ilerlemeNesli.get(showId) ?? 0) + 1;
-  ilerlemeNesli.set(showId, n);
-  return n;
-};
-
-/**
- * Tazelemeyi GECİKTİREREK planlar. Aynı dizi için bekleyen bir tazeleme
- * varsa iptal edilir — 10 bölümü hızlıca işaretleyen kullanıcı 10 değil
- * TEK istek üretir.
- *
- * ⚠️ Ateşle-unut: çağıran beklemez. İyimser durum zaten doğru (M321);
- * tazelemenin tek işi sunucuyla teyit etmek.
- */
-const tazelemeyiPlanla = (showId: number) => {
-  // 🔴 İYİMSER DURUMU HEMEN DİSKE YAZ — tazeleme artık BEKLENMİYOR ve
-  // kalıcılığı o yapıyordu. Yazmazsak: kullanıcı işaretler, uygulamayı
-  // hemen kapatır, 10 dakikalık TTL yüzünden açılışta senkron ATLANIR ve
-  // önbellekten yüklenen harita o işareti taşımaz — sunucuda kayıt VAR
-  // ama ekranda YOK. Dar ama gerçek bir pencere.
-  persistShowProgressMap(useLibraryStore.getState().showProgressMap);
-
-  const mevcut = bekleyenTazeleme.get(showId);
-  if (mevcut) clearTimeout(mevcut);
-  bekleyenTazeleme.set(
-    showId,
-    setTimeout(() => {
-      bekleyenTazeleme.delete(showId);
-      void kaymakIlerlemeTazele(showId, ilerlemeNesli.get(showId) ?? 0);
-    }, TAZELEME_GECIKMESI_MS),
-  );
-};
-
-/**
- * 🔴 M419 (bağımsız denetim) — GERİ ALMA DA NESİL KORUMALI.
- * `previousState` mutasyonun BAŞINDA çekilmiş fotoğraf. Eski hâl onu
- * koşulsuz yazıyordu: E5 asılı kalıp 15 sn sonra düşerse, arada BAŞARILI
- * olan E6'nın işareti de ekrandan siliniyordu. Üstelik geri alma diske
- * YAZILMIYORDU (mağaza ile önbellek ıraksıyordu) ve yeni bir tazeleme de
- * planlanmıyordu, yani ekran uygulama yeniden açılana kadar yanlış kalıyordu.
- *
- * Nesil değiştiyse (araya yeni bir mutasyon girdiyse) geri alma YAPILMAZ;
- * doğruyu sunucudan getirmek üzere tazeleme planlanır.
- */
-const geriAlVeyaTazele = (showId: number, nesilBaslangic: number, previousState: any) => {
-  if ((ilerlemeNesli.get(showId) ?? 0) !== nesilBaslangic) {
-    tazelemeyiPlanla(showId);
-    return;
-  }
-  // ⚠️ `undefined` de yazılmamalı: dizinin ilk işaretlemesinde `prev[showId]`
-  // yoktur ve haritaya açık `undefined` koymak sayım/gezinti yapan kodlar
-  // için gizli bir tuzaktır.
-  if (previousState === null || previousState === undefined) return;
-  setShowProgressMap((prev: any) => {
-    const guncel = { ...prev, [showId]: previousState };
-    persistShowProgressMap(guncel);
-    return guncel;
-  });
-};
-
-const kaymakIlerlemeTazele = async (showId: number, beklenenNesil?: number) => {
-  try {
-    const taze = await libraryApi.fetchShowProgress(showId);
-
-    // 🔴 BAYAT YANIT KONTROLÜ — ağ turu sırasında kullanıcı yeni bir bölüm
-    // işaretlediyse bu yanıt onu BİLMİYOR. Yazmak, kullanıcının az önce
-    // yaptığı işi ekrandan geri almak olurdu (bildirilen "E7 → E6" hatası).
-    if (beklenenNesil !== undefined && (ilerlemeNesli.get(showId) ?? 0) !== beklenenNesil) {
-      return mevcutIlerleme(showId);
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    // 🔴 İKİ SESSİZ ÇIKIŞ KAPATILDI (M320)
-    // ══════════════════════════════════════════════════════════════════
-    // Buradaki `if (!taze) return` HİÇBİR iz bırakmıyordu: `logError` yok,
-    // `console.warn` da üretim derlemesinde siliniyor. Yani "tazeleme
-    // çalıştı ama boş döndü" senaryosunun cihazda GÖZLEMLENEBİLİR TEK BİR
-    // İZİ yoktu — tam olarak aradığımız semptomu üreten kör nokta.
-    if (!taze) {
-      logError(
-        'mutations.progress.kaymakIlerlemeTazele',
-        new Error(`Sunucu bu dizi için ilerleme döndürmedi (showId=${showId}).`),
-      );
-      return mevcutIlerleme(showId);
-    }
-
-    // 🔴 BOŞ İLERLEME MAĞAZAYI EZMESİN. Sunucu 200 + `seasons: []`
-    // döndürebilir (ör. aynada o dizinin sezon/bölümleri yoksa — ölçüldü:
-    // 541 dizinin 18'i böyle). Bunu yazsaydık VAR OLAN tüm tikler silinirdi
-    // ve kullanıcı ilerlemesini kaybederdi. Elimizde dolu bir kayıt varken
-    // boş bir kayıtla değiştirmek her koşulda yanlış.
-    const oncekiSezonSayisi = mevcutIlerleme(showId)?.seasons?.length ?? 0;
-    if ((taze.seasons?.length ?? 0) === 0 && oncekiSezonSayisi > 0) {
-      logError(
-        'mutations.progress.kaymakIlerlemeTazele',
-        new Error(`Sunucu BOŞ ilerleme döndürdü, mevcut korunuyor (showId=${showId}).`),
-      );
-      return mevcutIlerleme(showId);
-    }
-
-    setShowProgressMap((prev: any) => {
-      const guncel = { ...prev, [showId]: taze };
-      persistShowProgressMap(guncel);
-      return guncel;
-    });
-    return taze;
-  } catch (e) {
-    // ⚠️ `console.warn` üretimde SİLİNİYOR — tek kalıcı iz `logError`.
-    logError('mutations.progress.kaymakIlerlemeTazele', e);
-    return mevcutIlerleme(showId);
-  }
-};
-
-export const markEpisodeAsWatched = async (showId: number, season: number, episode: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
-  let previousState: any = null;
-  let optimistikProgress: any = null;
-  const kaymak = await kaymakYoluMu();
-  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
-  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
-  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  const nesilBaslangic = nesliArtir(showId);
-
-  console.log(`[OPTIMISTIC UI] Bölüm UI'da işaretleniyor: Show ${showId}, S${season}E${episode}`);
-  reactivateShowTracking(showId, mediaData);
-
-  const iyimserDamga = nowStamp();
-
-  setShowProgressMap((prev: any) => {
-    previousState = prev[showId];
-
-    // ══════════════════════════════════════════════════════════════════
-    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — eskiden BURASI YARIMDI
-    // ══════════════════════════════════════════════════════════════════
-    // Eski hâli YALNIZCA `next_episode.number`'ı artırıyordu. Ama
-    // `seasons[].episodes[].completed`'ı ÜÇ tüketici okuyor:
-    //   1. bölüm listesindeki yeşil tik (`useShowDetail.ts:212`)
-    //   2. "bu bölüm izlendi mi" (`useEpisodeActions.ts:54`)
-    //   3. 🔴 "ATLANAN BÖLÜM VAR MI" (`useEpisodeActions.ts:103`)
-    //
-    // Üçüncüsü kullanıcının bildirdiği hatayı üretiyordu: arka arkaya
-    // bölüm işaretleyen kullanıcı, önceki işaretlemenin sunucu turu
-    // dönmeden sonrakine basıyor; kontrol `completed: false` görüp
-    // "atladın mı?" diye soruyordu — hâlbuki az önce işaretlenmişti.
-    // 🔴 M422 — ilerleme yoksa ekranın katalog verisinden iskelet (bkz.
-    // `iskeletKur`); yoksa ilk işaretlemede ekran sunucu turunu bekliyordu.
-    const temel = prev[showId] || iskeletKur(iskeletSezonlar);
-    const yamali = bolumleriIsaretle(temel, season, [episode], iyimserDamga);
-    if (!yamali) return prev;   // elde ilerleme de iskelet de yok
-
-    optimistikProgress = yamali;
-    return { ...prev, [showId]: yamali };
-  });
-
-  // Damga Trakt'a ve Akış'a AYNI gönderilir (bkz. dosya başındaki not).
-  const watchedAt = nowStamp();
-
-  try {
-    await ciftYaz(
-      () => libraryApi.markEpisodeWatched(showId, season, episode, watchedAt),
-      kaymak ? null : () => addEpisodeToHistory(showId, season, episode, watchedAt),
-    );
-
-    const meta = showMetaFor(showId);
-    publishActivities([
-      {
-        activityType: 'watched_episode',
-        showId,
-        mediaType: 'show',
-        showTitle: meta.title,
-        tmdbId: meta.tmdbId,
-        episodeNumber: formatEpisodeCode(season, episode),
-        activityAt: watchedAt,
-      },
-    ]);
-
-    // 🔄 T6.1 — İLERLEME ARTIK HER ZAMAN BİZDEN TAZELENİYOR.
-    // Bu blok eskiden YALNIZCA Kaymak kullanıcısınındı; Trakt'lı kullanıcı
-    // aşağıdaki `getShowProgress(showId)` yolundan geçiyordu — DİZİ BAŞINA
-    // BİR TRAKT İSTEĞİ, planın §6.2'de Y28 diye yasakladığı desen ve
-    // §D14'ün 57 isteğinin kaynağı. T6 kararıyla okuma yolu BİZ olduğumuz
-    // için o kuyruk kaldırıldı.
-    //
-    // ⛔ TRAKT'A GERİ DÜŞÜŞ EKLENMEDİ — bilinçli. Geri düşüş tam da
-    // öldürdüğümüz dizi-başına isteği geri getirirdi. `kaymakIlerlemeTazele`
-    // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
-    // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
-    recordMutationResult('markEpisodeAsWatched', true);
-    // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
-    // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
-    // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
-    // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
-    //
-    // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
-    // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
-    // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
-    const nesil = ilerlemeNesli.get(showId) ?? 0;
-    const yerel = mevcutIlerleme(showId);
-    if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
-    tazelemeyiPlanla(showId);
-    return yerel;
-  } catch (error) {
-    console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
-    logError('mutations.progress.markEpisodeAsWatched', error);
-    recordMutationResult('markEpisodeAsWatched', false);
-    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
-    throw error;
-  }
-};
-
-export const unwatchEpisode = async (showId: number, season: number, episode: number) => {
-  let previousState: any = null;
-  const kaymak = await kaymakYoluMu();
-  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
-  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
-  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  const nesilBaslangic = nesliArtir(showId);
-
-  console.log(`[OPTIMISTIC UI] Bölüm UI'da Kaldırılıyor: Show ${showId}, S${season}E${episode}`);
-
-  setShowProgressMap((prev: any) => {
-    previousState = prev[showId];
-
-    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
-    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
-    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
-    const yamali = bolumleriGeriAl(prev[showId], season, [episode]);
-    if (!yamali) return prev;
-    return { ...prev, [showId]: yamali };
-  });
-
-  try {
-    console.log(`[API REQUEST] Trakt'tan Bölüm Siliniyor...`);
-    await ciftYaz(
-      () => libraryApi.unwatchEpisode(showId, season, episode),
-      kaymak ? null : () => removeEpisodeFromHistoryTrakt(showId, season, episode),
-    );
-    console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
-
-    // Geri alınan bölüm akıştan da düşmeli — aksi halde kullanıcı "izlemedim"
-    // dediği bir bölümü akışında görmeye devam ederdi. Yalnızca YEREL akış
-    // temizlenir; Supabase'deki satırı bir sonraki tam senkron kendi geri
-    // alma (retraction) mantığıyla siler (bkz. Worker handleFeedSync) —
-    // aynı işi ikinci bir uç noktayla tekrarlamıyoruz.
-    const removedCode = formatEpisodeCode(season, episode);
-    retractLocalActivity(
-      (a) =>
-        a.activityType === 'watched_episode' &&
-        a.showId === showId &&
-        a.episodeNumber === removedCode
-    );
-
-    // 🔄 T6.1 — İLERLEME ARTIK HER ZAMAN BİZDEN TAZELENİYOR.
-    // Bu blok eskiden YALNIZCA Kaymak kullanıcısınındı; Trakt'lı kullanıcı
-    // aşağıdaki `getShowProgress(showId)` yolundan geçiyordu — DİZİ BAŞINA
-    // BİR TRAKT İSTEĞİ, planın §6.2'de Y28 diye yasakladığı desen ve
-    // §D14'ün 57 isteğinin kaynağı. T6 kararıyla okuma yolu BİZ olduğumuz
-    // için o kuyruk kaldırıldı.
-    //
-    // ⛔ TRAKT'A GERİ DÜŞÜŞ EKLENMEDİ — bilinçli. Geri düşüş tam da
-    // öldürdüğümüz dizi-başına isteği geri getirirdi. `kaymakIlerlemeTazele`
-    // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
-    // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
-    recordMutationResult('unwatchEpisode', true);
-    // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
-    // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
-    // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
-    // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
-    //
-    // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
-    // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
-    // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
-    const nesil = ilerlemeNesli.get(showId) ?? 0;
-    const yerel = mevcutIlerleme(showId);
-    if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
-    tazelemeyiPlanla(showId);
-    return yerel;
-  } catch (error) {
-    console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
-    logError('mutations.progress.unwatchEpisode', error);
-    recordMutationResult('unwatchEpisode', false);
-    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
-    throw error;
-  }
-};
-
-export const unwatchSeason = async (showId: number, season: number) => {
-  let previousState: any = null;
-  const kaymak = await kaymakYoluMu();
-  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
-  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
-  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  const nesilBaslangic = nesliArtir(showId);
-
-  console.log(`[OPTIMISTIC UI] Sezon UI'da Kaldırılıyor: Show ${showId}, S${season}`);
-
-  setShowProgressMap((prev: any) => {
-    previousState = prev[showId];
-
-    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
-    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
-    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
-    const yamali = bolumleriGeriAl(prev[showId], season, 'tumu');
-    if (!yamali) return prev;
-    return { ...prev, [showId]: yamali };
-  });
-
-  try {
-    console.log(`[API REQUEST] Trakt'tan Sezon Siliniyor...`);
-    await ciftYaz(
-      () => libraryApi.unwatchSeason(showId, season),
-      kaymak ? null : () => removeSeasonFromHistoryTrakt(showId, season),
-    );
-    console.log(`[API SUCCESS] Trakt üzerinden silindi. Gerçek veri çekiliyor...`);
-
-    // Bkz. unwatchEpisode'daki aynı not — geri alınan sezonun TÜM bölümleri
-    // yerel akıştan düşer ("S{season}E" önekiyle eşleşenler).
-    const seasonPrefix = `S${String(season).padStart(2, '0')}E`;
-    retractLocalActivity(
-      (a) =>
-        a.activityType === 'watched_episode' &&
-        a.showId === showId &&
-        !!a.episodeNumber?.startsWith(seasonPrefix)
-    );
-
-    // 🔄 T6.1 — İLERLEME ARTIK HER ZAMAN BİZDEN TAZELENİYOR.
-    // Bu blok eskiden YALNIZCA Kaymak kullanıcısınındı; Trakt'lı kullanıcı
-    // aşağıdaki `getShowProgress(showId)` yolundan geçiyordu — DİZİ BAŞINA
-    // BİR TRAKT İSTEĞİ, planın §6.2'de Y28 diye yasakladığı desen ve
-    // §D14'ün 57 isteğinin kaynağı. T6 kararıyla okuma yolu BİZ olduğumuz
-    // için o kuyruk kaldırıldı.
-    //
-    // ⛔ TRAKT'A GERİ DÜŞÜŞ EKLENMEDİ — bilinçli. Geri düşüş tam da
-    // öldürdüğümüz dizi-başına isteği geri getirirdi. `kaymakIlerlemeTazele`
-    // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
-    // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
-    recordMutationResult('unwatchSeason', true);
-    // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
-    // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
-    // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
-    // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
-    //
-    // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
-    // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
-    // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
-    const nesil = ilerlemeNesli.get(showId) ?? 0;
-    const yerel = mevcutIlerleme(showId);
-    if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
-    tazelemeyiPlanla(showId);
-    return yerel;
-  } catch (error) {
-    console.error(`[API ERROR] İşlem başarısız, eski haline (Rollback) dönülüyor!`, error);
-    logError('mutations.progress.unwatchSeason', error);
-    recordMutationResult('unwatchSeason', false);
-    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
-    throw error;
-  }
-};
-
-export const rewatchEpisode = async (showId: number, season: number, episode: number) => {
-  return markEpisodeAsWatched(showId, season, episode);
-};
-
-export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
-  let previousState: any = null;
-  const kaymak = await kaymakYoluMu();
-  // 🔴 NESLİ HEMEN ARTIR: bu andan itibaren uçuşta olan her tazeleme
-  // BAYATTIR (bkz. yarış koruması notu). Yazma başarısız olsa bile artırmak
-  // doğru — bayat bir yanıtı yazmaktansa bir tazelemeyi atlamak güvenli.
-  const nesilBaslangic = nesliArtir(showId);
-  console.log(`[OPTIMISTIC UI] Sezon UI'da işaretleniyor: Show ${showId}, S${season}`);
-  reactivateShowTracking(showId, mediaData);
-
-  setShowProgressMap((prev: any) => {
-    previousState = prev[showId];
-
-    // 🔴 EKSİKSİZ İYİMSER YAMA (M321) — bkz. `markEpisodeAsWatched`.
-    // `seasons[].episodes[].completed` güncellenmezse "atlanan bölüm"
-    // kontrolü ve yeşil tik sunucu turu dönene kadar YANLIŞ kalır.
-    // 🔴 M422 — ilerleme yoksa ekranın katalog verisinden iskelet.
-    const yamali = sezonuIsaretle(prev[showId] || iskeletKur(iskeletSezonlar), season, nowStamp());
-    if (!yamali) return prev;
-    return { ...prev, [showId]: yamali };
-  });
-
-  const watchedAt = nowStamp();
-
-  try {
-    console.log(`[API REQUEST] Trakt'a gönderiliyor (Sezon)...`);
-    await ciftYaz(
-      () => libraryApi.markSeasonWatched(showId, season, watchedAt),
-      kaymak ? null : () => addSeasonToHistory(showId, season, watchedAt),
-    );
-    console.log(`[API SUCCESS] Trakt ile senkronize edildi. Gerçek veri çekiliyor...`);
-
-    // 🔄 T6.1 — İLERLEME ARTIK HER ZAMAN BİZDEN TAZELENİYOR.
-    // Bu blok eskiden YALNIZCA Kaymak kullanıcısınındı; Trakt'lı kullanıcı
-    // aşağıdaki `getShowProgress(showId)` yolundan geçiyordu — DİZİ BAŞINA
-    // BİR TRAKT İSTEĞİ, planın §6.2'de Y28 diye yasakladığı desen ve
-    // §D14'ün 57 isteğinin kaynağı. T6 kararıyla okuma yolu BİZ olduğumuz
-    // için o kuyruk kaldırıldı.
-    //
-    // ⛔ TRAKT'A GERİ DÜŞÜŞ EKLENMEDİ — bilinçli. Geri düşüş tam da
-    // öldürdüğümüz dizi-başına isteği geri getirirdi. `kaymakIlerlemeTazele`
-    // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
-    // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
-    recordMutationResult('markSeasonAsWatched', true);
-    // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
-    // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
-    // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
-    // Tazeleme arkada, gecikmeli ve nesil korumalı çalışır.
-    //
-    // ⚠️ İyimser yama üretilemediyse (elde ilerleme yok — dizi ilk kez
-    // açılıyor) BEKLEMEK ZORUNDAYIZ: aksi hâlde kullanıcıya boş ekran
-    // döner. O ilk turda yarış da yok, çünkü ortada eski durum yok.
-    const nesil = ilerlemeNesli.get(showId) ?? 0;
-    const yerel = mevcutIlerleme(showId);
-    if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
-    tazelemeyiPlanla(showId);
-    return yerel;
-  } catch (error) {
-    console.error(`[API ERROR] Sezon işaretleme başarısız, eski haline dönülüyor!`, error);
-    logError('mutations.progress.markSeasonAsWatched', error);
-    recordMutationResult('markSeasonAsWatched', false);
-    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
-    throw error;
-  }
-};
-
-// Trakt'ın /sync/history uç noktası her POST'ta yeni bir "izlenme" (play) ekler
-// — aynı sezonu ikinci kez göndermek, önce geçmişi silmeden doğrudan "tekrar
-// izlendi" anlamına gelir. Bu yüzden markSeasonAsWatched'ın aynısı, sadece
-// niyeti (ve ayrı optimistic UI mesajını) netleştirmek için ayrı isimle.
-export const rewatchSeason = async (showId: number, season: number, mediaData?: any) => {
-  return markSeasonAsWatched(showId, season, mediaData);
-};
+import { nesliArtir, reactivateShowTracking, unhideMovieIfNeeded, mevcutIlerleme, cancelProgressRefresh } from './progressState';
+export { unwatchEpisode, unwatchSeason } from './progressUndo';
 
 export type IsaretlemePlani = { sezon: number; bolumler: number[] };
 
-/**
- * ÇOK SEZONLU TOPLU İŞARETLEME (M421).
- *
- * 🔴 ÜRÜN KARARI (kullanıcı, 2026-09-20): *"2. sezona geçen bir kullanıcı
- * mantıken 1. sezonu da bitirmiştir."* Eski `markEpisodesUpToAsWatched` TEK
- * sezon alıyordu ve zincirin dört katmanında (karar → çağrı → mutasyon → uç)
- * sezon sınırı vardı; "öncekileri de işaretle" bu yüzden önceki sezonlara
- * hiç dokunamıyordu.
- *
- * ⚠️ SEZON BAŞINA BİR İSTEK, SIRAYLA: Worker'ın `/library/watched` gövdesi
- * tek sezon taşıyor (`trakt: {showId, season, episodes}`). Paralel değil
- * sıralı: hem sunucuda tutarlı sıra, hem de 200 bölümlük planda ani yük yok.
- *
- * ⚠️ AKIŞA YALNIZCA SEÇİLEN BÖLÜM YAYINLANIR: 200 bölümlük bir plan akışı
- * 200 kartla doldururdu. Kullanıcının EYLEMİ "buraya kadar izledim"dir;
- * akışın taşıdığı bilgi de o bölümdür.
- */
+/** Günlükte tam API payload'ı/kimlik/anahtar değil yalnız gerekli katalog alanları. */
+function mediaFor(id: number, type: 'show' | 'movie', data?: any) {
+  const state = useLibraryStore.getState();
+  const list = type === 'movie'
+    ? [...state.watchlistMovies, ...state.watchedMovies]
+    : [...state.watchlistShows, ...state.watchedShows];
+  const media = data || list.find((p: any) => p?.[type]?.ids?.trakt === id)?.[type];
+  const meta = resolveMediaMeta(id, type);
+  return {
+    ids: { trakt: id, tmdb: media?.ids?.tmdb ?? meta.tmdbId },
+    title: media?.title || meta.title, year: media?.year, runtime: media?.runtime,
+    images: media?.images,
+  };
+}
+function compactSkeleton(seasons?: any[] | null) {
+  return seasons?.map((s) => ({
+    number: s.number, episodes: s.episodes?.map((e: any) => ({
+      number: e.number, title: e.title, first_aired: e.first_aired,
+    })),
+  }));
+}
+const saveIntent = async (draft: WatchedDraft, metric: string) => {
+  try { return await queueWatched(draft); }
+  catch (error) {
+    // Disk hatası: store/yeşil tik değişmeden çağıran görünür hata verir.
+    recordMutationResult(metric, false);
+    throw error;
+  }
+};
+const finishShow = (showId: number, metric: string) => {
+  cancelProgressRefresh(showId);
+  persistShowProgressMap(useLibraryStore.getState().showProgressMap);
+  recordMutationResult(metric, true);
+  // Arka plan sürücüsü bu yerel ACK'den sonra ağ işini üstlenir.
+  resumeWatchedOutbox();
+  return mevcutIlerleme(showId);
+};
+
+export const markEpisodeAsWatched = async (showId: number, season: number, episode: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
+  const watchedAt = nowStamp();
+  await saveIntent({
+    mediaType: 'show', mediaId: showId, watchedAt, parts: [{ season, episodes: [episode] }],
+    media: mediaFor(showId, 'show', mediaData), skeleton: compactSkeleton(iskeletSezonlar),
+    activity: { season, episode },
+  }, 'markEpisodeAsWatched');
+  nesliArtir(showId);
+  reactivateShowTracking(showId, mediaData);
+  setShowProgressMap((prev: any) => {
+    const yamali = bolumleriIsaretle(prev[showId] || iskeletKur(iskeletSezonlar), season, [episode], watchedAt);
+    return yamali ? { ...prev, [showId]: yamali } : prev;
+  });
+  return finishShow(showId, 'markEpisodeAsWatched');
+};
+
+export const rewatchEpisode = async (showId: number, season: number, episode: number) =>
+  markEpisodeAsWatched(showId, season, episode);
+
+export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
+  const watchedAt = nowStamp();
+  const base = useLibraryStore.getState().showProgressMap[showId] || iskeletKur(iskeletSezonlar);
+  const episodes = base?.seasons?.find((s: any) => s.number === season)?.episodes
+    ?.filter((e: any) => !e.first_aired || Date.parse(e.first_aired) <= Date.parse(watchedAt))
+    .map((e: any) => e.number);
+  await saveIntent({
+    mediaType: 'show', mediaId: showId, watchedAt,
+    parts: [{ season, episodes: episodes?.length ? episodes : '*' }],
+    media: mediaFor(showId, 'show', mediaData), skeleton: compactSkeleton(iskeletSezonlar),
+  }, 'markSeasonAsWatched');
+  nesliArtir(showId);
+  reactivateShowTracking(showId, mediaData);
+  setShowProgressMap((prev: any) => {
+    const yamali = sezonuIsaretle(prev[showId] || iskeletKur(iskeletSezonlar), season, watchedAt);
+    return yamali ? { ...prev, [showId]: yamali } : prev;
+  });
+  return finishShow(showId, 'markSeasonAsWatched');
+};
+
+export const rewatchSeason = async (showId: number, season: number, mediaData?: any) =>
+  markSeasonAsWatched(showId, season, mediaData);
+
 export const planiIsaretle = async (
-  showId: number,
-  plan: IsaretlemePlani[],
-  mediaData?: any,
-  iskeletSezonlar?: any[] | null,
+  showId: number, plan: IsaretlemePlani[], mediaData?: any, iskeletSezonlar?: any[] | null,
 ) => {
   const temiz = (plan || [])
     .filter((p) => p && Number.isInteger(p.sezon) && Array.isArray(p.bolumler) && p.bolumler.length > 0)
-    .map((p) => ({ sezon: p.sezon, bolumler: [...p.bolumler].sort((a, b) => a - b) }))
+    .map((p) => ({ sezon: p.sezon, bolumler: [...new Set(p.bolumler)].sort((a, b) => a - b) }))
     .sort((a, b) => a.sezon - b.sezon);
   if (temiz.length === 0) return mevcutIlerleme(showId);
-
-  let previousState: any = null;
-  const kaymak = await kaymakYoluMu();
-  const nesilBaslangic = nesliArtir(showId);
-  const toplam = temiz.reduce((t, p) => t + p.bolumler.length, 0);
-  console.log(`[OPTIMISTIC UI] Plan işaretleniyor: Show ${showId}, ${temiz.length} sezon, ${toplam} bölüm`);
-  reactivateShowTracking(showId, mediaData);
-
   const watchedAt = nowStamp();
-
+  const son = temiz[temiz.length - 1];
+  await saveIntent({
+    mediaType: 'show', mediaId: showId, watchedAt,
+    parts: temiz.map((p) => ({ season: p.sezon, episodes: p.bolumler })),
+    media: mediaFor(showId, 'show', mediaData), skeleton: compactSkeleton(iskeletSezonlar),
+    activity: { season: son.sezon, episode: son.bolumler[son.bolumler.length - 1] },
+  }, 'markEpisodesUpToAsWatched');
+  nesliArtir(showId);
+  reactivateShowTracking(showId, mediaData);
   setShowProgressMap((prev: any) => {
-    previousState = prev[showId];
-    // 🔴 EKSİKSİZ İYİMSER YAMA (M321): tüm sezonlar TEK turda yamanır,
-    // yoksa ekran plan ilerledikçe parça parça güncellenir.
-    // 🔴 M422 — İLERLEME YOKSA EKRANIN KATALOG VERİSİNDEN İSKELET KUR.
-    // Aksi hâlde `bolumleriIsaretle` null döner, iyimser güncelleme HİÇ
-    // yapılmaz ve kullanıcı (özellikle çok bölümlü planda) sunucu turunu
-    // bekler: "yalnız bastığım bölüm tikli göründü, gir-çık yapınca hepsi".
     let yamali = prev[showId] || iskeletKur(iskeletSezonlar);
     for (const p of temiz) {
       const sonuc = bolumleriIsaretle(yamali, p.sezon, p.bolumler, watchedAt);
       if (sonuc) yamali = sonuc;
     }
-    if (!yamali || yamali === prev[showId]) return prev;
-    return { ...prev, [showId]: yamali };
+    return yamali ? { ...prev, [showId]: yamali } : prev;
   });
-
-  try {
-    for (const p of temiz) {
-      await ciftYaz(
-        () => libraryApi.markEpisodesWatched(showId, p.sezon, p.bolumler, watchedAt),
-        kaymak ? null : () => addEpisodesBulkToHistory(showId, p.sezon, p.bolumler, watchedAt),
-      );
-    }
-
-    const meta = showMetaFor(showId);
-    const sonSezon = temiz[temiz.length - 1];
-    const sonBolum = sonSezon.bolumler[sonSezon.bolumler.length - 1];
-    publishActivities([
-      {
-        activityType: 'watched_episode',
-        showId,
-        mediaType: 'show',
-        showTitle: meta.title,
-        tmdbId: meta.tmdbId,
-        episodeNumber: formatEpisodeCode(sonSezon.sezon, sonBolum),
-        activityAt: watchedAt,
-      },
-    ]);
-
-    recordMutationResult('markEpisodesUpToAsWatched', true);
-    const nesil = ilerlemeNesli.get(showId) ?? 0;
-    const yerel = mevcutIlerleme(showId);
-    if (!yerel) return await kaymakIlerlemeTazele(showId, nesil);
-    tazelemeyiPlanla(showId);
-    return yerel;
-  } catch (error) {
-    console.error('[API ERROR] Plan işaretleme başarısız, eski haline dönülüyor!', error);
-    logError('mutations.progress.planiIsaretle', error);
-    recordMutationResult('markEpisodesUpToAsWatched', false);
-    geriAlVeyaTazele(showId, nesilBaslangic, previousState);
-    throw error;
-  }
+  return finishShow(showId, 'markEpisodesUpToAsWatched');
 };
 
-/** Tek sezonluk kısayol — eski çağrı yerleri (sezon işaretleme) için. */
 export const markEpisodesUpToAsWatched = async (
-  showId: number,
-  season: number,
-  episodes: number[],
-  mediaData?: any,
-  iskeletSezonlar?: any[] | null,
+  showId: number, season: number, episodes: number[], mediaData?: any, iskeletSezonlar?: any[] | null,
 ) => planiIsaretle(showId, [{ sezon: season, bolumler: episodes }], mediaData, iskeletSezonlar);
 
 export const markMovieAsWatched = async (movieId: number, mediaData?: any) => {
-  let previousWatchlist: any = null;
-  let previousWatched: any = null;
-  let movieItemToMove: any = null;
-
-  console.log(`[OPTIMISTIC UI] Film UI'da anında işaretleniyor: Movie ${movieId}`);
-
-  // Kullanıcı "Bırak" ile gizlediği bir filmi sonradan izlediyse artık
-  // Gizlenenler/Bırakılanlar'da görünmemeli. Gizlenmiş olmak en yüksek
-  // öncelikli kova olduğu için (bkz. movieTrackingLogic), geçmişe eklenmesi
-  // tek başına bunu geçersiz kılmaz — gizlemeyi açıkça kaldırmak gerekir.
-  // Dizilerdeki `reactivateShowTracking` kuralının film karşılığı.
-  unhideMovieIfNeeded(movieId);
-
-  setWatchlistMovies((prev: any) => {
-    previousWatchlist = prev;
-    const item = prev.find((p: any) => p.movie.ids.trakt === movieId);
-    if (item) {
-      movieItemToMove = item;
-      const newWatchlist = prev.filter((p: any) => p.movie.ids.trakt !== movieId);
-      safeStorageSet(CACHE_KEYS.watchlistMovies, JSON.stringify(newWatchlist));
-      return newWatchlist;
-    }
-    return prev;
-  });
-
-  setWatchedMovies((prev: any) => {
-    previousWatched = prev;
-    // 🔴 M417: eskiden girdi YALNIZCA `movieItemToMove` (izleme listesinden
-    // taşınan film) varken ekleniyordu → listede olmayan film işaretlenince
-    // ekran hiç değişmiyordu. Karar ve gerekçe: `optimistikFilm.ts`.
-    const newWatched = izlenenFilmeEkle(prev, movieId, movieItemToMove?.movie || mediaData);
-    if (newWatched !== prev) {
-      safeStorageSet(CACHE_KEYS.watchedMovies, JSON.stringify(newWatched));
-      return newWatched;
-    }
-    return prev;
-  });
-
-  // 🔴 M421 (denetim K) — İZLENEN FİLM TAKVİMDEN DÜŞER. Dizi tarafında bu
-  // temizlik `deleteMediaFromHistory`'de vardı, film işaretlemede karşılığı
-  // yoktu: izlenmiş film "Yakında" listesinde durmaya devam ediyordu.
-  setCalendarMovies((prev: any[]) => {
-    const liste = Array.isArray(prev) ? prev : [];
-    const yeni = liste.filter((p: any) => p?.movie?.ids?.trakt !== movieId);
-    if (yeni.length === liste.length) return prev;
-    safeStorageSet(CACHE_KEYS.calendarMovies, JSON.stringify(yeni));
-    return yeni;
-  });
-
   const watchedAt = nowStamp();
-
-  try {
-    const kaymakFilm = await kaymakYoluMu();
-    await ciftYaz(
-      () => libraryApi.markMovieWatched(movieId, watchedAt),
-      kaymakFilm ? null : () => addMovieToHistory(movieId, watchedAt),
-    );
-
-    // Film izlemeleri artık Akış'ta görünüyor (yeni `watched_movie` tipi) —
-    // eskiden akış YALNIZCA bölüm izlemelerini ve puanlamaları taşıyordu,
-    // bir filmi izlediğini işaretlemek hiçbir yerde görünmüyordu.
-    const movie = movieItemToMove?.movie
-      || (useLibraryStore.getState().watchedMovies || []).find((m: any) => m?.movie?.ids?.trakt === movieId)?.movie;
-    if (movie?.title) {
-      publishActivities([
-        {
-          activityType: 'watched_movie',
-          showId: movieId,
-          mediaType: 'movie',
-          showTitle: movie.title,
-          tmdbId: movie?.ids?.tmdb,
-          activityAt: watchedAt,
-        },
-      ]);
-    }
-
-    recordMutationResult('markMovieAsWatched', true);
-  } catch (error) {
-    console.error(`[API ERROR] Film işaretleme başarısız, eski haline dönülüyor!`, error);
-    logError('mutations.progress.markMovieAsWatched', error);
-    recordMutationResult('markMovieAsWatched', false);
-    if (previousWatchlist !== null) {
-      setWatchlistMovies(previousWatchlist);
-      safeStorageSet(CACHE_KEYS.watchlistMovies, JSON.stringify(previousWatchlist));
-    }
-    if (previousWatched !== null) {
-      setWatchedMovies(previousWatched);
-      safeStorageSet(CACHE_KEYS.watchedMovies, JSON.stringify(previousWatched));
-    }
-    throw error;
-  }
+  await saveIntent({
+    mediaType: 'movie', mediaId: movieId, watchedAt, parts: [{}],
+    media: mediaFor(movieId, 'movie', mediaData),
+  }, 'markMovieAsWatched');
+  unhideMovieIfNeeded(movieId);
+  let movieItemToMove: any = null;
+  setWatchlistMovies((prev: any[]) => {
+    movieItemToMove = prev.find((p: any) => p.movie?.ids?.trakt === movieId);
+    const list = prev.filter((p: any) => p.movie?.ids?.trakt !== movieId);
+    safeStorageSet(CACHE_KEYS.watchlistMovies, JSON.stringify(list));
+    return list;
+  });
+  setWatchedMovies((prev: any[]) => {
+    const list = izlenenFilmeEkle(prev, movieId, movieItemToMove?.movie || mediaData);
+    safeStorageSet(CACHE_KEYS.watchedMovies, JSON.stringify(list));
+    return list;
+  });
+  setCalendarMovies((prev: any[]) => {
+    const list = (prev || []).filter((p: any) => p.movie?.ids?.trakt !== movieId);
+    safeStorageSet(CACHE_KEYS.calendarMovies, JSON.stringify(list));
+    return list;
+  });
+  recordMutationResult('markMovieAsWatched', true);
+  resumeWatchedOutbox();
 };

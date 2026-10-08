@@ -5,7 +5,6 @@ import { useLibraryActions } from '../context/LibraryContext';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { sonucuBeklemeli } from '../utils/isaretlemeBekleme';
 import { atlananPlan, planToplami, planTekBolumMu, SezonListesi, IsaretlemePlani } from '../utils/atlananBolumler';
 
 interface EpisodeCheckButtonProps {
@@ -61,20 +60,15 @@ export default function EpisodeCheckButton({
   // ESKİ SORUN: checkmark ancak 2 SIRALI ağ isteği (tarihçeye ekleme +
   // ilerleme yenileme) tamamen bitince gösteriliyordu; üstüne 1.6 sn sabit
   // bekleme de eklenince marathon izlerken her bölümde saniyelerce bekleniyordu.
-  // YENİ AKIŞ: ekran ANINDA (iyimser) tepki verir; gerçek Trakt senkronizasyonu
-  // arka planda sürer. "Dizi bitti mi?" kontrolü sunucu verisini gerektirdiği
-  // için arka planda gelir ve kartın bir sonraki bölüme geçişini beklemez.
+  // M439: yalnız kısa YEREL disk ACK'i beklenir; ardından iyimser tik gösterilir.
+  // Worker/Trakt senkronizasyonu arka planda sürer. Kapanışta bu günlük tekrar
+  // oynatılır; ACK öncesindeki başarısız disk yazması başarı sayılmaz.
   const performCheckIn = (plan: IsaretlemePlani[] | null) => {
     if (busyRef.current) return;
     busyRef.current = true;
     const myRequestId = ++requestIdRef.current;
     const watchedInfo = { season, episode };
-    // 🔴 M413 — dizinin İLK işaretlemesinde iyimser güncelleme yapılamıyor
-    // (mağazada ilerleme kaydı yok); kalıcı tik sunucu turunu bekliyor.
-    // O durumda yeşil + kilit işlem SONUÇLANANA kadar tutulur: hem tik
-    // "gitmez" hem de arada ikinci basış ikinci izleme kaydı üretemez.
-    // Karar mutasyon mağazayı değiştirmeden ÖNCE okunmalı.
-    const sonucuBekle = sonucuBeklemeli(useLibraryStore.getState().showProgressMap[traktId]);
+    // M439: başlangıç kilidi disk ACK'ine kadar; yeşil sonra gösterilir.
     const serbestBirak = () => {
       if (requestIdRef.current !== myRequestId) return;
       setIsSuccess(false);
@@ -82,23 +76,25 @@ export default function EpisodeCheckButton({
       busyRef.current = false;
     };
 
-    setIsSuccess(true);
-    onSuccessStateChange?.(true, watchedInfo);
-
     const mutationPromise = plan
       ? planiIsaretle(traktId, plan, showMedia, iskeletSezonlar)
       : markEpisodeAsWatched(traktId, season, episode, showMedia, iskeletSezonlar);
 
     mutationPromise
       .then((newProgress) => {
+        // M439: mutasyon artık YEREL KALICI ACK verir; ağ turu beklenmez.
+        // Günlük setItem tamamlanmadan yeşil başarı gösterme.
+        if (requestIdRef.current !== myRequestId) return;
+        setIsSuccess(true);
+        onSuccessStateChange?.(true, watchedInfo);
         // Bu noktada ilerleme mağazaya yazılmış ve kalıcı tik çizilmiş olur.
-        if (sonucuBekle) serbestBirak();
+        setTimeout(serbestBirak, SUCCESS_HOLD_MS);
         // 🔴 M418: `newProgress` NULL olabilir — `kaymakIlerlemeTazele`
         // sunucu düşerse/boş dönerse mağazadaki değeri döndürüyor ve dizinin
         // İLK işaretlemesinde o değer yok. Null'ı "sıradaki bölüm yok" diye
         // okumak, tek bölüm işaretleyen kullanıcıya KONFETİ + "diziyi puanla"
         // göstermek ve düğmeyi kalıcı kilitlemek demekti.
-        if (newProgress && !newProgress.next_episode) {
+        if (newProgress && !newProgress.next_episode && !newProgress.catalogIncomplete) {
           setIsFinishedLocal(true);
           if (onShowFinished && showName) {
             onShowFinished(showName, traktId);
@@ -113,7 +109,6 @@ export default function EpisodeCheckButton({
         serbestBirak();
       });
 
-    if (!sonucuBekle) setTimeout(serbestBirak, SUCCESS_HOLD_MS);
   };
 
   const handleCheckIn = () => {

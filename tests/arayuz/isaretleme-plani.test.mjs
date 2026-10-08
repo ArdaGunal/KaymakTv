@@ -89,12 +89,17 @@ T.ok('Listede yoksa AYNI referans', (() => { const l = [{ show: { ids: { trakt: 
 T.H('Kaynak denetimleri');
 const oku = (...y) => fs.readFileSync(path.join(KOK, ...y), 'utf8');
 const prog = oku('services', 'library', 'mutations', 'progress.ts');
+const ortak = oku('services', 'library', 'mutations', 'progressState.ts');
+const motor = oku('services', 'library', 'outbox', 'engine.ts');
 T.ok('planiIsaretle cok sezonlu ve SIRAYLA yaziyor',
-  /export const planiIsaretle/.test(prog) && /for \(const p of temiz\) \{\s*\n\s*await ciftYaz\(/.test(prog));
+  /export const planiIsaretle/.test(prog)
+  && /parts: temiz.map\(\(p\) => \(\{ season: p.sezon, episodes: p.bolumler \}\)\)/.test(prog)
+  && /for \(let i = 0; i < job.parts.length; i\+\+\)/.test(motor)
+  && /await ports.kaymak\(job, part, s\)/.test(motor) && !/Promise.all/.test(motor));
 T.ok('markEpisodesUpToAsWatched artik plana deleniyor',
   /markEpisodesUpToAsWatched[\s\S]{0,220}planiIsaretle\(showId, \[\{ sezon: season, bolumler: episodes \}\]/.test(prog));
 T.ok('reactivateShowTracking izleme listesinden DUSURUYOR + izlenenlere EKLIYOR',
-  /izlemeListesindenDus\(prev, showId\)/.test(prog) && /izlenenDiziyeEkle\(prev, showId, dizi\)/.test(prog));
+  /izlemeListesindenDus\(prev, showId\)/.test(ortak) && /izlenenDiziyeEkle\(prev, showId, dizi\)/.test(ortak));
 T.ok('Eski "listede yoksa hicbir sey yapma" dali KALMADI',
   !/const idx = \(prev \|\| \[\]\)\.findIndex[\s\S]{0,80}if \(idx === -1\) return prev;\s*\n\s*const updated/.test(prog));
 T.ok('Izlenen film TAKVIMDEN dusuyor', /setCalendarMovies\(\(prev: any\[\]\) =>/.test(prog));

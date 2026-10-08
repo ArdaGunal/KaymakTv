@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { categorizeShows, ShowCategories } from '../store/tracking/trackingLogic';
+import { useWatchedOutboxStore } from '../store/watchedOutboxStore';
 
 export interface UseTrackingShowsResult {
   categories: ShowCategories;
@@ -73,6 +74,7 @@ function useTrackingNow(): number {
 export function useTrackingShows(): UseTrackingShowsResult {
   const { t } = useTranslation('media');
   const now = useTrackingNow();
+  const pendingShowIds = useWatchedOutboxStore((s) => s.pendingShowIds);
 
   const { watchedShows, watchlistShows, showProgressMap, hiddenShowIds, isLibraryLoading } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
@@ -91,6 +93,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         watchlistShows: watchlistShows || [],
         showProgressMap: showProgressMap || {},
         hiddenShowIds,
+        pendingShowIds,
         now,
         labels: {
           unnamedShow: t('unnamedShow', 'İsimsiz Dizi'),
@@ -99,7 +102,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, now, t]
+    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, now, t]
   );
 
   const totalCount = categories.upNext.length + categories.paused.length + categories.notStarted.length;

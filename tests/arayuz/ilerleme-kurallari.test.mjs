@@ -116,7 +116,10 @@ T.H('Kaynak denetimi: iskelet zinciri bagli mi');
 const oku = (...y) => fs.readFileSync(path.join(KOK, ...y), 'utf8');
 const prog = oku('services', 'library', 'mutations', 'progress.ts');
 T.ok('Uc mutasyon da ilerleme yoksa iskelete dusuyor',
-  (prog.match(/iskeletKur\(iskeletSezonlar\)/g) || []).length === 3,
+  ['markEpisodeAsWatched', 'markSeasonAsWatched', 'planiIsaretle'].every((fn) => {
+    const body = prog.slice(prog.indexOf(`export const ${fn} = async`)).split(/\nexport const /)[0];
+    return /iskeletKur\(iskeletSezonlar\)/.test(body);
+  }),
   String((prog.match(/iskeletKur\(iskeletSezonlar\)/g) || []).length));
 const ekran = oku('app', 'show', '[id].tsx');
 // M425: turev artik ORTAK yardimcida (utils/sezonEvreni.ts), ekranda elle degil.

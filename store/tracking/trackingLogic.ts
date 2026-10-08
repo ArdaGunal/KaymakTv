@@ -104,6 +104,8 @@ export interface CategorizeOptions {
   labels: TrackingLabels;
   /** Trakt'ta "İlerlemeyi Gizle" (= "Bırak") ile gizlenmiş dizilerin trakt id'leri (bkz. `hiddenShowIds` store dilimi). */
   hiddenShowIds?: number[] | Set<number>;
+  /** Yazma + tam sunucu teyidi bekleyen diziler. Eksik katalogla kartı gizleme. */
+  pendingShowIds?: number[] | Set<number>;
   now?: number;
   /** Son izlemenin üzerinden kaç gün geçince "Ara Verilenler"e düşeceği. */
   pauseThresholdDays?: number;
@@ -130,10 +132,12 @@ export function categorizeShows({
   showProgressMap,
   labels,
   hiddenShowIds = [],
+  pendingShowIds = [],
   now = Date.now(),
   pauseThresholdDays = DEFAULT_PAUSE_THRESHOLD_DAYS,
 }: CategorizeOptions): ShowCategories {
   const hiddenSet = hiddenShowIds instanceof Set ? hiddenShowIds : new Set(hiddenShowIds);
+  const pendingSet = pendingShowIds instanceof Set ? pendingShowIds : new Set(pendingShowIds);
   const pauseThreshold = now - pauseThresholdDays * 24 * 60 * 60 * 1000;
 
   // 1) Kimliğe göre birleşik havuz: her dizi tek kayıt. watched kaydı önceliklidir
@@ -171,9 +175,12 @@ export function categorizeShows({
     // gösterirdi (bkz. kural 2'nin eski, artık düzeltilmiş hâliyle ilgili not).
     const lastEp = progress?.last_episode ?? null;
 
-    const isCalculating = progress === undefined && entry.fromWatched;
-    const hasStarted = completed > 0 || (isCalculating && entry.fromWatched);
     const nextReady = !!next && hasAired(next.first_aired, now);
+    const pending = pendingSet.has(id);
+    // M441: yazma teyitsizken next=null "dizi bitti" kanıtı değildir.
+    // Kart görünür kalır; bilmediğimiz sıradaki bölüme basılabilir tik üretmeyiz.
+    const isCalculating = (progress === undefined && entry.fromWatched) || (pending && !nextReady);
+    const hasStarted = completed > 0 || (isCalculating && entry.fromWatched);
     // Sıradaki (henüz yayınlanmamış olsa bile) duyurulan bölüm varsa onu,
     // yoksa son izlenen bölümü göster — ikisi de yoksa (uç durum) 1'e düş.
     const caughtUpRef = next || lastEp;
@@ -228,7 +235,7 @@ export function categorizeShows({
     // görünmeye devam eder. `!!progress` şartı, arka planda ilerlemesi henüz
     // hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor" spinner
     // kartını göstermeye devam etmesini garanti eder.
-    if (!!progress && hasStarted && !nextReady) {
+    if (!!progress && hasStarted && !nextReady && !pending) {
       caughtUp.push({
         ...base,
         season,

@@ -41,6 +41,8 @@ type Bolum = {
 type Sezon = { number: number; aired?: number; completed?: number; episodes?: Bolum[] };
 
 export type Ilerleme = {
+  /** Yerel bölüm listesi otoriter yayınlanmış sayısını kapsamıyor. */
+  catalogIncomplete?: boolean;
   aired?: number;
   completed?: number;
   last_watched_at?: string | null;
@@ -166,19 +168,38 @@ export const bolumleriIsaretle = (
 ): Ilerleme | null => {
   if (!ilerleme?.seasons?.length) return null;
   const hedef = new Set(episodeNumbers);
+  let yeniIsaret = 0;
+  let degisti = false;
 
   const kopya: Ilerleme = {
     ...ilerleme,
     seasons: ilerleme.seasons.map((s) => ({
       ...s,
-      episodes: (s.episodes || []).map((b) =>
-        s.number === seasonNumber && hedef.has(b.number)
-          ? { ...b, completed: true, last_watched_at: watchedAt }
-          : { ...b },
-      ),
+      episodes: (s.episodes || []).map((b) => {
+        if (s.number !== seasonNumber || !hedef.has(b.number)) return { ...b };
+        if (!b.completed) {
+          degisti = true;
+          if (seasonNumber !== OZEL_SEZON) yeniIsaret++;
+        }
+        const stamp = !b.last_watched_at || Date.parse(b.last_watched_at) < Date.parse(watchedAt)
+          ? watchedAt : b.last_watched_at;
+        return { ...b, completed: true, last_watched_at: stamp };
+      }),
     })),
   };
-  return yenidenHesapla(kopya, simdi);
+  // M441: sunucu zaten bu tikleri döndürdüyse yalnız tarihi yamala.
+  // Kısmi seasons listesinden tekrar hesaplayıp kanonik next/sayaçları bozma.
+  if (!degisti && typeof ilerleme.aired === 'number' && typeof ilerleme.completed === 'number') return { ...kopya, last_watched_at:
+    !ilerleme.last_watched_at || Date.parse(ilerleme.last_watched_at) < Date.parse(watchedAt)
+      ? watchedAt : ilerleme.last_watched_at };
+  const hesap = yenidenHesapla(kopya, simdi);
+  if (typeof ilerleme.aired === 'number' && ilerleme.aired > (hesap.aired ?? 0)) {
+    // Eksik katalogla 7/9'u 1/1'e dönüştürüp sahte %100/konfeti üretme.
+    return { ...hesap, catalogIncomplete: true, aired: ilerleme.aired,
+      completed: typeof ilerleme.completed === 'number'
+        ? Math.min(ilerleme.aired, ilerleme.completed + yeniIsaret) : hesap.completed };
+  }
+  return hesap;
 };
 
 /** Sezonun TÜM bölümlerini iyimser işaretler ("sezonu izledim"). */

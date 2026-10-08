@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import {
   fetchKaymakProfile,
   KaymakAramaHatasi,
@@ -6,6 +8,7 @@ import {
 } from '../../../services/api/kaymakSocial';
 import type { ProfilKimligi } from '../../../components/profile/ProfileHeader';
 import { usePublicProfile, type PublicProfileError } from './usePublicProfile';
+import { takipMutasyonNesli, useFollowStore } from '../../../store/followStore';
 
 /**
  * Başkasının profili için KİMLİK — Faz T · T3.3 (M338).
@@ -40,7 +43,7 @@ export function usePublicProfileIdentity(username: string | null) {
   const [kaymakYukleniyor, setKaymakYukleniyor] = useState(true);
   const [kaymakHata, setKaymakHata] = useState<PublicProfileError | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     // Profilden profile geçişte ÖNCEKİ kişinin kimliği bir an bile kalmasın —
     // o arada takip düğmesi eski `userId`'yi hedefleyebilirdi.
     setKaymakProfil(null);
@@ -50,24 +53,44 @@ export function usePublicProfileIdentity(username: string | null) {
       return;
     }
     let cancelled = false;
-    setKaymakYukleniyor(true);
-    fetchKaymakProfile(username)
-      .then((p) => {
-        if (!cancelled) setKaymakProfil(p);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        // 🔴 SESSİZ DEĞİL: "böyle biri yok" ile "yüklenemedi" AYRI mesajlar.
-        console.warn('[PublicProfile] Kaymak kimliği çözülemedi:', e);
-        setKaymakHata(e instanceof KaymakAramaHatasi && e.tur === 'bulunamadi' ? 'not_found' : 'generic');
-      })
-      .finally(() => {
-        if (!cancelled) setKaymakYukleniyor(false);
-      });
+    let sonIstek = 0;
+    const tazele = () => {
+      const istekNo = ++sonIstek;
+      const baslangicNesli = takipMutasyonNesli();
+      setKaymakYukleniyor(true);
+      setKaymakHata(null);
+      fetchKaymakProfile(username)
+        .then(async (p) => {
+          if (cancelled || istekNo !== sonIstek) return;
+          // M434: gizlilik kilidi taze /profile ilişkisini, düğme ise TTL'li
+          // /graph kopyasını okuyordu. Kabul edilmiş istek "bekliyor" kalıyordu.
+          await useFollowStore.getState().applyProfileConnection(
+            p.profile.userId,
+            p.iliski === 'takip' ? 'following' : p.iliski === 'bekliyor' ? 'pending' : 'none',
+            baslangicNesli,
+          );
+          if (!cancelled && istekNo === sonIstek) setKaymakProfil(p);
+        })
+        .catch((e) => {
+          if (cancelled || istekNo !== sonIstek) return;
+          console.warn('[PublicProfile] Kaymak kimliği çözülemedi:', e);
+          setKaymakHata(e instanceof KaymakAramaHatasi && e.tur === 'bulunamadi' ? 'not_found' : 'generic');
+        })
+        .finally(() => {
+          if (!cancelled && istekNo === sonIstek) setKaymakYukleniyor(false);
+        });
+    };
+    tazele();
+    let oncekiDurum = AppState.currentState;
+    const abonelik = AppState.addEventListener('change', (durum) => {
+      if (durum === 'active' && oncekiDurum !== 'active') tazele();
+      oncekiDurum = durum;
+    });
     return () => {
       cancelled = true;
+      abonelik.remove();
     };
-  }, [username]);
+  }, [username]));
 
   const traktSlug = kaymakProfil?.profile.traktSlug ?? null;
   const { profile: traktProfil, isLoading: isTraktLoading } = usePublicProfile(traktSlug);

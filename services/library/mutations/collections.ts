@@ -1,8 +1,8 @@
+import { flushWatchedOutbox } from '../outbox/runtime';
+import { queueHidden } from '../hiddenOutbox/runtime';
 import {
   addToWatchlistTrakt,
   removeFromWatchlistTrakt,
-  hideItemTrakt,
-  unhideItemTrakt,
   removeFromHistoryTrakt,
   toggleLikedMedia,
   createCustomList,
@@ -47,11 +47,8 @@ import {
   persistShowProgressMap,
   setCalendarShows,
   setCalendarSeasonsMap,
-  setHiddenShowIds,
-  setHiddenMovieIds,
 } from '../utils';
 import { useLibraryStore } from '../../../store/useLibraryStore';
-import { beginHiddenMutation, endHiddenMutation } from '../hiddenSyncGuard';
 import { logError } from '../../../utils/errorLog';
 import { recordMutationResult } from '../../../utils/metrics';
 import {
@@ -207,80 +204,22 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
   }
 };
 
-// "İlerlemeyi Gizle/Göster" — dizinin/filmin izleme geçmişine/puanlarına HİÇ
-// dokunmaz, yalnızca Trakt'ın "gizlenen" listesine ekler/çıkarır (diziler için
-// `progress_watched`, filmler için `calendar` bölümü — bkz. hideItemTrakt).
-// Bu, uygulamanın TEK "Bırak" (Drop) mekanizmasıdır: ayrı bir yerel/Supabase
-// "bırakıldı" durumu YOKTUR — Trakt hesabı tüm cihazlarda tek gerçek kaynaktır
-// (bkz. hiddenShowIds/hiddenMovieIds store dilimleri + store/tracking/
-// trackingLogic.ts, store/tracking/movieTrackingLogic.ts). ESKİ DAVRANIŞ:
-// yalnızca hide yönü vardı ve arayüzü güncellemek için HER seferinde tam bir
-// `fetchFreshData(force=true)` (13+ endpoint'lik tüm kütüphane resync'i) tetikliyordu
-// — tek bir diziyi gizlemek için orantısız bir maliyetti (bkz. performans raporu).
-// Artık `toggleFavoriteStatus` ile AYNI optimistic desen kullanılıyor: yerel
-// `hiddenShowIds`/`hiddenMovieIds` anında güncellenir, arayüz aynı anda yenilenir,
-// tam resync'e hiç gerek kalmaz.
+// M447: Bırak/Geri Al izleme geçmişini değiştirmez. Önce disk ACK;
+// sonra UI + idempotent hidden API. Ağ hatasında niyet rollback ile kaybolmaz.
 export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie', isCurrentlyHidden: boolean) => {
-  let previousHiddenShowIds: number[] | null = null;
-  let previousHiddenMovieIds: number[] | null = null;
-  // 🔴 Yönlendirme kararı `beginHiddenMutation`'DAN ÖNCE alınır. Sonrasında
-  // alınsaydı `await` gizleme muhafızının penceresini gereksiz uzatırdı;
-  // muhafızın amacı pencereyi DAR tutmak (bkz. hiddenSyncGuard.ts).
-  const kaymak = await kaymakYoluMu();
-
-  // Aynı anda çalışan bir tam senkron, bu iyimser güncellemeyi ESKİ bir sunucu
-  // anlık görüntüsüyle geri almasın (bkz. services/library/hiddenSyncGuard.ts).
-  beginHiddenMutation(type, id, !isCurrentlyHidden);
-
-  if (type === 'show') {
-    setHiddenShowIds((prev: number[]) => {
-      previousHiddenShowIds = prev;
-      const next = isCurrentlyHidden ? prev.filter((existing) => existing !== id) : [...prev, id];
-      safeStorageSet(CACHE_KEYS.hiddenShowIds, JSON.stringify(next));
-      return next;
-    });
-  } else {
-    setHiddenMovieIds((prev: number[]) => {
-      previousHiddenMovieIds = prev;
-      const next = isCurrentlyHidden ? prev.filter((existing) => existing !== id) : [...prev, id];
-      safeStorageSet(CACHE_KEYS.hiddenMovieIds, JSON.stringify(next));
-      return next;
-    });
-  }
-
   try {
-    if (kaymak) {
-      if (isCurrentlyHidden) {
-        await (type === 'show' ? libraryApi.unhideShow(id) : libraryApi.unhideMovie(id));
-      } else {
-        await (type === 'show' ? libraryApi.hideShow(id) : libraryApi.hideMovie(id));
-      }
-    } else if (isCurrentlyHidden) {
-      await unhideItemTrakt(id, type);
-    } else {
-      await hideItemTrakt(id, type);
-    }
+    await queueHidden({ mediaId: id, mediaType: type, hidden: !isCurrentlyHidden });
+    // Metrik cihazda kalıcı kabulü ölçer; sunucu teyidi bant/kuyruğa aittir.
     recordMutationResult('toggleHiddenFromProgress', true);
   } catch (err) {
-    console.error('Gizle/Göster hatası, rollback yapılıyor:', err);
-    logError('mutations.collections.toggleHiddenFromProgress', err);
     recordMutationResult('toggleHiddenFromProgress', false);
-    if (type === 'show' && previousHiddenShowIds !== null) {
-      setHiddenShowIds(previousHiddenShowIds);
-      safeStorageSet(CACHE_KEYS.hiddenShowIds, JSON.stringify(previousHiddenShowIds));
-    } else if (type === 'movie' && previousHiddenMovieIds !== null) {
-      setHiddenMovieIds(previousHiddenMovieIds);
-      safeStorageSet(CACHE_KEYS.hiddenMovieIds, JSON.stringify(previousHiddenMovieIds));
-    }
     throw err;
-  } finally {
-    // Başarı VEYA rollback fark etmez: istek artık uçuşta değil, sonraki
-    // senkronlar yine sunucuyu tek gerçek kaynak saysın.
-    endHiddenMutation(type, id);
   }
 };
 
 export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie') => {
+  // Bekleyen eklemeyi silme sonrasında yeniden canlandırma.
+  await flushWatchedOutbox();
   const kaymak = await kaymakYoluMu();
 
   // 🔴 M421 (denetim C) — GERİ ALMA İÇİN FOTOĞRAF. Eski hâl iyimser siliyor,

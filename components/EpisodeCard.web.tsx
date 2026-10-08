@@ -206,6 +206,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
               </View>
 
               {(data.rawTraktId || data.id) &&
+                !data.isCalculating &&
                 data.season !== undefined &&
                 data.episode !== undefined && (
                   <View style={styles.checkBtnWrapper}>

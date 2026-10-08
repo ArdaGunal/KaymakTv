@@ -10,6 +10,9 @@ import OfflineBanner from '../components/OfflineBanner';
 import ErrorFallback from '../components/ErrorFallback';
 import { recordPerfMark } from '../utils/perfLog';
 import { logError } from '../utils/errorLog';
+import { useWatchedOutbox } from '../hooks/useWatchedOutbox';
+import { useHiddenOutbox } from '../hooks/useHiddenOutbox';
+import WatchedOutboxBanner from '../components/WatchedOutboxBanner';
 
 // expo-router'ın kök segmentindeki (bu dosya) BÜTÜN alt ağacı kapsayan
 // çökme yakalayıcısı — bir render hatası eskiden beyaz/boş bir ekranda
@@ -34,6 +37,9 @@ const appLoadStartedAt = Date.now();
 
 function RootLayoutNav() {
   const { isLoading } = useAuth();
+  // show/episode/movie root rotalarına soğuk deep link de kuyruğu başlatır.
+  useWatchedOutbox();
+  useHiddenOutbox();
   const hasRecordedStartup = useRef(false);
 
   // VersionGate (native'de ağ isteği içerebilir) + AuthContext'in oturum
@@ -59,6 +65,7 @@ function RootLayoutNav() {
       </Stack>
       <SoftUpdateBanner />
       <OfflineBanner />
+      <WatchedOutboxBanner />
     </>
   );
 }

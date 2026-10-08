@@ -1,4 +1,5 @@
 import { StateCreator } from 'zustand';
+import { projectProgress, projectWatchedList } from '../../services/library/outbox/projection';
 
 export interface HistorySlice {
   watchedShows: any[];
@@ -14,10 +15,10 @@ export const createHistorySlice: StateCreator<HistorySlice> = (set) => ({
   watchedShows: [],
   watchedMovies: [],
   showProgressMap: {},
-  setWatchedShows: (shows) => set({ watchedShows: shows }),
-  setWatchedMovies: (movies) => set({ watchedMovies: movies }),
-  setShowProgressMap: (map) => set({ showProgressMap: map }),
+  setWatchedShows: (shows) => set({ watchedShows: projectWatchedList(shows, 'show') }),
+  setWatchedMovies: (movies) => set({ watchedMovies: projectWatchedList(movies, 'movie') }),
+  setShowProgressMap: (map) => set({ showProgressMap: projectProgress(map) }),
   updateShowProgress: (id, progress) => set((state) => ({
-    showProgressMap: { ...state.showProgressMap, [id]: progress }
+    showProgressMap: projectProgress({ ...state.showProgressMap, [id]: progress })
   })),
 });

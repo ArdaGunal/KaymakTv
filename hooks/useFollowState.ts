@@ -136,10 +136,11 @@ export function useFollowState(
       // `Alert.alert`e düşer) — burada elle Platform.OS dallanması
       // YAZILMIYOR, o dosyanın kendi amacı zaten bunu önlemekti.
       const previousState = connectionState;
+      const isRequest = previousState === 'pending';
       const confirmed = await confirmAsync(
-        t('unfollowTitle', 'Takipten Çık'),
-        t('unfollowMessage', 'Takipten çıkmak istediğinize emin misiniz?'),
-        t('unfollowConfirm', 'Çık'),
+        isRequest ? t('withdrawRequestTitle', 'İsteği Geri Çek') : t('unfollowTitle', 'Takipten Çık'),
+        isRequest ? t('withdrawRequestMessage', 'Takip isteğini geri çekmek istediğine emin misin?') : t('unfollowMessage', 'Takipten çıkmak istediğinize emin misiniz?'),
+        isRequest ? t('withdrawRequestConfirm', 'Geri Çek') : t('unfollowConfirm', 'Çık'),
         t('cancel', 'İptal')
       );
       if (confirmed) {

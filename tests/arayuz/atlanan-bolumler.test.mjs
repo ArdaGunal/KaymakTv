@@ -82,7 +82,7 @@ T.ok('Elle yazilmis 1..N-1 dongusu iki dosyada da YOK',
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('M419 kaynak denetimleri');
-T.ok('Null ilerleme "dizi bitti" SAYILMIYOR', /if \(newProgress && !newProgress\.next_episode\)/.test(dugme));
+T.ok('Null/eksik ilerleme "dizi bitti" SAYILMIYOR', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\)/.test(dugme));
 T.ok('Diyalog dalinda kilit acik kaliyor',
   /performCheckIn = async \(planlanan[^)]*\) => \{\s+setIsCheckLoading\(true\);/.test(kanca));
 const kesfet = fs.readFileSync(path.join(KOK, 'hooks', 'useExplore.ts'), 'utf8');
@@ -95,8 +95,11 @@ T.ok('Iki "+" dugmesinde de misafir kapisi var',
 T.ok('Web ikizi artik await + catch + busyRef',
   /await toggleWatchlistStatus/.test(izgara) && /busyRef/.test(izgara) && /catch \(error\)/.test(izgara));
 const mut = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progress.ts'), 'utf8');
-T.ok('Bes geri alma yolu da nesil korumali',
-  (mut.match(/geriAlVeyaTazele\(showId, nesilBaslangic, previousState\)/g) || []).length === 5);
-T.ok('ciftYaz kalici iz birakiyor', /logError\('mutations\.progress\.ciftYaz', error\)/.test(mut));
+const undo = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progressUndo.ts'), 'utf8');
+const ortak = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progressState.ts'), 'utf8');
+T.ok('Iki geri alma yolu nesil korumali, yeni ekleme disk gunlugunde korunur',
+  (undo.match(/geriAlVeyaTazele\(showId, nesilBaslangic, previousState\)/g) || []).length === 2
+  && /await saveIntent/.test(mut) && !/geriAlVeyaTazele\(/.test(mut));
+T.ok('ciftYaz kalici iz birakiyor', /logError\('mutations\.progress\.ciftYaz', error\)/.test(ortak));
 
 T.bitir();

@@ -103,3 +103,6 @@ netlify.toml
 credentials/*
 !credentials/README.md
 !credentials/keystore.properties.example
+
+# yerel ajan çalışma klasörü (APK, canlı kaynak kopyası, ekran görüntüsü)
+scratchpad/

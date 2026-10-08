@@ -18,8 +18,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const KOK = path.resolve(__dirname, '..', '..');
-const src = fs.readFileSync(
-  path.join(KOK, 'services', 'library', 'mutations', 'progress.ts'), 'utf8');
+const src = require('../progress-kaynak')(KOK);
 const satirlar = src.split(/\r?\n/);
 
 let gecti = 0, kaldi = 0;
@@ -46,7 +45,7 @@ const KAYMAK_DALLARI = [
   'unwatchEpisode',
   'unwatchSeason',
   'markSeasonAsWatched',
-  'markEpisodesUpToAsWatched',
+  'planiIsaretle',
 ];
 
 console.log('\n═══ Her Kaymak dalı yarış korumasına bağlı mı? ═══');
@@ -55,7 +54,9 @@ for (const ad of KAYMAK_DALLARI) {
   if (!g) { bekle(ad + ' bulundu', false, 'fonksiyon yok'); continue; }
   bekle(`${ad}: nesli artırıyor`, /nesliArtir\(showId\)/.test(g),
     'uçuştaki bayat tazelemeler bayat sayılmaz');
-  bekle(`${ad}: tazelemeyi planlıyor`, /tazelemeyiPlanla\(showId\)/.test(g),
+  bekle(`${ad}: tazeleme surucusune bagli (undo: tek-dizi; mark: outbox)`, /tazelemeyiPlanla\(showId\)/.test(g)
+    || (/return finishShow\(showId,/.test(g) && /const finishShow[\s\S]{0,500}resumeWatchedOutbox\(\)/.test(src)
+      && /const finishShow[\s\S]{0,150}cancelProgressRefresh\(showId\)/.test(src)),
     'tazeleme hiç çalışmaz ya da ağ turu beklenir');
   bekle(`${ad}: ağ turunu BEKLEMİYOR`, !/return await kaymakIlerlemeTazele\(showId\);/.test(g),
     'beklerse bayat yanıt ekranı geri düşürür');
@@ -73,9 +74,12 @@ bekle('🔴 tazeleme BAYAT YANITI atıyor',
 bekle('iyimser durum DİSKE yazılıyor',
   /persistShowProgressMap\(useLibraryStore\.getState\(\)\.showProgressMap\)/.test(src),
   'tazeleme beklenmediği için kalıcılık kaybolur');
-bekle('ilerleme yoksa ağ turu BEKLENİYOR (ilk açılış)',
-  /if \(!yerel\) return await kaymakIlerlemeTazele\(showId, nesil\)/.test(src),
-  'ilk kez açılan dizide kullanıcı boş ekran görür');
+bekle('ilk acilista iskelet + disk ACK ag turundan ONCE (M439)',
+  /await saveIntent/.test(blok('markEpisodeAsWatched'))
+    && /prev\[showId\] \|\| iskeletKur\(iskeletSezonlar\)/.test(blok('markEpisodeAsWatched')),
+  'ACK olmadan basari verilirse kill kaydi kaybettirir');
+bekle('tek sezon wrapper ortak plana delege ediyor',
+  /markEpisodesUpToAsWatched[\s\S]{0,220}planiIsaretle\(showId, \[\{ sezon: season, bolumler: episodes/.test(src));
 
 console.log(`\n${kaldi ? '⛔ ' + kaldi + ' KALDI' : '🎉 TÜMÜ GEÇTİ'} — geçen ${gecti}, kalan ${kaldi}`);
 process.exit(kaldi ? 1 : 0);

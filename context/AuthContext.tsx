@@ -23,6 +23,10 @@ import { invalidateMySupabaseUserId, invalidateBlockedUserIds } from '../feature
 import { recordPerfMark } from '../utils/perfLog';
 import { supabase } from '../features/feed/services/supabaseClient';
 import { supabaseKimlikKaynaginiAyarla } from '../features/feed/services/supabaseKimlik';
+import { stopWatchedOutbox } from '../services/library/outbox/runtime';
+import { OUTBOX_PREFIX } from '../services/library/outbox/types';
+import { stopHiddenOutbox } from '../services/library/hiddenOutbox/runtime';
+import { HIDDEN_OUTBOX_PREFIX } from '../services/library/hiddenOutbox/types';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -92,6 +96,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // 401 alır — kullanıcı hiçbir açıklama olmadan donmuş bir uygulamayla kalır.
   useEffect(() => {
     return onSessionExpired(() => {
+      stopWatchedOutbox();
+      stopHiddenOutbox();
       console.warn('[Auth] Oturum süresi doldu, kullanıcı çıkışa alınıyor.');
       setAccessToken(null);
       // `setIsGuest(false)` BİLİNÇLİ OLARAK KALDIRILDI (2026-08-30): "oturum
@@ -248,6 +254,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // boş token'la "yenileme" deniyor, Discord'a hata ve oturum-sona-erdi
       // sinyali düşüyordu.
       aktarimiDurdur();
+      stopWatchedOutbox();
+      stopHiddenOutbox();
 
       // ── F3: push token kaydını sil ────────────────────────────────────
       // 🔴 SIRA KRİTİK — BU SATIR `traktAccessToken` SİLİNMEDEN ÖNCE OLMALI.
@@ -275,7 +283,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // an için yeni oturumda görünürdü.
       await SecureStore.deleteItemAsync('kaymakMyUsername');
       await SecureStore.deleteItemAsync('kaymakMyAvatarUrl');
-      await AsyncStorage.clear();
+      // M439: bekleyen izleme niyeti önbellek DEĞİLDİR. Çıkışta korunur;
+      // yalnız aynı users.id tekrar giriş yapınca gönderilebilir, token içermez.
+      const cacheKeys = (await AsyncStorage.getAllKeys()).filter((key) =>
+        !key.startsWith(OUTBOX_PREFIX) && !key.startsWith(HIDDEN_OUTBOX_PREFIX));
+      await AsyncStorage.multiRemove(cacheKeys);
       // AsyncStorage.clear() yalnızca DİSKTEKİ kopyayı siler — followStore
       // RAM'de bir Zustand singleton'ı olduğundan bir önceki oturumun
       // connectionStates/isFetched'i JS süreci canlı kaldığı sürece (uygulama

@@ -1,4 +1,5 @@
 import { StateCreator } from 'zustand';
+import { projectWatchlist } from '../../services/library/outbox/projection';
 
 export interface WatchlistSlice {
   watchlistShows: any[];
@@ -10,6 +11,6 @@ export interface WatchlistSlice {
 export const createWatchlistSlice: StateCreator<WatchlistSlice> = (set) => ({
   watchlistShows: [],
   watchlistMovies: [],
-  setWatchlistShows: (shows) => set({ watchlistShows: shows }),
-  setWatchlistMovies: (movies) => set({ watchlistMovies: movies }),
+  setWatchlistShows: (shows) => set({ watchlistShows: projectWatchlist(shows, 'show') }),
+  setWatchlistMovies: (movies) => set({ watchlistMovies: projectWatchlist(movies, 'movie') }),
 });

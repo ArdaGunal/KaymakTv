@@ -56,7 +56,12 @@ for (const dosya of mutDosyalar) {
 
   bekle(
     `${dosya}: token tipine bakıyor`,
-    /kaymakKullanicisiMi\(\)/.test(src),
+    /kaymakKullanicisiMi\(\)/.test(src)
+      || (dosya === 'progressUndo.ts'
+        && /kaymakYoluMu[\s\S]*from '.\/progressState'/.test(src)
+        && (src.match(/const kaymak = await kaymakYoluMu\(\)/g) || []).length === 2
+        && /kaymakYoluMu = \(\) => libraryApi.kaymakKullanicisiMi\(\)/.test(
+          fs.readFileSync(path.join(MUT, 'progressState.ts'), 'utf8'))),
     'Trakt çağırıyor ama Kaymak kullanıcısını AYIRT ETMİYOR → 401',
   );
 }

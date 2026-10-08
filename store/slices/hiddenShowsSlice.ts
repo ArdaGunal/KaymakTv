@@ -1,4 +1,5 @@
 import { StateCreator } from 'zustand';
+import { projectHiddenIds } from '../../services/library/hiddenOutbox/projection';
 
 export interface HiddenShowsSlice {
   /** Trakt'ta "İlerlemeyi Gizle" ile gizlenmiş dizilerin trakt id'leri —
@@ -18,7 +19,7 @@ export interface HiddenShowsSlice {
 
 export const createHiddenShowsSlice: StateCreator<HiddenShowsSlice> = (set) => ({
   hiddenShowIds: [],
-  setHiddenShowIds: (ids) => set({ hiddenShowIds: ids }),
+  setHiddenShowIds: (ids) => set({ hiddenShowIds: projectHiddenIds('show', ids) }),
   hiddenMovieIds: [],
-  setHiddenMovieIds: (ids) => set({ hiddenMovieIds: ids }),
+  setHiddenMovieIds: (ids) => set({ hiddenMovieIds: projectHiddenIds('movie', ids) }),
 });

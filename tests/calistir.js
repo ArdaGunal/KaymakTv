@@ -64,13 +64,17 @@ const TAKIMLAR = [
   { ad: 'avatar', grup: 'arayuz', dosya: 'arayuz/avatar.test.mjs', aciklama: 'T4: bas harf, deterministik renk, kopya avatar denetimi' },
   { ad: 'import', grup: 'arayuz', dosya: 'arayuz/traktImport.test.mjs', aciklama: 'T5.4: hata siniflandirmasi, geri cekilme, ilerleme yuzdesi' },
   { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17: yerel izleme istatistigi, ilerleme yuzdesi, cubuk rengi' },
-  { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M413: ilk isaretlemede tik sonuca kadar tutulur' },
+  { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M439: disk ACK oncesi yesil yok, cift dokunus kilidi' },
   { ad: 'arama', grup: 'arayuz', dosya: 'arayuz/arama.test.mjs', aciklama: 'M415: Kesfet aramasi 1 harften baslar' },
   { ad: 'film', grup: 'arayuz', dosya: 'arayuz/film-izleme.test.mjs', aciklama: 'M417: listede olmayan film isaretlenince ekranda gorunur' },
   { ad: 'atlanan', grup: 'arayuz', dosya: 'arayuz/atlanan-bolumler.test.mjs', aciklama: 'M418/M419: atlanan bolum hesabi + denetim duzeltmeleri' },
   { ad: 'plan', grup: 'arayuz', dosya: 'arayuz/isaretleme-plani.test.mjs', aciklama: 'M421: cok sezonlu plan + isaretleme denetimi onarimlari' },
   { ad: 'ilerleme', grup: 'arayuz', dosya: 'arayuz/ilerleme-kurallari.test.mjs', aciklama: 'M422: yuzde/siradaki bolum kurallari + iyimser iskelet' },
   { ad: 'istek', grup: 'arayuz', dosya: 'arayuz/takip-istegi.test.mjs', aciklama: 'M424: ret satiri siler (sessiz duvar kalkti) + 059' },
+  { ad: 'takip-profil', grup: 'arayuz', dosya: 'arayuz/takip-profil.test.mjs', aciklama: 'M438: taze profil/graf yarisi + geri cekme diyalogu' },
+  { ad: 'watched-outbox', grup: 'arayuz', dosya: 'arayuz/watched-outbox.test.mjs', aciklama: 'M439: kalici ACK, kill/replay, hesap izolasyonu, Trakt dedup' },
+  { ad: 'watched-visibility', grup: 'arayuz', dosya: 'arayuz/watched-visibility.test.mjs', aciklama: 'M441: gecici kart kaybi, kanonik next, 429 boyunca gorunurluk' },
+  { ad: 'hidden-outbox', grup: 'arayuz', dosya: 'arayuz/hidden-outbox.test.mjs', aciklama: 'M447: Birak/Geri Al disk ACK, kill/replay, ters niyet, hesap izolasyonu' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 
