@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchFeedActivities, deleteActivitiesBulk, invalidateUserFeedActivitiesCache } from '../services/feedApi';
@@ -50,6 +50,9 @@ export interface UseFeedResult {
    *  Profil tarafında zaten yaptığını Akış'ın canlı `feedStore`'una bağlıyor. */
   deleteActivity: (item: FeedItem) => Promise<void>;
 }
+
+/** M470 · Bu süreden kısa arka plan geçişlerinde yakalama isteği atılmaz. */
+const YAKALAMA_ESIGI_MS = 15_000;
 
 export function useFeed(): UseFeedResult {
   const { accessToken, isGuest } = useAuth();
@@ -110,6 +113,31 @@ export function useFeed(): UseFeedResult {
     if (!useFeedStore.getState().isHydrated) setIsLoading(true);
     loadFirstPage(false);
   }, [loadFirstPage]);
+
+  // ── M470 · Arka plandan dönüşte KAÇANLARI YAKALA ──────────────────────
+  // Android arka plandaki uygulamanın WebSocket'ini keser; o sırada gelen
+  // INSERT/DELETE olayları kaybolur (Realtime geçmişi yeniden oynatmaz).
+  // Eskiden akış ancak aşağı çekince ya da sekme yeniden açılınca düzeliyordu
+  // (kullanıcı: «akış bazen geç yayınlanıyor»). Öne gelince taze 1. sayfa
+  // listeyi BOZMADAN birleştirilir; yeniler «N yeni gönderi» rozetine düşer.
+  // Kısa geçişlerde (bildirim perdesi, izin diyaloğu) istek atılmaz.
+  useEffect(() => {
+    if (!canLoad) return;
+    let arkaPlanaGecis: number | null = null;
+    const sub = AppState.addEventListener('change', (durum) => {
+      if (durum !== 'active') {
+        if (arkaPlanaGecis === null) arkaPlanaGecis = Date.now();
+        return;
+      }
+      const sure = arkaPlanaGecis === null ? 0 : Date.now() - arkaPlanaGecis;
+      arkaPlanaGecis = null;
+      if (sure < YAKALAMA_ESIGI_MS || !useFeedStore.getState().isHydrated) return;
+      fetchFeedActivities(null, true)
+        .then((page) => useFeedStore.getState().mergeFreshFirstPage(page))
+        .catch((error) => console.warn('[Feed] Öne gelişte yakalama başarısız:', error));
+    });
+    return () => sub.remove();
+  }, [canLoad]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);

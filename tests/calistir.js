@@ -81,6 +81,7 @@ const TAKIMLAR = [
   { ad: 'push-kayit', grup: 'arayuz', dosya: 'arayuz/push-kayit.test.mjs', aciklama: 'M466: push kaydi tekrarlanamaz (Discord 429 koku)' },
   { ad: 'sezon-akis', grup: 'arayuz', dosya: 'arayuz/sezon-akis.test.mjs', aciklama: 'M467: her isaretleme yolu akisa tek temsilci olay' },
   { ad: 'aktivite-tazeleme', grup: 'arayuz', dosya: 'arayuz/aktivite-tazeleme.test.mjs', aciklama: 'M468/A1: silme sonrasi acik aktivite listesi tazelenir' },
+  { ad: 'akis-yakalama', grup: 'arayuz', dosya: 'arayuz/akis-yakalama.test.mjs', aciklama: 'M470: arka plan donusunde kacan akis olaylari' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

@@ -8,10 +8,12 @@
  * eklenir; biri kendi kartını silerse (bkz. useFeed.ts deleteActivity)
  * BAŞKALARININ ekranından da anında düşer — sayfa yenilemeye gerek yok.
  *
- * GÜVENLİK: Realtime `postgres_changes` için RLS'e uyar; bu tablonun SELECT
- * politikası zaten `USING (true)` (bkz. 001_feed_schema.sql — akış verisi
- * tasarım gereği herkese açık okunur), dolayısıyla ek bir sızıntı yüzeyi
- * yoktur. "Kim ne görecek" filtresi burada, client'ta uygulanır.
+ * GÜVENLİK: Realtime `postgres_changes` RLS'e uyar. ⚠️ (M470 düzeltmesi) Eski
+ * not «SELECT politikası USING (true)» diyordu — 057'den beri DEĞİL: misafir
+ * yalnız açık hesapların `posted`'ını, üye engel/gizli/takip kurallarıyla
+ * görür; `is_visible`/`is_retracted` (061) da süzülür. Kimlik `supabaseClient`'ın
+ * `accessToken` geri çağrısıyla Realtime'a da gider (supabase-js 2.110, ölçüldü:
+ * izleme olayı canlı geldi). Buradaki istemci filtresi yalnız «takip ettiklerim».
  *
  * NEDEN SUNUCU TARAFI FİLTRE YOK: Realtime'ın `filter` seçeneği tek bir
  * `eq`/`in` ifadesi alır ve takip listesi onlarca kişi olabilir; ayrıca liste

@@ -49,6 +49,14 @@ interface FeedState {
   setFirstPage: (page: FeedPage) => void;
   /** Sonraki sayfa: mevcut listenin SONUNA ekler, id'ye göre tekilleştirir. */
   appendPage: (page: FeedPage) => void;
+  /**
+   * M470 · Arka plandan dönüşte kaçanları yakala — listeyi DEĞİŞTİRMEDEN
+   * birleştirir (kullanıcının kaydırma konumu ve yüklü sayfalar korunur).
+   * Yeniler eklenir ve «N yeni gönderi»ye sayılır; var olanlar tazelenir;
+   * taze sayfanın KAPSADIĞI zaman aralığında olup artık sunucuda olmayanlar
+   * (yokken silinenler) çıkarılır. İyimser `temp-` kartlara dokunulmaz.
+   */
+  mergeFreshFirstPage: (page: FeedPage) => void;
 
   /**
    * Tek bir aktiviteyi listeye ekler (anında yayın veya Realtime).
@@ -131,6 +139,30 @@ export const useFeedStore = create<FeedState>((set) => ({
       isLoadingMore: false,
     })),
 
+  mergeFreshFirstPage: (page) =>
+    set((state) => {
+      if (!state.isHydrated) {
+        return {
+          activities: sortDesc(dedupeById(page.items)), isHydrated: true,
+          nextCursor: page.nextCursor, hasMore: page.hasMore, isLoadingMore: false,
+        };
+      }
+      const taze = new Map(page.items.map((a) => [a.id, a]));
+      const mevcut = new Set(state.activities.map((a) => a.id));
+      // Taze sayfa tam değilse (hasMore=false) kapsadığı aralık «her şey».
+      const enEski = page.hasMore && page.items.length
+        ? Math.min(...page.items.map((a) => new Date(a.activityAt).getTime()))
+        : -Infinity;
+      const kalan = state.activities
+        .filter((a) => a.id.startsWith('temp-') || taze.has(a.id)
+          || new Date(a.activityAt).getTime() < enEski)
+        .map((a) => taze.get(a.id) ?? a);
+      const yeniler = page.items.filter((a) => !mevcut.has(a.id));
+      return {
+        activities: sortDesc(dedupeById([...kalan, ...yeniler])),
+        unseenCount: state.unseenCount + yeniler.length,
+      };
+    }),
   upsertActivity: (activity, countAsUnseen = false) =>
     set((state) => {
       const index = state.activities.findIndex((a) => a.id === activity.id);
