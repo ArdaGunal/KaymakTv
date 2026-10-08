@@ -33,6 +33,13 @@ interface FeedState {
   activities: FeedActivity[];
   /** Sunucudan ilk yükleme yapıldı mı (boş akış ile "henüz yüklenmedi" ayrımı). */
   isHydrated: boolean;
+  /**
+   * B-2 · Listenin kaynağı: `disk` = soğuk açılışta gösterilen son kopya
+   * (sunucu yanıtı henüz gelmedi), `ag` = sunucu gerçeği. Diske yalnız `ag`
+   * yazılır — diskten okunan liste geri yazılıp kendini «tazeymiş» gibi
+   * sürdürmesin.
+   */
+  kaynak: 'yok' | 'disk' | 'ag';
   /** Kullanıcı listenin tepesinde değilken gelen, henüz görülmemiş aktivite sayısı. */
   unseenCount: number;
 
@@ -47,6 +54,13 @@ interface FeedState {
 
   /** İlk sayfa: listeyi TAMAMEN değiştirir (ilk yükleme / pull-to-refresh). */
   setFirstPage: (page: FeedPage) => void;
+  /**
+   * B-2 · Disk kopyasını YALNIZ store boşken yükler; sunucu yanıtı önce
+   * geldiyse hiçbir şey yapmaz (false döner). İmleç yok → sonsuz kaydırma
+   * taze sayfa gelene kadar bekler; `hasMore: true` → «Hepsi bu kadar» yanlış
+   * görünmez.
+   */
+  hydrateFromDisk: (items: FeedActivity[]) => boolean;
   /** Sonraki sayfa: mevcut listenin SONUNA ekler, id'ye göre tekilleştirir. */
   appendPage: (page: FeedPage) => void;
   /**
@@ -109,9 +123,10 @@ const dedupeById = (list: FeedActivity[]): FeedActivity[] => {
   return Array.from(byId.values());
 };
 
-export const useFeedStore = create<FeedState>((set) => ({
+export const useFeedStore = create<FeedState>((set, get) => ({
   activities: [],
   isHydrated: false,
+  kaynak: 'yok',
   unseenCount: 0,
   nextCursor: null,
   hasMore: false,
@@ -123,10 +138,24 @@ export const useFeedStore = create<FeedState>((set) => ({
     set({
       activities: sortDesc(dedupeById(page.items)),
       isHydrated: true,
+      kaynak: 'ag',
       nextCursor: page.nextCursor,
       hasMore: page.hasMore,
       isLoadingMore: false,
     }),
+
+  hydrateFromDisk: (items) => {
+    if (get().isHydrated || items.length === 0) return false;
+    set({
+      activities: sortDesc(dedupeById(items)),
+      isHydrated: true,
+      kaynak: 'disk',
+      nextCursor: null,
+      hasMore: true,
+      isLoadingMore: false,
+    });
+    return true;
+  },
 
   appendPage: (page) =>
     set((state) => ({
@@ -143,7 +172,7 @@ export const useFeedStore = create<FeedState>((set) => ({
     set((state) => {
       if (!state.isHydrated) {
         return {
-          activities: sortDesc(dedupeById(page.items)), isHydrated: true,
+          activities: sortDesc(dedupeById(page.items)), isHydrated: true, kaynak: 'ag',
           nextCursor: page.nextCursor, hasMore: page.hasMore, isLoadingMore: false,
         };
       }
@@ -219,6 +248,7 @@ export const useFeedStore = create<FeedState>((set) => ({
     set({
       activities: [],
       isHydrated: false,
+      kaynak: 'yok',
       unseenCount: 0,
       nextCursor: null,
       hasMore: false,

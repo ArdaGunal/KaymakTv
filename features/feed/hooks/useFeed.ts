@@ -18,6 +18,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchFeedActivities, deleteActivitiesBulk, invalidateUserFeedActivitiesCache } from '../services/feedApi';
 import { useFeedStore } from '../store/feedStore';
+import { akisiDiskeYaz, akisiDisktenOku } from '../store/feedDiskCache';
+import { getMySupabaseUserId } from '../services/userBlocks';
+import { agIsaret } from '../../../utils/agIzleyici';
 import { useFeedRealtime } from './useFeedRealtime';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
 import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
@@ -53,6 +56,8 @@ export interface UseFeedResult {
 
 /** M470 · Bu süreden kısa arka plan geçişlerinde yakalama isteği atılmaz. */
 const YAKALAMA_ESIGI_MS = 15_000;
+/** B-2 · Art arda değişiklikler (beğeni, Realtime patlaması) tek yazmaya insin. */
+const DISK_YAZMA_GECIKMESI_MS = 1_500;
 
 export function useFeed(): UseFeedResult {
   const { accessToken, isGuest } = useAuth();
@@ -90,6 +95,7 @@ export function useFeed(): UseFeedResult {
       try {
         const page = await fetchFeedActivities(null, force);
         useFeedStore.getState().setFirstPage(page);
+        agIsaret(`Akış ağdan ${page.items.length} satır`);
         setHasError(false);
         // Taze 1. sayfa bayrağı TEMİZLER — yoksa bir kez başarısız olan akış,
         // pull-to-refresh'ten sonra bile "Devamı yüklenemedi." takılı kalır ve
@@ -110,9 +116,54 @@ export function useFeed(): UseFeedResult {
   useEffect(() => {
     // Store'da zaten veri varsa (sekmeye geri dönüş) skeleton GÖSTERME —
     // eldeki veriyi göster, tazelemeyi arkada yap.
-    if (!useFeedStore.getState().isHydrated) setIsLoading(true);
+    if (!useFeedStore.getState().isHydrated) {
+      setIsLoading(true);
+      // B-2 · Soğuk açılış: ağ (~1,2 sn) beklenirken son kopyayı ANINDA göster.
+      // Ağ ile YARIŞIR: sunucu yanıtı önce gelirse `hydrateFromDisk` no-op.
+      if (canLoad) {
+        let iptal = false;
+        getMySupabaseUserId()
+          .then((sahip) => (sahip && !iptal ? akisiDisktenOku(sahip) : null))
+          .then((satirlar) => {
+            if (!iptal && satirlar && useFeedStore.getState().hydrateFromDisk(satirlar)) {
+              setIsLoading(false);
+              agIsaret(`Akış diskten ${satirlar.length} satır`);
+            }
+          })
+          .catch((error) => console.warn('[Feed] Disk kopyası yüklenemedi:', error));
+        loadFirstPage(false);
+        return () => {
+          iptal = true;
+        };
+      }
+    }
     loadFirstPage(false);
-  }, [loadFirstPage]);
+  }, [canLoad, loadFirstPage]);
+
+  // ── B-2 · Sunucu gerçeğini diske yaz (bir sonraki soğuk açılışın ilk karesi) ──
+  // Store'a abone: beğeni, silme, engel/gizlilik temizliği, Realtime — hepsi
+  // kopyaya yansır; böylece silinen kart bir sonraki açılışta bir an bile geri
+  // gelmez. Yalnız `kaynak === 'ag'`: diskten okunan liste geri yazılmaz.
+  useEffect(() => {
+    if (!canLoad) return;
+    let zamanlayici: ReturnType<typeof setTimeout> | null = null;
+    const unsub = useFeedStore.subscribe((s, onceki) => {
+      if (s.kaynak !== 'ag' || s.activities === onceki.activities) return;
+      if (zamanlayici) clearTimeout(zamanlayici);
+      zamanlayici = setTimeout(() => {
+        zamanlayici = null;
+        const anlik = useFeedStore.getState();
+        if (anlik.kaynak !== 'ag') return; // arada çıkış (reset) olduysa yazma
+        getMySupabaseUserId()
+          .then((sahip) => (sahip ? akisiDiskeYaz(sahip, anlik.activities) : undefined))
+          .catch((error) => console.warn('[Feed] Disk kopyası yazılamadı:', error));
+      }, DISK_YAZMA_GECIKMESI_MS);
+    });
+    return () => {
+      unsub();
+      if (zamanlayici) clearTimeout(zamanlayici);
+    };
+  }, [canLoad]);
 
   // ── M470 · Arka plandan dönüşte KAÇANLARI YAKALA ──────────────────────
   // Android arka plandaki uygulamanın WebSocket'ini keser; o sırada gelen
