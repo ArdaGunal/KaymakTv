@@ -103,6 +103,7 @@ export default function EpisodeDetailScreen() {
     epTraktId,
     slug: idStr as string,
     showName,
+    tumSezonlar: railEvren.tumSezonlar,
   });
 
   // bkz. hooks/useAppBack.ts — geçmiş yoksa (deep link / sayfa yenileme)

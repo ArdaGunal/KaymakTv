@@ -71,7 +71,7 @@ const kanca = fs.readFileSync(path.join(KOK, 'hooks', 'useEpisodeActions.ts'), '
 // M421: hesap `atlananPlan`a tasindi (cok sezonlu). Ortak karar SARTI ayni:
 // iki cagri yeri de kendi dongusunu YAZMAMALI.
 T.ok('EpisodeCheckButton ortak karari kullaniyor', /atlananPlan\(progress, season, episode, evren\)/.test(dugme));
-T.ok('useEpisodeActions ortak karari kullaniyor', /atlananPlan\(showProgressMap\[showTraktId\], sNum, eNum\)/.test(kanca));
+T.ok('useEpisodeActions ortak karari kullaniyor', /atlananPlan\(showProgressMap\[showTraktId\], sNum, eNum, evren\)/.test(kanca) /* M463: tam sezon evreniyle */);
 const akordiyon = fs.readFileSync(path.join(KOK, 'components', 'SeasonAccordion.tsx'), 'utf8');
 T.ok('SeasonAccordion YAYINLANMIS bolum listesini geciriyor',
   /sezonBolumleri=\{yayinlanmisNumaralar\}/.test(akordiyon)

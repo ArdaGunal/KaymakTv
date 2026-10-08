@@ -6,7 +6,10 @@ import { useTranslation } from 'react-i18next';
 // bizim API mi) orada yaşıyor. Ham çağrı kalsaydı Kaymak kullanıcısı bölüm
 // puanlayamazdı — cihazda görülen 401'in sebebi buydu.
 import { useLibrary } from '../context/LibraryContext';
-import { atlananPlan, planToplami, planTekBolumMu } from '../utils/atlananBolumler';
+import { atlananPlan, planToplami, planTekBolumMu, SezonListesi } from '../utils/atlananBolumler';
+import { sezonEvreniKur } from '../utils/sezonEvreni';
+import { getShowSeasons } from '../services/traktApi';
+import { logWarning } from '../utils/errorLog';
 import { useAuth } from '../context/AuthContext';
 
 interface UseEpisodeActionsArgs {
@@ -17,6 +20,29 @@ interface UseEpisodeActionsArgs {
   /** Paylaş bağlantısı için ham slug (URL'deki `id` parametresi). */
   slug: string;
   showName: string;
+  /** Ekranda hazır tam sezon listesi (masaüstü web rayı). Yoksa basışta çekilir. */
+  tumSezonlar?: SezonListesi[] | null;
+}
+
+/**
+ * M463 · «Öncekileri de işaretle» evreni. Eskiden bu ekran planı YALNIZ
+ * ilerleme kaydından kuruyordu: dizinin ilk işaretlemesinde kayıt yok → soru
+ * hiç sorulmuyor, yalnız o bölüm işaretleniyordu; kayıt sunucu kataloğundan
+ * eksik geldiyse önceki sezonlar plana girmiyordu (YAYIN_ONCESI_TEST K2,
+ * Naagin S4E3 ile cihazda üretildi). Dizi sayfası doğruydu çünkü tam sezon
+ * listesini veriyordu. Liste mobilde sayfa açılışında çekilmez (fazla istek
+ * olmasın); yalnız Mark'a basınca, L7/Pi önbelleğinden. Düşerse eski
+ * davranışa (ilerleme kaydı) dönülür — gerileme yok.
+ */
+async function sezonEvreniGetir(showTraktId: number, hazir?: SezonListesi[] | null) {
+  if (hazir && hazir.length > 0) return hazir;
+  try {
+    const liste = sezonEvreniKur(await getShowSeasons(showTraktId)).tumSezonlar;
+    return liste.length > 0 ? liste : null;
+  } catch (e) {
+    logWarning('useEpisodeActions.sezonEvreni', e);
+    return null;
+  }
 }
 
 /**
@@ -40,6 +66,7 @@ export function useEpisodeActions({
   epTraktId,
   slug,
   showName,
+  tumSezonlar,
 }: UseEpisodeActionsArgs) {
   const { t } = useTranslation('media');
   const { isGuest } = useAuth();
@@ -106,10 +133,10 @@ export function useEpisodeActions({
       // Bu bölümden ÖNCE izlenmemiş bölümler var mı — varsa kullanıcıya
       // "öncekileri de işaretleyeyim mi" diye sorulur.
       // 🔴 M418/M421: hesap SEZON LİSTESİNDEN ve ÖNCEKİ SEZONLARI da kapsar
-      // (bkz. utils/atlananBolumler.ts). Bu ekranda katalog listesi yok;
-      // evren ilerleme kaydından geliyor (dizi sayfasındaki kadar erken
-      // değil ama davranış aynı).
-      const plan = atlananPlan(showProgressMap[showTraktId], sNum, eNum);
+      // (bkz. utils/atlananBolumler.ts). M463: evren dizi sayfasıyla AYNI —
+      // tam sezon listesi (bkz. `sezonEvreniGetir`).
+      const evren = await sezonEvreniGetir(showTraktId, tumSezonlar);
+      const plan = atlananPlan(showProgressMap[showTraktId], sNum, eNum, evren);
 
       // 🔴 M418 — DİYALOG DALINDA DA KİLİT. `Alert.alert` bloklamıyor;
       // eski hâlde `toggleWatched` hemen `finally`'ye düşüp kilidi açıyordu,
@@ -160,7 +187,7 @@ export function useEpisodeActions({
     } finally {
       setIsCheckLoading(false);
     }
-  }, [isGuest, season, episode, isWatchedLocal, showProgressMap, showTraktId, unwatchEpisode, markEpisodeAsWatched, planiIsaretle, t]);
+  }, [isGuest, season, episode, isWatchedLocal, showProgressMap, showTraktId, unwatchEpisode, markEpisodeAsWatched, planiIsaretle, t, tumSezonlar]);
 
   const share = useCallback(async () => {
     try {

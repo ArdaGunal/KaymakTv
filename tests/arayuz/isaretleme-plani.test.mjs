@@ -109,7 +109,7 @@ T.ok('Dugme plani kullaniyor', /atlananPlan\(progress, season, episode, evren\)/
 T.ok('Onay metni SAYI gosteriyor',
   /skippedEpisodesMsgCokSezon/.test(dugme) && /skippedEpisodesMsgSayili/.test(dugme));
 const kanca = oku('hooks', 'useEpisodeActions.ts');
-T.ok('Bolum detayi da plani kullaniyor', /atlananPlan\(showProgressMap\[showTraktId\], sNum, eNum\)/.test(kanca));
+T.ok('Bolum detayi da plani kullaniyor', /atlananPlan\(showProgressMap\[showTraktId\], sNum, eNum, evren\)/.test(kanca) /* M463: tam sezon evreniyle */);
 
 const kol = oku('services', 'library', 'mutations', 'collections.ts');
 T.ok('Gecmis silmede GERCEK geri alma var',
