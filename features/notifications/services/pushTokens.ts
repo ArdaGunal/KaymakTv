@@ -7,7 +7,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from '../../../utils/secureStorage';
 import axios from 'axios';
 
-import { logError } from '../../../utils/errorLog';
+import { logError, logWarning } from '../../../utils/errorLog';
 
 /**
  * F3 — push token kayıt/silme (docs/design/notifications.md F3).
@@ -99,9 +99,40 @@ async function getAuthToken(): Promise<string | null> {
  * 🔴 ASLA THROW ETMEZ. Açılış akışından çağrılıyor; buradan sızacak bir hata
  * bildirim kurulumunun tamamını düşürürdü.
  */
-export async function registerPushToken(): Promise<boolean> {
+// ==========================================================================
+// 🔴 M466 · KAYIT TEKRARLANAMAZ — Discord `pushTokens.register` 429 (2026-10-09)
+// ==========================================================================
+// Çağıran (`useNotificationSetup`) bunu planlama efektinin İÇİNDEN, imza
+// karşılaştırmasından ÖNCE çağırıyor; efekt izlenenler/takvim/ilerleme her
+// değiştiğinde yeniden koşuyor. Bir senkron/içe aktarma sırasında dakikada
+// onlarca kayıt gidiyor, Worker'ın dakikada 20 sınırı 429 dönüyordu.
+// Çözüm ÇAĞIRANDA değil BURADA: kim ne sıklıkla çağırırsa çağırsın aynı
+// hesap + aynı token için süreç başına en çok bir istek (12 sa'te bir tazele).
+// Soğuk açılışta bellek sıfırlandığı için «her açılışta last_seen_at» kuralı
+// (yukarı) aynen korunur. 429'da 10 dk denenmez ve Discord'a hata gitmez.
+const TAZELEME_ARALIGI_MS = 12 * 60 * 60 * 1000;
+const SINIR_BEKLEMESI_MS = 10 * 60 * 1000;
+let sonKayit: { anahtar: string; zaman: number } | null = null;
+let beklemeBitis = 0;
+let ucan: Promise<boolean> | null = null;
+
+/** Çıkışta / testte: sonraki giriş hemen kaydolsun. */
+export function kayitHafizasiniSifirla(): void {
+  sonKayit = null;
+  beklemeBitis = 0;
+}
+
+export function registerPushToken(): Promise<boolean> {
+  if (ucan) return ucan;
+  const p = registerTekil().finally(() => { if (ucan === p) ucan = null; });
+  ucan = p;
+  return p;
+}
+
+async function registerTekil(): Promise<boolean> {
   try {
     if (!KAYMAK_WORKER_URL) return false;
+    if (Date.now() < beklemeBitis) return false;
 
     const platform = currentPlatform();
     if (!platform) return false;
@@ -112,13 +143,26 @@ export async function registerPushToken(): Promise<boolean> {
     const auth = await getAuthToken();
     if (!auth) return false;
 
+    // Hesap ayrımı için kimliğin yalnız kuyruğu tutulur (tam kimlik bellekte değil).
+    const anahtar = `${platform}|${token}|${auth.slice(-16)}`;
+    if (sonKayit?.anahtar === anahtar && Date.now() - sonKayit.zaman < TAZELEME_ARALIGI_MS) {
+      return true;
+    }
+
     const res = await axios.post(
       `${KAYMAK_WORKER_URL}/notifications/register`,
       { traktAccessToken: auth, platform, token },
       { headers: { 'Content-Type': 'application/json' }, timeout: 12000 },
     );
-    return res.data?.success === true;
-  } catch (error) {
+    const ok = res.data?.success === true;
+    if (ok) sonKayit = { anahtar, zaman: Date.now() };
+    return ok;
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      beklemeBitis = Date.now() + SINIR_BEKLEMESI_MS;
+      logWarning('pushTokens.register.429', error);
+      return false;
+    }
     logError('pushTokens.register', error);
     return false;
   }
@@ -136,6 +180,7 @@ export async function registerPushToken(): Promise<boolean> {
  * Worker'a gönderecek kimlik kalmaz ve istek 401 döner.
  */
 export async function unregisterPushToken(): Promise<boolean> {
+  kayitHafizasiniSifirla();
   try {
     if (!KAYMAK_WORKER_URL) return false;
 
