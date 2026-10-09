@@ -109,5 +109,22 @@
   "marathonL3Headline": "{{name}} crushed the season in one sitting! 🏆🦉",
   "marathonL3Badge": "Season Slayer",
   "marathonRangeWatched": "watched {{range}}",
-  "marathonSingleWatched": "watched {{episode}}"
+  "marathonSingleWatched": "watched {{episode}}",
+  "detailLikes": "likes",
+  "detailComments": "comments",
+  "detailLike": "Like",
+  "detailComment": "Write a comment",
+  "detailShare": "Share",
+  "detailGoShow": "Go to show",
+  "detailGoMovie": "Go to movie",
+  "detailGoEpisode": "Go to episode",
+  "detailShow": "Show",
+  "detailMovie": "Movie",
+  "detailCommentPlaceholder": "Write a comment…",
+  "detailSend": "Send",
+  "detailSpoilerOn": "Will be marked as a spoiler",
+  "detailFirstComment": "Be the first to comment.",
+  "detailClose": "Close",
+  "detailLikeOne": "like",
+  "detailCommentOne": "comment"
 }

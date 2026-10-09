@@ -1,11 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, SearchX } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
-import FeedCard from '../../features/feed/components/FeedCard';
 import { useActivityDetail } from '../../features/feed/hooks/useActivityDetail';
+import { useActivityActions } from '../../features/feed/hooks/useActivityActions';
+import { isUserPublished } from '../../features/feed/utils/activityKind';
+import PublishedActivityDetail from '../../features/feed/components/detail/PublishedActivityDetail';
+import SystemActivityBody from '../../features/feed/components/detail/SystemActivityBody';
+import { FeedActivity } from '../../features/feed/types';
 import { useAppBack } from '../../hooks/useAppBack';
 
 // Tek bir aktivitenin kalıcı bağlantısı — "Paylaş" menü satırının hedefi
@@ -19,11 +23,11 @@ import { useAppBack } from '../../hooks/useAppBack';
 // NORMAL bir senaryo (aktivite sahibi silmiş olabilir), WifiOff+"Tekrar Dene"
 // deseni burada yanıltıcı olurdu.
 export default function ActivityDetailScreen() {
-  const { id: rawId } = useLocalSearchParams();
+  const { id: rawId, yorum } = useLocalSearchParams();
   const id = (Array.isArray(rawId) ? rawId[0] : rawId) ?? null;
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('feed');
-  const { activity, isLoading } = useActivityDetail(id);
+  const { activity, isLoading, patchLocal } = useActivityDetail(id);
   // Bu ekran TANIM GEREĞİ paylaşım linkiyle (yani yığının ilk ekranı olarak)
   // açılıyor — çıplak `router.back()` orada hiçbir şey yapmıyordu.
   const handleBack = useAppBack();
@@ -42,11 +46,17 @@ export default function ActivityDetailScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
+      {/* C2 · Kullanıcı yayını → tam ekran detay + yorumlar (taslak A).
+          Sistem kaydı paylaşım linkiyle açıldıysa arkasında akış yok → yarım
+          pencerenin içeriği tam sayfa (taslak B). */}
+      {!isLoading && activity && isUserPublished(activity) ? (
+        <PublishedActivityDetail activity={activity} patchLocal={patchLocal} focusComposer={yorum === '1'} />
+      ) : !isLoading && activity ? (
+        <SystemActivityPage activity={activity} patchLocal={patchLocal} />
+      ) : (
       <View style={styles.content}>
         {isLoading ? (
           <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />
-        ) : activity ? (
-          <FeedCard activity={activity} openDetailOnPress={false} />
         ) : (
           <View style={styles.emptyState}>
             <SearchX size={40} color="#334155" />
@@ -55,7 +65,19 @@ export default function ActivityDetailScreen() {
           </View>
         )}
       </View>
+      )}
     </View>
+  );
+}
+
+/** Paylaşım linkiyle açılan sistem kaydı: yarım pencerenin içeriği, tam sayfada. */
+function SystemActivityPage({ activity, patchLocal }: { activity: FeedActivity; patchLocal: (p: Partial<FeedActivity>) => void }) {
+  const actions = useActivityActions(activity, { onLocalPatch: patchLocal });
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <SystemActivityBody activity={activity} actions={actions} />
+      {actions.modals}
+    </ScrollView>
   );
 }
 

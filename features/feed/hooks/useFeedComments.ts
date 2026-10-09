@@ -18,7 +18,8 @@ export interface UseFeedCommentsResult {
   isSubmitting: boolean;
   myUserId: string | null;
   likedCommentIds: Set<string>;
-  submitComment: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; message: string }>;
+  /** Başarıda `count`: yeniden yüklenen görünür yorum sayısı (kesin değer). */
+  submitComment: (body: string, spoiler: boolean) => Promise<{ ok: true; count: number | null } | { ok: false; message: string }>;
   removeComment: (commentId: string) => Promise<void>;
   toggleCommentLike: (commentId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -39,7 +40,7 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
   const [hasError, setHasError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<FeedComment[] | null> => {
     setIsLoading(true);
     setHasError(false);
     try {
@@ -55,9 +56,11 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
       } else {
         setLikedCommentIds(new Set());
       }
+      return list;
     } catch (error) {
       console.warn('[Feed] Yorumlar yüklenemedi:', error);
       setHasError(true);
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +72,7 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
   }, [isOpen, load]);
 
   const submitComment = useCallback(
-    async (body: string, spoiler: boolean): Promise<{ ok: true } | { ok: false; message: string }> => {
+    async (body: string, spoiler: boolean): Promise<{ ok: true; count: number | null } | { ok: false; message: string }> => {
       if (!accessToken) return { ok: false, message: 'Oturum bulunamadı.' };
       setIsSubmitting(true);
       try {
@@ -78,13 +81,14 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
         // yalnızca id/createdAt döndürür) — tam, doğru bir kart için listeyi
         // yeniden çekmek, eksik alanlı sahte bir satır uydurmaktan daha
         // güvenilir. Yorum sık atılan bir eylem değil, maliyeti düşük.
-        await load();
-        const store = useFeedStore.getState();
-        const current = store.activities.find((a) => a.id === activityId);
-        if (current) {
-          store.patchActivity(activityId, { commentCount: (current.commentCount ?? 0) + 1 });
-        }
-        return { ok: true };
+        const list = await load();
+        // M476: KESİN değer yazılır, +1 DEĞİL. Sunucu tetikleyicisi sayacı
+        // zaten artırıyor ve Realtime UPDATE'i kesin değeri getiriyor; o yankı
+        // yeniden yükleme sırasında gelirse «+1» onu ikinci kez artırıyordu
+        // (cihazda 1 yorum → «2» görüldü, 2026-10-10).
+        const count = list ? list.length : null;
+        if (count != null) useFeedStore.getState().patchActivity(activityId, { commentCount: count });
+        return { ok: true, count };
       } catch (error: any) {
         console.warn('[Feed] Yorum gönderilemedi:', error);
         return { ok: false, message: error?.message || 'Yorum gönderilemedi.' };
@@ -169,6 +173,8 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
     submitComment,
     removeComment,
     toggleCommentLike,
-    refresh: load,
+    refresh: async () => {
+      await load();
+    },
   };
 }

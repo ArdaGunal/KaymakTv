@@ -18,7 +18,9 @@ export function formatRelativeTime(dateStr: string | undefined, t: (key: string)
   if (!dateStr) return '';
   const now = new Date();
   const date = new Date(dateStr);
-  const diffMs = now.getTime() - date.getTime();
+  // M476: sunucu damgası cihaz saatinin birkaç saniye İLERİSİNDE olabilir
+  // (saat kayması) → negatif fark «-1 days ago» yazıyordu. Gelecek = «şimdi».
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {

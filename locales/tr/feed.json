@@ -108,5 +108,22 @@
   "marathonL3Headline": "{{name}} sezonu tek oturuşta devirdi! 🏆🦉",
   "marathonL3Badge": "Sezon Fatihi",
   "marathonRangeWatched": "{{range}} arası izlendi",
-  "marathonSingleWatched": "{{episode}} izlendi"
+  "marathonSingleWatched": "{{episode}} izlendi",
+  "detailLikes": "beğeni",
+  "detailComments": "yorum",
+  "detailLike": "Beğen",
+  "detailComment": "Yorum yaz",
+  "detailShare": "Paylaş",
+  "detailGoShow": "Diziye git",
+  "detailGoMovie": "Filme git",
+  "detailGoEpisode": "Bölüme git",
+  "detailShow": "Dizi",
+  "detailMovie": "Film",
+  "detailCommentPlaceholder": "Yorumunu yaz…",
+  "detailSend": "Gönder",
+  "detailSpoilerOn": "Spoiler olarak işaretlenecek",
+  "detailFirstComment": "İlk yorumu sen yaz.",
+  "detailClose": "Kapat",
+  "detailLikeOne": "beğeni",
+  "detailCommentOne": "yorum"
 }

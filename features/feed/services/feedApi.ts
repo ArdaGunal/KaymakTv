@@ -369,7 +369,15 @@ export async function getVisibleUserIds(force = false): Promise<Set<string>> {
  * `in_feed` ön elemesi WebSocket yüküne güveniyor; bu sorgu ise SUNUCUDA
  * doğruluyor — yük eksik/bozuk gelse bile gizli bir kart listeye giremez.
  */
-export async function fetchActivityById(id: string): Promise<FeedActivity | null> {
+/**
+ * `withLikes`: detay sayfası (C2) kalbin dolu/boş hâlini bilmek zorunda →
+ * `isLikedByMe` eklenir. Realtime'ın satır tamamlama yolu bunu İSTEMEZ (her
+ * olay için fazladan bir sorgu olurdu — AKIS_PLANI A-4), varsayılan false.
+ */
+export async function fetchActivityById(
+  id: string,
+  options: { withLikes?: boolean } = {}
+): Promise<FeedActivity | null> {
   const { data, error } = await timeSupabaseCall('supabase.feed_activities.byId', () =>
     supabase
       .from('feed_activities')
@@ -379,7 +387,10 @@ export async function fetchActivityById(id: string): Promise<FeedActivity | null
       .maybeSingle()
   );
   if (error) throw error;
-  return data ? mapRow(data as unknown as FeedActivityRow) : null;
+  if (!data) return null;
+  const activity = mapRow(data as unknown as FeedActivityRow);
+  if (options.withLikes) await attachIsLikedByMe([activity]);
+  return activity;
 }
 
 const PROFILE_ACTIVITY_LIMIT = 20;

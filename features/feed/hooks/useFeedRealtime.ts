@@ -29,6 +29,7 @@ import { supabase } from '../services/supabaseClient';
 import { fetchActivityById, getVisibleUserIds } from '../services/feedApi';
 import { tempActivityId } from '../services/feedPublish';
 import { useFeedStore } from '../store/feedStore';
+import { getMySupabaseUserId } from '../services/userBlocks';
 
 export function useFeedRealtime(enabled: boolean): void {
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -103,7 +104,11 @@ export function useFeedRealtime(enabled: boolean): void {
                 // rozetine SAYMA — bunu az önce ben yaptım.
                 store.replaceActivity(tempId, activity);
               } else {
-                store.upsertActivity(activity, true);
+                // M476: KENDİ etkinliğim (başka cihazdan ya da yankısı geç
+                // eşleşen yayınım) «N yeni gönderi» rozetine sayılmaz.
+                const myId = await getMySupabaseUserId().catch(() => null);
+                if (cancelled) return;
+                useFeedStore.getState().upsertActivity(activity, activity.user.id !== myId);
               }
             } catch (error) {
               console.warn('[Feed] Realtime satırı çözülemedi:', error);

@@ -85,6 +85,8 @@ const TAKIMLAR = [
   { ad: 'akis-disk', grup: 'arayuz', dosya: 'arayuz/akis-disk.test.mjs', aciklama: 'M472/B-2: akis son kopyadan aninda acilir, hesap anahtarli' },
   { ad: 'akis-dil', grup: 'arayuz', dosya: 'arayuz/akis-dil.test.mjs', aciklama: 'A-3/C0: akis sistem metinleri ceviride, tekil/cogul zaman' },
   { ad: 'akis-dokunma', grup: 'arayuz', dosya: 'arayuz/akis-dokunma.test.mjs', aciklama: 'C1: kart dokunma haritasi (detay / maraton -> dizi)' },
+  { ad: 'akis-detay', grup: 'arayuz', dosya: 'arayuz/akis-detay.test.mjs', aciklama: 'C2: yayin/sistem ayrimi, tam tarih, bolum kodu, detay baglantilari' },
+  { ad: 'akis-yayin', grup: 'arayuz', dosya: 'arayuz/akis-yayin.test.mjs', aciklama: 'M476: gonderi iyimser karti yerlesir, kendi gonderin rozet yok, yorum sayaci kesin, gelecek damga' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

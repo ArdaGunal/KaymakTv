@@ -7,7 +7,7 @@ import { isKaymakSessionToken } from '../../../services/api/traktClient';
 import { getUserProfile } from '../../../services/api/social';
 import { getMySupabaseUserId } from './userBlocks';
 import { useFeedStore } from '../store/feedStore';
-import { invalidateFeedCache, invalidateUserFeedActivitiesCache } from './feedApi';
+import { invalidateFeedCache, invalidateUserFeedActivitiesCache, fetchActivityById } from './feedApi';
 import { FeedActivity, FeedMediaType } from '../types';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
@@ -323,6 +323,24 @@ function toOptimisticPost(input: PublishablePost, me: FeedActivity['user'], acti
   };
 }
 
+/**
+ * Başarılı yayından sonra iyimser kartı gerçek satırla değiştirir. Gerçek satır
+ * Realtime ile ÖNCE gelmişse `replaceActivity` geçiciyi yalnız düşürür (kopya
+ * kalmaz). Satır çekilemezse geçici kart yine kaldırılır — «gönderiliyor»
+ * hâlinde asılı bir kart, bir an görünmeyen bir karttan daha yanıltıcıdır.
+ */
+async function settleOptimistic(tempId: string, realId?: string): Promise<void> {
+  const store = useFeedStore.getState();
+  try {
+    const real = realId ? await fetchActivityById(realId, { withLikes: false }) : null;
+    if (real) store.replaceActivity(tempId, real);
+    else store.removeActivity(tempId);
+  } catch (error) {
+    console.warn('[Feed] Yayın sonrası satır çekilemedi:', error);
+    useFeedStore.getState().removeActivity(tempId);
+  }
+}
+
 export async function publishPost(input: PublishablePost): Promise<{ ok: true } | { ok: false; message: string }> {
   if (!KAYMAK_WORKER_URL) return { ok: false, message: 'Sunucu adresi tanımlı değil.' };
 
@@ -369,6 +387,10 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
         mediaType: input.show?.mediaType,
         tmdbId: input.show?.tmdbId,
         showTitle: input.show?.showTitle,
+        // M476: iyimser kartın damgası sunucuya gider (Worker `resolveClientStamp`
+        // makul sapmada kabul eder) — eskiden gönderilmiyordu, sunucu kendi
+        // saatini yazıyordu ve Realtime yankısı geçici kartla HİÇ eşleşmiyordu.
+        activityAt,
       },
       { headers: { 'Content-Type': 'application/json' }, timeout: 12000 }
     );
@@ -376,6 +398,12 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
     if (!response.data?.success) {
       throw new Error(response.data?.message || 'Gönderi paylaşılamadı.');
     }
+
+    // M476: geçici kart sunucunun döndürdüğü GERÇEK id ile yerleşir. Eskiden
+    // «Realtime yankısı değiştirir» varsayılıyordu; damga eşleşmeyince
+    // «gönderiliyor» kopyası sonsuza dek kalıyor, gerçek kart da ayrıca
+    // «1 yeni gönderi» diye sayılıyordu (cihazda görüldü, 2026-10-10).
+    if (optimistic) await settleOptimistic(optimistic.id, response.data?.activity?.id);
 
     invalidateFeedCache();
     invalidateUserFeedActivitiesCache();

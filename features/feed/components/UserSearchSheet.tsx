@@ -52,7 +52,7 @@ interface Props {
  * ==========================================================================
  * ⌨️ KLAVYE — yeni bir desen İCAT EDİLMEDİ
  * ==========================================================================
- * `FeedCommentSheet`'in cihazda sınanmış deseni birebir: Android'de
+ * eski `FeedCommentSheet`'in (C2'de detay sayfasına dönüştü) cihazda sınanmış deseni birebir: Android'de
  * `statusBarTranslucent` + pencere yeniden boyutlanması, iOS'ta
  * `KeyboardAvoidingView` `padding`. O sayfada giriş alanı EN ALTTA duruyor
  * (en zor durum) ve çalışıyor; burada en üstte, sonuçlar kaydırılabilir.
