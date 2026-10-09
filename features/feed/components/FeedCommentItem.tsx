@@ -52,6 +52,10 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
 
           <CardMenu
             onDelete={isOwn ? onDelete : undefined}
+            deleteConfirm={{
+              title: t('commentDeleteConfirmTitle', 'Yorumu Sil'),
+              message: t('commentDeleteConfirmMessage', 'Bu yorumu silmek istediğine emin misin? Bu işlem geri alınamaz.'),
+            }}
             onReport={!isOwn ? () => setReportModalVisible(true) : undefined}
             onBlock={
               !isOwn && accessToken && !isGuest ? () => blockUserQuick({ userId: comment.userId }) : undefined

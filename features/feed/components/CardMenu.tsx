@@ -31,6 +31,10 @@ interface CardMenuProps {
    *  BAŞKASININ içeriğinde geçirilmeli. Onay çağıranın (useBlockState akışı)
    *  sorumluluğunda, burada yalnızca tetiklenir. */
   onBlock?: () => void;
+  /** C3 · Silme onayının başlık/metni — verilmezse «Aktiviteyi Sil». Yorum
+   *  menüsü kendi metnini verir (eskiden yorum silerken «Delete Activity»
+   *  yazıyordu — DIL-02). */
+  deleteConfirm?: { title: string; message: string };
   style?: any;
 }
 
@@ -45,7 +49,7 @@ const ROW_HEIGHT = 46;
 // TrackingCardMenu afiş kartlarına özel (favori/listeye ekle/bırak) mantık
 // taşıyor, burası yalnızca Düzenle/Sil/Paylaş — genelleştirmek gereksiz bir
 // bağımlılık yaratırdı.
-export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock, style }: CardMenuProps) {
+export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock, deleteConfirm, style }: CardMenuProps) {
   const { t } = useTranslation(['media', 'feed', 'common']);
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -90,8 +94,9 @@ export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock,
 
   const handleDelete = async () => {
     const confirmed = await confirmAsync(
-      t('media:activityDeleteConfirmTitle', 'Aktiviteyi Sil'),
-      t('media:activityDeleteConfirmMessage', 'Bu aktiviteyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+      deleteConfirm?.title ?? t('media:activityDeleteConfirmTitle', 'Aktiviteyi Sil'),
+      deleteConfirm?.message ??
+        t('media:activityDeleteConfirmMessage', 'Bu aktiviteyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
       t('common:delete'),
       t('common:cancel')
     );

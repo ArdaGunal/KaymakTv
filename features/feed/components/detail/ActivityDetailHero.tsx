@@ -13,6 +13,8 @@ interface Props {
   activity: FeedActivity;
   actions: ReturnType<typeof useActivityActions>;
   menuProps: React.ComponentProps<typeof ActivityAuthorRow>['menuProps'];
+  /** C3 · Yalnız KENDİ puan kartında verilir: yıldızlara dokununca puan düzenleyici. */
+  onPressRating?: () => void;
 }
 
 /**
@@ -20,7 +22,7 @@ interface Props {
  * onaylanan taslak A: yazı büyük ve birincil, puan yıldızları, yapım küçük
  * gömülü kart (dokununca yapım sayfası). Kullanıcının metni çevrilmez.
  */
-export default function ActivityDetailHero({ activity, actions, menuProps }: Props) {
+export default function ActivityDetailHero({ activity, actions, menuProps, onPressRating }: Props) {
   const { t } = useTranslation('feed');
   const [revealed, setRevealed] = useState(!activity.noteSpoiler);
   const label = activityLabel(activity, t);
@@ -50,12 +52,22 @@ export default function ActivityDetailHero({ activity, actions, menuProps }: Pro
       )}
 
       {puan != null && !Number.isNaN(puan) && (
-        <View style={styles.stars} accessibilityLabel={`${formatRating(activity.rating)}/5`}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Star key={i} size={18} color={i <= dolu ? '#facc15' : '#334155'} fill={i <= dolu ? '#facc15' : 'none'} />
-          ))}
-          <Text style={styles.starsText}>{`${formatRating(activity.rating)}/5`}</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.starsWrap}
+          onPress={onPressRating}
+          disabled={!onPressRating}
+          activeOpacity={0.7}
+          accessibilityRole={onPressRating ? 'button' : undefined}
+          accessibilityLabel={`${formatRating(activity.rating)}/5`}
+        >
+          <View style={styles.stars}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Star key={i} size={18} color={i <= dolu ? '#facc15' : '#334155'} fill={i <= dolu ? '#facc15' : 'none'} />
+            ))}
+            <Text style={styles.starsText}>{`${formatRating(activity.rating)}/5`}</Text>
+          </View>
+          {onPressRating && <Text style={styles.editHint}>{t('detailEditRating', 'Puanını değiştirmek için dokun')}</Text>}
+        </TouchableOpacity>
       )}
 
       {actions.hasShow && (
@@ -93,7 +105,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   spoilerText: { color: '#94a3b8', fontSize: 14 },
+  starsWrap: { alignSelf: 'flex-start', gap: 4 },
   stars: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  editHint: { color: '#64748b', fontSize: 11 },
   starsText: { color: '#facc15', fontSize: 13, fontWeight: '700', marginLeft: 6 },
   media: {
     flexDirection: 'row',

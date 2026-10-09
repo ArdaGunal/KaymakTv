@@ -10,12 +10,15 @@ interface UseShowDetailHandlersProps {
   traktIdNum: number;
   id: string | string[];
   t: any;
+  /** M477: kütüphanede olmayan dizi puanlanınca da akışa yayın için başlık/tmdb. */
+  medya?: { title?: string; tmdbId?: number };
 }
 
 export function useShowDetailHandlers({
   traktIdNum,
   id,
   t,
+  medya,
 }: UseShowDetailHandlersProps) {
   // Granüler: yalnızca kullanıcının dizi puanları izlenir — kütüphanedeki
   // ilerleme/watchlist/yorum gibi ilgisiz dilimler artık bu hook'u tetiklemez.
@@ -62,13 +65,13 @@ export function useShowDetailHandlers({
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(traktIdNum, 'show', rating);
-      await rateMedia(traktIdNum, 'show', rating);
+      await rateMedia(traktIdNum, 'show', rating, medya);
     } catch (e) {
       removeLocalRating(traktIdNum, 'show');
       Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
-  }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, rateMedia, t]);
+  }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, rateMedia, medya, t]);
 
   const handleRateEpisode = useCallback(async (episodeTraktId: number, rating: number) => {
     if (isGuest) {

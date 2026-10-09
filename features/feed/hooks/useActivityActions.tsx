@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Share } from 'react-native';
+import { Alert, Share } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FeedActivity } from '../types';
@@ -8,6 +8,13 @@ import { useMyUserId } from './useMyUserId';
 import { useQuickBlock } from './useQuickBlock';
 import { useFeedStore } from '../store/feedStore';
 import { setLike, setActivityNote } from '../services/feedSocial';
+import {
+  deleteActivitiesBulk,
+  invalidateFeedCache,
+  invalidateMediaReviewsCache,
+  invalidateUserFeedActivitiesCache,
+} from '../services/feedApi';
+import { useAktiviteSurumu } from '../store/aktiviteSurumu';
 import { buildMediaHref } from '../utils/feedNavigation';
 import { isUserPublished } from '../utils/activityKind';
 import NoteEditorModal from '../components/NoteEditorModal';
@@ -126,6 +133,38 @@ export function useActivityActions(
     [router, isInteractive, activity.id]
   );
 
+  /**
+   * C3 · Detay sayfasından KENDİ yayınını sil. Akıştaki silmeyle AYNI uç
+   * (`/feed/delete`, hard delete + tombstone); kart iyimser kaldırılır, hata
+   * olursa geri konur. Profil listesi, akış önbelleği ve (incelemeyse) yapım
+   * sayfasının inceleme önbelleği de tazelenir — geri dönünce eski kart
+   * görünmesin. true = silindi (çağıran sayfadan çıkar).
+   */
+  const deleteOwn = useCallback(async (): Promise<boolean> => {
+    if (!isOwnActivity || !accessToken || isGuest) return false;
+    const store = useFeedStore.getState();
+    const kaldirilan = store.activities.filter((a) => a.id === activity.id);
+    kaldirilan.forEach((a) => store.removeActivity(a.id));
+    try {
+      await deleteActivitiesBulk(accessToken, [activity.id]);
+      invalidateFeedCache();
+      invalidateUserFeedActivitiesCache();
+      if (activity.activityType === 'reviewed' && activity.showId != null && activity.mediaType) {
+        invalidateMediaReviewsCache(activity.showId, activity.mediaType, activity.episodeNumber);
+      }
+      useAktiviteSurumu.getState().artir();
+      return true;
+    } catch (error) {
+      console.warn('[Feed] Aktivite silinemedi:', error);
+      kaldirilan.forEach((a) => useFeedStore.getState().upsertActivity(a, false));
+      Alert.alert(
+        t('common:error', 'Hata'),
+        t('media:activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.')
+      );
+      return false;
+    }
+  }, [isOwnActivity, accessToken, isGuest, activity, t]);
+
   /** CardMenu'ye verilecek eylemler — `onDelete` çağıranın (silme yolu ekrana göre değişir). */
   const menuProps = {
     onEdit: isOwnActivity ? () => setNoteModalVisible(true) : undefined,
@@ -177,6 +216,9 @@ export function useActivityActions(
     openMedia,
     openDetail,
     openNoteEditor: () => setNoteModalVisible(true),
+    deleteOwn,
+    /** Store + çağıranın yerel kopyasına kısmi yama (C3 puan düzenleme). */
+    patch,
     menuProps,
     modals,
   };

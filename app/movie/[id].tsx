@@ -115,7 +115,11 @@ export default function MovieDetailScreen() {
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
     try {
       setLocalRating(traktIdNum, 'movie', rating);
-      await rateMedia(traktIdNum, 'movie', rating);
+      // M477: kütüphanede olmayan film de akışa yayınlansın (başlık/tmdb ipucu).
+      await rateMedia(traktIdNum, 'movie', rating, {
+        title: movieData?.title,
+        tmdbId: Number(movieData?.ids?.tmdb ?? tmdbId) || undefined,
+      });
     } catch (e) {
       removeLocalRating(traktIdNum, 'movie');
       Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');

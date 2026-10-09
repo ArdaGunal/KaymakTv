@@ -178,8 +178,31 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
   const me = await resolveMe();
   const store = useFeedStore.getState();
 
+  // 0) C3/M477 · PUAN GÜNCELLEMESİ: akışta kendi puan kartım ZATEN varsa Worker
+  // yeni satır eklemez, var olanı günceller (kullanıcı başına yapım başına tek
+  // `rated` satırı). Eskiden yine de geçici bir kart ekleniyordu; INSERT yankısı
+  // hiç gelmediği için «gönderiliyor» hâlinde asılı kalıyordu (dizi sayfasından
+  // puan değiştirince de). Var olan kart yerinde güncellenir, geçici kart yok.
+  const myUserId = await getMySupabaseUserId().catch(() => null);
+  const yerindeGuncellenen: { id: string; onceki: number | undefined }[] = [];
+  const yeniKartlar = activities.filter((a) => {
+    if (a.activityType !== 'rated' || !myUserId) return true;
+    const mevcut = store.activities.find(
+      (x) =>
+        x.activityType === 'rated' &&
+        !x.isPending &&
+        x.showId === a.showId &&
+        x.mediaType === a.mediaType &&
+        x.user.id === myUserId
+    );
+    if (!mevcut) return true;
+    yerindeGuncellenen.push({ id: mevcut.id, onceki: mevcut.rating });
+    store.patchActivity(mevcut.id, { rating: a.rating });
+    return false;
+  });
+
   // 1) İYİMSER: kartlar anında ekranda.
-  const optimistic = me ? activities.map((a) => toOptimisticActivity(a, me)) : [];
+  const optimistic = me ? yeniKartlar.map((a) => toOptimisticActivity(a, me)) : [];
   optimistic.forEach((card) => store.upsertActivity(card, false));
 
   const start = Date.now();
@@ -272,6 +295,7 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
   } catch (error) {
     // Yayınlanmamış bir şeyi ekranda bırakmak kullanıcıya YALAN olurdu.
     optimistic.forEach((card) => useFeedStore.getState().removeActivity(card.id));
+    yerindeGuncellenen.forEach(({ id, onceki }) => useFeedStore.getState().patchActivity(id, { rating: onceki }));
     recordMutationResult('publishFeedActivity', false);
     logError('feedPublish.publishActivities', error, {
       // Worker'ın `authErrorResponse` gövdesindeki `errorKind` — telemetri

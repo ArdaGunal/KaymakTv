@@ -152,11 +152,34 @@ export function useFeedRealtime(enabled: boolean): void {
             // `fetchActivityById` isteği demek olurdu. Ayar geri açıldığında
             // kartlar bir sonraki akış yüklemesinde gelir.
 
+            // C3/M477 · Puan GÜNCELLEMESİ (Worker kullanıcı başına yapım başına
+            // tek `rated` satırını yerinde günceller): (a) diğer kullanıcıların
+            // akışında da yeni puan görünsün; (b) kendi eski kartım akışta
+            // yüklü değilken eklenen geçici kart bu UPDATE ile yerleşsin —
+            // INSERT yankısı hiç gelmeyeceği için eskiden asılı kalıyordu.
+            if (row.activity_type === 'rated') {
+              const tempId = tempActivityId({
+                activityType: 'rated',
+                showId: row.show_id,
+                episodeNumber: row.episode_number,
+                activityAt: row.activity_at,
+              });
+              if (useFeedStore.getState().activities.some((a) => a.id === tempId)) {
+                fetchActivityById(row.id)
+                  .then((real) => {
+                    if (real && !cancelled) useFeedStore.getState().replaceActivity(tempId, real);
+                  })
+                  .catch((error) => console.warn('[Feed] Puan güncellemesi çözülemedi:', error));
+                return;
+              }
+            }
+
             useFeedStore.getState().patchActivity(row.id, {
               likeCount: row.like_count ?? 0,
               commentCount: row.comment_count ?? 0,
               note: row.note ?? null,
               noteSpoiler: row.note_spoiler ?? false,
+              ...(row.activity_type === 'rated' && row.rating != null ? { rating: row.rating } : {}),
               // isLikedByMe BİLİNÇLİ OLARAK dokunulmuyor — bu satırda yok
               // (Supabase Auth olmadığı için auth.uid() bazlı bir kolon
               // mümkün değil), yalnızca client'ın kendi eylemiyle değişir.

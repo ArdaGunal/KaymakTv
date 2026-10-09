@@ -117,7 +117,12 @@ export default function ShowDetailScreen() {
     handleUnwatchEpisode: hookHandleUnwatchEpisode,
     handleRewatchEpisode: hookHandleRewatchEpisode,
     handleUndoUnwatch,
-  } = useShowDetailHandlers({ traktIdNum, id, t });
+  } = useShowDetailHandlers({
+    traktIdNum,
+    id,
+    t,
+    medya: { title: showData?.title, tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined },
+  });
 
   // 🆕 M421/M425 — ORTAK TÜREV (utils/sezonEvreni.ts): "öncekileri de işaretle"
   // planı (M421) ve iyimser iskelet (M422) için. Eskiden burada elle

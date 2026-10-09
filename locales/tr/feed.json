@@ -125,5 +125,10 @@
   "detailFirstComment": "İlk yorumu sen yaz.",
   "detailClose": "Kapat",
   "detailLikeOne": "beğeni",
-  "detailCommentOne": "yorum"
+  "detailCommentOne": "yorum",
+  "commentDeleteConfirmTitle": "Yorumu Sil",
+  "commentDeleteConfirmMessage": "Bu yorumu silmek istediğine emin misin? Bu işlem geri alınamaz.",
+  "detailEditRating": "Puanını değiştirmek için dokun",
+  "detailRatingError": "Puan kaydedilemedi, tekrar dene.",
+  "detailRatingRemoveError": "Puan kaldırılamadı, tekrar dene."
 }

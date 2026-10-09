@@ -35,8 +35,16 @@ export default function SystemActivityBody({ activity, actions, beforeNavigate }
 
   // Menü eylemleri (alıntı, şikayet, paylaş, engelle) kendi modalını açar —
   // pencere üstte kalıp onu örtmesin diye önce pencere kapanır.
+  // C3 · Kendi sistem kaydını buradan da silebilirsin (akış kartıyla aynı uç).
   const menuProps = Object.fromEntries(
-    Object.entries(actions.menuProps).map(([k, v]) => [k, typeof v === 'function' ? go(v as () => void) : v])
+    Object.entries({
+      ...actions.menuProps,
+      onDelete: actions.isOwnActivity
+        ? (): void => {
+            void actions.deleteOwn();
+          }
+        : undefined,
+    }).map(([k, v]) => [k, typeof v === 'function' ? go(v as () => void) : v])
   );
 
   return (

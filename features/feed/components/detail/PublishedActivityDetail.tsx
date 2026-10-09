@@ -8,6 +8,8 @@ import { confirmAsync } from '../../../../utils/confirmDialog';
 import { FeedActivity } from '../../types';
 import { useActivityActions } from '../../hooks/useActivityActions';
 import { useFeedComments } from '../../hooks/useFeedComments';
+import { useOwnRatingEdit } from '../../hooks/useOwnRatingEdit';
+import { useAppBack } from '../../../../hooks/useAppBack';
 import FeedCommentItem from '../FeedCommentItem';
 import ActivityDetailHero from './ActivityDetailHero';
 import ActivityActionBar from './ActivityActionBar';
@@ -32,6 +34,17 @@ export default function PublishedActivityDetail({ activity, patchLocal, focusCom
   const inputRef = useRef<TextInput>(null);
   const actions = useActivityActions(activity, { onLocalPatch: patchLocal });
   const yorumlar = useFeedComments(activity.id, true);
+  const geri = useAppBack();
+  // C3 · Kendi yayınının düzenle/sil yolları (bugün var olanlar).
+  const puan = useOwnRatingEdit(activity, actions, geri);
+  const menuProps = {
+    ...actions.menuProps,
+    onDelete: actions.isOwnActivity
+      ? async () => {
+          if (await actions.deleteOwn()) geri();
+        }
+      : undefined,
+  };
 
   // Klavye açıkken alt güvenli alan payı (insets.bottom) eklenmez — yoksa
   // yorum kutusuyla klavye arasında boş bir şerit kalıyordu (cihazda görüldü).
@@ -92,7 +105,12 @@ export default function PublishedActivityDetail({ activity, patchLocal, focusCom
 
   const header = (
     <View>
-      <ActivityDetailHero activity={activity} actions={actions} menuProps={actions.menuProps} />
+      <ActivityDetailHero
+        activity={activity}
+        actions={actions}
+        menuProps={menuProps}
+        onPressRating={puan.canEditRating ? puan.openRatingEditor : undefined}
+      />
       <ActivityActionBar
         activity={activity}
         onToggleLike={actions.toggleLike}
@@ -152,6 +170,7 @@ export default function PublishedActivityDetail({ activity, patchLocal, focusCom
         </View>
       )}
       {actions.modals}
+      {puan.ratingModal}
     </KeyboardAvoidingView>
   );
 }

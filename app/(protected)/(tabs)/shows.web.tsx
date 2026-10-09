@@ -273,7 +273,7 @@ export default function DizilerScreenWeb() {
                 <Text style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>{t('howWasShow')}</Text>
                 <InlineRater
                   onRate={async (val) => {
-                    await rateMedia(finishedShow.id, 'show', val);
+                    await rateMedia(finishedShow.id, 'show', val, { title: finishedShow.name });
                     setTimeout(() => setShowConfetti(false), 800);
                   }}
                 />

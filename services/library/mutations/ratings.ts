@@ -107,7 +107,19 @@ const golgeYaz = async (yer: string, islem: () => Promise<unknown>) => {
   }
 };
 
-export const rateMedia = async (id: number, type: 'show' | 'movie', rating: number) => {
+/**
+ * `ipucu` (M477): çağıran ekranın bildiği başlık/tmdb. Kütüphanede OLMAYAN bir
+ * yapım puanlandığında `resolveMediaMeta` boş döner ve eskiden akışa HİÇ
+ * yayın yapılmıyordu — «bir sonraki tam senkron getirir» varsayımı Google-only
+ * kullanıcıda (Trakt senkronu yok) hiç gerçekleşmiyordu (cihazda görüldü:
+ * MobLand puanı akışa düşmedi, 2026-10-10). Kütüphane kaydı varsa o kazanır.
+ */
+export const rateMedia = async (
+  id: number,
+  type: 'show' | 'movie',
+  rating: number,
+  ipucu?: { title?: string; tmdbId?: number }
+) => {
   // Damga Trakt'a ve Akış'a AYNI gönderilir — bir sonraki tam senkron aynı
   // dedup anahtarını üretsin diye (bkz. mutations/progress.ts başlığı).
   const ratedAt = nowStamp();
@@ -127,7 +139,8 @@ export const rateMedia = async (id: number, type: 'show' | 'movie', rating: numb
 
   // Başlık/poster kütüphane dilimlerinden çözülür — çağıranların imzasını
   // Akış yüzünden değiştirmemek için (bkz. services/library/mediaMeta.ts).
-  const meta = resolveMediaMeta(id, type);
+  const kutuphane = resolveMediaMeta(id, type);
+  const meta = { title: kutuphane.title || ipucu?.title || '', tmdbId: kutuphane.tmdbId ?? ipucu?.tmdbId };
   if (meta.title) {
     publishActivities([
       {
