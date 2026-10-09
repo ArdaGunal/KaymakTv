@@ -17,6 +17,7 @@ import {
 import { useAktiviteSurumu } from '../store/aktiviteSurumu';
 import { buildMediaHref } from '../utils/feedNavigation';
 import { isUserPublished } from '../utils/activityKind';
+import { useOpenEpisode } from './useOpenEpisode';
 import NoteEditorModal from '../components/NoteEditorModal';
 import ReportContentModal from '../components/ReportContentModal';
 
@@ -39,6 +40,7 @@ export function useActivityActions(
   const { accessToken, isGuest } = useAuth();
   const myUserId = useMyUserId();
   const { blockUserQuick } = useQuickBlock();
+  const { openEpisode } = useOpenEpisode();
 
   // İyimser (isPending) kartın gerçek id'si yok — sosyal etkileşim hedefi olamaz.
   const isInteractive = !activity.isPending;
@@ -165,6 +167,26 @@ export function useActivityActions(
     }
   }, [isOwnActivity, accessToken, isGuest, activity, t]);
 
+  /**
+   * C4 · Kişinin YAZISINA dokunma (kullanıcı kararı: «yoruma basınca yoruma gider;
+   * gönderiye basınca kart detayı açılır»). İnceleme yapım sayfasının yorum
+   * bölümünde yaşar → oraya `?yorum=<id>` ile gidilir, sayfa kaydırıp vurgular.
+   * Gönderi/alıntı/puan yazısı yapım sayfasında YOK — onun «yorumu» detay
+   * sayfasındadır, oraya gidilir. Bölüm incelemesinde bölüm kimliği çözülür
+   * (bkz. useOpenEpisode); çözülemezse dizi sayfası.
+   */
+  const openText = useCallback(() => {
+    if (!isInteractive) return;
+    if (activity.activityType !== 'reviewed' || !hasShow) return openDetail();
+    if (activity.episodeNumber) {
+      const diziHref = buildMediaHref({ showId: activity.showId!, mediaType: 'show', tmdbId: activity.tmdbId });
+      const diziyeGit = () => router.push((diziHref + yorumEki(activity, diziHref.includes('?'))) as any);
+      return void openEpisode(activity, diziyeGit, { yorum: activity.id });
+    }
+    const href = buildMediaHref({ showId: activity.showId!, mediaType: activity.mediaType!, tmdbId: activity.tmdbId });
+    router.push((href + yorumEki(activity, href.includes('?'))) as any);
+  }, [isInteractive, activity, hasShow, openDetail, openEpisode, router]);
+
   /** CardMenu'ye verilecek eylemler — `onDelete` çağıranın (silme yolu ekrana göre değişir). */
   const menuProps = {
     onEdit: isOwnActivity ? () => setNoteModalVisible(true) : undefined,
@@ -216,10 +238,16 @@ export function useActivityActions(
     openMedia,
     openDetail,
     openNoteEditor: () => setNoteModalVisible(true),
+    openText,
     deleteOwn,
     /** Store + çağıranın yerel kopyasına kısmi yama (C3 puan düzenleme). */
     patch,
     menuProps,
     modals,
   };
+}
+
+/** `?yorum=<id>` ya da `&yorum=<id>` — yapım sayfasının kaydırma parametresi. */
+function yorumEki(a: Pick<FeedActivity, 'id'>, sorguVar: boolean): string {
+  return `${sorguVar ? '&' : '?'}yorum=${encodeURIComponent(a.id)}`;
 }

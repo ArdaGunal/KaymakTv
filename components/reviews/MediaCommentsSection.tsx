@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { PenLine, LogIn, AlertTriangle } from '../icons';
 import { useTranslation } from 'react-i18next';
@@ -59,6 +59,12 @@ interface MediaCommentsSectionProps {
   isLoadingTraktComments?: boolean;
   /** "Tümünü Gör" — Trakt'ın kendi sheet'ini açar (sayfalama + sıralama orada). */
   onSeeAllTrakt?: () => void;
+
+  // ── C4 · Akıştan gelinen inceleme (bkz. hooks/useScrollToComment.ts) ──
+  /** Vurgulanacak incelemenin id'si (`?yorum=`). */
+  focusReviewId?: string | null;
+  /** Vurgulanan satır çizilince çağrılır — sayfa oraya kaydırır. */
+  onFocusTarget?: (node: View) => void;
 }
 
 export default function MediaCommentsSection({
@@ -66,10 +72,36 @@ export default function MediaCommentsSection({
   traktComments,
   isLoadingTraktComments,
   onSeeAllTrakt,
+  focusReviewId,
+  onFocusTarget,
 }: MediaCommentsSectionProps) {
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
   const [sheetVisible, setSheetVisible] = useState(false);
+  // C4 · Vurgu birkaç saniye sonra söner (kalıcı bir çerçeve dikkat dağıtırdı).
+  const [vurguAcik, setVurguAcik] = useState(!!focusReviewId);
+  const vurguRef = useRef<View>(null);
+  useEffect(() => {
+    if (!focusReviewId) return;
+    setVurguAcik(true);
+    const z = setTimeout(() => setVurguAcik(false), 3500);
+    return () => clearTimeout(z);
+  }, [focusReviewId]);
+
+  /** Odaktaki incelemeyi vurgu çerçevesine sarar ve sayfaya konumunu bildirir. */
+  const sar = (reviewId: string, node: React.ReactNode) =>
+    reviewId === focusReviewId ? (
+      <View
+        key={reviewId}
+        ref={vurguRef}
+        onLayout={() => vurguRef.current && onFocusTarget?.(vurguRef.current)}
+        style={[styles.focusWrap, vurguAcik && styles.focusOn]}
+      >
+        {node}
+      </View>
+    ) : (
+      <React.Fragment key={reviewId}>{node}</React.Fragment>
+    );
 
   const {
     myReview,
@@ -167,23 +199,23 @@ export default function MediaCommentsSection({
       <View>
         {/* Kendi incelemem HER ZAMAN en üstte — kullanıcı kendi yazdığını
             listede aramak zorunda kalmasın. */}
-        {myReview && (
-          <ReviewItem
-            review={myReview}
-            isOwn
-            onToggleLike={() => toggleReviewLike(myReview.id)}
-            onEdit={() => setSheetVisible(true)}
-            onDelete={handleDelete}
-          />
+        {myReview &&
+          sar(
+            myReview.id,
+            <ReviewItem
+              review={myReview}
+              isOwn
+              onToggleLike={() => toggleReviewLike(myReview.id)}
+              onEdit={() => setSheetVisible(true)}
+              onDelete={handleDelete}
+            />
+          )}
+        {otherReviews.map((review) =>
+          sar(
+            review.id,
+            <ReviewItem review={review} isOwn={false} onToggleLike={() => toggleReviewLike(review.id)} />
+          )
         )}
-        {otherReviews.map((review) => (
-          <ReviewItem
-            key={review.id}
-            review={review}
-            isOwn={false}
-            onToggleLike={() => toggleReviewLike(review.id)}
-          />
-        ))}
       </View>
     );
   };
@@ -238,6 +270,18 @@ export default function MediaCommentsSection({
 }
 
 const styles = StyleSheet.create({
+  // C4 · akıştan gelinen incelemenin vurgusu (3,5 sn sonra söner).
+  focusWrap: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+  },
+  focusOn: {
+    borderColor: '#3b82f6',
+    backgroundColor: 'rgba(59,130,246,0.10)',
+  },
   section: {
     marginBottom: 24,
   },

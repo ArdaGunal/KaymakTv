@@ -17,6 +17,7 @@ import { useAppBack } from '../../hooks/useAppBack';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
+import { useScrollToComment } from '../../hooks/useScrollToComment';
 import { useTranslation } from 'react-i18next';
 import SeasonAccordion from '../../components/SeasonAccordion';
 import { useDetailLayout } from '../../hooks/useDetailLayout';
@@ -76,6 +77,8 @@ export default function ShowDetailScreen() {
   // Y6 (Madde 244): tek çağrı — `MediaCommentsSection` (inline) VE
   // `CommentSheet` ("Tümünü Gör") AYNI reviewsState'i tüketir, bkz.
   // MediaCommentsSection.tsx başlığı.
+  // C4 · akıştan `?yorum=<id>` ile gelindiyse o incelemeye kaydır + vurgula.
+  const yorumOdagi = useScrollToComment();
   const reviewsState = useMediaReviews({
     mediaId: traktIdNum,
     mediaType: 'show',
@@ -262,6 +265,8 @@ export default function ShowDetailScreen() {
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
       onSeeAllTrakt={() => setCommentSheetVisible(true)}
+      focusReviewId={yorumOdagi.focusId}
+      onFocusTarget={yorumOdagi.onFocusTarget}
     />
   );
 
@@ -306,7 +311,7 @@ export default function ShowDetailScreen() {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={yorumOdagi.scrollRef} contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
           <DetailWebLayout
             metrics={layout}
             backdrop={backdrop}
@@ -345,7 +350,7 @@ export default function ShowDetailScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={yorumOdagi.scrollRef} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         
         {/* Y20: MediaHero Trakt/TMDB HAM verisini en çok okuyan bileşen
             (yayın tarihi, süre, tür listesi, puan) — yani beklenmedik bir

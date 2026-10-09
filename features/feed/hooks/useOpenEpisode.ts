@@ -21,7 +21,12 @@ export function useOpenEpisode() {
   const [isOpening, setIsOpening] = useState(false);
 
   const openEpisode = useCallback(
-    async (a: { showId?: number; showTitle?: string; tmdbId?: number; episodeNumber?: string }, fallback: () => void) => {
+    async (
+      a: { showId?: number; showTitle?: string; tmdbId?: number; episodeNumber?: string },
+      fallback: () => void,
+      /** C4 · ek sorgu parametreleri (ör. `{ yorum: id }`). */
+      ekSorgu: Record<string, string> = {}
+    ) => {
       const kod = parseEpisodeCode(a.episodeNumber);
       if (!a.showId || !kod || isOpening) return fallback();
       setIsOpening(true);
@@ -30,7 +35,8 @@ export function useOpenEpisode() {
         const epId = Number(ep?.ids?.trakt);
         if (!epId) return fallback();
         const slug = generateEpisodeSlug(a.showId, undefined, a.showTitle, kod.season, kod.episode, epId);
-        router.push(`/episode/${slug}${a.tmdbId ? `?showTmdbId=${a.tmdbId}` : ''}` as any);
+        const sorgu = new URLSearchParams({ ...(a.tmdbId ? { showTmdbId: String(a.tmdbId) } : {}), ...ekSorgu }).toString();
+        router.push(`/episode/${slug}${sorgu ? `?${sorgu}` : ''}` as any);
       } catch (error) {
         console.warn('[Feed] Bölüm sayfası çözülemedi, dizi sayfasına gidiliyor:', error);
         fallback();

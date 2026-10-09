@@ -71,7 +71,12 @@ export default function ActivityDetailHero({ activity, actions, menuProps, onPre
       )}
 
       {actions.hasShow && (
-        <TouchableOpacity style={styles.media} onPress={actions.openMedia} activeOpacity={0.8}>
+        // C4 · İncelemede gömülü yapım kartı, yapım sayfasındaki O İNCELEMEYE götürür.
+        <TouchableOpacity
+          style={styles.media}
+          onPress={activity.activityType === 'reviewed' ? actions.openText : actions.openMedia}
+          activeOpacity={0.8}
+        >
           <MediaPoster tmdbId={activity.tmdbId} type={activity.mediaType} title={activity.showTitle} style={styles.poster} placeholderTextLines={2} />
           <View style={styles.mediaText}>
             <Text style={styles.mediaTitle} numberOfLines={1}>{activity.showTitle}</Text>

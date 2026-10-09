@@ -20,6 +20,7 @@ import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
 import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
+import { useScrollToComment } from '../../hooks/useScrollToComment';
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import Snackbar from '../../components/Snackbar';
 import { useTranslation } from 'react-i18next';
@@ -80,6 +81,8 @@ export default function MovieDetailScreen() {
   const commentsData = mediaData.comments;
 
   // Y6 (Madde 244): bkz. app/show/[id].tsx'teki aynı not.
+  // C4 · akıştan `?yorum=<id>` ile gelindiyse o incelemeye kaydır + vurgula.
+  const yorumOdagi = useScrollToComment();
   const reviewsState = useMediaReviews({
     mediaId: traktIdNum,
     mediaType: 'movie',
@@ -265,6 +268,8 @@ export default function MovieDetailScreen() {
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
       onSeeAllTrakt={() => setCommentSheetVisible(true)}
+      focusReviewId={yorumOdagi.focusId}
+      onFocusTarget={yorumOdagi.onFocusTarget}
     />
   );
 
@@ -304,7 +309,7 @@ export default function MovieDetailScreen() {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={yorumOdagi.scrollRef} contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
           <DetailWebLayout
             metrics={layout}
             backdrop={backdrop}
@@ -328,7 +333,7 @@ export default function MovieDetailScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={yorumOdagi.scrollRef} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         
         {/* Y20: bkz. app/show/[id].tsx'teki aynı sınır ve gerekçesi.
             Bu ekranda EKSİKTİ — show/ tarafı F15'te korunmuştu ama film

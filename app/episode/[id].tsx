@@ -12,6 +12,7 @@ import { formatRating } from '../../utils/formatRating';
 import RatingModal from '../../components/RatingModal';
 import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
+import { useScrollToComment } from '../../hooks/useScrollToComment';
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import { formatEpisodeCode } from '../../features/feed/services/feedPublish';
 import MediaCast from '../../components/MediaCast';
@@ -55,6 +56,8 @@ export default function EpisodeDetailScreen() {
   // traktId'si (`showId`) — bölüm incelemesi `episodeNumber` ile ayrıştırılır,
   // `useMediaReviews`'in kendi `mediaType`'ı hep 'show' (FeedMediaType'ta
   // 'episode' yok, bkz. features/feed/types.ts).
+  // C4 · akıştan `?yorum=<id>` ile gelindiyse o incelemeye kaydır + vurgula.
+  const yorumOdagi = useScrollToComment();
   const reviewsState = useMediaReviews({
     mediaId: showId as number,
     mediaType: 'show',
@@ -169,6 +172,8 @@ export default function EpisodeDetailScreen() {
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
       onSeeAllTrakt={() => setCommentSheetVisible(true)}
+      focusReviewId={yorumOdagi.focusId}
+      onFocusTarget={yorumOdagi.onFocusTarget}
     />
   );
 
@@ -211,7 +216,7 @@ export default function EpisodeDetailScreen() {
 
     return (
       <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+        <ScrollView ref={yorumOdagi.scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
           <DetailWebLayout
             metrics={layout}
             backdrop={showBackdrop}
@@ -284,7 +289,7 @@ export default function EpisodeDetailScreen() {
   // ── MOBIL (ve dar web) — YERLESIM DEGISTIRILMEDI ──────────────────────
   return (
     <View style={styles.container}>
-      <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={yorumOdagi.scrollRef} bounces={false} showsVerticalScrollIndicator={false}>
         <EpisodeHeroMobile
           stillUrl={stillUrl}
           showName={showName}

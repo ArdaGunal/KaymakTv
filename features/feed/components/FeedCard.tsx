@@ -99,8 +99,10 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
             <FeedActivityNote
               note={activity.note}
               spoiler={!!activity.noteSpoiler}
-              editable={isOwnActivity}
-              onPressEdit={actions.openNoteEditor}
+              // C4 · yazıya dokun → inceleme ise yapım sayfasındaki o yorum,
+              // değilse detay. Detay sayfasının KENDİSİNDE (openDetailOnPress
+              // false) yazı dokunulmaz değil, yine incelemeye götürür.
+              onPressText={isInteractive ? actions.openText : undefined}
             />
 
             {/* Bağlam satırı — artık küçük/soluk bir "chip": hangi yapımdan/

@@ -88,6 +88,7 @@ const TAKIMLAR = [
   { ad: 'akis-detay', grup: 'arayuz', dosya: 'arayuz/akis-detay.test.mjs', aciklama: 'C2: yayin/sistem ayrimi, tam tarih, bolum kodu, detay baglantilari' },
   { ad: 'akis-yayin', grup: 'arayuz', dosya: 'arayuz/akis-yayin.test.mjs', aciklama: 'M476: gonderi iyimser karti yerlesir, kendi gonderin rozet yok, yorum sayaci kesin, gelecek damga' },
   { ad: 'akis-duzenle', grup: 'arayuz', dosya: 'arayuz/akis-duzenle.test.mjs', aciklama: 'C3/M477: kendi yayinini sil, puani detaydan degistir (yalniz sahibi), puan karti yerinde guncellenir' },
+  { ad: 'akis-yorum', grup: 'arayuz', dosya: 'arayuz/akis-yorum.test.mjs', aciklama: 'C4: inceleme metnine dokun -> yapim sayfasinda o inceleme (kaydir + vurgula)' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

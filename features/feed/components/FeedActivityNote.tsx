@@ -1,51 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { EyeOff, Pencil } from '../../../components/icons';
+import { EyeOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import NoteFullTextModal from './NoteFullTextModal';
 
 interface FeedActivityNoteProps {
   note: string;
   spoiler: boolean;
-  /** Yalnızca kendi aktivitende true — bloğun kendisi tıklanınca düzenleme
-   *  modalını açar (bkz. FeedCard.tsx: ayrı bir "Düzenle" butonu YOK,
-   *  Twitter'da kendi gönderine dokunma hissi). */
-  editable?: boolean;
-  onPressEdit?: () => void;
+  /** C4 · Yazıya dokunma — inceleme ise yapım sayfasındaki o incelemeye,
+   *  değilse detay sayfasına (karar FeedCard'ın değil `useActivityActions.openText`'in).
+   *  Eskiden kendi notuna dokunmak düzenleme açıyordu; düzenleme artık menüde
+   *  («Düzenle») — kullanıcı kararı: «yoruma basınca yoruma gider». */
+  onPressText?: () => void;
 }
 
-/**
- * Kullanıcının kendi aktivitesine eklediği kişisel not/alıntı — Letterboxd/
- * Twitter tarzı: "İzledim" logunun altında bir alıntı gibi gösterilir (bkz.
- * docs/design/FEED_SOCIAL_PLAN.md). Trakt'ın kendi yorum sistemiyle KARIŞTIRILMASIN,
- * bu tamamen KaymakTV'ye özel. Bağımsız gönderilerin ("Fikir Paylaş", bkz.
- * 017_feed_posts.sql) ana metni de AYNI bileşenle gösterilir — ikisi de aynı
- * `note` alanına yazılır, tekrar bir bileşen yazmaya gerek yok.
- *
- * GÖRSEL HİYERARŞİ (kullanıcı geri bildirimi): bu, kartın BİRİNCİL içeriği —
- * "X izledi" satırı FeedCard.tsx'te bunun ALTINA, küçük/soluk bir bağlam
- * satırına iniyor (Twitter'ın Alıntı Tweet'i: senin yazdığın büyük/üstte,
- * alıntıladığın içerik küçük/altta). Önceki sürüm tam tersiydi (italik,
- * soluk) — kullanıcı kendi yazdığı alıntının "izledi" satırından daha
- * SİLİK göründüğünü belirtti, bilerek düzeltildi: italik kaldırıldı, punto/
- * ağırlık/renk kartın en göz alıcı metni olacak şekilde yükseltildi.
- *
- * UZUN METİN ("Devamını Gör"): `note` artık 1000 karaktere kadar olabilir
- * (bkz. 017) — kart akışta yer kaplamasın diye 4 satırla kesilir, kesilip
- * kesilmediği GERÇEK satır sayımıyla DEĞİL (RN Web'de `onTextLayout` tutarsız
- * ateşleyebiliyor) basit bir karakter uzunluğu eşiğiyle kararlaştırılır —
- * kesin değil ama güvenilir ve platformdan bağımsız. Kesilmişse küçük bir
- * "Devamını Gör" linki tam metni gösteren küçük bir modal açar (tüm sayfayı
- * kaplamaz, kullanıcının isteği).
- *
- * Spoiler varsayılan olarak bulanık/gizli — dokununca açılır. Açma durumu
- * BİLİNÇLİ OLARAK kalıcı değil (yalnızca bileşen state'i): kart yeniden
- * mount olduğunda (ör. sekmeler arası geçiş) tekrar kapalı başlar, sunucuya
- * hiçbir "gördüm" bilgisi gönderilmez.
- */
 const TRUNCATE_CHAR_THRESHOLD = 220;
 
-export default function FeedActivityNote({ note, spoiler, editable = false, onPressEdit }: FeedActivityNoteProps) {
+export default function FeedActivityNote({ note, spoiler, onPressText }: FeedActivityNoteProps) {
   const { t } = useTranslation('feed');
   const [revealed, setRevealed] = useState(!spoiler);
   const [fullTextVisible, setFullTextVisible] = useState(false);
@@ -71,14 +42,13 @@ export default function FeedActivityNote({ note, spoiler, editable = false, onPr
       <Text style={styles.note} numberOfLines={isLong ? 4 : undefined} selectable>
         {note}
       </Text>
-      {editable && <Pencil size={11} color="#475569" style={styles.editIcon} />}
     </View>
   );
 
   return (
     <>
-      {editable ? (
-        <TouchableOpacity activeOpacity={0.75} onPress={onPressEdit}>
+      {onPressText ? (
+        <TouchableOpacity activeOpacity={0.75} onPress={onPressText}>
           {textBlock}
         </TouchableOpacity>
       ) : (
@@ -115,10 +85,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 20,
-  },
-  editIcon: {
-    marginLeft: 4,
-    marginTop: 4,
   },
   readMoreBtn: {
     alignSelf: 'flex-start',
