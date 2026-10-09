@@ -84,6 +84,7 @@ const TAKIMLAR = [
   { ad: 'akis-yakalama', grup: 'arayuz', dosya: 'arayuz/akis-yakalama.test.mjs', aciklama: 'M470: arka plan donusunde kacan akis olaylari' },
   { ad: 'akis-disk', grup: 'arayuz', dosya: 'arayuz/akis-disk.test.mjs', aciklama: 'M472/B-2: akis son kopyadan aninda acilir, hesap anahtarli' },
   { ad: 'akis-dil', grup: 'arayuz', dosya: 'arayuz/akis-dil.test.mjs', aciklama: 'A-3/C0: akis sistem metinleri ceviride, tekil/cogul zaman' },
+  { ad: 'akis-dokunma', grup: 'arayuz', dosya: 'arayuz/akis-dokunma.test.mjs', aciklama: 'C1: kart dokunma haritasi (detay / maraton -> dizi)' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

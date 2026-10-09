@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
 import Avatar from '../../../components/Avatar';
 import { Zap } from '../../../components/icons';
 import { useRouter } from 'expo-router';
@@ -65,8 +65,18 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
   // Hex rengine opaklık katmak için basit yardımcı (inline stil gerektiğinde)
   const colorAlpha = (hex: string, alpha: string) => `${hex}${alpha}`;
 
+  // C1 · Maraton kartının boş alanı → dizinin sayfası (kullanıcı kararı: detay
+  // sayfası yok — maraton tek bir kayıt değil, bölümlerin birleşimi).
   const card = (
-    <View style={[styles.card, { borderColor: colorAlpha(message.color, '2e') }]}>
+    <Pressable
+      onPress={handlePressShow}
+      // `hovered` yalnız web'de gelir (react-native-web).
+      style={(state) => [
+        styles.card,
+        { borderColor: colorAlpha(message.color, (state as { hovered?: boolean }).hovered ? '66' : '2e') },
+        state.pressed && styles.cardPressed,
+      ]}
+    >
       <CardMenu
         onDelete={isOwnActivity ? onDeleteActivity : undefined}
         // Rapor YOK: maraton kartı gerçek bir feed_activities satırı değil,
@@ -137,13 +147,16 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
           <Text style={styles.counterBadgeText}>×{activity.episodeCount}</Text>
         </View>
       </TouchableOpacity>
-    </View>
+    </Pressable>
   );
 
   return card;
 }
 
 const styles = StyleSheet.create({
+  cardPressed: {
+    opacity: 0.85,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

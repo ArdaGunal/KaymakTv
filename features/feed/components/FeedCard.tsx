@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share, Pressable } from 'react-native';
 import Avatar from '../../../components/Avatar';
 import { Eye, Play, CheckCircle2, Star, Clapperboard, Heart, MessageCircle, Repeat, MessageSquarePlus, PenLine } from '../../../components/icons';
 import { useRouter } from 'expo-router';
@@ -27,6 +27,9 @@ interface FeedCardProps {
    *  çağırırlar, kart bunu bilmek zorunda değil. Verilmezse (ör. Public
    *  Profile — başkasının aktivitesi) 3-nokta menüsünde "Sil" hiç görünmez. */
   onDeleteActivity?: () => void | Promise<void>;
+  /** C1 · Kartın boş alanına dokununca detay sayfası (`/activity/[id]`) açılır.
+   *  Detay sayfasının KENDİSİ false geçer — kart kendine yönlendirmesin. */
+  openDetailOnPress?: boolean;
 }
 
 // Her aktivite tipi kendi ikonunu ve vurgu rengini taşır. Cümlenin kendisi
@@ -45,7 +48,7 @@ const ACTIVITY_META: Record<FeedActivity['activityType'], { icon: typeof Eye; co
   reviewed: { icon: PenLine, color: '#fb923c' },
 };
 
-export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) {
+export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress = true }: FeedCardProps) {
   const { t } = useTranslation('feed');
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
@@ -157,8 +160,28 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
     router.push(buildMediaHref({ showId: activity.showId!, mediaType: activity.mediaType!, tmdbId: activity.tmdbId }) as any);
   };
 
+  // C1 · Dokunma haritası (AKIS_PLANI Faz C): kartın boş alanı → detay. İçteki
+  // hedefler (avatar/ad → profil, yapım adı/poster → yapım, kalp, yorum, menü,
+  // alıntı) kendi dokunuşunu yakalar: native'de iç yanıtlayıcı kazanır, web'de
+  // react-native-web Pressable ve Text onPress `stopPropagation` yapar.
+  // Bekleyen (isPending) kartın gerçek id'si yok → dokunulmaz.
+  const canOpenDetail = openDetailOnPress && isInteractive;
+  const handleOpenDetail = () => {
+    if (canOpenDetail) router.push(`/activity/${activity.id}` as any);
+  };
+
   const card = (
-    <View style={[styles.card, activity.isPending && styles.cardPending]}>
+    <Pressable
+      onPress={handleOpenDetail}
+      disabled={!canOpenDetail}
+      // `hovered` yalnız web'de gelir (react-native-web); native'de undefined.
+      style={(state) => [
+        styles.card,
+        activity.isPending && styles.cardPending,
+        canOpenDetail && (state as { hovered?: boolean }).hovered && styles.cardHover,
+        canOpenDetail && state.pressed && styles.cardPressed,
+      ]}
+    >
       <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
         <Avatar url={activity.user.avatarUrl} ad={activity.user.username} size={40} />
       </TouchableOpacity>
@@ -313,7 +336,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
           />
         </TouchableOpacity>
       )}
-    </View>
+    </Pressable>
   );
 
   // Modaller kartın DIŞINDA, koşulsuz render edilir (Akış sekmesi VEYA
@@ -377,6 +400,13 @@ const styles = StyleSheet.create({
   // Sunucu onayı beklenirken hafif soluk — "gönderiliyor" hissi.
   cardPending: {
     opacity: 0.65,
+  },
+  // C1 · Dokunulabilir kart geri bildirimi — web'de fare üstünde, her yerde basılıyken.
+  cardHover: {
+    borderColor: '#2E4166',
+  },
+  cardPressed: {
+    backgroundColor: '#1A2540',
   },
   body: {
     flex: 1,

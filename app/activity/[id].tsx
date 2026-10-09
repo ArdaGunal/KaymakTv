@@ -46,7 +46,7 @@ export default function ActivityDetailScreen() {
         {isLoading ? (
           <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />
         ) : activity ? (
-          <FeedCard activity={activity} />
+          <FeedCard activity={activity} openDetailOnPress={false} />
         ) : (
           <View style={styles.emptyState}>
             <SearchX size={40} color="#334155" />
