@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { FeedActivity } from '../types';
 import type { FeedCursor, FeedPage } from '../services/feedApi';
+import { FeedFilter, filtreyeUyar } from '../utils/feedFilter';
 
 /**
  * Akış'ın PAYLAŞILAN durumu.
@@ -40,6 +41,15 @@ interface FeedState {
    * sürdürmesin.
    */
   kaynak: 'yok' | 'disk' | 'ag';
+  /**
+   * C6 · Seçili filtre. Liste YALNIZ bu filtrenin sunucu sonucunu tutar;
+   * Realtime/iyimser eklemeler `filtreyeUyar` ile süzülür (ör. «Aktiviteler»de
+   * yeni bir gönderi listeye girmez). `benimId`: «Takip Ettiklerim» için.
+   */
+  filtre: FeedFilter;
+  benimId: string | null;
+  /** Filtre değişir: liste boşaltılır (yeni filtrenin 1. sayfası yüklenecek). */
+  setFiltre: (filtre: FeedFilter, benimId: string | null) => void;
   /** Kullanıcı listenin tepesinde değilken gelen, henüz görülmemiş aktivite sayısı. */
   unseenCount: number;
 
@@ -127,6 +137,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   activities: [],
   isHydrated: false,
   kaynak: 'yok',
+  filtre: 'tumu',
+  benimId: null,
   unseenCount: 0,
   nextCursor: null,
   hasMore: false,
@@ -144,8 +156,22 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       isLoadingMore: false,
     }),
 
+  setFiltre: (filtre, benimId) =>
+    set({
+      filtre,
+      benimId,
+      activities: [],
+      isHydrated: false,
+      kaynak: 'yok',
+      unseenCount: 0,
+      nextCursor: null,
+      hasMore: false,
+      isLoadingMore: false,
+    }),
+
   hydrateFromDisk: (items) => {
-    if (get().isHydrated || items.length === 0) return false;
+    // Disk kopyası yalnız «Tümü»nün ilk sayfası.
+    if (get().isHydrated || items.length === 0 || get().filtre !== 'tumu') return false;
     set({
       activities: sortDesc(dedupeById(items)),
       isHydrated: true,
@@ -194,6 +220,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     }),
   upsertActivity: (activity, countAsUnseen = false) =>
     set((state) => {
+      // C6 · seçili filtreye uymayan canlı/iyimser kart listeye girmez.
+      if (!filtreyeUyar(activity, state.filtre, state.benimId)) return {};
       const index = state.activities.findIndex((a) => a.id === activity.id);
       if (index !== -1) {
         // Zaten var → güncelle, "yeni" saymayı ATLA (aynı olay iki kez
@@ -224,7 +252,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       // Sunucu sürümü zaten başka bir yoldan (Realtime) gelmiş olabilir —
       // o durumda geçiciyi sadece düşür, kopya bırakma.
       const withoutTemp = state.activities.filter((a) => a.id !== tempId);
-      if (withoutTemp.some((a) => a.id === activity.id)) {
+      if (withoutTemp.some((a) => a.id === activity.id) || !filtreyeUyar(activity, state.filtre, state.benimId)) {
         return { activities: withoutTemp };
       }
       return { activities: sortDesc([activity, ...withoutTemp]) };
@@ -249,6 +277,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       activities: [],
       isHydrated: false,
       kaynak: 'yok',
+      filtre: 'tumu',
+      benimId: null,
       unseenCount: 0,
       nextCursor: null,
       hasMore: false,

@@ -133,5 +133,11 @@
   "detailRatingError": "Couldn't save your rating. Try again.",
   "detailRatingRemoveError": "Couldn't remove your rating. Try again.",
   "dayToday": "Today",
-  "dayYesterday": "Yesterday"
+  "dayYesterday": "Yesterday",
+  "filterAll": "All",
+  "filterPosts": "Posts",
+  "filterFollowing": "Following",
+  "filterActivity": "Activity",
+  "filterEmptyTitle": "Nothing here yet",
+  "filterEmptyText": "There's nothing in this filter from the last 30 days."
 }

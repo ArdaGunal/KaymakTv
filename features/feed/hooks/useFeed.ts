@@ -24,6 +24,7 @@ import { agIsaret } from '../../../utils/agIzleyici';
 import { useFeedRealtime } from './useFeedRealtime';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
 import { marathonSayfaSinirinda } from '../utils/marathonSinir';
+import { FeedFilter } from '../utils/feedFilter';
 import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { FeedItem } from '../types';
 
@@ -53,6 +54,11 @@ export interface UseFeedResult {
    *  silme mekanizması İCAT EDİLMİYOR, yalnızca `useUserActivity.ts`'in
    *  Profil tarafında zaten yaptığını Akış'ın canlı `feedStore`'una bağlıyor. */
   deleteActivity: (item: FeedItem) => Promise<void>;
+  /** C6 · seçili filtre ve değiştirici (YouTube tarzı çipler). */
+  filtre: FeedFilter;
+  setFiltre: (f: FeedFilter) => Promise<void>;
+  /** Filtre değişti, yeni filtrenin 1. sayfası yükleniyor (liste boş). */
+  isFiltering: boolean;
 }
 
 /** M470 · Bu süreden kısa arka plan geçişlerinde yakalama isteği atılmaz. */
@@ -73,6 +79,8 @@ export function useFeed(): UseFeedResult {
   const hasMore = useFeedStore((s) => s.hasMore);
   const isLoadingMore = useFeedStore((s) => s.isLoadingMore);
   const markSeen = useFeedStore((s) => s.clearUnseen);
+  const filtre = useFeedStore((s) => s.filtre);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   const [isLoading, setIsLoading] = useState(!isHydrated);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -95,8 +103,12 @@ export function useFeed(): UseFeedResult {
         return;
       }
       isFetchingRef.current = true;
+      // C6 · istek kendi filtresini taşır; yanıt geldiğinde filtre değiştiyse
+      // (kullanıcı çipe bastı) eski sonuç yeni listeye YAZILMAZ.
+      const istenen = useFeedStore.getState().filtre;
       try {
-        const page = await fetchFeedActivities(null, force);
+        const page = await fetchFeedActivities(null, force, istenen);
+        if (useFeedStore.getState().filtre !== istenen) return;
         useFeedStore.getState().setFirstPage(page);
         agIsaret(`Akış ağdan ${page.items.length} satır`);
         setHasError(false);
@@ -151,12 +163,13 @@ export function useFeed(): UseFeedResult {
     if (!canLoad) return;
     let zamanlayici: ReturnType<typeof setTimeout> | null = null;
     const unsub = useFeedStore.subscribe((s, onceki) => {
-      if (s.kaynak !== 'ag' || s.activities === onceki.activities) return;
+      // Disk kopyası yalnız «Tümü» (soğuk açılış hep Tümü ile başlar).
+      if (s.kaynak !== 'ag' || s.filtre !== 'tumu' || s.activities === onceki.activities) return;
       if (zamanlayici) clearTimeout(zamanlayici);
       zamanlayici = setTimeout(() => {
         zamanlayici = null;
         const anlik = useFeedStore.getState();
-        if (anlik.kaynak !== 'ag') return; // arada çıkış (reset) olduysa yazma
+        if (anlik.kaynak !== 'ag' || anlik.filtre !== 'tumu') return; // arada çıkış/filtre değiştiyse yazma
         getMySupabaseUserId()
           .then((sahip) => (sahip ? akisiDiskeYaz(sahip, anlik.activities) : undefined))
           .catch((error) => console.warn('[Feed] Disk kopyası yazılamadı:', error));
@@ -186,8 +199,11 @@ export function useFeed(): UseFeedResult {
       const sure = arkaPlanaGecis === null ? 0 : Date.now() - arkaPlanaGecis;
       arkaPlanaGecis = null;
       if (sure < YAKALAMA_ESIGI_MS || !useFeedStore.getState().isHydrated) return;
-      fetchFeedActivities(null, true)
-        .then((page) => useFeedStore.getState().mergeFreshFirstPage(page))
+      const istenen = useFeedStore.getState().filtre;
+      fetchFeedActivities(null, true, istenen)
+        .then((page) => {
+          if (useFeedStore.getState().filtre === istenen) useFeedStore.getState().mergeFreshFirstPage(page);
+        })
         .catch((error) => console.warn('[Feed] Öne gelişte yakalama başarısız:', error));
     });
     return () => sub.remove();
@@ -211,8 +227,10 @@ export function useFeed(): UseFeedResult {
     const state = useFeedStore.getState();
     isFetchingRef.current = true;
     state.setLoadingMore(true);
-    fetchFeedActivities(state.nextCursor)
+    const istenen = state.filtre;
+    fetchFeedActivities(state.nextCursor, false, istenen)
       .then((page) => {
+        if (useFeedStore.getState().filtre !== istenen) return;
         useFeedStore.getState().appendPage(page);
         setHasError(false);
         setLoadMoreFailed(false);
@@ -328,6 +346,27 @@ export function useFeed(): UseFeedResult {
     [accessToken, isGuest, t]
   );
 
+  // ── C6 · Filtre değiştir ──────────────────────────────────────────────
+  // Liste boşaltılır, yeni filtrenin 1. sayfası sunucudan çekilir (force: ilk
+  // sayfa önbelleği yalnız «Tümü»nü tutar). «Takip Ettiklerim» için kendi
+  // kimliğim gerekir (kendi kartlarım Realtime'dan da girmesin).
+  const setFiltre = useCallback(
+    async (f: FeedFilter) => {
+      if (f === useFeedStore.getState().filtre) return;
+      const benimId = await getMySupabaseUserId().catch(() => null);
+      useFeedStore.getState().setFiltre(f, benimId);
+      setLoadMoreFailed(false);
+      setHasError(false);
+      setIsFiltering(true);
+      try {
+        await loadFirstPage(true);
+      } finally {
+        if (useFeedStore.getState().filtre === f) setIsFiltering(false);
+      }
+    },
+    [loadFirstPage]
+  );
+
   return {
     data,
     isLoading,
@@ -342,5 +381,8 @@ export function useFeed(): UseFeedResult {
     loadMore,
     retryLoadMore,
     deleteActivity,
+    filtre,
+    setFiltre,
+    isFiltering,
   };
 }

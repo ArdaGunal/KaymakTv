@@ -90,6 +90,7 @@ const TAKIMLAR = [
   { ad: 'akis-duzenle', grup: 'arayuz', dosya: 'arayuz/akis-duzenle.test.mjs', aciklama: 'C3/M477: kendi yayinini sil, puani detaydan degistir (yalniz sahibi), puan karti yerinde guncellenir' },
   { ad: 'akis-yorum', grup: 'arayuz', dosya: 'arayuz/akis-yorum.test.mjs', aciklama: 'C4: inceleme metnine dokun -> yapim sayfasinda o inceleme (kaydir + vurgula)' },
   { ad: 'akis-zaman', grup: 'arayuz', dosya: 'arayuz/akis-zaman.test.mjs', aciklama: 'C5/A-7: gun ayraci etiketleri, sayfa sinirindaki maraton tamamlanir' },
+  { ad: 'akis-filtre', grup: 'arayuz', dosya: 'arayuz/akis-filtre.test.mjs', aciklama: 'C6: YouTube tarzi gizli filtre (Tumu/Gonderiler/Takip/Aktiviteler), sunucu sorgusu, store korumasi' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

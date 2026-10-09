@@ -132,5 +132,11 @@
   "detailRatingError": "Puan kaydedilemedi, tekrar dene.",
   "detailRatingRemoveError": "Puan kaldırılamadı, tekrar dene.",
   "dayToday": "Bugün",
-  "dayYesterday": "Dün"
+  "dayYesterday": "Dün",
+  "filterAll": "Tümü",
+  "filterPosts": "Gönderiler",
+  "filterFollowing": "Takip Ettiklerim",
+  "filterActivity": "Aktiviteler",
+  "filterEmptyTitle": "Burada henüz bir şey yok",
+  "filterEmptyText": "Son 30 günde bu filtrede gösterilecek bir şey yok."
 }

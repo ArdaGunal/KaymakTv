@@ -36,5 +36,5 @@ T.ok('hasMore=false iken sunucuda olmayanlar cikar, temp kalir', JSON.stringify(
 
 const kanca = fs.readFileSync(path.join(root, 'features/feed/hooks/useFeed.ts'), 'utf8');
 T.ok('useFeed one gelince (>=15 sn) taze sayfayi birlestiriyor', /YAKALAMA_ESIGI_MS = 15_000/.test(kanca)
-  && /fetchFeedActivities\(null, true\)[\s\S]{0,80}mergeFreshFirstPage\(page\)/.test(kanca));
+  && /fetchFeedActivities\(null, true(, istenen)?\)[\s\S]{0,200}mergeFreshFirstPage\(page\)/.test(kanca));
 T.bitir();

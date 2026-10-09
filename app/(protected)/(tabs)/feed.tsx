@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
-import { Rss, WifiOff, ArrowUp, RefreshCw, CloudOff } from '../../../components/icons';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { ArrowUp, RefreshCw, CloudOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FeedCard from '../../../features/feed/components/FeedCard';
@@ -10,6 +10,9 @@ import UserSearchButton from '../../../features/feed/components/UserSearchButton
 import ComposePostBar from '../../../features/feed/components/ComposePostBar';
 import ComposePostModal from '../../../features/feed/components/ComposePostModal';
 import DaySeparator from '../../../features/feed/components/DaySeparator';
+import FeedFilterChips from '../../../features/feed/components/FeedFilterChips';
+import { useGizliFiltreBasligi } from '../../../features/feed/hooks/useGizliFiltreBasligi';
+import { FeedListEmpty, FeedListFooter } from '../../../features/feed/components/FeedListStates';
 import { dayLabelsFor } from '../../../features/feed/utils/dayLabel';
 import ScreenHeader from '../../../components/ScreenHeader';
 import SectionErrorBoundary from '../../../components/SectionErrorBoundary';
@@ -36,6 +39,9 @@ export default function FeedScreen() {
     refresh,
     loadMore,
     deleteActivity,
+    filtre,
+    setFiltre,
+    isFiltering,
   } = useFeed();
 
   // C5 · Zaman ayracı etiketleri — liste her değiştiğinde (yeni sayfa, Realtime)
@@ -47,6 +53,8 @@ export default function FeedScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const listRef = useRef<FlatList<FeedItem>>(null);
+  // C6 · YouTube tarzı gizli filtre başlığı (açılışta gizli, aşağı çekince görünür).
+  const gizli = useGizliFiltreBasligi(listRef, filtre);
   const { accessToken, isGuest } = useAuth();
   const [composeVisible, setComposeVisible] = useState(false);
 
@@ -55,9 +63,9 @@ export default function FeedScreen() {
   // kaybeder) üstte bir rozet gösterip kararı ona bırakıyoruz. Sosyal
   // akışların standart deseni.
   const handleJumpToTop = useCallback(() => {
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    listRef.current?.scrollToOffset({ offset: gizli.ustOfset, animated: true });
     markSeen();
-  }, [markSeen]);
+  }, [markSeen, gizli.ustOfset]);
 
   // Takip listesi bayat mı (F6). Zustand selector'ü olduğu için store
   // değiştiğinde otomatik yeniden değerlendirilir; boolean döndüğü için
@@ -67,9 +75,9 @@ export default function FeedScreen() {
   // Kullanıcı listenin tepesine geldiyse rozet anlamını yitirir — otomatik sıfırla.
   const handleScroll = useCallback(
     (e: any) => {
-      if (e.nativeEvent.contentOffset.y <= 8 && unseenCount > 0) markSeen();
+      if (e.nativeEvent.contentOffset.y <= gizli.ustOfset + 8 && unseenCount > 0) markSeen();
     },
-    [unseenCount, markSeen]
+    [unseenCount, markSeen, gizli.ustOfset]
   );
 
   // "Veri yok" ile "yüklenemedi" AYRI durumlar. Eskiden hata sessizce yutulup
@@ -77,56 +85,6 @@ export default function FeedScreen() {
   // "Akışın Boş — takip ettiğin kişilerin aktiviteleri burada görünecek"
   // yazısını görüyor, yani uygulama ona YANLIŞ bilgi veriyordu.
   const showError = hasError && data.length === 0;
-
-  // Sonsuz kaydırmanın alt bilgisi. Üç durum:
-  //   - yükleniyor  → spinner
-  //   - devamı yok  → "hepsi bu kadar" (liste boş değilse; boş listede
-  //                    zaten ListEmptyComponent konuşuyor)
-  //   - devamı var  → hiçbir şey (spinner yalnızca istek uçarken görünsün)
-  const renderFooter = useCallback(() => {
-    // ⚠️ SIRA ÖNEMLİ: `isLoadingMore` ÖNCE gelmeli. Eskiden `loadMoreFailed`
-    // öndeydi ("hata durumunda spinner zaten kapanmış oluyor" gerekçesiyle) —
-    // bu, buton `loadMore`'a bağlıyken zararsızdı ama Y21 kapanışıyla gerçek
-    // bir "Tekrar Dene" eklendiğinde KUSURA dönüştü: kullanıcı butona basınca
-    // istek uçarken ekranda hâlâ hata kutusu duruyordu, yani eylemin işe
-    // yarayıp yaramadığına dair HİÇBİR geri bildirim yoktu (AI_RULES §2:
-    // "kullanıcının başlattığı bir eylem görünür geri bildirim almak
-    // ZORUNDA"). `hooks/useExplore.ts` tarafındaki footer bu sırayı zaten
-    // doğru kullanıyordu — iki kopya ıraksamıştı (AI_RULES §2.5).
-    if (isLoadingMore) {
-      return (
-        <View style={styles.footer}>
-          <ActivityIndicator size="small" color="#38bdf8" />
-        </View>
-      );
-    }
-
-    // Y21: "devamı yüklenemedi" ÜÇÜNCÜ dal. Bu olmadan spinner kayboluyor,
-    // hiçbir mesaj çıkmıyordu ve kullanıcı en altta olduğu için onEndReached
-    // bir daha tetiklenmiyordu — yani akışın bittiğini mi bozulduğunu mu
-    // anlamanın hiçbir yolu yoktu. Otomatik yeniden deneme YOK: tek
-    // tetikleyici aşağıdaki açık dokunuş.
-    if (loadMoreFailed) {
-      return (
-        <View style={styles.loadMoreFailedBox}>
-          <Text style={styles.loadMoreFailedText}>
-            {t('feed:loadMoreFailed', 'Devamı yüklenemedi.')}
-          </Text>
-          <TouchableOpacity onPress={retryLoadMore} style={styles.loadMoreRetryBtn} activeOpacity={0.8}>
-            <Text style={styles.loadMoreRetryText}>{t('common:retry', 'Tekrar Dene')}</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    if (!hasMore && data.length > 0) {
-      return (
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>{t('feed:endOfFeed', 'Hepsi bu kadar')}</Text>
-        </View>
-      );
-    }
-    return null;
-  }, [isLoadingMore, hasMore, data.length, loadMoreFailed, retryLoadMore, t]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -202,6 +160,13 @@ export default function FeedScreen() {
             scrollEventThrottle={64}
             data={data}
             keyExtractor={(item) => item.id}
+            onLayout={gizli.onListeLayout}
+            onContentSizeChange={gizli.onContentSizeChange}
+            ListHeaderComponent={
+              <View onLayout={gizli.onCipLayout}>
+                <FeedFilterChips value={filtre} onChange={setFiltre} />
+              </View>
+            }
             /* Y20: her kart KENDİ hata sınırında. Bir kartın render istisnası
                (bozuk veya eksik alanlı bir satır) eskiden kök ErrorBoundary'ye
                kadar çıkıp TÜM AKIŞI ErrorFallback ekranına düşürüyordu.
@@ -217,7 +182,10 @@ export default function FeedScreen() {
                   : <FeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />}
               </SectionErrorBoundary>
             )}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              gizli.icerikMinYukseklik ? { minHeight: gizli.icerikMinYukseklik } : null,
+            ]}
             showsVerticalScrollIndicator={false}
             // Sonsuz kaydırma. 0.5 = ekranın bir boyu kadar mesafe kala
             // tetiklenir; kullanıcı boşluğa çarpmadan sonraki sayfa gelir.
@@ -226,31 +194,20 @@ export default function FeedScreen() {
             // kez çağrılabilir.
             onEndReached={loadMore}
             onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
+            ListFooterComponent={
+              <FeedListFooter
+                isLoadingMore={isLoadingMore}
+                loadMoreFailed={loadMoreFailed}
+                hasMore={hasMore}
+                hasData={data.length > 0}
+                onRetryLoadMore={retryLoadMore}
+              />
+            }
             refreshControl={
               <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#3b82f6" />
             }
             ListEmptyComponent={
-              showError ? (
-                <View style={styles.emptyState}>
-                  <WifiOff size={40} color="#334155" />
-                  <Text style={styles.emptyTitle}>{t('feed:errorTitle', 'Akış Yüklenemedi')}</Text>
-                  <Text style={styles.emptyText}>
-                    {t('feed:errorText', 'Bağlantını kontrol edip tekrar dene.')}
-                  </Text>
-                  <TouchableOpacity style={styles.retryButton} onPress={refresh} activeOpacity={0.8}>
-                    <Text style={styles.retryButtonText}>{t('feed:retry', 'Tekrar Dene')}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.emptyState}>
-                  <Rss size={40} color="#334155" />
-                  <Text style={styles.emptyTitle}>{t('feed:emptyTitle', 'Akışın Boş')}</Text>
-                  <Text style={styles.emptyText}>
-                    {t('feed:emptyText', 'Takip ettiğin kişilerin izleme aktiviteleri burada görünecek.')}
-                  </Text>
-                </View>
-              )
+              <FeedListEmpty isFiltering={isFiltering} filtre={filtre} showError={showError} onRetry={refresh} />
             }
           />
         )}
@@ -273,10 +230,6 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadMoreFailedBox: { alignItems: 'center', gap: 8, paddingVertical: 18 },
-  loadMoreFailedText: { color: '#94a3b8', fontSize: 12 },
-  loadMoreRetryBtn: { paddingHorizontal: 16, paddingVertical: 7, backgroundColor: '#172033', borderRadius: 8 },
-  loadMoreRetryText: { color: '#e5e5e5', fontSize: 12, fontWeight: '700' },
   safeArea: {
     flex: 1,
     backgroundColor: '#0B1120',
@@ -328,40 +281,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     flexGrow: 1,
   },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-    gap: 8,
-  },
-  emptyTitle: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  emptyText: {
-    color: '#64748b',
-    fontSize: 13,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 18,
-  },
-  retryButton: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 100,
-    backgroundColor: '#172033',
-    borderWidth: 1,
-    borderColor: '#22304A',
-  },
-  retryButtonText: {
-    color: '#38bdf8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
   newPostsPill: {
     position: 'absolute',
     top: 8,
@@ -384,16 +303,5 @@ const styles = StyleSheet.create({
     color: '#0B1120',
     fontSize: 13,
     fontWeight: '800',
-  },
-  footer: {
-    paddingVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footerText: {
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.3,
   },
 });

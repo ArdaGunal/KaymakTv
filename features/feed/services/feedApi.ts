@@ -3,6 +3,7 @@ import { getFollowingUserIds } from '../../../store/followStore';
 import { supabase } from './supabaseClient';
 import { FeedActivity, FeedActivityType, FeedMediaType } from '../types';
 import { CACHE_TTL } from '../../../utils/cacheTTL';
+import { FeedFilter, SISTEM_TIPLERI } from '../utils/feedFilter';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { getBlockedUserIds, getMySupabaseUserId } from './userBlocks';
 import { getMyLikedActivityIds } from './feedSocial';
@@ -188,11 +189,15 @@ export function invalidateFeedCache(): void {
  */
 export async function fetchFeedActivities(
   cursor: FeedCursor | null = null,
-  force = false
+  force = false,
+  /** C6 · sunucu tarafı filtre (bkz. utils/feedFilter.ts). */
+  filtre: FeedFilter = 'tumu'
 ): Promise<FeedPage> {
   const isFirstPage = cursor === null;
+  // İlk sayfa önbelleği YALNIZ «Tümü» için — filtreli sayfa onu ezmesin.
+  const onbellekli = isFirstPage && filtre === 'tumu';
 
-  if (isFirstPage && !force && feedCache && Date.now() - feedCache.fetchedAt < CACHE_TTL.SHORT) {
+  if (onbellekli && !force && feedCache && Date.now() - feedCache.fetchedAt < CACHE_TTL.SHORT) {
     return feedCache.page;
   }
 
@@ -204,13 +209,18 @@ export async function fetchFeedActivities(
   //   2. Uzun takip listelerinde URL'e slug yerine uuid yazmak daha öngörülebilir.
   // Küme kısa ömürlü olarak önbelleklenir (bkz. getVisibleUserIds), böylece her
   // sayfa için ek bir `users` sorgusu atılmaz.
-  const userIds = Array.from(await getVisibleUserIds());
+  let userIds = Array.from(await getVisibleUserIds());
+  // C6 · «Takip Ettiklerim»: görünür kümeden BEN çıkarılır.
+  if (filtre === 'takip') {
+    const benimId = await getMySupabaseUserId().catch(() => null);
+    userIds = userIds.filter((id) => id !== benimId);
+  }
 
   // Hiç kimse yoksa (yeni kullanıcı, kimseyi takip etmiyor ve kendi kaydı da
   // henüz oluşmamış) sorgu hiç atılmaz.
   if (userIds.length === 0) {
     const empty: FeedPage = { items: [], nextCursor: null, hasMore: false };
-    if (isFirstPage) feedCache = { page: empty, fetchedAt: Date.now() };
+    if (onbellekli) feedCache = { page: empty, fetchedAt: Date.now() };
     return empty;
   }
 
@@ -238,6 +248,15 @@ export async function fetchFeedActivities(
     .order('id', { ascending: false })
     .limit(PAGE_SIZE);
 
+  // C6 · tip filtresi. `aktiviteler` VE'li basit filtrelerle ifade edilir.
+  if (filtre === 'aktiviteler') {
+    query = query.in('activity_type', [...SISTEM_TIPLERI]).is('note', null).is('rating', null);
+  }
+  // `gonderiler` bir VEYA ister (not VEYA puan). İmleç de `.or()` kullandığı
+  // için iki ayrı `or=` parametresine güvenmek yerine TEK ifadede birleştirilir:
+  // or(and(<gönderi>, or(<imleç>))) ≡ gönderi VE imleç.
+  const GONDERI = 'or(note.not.is.null,rating.not.is.null)';
+
   if (cursor) {
     // Keyset koşulu: (activity_at, id) < (cursor.activityAt, cursor.id)
     //   activity_at < X   VEYA   (activity_at = X VE id < Y)
@@ -248,9 +267,10 @@ export async function fetchFeedActivities(
     // Değerler çift tırnak içinde — `:` ve `-` gibi karakterlerin ayrıştırıcı
     // tarafından yorumlanmasını engeller.
     const ts = new Date(cursor.activityAt).toISOString();
-    query = query.or(
-      `activity_at.lt."${ts}",and(activity_at.eq."${ts}",id.lt."${cursor.id}")`
-    );
+    const imlec = `activity_at.lt."${ts}",and(activity_at.eq."${ts}",id.lt."${cursor.id}")`;
+    query = filtre === 'gonderiler' ? query.or(`and(${GONDERI},or(${imlec}))`) : query.or(imlec);
+  } else if (filtre === 'gonderiler') {
+    query = query.or('note.not.is.null,rating.not.is.null');
   }
 
   const { data, error } = await timeSupabaseCall('supabase.feed_activities.list', () => query);
@@ -273,7 +293,7 @@ export async function fetchFeedActivities(
     nextCursor: hasMore && last ? { activityAt: last.activity_at, id: last.id } : null,
   };
 
-  if (isFirstPage) feedCache = { page, fetchedAt: Date.now() };
+  if (onbellekli) feedCache = { page, fetchedAt: Date.now() };
   return page;
 }
 
