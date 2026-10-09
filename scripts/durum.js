@@ -28,7 +28,7 @@ const WORKER_KOK = path.resolve(KOK, '..', 'kaymaktv-feedback-worker');
 const canli = process.argv.includes('--canli');
 const jsonCikti = process.argv.includes('--json');
 
-const rapor = { uretildi: new Date().toISOString(), depo: {}, sema: {}, belge: {}, borc: {}, canli: null };
+const rapor = { uretildi: new Date().toISOString(), depo: {}, sema: {}, belge: {}, test: {}, borc: {}, canli: null };
 
 // ── git ───────────────────────────────────────────────────────────────────
 function gitBilgi(kok, ad) {
@@ -75,6 +75,31 @@ try {
   rapor.belge.dizinVar = fs.existsSync(path.join(docs, 'HISTORY_INDEX.md'));
 } catch (e) {
   rapor.belge.hata = e.message;
+}
+
+// ── sürüm test defteri (docs/testler/<sürüm>.md, kullanıcı kararı 2026-10-10) ──
+try {
+  const surum = JSON.parse(fs.readFileSync(path.join(KOK, 'app.json'), 'utf8')).expo.version;
+  rapor.test.surum = surum;
+  const defter = path.join(KOK, 'docs', 'testler', `${surum}.md`);
+  if (!fs.existsSync(defter)) {
+    rapor.test.defter = null;
+  } else {
+    rapor.test.defter = `docs/testler/${surum}.md`;
+    const sayac = { yapildi: 0, yapilacak: 0, yapilmadi: 0, kaldi: 0, devredildi: 0 };
+    for (const l of fs.readFileSync(defter, 'utf8').split('\n')) {
+      if (!/^\| [A-Z][A-Z-]*-\d+ \|/.test(l)) continue;
+      const durum = l.split('|')[4] || '';
+      if (durum.includes('→')) sayac.devredildi++;
+      else if (durum.includes('❌')) sayac.kaldi++;
+      else if (durum.includes('⛔')) sayac.yapilmadi++;
+      else if (durum.includes('⏳')) sayac.yapilacak++;
+      else if (durum.includes('✅')) sayac.yapildi++;
+    }
+    rapor.test.sayac = sayac;
+  }
+} catch (e) {
+  rapor.test.hata = e.message;
 }
 
 // ── açık borçlar ──────────────────────────────────────────────────────────
@@ -238,6 +263,16 @@ function yazdir() {
   satir('son HISTORY maddesi', rapor.belge.sonMadde ? `M${rapor.belge.sonMadde.no} — ${rapor.belge.sonMadde.baslik}` : '?');
   satir('HISTORY satir', rapor.belge.historySatir);
   satir('madde dizini', rapor.belge.dizinVar ? 'docs/HISTORY_INDEX.md' : 'YOK → npm run tarihce:index');
+
+  console.log('\n[TEST DEFTERI]');
+  if (rapor.test.hata) satir('hata', rapor.test.hata);
+  else if (!rapor.test.defter) satir(`surum ${rapor.test.surum}`, `🔴 DEFTER YOK → docs/testler/${rapor.test.surum}.md ac (README kurali 4: eskinin acik testlerini devret)`);
+  else {
+    const c = rapor.test.sayac;
+    satir(`surum ${rapor.test.surum}`, rapor.test.defter);
+    satir('yapildi / yapilacak', `${c.yapildi} / ${c.yapilacak}`);
+    satir('yapilmadi / kaldi (hata)', `${c.yapilmadi} / ${c.kaldi}`);
+  }
 
   console.log('\n[ACIK BORCLAR]');
   satir('son denetim', rapor.borc.sonDenetim);
