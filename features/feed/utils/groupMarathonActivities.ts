@@ -67,11 +67,11 @@ function isGroupableEpisode(a: FeedActivity): a is GroupableEpisode {
 }
 
 /** 24 saat (ms cinsinden) — iki ardışık episode arasındaki max kabul edilebilir boşluk */
-const MARATHON_GAP_MS = 24 * 60 * 60 * 1000; // 86_400_000 ms
+export const MARATHON_GAP_MS = 24 * 60 * 60 * 1000; // 86_400_000 ms
 
 /** En az kaç FARKLI bölüm gruplanırsa MarathonActivity oluşturulsun — 2
  *  bölüm "maraton" sayılmayacak kadar sıradan (kullanıcı geri bildirimi). */
-const MARATHON_MIN_COUNT = 3;
+export const MARATHON_MIN_COUNT = 3;
 
 interface GroupAccumulator {
   userId: string;

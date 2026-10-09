@@ -23,6 +23,7 @@ import { getMySupabaseUserId } from '../services/userBlocks';
 import { agIsaret } from '../../../utils/agIzleyici';
 import { useFeedRealtime } from './useFeedRealtime';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
+import { marathonSayfaSinirinda } from '../utils/marathonSinir';
 import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { FeedItem } from '../types';
 
@@ -56,6 +57,8 @@ export interface UseFeedResult {
 
 /** M470 · Bu süreden kısa arka plan geçişlerinde yakalama isteği atılmaz. */
 const YAKALAMA_ESIGI_MS = 15_000;
+/** C5 / A-7 · Sınırdaki maraton için art arda en fazla kaç sayfa kendiliğinden yüklenir. */
+const MARATON_OTO_SAYFA = 3;
 /** B-2 · Art arda değişiklikler (beğeni, Realtime patlaması) tek yazmaya insin. */
 const DISK_YAZMA_GECIKMESI_MS = 1_500;
 
@@ -228,6 +231,27 @@ export function useFeed(): UseFeedResult {
         useFeedStore.getState().setLoadingMore(false);
       });
   }, []);
+
+  // ── C5 / A-7 · Sayfa sınırındaki maratonu TAMAMLA ─────────────────────
+  // Liste bir maratonun ortasında bitiyorsa (bkz. marathonSinir.ts) sonraki sayfa
+  // kullanıcı kaydırmadan yüklenir; kart sayısı yüklenen sayfaya göre zıplamaz.
+  // Aynı sınır için en fazla MARATON_OTO_SAYFA; sınır temizlenince sayaç sıfırlanır.
+  const otoSayfa = useRef(0);
+  useEffect(() => {
+    if (!canLoad || loadMoreFailed) return;
+    const st = useFeedStore.getState();
+    if (st.kaynak !== 'ag' || !st.hasMore || !st.nextCursor || isFetchingRef.current) return;
+    if (!marathonSayfaSinirinda(activities)) {
+      otoSayfa.current = 0;
+      return;
+    }
+    if (otoSayfa.current >= MARATON_OTO_SAYFA) return;
+    otoSayfa.current += 1;
+    doLoadMore();
+    // `isLoadingMore` ŞART: sayfa eklenince (activities değişir) istek hâlâ
+    // «uçuşta» işaretli; bayrak `finally`de düşer — o an yeniden bakılmazsa
+    // zincir ilk sayfada dururdu.
+  }, [activities, hasMore, isLoadingMore, canLoad, loadMoreFailed, doLoadMore]);
 
   const loadMore = useCallback(() => {
     const state = useFeedStore.getState();

@@ -130,5 +130,7 @@
   "commentDeleteConfirmMessage": "Bu yorumu silmek istediğine emin misin? Bu işlem geri alınamaz.",
   "detailEditRating": "Puanını değiştirmek için dokun",
   "detailRatingError": "Puan kaydedilemedi, tekrar dene.",
-  "detailRatingRemoveError": "Puan kaldırılamadı, tekrar dene."
+  "detailRatingRemoveError": "Puan kaldırılamadı, tekrar dene.",
+  "dayToday": "Bugün",
+  "dayYesterday": "Dün"
 }

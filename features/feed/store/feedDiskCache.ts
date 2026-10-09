@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FeedActivity } from '../types';
+import { marathonSayfaSinirinda } from '../utils/marathonSinir';
 
 /**
  * B-2 · Akışın son 1. sayfasının DİSK kopyası — soğuk açılışta ağ beklenmeden
@@ -17,6 +18,8 @@ import { FeedActivity } from '../types';
 export const AKIS_DISK_ANAHTARI = 'akis.ilkSayfa.v1';
 /** feedApi PAGE_SIZE ile aynı — ekranı dolduracak kadar, fazlası değil. */
 export const AKIS_DISK_SATIR = 40;
+/** Maraton zinciri uzatsa bile diske yazılacak en fazla satır. */
+export const AKIS_DISK_UST_SINIR = 120;
 /** Bundan eski kopya gösterilmez (30 günlük akış penceresinin yanında kısa). */
 export const AKIS_DISK_MAX_YAS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -28,9 +31,12 @@ interface DiskKopyasi {
 
 /** Diske gidecek satırlar: iyimser/geçici kartlar sunucu gerçeği değil. */
 export function diskSatirlari(activities: FeedActivity[]): FeedActivity[] {
-  return activities
-    .filter((a) => !a.isPending && !a.id.startsWith('temp-'))
-    .slice(0, AKIS_DISK_SATIR);
+  const gercek = activities.filter((a) => !a.isPending && !a.id.startsWith('temp-'));
+  // C5 / A-7: kesim bir maratonun ortasına denk gelirse zincir tamamlanana kadar
+  // uzat — yoksa açılışta kart «×37», ağ gelince «×47» diye zıplardı.
+  let n = Math.min(AKIS_DISK_SATIR, gercek.length);
+  while (n < gercek.length && n < AKIS_DISK_UST_SINIR && marathonSayfaSinirinda(gercek.slice(0, n))) n++;
+  return gercek.slice(0, n);
 }
 
 export async function akisiDiskeYaz(sahip: string, activities: FeedActivity[]): Promise<void> {

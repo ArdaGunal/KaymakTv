@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
 import { Rss, WifiOff, ArrowUp, RefreshCw, CloudOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,8 @@ import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import UserSearchButton from '../../../features/feed/components/UserSearchButton';
 import ComposePostBar from '../../../features/feed/components/ComposePostBar';
 import ComposePostModal from '../../../features/feed/components/ComposePostModal';
+import DaySeparator from '../../../features/feed/components/DaySeparator';
+import { dayLabelsFor } from '../../../features/feed/utils/dayLabel';
 import ScreenHeader from '../../../components/ScreenHeader';
 import SectionErrorBoundary from '../../../components/SectionErrorBoundary';
 import { useFeed } from '../../../features/feed/hooks/useFeed';
@@ -19,7 +21,7 @@ import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 const DESKTOP_BREAKPOINT = 768;
 
 export default function FeedScreen() {
-  const { t } = useTranslation(['navigation', 'feed']);
+  const { t, i18n } = useTranslation(['navigation', 'feed']);
   const {
     data,
     isLoading,
@@ -35,6 +37,13 @@ export default function FeedScreen() {
     loadMore,
     deleteActivity,
   } = useFeed();
+
+  // C5 · Zaman ayracı etiketleri — liste her değiştiğinde (yeni sayfa, Realtime)
+  // yeniden hesaplanır; gün sınırı cihazın yerel saati.
+  const gunEtiketleri = useMemo(
+    () => dayLabelsFor(data, i18n.language, (k) => t(`feed:${k}`)),
+    [data, i18n.language, t]
+  );
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const listRef = useRef<FlatList<FeedItem>>(null);
@@ -199,8 +208,10 @@ export default function FeedScreen() {
                silent: bozuk kart sessizce atlanır, akış akmaya devam eder —
                hata logError ile kaydedildiği için bu sessizlik kayıp değil
                (Geliştirici Paneli hata kaydını görüyor). */
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <SectionErrorBoundary label={"feed-card:" + item.id} silent>
+                {/* C5 · gün değişince ince ayraç (Bugün / Dün / Çarşamba / 3 Eki). */}
+                {gunEtiketleri[index] ? <DaySeparator label={gunEtiketleri[index]!} /> : null}
                 {isMarathonActivity(item)
                   ? <MarathonFeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />
                   : <FeedCard activity={item} onDeleteActivity={() => deleteActivity(item)} />}
