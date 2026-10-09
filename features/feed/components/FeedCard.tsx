@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next';
 import MediaPoster from '../../../components/MediaPoster';
 import { FeedActivity } from '../types';
 import { formatRelativeTime } from '../../../utils/formatRelativeTime';
-import { formatRating } from '../../../utils/formatRating';
 import { buildMediaHref } from '../utils/feedNavigation';
+import { activityLabel } from '../utils/activityLabel';
 import CardMenu from './CardMenu';
 import FeedActivityNote from './FeedActivityNote';
 import NoteEditorModal from './NoteEditorModal';
@@ -29,76 +29,27 @@ interface FeedCardProps {
   onDeleteActivity?: () => void | Promise<void>;
 }
 
-// Her aktivite tipi kendi ikonunu, vurgu rengini ve metin şablonunu taşır —
-// yeni bir tip eklemek (Phase 2: 'commented' vb.) bu map'e bir satır eklemek
-// kadar basit olacak şekilde tasarlandı.
-//
-// `labelSuffix` BİLİNÇLİ OLARAK yapım adını İÇERMEZ, yalnızca ONDAN SONRA
-// gelen kısmı döndürür — yapım adı JSX'te ayrı, tıklanabilir bir <Text>
-// olarak render edilir.
-const ACTIVITY_META: Record<
-  FeedActivity['activityType'],
-  { icon: typeof Eye; color: string; labelSuffix: (a: FeedActivity) => string }
-> = {
-  watched_episode: {
-    icon: Eye,
-    color: '#38bdf8',
-    labelSuffix: (a) => `${a.episodeNumber ?? ''} izledi`.trim(),
-  },
-  watched_movie: {
-    icon: Clapperboard,
-    color: '#f472b6',
-    labelSuffix: () => 'filmini izledi',
-  },
-  started_show: {
-    icon: Play,
-    color: '#a78bfa',
-    labelSuffix: () => 'izlemeye başladı',
-  },
-  completed_show: {
-    icon: CheckCircle2,
-    color: '#4ade80',
-    labelSuffix: () => 'tamamladı',
-  },
-  rated: {
-    // Puanlama hem dizi hem film olabilir — metin `mediaType`e göre değişir,
-    // eskiden her puanlama için sabit "filmine" yazıyordu (diziler için yanlış).
-    //
-    // `formatRating` ŞART: Trakt'ın API'si puanı 1-10 skalada tutar ama bu
-    // uygulamanın kendi arayüzü (StarSlider, 5 yıldız) kullanıcıya HER YERDE
-    // 5 üzerinden gösterir (bkz. ShowCard/MediaHero — ikisi de aynı
-    // yardımcıyı kullanır). ESKİ DAVRANIŞ burada ham `a.rating` ile "/10"
-    // yazıyordu — kullanıcının 5 yıldız üzerinden verdiği bir puan akışta
-    // "9/10" gibi görünüyordu, uygulamanın geri kalanıyla TUTARSIZDI.
-    icon: Star,
-    color: '#facc15',
-    labelSuffix: (a) =>
-      a.mediaType === 'movie'
-        ? `filmine ${formatRating(a.rating)}/5 puan verdi`
-        : `dizisine ${formatRating(a.rating)}/5 puan verdi`,
-  },
-  // Bağımsız gönderi ("Fikir Paylaş") — bkz. 017_feed_posts.sql. `labelSuffix`
-  // burada FİİLEN KULLANILMAZ (render'da ayrı bir dal var, aşağıya bak) —
-  // yalnızca Record<FeedActivityType, ...> tipini tamamlamak için var.
-  posted: {
-    icon: MessageSquarePlus,
-    color: '#22d3ee',
-    labelSuffix: () => 'bir gönderi paylaştı',
-  },
-  // İnceleme — bkz. 018_feed_reviews.sql, docs/design/REVIEWS_PLAN.md. `posted`tan
-  // farklı olarak yapım HER ZAMAN var, bu yüzden `labelSuffix` gerçekten
-  // kullanılıyor (yapım adı JSX'te ayrı render edilir, bu yalnızca sonrası).
-  reviewed: {
-    icon: PenLine,
-    color: '#fb923c',
-    labelSuffix: (a) => (a.mediaType === 'movie' ? 'filmini inceledi' : 'dizisini inceledi'),
-  },
+// Her aktivite tipi kendi ikonunu ve vurgu rengini taşır. Cümlenin kendisi
+// (A-3, çeviri) `utils/activityLabel.ts`'te — yapım adı orada dile göre
+// cümlenin başına ya da ortasına yerleşir.
+const ACTIVITY_META: Record<FeedActivity['activityType'], { icon: typeof Eye; color: string }> = {
+  watched_episode: { icon: Eye, color: '#38bdf8' },
+  watched_movie: { icon: Clapperboard, color: '#f472b6' },
+  started_show: { icon: Play, color: '#a78bfa' },
+  completed_show: { icon: CheckCircle2, color: '#4ade80' },
+  // Puanın 5 üzerinden gösterimi (`formatRating`) activityLabel'da.
+  rated: { icon: Star, color: '#facc15' },
+  // Bağımsız gönderi ("Fikir Paylaş") — bkz. 017_feed_posts.sql.
+  posted: { icon: MessageSquarePlus, color: '#22d3ee' },
+  // İnceleme — bkz. 018_feed_reviews.sql, docs/design/REVIEWS_PLAN.md.
+  reviewed: { icon: PenLine, color: '#fb923c' },
 };
 
 export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) {
   const { t } = useTranslation('feed');
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
+  const label = activityLabel(activity, t);
   const router = useRouter();
   const { accessToken, isGuest } = useAuth();
   const myUserId = useMyUserId();
@@ -270,9 +221,7 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
               >
                 <Icon size={10} color={meta.color} />
                 <Text style={styles.contextChipText} numberOfLines={1}>
-                  {activity.activityType === 'posted'
-                    ? activity.showTitle
-                    : `${activity.showTitle} ${meta.labelSuffix(activity)}`}
+                  {`${label.before}${activity.showTitle ?? ''}${label.after}`}
                 </Text>
               </TouchableOpacity>
             )}
@@ -280,11 +229,11 @@ export default function FeedCard({ activity, onDeleteActivity }: FeedCardProps) 
         ) : (
           <>
             <Text style={styles.label} numberOfLines={2}>
+              {label.before}
               <Text style={styles.showNameLink} onPress={handlePressShow}>
                 {activity.showTitle}
               </Text>
-              {' '}
-              {meta.labelSuffix(activity)}
+              {label.after}
             </Text>
           </>
         )}

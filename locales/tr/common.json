@@ -164,5 +164,11 @@
   "importBannerOffline": "İnternet bağlantısı bekleniyor — aktarım kaldığı yerden devam edecek.",
   "importBannerDone": "Trakt kütüphanen hazır ✓",
   "importBannerPending": "{{sayi}} kayıt kataloğa ekleniyor; gece güncellemesiyle görünecek.",
-  "importBannerPercent": "%{{yuzde}}"
+  "importBannerPercent": "%{{yuzde}}",
+  "minuteAgo": "dakika önce",
+  "hourAgo": "saat önce",
+  "dayAgo": "gün önce",
+  "weekAgo": "hafta önce",
+  "monthAgo": "ay önce",
+  "yearAgo": "yıl önce"
 }

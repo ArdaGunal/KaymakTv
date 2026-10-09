@@ -91,5 +91,22 @@
   "searchTooShort": "Aramak için en az 2 karakter yaz.",
   "searchAuthError": "Oturumun doğrulanamadı. Tekrar giriş yapman gerekebilir.",
   "privateProfileTitle": "Bu Hesap Gizli",
-  "privateProfileText": "İzlediklerini ve paylaşımlarını görmek için takip isteği gönder."
+  "privateProfileText": "İzlediklerini ve paylaşımlarını görmek için takip isteği gönder.",
+  "activityWatchedEpisode": "{{title}} {{episode}} izledi",
+  "activityWatchedMovie": "{{title}} filmini izledi",
+  "activityStartedShow": "{{title}} izlemeye başladı",
+  "activityCompletedShow": "{{title}} tamamladı",
+  "activityRatedMovie": "{{title}} filmine {{rating}}/5 puan verdi",
+  "activityRatedShow": "{{title}} dizisine {{rating}}/5 puan verdi",
+  "activityReviewedMovie": "{{title}} filmini inceledi",
+  "activityReviewedShow": "{{title}} dizisini inceledi",
+  "activityPosted": "{{title}}",
+  "marathonL1Headline": "{{name}} hızını alamadı! 🍿",
+  "marathonL1Badge": "Hız Turu",
+  "marathonL2Headline": "{{name}} maraton yapıyor! 🏃‍♂️🎬",
+  "marathonL2Badge": "Maratoncu",
+  "marathonL3Headline": "{{name}} sezonu tek oturuşta devirdi! 🏆🦉",
+  "marathonL3Badge": "Sezon Fatihi",
+  "marathonRangeWatched": "{{range}} arası izlendi",
+  "marathonSingleWatched": "{{episode}} izlendi"
 }

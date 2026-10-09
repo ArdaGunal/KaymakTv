@@ -50,7 +50,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
   // "sildim" yanılsaması yaratıyordu.
   // 🪪 `users.id` ile (M339 · §F6) — bkz. FeedCard'daki aynı not.
   const isOwnActivity = !!myUserId && myUserId === activity.user.id;
-  const message = getMarathonMessage(activity.user.username, activity.episodeCount);
+  const message = getMarathonMessage(activity.user.username, activity.episodeCount, t);
 
   const handlePressProfile = () => {
     // bkz. FeedCard.tsx'teki AYNI düzeltme notu — takip durumu (followStore)
@@ -114,9 +114,10 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
           <Text style={styles.showNameLink} onPress={handlePressShow}>
             {activity.showTitle}
           </Text>
+          {' • '}
           {activity.episodeCount > 1
-            ? ` • ${activity.episodeRange} arası izlendi`
-            : ` • ${activity.firstEpisode} izlendi`}
+            ? t('marathonRangeWatched', { range: activity.episodeRange })
+            : t('marathonSingleWatched', { episode: activity.firstEpisode })}
         </Text>
 
         {/* Göreceli zaman */}

@@ -23,28 +23,18 @@ export interface MarathonMessage {
   color: string;
 }
 
-export function getMarathonMessage(username: string, count: number): MarathonMessage {
-  if (count >= 8) {
-    return {
-      level: 3,
-      headline: `${username} sezonu tek oturuşta devirdi! 🏆🦉`,
-      badge: 'Sezon Fatihi',
-      color: '#fbbf24', // amber
-    };
-  }
-  if (count >= 5) {
-    return {
-      level: 2,
-      headline: `${username} maraton yapıyor! 🏃‍♂️🎬`,
-      badge: 'Maratoncu',
-      color: '#34d399', // emerald
-    };
-  }
-  // count 3–4
+// A-3: metinler çeviride (feed:marathonL{1,2,3}{Headline,Badge}) — eskiden gömülü Türkçe.
+export function getMarathonMessage(
+  username: string,
+  count: number,
+  t: (key: string, options?: Record<string, unknown>) => string
+): MarathonMessage {
+  const level: MarathonMessage['level'] = count >= 8 ? 3 : count >= 5 ? 2 : 1;
+  const color = level === 3 ? '#fbbf24' /* amber */ : level === 2 ? '#34d399' /* emerald */ : '#60a5fa'; /* sky */
   return {
-    level: 1,
-    headline: `${username} hızını alamadı! 🍿`,
-    badge: 'Hız Turu',
-    color: '#60a5fa', // sky blue
+    level,
+    headline: String(t(`feed:marathonL${level}Headline`, { name: username })),
+    badge: String(t(`feed:marathonL${level}Badge`)),
+    color,
   };
 }

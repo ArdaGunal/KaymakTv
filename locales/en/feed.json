@@ -92,5 +92,22 @@
   "searchTooShort": "Type at least 2 characters to search.",
   "searchAuthError": "Couldn't verify your session. You may need to sign in again.",
   "privateProfileTitle": "This Account Is Private",
-  "privateProfileText": "Send a follow request to see what they watch and post."
+  "privateProfileText": "Send a follow request to see what they watch and post.",
+  "activityWatchedEpisode": "watched {{title}} {{episode}}",
+  "activityWatchedMovie": "watched {{title}}",
+  "activityStartedShow": "started watching {{title}}",
+  "activityCompletedShow": "finished {{title}}",
+  "activityRatedMovie": "rated {{title}} {{rating}}/5",
+  "activityRatedShow": "rated {{title}} {{rating}}/5",
+  "activityReviewedMovie": "reviewed {{title}}",
+  "activityReviewedShow": "reviewed {{title}}",
+  "activityPosted": "{{title}}",
+  "marathonL1Headline": "{{name}} is on a roll! 🍿",
+  "marathonL1Badge": "Speed Run",
+  "marathonL2Headline": "{{name}} is binge-watching! 🏃‍♂️🎬",
+  "marathonL2Badge": "Binge Watcher",
+  "marathonL3Headline": "{{name}} crushed the season in one sitting! 🏆🦉",
+  "marathonL3Badge": "Season Slayer",
+  "marathonRangeWatched": "watched {{range}}",
+  "marathonSingleWatched": "watched {{episode}}"
 }

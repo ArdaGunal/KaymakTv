@@ -164,5 +164,11 @@
   "importBannerOffline": "Waiting for an internet connection — the import will resume where it left off.",
   "importBannerDone": "Your Trakt library is ready ✓",
   "importBannerPending": "{{sayi}} items are being added to the catalog; they will appear after the nightly update.",
-  "importBannerPercent": "{{yuzde}}%"
+  "importBannerPercent": "{{yuzde}}%",
+  "minuteAgo": "minute ago",
+  "hourAgo": "hour ago",
+  "dayAgo": "day ago",
+  "weekAgo": "week ago",
+  "monthAgo": "month ago",
+  "yearAgo": "year ago"
 }
