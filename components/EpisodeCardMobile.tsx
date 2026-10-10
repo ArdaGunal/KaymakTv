@@ -200,7 +200,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
             {/* Progress text */}
             {!data.isCalculating && progressPct !== null && (
               <Text style={styles.progressText}>
-                {Math.round(progressPct)}% izlendi
+                {t('common:watchedPercent', '%{{pct}} izlendi', { pct: Math.round(progressPct) })}
               </Text>
             )}
 

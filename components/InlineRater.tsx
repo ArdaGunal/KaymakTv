@@ -76,7 +76,7 @@ export default function InlineRater({ onRate, initialRating = 0, onRemove }: Inl
         )}
       </View>
 
-      <Modal visible={modalVisible} transparent animationType="fade">
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <Pressable style={styles.modalContentWrapper} onPress={(e) => e.stopPropagation()}>
             <BlurView intensity={90} tint="dark" style={styles.modalContent}>

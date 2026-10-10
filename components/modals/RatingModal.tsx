@@ -22,7 +22,7 @@ export default function RatingModal({
   const { t } = useTranslation(['media']);
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.modalOverlay, styles.centeredOverlay]} onPress={onClose}>
         <Pressable style={styles.modalContentWrapper} onPress={(e) => e.stopPropagation()}>
           <BlurView intensity={90} tint="dark" style={styles.modalContent}>

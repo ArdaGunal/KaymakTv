@@ -17,10 +17,22 @@ import type { FeedFilter } from '../utils/feedFilter';
  * az «liste yüksekliği + çip» kadar tutulur (`icerikMinYukseklik`).
  * Filtre seçiliyken çipler GİZLENMEZ — seçili filtre görünür kalsın.
  */
+/** Ölçüm/gizleme gelmezse liste en geç bu kadar sonra görünür. */
+const GUVENLIK_MS = 400;
+
 export function useGizliFiltreBasligi<T>(listRef: RefObject<FlatList<T> | null>, filtre: FeedFilter) {
   const [cipH, setCipH] = useState(0);
   const [listeH, setListeH] = useState(0);
   const gizlendi = useRef(false);
+  // Yayın APK'sında görüldü: liste önce çiplerle çiziliyor, ölçüm bitince ~1 kare
+  // sonra yukarı kayıyordu (sıçrama). Gizleme bitene kadar liste görünmez;
+  // ölçüm hiç gelmezse (boş/kısa liste) GUVENLIK_MS sonra yine görünür olur.
+  const [hazir, setHazir] = useState(filtre !== 'tumu');
+  // Güvenlik süresi liste İÇERİĞİ ilk çizildiğinde başlar (iskelet/ağ beklenirken değil).
+  const guvenlik = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (guvenlik.current) clearTimeout(guvenlik.current);
+  }, []);
 
   const onCipLayout = useCallback((e: LayoutChangeEvent) => setCipH(Math.round(e.nativeEvent.layout.height)), []);
   const onListeLayout = useCallback((e: LayoutChangeEvent) => setListeH(Math.round(e.nativeEvent.layout.height)), []);
@@ -29,10 +41,12 @@ export function useGizliFiltreBasligi<T>(listRef: RefObject<FlatList<T> | null>,
   // kez gizle. Sonraki veri değişimleri kaydırma konumunu bozmaz.
   const onContentSizeChange = useCallback(
     (_w: number, h: number) => {
+      if (!guvenlik.current && h > 0) guvenlik.current = setTimeout(() => setHazir(true), GUVENLIK_MS);
       if (gizlendi.current || filtre !== 'tumu' || cipH <= 0 || listeH <= 0) return;
       if (h + 1 < cipH + listeH) return;
       gizlendi.current = true;
       listRef.current?.scrollToOffset({ offset: cipH, animated: false });
+      requestAnimationFrame(() => setHazir(true));
     },
     [filtre, cipH, listeH, listRef]
   );
@@ -45,6 +59,7 @@ export function useGizliFiltreBasligi<T>(listRef: RefObject<FlatList<T> | null>,
       return;
     }
     gizlendi.current = true; // kullanıcı çiplerle etkileşti; artık otomatik gizleme yok
+    setHazir(true);
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [filtre, listRef]);
 
@@ -57,5 +72,7 @@ export function useGizliFiltreBasligi<T>(listRef: RefObject<FlatList<T> | null>,
     onContentSizeChange,
     icerikMinYukseklik: listeH > 0 ? listeH + cipH : undefined,
     ustOfset,
+    /** Liste görünürlüğü: gizleme bitene kadar 0 (sıçrama görünmesin). */
+    listeOpaklik: hazir ? 1 : 0,
   };
 }

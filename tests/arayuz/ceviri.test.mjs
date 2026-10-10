@@ -29,4 +29,5 @@ for (const f of fs.readdirSync(path.join(root, 'locales/tr'))) {
 const oku = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 T.ok('Herkese acik profil sekmeleri ceviride (mobil + web)', ['screens/PublicProfileMobile.tsx', 'app/(protected)/user/[slug].web.tsx'].every((f) => !/>(Aktiviteler|Diziler|Filmler)</.test(oku(f))));
 T.ok('Oyuncular / bolum hatasi / izlendi ipucu ceviride', !/>Oyuncular</.test(oku('components/MediaCast.tsx')) && !/>Bu bölüm yüklenemedi\.</.test(oku('components/SectionErrorBoundary.tsx')) && !/İzlendi` }/.test(oku('components/ProgressBar.tsx')));
+T.ok('Bolum karti yuzde metni ceviride (C7 yayin turunda bulundu)', !/% izlendi\s*$/m.test(oku('components/EpisodeCardMobile.tsx')));
 T.bitir();

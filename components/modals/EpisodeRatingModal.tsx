@@ -22,7 +22,7 @@ export default function EpisodeRatingModal({
   const { t } = useTranslation(['media']);
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.modalOverlay, styles.centeredOverlay]}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>

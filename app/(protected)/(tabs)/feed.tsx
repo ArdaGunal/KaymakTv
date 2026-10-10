@@ -161,6 +161,7 @@ export default function FeedScreen() {
             data={data}
             keyExtractor={(item) => item.id}
             onLayout={gizli.onListeLayout}
+            style={{ opacity: gizli.listeOpaklik }}
             onContentSizeChange={gizli.onContentSizeChange}
             ListHeaderComponent={
               <View onLayout={gizli.onCipLayout}>
