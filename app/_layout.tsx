@@ -15,6 +15,7 @@ import { logError } from '../utils/errorLog';
 import { useWatchedOutbox } from '../hooks/useWatchedOutbox';
 import { useHiddenOutbox } from '../hooks/useHiddenOutbox';
 import WatchedOutboxBanner from '../components/WatchedOutboxBanner';
+import ConfirmHost from '../components/ConfirmHost';
 
 // expo-router'ın kök segmentindeki (bu dosya) BÜTÜN alt ağacı kapsayan
 // çökme yakalayıcısı — bir render hatası eskiden beyaz/boş bir ekranda
@@ -77,14 +78,19 @@ export default function RootLayout() {
   // Trakt/Auth işlemlerinden tamamen bağımsız ve onlardan ÖNCE yapar — eski
   // bir sürüm engellendiğinde AuthProvider'ın SecureStore okuması/Trakt'a
   // giden hiçbir istek asla tetiklenmez (bkz. features/versionGate).
+  // ConfirmHost VersionGate'in DIŞINDA: engel ekranında da, oturum yüklenirken de
+  // `confirmAsync`/`notify` koyu kutuyla açılsın (GORSEL-01 · utils/confirmDialog.ts).
   return (
-    <VersionGate>
-      <AuthProvider>
-        <LibraryProvider>
-          <RootLayoutNav />
-        </LibraryProvider>
-      </AuthProvider>
-    </VersionGate>
+    <>
+      <VersionGate>
+        <AuthProvider>
+          <LibraryProvider>
+            <RootLayoutNav />
+          </LibraryProvider>
+        </AuthProvider>
+      </VersionGate>
+      <ConfirmHost />
+    </>
   );
 }
 

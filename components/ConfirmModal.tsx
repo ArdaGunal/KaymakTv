@@ -4,16 +4,17 @@ import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleShe
 /**
  * Uygulama diline uygun onay kutusu — yerel `Alert.alert` yerine.
  *
- * 🔴 NEDEN `utils/confirmDialog.ts` YETMİYOR: o dosya platformun KENDİ
- * diyaloğunu açıyor (Android'de sistem alert'i, web'de `window.confirm`).
- * İkisi de işlevsel ama uygulamanın görsel dilinin DIŞINDA duruyor ve
- * `window.confirm` düğme etiketlerini bile yansıtamıyor (sabit "OK/Cancel"
- * — gerekçe o dosyanın başlığında yazılı). Kullanıcı kararı (2026-09-06):
- * *"emin misiniz sorusu siteye daha da yakışır bir kutucuk ile sorulabilir."*
+ * Platformun KENDİ diyaloğu (Android sistem alert'i, web `window.confirm`)
+ * uygulamanın görsel dilinin DIŞINDA duruyordu (Android'de koyu uygulamada
+ * BEYAZ pencere) ve `window.confirm` düğme etiketlerini bile yansıtamıyordu.
+ * Kullanıcı kararı (2026-09-06): *"emin misiniz sorusu siteye daha da
+ * yakışır bir kutucuk ile sorulabilir."*
  *
- * ⚠️ `confirmDialog.ts` SİLİNMEDİ ve silinmemeli: bu bileşen React ağacında
- * bir mount noktası gerektiriyor, `confirmAsync` ise her yerden (hook, servis,
- * olay işleyici) çağrılabilen bir `Promise`. Farklı ihtiyaçlar.
+ * ✅ GORSEL-01 (2026-10-10): `utils/confirmDialog.ts`'teki `confirmAsync` /
+ * `chooseAsync` / `notify` artık BU kutuyu açıyor — kökteki
+ * `components/ConfirmHost.tsx` + `store/dialogStore.ts` köprüsüyle. Her yerden
+ * (hook, servis) çağrılabilen Promise korunur. Bileşeni doğrudan kullanmak da
+ * serbest (ör. `NotificationTimeline`).
  *
  * 🔴 Görsel dil `components/RatingModal.tsx` ile BİREBİR aynı (aynı zemin,
  * aynı köşe yarıçapı, aynı karartma) — iki farklı modal dili uygulamayı
@@ -25,13 +26,17 @@ interface ConfirmModalProps {
   title: string;
   message: string;
   confirmLabel: string;
-  cancelLabel: string;
+  /** Verilmezse tek düğmeli bilgi kutusu (`notify`). */
+  cancelLabel?: string;
   /** Onay düğmesi kırmızı çizilir (silme gibi geri alınamaz işlemler). */
   destructive?: boolean;
   /** Başlığın üstünde gösterilecek ikon — çağıran verir (ikon bütçesi). */
   icon?: React.ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Dışarı dokunma / geri tuşu. Verilmezse `onCancel` (ikincil düğme bir EYLEM
+   *  olduğunda — ör. «Yalnızca Bu Bölüm» — vazgeçmeyle karışmasın diye ayrı). */
+  onDismiss?: () => void;
 }
 
 export default function ConfirmModal({
@@ -44,6 +49,7 @@ export default function ConfirmModal({
   icon,
   onConfirm,
   onCancel,
+  onDismiss = onCancel,
 }: ConfirmModalProps) {
   // 🔴 GÖRÜNMEZKEN HİÇ RENDER ETME — `visible={false}`'a GÜVENME.
   // Ölçüldü (2026-09-06, tarayıcı): yalnızca `visible` prop'una bırakılınca
@@ -62,9 +68,9 @@ export default function ConfirmModal({
       // Android geri tuşu = vazgeç. Verilmezse diyalog geri tuşuyla kapanır
       // ama hiçbir dal çalışmaz ve çağıran sonsuza kadar bekler
       // (`confirmDialog.ts`'te `onDismiss` ile çözülen AYNI tuzak).
-      onRequestClose={onCancel}
+      onRequestClose={onDismiss}
     >
-      <TouchableWithoutFeedback onPress={onCancel}>
+      <TouchableWithoutFeedback onPress={onDismiss}>
         <View style={styles.overlay}>
           {/* Kutunun içine dokunmak kapatmasın. */}
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
@@ -75,14 +81,16 @@ export default function ConfirmModal({
               <Text style={styles.message}>{message}</Text>
 
               <View style={styles.actions}>
-                <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
-                  onPress={onCancel}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.cancelText}>{cancelLabel}</Text>
-                </TouchableOpacity>
+                {cancelLabel ? (
+                  <TouchableOpacity
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={onCancel}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.cancelText}>{cancelLabel}</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 <TouchableOpacity
                   style={[styles.button, destructive ? styles.destructiveButton : styles.confirmButton]}

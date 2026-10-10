@@ -25,5 +25,11 @@ ANDROID_HOME="${ANDROID_HOME:-$LOCALAPPDATA/Android/Sdk}" \
 APK="app/build/outputs/apk/release/app-release.apk"
 SURUM=$(grep -o '"versionName": "[^"]*"' app/build/outputs/apk/release/output-metadata.json | cut -d'"' -f4)
 KOD=$(grep -o '"versionCode": [0-9]*' app/build/outputs/apk/release/output-metadata.json | grep -o '[0-9]*$')
-echo "$TUR · $SURUM (vc $KOD) · $(du -h "$APK" | cut -f1) · $KOK/android/$APK"
+# Kolay bulunsun diye kökteki apk/ klasörüne kopyala (.gitignore'da, GitHub'a gitmez).
+mkdir -p "$KOK/apk"
+EK=""; [[ "${1:-}" == "--ag" ]] && EK="-AG-TEST"
+HEDEF="$KOK/apk/KaymakTV-$SURUM$EK.apk"
+cp "$APK" "$HEDEF"
+echo "$TUR · $SURUM (vc $KOD) · $(du -h "$APK" | cut -f1) · $HEDEF"
+echo "SHA-256: $(sha256sum "$HEDEF" | cut -d' ' -f1)"
 echo "Dogrula: kur + ac → adb logcat -d -s ReactNativeJS | grep -c '\[AG\]'  (yayinda 0 olmali)"

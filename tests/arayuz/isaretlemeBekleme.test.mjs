@@ -17,7 +17,7 @@ T.ok('Disk ACK oncesi busyRef kilitli, yesil YOK', /busyRef.current = true/.test
 T.ok('Yesil ve 550ms yalniz mutasyon ACK dalinda', /\.then\(\(newProgress\)[\s\S]*setIsSuccess\(true\)[\s\S]*setTimeout\(serbestBirak, SUCCESS_HOLD_MS\)/.test(checkIn));
 T.ok('Cift dokunus senkron kilitli', /if \(busyRef.current\) return;\s*busyRef.current = true/.test(checkIn));
 T.ok('Gec yanit yeni dokunusu bozmuyor', /if \(requestIdRef.current !== myRequestId\) return/.test(checkIn));
-T.ok('Disk hatasi gorunur, kilit geri acilir', /\.catch\(\(error\)[\s\S]*Alert.alert[\s\S]*serbestBirak\(\)/.test(checkIn));
+T.ok('Disk hatasi gorunur, kilit geri acilir', /\.catch\(\(error\)[\s\S]*notify\([\s\S]*serbestBirak\(\)/.test(checkIn));
 T.ok('Null/eksik ilerleme konfeti/bitis SAYILMAZ', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\)/.test(checkIn));
 
 // Gercek React komponentinin event zinciri; state/ref/native yalniz port mock.
@@ -30,7 +30,9 @@ const component = tsLoader(root, {
   react: { __esModule: true, default: { createElement: (_tag, props) => { result = props; return props; } },
     useState: (initial) => { const i = stateIndex++; states[i] = initial; return [initial, (v) => { states[i] = v; }]; },
     useRef: (initial) => { const r = { current: initial }; refs[refIndex++] = r; return r; } },
-  'react-native': { TouchableOpacity: 'Button', StyleSheet: { create: (v) => v }, Alert: { alert: (...args) => alerts.push(args) } },
+  'react-native': { TouchableOpacity: 'Button', StyleSheet: { create: (v) => v } },
+  // GORSEL-01: uyarilar artik uygulama kutusundan (notify).
+  '../utils/confirmDialog': { notify: (...args) => alerts.push(args), chooseAsync: async () => null },
   './icons': { Check: 'Check' },
   '../context/LibraryContext': { useLibraryActions: () => ({ markEpisodeAsWatched: mark, planiIsaretle: mark }) },
   '../store/useLibraryStore': { useLibraryStore: { getState: () => ({ showProgressMap: {} }) } },

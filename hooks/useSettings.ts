@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { notify } from '../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { deleteAccountData } from '../features/feed/services/accountDeletion';
@@ -27,7 +27,7 @@ export function useSettings(): UseSettingsResult {
       // removeKeys zaten state'i sıfırlıyor; router auth guard zaten login'e yönlendirecek
     } catch (error) {
       console.error('[useSettings] logout error:', error);
-      Alert.alert(t('common:error'), t('logoutError', 'Çıkış yapılırken hata oluştu.'));
+      notify(t('common:error'), t('logoutError', 'Çıkış yapılırken hata oluştu.'));
     } finally {
       setIsLoggingOut(false);
     }
@@ -48,7 +48,7 @@ export function useSettings(): UseSettingsResult {
       await removeKeys();
     } catch (error) {
       console.error('[useSettings] deleteAccount error:', error);
-      Alert.alert(t('common:error'), t('deleteAccountError', 'Veriler silinirken hata oluştu.'));
+      notify(t('common:error'), t('deleteAccountError', 'Veriler silinirken hata oluştu.'));
     } finally {
       setIsDeletingAccount(false);
     }

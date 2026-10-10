@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { Folder } from '../icons';
 import SettingsRow from './SettingsRow';
-import { confirmAsync } from '../../utils/confirmDialog';
+import { confirmAsync, notify } from '../../utils/confirmDialog';
 import { logError } from '../../utils/errorLog';
 
 /**
@@ -42,13 +42,13 @@ export default function ClearCacheRow() {
       // "hâlâ eski görsel görünüyor" hissi yaşayabilir.
       await Image.clearDiskCache();
       await Image.clearMemoryCache();
-      Alert.alert(
+      notify(
         t('settings:clearCacheDoneTitle', 'Tamamlandı'),
         t('settings:clearCacheDoneMessage', 'Önbellek temizlendi.')
       );
     } catch (error) {
       logError('ClearCacheRow.handlePress', error);
-      Alert.alert(
+      notify(
         t('common:error', 'Hata'),
         t('settings:clearCacheError', 'Önbellek temizlenemedi, tekrar dene.')
       );

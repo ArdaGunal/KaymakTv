@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
+import { notify } from '../utils/confirmDialog';
 import { Image } from 'expo-image';
 import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -107,7 +108,7 @@ export default function MediaHero({
 
   const handleToggleFavorite = () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       setOptionsModalVisible(false);
       return;
     }
@@ -131,7 +132,7 @@ export default function MediaHero({
   // C:\Users\ardag\.claude\plans\iterative-sparking-hippo.md).
   const handleToggleFollow = () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     // Hangi eylemin doğru olduğu duruma göre değişir — karar tablosu
@@ -153,14 +154,14 @@ export default function MediaHero({
   // (web görünümü SALT SUNUM — kendi kuralını bilmez).
   const openRating = () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     setRatingModalVisible(true);
   };
   const openList = () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     setListModalVisible(true);

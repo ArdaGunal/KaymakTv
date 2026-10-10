@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
+import { chooseAsync, notify } from '../utils/confirmDialog';
 import { Check } from './icons';
 import { useLibraryActions } from '../context/LibraryContext';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -103,7 +104,7 @@ export default function EpisodeCheckButton({
       })
       .catch((error) => {
         console.error(error);
-        Alert.alert(t('common:error'), t('episodeMarkError'));
+        notify(t('common:error'), t('episodeMarkError'));
         // Bu tepki hâlâ güncelse (üstüne yeni bir dokunuş binmediyse) iyimser
         // görünümü geri al. Aksi halde daha yeni bir işlemi bozmamak için dokunma.
         serbestBirak();
@@ -113,7 +114,7 @@ export default function EpisodeCheckButton({
 
   const handleCheckIn = () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
 
@@ -139,23 +140,19 @@ export default function EpisodeCheckButton({
     // yapılıyor; kullanıcı kaç bölüm işaretleyeceğini ONAYDAN ÖNCE görmeli.
     const toplam = planToplami(plan);
     const sezonSayisi = plan.length;
-    Alert.alert(
+    // GORSEL-01: uygulamanın koyu kutusu. Dışarı dokunma / geri tuşu = hiçbir şey
+    // işaretleme (eski yerel Alert Android'de kapatılamıyordu).
+    void chooseAsync(
       t('skippedEpisodesTitle'),
       sezonSayisi > 1
         ? t('skippedEpisodesMsgCokSezon', { count: toplam, seasons: sezonSayisi })
         : t('skippedEpisodesMsgSayili', { count: toplam }),
-      [
-        {
-          text: t('markOnlyThisEpisode', 'Yalnızca Bu Bölüm'),
-          onPress: () => performCheckIn(null),
-          style: 'cancel',
-        },
-        {
-          text: t('common:markPreviousToo'),
-          onPress: () => performCheckIn(plan),
-        },
-      ]
-    );
+      t('common:markPreviousToo'),
+      t('markOnlyThisEpisode', 'Yalnızca Bu Bölüm')
+    ).then((secim) => {
+      if (secim === 'primary') performCheckIn(plan);
+      else if (secim === 'secondary') performCheckIn(null);
+    });
   };
 
   return (

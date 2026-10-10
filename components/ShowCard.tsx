@@ -1,5 +1,6 @@
 import React, { useRef, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { notify } from '../utils/confirmDialog';
 import { Star, Plus, Check } from './icons';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
@@ -74,7 +75,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
     // eklenemedi" gibi YANLIŞ TEŞHİS eden bir mesaj görüyordu. Proje
     // genelindeki desen (EpisodeCheckButton, MediaHero, OptionsModal…).
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     if (!traktId || busyRef.current) return;
@@ -83,7 +84,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
     try {
       await toggleWatchlistStatus(traktId, type, isWatchlisted, media);
     } catch (error) {
-      Alert.alert(t('common:error'), t('listAddError'));
+      notify(t('common:error'), t('listAddError'));
     } finally {
       busyRef.current = false;
     }

@@ -1,9 +1,9 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { UserX, UserCheck } from '../../../components/icons';
 import { useBlockState } from '../hooks/useBlockState';
-import { confirmAsync } from '../../../utils/confirmDialog';
+import { confirmAsync, notify } from '../../../utils/confirmDialog';
 
 interface BlockUserButtonProps {
   /** 🪪 `users.id` — Trakt slug'ı DEĞİL (M339 · `BACKLOG` §F6). */
@@ -44,7 +44,7 @@ export default function BlockUserButton({ targetUserId }: BlockUserButtonProps) 
       // notuyla) — kullanıcı "Engelle"ye basıp onaylıyor, istek başarısız
       // oluyor ve ekranda hiçbir şey değişmiyordu: buton "çalışmıyor" gibi
       // görünüyordu. docs/AI_RULES.md § "Sessiz başarısızlık YASAKTIR" ihlali.
-      Alert.alert(t('common:error'), t('common:actionFailedMessage'));
+      notify(t('common:error'), t('common:actionFailedMessage'));
     }
   };
 

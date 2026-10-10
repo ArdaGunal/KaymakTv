@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAppBack } from '../../../hooks/useAppBack';
 import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import { isDefaultList, isLikedList } from '../../../utils/listHelpers';
-import { confirmAsync } from '../../../utils/confirmDialog';
+import { confirmAsync, notify } from '../../../utils/confirmDialog';
 
 interface ListItem {
   key: string;
@@ -113,7 +113,7 @@ export default function ListDetailsScreen() {
       handleBack();
     } catch (error) {
       console.error('Liste silinemedi:', error);
-      Alert.alert(t('common:error'), t('listDeleteError', 'Liste silinemedi.'));
+      notify(t('common:error'), t('listDeleteError', 'Liste silinemedi.'));
       setIsDeleting(false);
     }
   };
@@ -129,7 +129,7 @@ export default function ListDetailsScreen() {
     } catch (error) {
       console.error('Listeden çıkarılamadı:', error);
       setItems(prevItems); // geri al
-      Alert.alert(t('common:error'), t('listRemoveError', 'İçerik listeden çıkarılamadı.'));
+      notify(t('common:error'), t('listRemoveError', 'İçerik listeden çıkarılamadı.'));
     } finally {
       setRemovingKeys(prev => {
         const next = new Set(prev);

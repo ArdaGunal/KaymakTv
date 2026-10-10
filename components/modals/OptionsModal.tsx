@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share } from 'react-native';
 import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useAuth } from '../../context/AuthContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
-import { confirmAsync } from '../../utils/confirmDialog';
+import { confirmAsync, notify } from '../../utils/confirmDialog';
 
 interface OptionsModalProps {
   visible: boolean;
@@ -59,7 +59,7 @@ export default function OptionsModal({
 
   const handleHideProgress = async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       onClose();
       return;
     }
@@ -83,13 +83,13 @@ export default function OptionsModal({
       await onHideFromProgress();
     } catch (error) {
       console.error('İzlemeyi Bırak hatası:', error);
-      Alert.alert(t('common:error'), t('common:actionFailedMessage'));
+      notify(t('common:error'), t('common:actionFailedMessage'));
     }
   };
 
   const handleDeleteHistory = async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       onClose();
       return;
     }
@@ -144,7 +144,7 @@ export default function OptionsModal({
           {type === 'movie' && isWatched && onRewatch && (
             <TouchableOpacity style={styles.optionRow} onPress={() => {
               if (isGuest) {
-                Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+                notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
                 onClose();
                 return;
               }

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { notify } from '../../../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { useLibraryActions } from '../../../context/LibraryContext';
@@ -54,7 +54,7 @@ export function useOwnRatingEdit(
         console.warn('[Feed] Puan değiştirilemedi:', error);
         setLocalRating(id, tur, onceki);
         actions.patch({ rating: onceki });
-        Alert.alert(t('common:error', 'Hata'), t('detailRatingError', 'Puan kaydedilemedi, tekrar dene.'));
+        notify(t('common:error', 'Hata'), t('detailRatingError', 'Puan kaydedilemedi, tekrar dene.'));
       }
     },
     [canEditRating, activity.rating, activity.showId, activity.mediaType, activity.showTitle, activity.tmdbId, setLocalRating, rateMedia, actions, t]
@@ -74,7 +74,7 @@ export function useOwnRatingEdit(
     } catch (error) {
       console.warn('[Feed] Puan kaldırılamadı:', error);
       setLocalRating(id, tur, onceki);
-      Alert.alert(t('common:error', 'Hata'), t('detailRatingRemoveError', 'Puan kaldırılamadı, tekrar dene.'));
+      notify(t('common:error', 'Hata'), t('detailRatingRemoveError', 'Puan kaldırılamadı, tekrar dene.'));
     }
   }, [canEditRating, activity.showId, activity.mediaType, activity.rating, removeLocalRating, unrateMedia, setLocalRating, onRemoved, t]);
 

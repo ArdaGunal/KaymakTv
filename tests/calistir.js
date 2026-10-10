@@ -93,6 +93,7 @@ const TAKIMLAR = [
   { ad: 'akis-filtre', grup: 'arayuz', dosya: 'arayuz/akis-filtre.test.mjs', aciklama: 'C6: YouTube tarzi gizli filtre (Tumu/Gonderiler/Takip/Aktiviteler), sunucu sorgusu, store korumasi' },
   { ad: 'ceviri', grup: 'arayuz', dosya: 'arayuz/ceviri.test.mjs', aciklama: 'DIL-01/03: her sistem t() anahtari TR+EN dosyalarinda var, TR/EN anahtar esitligi' },
   { ad: 'modal-geri', grup: 'arayuz', dosya: 'arayuz/modal-geri.test.mjs', aciklama: 'C7: her Modal Android geri tusuna yanit verir (onRequestClose)' },
+  { ad: 'onay-kutusu', grup: 'arayuz', dosya: 'arayuz/onay-kutusu.test.mjs', aciklama: 'GORSEL-01: onay/bilgi kutulari koyu ConfirmHost, dogrudan Alert.alert yasak, kuyruk' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
 

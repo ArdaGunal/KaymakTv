@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Alert, Share } from 'react-native';
+import { Share } from 'react-native';
+import { chooseAsync, notify } from '../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
 // 🔴 HAM `addRating`/`removeRating` ARTIK ÇAĞRILMIYOR (2026-09-09).
 // Bölüm puanı da mutasyon katmanından geçiyor; yönlendirme kararı (Trakt mı
@@ -96,7 +97,7 @@ export function useEpisodeActions({
       return true;
     } catch (e) {
       removeLocalRating(epTraktId, 'episode');
-      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
+      notify(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
       console.error(e);
       return false;
     }
@@ -108,7 +109,7 @@ export function useEpisodeActions({
       await unrateEpisodeMedia(epTraktId);
       return true;
     } catch (e) {
-      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
+      notify(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
       console.error(e);
       return false;
     }
@@ -116,7 +117,7 @@ export function useEpisodeActions({
 
   const toggleWatched = useCallback(async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
 
@@ -138,7 +139,7 @@ export function useEpisodeActions({
       const evren = await sezonEvreniGetir(showTraktId, tumSezonlar);
       const plan = atlananPlan(showProgressMap[showTraktId], sNum, eNum, evren);
 
-      // 🔴 M418 — DİYALOG DALINDA DA KİLİT. `Alert.alert` bloklamıyor;
+      // 🔴 M418 — DİYALOG DALINDA DA KİLİT. Eski yerel `Alert.alert` bloklamıyordu;
       // eski hâlde `toggleWatched` hemen `finally`'ye düşüp kilidi açıyordu,
       // gerçek yazma ise diyaloğun `onPress`'inde SONRA koşuyordu. Kullanıcı
       // o aralıkta ikinci kez basınca ikinci bir `watchedAt` üretiliyor ve
@@ -154,7 +155,7 @@ export function useEpisodeActions({
           }
         } catch (e) {
           console.error(e);
-          Alert.alert(t('common:error'), 'Bölüm işaretlenirken bir hata oluştu.');
+          notify(t('common:error'), 'Bölüm işaretlenirken bir hata oluştu.');
         } finally {
           setIsCheckLoading(false);
         }
@@ -162,23 +163,18 @@ export function useEpisodeActions({
 
       if (!planTekBolumMu(plan, sNum, eNum)) {
         const toplam = planToplami(plan);
-        Alert.alert(
+        // GORSEL-01: `chooseAsync` BEKLENİR → kilit (isCheckLoading) seçim yapılana dek
+        // tutulur. Dışarı dokunma / geri tuşu = hiçbir şey işaretleme.
+        const secim = await chooseAsync(
           t('skippedEpisodesTitle', { defaultValue: 'Atlanan Bölümler Var' }),
           plan.length > 1
             ? t('skippedEpisodesMsgCokSezon', { count: toplam, seasons: plan.length })
             : t('skippedEpisodesMsgSayili', { count: toplam }),
-          [
-            {
-              text: t('markOnlyThisEpisode', { defaultValue: 'Yalnızca Bu Bölüm' }),
-              onPress: () => performCheckIn(null),
-              style: 'cancel',
-            },
-            {
-              text: t('common:markPreviousToo', { defaultValue: 'Öncekileri de İşaretle' }),
-              onPress: () => performCheckIn(plan),
-            },
-          ]
+          t('common:markPreviousToo', { defaultValue: 'Öncekileri de İşaretle' }),
+          t('markOnlyThisEpisode', { defaultValue: 'Yalnızca Bu Bölüm' })
         );
+        if (secim === 'primary') await performCheckIn(plan);
+        else if (secim === 'secondary') await performCheckIn(null);
       } else {
         await performCheckIn(null);
       }
@@ -203,7 +199,7 @@ export function useEpisodeActions({
   /** Misafirse uyarır ve `false` döner — puanlama yüzeyleri bunu kullanır. */
   const guardGuest = useCallback(() => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return false;
     }
     return true;

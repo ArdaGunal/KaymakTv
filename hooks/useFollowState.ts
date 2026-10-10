@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { followKaymakUser, unfollowKaymakUser } from '../services/api/kaymakSocial';
@@ -126,14 +125,14 @@ export function useFollowState(
     if (!targetUserId || isFollowPending) return;
 
     if (!accessToken || isGuest) {
-      Alert.alert(t('error', 'Hata'), t('guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('error', 'Hata'), t('guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
 
     if (connectionState !== 'none') {
       // Takipten Çıkma Onayı — `utils/confirmDialog.ts`'teki merkezi
-      // `confirmAsync` (web'de `window.confirm`, native'de iki butonlu
-      // `Alert.alert`e düşer) — burada elle Platform.OS dallanması
+      // `confirmAsync` (uygulamanın koyu kutusu, kökteki ConfirmHost — GORSEL-01)
+      // — burada elle Platform.OS dallanması
       // YAZILMIYOR, o dosyanın kendi amacı zaten bunu önlemekti.
       const previousState = connectionState;
       const isRequest = previousState === 'pending';

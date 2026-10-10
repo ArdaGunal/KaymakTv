@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { notify } from '../utils/confirmDialog';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
 // 🔴 HAM `addRating`/`removeRating` KALDIRILDI (2026-09-09). Bölüm puanı da
@@ -59,7 +59,7 @@ export function useShowDetailHandlers({
   // hata mesajı göstermek yerine, burada da net bir uyarı verilir.
   const handleRate = useCallback(async (rating: number) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
@@ -68,14 +68,14 @@ export function useShowDetailHandlers({
       await rateMedia(traktIdNum, 'show', rating, medya);
     } catch (e) {
       removeLocalRating(traktIdNum, 'show');
-      Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
+      notify(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
   }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, rateMedia, medya, t]);
 
   const handleRateEpisode = useCallback(async (episodeTraktId: number, rating: number) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return false;
     }
     try {
@@ -84,7 +84,7 @@ export function useShowDetailHandlers({
       return true;
     } catch (e) {
       removeLocalRating(episodeTraktId, 'episode');
-      Alert.alert(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
+      notify(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
       console.error(e);
       return false;
     }
@@ -92,7 +92,7 @@ export function useShowDetailHandlers({
 
   const handleRemoveEpisodeRating = useCallback(async (episodeTraktId: number) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return false;
     }
     try {
@@ -100,7 +100,7 @@ export function useShowDetailHandlers({
       await unrateEpisodeMedia(episodeTraktId);
       return true;
     } catch (e) {
-      Alert.alert(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
+      notify(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
       console.error(e);
       return false;
     }
@@ -108,21 +108,21 @@ export function useShowDetailHandlers({
 
   const handleRemoveRating = useCallback(async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     try {
       removeLocalRating(traktIdNum, 'show');
       await unrateMedia(traktIdNum, 'show');
     } catch (e) {
-      Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
+      notify(t('common:error'), 'Puan silinirken bir hata oluştu.');
       console.error(e);
     }
   }, [isGuest, traktIdNum, removeLocalRating, unrateMedia, t]);
 
   const handleMarkSeason = useCallback(async (seasonNum: number, isWatched: boolean) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     try {
@@ -141,7 +141,7 @@ export function useShowDetailHandlers({
 
   const handleUnwatchEpisode = useCallback(async (selectedEpisode: {season: number, episode: number} | null) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     if (!selectedEpisode) return;
@@ -160,7 +160,7 @@ export function useShowDetailHandlers({
 
   const handleRewatchEpisode = useCallback(async (selectedEpisode: {season: number, episode: number} | null) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     if (!selectedEpisode) return;

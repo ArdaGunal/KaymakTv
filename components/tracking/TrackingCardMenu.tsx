@@ -8,9 +8,9 @@ import {
   Pressable,
   Platform,
   Share,
-  Alert,
   useWindowDimensions,
 } from 'react-native';
+import { notify } from '../../utils/confirmDialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MoreVertical, PauseCircle, ListPlus, Heart, Share2 } from '../icons';
 import { useTranslation } from 'react-i18next';
@@ -102,14 +102,14 @@ const TrackingCardMenu = memo(
     const handleToggleDropped = async () => {
       closeMenu();
       if (isGuest) {
-        Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+        notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
         return;
       }
       try {
         await onToggleDropped();
       } catch (error) {
         console.error('Bırak (gizle) hatası:', error);
-        Alert.alert(t('common:error'), t('common:actionFailedMessage'));
+        notify(t('common:error'), t('common:actionFailedMessage'));
       }
     };
 

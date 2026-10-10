@@ -88,7 +88,8 @@ try {
     rapor.test.defter = `docs/testler/${surum}.md`;
     const sayac = { yapildi: 0, yapilacak: 0, yapilmadi: 0, kaldi: 0, devredildi: 0 };
     for (const l of fs.readFileSync(defter, 'utf8').split('\n')) {
-      if (!/^\| [A-Z][A-Z-]*-\d+ \|/.test(l)) continue;
+      // Kimlik rakamla bitmeyebilir (AKIS-06W, AKIS-DOKUN-W): eski desen web satırlarını hiç saymıyordu.
+      if (!/^\| [A-Z][A-Z0-9]*(-[A-Z0-9]+)+ \|/.test(l)) continue;
       const durum = l.split('|')[4] || '';
       if (durum.includes('→')) sayac.devredildi++;
       else if (durum.includes('❌')) sayac.kaldi++;

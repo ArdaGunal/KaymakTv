@@ -13,7 +13,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState } from 'react-native';
+import { AppState } from 'react-native';
+import { notify } from '../../../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchFeedActivities, deleteActivitiesBulk, invalidateUserFeedActivitiesCache } from '../services/feedApi';
@@ -309,7 +310,7 @@ export function useFeed(): UseFeedResult {
       // aktivitene "Sil" gösteriyor (misafirin kendi aktivitesi olamaz), ama
       // useUserActivity.ts'teki AYNI savunma burada da duruyor.
       if (!accessToken || isGuest) {
-        Alert.alert(
+        notify(
           t('activityDeleteGuestTitle', 'Giriş Gerekli'),
           t('activityDeleteGuestText', 'Bu işlem için Trakt hesabınızla giriş yapmış olmanız gerekir.')
         );
@@ -337,7 +338,7 @@ export function useFeed(): UseFeedResult {
         console.warn('[Feed] Aktivite silinemedi:', error);
         // Sunucu başarısız oldu — iyimser kaldırmayı geri al.
         removed.forEach((a) => useFeedStore.getState().upsertActivity(a, false));
-        Alert.alert(
+        notify(
           t('common:error'),
           t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.')
         );

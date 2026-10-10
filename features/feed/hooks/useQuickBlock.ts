@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
-import { confirmAsync } from '../../../utils/confirmDialog';
+import { confirmAsync, notify } from '../../../utils/confirmDialog';
 import { blockUser, type EngelHedefi } from '../services/userBlocks';
 import { invalidateFeedCache, invalidateVisibleUserIds } from '../services/feedApi';
 
@@ -47,7 +46,7 @@ export function useQuickBlock() {
         invalidateFeedCache();
       } catch (error) {
         console.warn('[Feed] Hızlı engelleme başarısız:', error);
-        Alert.alert(t('common:error'), t('common:actionFailedMessage'));
+        notify(t('common:error'), t('common:actionFailedMessage'));
       } finally {
         setIsBlocking(false);
       }

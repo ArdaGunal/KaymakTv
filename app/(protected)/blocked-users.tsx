@@ -7,7 +7,6 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '../../components/Avatar';
@@ -19,7 +18,7 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { useAuth } from '../../context/AuthContext';
 import { getMyBlockedUsers, unblockUser, BlockedUser } from '../../features/feed/services/userBlocks';
 import { invalidateFeedCache, invalidateVisibleUserIds } from '../../features/feed/services/feedApi';
-import { confirmAsync } from '../../utils/confirmDialog';
+import { confirmAsync, notify } from '../../utils/confirmDialog';
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -105,7 +104,7 @@ export default function BlockedUsersScreen() {
       console.warn('[Feed] Engel kaldırılamadı:', error);
       // ESKİDEN sessizdi: satır listede kalıyor ama kullanıcı NEDEN
       // kalktığını göremiyordu (bkz. docs/AI_RULES.md § Sessiz başarısızlık).
-      Alert.alert(t('common:error'), t('common:actionFailedMessage'));
+      notify(t('common:error'), t('common:actionFailedMessage'));
     } finally {
       setRemovingId(null);
     }

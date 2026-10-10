@@ -100,10 +100,12 @@ export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock,
       t('common:delete'),
       t('common:cancel')
     );
-    if (!confirmed) return;
-    // Onay ekranın kendi (Alert/window.confirm) UI'ında alınıyor — menü ONAY
-    // SONRASINA kadar açık kalır, aksi halde silme kararını "Sil" satırına
-    // basar basmaz kaybederdik.
+    // Vazgeçilince menü de kapanır (web turunda görüldü: onay iptal edilince menü
+    // açık kalıyordu). Onaylanınca silme bitene dek açık kalır (yükleniyor göstergesi).
+    if (!confirmed) {
+      closeMenu();
+      return;
+    }
     setIsDeleting(true);
     try {
       await onDelete?.();

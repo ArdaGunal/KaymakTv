@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { notify } from '../utils/confirmDialog';
 import { X, Plus, Check, Folder } from './icons';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useTranslation } from 'react-i18next';
@@ -69,14 +70,14 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
 
   const showLimitError = (e: unknown) => {
     if (e instanceof ListLimitError && e.reason === 'maxLists') {
-      Alert.alert(
+      notify(
         t('listLimitTitle', 'Liste Sınırı'),
         t('listLimitMsg', `Trakt hesabında en fazla ${MAX_USER_LISTS} liste oluşturabilirsin. Yeni liste için önce bir listeyi sil.`)
       );
       return true;
     }
     if (e instanceof ListLimitError && e.reason === 'maxItems') {
-      Alert.alert(
+      notify(
         t('listItemsLimitTitle', 'Liste Dolu'),
         t('listItemsLimitMsg', `Bir listede en fazla ${MAX_LIST_ITEMS} içerik olabilir.`)
       );
@@ -89,7 +90,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
     const name = newListName.trim();
     if (!name) return;
     if (name.length > 50) {
-      Alert.alert(t('common:error'), t('listNameTooLong', 'Liste adı en fazla 50 karakter olabilir.'));
+      notify(t('common:error'), t('listNameTooLong', 'Liste adı en fazla 50 karakter olabilir.'));
       return;
     }
 
@@ -101,7 +102,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
       setIsCreating(false);
     } catch (error) {
       if (!showLimitError(error)) {
-        Alert.alert(t('common:error'), t('listCreateError', 'Liste oluşturulamadı.'));
+        notify(t('common:error'), t('listCreateError', 'Liste oluşturulamadı.'));
       }
     } finally {
       setIsCreatingList(false);
@@ -134,7 +135,7 @@ export default function AddToListModal({ visible, onClose, mediaId, mediaType }:
       onClose();
     } catch (error) {
       if (!showLimitError(error)) {
-        Alert.alert(t('common:error'), t('listAddError', 'Listeye eklenirken bir hata oluştu.'));
+        notify(t('common:error'), t('listAddError', 'Listeye eklenirken bir hata oluştu.'));
       }
     } finally {
       setIsSaving(false);

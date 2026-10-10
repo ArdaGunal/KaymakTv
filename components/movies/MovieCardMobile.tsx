@@ -1,5 +1,6 @@
 import React, { useState, memo, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { notify } from '../../utils/confirmDialog';
 import { Check } from '../icons';
 import { useLibraryActions } from '../../context/LibraryContext';
 import { useRouter } from 'expo-router';
@@ -128,7 +129,7 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMob
           onMovieFinished(data.title);
         }
       } catch (error) {
-        Alert.alert(t('common:error'), t('movieMarkError'));
+        notify(t('common:error'), t('movieMarkError'));
         busyRef.current = false;
         if (isMountedRef.current) {
           // Hata: başarı görünümünü yumuşakça geri al.

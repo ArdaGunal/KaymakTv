@@ -17,7 +17,7 @@
  */
 
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
+import { notify } from '../../../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { deleteActivitiesBulk, fetchUserFeedActivities, invalidateUserFeedActivitiesCache } from '../services/feedApi';
@@ -48,7 +48,7 @@ export function useUserActivity() {
       // Misafir kullanıcının token'ı yok — Worker kimlik doğrulaması
       // yapamaz, isteği hiç göndermeden engelle.
       if (!accessToken || isGuest) {
-        Alert.alert(
+        notify(
           t('activityDeleteGuestTitle', 'Giriş Gerekli'),
           t('activityDeleteGuestText', 'Bu işlem için Trakt hesabınızla giriş yapmış olmanız gerekir.')
         );
@@ -74,7 +74,7 @@ export function useUserActivity() {
         console.warn('[Profile] Aktivite silinemedi:', error);
         // Sunucu başarısız oldu — optimistic değişikliği geri al.
         setData(previousData);
-        Alert.alert(t('common:error'), t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.'));
+        notify(t('common:error'), t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.'));
       }
     },
     [accessToken, isGuest, data, setData, t]

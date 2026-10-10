@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Share } from 'react-native';
+import { Share } from 'react-native';
+import { notify } from '../../../utils/confirmDialog';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FeedActivity } from '../types';
@@ -159,7 +160,7 @@ export function useActivityActions(
     } catch (error) {
       console.warn('[Feed] Aktivite silinemedi:', error);
       kaldirilan.forEach((a) => useFeedStore.getState().upsertActivity(a, false));
-      Alert.alert(
+      notify(
         t('common:error', 'Hata'),
         t('media:activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.')
       );
@@ -188,7 +189,17 @@ export function useActivityActions(
   }, [isInteractive, activity, hasShow, openDetail, openEpisode, router]);
 
   /** CardMenu'ye verilecek eylemler — `onDelete` çağıranın (silme yolu ekrana göre değişir). */
+  // Silme onayı türüne göre (DIL-05). Kart menüsü ve detay AYNI metni kullanır —
+  // eskiden yalnız detayda vardı, akış kartında gönderi silerken «Aktiviteyi Sil» yazıyordu.
+  const deleteConfirm =
+    activity.activityType === 'reviewed'
+      ? { title: t('reviewDeleteConfirmTitle', 'İncelemeyi Sil'), message: t('reviewDeleteConfirmMessage', 'Bu incelemeyi silmek istediğine emin misin? Bu işlem geri alınamaz.') }
+      : activity.activityType === 'posted'
+        ? { title: t('postDeleteConfirmTitle', 'Gönderiyi Sil'), message: t('postDeleteConfirmMessage', 'Bu gönderiyi silmek istediğine emin misin? Bu işlem geri alınamaz.') }
+        : undefined;
+
   const menuProps = {
+    deleteConfirm,
     onEdit: isOwnActivity ? () => setNoteModalVisible(true) : undefined,
     onShare: share,
     onReport: isInteractive && !isOwnActivity ? () => setReportModalVisible(true) : undefined,

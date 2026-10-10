@@ -9,8 +9,8 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { notify } from '../../utils/confirmDialog';
 import MediaPoster from '../MediaPoster';
 import { Star, Plus, Check } from '../icons';
 import { useRouter } from 'expo-router';
@@ -97,7 +97,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
   const handleWatchlist = async (e: any) => {
     e.stopPropagation?.();
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     if (!traktId || isWatched || busyRef.current) return;
@@ -105,7 +105,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
     try {
       await toggleWatchlistStatus(traktId, type, isWatchlisted, media);
     } catch (error) {
-      Alert.alert(t('common:error'), t('listAddError'));
+      notify(t('common:error'), t('listAddError'));
     } finally {
       busyRef.current = false;
     }

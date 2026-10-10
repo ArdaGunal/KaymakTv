@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Platform, UIManager, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Platform, UIManager } from 'react-native';
+import { notify } from '../../utils/confirmDialog';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, Stack } from 'expo-router';
@@ -112,7 +113,7 @@ export default function MovieDetailScreen() {
   // aynı desen, bkz. aşağısı).
   const handleRate = async (rating: number) => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
@@ -125,14 +126,14 @@ export default function MovieDetailScreen() {
       });
     } catch (e) {
       removeLocalRating(traktIdNum, 'movie');
-      Alert.alert(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
+      notify(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
       console.error(e);
     }
   };
 
   const handleRemoveRating = async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     try {
@@ -140,7 +141,7 @@ export default function MovieDetailScreen() {
       await unrateMedia(traktIdNum, 'movie');
     } catch (e) {
       // Optimistic revert requires knowing the old rating, but for remove we might just fetch
-      Alert.alert(t('common:error'), 'Puan silinirken bir hata oluştu.');
+      notify(t('common:error'), 'Puan silinirken bir hata oluştu.');
       console.error(e);
     }
   };
@@ -151,7 +152,7 @@ export default function MovieDetailScreen() {
   // isteyen ve sayfadan dışarı atan "Kaydı Sil" seçeneğiydi.
   const handleToggleWatched = async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     // 🔴 M420 — DÖNEN SİMGE YOK (M416/M417 ile aynı gerekçe): hem
@@ -176,7 +177,7 @@ export default function MovieDetailScreen() {
 
   const handleRewatch = async () => {
     if (isGuest) {
-      Alert.alert(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     try {

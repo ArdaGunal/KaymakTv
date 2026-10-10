@@ -19,6 +19,8 @@ expo-env.d.ts
 *.mobileprovision
 *.apk
 *.aab
+# Yayın APK'ları (scripts/apk-derle.sh buraya kopyalar) — GitHub'a gitmez
+/apk/
 
 # Metro
 .metro-health-check*
