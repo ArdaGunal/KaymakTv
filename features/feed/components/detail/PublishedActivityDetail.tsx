@@ -37,8 +37,16 @@ export default function PublishedActivityDetail({ activity, patchLocal, focusCom
   const geri = useAppBack();
   // C3 · Kendi yayınının düzenle/sil yolları (bugün var olanlar).
   const puan = useOwnRatingEdit(activity, actions, geri);
+  // Silme onayı türüne göre (DIL-05: inceleme/gönderi silerken «Delete Activity» yazıyordu).
+  const silmeOnayi =
+    activity.activityType === 'reviewed'
+      ? { title: t('reviewDeleteConfirmTitle', 'İncelemeyi Sil'), message: t('reviewDeleteConfirmMessage', 'Bu incelemeyi silmek istediğine emin misin? Bu işlem geri alınamaz.') }
+      : activity.activityType === 'posted'
+        ? { title: t('postDeleteConfirmTitle', 'Gönderiyi Sil'), message: t('postDeleteConfirmMessage', 'Bu gönderiyi silmek istediğine emin misin? Bu işlem geri alınamaz.') }
+        : undefined;
   const menuProps = {
     ...actions.menuProps,
+    deleteConfirm: silmeOnayi,
     onDelete: actions.isOwnActivity
       ? async () => {
           if (await actions.deleteOwn()) geri();

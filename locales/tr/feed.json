@@ -143,5 +143,9 @@
   "privateNetwork": "Bu hesabın ağı gizli.",
   "noUsersFound": "Bu listede kimse yok.",
   "requested": "İstek gönderildi",
-  "sendRequest": "İstek Gönder"
+  "sendRequest": "İstek Gönder",
+  "reviewDeleteConfirmTitle": "İncelemeyi Sil",
+  "reviewDeleteConfirmMessage": "Bu incelemeyi silmek istediğine emin misin? Bu işlem geri alınamaz.",
+  "postDeleteConfirmTitle": "Gönderiyi Sil",
+  "postDeleteConfirmMessage": "Bu gönderiyi silmek istediğine emin misin? Bu işlem geri alınamaz."
 }

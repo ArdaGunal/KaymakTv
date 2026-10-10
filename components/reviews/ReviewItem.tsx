@@ -92,6 +92,10 @@ export default function ReviewItem({ review, isOwn, onToggleLike, onEdit, onDele
           <CardMenu
             onEdit={isOwn ? onEdit : undefined}
             onDelete={isOwn ? onDelete : undefined}
+            deleteConfirm={{
+              title: t('feed:reviewDeleteConfirmTitle', 'İncelemeyi Sil'),
+              message: t('feed:reviewDeleteConfirmMessage', 'Bu incelemeyi silmek istediğine emin misin? Bu işlem geri alınamaz.'),
+            }}
             onReport={!isOwn ? () => setReportModalVisible(true) : undefined}
             onBlock={
               !isOwn && accessToken && !isGuest
