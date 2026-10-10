@@ -138,5 +138,10 @@
   "filterFollowing": "Takip Ettiklerim",
   "filterActivity": "Aktiviteler",
   "filterEmptyTitle": "Burada henüz bir şey yok",
-  "filterEmptyText": "Son 30 günde bu filtrede gösterilecek bir şey yok."
+  "filterEmptyText": "Son 30 günde bu filtrede gösterilecek bir şey yok.",
+  "networkError": "Liste yüklenemedi, tekrar dene.",
+  "privateNetwork": "Bu hesabın ağı gizli.",
+  "noUsersFound": "Bu listede kimse yok.",
+  "requested": "İstek gönderildi",
+  "sendRequest": "İstek Gönder"
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ActivityIndicator, ViewStyle, StyleProp } from 'react-native';
 import { Image, ImageStyle } from 'expo-image';
 import { getShowPoster, getMoviePoster, peekPosterCache } from '../services/tmdbApi';
@@ -23,7 +24,8 @@ const initialStateFor = (tmdbId: number | undefined, type: 'show' | 'movie') => 
   return { imageUrl: null, isLoading: true };
 };
 
-const MediaPoster = memo(({ tmdbId, type = 'show', title = 'İsimsiz', style, placeholderTextLines = 2 }: MediaPosterProps) => {
+const MediaPoster = memo(({ tmdbId, type = 'show', title, style, placeholderTextLines = 2 }: MediaPosterProps) => {
+  const { t } = useTranslation('common');
   const [{ imageUrl, isLoading }, setState] = useState(() => initialStateFor(tmdbId, type));
 
   useEffect(() => {
@@ -89,7 +91,7 @@ const MediaPoster = memo(({ tmdbId, type = 'show', title = 'İsimsiz', style, pl
   return (
     <View style={[styles.placeholder, style]}>
       <Text style={styles.placeholderText} numberOfLines={placeholderTextLines} ellipsizeMode="tail">
-        {title}
+        {title || t('untitled', 'İsimsiz')}
       </Text>
     </View>
   );

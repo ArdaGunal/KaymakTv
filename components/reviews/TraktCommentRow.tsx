@@ -33,7 +33,7 @@ export default function TraktCommentRow({ comment, onPress }: TraktCommentRowPro
   const { t } = useTranslation(['media', 'feed']);
   const [revealed, setRevealed] = useState(!comment.spoiler);
 
-  const username = comment.user?.username || comment.user?.name || 'Kullanıcı';
+  const username = comment.user?.username || comment.user?.name || t('common:user', 'Kullanıcı');
 
   return (
     <TouchableOpacity

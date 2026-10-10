@@ -323,5 +323,11 @@
   "writeReview": "Write a Review",
   "yesDelete": "Yes, Delete",
   "yourComment": "Your comment...",
-  "yourReviewBadge": "you"
+  "yourReviewBadge": "you",
+  "loginToSeeCalendar": "Join us to see upcoming releases and build your own watch calendar!",
+  "profileTitle": "Profile",
+  "network": "My Network",
+  "noRepliesYet": "No replies yet.",
+  "shareEpisodeMsg": "— check out this episode!",
+  "castTitle": "Cast"
 }

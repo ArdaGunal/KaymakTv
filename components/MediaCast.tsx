@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
+import { useTranslation } from 'react-i18next';
 import { getPersonPhoto } from '../services/tmdbApi';
 
 interface MediaCastProps {
@@ -9,11 +10,12 @@ interface MediaCastProps {
 }
 
 export default function MediaCast({ cast, onActorPress }: MediaCastProps) {
+  const { t } = useTranslation('media');
   if (!cast || cast.length === 0) return null;
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Oyuncular</Text>
+      <Text style={styles.sectionTitle}>{t('castTitle', 'Oyuncular')}</Text>
       <FlatList
         data={cast}
         horizontal

@@ -218,13 +218,13 @@ export default function PublicProfileScreenWeb() {
               <>
             <View style={styles.tabsContainer}>
               <TouchableOpacity style={[styles.tab, activeTab === 'activity' && styles.activeTab]} onPress={() => setActiveTab('activity')}>
-                <Text style={[styles.tabText, activeTab === 'activity' && styles.activeTabText]}>Aktiviteler</Text>
+                <Text style={[styles.tabText, activeTab === 'activity' && styles.activeTabText]}>{t('media:profileActivityTab', 'Aktiviteler')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.tab, activeTab === 'shows' && styles.activeTab]} onPress={() => setActiveTab('shows')}>
-                <Text style={[styles.tabText, activeTab === 'shows' && styles.activeTabText]}>Diziler</Text>
+                <Text style={[styles.tabText, activeTab === 'shows' && styles.activeTabText]}>{t('media:statsShowsTab', 'Diziler')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.tab, activeTab === 'movies' && styles.activeTab]} onPress={() => setActiveTab('movies')}>
-                <Text style={[styles.tabText, activeTab === 'movies' && styles.activeTabText]}>Filmler</Text>
+                <Text style={[styles.tabText, activeTab === 'movies' && styles.activeTabText]}>{t('media:statsMoviesTab', 'Filmler')}</Text>
               </TouchableOpacity>
             </View>
 

@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AlertTriangle } from './icons';
 import { logError } from '../utils/errorLog';
+// Sınıf bileşeni → hook yok; çeviri doğrudan i18n örneğinden (DIL-01).
+import i18n from '../locales';
 
 /**
  * BLOK BAZLI hata sınırı — bir bölümün render hatası TÜM EKRANI düşürmesin.
@@ -61,13 +63,13 @@ export default class SectionErrorBoundary extends React.Component<Props, State> 
     return (
       <View style={styles.box}>
         <AlertTriangle size={14} color="#f87171" />
-        <Text style={styles.text}>Bu bölüm yüklenemedi.</Text>
+        <Text style={styles.text}>{i18n.t('common:sectionLoadError', 'Bu bölüm yüklenemedi.')}</Text>
         <TouchableOpacity
           onPress={() => this.setState({ hasError: false })}
           activeOpacity={0.8}
           style={styles.retryBtn}
         >
-          <Text style={styles.retryText}>Tekrar Dene</Text>
+          <Text style={styles.retryText}>{i18n.t('common:retry', 'Tekrar Dene')}</Text>
         </TouchableOpacity>
       </View>
     );

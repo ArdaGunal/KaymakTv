@@ -139,5 +139,10 @@
   "filterFollowing": "Following",
   "filterActivity": "Activity",
   "filterEmptyTitle": "Nothing here yet",
-  "filterEmptyText": "There's nothing in this filter from the last 30 days."
+  "filterEmptyText": "There's nothing in this filter from the last 30 days.",
+  "networkError": "Couldn't load the list. Try again.",
+  "privateNetwork": "This account's network is private.",
+  "noUsersFound": "No one in this list yet.",
+  "requested": "Requested",
+  "sendRequest": "Send Request"
 }

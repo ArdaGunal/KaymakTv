@@ -195,5 +195,15 @@
   "importAutoWaitingNet": "Waiting for an internet connection — it will resume where it left off.",
   "importAutoOtherDevice": "The import is running on another device.",
   "importAutoDeferred": "Some of your Trakt data could not be imported yet. It will retry automatically whenever you return to the app.",
-  "importRetryNow": "Retry now"
+  "importRetryNow": "Retry now",
+  "feedbackRowLabel": "Feedback / Suggestions / Complaints",
+  "googleLinkFailed": "Couldn't link your Google account, but you're signed in with Trakt.",
+  "feedbackModalTitle": "Feedback",
+  "feedbackModalSubtitle": "Let's improve your KaymakTV experience together",
+  "feedbackTabBug": "Bug / Problem",
+  "feedbackTabFeature": "Request / Suggestion",
+  "feedbackFeatureBody": "Share a feature you'd like to see or any suggestion.",
+  "feedbackFeaturePlaceholder": "E.g. I'd like to be able to sort my watchlist...",
+  "reportIssueSendBug": "Send Bug Report",
+  "reportIssueSendFeature": "Send Suggestion"
 }

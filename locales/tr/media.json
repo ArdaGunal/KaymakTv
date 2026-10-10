@@ -323,5 +323,11 @@
   "writeReview": "İnceleme Yaz",
   "yesDelete": "Evet, Sil",
   "yourComment": "Yorumunuz...",
-  "yourReviewBadge": "sen"
+  "yourReviewBadge": "sen",
+  "loginToSeeCalendar": "Yaklaşan filmlerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!",
+  "profileTitle": "Profil",
+  "network": "Ağım",
+  "noRepliesYet": "Henüz cevap yok.",
+  "shareEpisodeMsg": "bölümüne göz at!",
+  "castTitle": "Oyuncular"
 }

@@ -195,5 +195,15 @@
   "importAutoWaitingNet": "İnternet bağlantısı bekleniyor — kaldığı yerden devam edecek.",
   "importAutoOtherDevice": "Aktarım başka bir cihazında sürüyor.",
   "importAutoDeferred": "Trakt verilerinin bir kısmı henüz aktarılamadı. Uygulamaya her döndüğünde otomatik yeniden denenir.",
-  "importRetryNow": "Şimdi tekrar dene"
+  "importRetryNow": "Şimdi tekrar dene",
+  "feedbackRowLabel": "İstek / Öneri / Şikayet",
+  "googleLinkFailed": "Google hesabın bağlanamadı, ama Trakt ile giriş yaptın.",
+  "feedbackModalTitle": "Geri Bildirim Kutusu",
+  "feedbackModalSubtitle": "KaymakTV tecrübeni birlikte geliştirelim",
+  "feedbackTabBug": "Hata / Problem",
+  "feedbackTabFeature": "İstek / Öneri",
+  "feedbackFeatureBody": "Görmek istediğin yeni özelliği veya önerini paylaş.",
+  "feedbackFeaturePlaceholder": "Örn: Watchlist listelerini sıralayabilmek istiyorum...",
+  "reportIssueSendBug": "Hata Bildirimi Gönder",
+  "reportIssueSendFeature": "Öneriyi İlet"
 }

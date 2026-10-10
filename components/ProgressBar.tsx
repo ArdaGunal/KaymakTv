@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform, ViewProps } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 interface ProgressBarProps {
   percentage: number;
@@ -16,12 +17,13 @@ export default function ProgressBar({
   fillColor = '#3b82f6', // App accent color
   style
 }: ProgressBarProps) {
+  const { t } = useTranslation('common');
   // Clamp percentage between 0 and 100
   const safePercentage = Math.min(100, Math.max(0, percentage));
   const roundedPercentage = Math.round(safePercentage);
 
   // For web, use the 'title' attribute to show tooltip on hover
-  const webProps = Platform.OS === 'web' ? { title: `%${roundedPercentage} İzlendi` } : {};
+  const webProps = Platform.OS === 'web' ? { title: t('watchedPercent', '%{{pct}} izlendi', { pct: roundedPercentage }) } : {};
 
   return (
     <View 
