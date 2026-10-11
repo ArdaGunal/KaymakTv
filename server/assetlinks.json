@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ardagnl.kaymak",
+      "sha256_cert_fingerprints": [
+        "09:DD:08:84:47:AE:21:9F:89:B1:78:50:A5:BB:64:B5:79:49:E9:3E:8F:B1:4E:CF:64:0D:8D:29:E5:D7:C3:1F"
+      ]
+    }
+  }
+]

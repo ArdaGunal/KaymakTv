@@ -30,6 +30,19 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/show/" },
+            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/movie/" },
+            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/episode/" },
+            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/activity/" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {

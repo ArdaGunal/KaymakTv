@@ -35,7 +35,7 @@ import { styles } from '../../components/detail/episodeDetail.styles';
 
 export default function EpisodeDetailScreen() {
   const router = useRouter();
-  const { id, showTmdbId } = useLocalSearchParams();
+  const { id, showTmdbId: urlShowTmdbId } = useLocalSearchParams();
   
   const idStr = Array.isArray(id) ? id[0] : id;
   const { showTraktId: parsedShowId, showSlug, season, episode, epTraktId } = parseEpisodeSlug(idStr as string);
@@ -47,7 +47,9 @@ export default function EpisodeDetailScreen() {
   const { userRatingsEpisodes, showProgressMap, hiddenShowIds } = useLibrary();
   const { t } = useTranslation('media');
   // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
-  const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), showTmdbId, String(season), String(episode));
+  const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), urlShowTmdbId, String(season), String(episode));
+  // Paylaşım linkinde URL parametresi yok → kanca dizi özetinden çözer (madde 6).
+  const showTmdbId = (urlShowTmdbId as string | undefined) || (mediaData.showTmdbId ? String(mediaData.showTmdbId) : undefined);
   const episodeData = mediaData.detail;
   const commentsData = mediaData.comments;
   const stillUrl = mediaData.stillUrl;
@@ -93,7 +95,8 @@ export default function EpisodeDetailScreen() {
   // Sag gezinme rayi (sezonlar) YALNIZCA masaustu web'de gerekiyor.
   // `useShowDetail` `traktId` 0 iken aga hic cikmaz (kendi korumasi),
   // dolayisiyla mobilde tek bir ekstra istek bile olusmaz.
-  const railData = useShowDetail(layout.isDesktopWeb ? traktIdNum : 0, showTmdbId, showProgressMap[traktIdNum]);
+  // URL değeri (çözülmüş değil): kimlik sonradan gelince ray ikinci kez yüklenmesin.
+  const railData = useShowDetail(layout.isDesktopWeb ? traktIdNum : 0, urlShowTmdbId, showProgressMap[traktIdNum]);
   // 🆕 M425 — bu sayfadaki sezon rayı da gerçek bir işaretleme yüzeyi:
   // kararlar ve iyimser iskelet için aynı türevler (utils/sezonEvreni.ts).
   const railEvren = useMemo(() => sezonEvreniKur(railData.computedSeasons), [railData.computedSeasons]);

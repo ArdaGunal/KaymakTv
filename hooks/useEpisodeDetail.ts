@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getEpisodeDetail, getEpisodeComments } from '../services/traktApi';
+import { getEpisodeDetail, getEpisodeComments, getShowSummary } from '../services/traktApi';
 import { getEpisodeStill } from '../services/tmdbApi';
 import { cacheManager } from '../utils/cacheManager';
 
@@ -8,6 +8,8 @@ interface EpisodeMediaData {
   comments: any[];
   stillUrl: string | null;
   cast: any[];
+  /** Dizinin TMDB kimliği — URL'de yoksa (paylaşım linki) burada çözülür. */
+  showTmdbId: number | null;
 }
 
 export const useEpisodeDetail = (
@@ -20,7 +22,8 @@ export const useEpisodeDetail = (
     detail: null,
     comments: [],
     stillUrl: null,
-    cast: []
+    cast: [],
+    showTmdbId: null
   });
   const [isLoading, setIsLoading] = useState(true);
   // Yorumlar AYRI yükleme durumu taşır — bkz. aşağıdaki S12 notu.
@@ -108,14 +111,25 @@ export const useEpisodeDetail = (
           }
         }
 
+        // 2.6.5 madde 6: paylaşım linkinde `?showTmdbId=` YOK → görsel hiç
+        // istenmiyordu. Kimlik önce dizi önbelleğinden, yoksa dizi özetinden
+        // (katalog geçidi) — bölüm detayıyla AYNI turda, sayfa iki kez yüklenmez.
+        const tmdbKimligi: Promise<number> = !isNaN(tmdbIdNum)
+          ? Promise.resolve(tmdbIdNum)
+          : Number(cachedShowContent?.summary?.ids?.tmdb)
+            ? Promise.resolve(Number(cachedShowContent.summary.ids.tmdb))
+            : getShowSummary(traktIdNum).then((s: any) => Number(s?.ids?.tmdb) || NaN).catch(() => NaN);
+
         // Yorumlar bu batch'te DEĞİL — bilinçli (S12, yukarıdaki not).
         const results = await Promise.allSettled([
           getEpisodeDetail(traktIdNum, sNum, eNum),
-          !isNaN(tmdbIdNum) ? getEpisodeStill(tmdbIdNum, sNum, eNum) : Promise.resolve(null)
+          tmdbKimligi.then((tid) => (!isNaN(tid) ? getEpisodeStill(tid, sNum, eNum) : null)),
+          tmdbKimligi
         ]);
 
         const detailRes = results[0].status === 'fulfilled' ? results[0].value : null;
         let stillRes = results[1].status === 'fulfilled' ? results[1].value : null;
+        const cozulenTmdbId = results[2].status === 'fulfilled' && !isNaN(results[2].value) ? results[2].value : null;
 
         if (!stillRes) {
           stillRes = fallbackBackdrop;
@@ -141,7 +155,8 @@ export const useEpisodeDetail = (
             ...prev,
             detail: detailRes,
             stillUrl: stillRes,
-            cast: castData
+            cast: castData,
+            showTmdbId: cozulenTmdbId
           }));
         }
       } catch (e) {

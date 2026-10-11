@@ -31,8 +31,8 @@
  *      döner — ayrı bir "geri getirme" eylemi gerekmez.
  *   3. Hiç izlenmemiş (completed===0)                                      → notStarted
  *   4. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
- *      izlemenin üzerinden `pauseThresholdDays` (varsayılan 45) günden FAZLA
- *      geçmiş                                                              → paused
+ *      izlemenin VE o bölümün yayınının üzerinden `pauseThresholdDays`
+ *      (varsayılan 45) günden FAZLA geçmiş                                 → paused
  *      (Ara Verilenler / Beklemede — otomatik, ama SADECE bu iki kova
  *      arasındaki ayrımı belirler; "Bırak" ile hiçbir ilişkisi yok).
  *   5. İzlenmeye başlanmış + şu an yayınlanmış bir sonraki bölüm VAR + son
@@ -119,6 +119,20 @@ const hasAired = (firstAired: string | null | undefined, now: number): boolean =
   if (!firstAired) return true; // Tarih yoksa izlenebilir varsay (temkinli).
   const t = new Date(firstAired).getTime();
   return !isNaN(t) && t <= now;
+};
+
+/**
+ * Sıradaki bölümün yayın anı (ms), bilinmiyorsa null. Kaymak kaynakları
+ * (Worker / RPC / iyimser yama) `next_episode`'a tarih koymaz; tarih yalnız
+ * `seasons[].episodes[].first_aired`'da — önce `next_episode`, sonra oraya bakılır.
+ */
+const nextAiredAt = (progress: any, next: any): number | null => {
+  const raw = next?.first_aired
+    ?? progress?.seasons?.find((s: any) => s?.number === next?.season)
+      ?.episodes?.find((e: any) => e?.number === next?.number)?.first_aired;
+  if (!raw) return null;
+  const t = new Date(raw).getTime();
+  return isNaN(t) ? null : t;
 };
 
 /**
@@ -275,8 +289,11 @@ export function categorizeShows({
     // yalnızca GERÇEK bir birikmiş-izlenmemiş-bölüm varken anlamlı hale geldi.
     // Son izleme tarihi bilinmiyorsa (yalnızca watchlist'ten gelen, uçtaki bir
     // kayıt) temkinli davranıp aktif sayılır — asla sessizce "eskimiş" varsayılmaz.
+    // 2.6.5 madde 7: saat, son izleme ile sıradaki bölümün YAYIN anından geç
+    // olanından başlar. Aylarca beklenen dizinin yeni bölümü çıkınca son izleme
+    // eşikten eski olsa da dizi Aktif'tir; yeni bölüm 45 gün izlenmezse Ara Verilenler.
     const isPaused = nextReady && entry.lastWatchedAt
-      ? new Date(entry.lastWatchedAt).getTime() < pauseThreshold
+      ? Math.max(new Date(entry.lastWatchedAt).getTime(), nextAiredAt(progress, next) ?? 0) < pauseThreshold
       : false;
 
     // Ara Verilenler kendi akordeon bölümünde zaten ayrışıyor — kartın

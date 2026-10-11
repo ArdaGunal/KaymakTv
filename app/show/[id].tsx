@@ -70,6 +70,8 @@ export default function ShowDetailScreen() {
   // hata ekranının "Tekrar Dene"si eklenince yeniden bağlandı.
   const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = mediaData.summary;
+  // 2.6.5 madde 6: paylaşım linkinde `?tmdbId=` yok → afiş/arka plan hiç istenmiyordu.
+  const etkinTmdbId = (tmdbId as string | undefined) || (showData?.ids?.tmdb ? String(showData.ids.tmdb) : undefined);
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
   const commentsData = mediaData.comments;
@@ -163,8 +165,8 @@ export default function ShowDetailScreen() {
   useEffect(() => {
     let isMounted = true;
     const fetchTmdb = async () => {
-      if (tmdbId) {
-        const tmdbIdNum = parseInt(tmdbId as string, 10);
+      if (etkinTmdbId) {
+        const tmdbIdNum = parseInt(etkinTmdbId, 10);
         try {
           const [bd, tr, pst] = await Promise.all([
             getShowBackdrop(tmdbIdNum),
@@ -183,7 +185,7 @@ export default function ShowDetailScreen() {
     };
     fetchTmdb();
     return () => { isMounted = false; };
-  }, [tmdbId]);
+  }, [etkinTmdbId]);
 
   const handleRateEpisode = async (rating: number) => {
     if (!selectedEpisode?.traktId) return;
@@ -329,7 +331,7 @@ export default function ShowDetailScreen() {
                 showTraktId={traktIdNum}
                 showSlug={showData?.ids?.slug}
                 showTitle={showData?.title}
-                showTmdbId={tmdbId as string}
+                showTmdbId={etkinTmdbId}
                 expandedSeasons={expandedSeasons}
                 onToggleSeason={toggleSeason}
                 onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt })}
@@ -389,7 +391,7 @@ export default function ShowDetailScreen() {
                     showTraktId={traktIdNum}
                     showSlug={showData?.ids?.slug}
                     showTitle={showData?.title}
-                    showTmdbId={tmdbId as string}
+                    showTmdbId={etkinTmdbId}
                     onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
                     isExpanded={expandedSeasons[season.number]}
                     onToggle={() => toggleSeason(season.number)}

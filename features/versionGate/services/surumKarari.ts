@@ -23,6 +23,16 @@ export function surumKarari(kurulu: string | null, kayit: SurumOnbellegi | null)
     : { durum: 'ok' };
 }
 
+/**
+ * 2.6.5 madde 8 · Oturum içindeki sunucu sonucu kapıyı yalnız GEVŞETEBİLİR.
+ * Uygulamayı kullanan kişinin ağacı oturum ortasında engel ekranına
+ * çevrilmez (kasma); yeni engel önbelleğe yazılır, bir sonraki soğuk açılışta
+ * uygulanır — o ana kadar üstte güncelleme bandı görünür (`useSoftUpdate`).
+ */
+export function oturumIciKarar(mevcut: SurumKarari, sunucu: SurumKarari): SurumKarari {
+  return mevcut.durum === 'ok' ? { durum: 'ok' } : sunucu;
+}
+
 /** AsyncStorage'dan okunan ham metni doğrular; şekil yanlışsa `null`. */
 export function onbellegiCoz(ham: string | null): SurumOnbellegi | null {
   if (!ham) return null;

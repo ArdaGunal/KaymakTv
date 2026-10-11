@@ -27,6 +27,13 @@ export function useSoftUpdate() {
       const currentVersion = Application.nativeApplicationVersion;
       if (!currentVersion) return;
 
+      // 2.6.5 madde 8: zorunlu güncelleme oturum içinde engel ekranı açmaz
+      // (useVersionGate) — bunun yerine bant çıkar, ertelenmiş olsa bile.
+      if (isVersionBelow(currentVersion, settings.minRequiredVersion)) {
+        setShowBanner(true);
+        return;
+      }
+
       // 3. Güvenli SemVer: isVersionBelow zaten utils/semver.ts içinde Integer split mantığıyla yazılmış durumda.
       if (isVersionBelow(currentVersion, settings.latestVersion)) {
         try {

@@ -390,6 +390,19 @@ app.post('/api/trakt', traktAuthLimiter, redirectUriGuard, async (req, res) => {
 });
 
 // ==========================================
+// ANDROID APP LINKS (2.6.5 madde 6)
+// ==========================================
+// Paylaşım bağlantıları (`/show|movie|episode|activity/…`) uygulamada açılsın
+// diye Android bu dosyayı doğrular (app.json intentFilters, autoVerify).
+// `express.static` noktalı klasörleri (`.well-known`) varsayılan olarak yok
+// sayar → eskiden SPA `index.html` dönüyordu ve doğrulama düşüyordu.
+// Parmak izi: yayın APK'sının imzası (EAS keystore), apksigner ile ölçüldü.
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('application/json').sendFile(path.join(__dirname, 'server', 'assetlinks.json'));
+});
+
+// ==========================================
 // STATIC FILES & SPA FALLBACK
 // ==========================================
 app.use(express.static(path.join(__dirname, 'dist'), {

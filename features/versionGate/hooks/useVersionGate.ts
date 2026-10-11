@@ -6,7 +6,7 @@ import { useAppSettingsStore } from '../../../store/appSettingsStore';
 import { STORE_URL } from '../../../utils/constants';
 import { recordPerfMark } from '../../../utils/perfLog';
 import { logWarning } from '../../../utils/errorLog';
-import { SURUM_ONBELLEK_ANAHTARI, onbellegiCoz, surumKarari } from '../services/surumKarari';
+import { SURUM_ONBELLEK_ANAHTARI, onbellegiCoz, oturumIciKarar, surumKarari, type SurumKarari } from '../services/surumKarari';
 
 export type VersionGateStatus = 'checking' | 'ok' | 'blocked';
 
@@ -25,8 +25,10 @@ export interface VersionGateResult {
  *  1. Cihazdaki son sonuç okunur (ms'ler). Bu sürüm orada ENGELLİ ise anında
  *     `blocked` — eski sürüm tek bir Trakt/Auth isteği bile atmaz.
  *  2. Değilse anında `ok`; sunucu kontrolü ARKA PLANDA sürer, sonucu saklanır.
- *     Sunucu asgari sürümü yükselttiyse kapı o an kapanır (ilk açılışta ~1–2
- *     sn gecikmeyle, sonraki açılışlarda 1. adımla anında).
+ *     Sunucu asgari sürümü yükselttiyse kapı OTURUM İÇİNDE KAPANMAZ (2.6.5
+ *     madde 8: kullanan kişide ağaç engel ekranına dönüp kasıyordu) — üstte
+ *     güncelleme bandı çıkar (`useSoftUpdate`), engel bir sonraki soğuk
+ *     açılışta 1. adımla gelir (`oturumIciKarar`).
  *  3. Sunucu sınırı düşürdüyse saklanan engel de kalkar.
  *
  * FAIL-OPEN: ağ/RLS/satır hatası kullanıcıyı ASLA kilitlemez; bu kontrol
@@ -42,8 +44,10 @@ export function useVersionGate(): VersionGateResult {
     let cancelled = false;
     // Cihazda GERÇEKTEN kurulu native sürüm (Constants.expoConfig değil).
     const kurulu = Application.nativeApplicationVersion;
-    const uygula = (karar: ReturnType<typeof surumKarari>) => {
+    let mevcut: SurumKarari = { durum: 'ok' };
+    const uygula = (karar: SurumKarari) => {
       if (cancelled) return;
+      mevcut = karar;
       setUpdateUrl(karar.durum === 'blocked' ? karar.updateUrl || STORE_URL : null);
       setStatus(karar.durum);
     };
@@ -63,7 +67,7 @@ export function useVersionGate(): VersionGateResult {
         if (!settings) return; // erişilemedi → mevcut karar kalır
         const yeni = { minRequiredVersion: settings.minRequiredVersion, updateUrl: settings.updateUrl };
         AsyncStorage.setItem(SURUM_ONBELLEK_ANAHTARI, JSON.stringify(yeni)).catch(() => {});
-        uygula(surumKarari(kurulu, yeni));
+        uygula(oturumIciKarar(mevcut, surumKarari(kurulu, yeni)));
       } catch (error) {
         console.error('Sürüm kontrolü hatası (fail-open, uygulama engellenmiyor):', error);
         logWarning('versionGate.check', error);
