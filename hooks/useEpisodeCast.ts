@@ -30,16 +30,8 @@ export function useEpisodeCast(tmdbId: number | null | undefined, season: number
     };
   }, [tmdbId, season, episode]);
 
-  // Future feature: Vote for the best actor in the episode
-  const voteActor = async (actorId: number) => {
-    // API logic to save user's vote
-    console.log(`Oyuncu ${actorId} için oy verildi (yakında aktif edilecek)`);
-    // update state, etc.
-  };
-
   return {
     cast,
     isLoading,
-    voteActor,
   };
 }

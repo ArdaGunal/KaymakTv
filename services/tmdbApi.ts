@@ -89,7 +89,7 @@ export const peekPosterCache = (type: 'show' | 'movie', tmdbId: number): { hit: 
 
 // TMDB'ye HER ZAMAN proxy üzerinden gidilir (native dahil) — anahtar yalnızca
 // sunucu tarafında (`server.js` → `TMDB_API_KEY`) tutulur.
-const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
+export const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
   return axios.get(TMDB_PROXY_URL, { params: { ...params, endpoint } });
 };
 

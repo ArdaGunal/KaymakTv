@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { getPersonPhoto } from '../services/tmdbApi';
+import PersonSheet from './person/PersonSheet';
 
 interface MediaCastProps {
   cast: any[];
-  onActorPress?: (actorId: number) => void;
 }
 
-export default function MediaCast({ cast, onActorPress }: MediaCastProps) {
+/** Oyuncu şeridi. 2.6.5 madde 9: karta dokununca uygulama içi `PersonSheet` açılır. */
+export default function MediaCast({ cast }: MediaCastProps) {
   const { t } = useTranslation('media');
+  const [secili, setSecili] = useState<{ id: number; name?: string } | null>(null);
   if (!cast || cast.length === 0) return null;
 
   return (
@@ -26,9 +28,8 @@ export default function MediaCast({ cast, onActorPress }: MediaCastProps) {
           const profilePath = item.person?.images?.profiles?.[0]?.file_path;
           const photoUrl = getPersonPhoto(profilePath);
           
-          const actorTmdbId = item.person?.ids?.tmdb;
-          const actorTraktId = item.person?.ids?.trakt;
-          const actorId = actorTmdbId || actorTraktId;
+          // Kişi bilgisi TMDB'den gelir — TMDB kimliği olmayan kart dokunulamaz.
+          const actorTmdbId = Number(item.person?.ids?.tmdb) || null;
 
           const CardContent = (
             <>
@@ -44,11 +45,12 @@ export default function MediaCast({ cast, onActorPress }: MediaCastProps) {
             </>
           );
           
-          return onActorPress ? (
-            <TouchableOpacity 
-              style={styles.castCard} 
-              onPress={() => onActorPress(actorId)}
+          return actorTmdbId ? (
+            <TouchableOpacity
+              style={styles.castCard}
+              onPress={() => setSecili({ id: actorTmdbId, name: item.person?.name })}
               activeOpacity={0.7}
+              accessibilityRole="button"
             >
               {CardContent}
             </TouchableOpacity>
@@ -59,6 +61,7 @@ export default function MediaCast({ cast, onActorPress }: MediaCastProps) {
           );
         }}
       />
+      <PersonSheet personId={secili?.id ?? null} initialName={secili?.name} onClose={() => setSecili(null)} />
     </View>
   );
 }

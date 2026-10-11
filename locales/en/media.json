@@ -333,5 +333,10 @@
   "reviewErrGuest": "You need to sign in to do this.",
   "reviewErrMediaNotReady": "Title details haven't loaded yet. Try again in a moment.",
   "reviewErrSubmit": "Couldn't share your review. Please try again.",
-  "reviewErrDelete": "Couldn't delete your review. Please try again."
+  "reviewErrDelete": "Couldn't delete your review. Please try again.",
+  "personBioTitle": "Biography",
+  "personBioEmpty": "No biography is available for this person.",
+  "personLoadError": "Couldn't load this person's details.",
+  "personRetry": "Try Again",
+  "tmdbAttribution": "Cast details come from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB."
 }

@@ -68,7 +68,7 @@ export default function EpisodeDetailScreen() {
     episodeNumber: formatEpisodeCode(Number(season), Number(episode)),
   });
 
-  const { cast: epCast, voteActor } = useEpisodeCast(
+  const { cast: epCast } = useEpisodeCast(
     showTmdbId ? parseInt(showTmdbId as string, 10) : null,
     season,
     episode
@@ -182,7 +182,7 @@ export default function EpisodeDetailScreen() {
 
   const castSection = epCast && epCast.length > 0 ? (
     <SectionErrorBoundary label="episode-cast">
-      <MediaCast cast={epCast} onActorPress={voteActor} />
+      <MediaCast cast={epCast} />
     </SectionErrorBoundary>
   ) : null;
 

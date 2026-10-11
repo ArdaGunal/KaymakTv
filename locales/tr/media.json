@@ -333,5 +333,10 @@
   "reviewErrGuest": "Bu işlem için giriş yapmalısın.",
   "reviewErrMediaNotReady": "Yapım bilgisi henüz yüklenmedi, birazdan tekrar dene.",
   "reviewErrSubmit": "İnceleme paylaşılamadı, tekrar dene.",
-  "reviewErrDelete": "İnceleme silinemedi, tekrar dene."
+  "reviewErrDelete": "İnceleme silinemedi, tekrar dene.",
+  "personBioTitle": "Biyografi",
+  "personBioEmpty": "Bu oyuncu için biyografi bulunmuyor.",
+  "personLoadError": "Oyuncu bilgisi yüklenemedi.",
+  "personRetry": "Tekrar Dene",
+  "tmdbAttribution": "Oyuncu bilgileri TMDB'den alınır. Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış veya sertifikalandırılmamıştır."
 }
