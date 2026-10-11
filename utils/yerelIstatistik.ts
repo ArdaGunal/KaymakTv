@@ -56,7 +56,7 @@ function sayi(deger: unknown): number {
 export function yerelIstatistik(
   watchedShows: any[] | null | undefined,
   watchedMovies: any[] | null | undefined,
-  showProgressMap: Record<string | number, { aired?: number; completed?: number }> | null | undefined,
+  showProgressMap: Record<string | number, { aired?: number; completed?: number; watched_minutes?: number }> | null | undefined,
 ): YerelIstatistik {
   let bolumSayisi = 0;
   let bolumDakika = 0;
@@ -71,8 +71,13 @@ export function yerelIstatistik(
     if (!izlenen) continue;
 
     bolumSayisi += izlenen;
-    // 🔑 Dizideki `runtime` BÖLÜM BAŞINA süredir (Trakt `extended=full`).
-    bolumDakika += izlenen * sayi(dizi?.runtime);
+    // 🔑 M492: sunucu bölüm bazlı süreyi verdiyse (`watched_minutes`, 063 RPC + Worker dar
+    // yolu) O kullanılır — izlenen bölümlerin KENDİ sürelerinin toplamı. Eski yol (dizinin
+    // ortalama `runtime`'ı × bölüm sayısı; `runtime` BÖLÜM BAŞINA süre) %28'e varan sapma
+    // yapıyordu (My Sassy Girl: 40 dk ortalama, gerçek 30,5). Alan yoksa (Trakt kaynaklı
+    // ilerleme, eski Worker) eski yol.
+    const sunucuDakika = Number(ilerleme?.watched_minutes);
+    bolumDakika += Number.isFinite(sunucuDakika) && sunucuDakika > 0 ? sunucuDakika : izlenen * sayi(dizi?.runtime);
   }
 
   let filmSayisi = 0;

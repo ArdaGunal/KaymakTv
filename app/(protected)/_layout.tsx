@@ -9,6 +9,8 @@ import { useRemoteInbox } from '../../features/notifications/hooks/useRemoteInbo
 // saatte bir fark turu (§D15). Trakt hesabı değilse HİÇBİR ŞEY yapmaz.
 import { useOtomatikAktarim } from '../../hooks/useOtomatikAktarim';
 import SyncStatusBanner from '../../components/SyncStatusBanner';
+// M492 · ad onaylanmadıysa (yeni hesap / kural dışı eski ad) isim ekranına yönlendirir.
+import { useAdOnayKapisi } from '../../hooks/useAdOnayKapisi';
 
 export default function ProtectedLayout() {
   const { accessToken, isGuest } = useAuth();
@@ -22,6 +24,7 @@ export default function ProtectedLayout() {
   // (features/notifications/inbox/remoteInbox.ts basligi).
   useRemoteInbox();
   useOtomatikAktarim();
+  useAdOnayKapisi();
 
   if (!accessToken && !isGuest) {
     return <Redirect href="/" />;

@@ -130,7 +130,7 @@ export default function CommentSheet({
             <CommentListSkeleton />
           ) : error ? (
             <View style={styles.centerState}>
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.errorText}>{t('common:commentsLoadError', 'Yorumlar yüklenirken bir hata oluştu.')}</Text>
               <TouchableOpacity onPress={loadComments} style={styles.retryBtn}>
                 <Text style={styles.retryBtnText}>{t('retry')}</Text>
               </TouchableOpacity>

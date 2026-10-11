@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import {
   fetchComments,
@@ -19,7 +19,8 @@ export interface UseFeedCommentsResult {
   myUserId: string | null;
   likedCommentIds: Set<string>;
   /** Başarıda `count`: yeniden yüklenen görünür yorum sayısı (kesin değer). */
-  submitComment: (body: string, spoiler: boolean) => Promise<{ ok: true; count: number | null } | { ok: false; message: string }>;
+  /** Hata metni DÖNMEZ — arayüz t() ile gösterir (M490: ham metin ekrana sızıyordu). */
+  submitComment: (body: string, spoiler: boolean) => Promise<{ ok: true; count: number | null } | { ok: false }>;
   removeComment: (commentId: string) => Promise<void>;
   toggleCommentLike: (commentId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -35,6 +36,7 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
   const { accessToken } = useAuth();
   const [comments, setComments] = useState<FeedComment[]>([]);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const begeniUcusta = useRef<Set<string>>(new Set());
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -72,8 +74,8 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
   }, [isOpen, load]);
 
   const submitComment = useCallback(
-    async (body: string, spoiler: boolean): Promise<{ ok: true; count: number | null } | { ok: false; message: string }> => {
-      if (!accessToken) return { ok: false, message: 'Oturum bulunamadı.' };
+    async (body: string, spoiler: boolean): Promise<{ ok: true; count: number | null } | { ok: false }> => {
+      if (!accessToken) return { ok: false };
       setIsSubmitting(true);
       try {
         await addComment(accessToken, activityId, body, spoiler);
@@ -91,7 +93,7 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
         return { ok: true, count };
       } catch (error: any) {
         console.warn('[Feed] Yorum gönderilemedi:', error);
-        return { ok: false, message: error?.message || 'Yorum gönderilemedi.' };
+        return { ok: false };
       } finally {
         setIsSubmitting(false);
       }
@@ -114,7 +116,10 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
       } catch (error) {
         console.warn('[Feed] Yorum silinemedi:', error);
         setComments(previous);
-        if (current) store.patchActivity(activityId, { commentCount: current.commentCount });
+        // B-4 (M489): KESİN değer — geri gelen liste uzunluğu (gönderme yolundaki M476
+        // kuralıyla aynı). Eskiden silme öncesi anlık sayaç yazılıyordu; bekleme sırasında
+        // Realtime kesin sayıyı getirdiyse onu eziyordu.
+        if (current) store.patchActivity(activityId, { commentCount: previous.length });
       }
     },
     [accessToken, activityId, comments]
@@ -123,6 +128,11 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
   const toggleCommentLike = useCallback(
     async (commentId: string) => {
       if (!accessToken) return;
+      // B-4 (M489): yorum başına uçuş kilidi. Yoktu → hızlı çift dokunuşta «beğen» ve
+      // «geri al» istekleri yarışıyor, sunucu ile ekran ayrışabiliyordu (kart beğenisinde
+      // `isLiking` kilidi zaten vardı).
+      if (begeniUcusta.current.has(commentId)) return;
+      begeniUcusta.current.add(commentId);
       const wasLiked = likedCommentIds.has(commentId);
       const nextLiked = !wasLiked;
 
@@ -158,6 +168,8 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
               : c
           )
         );
+      } finally {
+        begeniUcusta.current.delete(commentId);
       }
     },
     [accessToken, likedCommentIds]

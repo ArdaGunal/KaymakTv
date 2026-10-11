@@ -14,19 +14,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import { notify } from '../../../utils/confirmDialog';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchFeedActivities, deleteActivitiesBulk, invalidateUserFeedActivitiesCache } from '../services/feedApi';
+import { fetchFeedActivities } from '../services/feedApi';
 import { useFeedStore } from '../store/feedStore';
 import { akisiDiskeYaz, akisiDisktenOku } from '../store/feedDiskCache';
 import { getMySupabaseUserId } from '../services/userBlocks';
 import { agIsaret } from '../../../utils/agIzleyici';
 import { useFeedRealtime } from './useFeedRealtime';
+import { useFeedDelete } from './useFeedDelete';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
 import { marathonSayfaSinirinda } from '../utils/marathonSinir';
 import { FeedFilter } from '../utils/feedFilter';
-import { resolveRawActivityIds } from '../utils/resolveRawActivityIds';
 import { FeedItem } from '../types';
 
 export interface UseFeedResult {
@@ -71,7 +69,6 @@ const DISK_YAZMA_GECIKMESI_MS = 1_500;
 
 export function useFeed(): UseFeedResult {
   const { accessToken, isGuest } = useAuth();
-  const { t } = useTranslation(['media', 'common']);
   const canLoad = !!accessToken && !isGuest;
 
   const activities = useFeedStore((s) => s.activities);
@@ -304,48 +301,8 @@ export function useFeed(): UseFeedResult {
   // (aynı dizinin bölümleri iki sayfaya bölünmüş) TEK kartta birleşir.
   const data = useMemo(() => groupMarathonActivities(activities), [activities]);
 
-  const deleteActivity = useCallback(
-    async (item: FeedItem) => {
-      // Misafirin Trakt token'ı yok — pratikte CardMenu zaten yalnızca kendi
-      // aktivitene "Sil" gösteriyor (misafirin kendi aktivitesi olamaz), ama
-      // useUserActivity.ts'teki AYNI savunma burada da duruyor.
-      if (!accessToken || isGuest) {
-        notify(
-          t('activityDeleteGuestTitle', 'Giriş Gerekli'),
-          t('activityDeleteGuestText', 'Bu işlem için Trakt hesabınızla giriş yapmış olmanız gerekir.')
-        );
-        return;
-      }
-
-      const rawIds = resolveRawActivityIds(item);
-      // Geri alma (rollback) için ham FeedActivity nesnelerini sakla —
-      // `removeActivity` yalnızca id alır, geri eklemek TAM nesne gerektirir.
-      const removed = useFeedStore.getState().activities.filter((a) => rawIds.includes(a.id));
-      removed.forEach((a) => useFeedStore.getState().removeActivity(a.id));
-
-      try {
-        // v2: TEK silme yolu. Eskiden burada tipe göre bir yönlendirme vardı
-        // (`deleteFeedItemsRouted`) çünkü incelemenin Trakt'tan da silinmesi
-        // gerekiyordu. Trakt'a yazmayı bıraktığımız için o ayrım kalktı —
-        // inceleme dahil her aktivite aynı uçtan siliniyor.
-        await deleteActivitiesBulk(accessToken, rawIds);
-        // Profil › Aktiviteler ayrı bir fetch+önbellek kullanıyor (bkz.
-        // useUserActivity.ts) — Akış'tan silinince o da güncel kalsın diye
-        // AYNI çapraz-senkron deseni (docs/HISTORY.md Madde 159'daki
-        // retractLocalActivity ile birebir aynı gerekçe).
-        invalidateUserFeedActivitiesCache();
-      } catch (error) {
-        console.warn('[Feed] Aktivite silinemedi:', error);
-        // Sunucu başarısız oldu — iyimser kaldırmayı geri al.
-        removed.forEach((a) => useFeedStore.getState().upsertActivity(a, false));
-        notify(
-          t('common:error'),
-          t('activityDeleteError', 'Aktivite(ler) silinirken bir sorun oluştu. Lütfen tekrar deneyin.')
-        );
-      }
-    },
-    [accessToken, isGuest, t]
-  );
+  // Silme (iyimser + geri alma) ayrı kancada — C37: bu dosya 400 satır sınırına yaklaşmıştı.
+  const deleteActivity = useFeedDelete();
 
   // ── C6 · Filtre değiştir ──────────────────────────────────────────────
   // Liste boşaltılır, yeni filtrenin 1. sayfası sunucudan çekilir (force: ilk

@@ -23,13 +23,13 @@ interface ReportContentModalProps {
   onClose: () => void;
 }
 
-const REASONS: { value: ReportReason; labelKey: string; fallback: string }[] = [
-  { value: 'spam', labelKey: 'feed:reportReasonSpam', fallback: 'Spam veya yanıltıcı içerik' },
-  { value: 'harassment', labelKey: 'feed:reportReasonHarassment', fallback: 'Taciz veya zorbalık' },
-  { value: 'hate_speech', labelKey: 'feed:reportReasonHateSpeech', fallback: 'Nefret söylemi' },
-  { value: 'spoiler', labelKey: 'feed:reportReasonSpoiler', fallback: 'İşaretlenmemiş spoiler' },
-  { value: 'illegal', labelKey: 'feed:reportReasonIllegal', fallback: 'Yasa dışı içerik' },
-  { value: 'other', labelKey: 'feed:reportReasonOther', fallback: 'Diğer' },
+const REASONS: { value: ReportReason; labelKey: string }[] = [
+  { value: 'spam', labelKey: 'feed:reportReasonSpam' },
+  { value: 'harassment', labelKey: 'feed:reportReasonHarassment' },
+  { value: 'hate_speech', labelKey: 'feed:reportReasonHateSpeech' },
+  { value: 'spoiler', labelKey: 'feed:reportReasonSpoiler' },
+  { value: 'illegal', labelKey: 'feed:reportReasonIllegal' },
+  { value: 'other', labelKey: 'feed:reportReasonOther' },
 ];
 
 /**
@@ -104,12 +104,8 @@ export default function ReportContentModal({
       setTimeout(onClose, 900);
     } catch (error: any) {
       console.error('[ReportContentModal] gönderim hatası:', error);
-      // Sunucudan gelen gerçek mesaj varsa onu göster — "tekrar dene" genel
-      // metni, oturum/ağ gibi farklı sebepleri aynı kutuya tıkıyordu.
-      setNotice({
-        kind: 'error',
-        text: error?.message || t('feed:reportError', '❌ Bildirim gönderilemedi, tekrar dene.'),
-      });
+      // M490: sunucu/servis metni (Türkçe) gösterilmez — arayüz dili t() ile.
+      setNotice({ kind: 'error', text: t('feed:reportError', '❌ Bildirim gönderilemedi, tekrar dene.') });
     } finally {
       setIsSubmitting(false);
     }
@@ -154,7 +150,7 @@ export default function ReportContentModal({
                           <Circle size={18} color="#475569" />
                         )}
                         <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>
-                          {t(r.labelKey, r.fallback)}
+                          {t(r.labelKey)}
                         </Text>
                       </TouchableOpacity>
                     );

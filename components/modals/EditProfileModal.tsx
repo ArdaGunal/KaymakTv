@@ -11,6 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { X } from '../icons';
+import { kullaniciAdiHataMetni } from '../../utils/kullaniciAdiHataMetni';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
@@ -106,7 +107,10 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
             <TextInput
               style={[styles.input, !!retryAt && styles.inputDisabled]}
               value={value}
-              onChangeText={setValue}
+              onChangeText={(v) => {
+                setValue(v);
+                clearError(); // eski «alınmış» uyarısı yeni adda kalmasın
+              }}
               maxLength={KULLANICI_ADI_EN_COK}
               editable={!retryAt && !isSaving}
               placeholder={t('settings:usernamePlaceholder', 'Kullanıcı adın')}
@@ -118,9 +122,7 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
 
             {kuralSorunu && (
               <Text style={localStyles.kuralUyari}>
-                {kuralSorunu === 'karakter'
-                  ? t('settings:usernameRuleChars', 'Yalnızca İngilizce harf, rakam ve alt çizgi (_) kullanılabilir.')
-                  : t('settings:usernameRuleLength', 'Kullanıcı adı 3–30 karakter olmalı.')}
+                {kullaniciAdiHataMetni(t, kuralSorunu)}
               </Text>
             )}
 
@@ -133,9 +135,7 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
             {error && !retryAt && (
               <View style={[styles.notice, styles.noticeError]}>
                 <Text style={[styles.noticeText, styles.noticeTextError]}>
-                  {error.code === 'taken'
-                    ? t('settings:usernameTaken', 'Bu kullanıcı adı zaten alınmış, başka bir tane dene.')
-                    : error.message}
+                  {kullaniciAdiHataMetni(t, error.code)}
                 </Text>
               </View>
             )}

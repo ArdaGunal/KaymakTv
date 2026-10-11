@@ -329,5 +329,9 @@
   "network": "My Network",
   "noRepliesYet": "No replies yet.",
   "shareEpisodeMsg": "— check out this episode!",
-  "castTitle": "Cast"
+  "castTitle": "Cast",
+  "reviewErrGuest": "You need to sign in to do this.",
+  "reviewErrMediaNotReady": "Title details haven't loaded yet. Try again in a moment.",
+  "reviewErrSubmit": "Couldn't share your review. Please try again.",
+  "reviewErrDelete": "Couldn't delete your review. Please try again."
 }

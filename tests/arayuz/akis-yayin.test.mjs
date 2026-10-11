@@ -42,4 +42,14 @@ if (fs.existsSync(worker)) {
   const w = fs.readFileSync(worker, 'utf8');
   T.ok('Worker /feed/post hala activity.id donduruyor ve activityAt kabul ediyor', /activity: \{ id: inserted\.id/.test(w) && /resolveClientStamp\(body\.activityAt\)/.test(w));
 }
+// C37 (M489): var olan hesaba Google ile giriste ad/foto yerelde yoktu → iyimser kart
+// «Kaymak Kullanicisi», gonderi kutusu «?». AuthContext sunucudan tamamlar; yedek ad onbelleklenmez.
+const auth = fs.readFileSync(path.join(root, 'context/AuthContext.tsx'), 'utf8');
+T.ok('Google oturumunda yerel ad/foto yoksa sunucudan tamamlanir (acilis + giris)',
+  /providerRaw === 'google' && \(!usernameRaw \|\| !avatarUrlRaw\)\) yerelProfiliTamamla\(token\)/.test(auth)
+  && /if \(!profile\?\.username\) yerelProfiliTamamla\(sessionToken\)/.test(auth));
+const yayinSrv = fs.readFileSync(path.join(root, 'features/feed/services/feedPublish.ts'), 'utf8');
+T.ok('Yedek ad oturum boyunca onbelleklenmez', /if \(username\) cachedMe = me;/.test(yayinSrv));
+const feedSatir = fs.readFileSync(path.join(root, 'features/feed/hooks/useFeed.ts'), 'utf8').split(String.fromCharCode(10)).length;
+T.ok(`useFeed.ts 400 satir altinda (${feedSatir})`, feedSatir < 400);
 T.bitir();

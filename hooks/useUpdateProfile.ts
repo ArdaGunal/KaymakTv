@@ -2,9 +2,9 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, ProfileUpdateError, UpdateProfilePatch } from '../features/feed/services/profile';
 
+/** Yalnız KOD — sunucunun (Türkçe) `message`'ı ekrana taşınmaz; arayüz t() gösterir (M490). */
 export interface UpdateProfileErrorState {
-  code?: 'taken' | 'cooldown';
-  message: string;
+  code?: string;
   retryAt?: string;
 }
 
@@ -32,7 +32,8 @@ export function useUpdateProfile() {
         return true;
       } catch (e) {
         const err = e as ProfileUpdateError;
-        setError({ code: err.code, message: err.message, retryAt: err.retryAt });
+        console.warn('[Profile] Profil kaydedilemedi:', err?.message);
+        setError({ code: err.code, retryAt: err.retryAt });
         return false;
       } finally {
         setIsSaving(false);

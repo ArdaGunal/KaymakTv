@@ -22,7 +22,7 @@
     "durum:canli": "node scripts/durum.js --canli",
     "tarihce:index": "node scripts/tarihce-index.js",
     "test": "node tests/calistir.js",
-    "ceviri:denetim": "node scripts/ceviri-denetim.js",
+    "ceviri:denetim": "node scripts/ceviri-denetim.js && node scripts/ceviri-ham-metin.js",
     "test:lazyfetch": "node tests/calistir.js lazyfetch",
     "test:arsiv": "node tests/calistir.js arsiv",
     "test:bildirim": "node tests/calistir.js bildirimler"

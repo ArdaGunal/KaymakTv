@@ -117,7 +117,10 @@ export default function TraktImportSection() {
           defaultValue: 'Senkronizasyon bitti ama şunlar alınamadı: {{bolumler}}. Tekrar deneyebilirsin.',
         });
       }
-      return hata?.mesaj || t('settings:importError', 'Senkronizasyon durdu.');
+      // M490: servis/Worker metni (`hata.mesaj`, Türkçe) gösterilmez — tür eşlenir.
+      if (hata?.tur === 'yetki') return t('settings:importErrAuth', "Trakt oturumun geçersiz — aktarım için Trakt'a yeniden giriş yapmalısın.");
+      if (hata?.tur === 'trakt_gerekli') return t('settings:importErrTraktRequired', 'Bu işlem için Trakt hesabının bağlı olması gerekiyor.');
+      return t('settings:importError', 'Senkronizasyon durdu.');
     }
     if (durum === 'duraklatildi') return t('settings:importPaused', 'Duraklatıldı — kaldığı yerden devam eder.');
     if (motorSuruyor) {

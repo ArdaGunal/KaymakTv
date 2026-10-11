@@ -333,6 +333,8 @@ export type KutuphaneIlerlemesi = {
   }>;
   next_episode: { season: number; number: number; title: string | null } | null;
   last_episode: { season: number; number: number; title: string | null } | null;
+  /** M492 · izlenen bölümlerin kendi sürelerinin toplamı (dk). 063 öncesi sunucu göndermez. */
+  watched_minutes?: number;
 };
 
 export type KutuphaneYaniti = {

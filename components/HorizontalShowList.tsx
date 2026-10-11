@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { memo, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -54,10 +55,11 @@ const HorizontalShowList = memo(({
   titleTint,
   data,
   onShowAll,
-  seeAllLabel = 'Tümü',
+  seeAllLabel,
   type = 'show',
 }: HorizontalShowListProps) => {
   const router = useRouter();
+  const { t } = useTranslation('media');
   const { showProgressMap, hiddenShowIds } = useLibrarySelector(ilerlemeSecici);
 
   const handleCardPress = useCallback((item: any) => {
@@ -133,7 +135,7 @@ const HorizontalShowList = memo(({
         icon={titleIcon}
         iconTint={titleTint}
         onSeeAll={onShowAll}
-        seeAllLabel={seeAllLabel}
+        seeAllLabel={seeAllLabel ?? t('seeAll', 'Tümünü Gör')}
       />
 
       {/* Yatay Liste (FlatList ile optimize edildi, yüzlerce resimde kasmaması için) */}

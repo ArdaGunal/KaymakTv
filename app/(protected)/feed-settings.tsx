@@ -49,7 +49,9 @@ export default function FeedSettingsScreen() {
         {!!feedPrivacy.saveError && (
           <View style={styles.privacyErrorBox}>
             <AlertTriangle size={14} color="#f87171" />
-            <Text style={styles.privacyErrorText}>{feedPrivacy.saveError}</Text>
+            <Text style={styles.privacyErrorText}>
+              {t('settings:feedPrivacySaveError', 'Ayar kaydedilemedi — aktiviteler hâlâ ESKİ ayarla paylaşılıyor.')}
+            </Text>
           </View>
         )}
 

@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
@@ -52,7 +53,16 @@ function ensureConfigured() {
 export type GoogleNativeSignInResult =
   | { ok: true; idToken: string }
   | { ok: false; cancelled: true }
-  | { ok: false; cancelled: false; message: string };
+  | { ok: false; cancelled: false; neden: GoogleGirisHataNedeni; kod?: string };
+
+/** Hata NEDENİ kodu — metin değil (M490). Ekrana `googleGirisHataMetni` ile. */
+export type GoogleGirisHataNedeni = 'eksik' | 'play_yok' | 'basarisiz';
+
+export function googleGirisHataMetni(t: TFunction, neden: GoogleGirisHataNedeni): string {
+  return neden === 'play_yok'
+    ? t('common:googlePlayServicesMissing', 'Google Play Hizmetleri bulunamadı veya güncel değil.')
+    : t('common:googleSignInFailed', 'Google ile giriş başarısız oldu, tekrar dene.');
+}
 
 export function useGoogleNativeSignIn() {
   // Play Services kontrolü yalnızca Android'de anlamlı; iOS'ta no-op'a yakın
@@ -75,7 +85,7 @@ export function useGoogleNativeSignIn() {
       if (!idToken) {
         // SDK teorik olarak null dönebilir (dokümanında belirtiliyor) —
         // "başarılı ama kimlik kanıtı yok" sessizce yutulmamalı.
-        return { ok: false, cancelled: false, message: 'Google kimlik doğrulaması eksik döndü.' };
+        return { ok: false, cancelled: false, neden: 'eksik' };
       }
       return { ok: true, idToken };
     } catch (error) {
@@ -88,12 +98,12 @@ export function useGoogleNativeSignIn() {
           case statusCodes.SIGN_IN_CANCELLED:
             return { ok: false, cancelled: true };
           case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-            return { ok: false, cancelled: false, message: 'Google Play Hizmetleri bulunamadı veya güncel değil.' };
+            return { ok: false, cancelled: false, neden: 'play_yok', kod: String(error.code) };
           default:
-            return { ok: false, cancelled: false, message: `Google girişi başarısız (${error.code}).` };
+            return { ok: false, cancelled: false, neden: 'basarisiz', kod: String(error.code) };
         }
       }
-      return { ok: false, cancelled: false, message: 'Google girişi başarısız.' };
+      return { ok: false, cancelled: false, neden: 'basarisiz' };
     }
   }, []);
 

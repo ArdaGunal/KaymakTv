@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { AlertTriangle } from '../icons';
+import { useAuth } from '../../context/AuthContext';
 
 interface DeleteAccountModalProps {
   visible: boolean;
@@ -26,6 +27,8 @@ export default function DeleteAccountModal({
   onCancel,
 }: DeleteAccountModalProps) {
   const { t } = useTranslation('settings');
+  // Google-only hesabın Trakt'ı yok — «Trakt hesabın etkilenmez» yersizdi (M491 silme turunda bulundu).
+  const { authProvider } = useAuth();
   return (
     <Modal
       visible={visible}
@@ -49,8 +52,12 @@ export default function DeleteAccountModal({
               {/* Body */}
               <Text style={styles.body}>
                 {t('deleteDataWarning')}
-                {'\n\n'}
-                <Text style={styles.safe}>{t('traktSafeWarning')}</Text>
+                {authProvider === 'trakt' && (
+                  <>
+                    {'\n\n'}
+                    <Text style={styles.safe}>{t('traktSafeWarning')}</Text>
+                  </>
+                )}
               </Text>
 
               {/* Actions */}

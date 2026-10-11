@@ -26,7 +26,9 @@ import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../services/supabaseClient';
-import { fetchActivityById, getVisibleUserIds } from '../services/feedApi';
+import { fetchActivitiesByIds, fetchActivityById, getVisibleUserIds } from '../services/feedApi';
+import { toplayiciKur } from '../utils/realtimeToplayici';
+import type { FeedActivity } from '../types';
 import { tempActivityId } from '../services/feedPublish';
 import { useFeedStore } from '../store/feedStore';
 import { getMySupabaseUserId } from '../services/userBlocks';
@@ -44,6 +46,31 @@ export function useFeedRealtime(enabled: boolean): void {
 
     let cancelled = false;
 
+    // Gelen satırı listeye yerleştir: kendi iyimser kartımın yankısıysa onun yerine
+    // geç, değilse ekle (kendi etkinliğim «yeni gönderi» rozetine sayılmaz — M476).
+    const yerlestir = (activity: FeedActivity, myId: string | null) => {
+      const store = useFeedStore.getState();
+      // Geçici id DETERMİNİSTİK (bkz. feedPublish.tempActivityId) — tek eşitlik yeter.
+      const tempId = tempActivityId(activity);
+      if (store.activities.some((a) => a.id === tempId)) store.replaceActivity(tempId, activity);
+      else store.upsertActivity(activity, activity.user.id !== myId);
+    };
+
+    // A-4 · INSERT'ler 250 ms toplanır, tek `in(id, …)` sorgusuyla tamamlanır (Worker
+    // `/feed/sync` 50 satırı tek seferde yazabiliyor → eskiden 50 ayrı istek).
+    const toplayici = toplayiciKur<string>(async (ids) => {
+      try {
+        const [list, myId] = await Promise.all([
+          fetchActivitiesByIds(ids),
+          getMySupabaseUserId().catch(() => null),
+        ]);
+        if (cancelled) return;
+        for (const activity of list) yerlestir(activity, myId);
+      } catch (error) {
+        console.warn('[Feed] Realtime satırları çözülemedi:', error);
+      }
+    });
+
     const subscribe = async () => {
       // Kimlerin aktivitesini göreceğimizi önceden çöz — böylece gelen her
       // insert için ek bir sorgu atmadan, tek bir Set kontrolüyle eleyebiliriz.
@@ -60,7 +87,7 @@ export function useFeedRealtime(enabled: boolean): void {
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'feed_activities' },
-          async (payload) => {
+          (payload) => {
             const row: any = payload.new;
             if (!row?.id || !row?.user_id) return;
             if (!visibleIdsRef.current.has(row.user_id)) return;
@@ -77,42 +104,15 @@ export function useFeedRealtime(enabled: boolean): void {
             // olarak `=== false` (fail-open): alan bir gün yükte hiç gelmezse
             // `!== true` yazmak TÜM canlı akışı sessizce öldürürdü, ki bu
             // gizli bir kartın görünmesinden daha kötü bir başarısızlık modu.
-            // Kesin kilit sunucuda: `fetchActivityById` de `in_feed=true`
+            // Kesin kilit sunucuda: `fetchActivitiesByIds` de `in_feed=true`
             // filtresi uyguluyor, dolayısıyla yük bozuk gelse bile gizli satır
             // `null` döner ve aşağıda elenir.
             if (row.in_feed === false) return;
 
             // Realtime yükü YALNIZCA `feed_activities` satırını taşır —
-            // gönderen kişinin adı/avatarı (`users` join'i) yoktur. Kartı
-            // çizebilmek için satırı join'li olarak tek seferde çekiyoruz.
-            // Bu ek sorgu yalnızca TAKİP ETTİĞİM biri bir şey yaptığında
-            // atılır, yani nadirdir.
-            try {
-              const activity = await fetchActivityById(row.id);
-              if (!activity || cancelled) return;
-
-              const store = useFeedStore.getState();
-              // Bu satır, az önce iyimser olarak eklediğim kendi kartımın
-              // sunucu sürümü mü? Geçici id DETERMİNİSTİK olduğu için
-              // (bkz. feedPublish.tempActivityId) tek bir eşitlik kontrolü
-              // yeterli — alan alan tahmin yürütmeye gerek yok.
-              const tempId = tempActivityId(activity);
-              const isEchoOfMine = store.activities.some((a) => a.id === tempId);
-
-              if (isEchoOfMine) {
-                // Geçici kartı gerçek satırla değiştir; "yeni gönderi"
-                // rozetine SAYMA — bunu az önce ben yaptım.
-                store.replaceActivity(tempId, activity);
-              } else {
-                // M476: KENDİ etkinliğim (başka cihazdan ya da yankısı geç
-                // eşleşen yayınım) «N yeni gönderi» rozetine sayılmaz.
-                const myId = await getMySupabaseUserId().catch(() => null);
-                if (cancelled) return;
-                useFeedStore.getState().upsertActivity(activity, activity.user.id !== myId);
-              }
-            } catch (error) {
-              console.warn('[Feed] Realtime satırı çözülemedi:', error);
-            }
+            // gönderen kişinin adı/avatarı (`users` join'i) yoktur. Kart join'li
+            // satırla tamamlanır — A-4: toplayıcıyla, patlamada tek istek.
+            toplayici.ekle(row.id);
           }
         )
         .on(
@@ -227,6 +227,7 @@ export function useFeedRealtime(enabled: boolean): void {
 
     return () => {
       cancelled = true;
+      toplayici.iptal();
       appStateSub.remove();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);

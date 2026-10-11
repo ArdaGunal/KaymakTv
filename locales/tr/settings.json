@@ -205,5 +205,15 @@
   "feedbackFeatureBody": "Görmek istediğin yeni özelliği veya önerini paylaş.",
   "feedbackFeaturePlaceholder": "Örn: Watchlist listelerini sıralayabilmek istiyorum...",
   "reportIssueSendBug": "Hata Bildirimi Gönder",
-  "reportIssueSendFeature": "Öneriyi İlet"
+  "reportIssueSendFeature": "Öneriyi İlet",
+  "feedPrivacySaveError": "Ayar kaydedilemedi — aktiviteler hâlâ ESKİ ayarla paylaşılıyor.",
+  "googleAlreadyLinked": "Bu Google hesabı başka bir KaymakTV hesabına bağlı.",
+  "traktAlreadyLinked": "Bu Trakt hesabı zaten başka bir Google hesabına bağlı.",
+  "profileSaveError": "Kaydedilemedi, tekrar dene.",
+  "importErrAuth": "Trakt oturumun geçersiz — aktarım için Trakt'a yeniden giriş yapmalısın.",
+  "importErrTraktRequired": "Bu işlem için Trakt hesabının bağlı olması gerekiyor.",
+  "profileOnboardingSubtitleAll": "Uygulamada görünecek kullanıcı adını seç. Önerilen adı kullanabilir ya da değiştirebilirsin.",
+  "usernameRuleHint": "3–30 karakter · İngilizce harf, rakam ve alt çizgi (_) · boşluk yok",
+  "usernameReserved": "Bu kullanıcı adı kullanılamaz, başka bir tane dene.",
+  "usernameCooldownGeneric": "Kullanıcı adını 14 günde bir değiştirebilirsin."
 }

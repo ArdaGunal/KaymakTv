@@ -37,7 +37,7 @@ export default function ErrorsTab({
     return entries.filter(
       (e) =>
         normalizeForSearch(e.context).includes(normalizedQuery) ||
-        normalizeForSearch(e.message).includes(normalizedQuery)
+        normalizeForSearch(e.message).includes(normalizedQuery) /* ceviri-ok: geliştirici paneli hata günlüğü araması */
     );
   }, [entries, searchQuery]);
 

@@ -64,10 +64,8 @@ export default function AccountSettingsScreen() {
         );
       }
     } catch (error: any) {
-      notify(
-        t('common:error', 'Hata'),
-        error?.message || t('settings:privacyChangeFailed', 'Gizlilik ayarı kaydedilemedi.')
-      );
+      console.warn('[Settings] Gizlilik ayarı kaydedilemedi:', error);
+      notify(t('common:error', 'Hata'), t('settings:privacyChangeFailed', 'Gizlilik ayarı kaydedilemedi.'));
     }
   };
 

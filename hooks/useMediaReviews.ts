@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchMediaReviews } from '../features/feed/services/feedApi';
@@ -19,6 +20,26 @@ import { FeedActivity, FeedMediaType } from '../features/feed/types';
  * çağırmaz, yalnızca bu hook'u tüketir.
  */
 
+/**
+ * Hata NEDENİ kodu — metin değil. Arayüz t() ile gösterir (bkz. `incelemeHataMetni`);
+ * servis/Worker metni Türkçe olduğu için ekrana sızmamalı (M490).
+ */
+export type IncelemeHataNedeni = 'misafir' | 'yapim_yok' | 'gonderilemedi' | 'silinemedi';
+
+/** Neden kodunun arayüz dilindeki metni (anahtarlar düz yazılı → çeviri denetimi sınar). */
+export function incelemeHataMetni(t: TFunction, neden: IncelemeHataNedeni): string {
+  switch (neden) {
+    case 'misafir':
+      return t('media:reviewErrGuest', 'Bu işlem için giriş yapmalısın.');
+    case 'yapim_yok':
+      return t('media:reviewErrMediaNotReady', 'Yapım bilgisi henüz yüklenmedi, birazdan tekrar dene.');
+    case 'silinemedi':
+      return t('media:reviewErrDelete', 'İnceleme silinemedi, tekrar dene.');
+    default:
+      return t('media:reviewErrSubmit', 'İnceleme paylaşılamadı, tekrar dene.');
+  }
+}
+
 export interface UseMediaReviewsResult {
   reviews: FeedActivity[];
   isLoading: boolean;
@@ -30,8 +51,8 @@ export interface UseMediaReviewsResult {
   otherReviews: FeedActivity[];
   /** `tmdbId` henüz çözülmedi — yazma butonunun GEÇİCİ olarak pasif olduğunu ayırt eder. */
   isTmdbIdPending: boolean;
-  submitReview: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; message: string }>;
-  removeReview: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  submitReview: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }>;
+  removeReview: () => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }>;
   toggleReviewLike: (activityId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -122,9 +143,9 @@ export function useMediaReviews({
   const canSubmit = !isGuest && !!accessToken && !!tmdbId && !!mediaTitle;
 
   const submitReview = useCallback(
-    async (body: string, spoiler: boolean): Promise<{ ok: true } | { ok: false; message: string }> => {
-      if (isGuest) return { ok: false, message: 'Bu işlem için giriş yapmalısın.' };
-      if (!tmdbId) return { ok: false, message: 'Yapım bilgisi henüz yüklenmedi, birazdan tekrar dene.' };
+    async (body: string, spoiler: boolean): Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }> => {
+      if (isGuest) return { ok: false, neden: 'misafir' };
+      if (!tmdbId) return { ok: false, neden: 'yapim_yok' };
 
       setIsSubmitting(true);
       try {
@@ -135,7 +156,10 @@ export function useMediaReviews({
         // v2: tek yazma hedefi kaldığı için "kısmen yazıldı" diye bir ara durum
         // YOK — `traktOk` sinyali de bu yüzden kalktı. Hata mesajı olduğu gibi
         // yukarı geçiyor; `WriteReviewSheet` sheet'i açık bırakıp metni koruyor.
-        if (!result.ok) return { ok: false, message: result.message };
+        if (!result.ok) {
+          console.warn('[Reviews] İnceleme paylaşılamadı:', result.message);
+          return { ok: false, neden: 'gonderilemedi' };
+        }
 
         // Sunucu satırını (gerçek id, sayaçlar, kullanıcı bilgisi) geri
         // okuyoruz — eksik alanlı sahte bir satır uydurmaktansa listeyi
@@ -150,8 +174,8 @@ export function useMediaReviews({
     [isGuest, tmdbId, mediaId, mediaType, mediaTitle, episodeNumber, load]
   );
 
-  const removeReview = useCallback(async (): Promise<{ ok: true } | { ok: false; message: string }> => {
-    if (!myReview) return { ok: false, message: 'Silinecek bir incelemen yok.' };
+  const removeReview = useCallback(async (): Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }> => {
+    if (!myReview) return { ok: false, neden: 'silinemedi' };
 
     setIsSubmitting(true);
     const previous = reviews;
@@ -162,7 +186,8 @@ export function useMediaReviews({
       const result = await deleteReview(myReview.id, { showId: mediaId, mediaType, episodeNumber });
       if (!result.ok) {
         setReviews(previous);
-        return result;
+        console.warn('[Reviews] İnceleme silinemedi:', result.message);
+        return { ok: false, neden: 'silinemedi' };
       }
       return { ok: true };
     } finally {

@@ -26,11 +26,11 @@ import { TimelineRow } from './TimelineRow';
  * yazmak `AI_RULES` §1'in 400 satır sınırını aşardı.
  */
 
-const GROUP_LABELS: Record<TimelineGroupId, { key: string; fallback: string }> = {
-  today: { key: 'timeline.today', fallback: 'Bugün' },
-  yesterday: { key: 'timeline.yesterday', fallback: 'Dün' },
-  week: { key: 'timeline.week', fallback: 'Bu hafta' },
-  older: { key: 'timeline.older', fallback: 'Daha eski' },
+const GROUP_LABELS: Record<TimelineGroupId, string> = {
+  today: 'timeline.today',
+  yesterday: 'timeline.yesterday',
+  week: 'timeline.week',
+  older: 'timeline.older',
 };
 
 export function NotificationTimeline() {
@@ -113,7 +113,7 @@ export function NotificationTimeline() {
         groups.map((group) => (
           <View key={group.id} style={styles.group}>
             <Text style={styles.groupTitle}>
-              {t(GROUP_LABELS[group.id].key, GROUP_LABELS[group.id].fallback)}
+              {t(GROUP_LABELS[group.id])}
             </Text>
 
             <View style={styles.card}>

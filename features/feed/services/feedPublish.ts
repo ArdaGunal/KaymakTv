@@ -81,7 +81,7 @@ async function resolveMe(): Promise<FeedActivity['user'] | null> {
         SecureStore.getItemAsync('kaymakMyUsername'),
         SecureStore.getItemAsync('kaymakMyAvatarUrl'),
       ]);
-      cachedMe = {
+      const me = {
         // Trakt dalının aksine BURADA gerçek Supabase `users.id`'si var —
         // Google-only kimliğin zaten tek anahtarı o (bkz. userBlocks.ts).
         id: myUserId,
@@ -91,7 +91,10 @@ async function resolveMe(): Promise<FeedActivity['user'] | null> {
         username: username || 'Kaymak Kullanıcısı',
         avatarUrl: avatarUrl ?? null,
       };
-      return cachedMe;
+      // C37: ad henüz yerelde yoksa (AuthContext sunucudan tamamlıyor) yedek adı
+      // oturum boyunca ÖNBELLEKLEME — bir sonraki yayında gerçek ad okunsun.
+      if (username) cachedMe = me;
+      return me;
     }
   } catch (error) {
     console.warn('[Feed] Google-only kimliği çözülemedi (iyimser kart atlanıyor):', error);

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { PenLine, LogIn, AlertTriangle } from '../icons';
 import { useTranslation } from 'react-i18next';
+import { incelemeHataMetni } from '../../hooks/useMediaReviews';
 import { useAuth } from '../../context/AuthContext';
 import { UseMediaReviewsResult } from '../../hooks/useMediaReviews';
 import { notify } from '../../utils/confirmDialog';
@@ -130,7 +131,7 @@ export default function MediaCommentsSection({
     const result = await removeReview();
     if (!result.ok) {
       // Sessiz başarısızlık YASAK — kart geri geldi, sebebi de görünmeli.
-      notify(t('common:error'), result.message);
+      notify(t('common:error'), incelemeHataMetni(t, result.neden));
     }
   };
 

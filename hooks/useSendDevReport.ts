@@ -97,9 +97,10 @@ export function useSendDevReport(): UseSendDevReportResult {
         }
 
         const note = options.note.trim().slice(0, DEV_REPORT_NOTE_MAX_LENGTH);
+        // ceviri-ok: geliştiriciye giden rapor metni (kullanıcıya gösterilmez)
         const userMessage = note
-          ? `[Geliştirici Paneli] ${note}`
-          : '[Geliştirici Paneli] Otomatik performans ve hata raporu.';
+          ? `[Geliştirici Paneli] ${note}` // ceviri-ok: geliştirici raporu
+          : '[Geliştirici Paneli] Otomatik performans ve hata raporu.'; // ceviri-ok: geliştirici raporu
 
         const deviceInfo = `${Platform.OS} ${Platform.Version} · v${Constants.expoConfig?.version ?? '?'}`;
 

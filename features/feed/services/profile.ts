@@ -16,6 +16,8 @@ export interface UpdateProfilePatch {
   bio?: string | null;
   /** §C24 · `053`. `null` = görünen adı kaldır, `undefined` = dokunma. Sunucu normalize eder. */
   displayName?: string | null;
+  /** M492 · isim ekranındaki «Devam» — adı değiştirmeden onaylar (`063 ad_onaylandi_at`). */
+  adOnayla?: boolean;
 }
 
 export interface MyProfile {
@@ -29,6 +31,8 @@ export interface MyProfile {
   bio: string | null;
   /** §C24 · `053`. `null` = yok → arayüz @username gösterir. */
   displayName: string | null;
+  /** M492 · `063`. `false` → ilk girişte isim ekranı. Alan gelmezse (eski Worker) `true`. */
+  adOnaylandi: boolean;
   /** §C29 — hesap gizliliği; iki hesap türünde de BİZİM ayarımız (Trakt değil). */
   isPrivate: boolean;
 }
@@ -47,13 +51,28 @@ export const BIO_EN_COK_SATIR = 3;
 // ve mesajı ekranda görünür (iki yerde yaşayan bir liste ıraksardı).
 export const KULLANICI_ADI_EN_AZ = 3;
 export const KULLANICI_ADI_EN_COK = 30;
-export type KullaniciAdiSorunu = 'kisa' | 'uzun' | 'karakter';
+export type KullaniciAdiSorunu = 'kisa' | 'uzun' | 'karakter' | 'ayrilmis';
+
+/**
+ * Worker `usernameRules.js` `AYRILMIS_ADLAR`'ın BİREBİR kopyası (büyük/küçük harf duyarsız).
+ * M492: eksikti → «admin» sunucuda reddediliyor ama ekranda yalnız «Kaydedilemedi»
+ * görünüyordu (cihazda bulundu). Eşitlik `tests/arayuz/ad-onayi.test.mjs`'de zorunlu.
+ */
+export const AYRILMIS_ADLAR = new Set([
+  'me', 'user', 'users', 'profile', 'profil', 'network', 'settings', 'ayarlar', 'account', 'hesap', 'feed', 'akis',
+  'explore', 'kesfet', 'shows', 'diziler', 'movies', 'filmler', 'library', 'notifications', 'bildirimler', 'search',
+  'login', 'logout', 'signup', 'register', 'api', 'auth', 'download', 'edit', 'new', 'list', 'lists', 'show', 'movie',
+  'episode', 'activity', 'admin', 'administrator', 'root', 'system', 'sistem', 'moderator', 'mod', 'support',
+  'destek', 'help', 'yardim', 'official', 'resmi', 'staff', 'team', 'kaymak', 'kaymaktv', 'trakt', 'google',
+  'security', 'guvenlik', 'null', 'undefined', 'nan', 'anonymous', 'anonim', 'guest', 'misafir',
+]);
 
 export function kullaniciAdiSorunu(ham: string): KullaniciAdiSorunu | null {
   const deger = ham.trim();
   if (deger.length < KULLANICI_ADI_EN_AZ) return 'kisa';
   if (deger.length > KULLANICI_ADI_EN_COK) return 'uzun';
   if (!/^[A-Za-z0-9_]+$/.test(deger) || !/[A-Za-z0-9]/.test(deger)) return 'karakter';
+  if (AYRILMIS_ADLAR.has(deger.toLowerCase())) return 'ayrilmis';
   return null;
 }
 
@@ -118,6 +137,7 @@ async function getMyProfileTekil(traktAccessToken: string): Promise<MyProfile> {
     usernameUpdatedAt: response.data.usernameUpdatedAt ?? null,
     bio: response.data.bio ?? null,
     displayName: response.data.displayName ?? null,
+    adOnaylandi: response.data.adOnaylandi !== false,
     isPrivate: !!response.data.isPrivate,
   };
 }
@@ -150,9 +170,10 @@ export async function setAccountPrivacy(
 }
 
 export class ProfileUpdateError extends Error {
-  code?: 'taken' | 'cooldown';
+  /** `taken` · `cooldown` · `kullanici_adi_{kisa|uzun|karakter|ayrilmis}` … — metne `kullaniciAdiHataMetni` çevirir. */
+  code?: string;
   retryAt?: string;
-  constructor(message: string, code?: 'taken' | 'cooldown', retryAt?: string) {
+  constructor(message: string, code?: string, retryAt?: string) {
     super(message);
     this.code = code;
     this.retryAt = retryAt;

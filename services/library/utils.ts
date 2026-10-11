@@ -1,4 +1,5 @@
 import { notify } from '../../utils/confirmDialog';
+import i18n from '../../locales';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { filterUserLists } from '../../utils/listHelpers';
@@ -8,10 +9,7 @@ export const safeStorageSet = async (key: string, value: string) => {
     await AsyncStorage.setItem(key, value);
   } catch (error) {
     console.error(`AsyncStorage Kayıt Hatası (${key}):`, error);
-    notify(
-      "Depolama Alanı Dolu",
-      "Cihazınızda yeterli alan olmadığı veya yerel depolama kotası aşıldığı için bazı veriler cihazınıza kaydedilemiyor."
-    );
+    notify(i18n.t('common:storageFullTitle'), i18n.t('common:storageFullText'));
   }
 };
 
@@ -20,10 +18,7 @@ export const safeStorageMultiSet = async (keyValuePairs: [string, string][]) => 
     await AsyncStorage.multiSet(keyValuePairs);
   } catch (error) {
     console.error('AsyncStorage Toplu Kayıt Hatası:', error);
-    notify(
-      "Depolama Alanı Dolu",
-      "Cihazınızda yeterli alan olmadığı için çoklu veriler cihazınıza kaydedilemiyor."
-    );
+    notify(i18n.t('common:storageFullTitle'), i18n.t('common:storageFullText'));
   }
 };
 

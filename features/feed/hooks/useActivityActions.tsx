@@ -69,15 +69,19 @@ export function useActivityActions(
 
   const toggleLike = useCallback(async () => {
     if (!accessToken || isGuest || isLiking || !isInteractive) return;
-    const onceki = { isLikedByMe: activity.isLikedByMe, likeCount: activity.likeCount };
     const nextLiked = !activity.isLikedByMe;
-    patch({ isLikedByMe: nextLiked, likeCount: Math.max(0, activity.likeCount + (nextLiked ? 1 : -1)) });
+    const fark = nextLiked ? 1 : -1;
+    const iyimser = Math.max(0, activity.likeCount + fark);
+    patch({ isLikedByMe: nextLiked, likeCount: iyimser });
     setIsLiking(true);
     try {
       await setLike(accessToken, 'activity', activity.id, nextLiked);
     } catch (error) {
       console.warn('[Feed] Beğeni gönderilemedi:', error);
-      patch(onceki); // iyimser durumu geri al
+      // B-4 (M489): GÖRELİ geri al — bekleme sırasında Realtime başkasının beğenisiyle
+      // kesin sayıyı getirmiş olabilir; eski anlık değeri yazmak onu silerdi.
+      const simdiki = useFeedStore.getState().activities.find((a) => a.id === activity.id)?.likeCount ?? iyimser;
+      patch({ isLikedByMe: !nextLiked, likeCount: Math.max(0, simdiki - fark) });
     } finally {
       setIsLiking(false);
     }
@@ -99,7 +103,7 @@ export function useActivityActions(
     } catch (error: any) {
       console.warn('[Feed] Not kaydedilemedi:', error);
       setNoteError(
-        error?.response?.data?.message || error?.message || t('noteSaveError', 'Alıntı kaydedilemedi, tekrar dene.')
+        t('noteSaveError', 'Alıntı kaydedilemedi, tekrar dene.')
       );
     } finally {
       setIsSavingNote(false);

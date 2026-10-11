@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
@@ -12,51 +12,59 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
+import { useMyProfile } from '../../hooks/useMyProfile';
+import { kullaniciAdiHataMetni } from '../../utils/kullaniciAdiHataMetni';
 import { kullaniciAdiSorunu, KULLANICI_ADI_EN_COK } from '../../features/feed/services/profile';
 
 /**
- * Google-only kayıt (`create_new`, HISTORY Madde 221) sonrası GÖSTERİLEN
- * tek seferlik onboarding — yalnızca `settings.tsx`'in `handleContinueWithoutTrakt`
- * dalından, `status:'created'` iken yönlendirilir (bkz. o dosyadaki not).
+ * İSİM EKRANI — her YENİ hesapta (Trakt ya da Google) ve kurallardan önce açılmış KURAL
+ * DIŞI adlı eski hesapta ilk girişte açılır (M492, 2026-10-12). Kullanıcı kararı: «isim
+ * koymadan girememesi lazım» · «her ikisinde de gösterilsin» · «isim ekranını düzgünce
+ * kuralım». Yönlendiren: `hooks/useAdOnayKapisi.ts` (korumalı düzen), ölçüt Worker'ın
+ * `adOnaylandi` alanı (`063 users.ad_onaylandi_at`).
  *
- * `AuthContext.myUsername`/`myAvatarUrl` bu ekrana gelmeden HEMEN önce
- * `saveGoogleSession`'a Worker'ın türettiği değerlerle yazılmış olur —
- * burası onları ÖNCEDEN doldurur, ağ isteği olmadan (kullanıcı hiç
- * dokunmazsa "Devam Et" hiçbir şey kaydetmeden doğrudan geçer).
+ * - Ad, Worker'ın türettiği otomatik adla ÖNCEDEN dolu gelir; kullanıcı değiştirir ya da
+ *   «Devam» der. İkisi de sunucuda ONAY yazar (`adOnayla`); «Atla» YOK.
+ * - Kural (link uyumu): 3–30, yalnız İngilizce harf/rakam/`_` — boşluk yok (kullanıcı:
+ *   «isimde linklerde sorun olmaması için boşluklu yapmayalım»). Kural dışı eski ad
+ *   değiştirilmeden geçilemez.
+ * - İlk seçim 14 günlük değiştirme beklemesini BAŞLATMAZ (Worker).
  */
 export default function ProfilOlusturScreen() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
   const { myUsername, myAvatarUrl } = useAuth();
-  const { save, isSaving, error } = useUpdateProfile();
+  const { profile } = useMyProfile();
+  const { save, isSaving, error, clearError } = useUpdateProfile();
 
-  const [username, setUsername] = useState(myUsername ?? '');
+  // Sunucudaki ad esas (Trakt hesabında yerel kopya yok); gelene kadar yerel kopya.
+  const sunucuAdi = profile?.username ?? myUsername ?? '';
+  const [username, setUsername] = useState(sunucuAdi);
+  const [dokunuldu, setDokunuldu] = useState(false);
+  useEffect(() => {
+    if (!dokunuldu && sunucuAdi) setUsername(sunucuAdi);
+  }, [sunucuAdi, dokunuldu]);
   const [avatarRemoved, setAvatarRemoved] = useState(false);
 
   const trimmed = username.trim();
-  const usernameChanged = trimmed.length > 0 && trimmed !== (myUsername ?? '').trim();
-  // §S3 (M402): yalnız DEĞİŞEN ad sıkı kurala tabi — Worker'ın türettiği ad
-  // zaten kurala uygun; değiştirilmezse doğrulanmadan geçilir.
-  const kuralSorunu = usernameChanged ? kullaniciAdiSorunu(trimmed) : null;
+  const usernameChanged = trimmed.length > 0 && trimmed !== sunucuAdi.trim();
+  // Onaylanacak ad (değişmese de) BUGÜNKÜ kurala uymalı — kural dışı eski ad geçemez.
+  const kuralSorunu = trimmed.length > 0 ? kullaniciAdiSorunu(trimmed) : null;
   const invalid = trimmed.length === 0 || kuralSorunu !== null;
 
   const goToApp = () => router.replace('/(protected)/(tabs)/explore');
 
   const handleContinue = async () => {
     if (invalid) return;
-    // Hiçbir şey değişmediyse ağ isteği bile atma — türetilen değerler
-    // zaten kaydedilmiş durumda (bkz. Worker'ın create_new dalı).
-    if (!usernameChanged && !avatarRemoved) {
-      goToApp();
-      return;
-    }
     const ok = await save({
       username: usernameChanged ? trimmed : undefined,
       avatarUrl: avatarRemoved ? null : undefined,
+      adOnayla: true,
     });
     if (ok) goToApp();
   };
@@ -65,13 +73,15 @@ export default function ProfilOlusturScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+      {/* M492: Android'de klavye «Devam»ı ve uyarıyı örtüyordu (cihazda görüldü) — içerik kayar. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scrollIcerik} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <Text style={styles.title}>{t('settings:profileOnboardingTitle', 'Profilini Tamamla')}</Text>
           <Text style={styles.subtitle}>
             {t(
-              'settings:profileOnboardingSubtitle',
-              'Google hesabınla girdiğin ad ve fotoğraf aşağıda — istersen değiştir, istersen böyle bırak.'
+              'settings:profileOnboardingSubtitleAll',
+              'Uygulamada görünecek kullanıcı adını seç. Önerilen adı kullanabilir ya da değiştirebilirsin.'
             )}
           </Text>
 
@@ -94,7 +104,12 @@ export default function ProfilOlusturScreen() {
           <TextInput
             style={styles.input}
             value={username}
-            onChangeText={setUsername}
+            onChangeText={(v) => {
+              setDokunuldu(true);
+              setUsername(v);
+              // Önceki denemenin uyarısı («alınmış») yeni adda kalmasın (cihazda görüldü).
+              clearError();
+            }}
             maxLength={KULLANICI_ADI_EN_COK}
             placeholder={t('settings:usernamePlaceholder', 'Kullanıcı adın')}
             placeholderTextColor="#64748b"
@@ -102,20 +117,21 @@ export default function ProfilOlusturScreen() {
             autoCorrect={false}
           />
 
+          {!kuralSorunu && (
+            <Text style={localStyles.kuralIpucu}>
+              {t('settings:usernameRuleHint', '3–30 karakter · İngilizce harf, rakam ve alt çizgi (_) · boşluk yok')}
+            </Text>
+          )}
           {kuralSorunu && (
             <Text style={localStyles.kuralUyari}>
-              {kuralSorunu === 'karakter'
-                ? t('settings:usernameRuleChars', 'Yalnızca İngilizce harf, rakam ve alt çizgi (_) kullanılabilir.')
-                : t('settings:usernameRuleLength', 'Kullanıcı adı 3–30 karakter olmalı.')}
+              {kullaniciAdiHataMetni(t, kuralSorunu)}
             </Text>
           )}
 
           {error && (
             <View style={styles.notice}>
               <Text style={styles.noticeText}>
-                {error.code === 'taken'
-                  ? t('settings:usernameTaken', 'Bu kullanıcı adı zaten alınmış, başka bir tane dene.')
-                  : error.message}
+                {kullaniciAdiHataMetni(t, error.code)}
               </Text>
             </View>
           )}
@@ -128,10 +144,8 @@ export default function ProfilOlusturScreen() {
             {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.continueBtnText}>{t('common:continue', 'Devam Et')}</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.skipBtn} onPress={goToApp} disabled={isSaving}>
-            <Text style={styles.skipBtnText}>{t('settings:skipForNow', 'Şimdilik Atla')}</Text>
-          </TouchableOpacity>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -144,6 +158,11 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  scrollIcerik: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 24,
   },
   content: {
     flex: 1,
@@ -233,20 +252,18 @@ const styles = StyleSheet.create({
   disabledBtn: {
     opacity: 0.5,
   },
-  skipBtn: {
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  skipBtnText: {
-    color: '#94a3b8',
-    fontSize: 14,
-  },
 });
 
 // §S3 (M402) — kullanıcı adı kural uyarısı (Worker `usernameRules.js` göstergesi).
 const localStyles = StyleSheet.create({
   kuralUyari: {
     color: '#fbbf24',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
+  },
+  kuralIpucu: {
+    color: '#64748b',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 6,

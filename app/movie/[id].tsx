@@ -126,7 +126,7 @@ export default function MovieDetailScreen() {
       });
     } catch (e) {
       removeLocalRating(traktIdNum, 'movie');
-      notify(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
+      notify(t('common:error'), t('common:ratingSaveError', 'Puan kaydedilirken bir hata oluştu.'));
       console.error(e);
     }
   };
@@ -141,7 +141,7 @@ export default function MovieDetailScreen() {
       await unrateMedia(traktIdNum, 'movie');
     } catch (e) {
       // Optimistic revert requires knowing the old rating, but for remove we might just fetch
-      notify(t('common:error'), 'Puan silinirken bir hata oluştu.');
+      notify(t('common:error'), t('common:ratingRemoveError', 'Puan silinirken bir hata oluştu.'));
       console.error(e);
     }
   };

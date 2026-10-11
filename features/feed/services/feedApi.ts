@@ -413,6 +413,24 @@ export async function fetchActivityById(
   return activity;
 }
 
+/**
+ * A-4 · Realtime INSERT patlamasını TEK sorguda tamamlar (bkz. utils/realtimeToplayici.ts).
+ * `fetchActivityById` ile aynı görünürlük kilidi (`in_feed=true`); görünmeyen satır listede
+ * olmaz. Sıra garanti değil — store zaten tarihe göre sıralar.
+ */
+export async function fetchActivitiesByIds(ids: string[]): Promise<FeedActivity[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await timeSupabaseCall('supabase.feed_activities.byIds', () =>
+    supabase
+      .from('feed_activities')
+      .select(ACTIVITY_COLUMNS)
+      .in('id', ids)
+      .eq('in_feed', true)
+  );
+  if (error) throw error;
+  return ((data ?? []) as unknown as FeedActivityRow[]).map(mapRow);
+}
+
 const PROFILE_ACTIVITY_LIMIT = 20;
 
 // Profildeki "Aktiviteler" sekmesi (kendi profilim VEYA Public Profile — bkz.

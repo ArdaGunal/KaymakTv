@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -36,6 +37,7 @@ const APK_SIZE = '~87 MB';
 const DESKTOP_BREAKPOINT = 868;
 
 export default function DownloadScreen() {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -46,18 +48,18 @@ export default function DownloadScreen() {
   // GitHub'dan dinamik sürüm notları
   const [releaseNotes, setReleaseNotes] = useState<string>('');
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
-  const [notesError, setNotesError] = useState<string | null>(null);
+  const [notesError, setNotesError] = useState(false);
 
   // GitHub Releases API'sinden beta sürüm notlarını çek
   useEffect(() => {
     fetchBetaReleaseNotes()
       .then((body) => {
         setReleaseNotes(body);
-        setNotesError(null);
+        setNotesError(false);
       })
       .catch((err) => {
         console.error('Sürüm notları çekilemedi:', err);
-        setNotesError('Sürüm notlarına GitHub üzerinden ulaşabilirsiniz.');
+        setNotesError(true);
         setReleaseNotes('');
       })
       .finally(() => setIsLoadingNotes(false));
@@ -95,7 +97,7 @@ export default function DownloadScreen() {
           </View>
           <View>
             <Text style={styles.brandTitle}>KaymakTV</Text>
-            <Text style={styles.brandSub}>Android İndirme Merkezi</Text>
+            <Text style={styles.brandSub}>{t('dlBrandSub', 'Android İndirme Merkezi')}</Text>
           </View>
         </TouchableOpacity>
 
@@ -106,7 +108,7 @@ export default function DownloadScreen() {
             style={styles.webAppLink}
           >
             <Globe size={15} color="#60a5fa" />
-            <Text style={styles.webAppLinkText}>Web Sürümüne Git</Text>
+            <Text style={styles.webAppLinkText}>{t('dlGoWeb', 'Web Sürümüne Git')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -115,7 +117,7 @@ export default function DownloadScreen() {
             style={styles.backLink}
           >
             <ArrowLeft size={16} color="#94a3b8" />
-            <Text style={styles.backLinkText}>Ana Sayfa</Text>
+            <Text style={styles.backLinkText}>{t('dlHome', 'Ana Sayfa')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -129,7 +131,7 @@ export default function DownloadScreen() {
             {/* Sade Kategori Rozeti */}
             <View style={styles.categoryBadge}>
               <Smartphone size={13} color="#60a5fa" />
-              <Text style={styles.categoryBadgeText}>Android APK İndirme</Text>
+              <Text style={styles.categoryBadgeText}>{t('dlBadge', 'Android APK İndirme')}</Text>
             </View>
 
             {/* Uygulama İkonu & Başlık */}
@@ -150,7 +152,7 @@ export default function DownloadScreen() {
                   KaymakTV
                 </Text>
                 <Text style={[styles.appSubtitle, isDesktop && styles.appSubtitleDesktop]}>
-                  Dizi & Film Takibinin En Tatlı Hali
+                  {t('dlTagline', 'Dizi & Film Takibinin En Tatlı Hali')}
                 </Text>
               </View>
             </View>
@@ -172,7 +174,7 @@ export default function DownloadScreen() {
                 </View>
                 <View style={styles.buttonTextContainer}>
                   <Text style={[styles.downloadButtonText, isDesktop && styles.downloadButtonTextDesktop]}>
-                    KaymakTV APK İndir
+                    {t('dlDownloadButton', 'KaymakTV APK İndir')}
                   </Text>
                   <Text style={styles.downloadButtonSubtext}>
                     Android 8.0+ ({APK_SIZE})
@@ -186,7 +188,7 @@ export default function DownloadScreen() {
               <View style={styles.metaCard}>
                 <FileCheck size={15} color="#60a5fa" />
                 <View>
-                  <Text style={styles.metaLabel}>Dosya Boyutu</Text>
+                  <Text style={styles.metaLabel}>{t('dlFileSize', 'Dosya Boyutu')}</Text>
                   <Text style={styles.metaValue}>{APK_SIZE}</Text>
                 </View>
               </View>
@@ -194,7 +196,7 @@ export default function DownloadScreen() {
               <View style={styles.metaCard}>
                 <Cpu size={15} color="#60a5fa" />
                 <View>
-                  <Text style={styles.metaLabel}>Gereksinim</Text>
+                  <Text style={styles.metaLabel}>{t('dlRequirement', 'Gereksinim')}</Text>
                   <Text style={styles.metaValue}>Android 8.0+</Text>
                 </View>
               </View>
@@ -207,7 +209,7 @@ export default function DownloadScreen() {
               >
                 <Globe size={15} color="#60a5fa" />
                 <View style={styles.metaCardTextWrapper}>
-                  <Text style={styles.metaLabel}>Dağıtım Kanalı</Text>
+                  <Text style={styles.metaLabel}>{t('dlChannel', 'Dağıtım Kanalı')}</Text>
                   <View style={styles.metaValueRow}>
                     <Text style={styles.metaValueLink}>GitHub Release</Text>
                     <ExternalLink size={11} color="#60a5fa" />
@@ -221,10 +223,10 @@ export default function DownloadScreen() {
               <View style={styles.desktopTrustBox}>
                 <View style={styles.trustBoxHeader}>
                   <Info size={15} color="#60a5fa" />
-                  <Text style={styles.trustBoxTitle}>Android Yükleme Bilgisi</Text>
+                  <Text style={styles.trustBoxTitle}>{t('dlInstallInfoTitle', 'Android Yükleme Bilgisi')}</Text>
                 </View>
                 <Text style={styles.trustBoxDesc}>
-                  En son güncellemeleri anında test edebilmeniz için uygulamanın güncel Android paketleri doğrudan sunulmaktadır.
+                  {t('dlInstallInfoText', 'En son güncellemeleri anında test edebilmeniz için uygulamanın güncel Android paketleri doğrudan sunulmaktadır.')}
                 </Text>
               </View>
             )}
@@ -237,14 +239,14 @@ export default function DownloadScreen() {
               <View style={styles.changelogHeader}>
                 <Sparkles size={16} color="#60a5fa" />
                 <Text style={styles.changelogTitle}>
-                  Sürüm Notları
+                  {t('dlReleaseNotes', 'Sürüm Notları')}
                 </Text>
               </View>
 
               {isLoadingNotes ? (
-                <Text style={styles.changelogText}>Sürüm notları yükleniyor...</Text>
+                <Text style={styles.changelogText}>{t('dlNotesLoading', 'Sürüm notları yükleniyor...')}</Text>
               ) : notesError ? (
-                <Text style={styles.changelogText}>{notesError}</Text>
+                <Text style={styles.changelogText}>{t('dlNotesError', 'Sürüm notlarına GitHub üzerinden ulaşabilirsiniz.')}</Text>
               ) : (
                 <View style={styles.changelogList}>
                   {releaseNotes
@@ -269,7 +271,7 @@ export default function DownloadScreen() {
               >
                 <View style={styles.guideTitleRow}>
                   <Smartphone size={16} color="#94a3b8" />
-                  <Text style={styles.guideTitle}>Nasıl Kurulur? (3 Kolay Adım)</Text>
+                  <Text style={styles.guideTitle}>{t('dlGuideTitle', 'Nasıl Kurulur? (3 Kolay Adım)')}</Text>
                 </View>
                 {!isDesktop && (
                   isGuideOpen ? (
@@ -287,9 +289,9 @@ export default function DownloadScreen() {
                       <Text style={styles.stepNumberText}>1</Text>
                     </View>
                     <View style={styles.stepTextContainer}>
-                      <Text style={styles.stepHeading}>APK Dosyasını İndirin</Text>
+                      <Text style={styles.stepHeading}>{t('dlStep1Title', 'APK Dosyasını İndirin')}</Text>
                       <Text style={styles.stepDesc}>
-                        Yukarıdaki "APK İndir" butonuna tıklayarak dosyayı cihazınıza indirin.
+                        {t('dlStep1Text', 'Yukarıdaki "APK İndir" butonuna tıklayarak dosyayı cihazınıza indirin.')}
                       </Text>
                     </View>
                   </View>
@@ -299,9 +301,9 @@ export default function DownloadScreen() {
                       <Text style={styles.stepNumberText}>2</Text>
                     </View>
                     <View style={styles.stepTextContainer}>
-                      <Text style={styles.stepHeading}>Yükleme İznini Onaylayın</Text>
+                      <Text style={styles.stepHeading}>{t('dlStep2Title', 'Yükleme İznini Onaylayın')}</Text>
                       <Text style={styles.stepDesc}>
-                        Tarayıcınız "Bilinmeyen kaynaklardan yükleme" uyarısı verirse izin verin.
+                        {t('dlStep2Text', 'Tarayıcınız "Bilinmeyen kaynaklardan yükleme" uyarısı verirse izin verin.')}
                       </Text>
                     </View>
                   </View>
@@ -311,9 +313,9 @@ export default function DownloadScreen() {
                       <Text style={styles.stepNumberText}>3</Text>
                     </View>
                     <View style={styles.stepTextContainer}>
-                      <Text style={styles.stepHeading}>Kurun ve Başlatın</Text>
+                      <Text style={styles.stepHeading}>{t('dlStep3Title', 'Kurun ve Başlatın')}</Text>
                       <Text style={styles.stepDesc}>
-                        İndirme tamamlandığında dosyaya dokunup kurulumu bitirin ve giriş yapın.
+                        {t('dlStep3Text', 'İndirme tamamlandığında dosyaya dokunup kurulumu bitirin ve giriş yapın.')}
                       </Text>
                     </View>
                   </View>
@@ -326,7 +328,7 @@ export default function DownloadScreen() {
 
         {/* Alt Bilgi Footer */}
         <Text style={styles.footerNote}>
-          KaymakTV • Tüm hakları saklıdır.
+          {t('dlFooter', 'KaymakTV • Tüm hakları saklıdır.')}
         </Text>
       </View>
     </View>

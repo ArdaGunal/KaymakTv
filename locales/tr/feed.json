@@ -147,5 +147,7 @@
   "reviewDeleteConfirmTitle": "İncelemeyi Sil",
   "reviewDeleteConfirmMessage": "Bu incelemeyi silmek istediğine emin misin? Bu işlem geri alınamaz.",
   "postDeleteConfirmTitle": "Gönderiyi Sil",
-  "postDeleteConfirmMessage": "Bu gönderiyi silmek istediğine emin misin? Bu işlem geri alınamaz."
+  "postDeleteConfirmMessage": "Bu gönderiyi silmek istediğine emin misin? Bu işlem geri alınamaz.",
+  "commentSubmitError": "Yorum gönderilemedi, tekrar dene.",
+  "postShareError": "Gönderi paylaşılamadı, tekrar dene."
 }

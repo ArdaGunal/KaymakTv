@@ -112,7 +112,8 @@ export function useGoogleSignIn(onCredential: (idToken: string, nonce: string) =
 
     const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
     if (!clientId) {
-      setLoadError('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID tanımlı değil.');
+      console.warn('[GoogleSignIn] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID tanımlı değil.');
+      setLoadError('yapilandirma'); // durum kodu — ekranda t('common:googleLoadError')
       return;
     }
 
@@ -136,7 +137,8 @@ export function useGoogleSignIn(onCredential: (idToken: string, nonce: string) =
         setIsReady(true);
       })
       .catch((error) => {
-        if (!cancelled) setLoadError(error?.message || 'Google Sign-In yüklenemedi.');
+        console.warn('[GoogleSignIn] GIS yüklenemedi:', error);
+        if (!cancelled) setLoadError('yuklenemedi'); // durum kodu — ekranda t('common:googleLoadError')
       });
 
     return () => {

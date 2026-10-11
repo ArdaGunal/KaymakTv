@@ -8,11 +8,12 @@ interface Props {
   onChange: (f: FeedFilter) => void;
 }
 
-const ETIKET: Record<FeedFilter, [string, string]> = {
-  tumu: ['filterAll', 'Tümü'],
-  gonderiler: ['filterPosts', 'Gönderiler'],
-  takip: ['filterFollowing', 'Takip Ettiklerim'],
-  aktiviteler: ['filterActivity', 'Aktiviteler'],
+// Çeviri anahtarları (TR+EN `feed.json`; ham-metin denetimi değişken anahtarı da sınar).
+const ETIKET: Record<FeedFilter, string> = {
+  tumu: 'filterAll',
+  gonderiler: 'filterPosts',
+  takip: 'filterFollowing',
+  aktiviteler: 'filterActivity',
 };
 
 /**
@@ -40,7 +41,7 @@ export default function FeedFilterChips({ value, onChange }: Props) {
                 state.pressed && styles.chipPressed,
               ]}
             >
-              <Text style={[styles.text, secili && styles.textOn]}>{t(ETIKET[f][0], ETIKET[f][1])}</Text>
+              <Text style={[styles.text, secili && styles.textOn]}>{t(ETIKET[f])}</Text>
             </Pressable>
           );
         })}

@@ -66,7 +66,7 @@ export function useComments({
       setHasMore(res.pagination ? res.pagination.page < res.pagination.pageCount : false);
     } catch (err: any) {
       console.error('[useComments] loadComments error:', err);
-      setError('Yorumlar yüklenirken bir hata oluştu.');
+      setError('yukleme'); // durum kodu — metni CommentSheet t() ile gösterir
     } finally {
       setLoading(false);
       isFetchingRef.current = false;

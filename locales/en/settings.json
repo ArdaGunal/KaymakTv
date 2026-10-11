@@ -205,5 +205,15 @@
   "feedbackFeatureBody": "Share a feature you'd like to see or any suggestion.",
   "feedbackFeaturePlaceholder": "E.g. I'd like to be able to sort my watchlist...",
   "reportIssueSendBug": "Send Bug Report",
-  "reportIssueSendFeature": "Send Suggestion"
+  "reportIssueSendFeature": "Send Suggestion",
+  "feedPrivacySaveError": "Couldn't save the setting — activities are still shared with the OLD setting.",
+  "googleAlreadyLinked": "This Google account is already linked to another KaymakTV account.",
+  "traktAlreadyLinked": "This Trakt account is already linked to another Google account.",
+  "profileSaveError": "Couldn't save. Please try again.",
+  "importErrAuth": "Your Trakt session is invalid — sign in to Trakt again to sync.",
+  "importErrTraktRequired": "This requires a linked Trakt account.",
+  "profileOnboardingSubtitleAll": "Choose the username others will see. Keep the suggested one or change it.",
+  "usernameRuleHint": "3–30 characters · English letters, numbers and underscore (_) · no spaces",
+  "usernameReserved": "This username isn't available. Try another one.",
+  "usernameCooldownGeneric": "You can change your username once every 14 days."
 }

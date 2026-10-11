@@ -157,7 +157,7 @@ export default function Login() {
       // deneyebilsin diye kilidi aç.
       exchangedCodeRef.current = null;
 
-      const raw = String(error?.message ?? '');
+      const raw = String(error?.message ?? ''); // ceviri-ok: yalnız sınıflandırma (AUTH_* önekleri), ekrana t() gider
       if (raw.startsWith('AUTH_PROXY_MISSING')) {
         notify(t('common:error'), t('settings:loginProxyMissing'));
       } else if (raw.startsWith('AUTH_NO_TOKEN') || raw.startsWith('AUTH_BAD_RESPONSE')) {

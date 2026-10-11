@@ -139,7 +139,7 @@ export const useDashboardData = (
         season,
         episode: episodeNumber,
         title: episodeTitle,
-        tags: isInactive ? ['ESKİ'] : ['EN SON'],
+        tags: isInactive ? ['ESKİ'] : ['EN SON'], // ceviri-ok: iç etiket kimliği (utils/mediaTagLabel çevirir)
         image: null,
         tmdbId: tmdbId,
         slug: item.show.ids.slug,

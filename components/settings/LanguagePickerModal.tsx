@@ -18,7 +18,7 @@ interface LanguagePickerModalProps {
 // bir meta girişi eklemek isteğe bağlıdır — eksikse kod + 🌐 ile otomatik
 // düşer, liste yine de doğru çalışır.
 const LANGUAGE_META: Record<string, { label: string; flag: string; iso2?: string }> = {
-  tr: { label: 'Türkçe', flag: '🇹🇷', iso2: 'TR' },
+  tr: { label: 'Türkçe', flag: '🇹🇷', iso2: 'TR' }, // ceviri-ok: dil adı kendi dilinde
   en: { label: 'English', flag: '🇬🇧', iso2: 'GB' },
 };
 

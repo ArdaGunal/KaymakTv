@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { X, Send, AlertTriangle } from '../icons';
 import { useTranslation } from 'react-i18next';
+import { incelemeHataMetni, IncelemeHataNedeni } from '../../hooks/useMediaReviews';
 import { MAX_REVIEW_CHARS, MIN_REVIEW_CHARS } from '../../utils/reviewLimits';
 import { confirmAsync } from '../../utils/confirmDialog';
 
@@ -40,7 +41,7 @@ interface WriteReviewSheetProps {
   /** Düzenleme modunda mevcut inceleme metni (bizim DB'mizden). */
   initialBody?: string;
   initialSpoiler?: boolean;
-  onSubmit: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; message: string }>;
+  onSubmit: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }>;
 }
 
 export default function WriteReviewSheet({
@@ -92,7 +93,7 @@ export default function WriteReviewSheet({
     // Kullanıcı ağı düzelip tekrar "Gönder"e basabilir.
     // (Sheet kapanma sıfırlaması bilinçli olarak `visible` AÇILIRKEN çalışıyor,
     // kapanırken değil — böylece burada state'i temizleyen bir yan etki yok.)
-    setErrorMessage(result.message);
+    setErrorMessage(incelemeHataMetni(t, result.neden));
   };
 
   /**

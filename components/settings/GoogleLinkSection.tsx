@@ -5,7 +5,15 @@ import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import { CheckCircle2 } from '../icons';
 import { SettingsSection } from './SettingsSection';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
-import { useGoogleNativeSignIn } from '../../hooks/useGoogleNativeSignIn';
+import { googleGirisHataMetni, useGoogleNativeSignIn } from '../../hooks/useGoogleNativeSignIn';
+import type { TFunction } from 'i18next';
+
+/** Bağlama hatasının arayüz dilindeki metni — Worker `code`'u eşlenir, ham `message` (Türkçe) gösterilmez (M490). */
+function baglamaHataMetni(t: TFunction, error: any): string {
+  if (error?.code === 'google_already_linked') return t('settings:googleAlreadyLinked', 'Bu Google hesabı başka bir KaymakTV hesabına bağlı.');
+  if (error?.code === 'trakt_already_linked') return t('settings:traktAlreadyLinked', 'Bu Trakt hesabı zaten başka bir Google hesabına bağlı.');
+  return t('common:communicationError', 'Bir sorun oluştu.');
+}
 import { useAuth } from '../../context/AuthContext';
 import { linkGoogleToTrakt } from '../../services/api/googleAuth';
 import { logError } from '../../utils/errorLog';
@@ -90,7 +98,7 @@ function GoogleLinkSectionInner({ traktAccessToken }: { traktAccessToken: string
       // AI_RULES §2: sessiz başarısızlık YASAK — kullanıcı butona bastı,
       // ekranda görünür bir sonuç görmek zorunda.
       logError('GoogleLinkSection.link', error);
-      setHata(error?.message || t('common:communicationError', 'Bir sorun oluştu.'));
+      setHata(baglamaHataMetni(t, error));
       setDurum('bos');
     }
   };
@@ -134,7 +142,7 @@ function GoogleLinkSectionInner({ traktAccessToken }: { traktAccessToken: string
         )}
 
         {hata && <Text style={styles.hataText}>{hata}</Text>}
-        {loadError && durum === 'bos' && <Text style={styles.hataText}>{loadError}</Text>}
+        {loadError && durum === 'bos' && <Text style={styles.hataText}>{t('common:googleLoadError', 'Google ile giriş şu an yüklenemedi.')}</Text>}
       </View>
     </SettingsSection>
   );
@@ -155,8 +163,8 @@ function GoogleLinkSectionNative({ traktAccessToken }: { traktAccessToken: strin
       // değil — sessizce başlangıç durumuna dön, kırmızı metin gösterme.
       setDurum('bos');
       if (!result.cancelled) {
-        logError('GoogleLinkSection.native.signIn', new Error(result.message));
-        setHata(result.message);
+        logError('GoogleLinkSection.native.signIn', new Error(`google_native:${result.neden}:${result.kod ?? '-'}`));
+        setHata(googleGirisHataMetni(t, result.neden));
       }
       return;
     }
@@ -169,7 +177,7 @@ function GoogleLinkSectionNative({ traktAccessToken }: { traktAccessToken: strin
       // AI_RULES §2: sessiz başarısızlık YASAK — kullanıcı butona bastı,
       // ekranda görünür bir sonuç görmek zorunda.
       logError('GoogleLinkSection.native.link', error);
-      setHata(error?.message || t('common:communicationError', 'Bir sorun oluştu.'));
+      setHata(baglamaHataMetni(t, error));
       setDurum('bos');
     }
   };

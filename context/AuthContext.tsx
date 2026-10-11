@@ -21,6 +21,7 @@ import {
 } from '../features/feed/services/feedApi';
 import { invalidateMySupabaseUserId, invalidateBlockedUserIds } from '../features/feed/services/userBlocks';
 import { recordPerfMark } from '../utils/perfLog';
+import { getMyProfile } from '../features/feed/services/profile';
 import { supabase } from '../features/feed/services/supabaseClient';
 import { supabaseKimlikKaynaginiAyarla } from '../features/feed/services/supabaseKimlik';
 import { stopWatchedOutbox } from '../services/library/outbox/runtime';
@@ -143,6 +144,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setAuthProvider(providerRaw === 'google' ? 'google' : 'trakt');
         if (usernameRaw) setMyUsername(usernameRaw);
         if (avatarUrlRaw) setMyAvatarUrl(avatarUrlRaw);
+        if (providerRaw === 'google' && (!usernameRaw || !avatarUrlRaw)) yerelProfiliTamamla(token);
       }
       if (guestStatus === 'true') {
         setIsGuest(true);
@@ -198,7 +200,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsGuest(false);
       // `profile` yalnızca create_new'in `status:'created'` dalında dolu
       // gelir (bkz. googleAuth.ts) — yarış durumunda (`'linked'`) verilmez,
-      // önceki bilinen değer (varsa) korunur.
+      // önceki bilinen değer (varsa) korunur; yoksa sunucudan tamamlanır (C37).
+      if (!profile?.username) yerelProfiliTamamla(sessionToken);
       if (profile?.username) {
         await SecureStore.setItemAsync('kaymakMyUsername', profile.username);
         setMyUsername(profile.username);
@@ -218,6 +221,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    * çağrısı başarılı olduktan SONRA çağrılır — yerel kopyayı sunucudaki
    * gerçek değerle senkron tutar. Yalnızca dolu gelen alanlar güncellenir.
    */
+  // C37 (M489): var olan hesaba Google ile girişte ad/fotoğraf yerelde hiç yazılmıyordu →
+  // iyimser gönderi kartında «Kaymak Kullanıcısı», gönderi kutusunda «?». Bir kez sunucudan
+  // okunup yerel kopyaya yazılır. Sunucuda fotoğraf yoksa (null) yerel kopyaya dokunulmaz.
+  const yerelProfiliTamamla = (token: string) => {
+    getMyProfile(token)
+      .then((p) => updateMyProfile({ username: p.username || undefined, ...(p.avatarUrl ? { avatarUrl: p.avatarUrl } : {}) }))
+      .catch((error) => console.warn('[Auth] Profil yerel kopyası tamamlanamadı:', error));
+  };
+
   const updateMyProfile = async (patch: { username?: string; avatarUrl?: string | null }) => {
     try {
       if (patch.username !== undefined) {

@@ -24,9 +24,9 @@ import { useMyProfile } from '../../hooks/useMyProfile';
  * → Satır `screens/EditProfileMobile.tsx`'e taşındı; profil bilgisi profil
  * ekranında düzenleniyor.
  *
- * ➡️ Geriye YALNIZCA kullanıcı adı kaldı ve o Google-only: Trakt'lı hesapta
- * ad Trakt kimliğidir (bkz. `EditProfileModal.tsx` başlığı). Bu yüzden bölüm
- * yeniden sağlayıcı kapısının arkasında.
+ * ➡️ Geriye YALNIZCA kullanıcı adı kaldı. M492 (2026-10-12): K2 kalktı — Trakt'lı
+ * hesap da bizim isim sistemimizi kullanır ve adını değiştirebilir (kullanıcı:
+ * «trakt a bağlı olmadan bizim sistemdeki ismi kullansınlar»). Sağlayıcı kapısı yok.
  *
  * 📌 Not: §C12'den (M331) sonra `verifyTraktCaller` var olan satırın
  * `username`'ine DOKUNMUYOR, yani eski *"bir sonraki girişte sessizce eski
@@ -35,11 +35,11 @@ import { useMyProfile } from '../../hooks/useMyProfile';
  */
 export default function ProfileUsernameSection() {
   const { t } = useTranslation(['settings']);
-  const { isGuest, authProvider } = useAuth();
+  const { isGuest } = useAuth();
   const { profile, setProfile } = useMyProfile();
   const [editModalVisible, setEditModalVisible] = useState(false);
 
-  if (isGuest || authProvider !== 'google' || !profile) return null;
+  if (isGuest || !profile) return null;
 
   return (
     <>

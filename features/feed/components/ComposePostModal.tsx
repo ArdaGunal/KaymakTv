@@ -95,7 +95,8 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
       if (result.ok) {
         resetAndClose();
       } else {
-        setError(result.message);
+        console.warn('[Feed] Gönderi paylaşılamadı:', result.message);
+        setError(t('postShareError', 'Gönderi paylaşılamadı, tekrar dene.'));
       }
     } finally {
       setIsSubmitting(false);

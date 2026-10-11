@@ -120,10 +120,7 @@ export function useFeedPrivacy() {
         console.warn('[Feed] Gizlilik ayarı kaydedilemedi:', error);
         // Sessiz geri alma GERİ BİLDİRİM DEĞİLDİR (AI_RULES §2) — kullanıcı
         // anahtarın kendi kendine geri açıldığını fark etmezse gizlediğini sanır.
-        setSaveError(
-          (error as any)?.response?.data?.message ||
-            'Ayar kaydedilemedi — aktiviteler hâlâ ESKİ ayarla paylaşılıyor.'
-        );
+        setSaveError('kaydedilemedi'); // durum kodu — feed-settings t() ile gösterir
       } finally {
         setSavingKey(null);
       }
@@ -157,10 +154,7 @@ export function useFeedPrivacy() {
         console.warn('[Feed] Gizlilik ayarı kaydedilemedi:', error);
         // Sessiz geri alma GERİ BİLDİRİM DEĞİLDİR (AI_RULES §2) — kullanıcı
         // anahtarın kendi kendine geri açıldığını fark etmezse gizlediğini sanır.
-        setSaveError(
-          (error as any)?.response?.data?.message ||
-            'Ayar kaydedilemedi — aktiviteler hâlâ ESKİ ayarla paylaşılıyor.'
-        );
+        setSaveError('kaydedilemedi'); // durum kodu — feed-settings t() ile gösterir
       } finally {
         setSavingKey(null);
       }

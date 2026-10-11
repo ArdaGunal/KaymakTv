@@ -97,7 +97,7 @@ export function useEpisodeActions({
       return true;
     } catch (e) {
       removeLocalRating(epTraktId, 'episode');
-      notify(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
+      notify(t('common:error'), t('common:episodeRatingSaveError', 'Bölüm puanı kaydedilirken hata oluştu.'));
       console.error(e);
       return false;
     }
@@ -109,7 +109,7 @@ export function useEpisodeActions({
       await unrateEpisodeMedia(epTraktId);
       return true;
     } catch (e) {
-      notify(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
+      notify(t('common:error'), t('common:episodeRatingRemoveError', 'Bölüm puanı silinirken hata oluştu.'));
       console.error(e);
       return false;
     }
@@ -155,7 +155,7 @@ export function useEpisodeActions({
           }
         } catch (e) {
           console.error(e);
-          notify(t('common:error'), 'Bölüm işaretlenirken bir hata oluştu.');
+          notify(t('common:error'), t('common:episodeMarkFailed', 'Bölüm işaretlenirken bir hata oluştu.'));
         } finally {
           setIsCheckLoading(false);
         }

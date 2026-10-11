@@ -7,7 +7,7 @@ import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 
 import { ChevronLeft, Lock } from '../../components/icons';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
-import { useGoogleNativeSignIn } from '../../hooks/useGoogleNativeSignIn';
+import { googleGirisHataMetni, useGoogleNativeSignIn } from '../../hooks/useGoogleNativeSignIn';
 import { createGoogleOnlyAccount } from '../../services/api/googleAuth';
 import { useAuth } from '../../context/AuthContext';
 import { logError } from '../../utils/errorLog';
@@ -72,10 +72,10 @@ function Kabuk({ children }: { children: React.ReactNode }) {
             <Lock size={20} color="#fbbf24" />
           </View>
 
-          <Text style={styles.title}>Google ile Giriş</Text>
+          <Text style={styles.title}>Google ile Giriş</Text>{/* ceviri-ok: geçici test ekranı (Faz T perdesi) — bilerek çevrilmedi, aşağıdaki nota bak */}
           {/* 🔴 UYARI METNİ ÇEVRİLMEDİ — bilerek. Bu ekran son kullanıcıya
               açılmayacak ve i18n anahtarı eklemek, ekran silinince geride
-              ölü çeviri bırakırdı. */}
+              ölü çeviri bırakırdı. ceviri-ok */}
           <Text style={styles.warning}>
             Bu ekran geçicidir ve yalnızca test içindir. Google ile açılan
             hesabın izleme verileri HENÜZ tutulmuyor — Kütüphane ve Takvim boş
@@ -95,6 +95,7 @@ function useHesapOlustur() {
   const router = useRouter();
   const [durum, setDurum] = useState<'bos' | 'calisiyor'>('bos');
   const [hata, setHata] = useState<string | null>(null);
+  const { t } = useTranslation('common');
 
   const olustur = async (idToken: string, nonce?: string) => {
     setHata(null);
@@ -111,7 +112,7 @@ function useHesapOlustur() {
     } catch (error: any) {
       // AI_RULES §2: sessiz başarısızlık YASAK.
       logError('gizliGiris.createGoogleOnly', error);
-      setHata(error?.message || 'Hesap oluşturulamadı.');
+      setHata(t('accountCreateError', 'Hesap oluşturulamadı, tekrar dene.'));
       setDurum('bos');
     }
   };
@@ -123,6 +124,7 @@ function useHesapOlustur() {
 
 function GizliGirisWeb() {
   const { olustur, durum, hata } = useHesapOlustur();
+  const { t } = useTranslation('common');
   const { buttonElementId, loadError } = useGoogleSignIn((idToken, nonce) => {
     void olustur(idToken, nonce);
   });
@@ -138,7 +140,7 @@ function GizliGirisWeb() {
 
       {durum === 'calisiyor' && <Calisiyor />}
       {hata && <Text style={styles.error}>{hata}</Text>}
-      {loadError && durum === 'bos' && <Text style={styles.error}>{loadError}</Text>}
+      {loadError && durum === 'bos' && <Text style={styles.error}>{t('googleLoadError', 'Google ile giriş şu an yüklenemedi.')}</Text>}
     </Kabuk>
   );
 }
@@ -148,6 +150,7 @@ function GizliGirisWeb() {
 function GizliGirisNative() {
   const { olustur, durum, hata } = useHesapOlustur();
   const { signIn } = useGoogleNativeSignIn();
+  const { t } = useTranslation('common');
   const [yerelHata, setYerelHata] = useState<string | null>(null);
 
   const bas = async () => {
@@ -156,8 +159,8 @@ function GizliGirisNative() {
     if (!sonuc.ok) {
       // Kullanıcının kendi iptali HATA değil — kırmızı metin gösterme.
       if (!sonuc.cancelled) {
-        logError('gizliGiris.native.signIn', new Error(sonuc.message));
-        setYerelHata(sonuc.message);
+        logError('gizliGiris.native.signIn', new Error(`google_native:${sonuc.neden}:${sonuc.kod ?? '-'}`));
+        setYerelHata(googleGirisHataMetni(t, sonuc.neden));
       }
       return;
     }
@@ -184,7 +187,7 @@ function Calisiyor() {
   return (
     <View style={styles.row}>
       <ActivityIndicator size="small" color="#94a3b8" />
-      <Text style={styles.info}>Hesabın oluşturuluyor…</Text>
+      <Text style={styles.info}>Hesabın oluşturuluyor…</Text>{/* ceviri-ok: geçici test ekranı (Faz T perdesi) */}
     </View>
   );
 }

@@ -212,7 +212,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
                     <Text style={styles.tagTextBlack}>{t('premiere')}</Text>
                   </View>
                 )}
-                {data.tags.includes('YENİ') && (
+                {data.tags.includes('YENİ') && ( // ceviri-ok: iç etiket kimliği, ekranda mediaTagLabel ile çevrilir
                   <View style={[styles.tag, styles.tagYellow]}>
                     <Text style={styles.tagTextBlack}>{t('new')}</Text>
                   </View>

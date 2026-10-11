@@ -40,7 +40,7 @@ const DESKTOP_BREAKPOINT = 768;
  */
 export default function EditProfileMobile() {
   const router = useRouter();
-  const { isGuest, authProvider } = useAuth();
+  const { isGuest } = useAuth();
   const { t } = useTranslation(['media', 'common']);
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -178,7 +178,8 @@ export default function EditProfileMobile() {
                   — Ayarlar'daki "Kullanıcı Adı" satırı (bkz.
                   `components/settings/ProfileUsernameSection.tsx`, Madde
                   227) — burada YENİDEN İNŞA ETMEK yerine oraya yönlendiriyoruz. */}
-              {authProvider === 'google' && (
+              {/* M492: K2 kalktı — ad değiştirme yolu Trakt'lı hesaba da açık. */}
+              {(
                 <>
                   <View style={styles.infoBox}>
                     <Info size={16} color="#60a5fa" />

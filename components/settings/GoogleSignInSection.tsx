@@ -163,7 +163,9 @@ export function GoogleSignInSection({
         </View>
       )}
 
-      {isWeb && !awaitingTraktLink && loadError && <Text style={styles.errorText}>{loadError}</Text>}
+      {isWeb && !awaitingTraktLink && loadError && (
+        <Text style={styles.errorText}>{t('common:googleLoadError', 'Google ile giriş şu an yüklenemedi.')}</Text>
+      )}
 
       {bridgeCard}
     </View>

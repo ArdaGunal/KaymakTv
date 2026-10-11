@@ -102,7 +102,7 @@ export default function SettingsScreen() {
   // (`/settings`) işaret ettiği için giriş akışı da TEK ekranda yaşamalı;
 
 
-  const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English';
+  const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English'; // ceviri-ok: dil adları kendi dilinde yazılır
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

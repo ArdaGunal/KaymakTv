@@ -68,7 +68,7 @@ export function useShowDetailHandlers({
       await rateMedia(traktIdNum, 'show', rating, medya);
     } catch (e) {
       removeLocalRating(traktIdNum, 'show');
-      notify(t('common:error'), 'Puan kaydedilirken bir hata oluştu.');
+      notify(t('common:error'), t('common:ratingSaveError', 'Puan kaydedilirken bir hata oluştu.'));
       console.error(e);
     }
   }, [isGuest, traktIdNum, setLocalRating, removeLocalRating, rateMedia, medya, t]);
@@ -84,7 +84,7 @@ export function useShowDetailHandlers({
       return true;
     } catch (e) {
       removeLocalRating(episodeTraktId, 'episode');
-      notify(t('common:error'), 'Bölüm puanı kaydedilirken hata oluştu.');
+      notify(t('common:error'), t('common:episodeRatingSaveError', 'Bölüm puanı kaydedilirken hata oluştu.'));
       console.error(e);
       return false;
     }
@@ -100,7 +100,7 @@ export function useShowDetailHandlers({
       await unrateEpisodeMedia(episodeTraktId);
       return true;
     } catch (e) {
-      notify(t('common:error'), 'Bölüm puanı silinirken hata oluştu.');
+      notify(t('common:error'), t('common:episodeRatingRemoveError', 'Bölüm puanı silinirken hata oluştu.'));
       console.error(e);
       return false;
     }
@@ -115,7 +115,7 @@ export function useShowDetailHandlers({
       removeLocalRating(traktIdNum, 'show');
       await unrateMedia(traktIdNum, 'show');
     } catch (e) {
-      notify(t('common:error'), 'Puan silinirken bir hata oluştu.');
+      notify(t('common:error'), t('common:ratingRemoveError', 'Puan silinirken bir hata oluştu.'));
       console.error(e);
     }
   }, [isGuest, traktIdNum, removeLocalRating, unrateMedia, t]);
