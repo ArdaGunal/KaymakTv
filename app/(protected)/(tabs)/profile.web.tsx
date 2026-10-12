@@ -13,6 +13,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useProfileLists } from '../../../hooks/useProfileLists';
 import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
+import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
 import ProfileMobile from '../../../screens/ProfileMobile';
 import ScreenHeader from '../../../components/ScreenHeader';
 import WebCarousel from '../../../components/web/WebCarousel';
@@ -48,10 +49,12 @@ function DesktopProfileHeader({
   profile,
   followersCount,
   followingCount,
+  kaymakNo,
 }: {
   profile: any;
   followersCount: number;
   followingCount: number;
+  kaymakNo: number | null;
 }) {
   const { t } = useTranslation('media');
   const router = useRouter();
@@ -71,6 +74,7 @@ function DesktopProfileHeader({
         <Text style={desktopHeaderStyles.handle} numberOfLines={1}>
           @{profile.username}
         </Text>
+        <KaymakNoEtiketi no={kaymakNo} />
         {!!profile.about && (
           <Text style={desktopHeaderStyles.bio} numberOfLines={2}>
             {profile.about}
@@ -155,7 +159,7 @@ export default function ProfileScreenWeb() {
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
   const { ozelListeler } = useKaymakYetenekleri();
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   // Profili Düzenle ekranından dönüldüğünde güncel veriyi çeker — mobil
@@ -233,6 +237,7 @@ export default function ProfileScreenWeb() {
               profile={profile}
               followersCount={followersCount}
               followingCount={followingCount}
+              kaymakNo={kaymakNo}
             />
           )}
 

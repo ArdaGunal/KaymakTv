@@ -12,6 +12,8 @@ import { ConnectionState } from '../../hooks/useFollowState';
  * çizilememesi demekti. Kendi profilim hâlâ Trakt nesnesi veriyor — `Pick`
  * yapısal olarak uyumlu, o çağrı değişmedi.
  */
+
+import KaymakNoEtiketi from './KaymakNoEtiketi';
 export type ProfilKimligi = Pick<TraktUserProfile, 'username' | 'name' | 'about' | 'images'>;
 
 interface ProfileHeaderProps {
@@ -35,6 +37,8 @@ interface ProfileHeaderProps {
   /** Verilirse açıklamanın altında "bildir" bağlantısı çıkar (T4 · `043`). Çağıran
    *  yalnızca BİZİM açıklamamız ve BAŞKASININ profili için verir. */
   onReportBio?: () => void;
+  /** Kimlik birliği Faz 2 · `066` — `#48291735`; yoksa çizilmez. */
+  kaymakNo?: number | null;
 }
 
 export default function ProfileHeader({
@@ -49,6 +53,7 @@ export default function ProfileHeader({
   onPressFollowing,
   onPressAction,
   onReportBio,
+  kaymakNo,
 }: ProfileHeaderProps) {
   const { t } = useTranslation('media');
   const router = useRouter();
@@ -125,6 +130,7 @@ export default function ProfileHeader({
         <Text style={styles.handle} numberOfLines={1}>
           @{profile.username}
         </Text>
+        <KaymakNoEtiketi no={kaymakNo} />
         {!!profile.about && (
           <Text style={styles.bio} numberOfLines={3}>
             {profile.about}

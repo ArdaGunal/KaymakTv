@@ -131,6 +131,7 @@ export default function PublicProfileMobile() {
   const profilBasligi = profile ? (
     <ProfileHeader
       profile={profile}
+      kaymakNo={kaymakProfil?.profile.kaymakNo}
       followersCount={followersCount}
       followingCount={followingCount}
       isOwnProfile={false}

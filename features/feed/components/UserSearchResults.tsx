@@ -5,6 +5,7 @@ import { Lock } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { KaymakUserSonucu, AramaHatasi } from '../../../services/api/kaymakSocial';
+import { kaymakNoMetni } from '../../../utils/kaymakNo';
 
 /**
  * Arama sonuç listesi — Faz T · T3.5.
@@ -87,9 +88,9 @@ export default function UserSearchResults({ results, error, onSelect }: Props) {
               </View>
               {/* §C24 — görünen ad BENZERSİZ DEĞİL; kimliği @username ayırt
                   eder, bu yüzden ad varken de altında HER ZAMAN duruyor. */}
-              {!!kisi.displayName && (
+              {(!!kisi.displayName || !!kaymakNoMetni(kisi.kaymakNo)) && (
                 <Text style={styles.kullaniciAdi} numberOfLines={1}>
-                  @{kisi.username}
+                  {[kisi.displayName ? `@${kisi.username}` : null, kaymakNoMetni(kisi.kaymakNo)].filter(Boolean).join(' · ')}
                 </Text>
               )}
             </View>

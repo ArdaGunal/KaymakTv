@@ -56,6 +56,8 @@ export interface KaymakUserSonucu {
    * BAŞKA biri de olabilir. `null` = Trakt verisi yok (Google-only).
    */
   traktSlug: string | null;
+  /** Kimlik birliği Faz 2 · `066` — değişmez hesap numarası (`#48291735`). Opsiyonel: eski Worker döndürmez. */
+  kaymakNo?: number | null;
 }
 
 /** Çağıranın ayırt etmesi gereken hata sınıfları. */

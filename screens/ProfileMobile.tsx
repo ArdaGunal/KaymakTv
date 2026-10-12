@@ -75,7 +75,7 @@ export default function ProfileScreen() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   // Pull-to-refresh: bu ekran İKİ ayrı kaynaktan okuyor — Trakt profili
@@ -155,6 +155,7 @@ export default function ProfileScreen() {
         ) : (
           <ProfileHeader 
             profile={profile} 
+            kaymakNo={kaymakNo}
             followersCount={followersCount} 
             followingCount={followingCount} 
             onPressFollowers={() => router.push({ pathname: '/user/me/network', params: { type: 'followers' } })}

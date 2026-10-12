@@ -27,6 +27,7 @@ import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 import MediaPoster from '../../../components/MediaPoster';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import { styles } from '../../../features/publicProfile/publicProfile.web.styles';
+import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
 
 // Dar ekran (mobil genişlikte web tarayıcı): ProfileMobile ile aynı desen
 // (bkz. profile.web.tsx'in `!isDesktop` dalı) — screens/PublicProfileMobile.tsx
@@ -146,6 +147,7 @@ export default function PublicProfileScreenWeb() {
                 <Text style={styles.handle} numberOfLines={1}>
                   @{profile.username}
                 </Text>
+                <KaymakNoEtiketi no={kaymakProfil?.profile.kaymakNo} />
 
                 {!!profile.about && (
                   <Text style={styles.bio} numberOfLines={3}>

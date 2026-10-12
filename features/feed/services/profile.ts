@@ -35,6 +35,8 @@ export interface MyProfile {
   adOnaylandi: boolean;
   /** §C29 — hesap gizliliği; iki hesap türünde de BİZİM ayarımız (Trakt değil). */
   isPrivate: boolean;
+  /** Kimlik birliği Faz 2 · `066` — değişmez hesap numarası; `null` = yok (066 öncesi). */
+  kaymakNo: number | null;
 }
 
 const USERNAME_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
@@ -139,6 +141,7 @@ async function getMyProfileTekil(traktAccessToken: string): Promise<MyProfile> {
     displayName: response.data.displayName ?? null,
     adOnaylandi: response.data.adOnaylandi !== false,
     isPrivate: !!response.data.isPrivate,
+    kaymakNo: typeof response.data.kaymakNo === 'number' ? response.data.kaymakNo : null,
   };
 }
 

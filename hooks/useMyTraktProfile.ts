@@ -50,6 +50,8 @@ export function useMyTraktProfile() {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  // Kimlik birliği Faz 2 · `066` — bizim sunucudan; Trakt'ta yok.
+  const [kaymakNo, setKaymakNo] = useState<number | null>(null);
 
   // `refetch` olarak da dışa aktarılıyor — Profili Düzenle ekranından
   // `router.back()` ile dönüldüğünde profil ekranının `useFocusEffect` ile
@@ -97,6 +99,7 @@ export function useMyTraktProfile() {
           avatarUrl = remote.avatarUrl;
           bio = remote.bio;
           displayName = remote.displayName;
+          setKaymakNo(remote.kaymakNo);
         } catch (error) {
           console.warn('[Profile] Kaymak profili okunamadı, yerel kopyaya düşülüyor:', error);
         }
@@ -147,6 +150,7 @@ export function useMyTraktProfile() {
           sayilariTazele(),
         ]);
         if (isMounted && !isMounted()) return;
+        if (kaymakProfil) setKaymakNo(kaymakProfil.kaymakNo);
         // ══════════════════════════════════════════════════════════════
         // 🪪 §C24 · AD VE FOTOĞRAF DA BİZDEN (2026-09-18)
         // ══════════════════════════════════════════════════════════════
@@ -189,5 +193,5 @@ export function useMyTraktProfile() {
     };
   }, [fetchProfile]);
 
-  return { profile, followersCount, followingCount, isLoading, refetch: fetchProfile };
+  return { profile, followersCount, followingCount, isLoading, kaymakNo, refetch: fetchProfile };
 }

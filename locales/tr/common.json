@@ -202,6 +202,8 @@
   "googleLoadError": "Google ile giriş şu an yüklenemedi.",
   "accountCreateError": "Hesap oluşturulamadı, tekrar dene.",
   "googleSigningIn": "Google ile giriş yapılıyor…",
+  "kaymakNoKopyala": "{{no}} numarasını kopyala",
+  "kaymakNoKopyalandi": "Kopyalandı",
   "dlBrandSub": "Android İndirme Merkezi",
   "dlGoWeb": "Web Sürümüne Git",
   "dlHome": "Ana Sayfa",
