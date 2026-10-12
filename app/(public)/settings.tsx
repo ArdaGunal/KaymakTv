@@ -6,6 +6,7 @@ import { useTranslation, Trans } from 'react-i18next';
 import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
 import { exchangeAuthCode } from '../../services/traktApi';
+import { oauthStateKaydet, oauthStateTuket } from '../../services/oauthState';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
@@ -35,7 +36,7 @@ export default function Login() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
-  const { code: routerCode, error: routerError } = useLocalSearchParams<{ code?: string; error?: string }>();
+  const { code: routerCode, state: routerState, error: routerError } = useLocalSearchParams<{ code?: string; state?: string; error?: string }>();
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 🚫 GOOGLE GİRİŞİ BU EKRANDAN KALDIRILDI (2026-08-23, ürün kararı)
@@ -79,12 +80,14 @@ export default function Login() {
   // Tarayıcıdan dönüş yanıtını (Authorization Code) yakala
   useEffect(() => {
     // 1. AuthSession Response üzerinden gelen kod
+    // (expo-auth-session `state`'i bu yolda KENDİSİ doğruluyor; saklananı temizle.)
     if (response?.type === 'success' && response.params.code) {
       handleTokenExchange(response.params.code);
+      oauthStateTuket(null);
     } 
     // 2. Expo Router (Deep Link) üzerinden gelen kod (Mobil APK için AuthSession bazen yakalayamaz)
     else if (routerCode) {
-      handleTokenExchange(routerCode);
+      dogrulanmisKod(routerCode, routerState);
     }
     
     // Hataları yakala
@@ -101,7 +104,7 @@ export default function Login() {
       const oauthError = urlParams.get('error');
       if (code) {
         window.history.replaceState({}, document.title, window.location.pathname);
-        handleTokenExchange(code);
+        dogrulanmisKod(code, urlParams.get('state'));
       } else if (oauthError) {
         // Trakt reddedildiğinde `?error=access_denied` ile döner — eskiden
         // okunmuyordu, kullanıcı sessizce giriş ekranında kalıyordu.
@@ -111,7 +114,9 @@ export default function Login() {
     }
   }, []);
 
-  const handleTraktLogin = () => {
+  const handleTraktLogin = async () => {
+    // S7: dönüşte karşılaştırmak için kütüphanenin ürettiği rastgele `state`.
+    await oauthStateKaydet(request?.state);
     if (Platform.OS === 'web' && request?.url) {
       // Pop-up açmak yerine sekmenin tamamını Trakt'a yönlendir (COOP bypass)
       window.location.href = request.url;
@@ -122,6 +127,22 @@ export default function Login() {
   };
 
   // Kodu alıp Trakt API üzerinden Access Token'a çevir
+  // S7 (M499): kütüphanenin DOĞRULAMADIĞI dönüş yollarında (derin bağlantı, web
+  // URL'si) `state` şart — yoksa hazırlanmış bir `?code=` bağlantısı kurbanı
+  // başkasının Trakt hesabına sokabilirdi (services/oauthState.ts).
+  const dogrulanmisKod = async (code: string, gelenState: string | null | undefined) => {
+    if (exchangedCodeRef.current === code) return;
+    const gecerli = await oauthStateTuket(gelenState);
+    if (!gecerli) {
+      // Aynı kod AuthSession yolundan zaten değişildiyse sessiz geç (iki yakalayıcı yarışı).
+      if (exchangedCodeRef.current === code) return;
+      console.warn('[Trakt OAuth] state uyuşmadı, kod değişilmedi (S7).');
+      notify(t('common:error'), t('loginCanceled'));
+      return;
+    }
+    handleTokenExchange(code);
+  };
+
   const handleTokenExchange = async (code: string) => {
     // Aynı kod ikinci kez değişilmeye çalışılmasın (bkz. exchangedCodeRef).
     if (exchangedCodeRef.current === code) return;

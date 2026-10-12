@@ -97,6 +97,7 @@ const TAKIMLAR = [
   { ad: 'ara-verilenler', grup: 'arayuz', dosya: 'arayuz/ara-verilenler.test.mjs', aciklama: '2.6.5 madde 7: yeni cikan bolumu olan dizi Ara Verilenler\'e dusmez' },
   { ad: 'app-links', grup: 'arayuz', dosya: 'arayuz/app-links.test.mjs', aciklama: '2.6.5 madde 6: assetlinks.json + intentFilters paylasim yollarini kapsar' },
   { ad: 'oyuncu-penceresi', grup: 'arayuz', dosya: 'arayuz/oyuncu-penceresi.test.mjs', aciklama: '2.6.5 madde 9: oyuncu bilgisi uygulama ici pencere (TMDB, atif, geri tusu)' },
+  { ad: 'oauth-state', grup: 'arayuz', dosya: 'arayuz/oauth-state.test.mjs', aciklama: 'S7 (M499): Trakt OAuth donusunde state dogrulamasi, tek kullanimlik' },
   { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492: isim ekrani (her yeni hesap, Atla yok, K2 kalkti) + istatistik bolum bazli sure' },
   { ad: 'onay-kutusu', grup: 'arayuz', dosya: 'arayuz/onay-kutusu.test.mjs', aciklama: 'GORSEL-01: onay/bilgi kutulari koyu ConfirmHost, dogrudan Alert.alert yasak, kuyruk' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
