@@ -17,6 +17,7 @@ const ekran = oku('app/(public)/settings.tsx');
 const trakt = ekran.indexOf("t('loginTrakt')"), google = ekran.indexOf('<GoogleGirisDugmesi'), veya = ekran.indexOf('<OrDivider');
 T.ok('Google dugmesi Trakt dugmesinin ALTINDA, VEYA ayracinin USTUNDE', trakt > -1 && google > trakt && veya > google);
 T.ok('Kullanim kosullari kapisi Google icin de gecerli', /<GoogleGirisDugmesi etkin=\{isChecked/.test(ekran));
+T.ok('M502 Faz 0: dugme KAPALI (veri bolunmesi, kimlik plani Faz 3e kadar)', /const GOOGLE_GIRIS_ACIK = false;/.test(ekran) && /\{GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi/.test(ekran));
 
 T.H('Dugme + mantik');
 const dugme = oku('components/auth/GoogleGirisDugmesi.tsx');

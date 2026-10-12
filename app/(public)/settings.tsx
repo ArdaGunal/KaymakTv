@@ -11,6 +11,9 @@ import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
+
+// M502 Faz 0 — kimlik birliği planı Faz 3'e kadar kapalı (bkz. aşağıdaki not).
+const GOOGLE_GIRIS_ACIK = false;
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
@@ -272,9 +275,11 @@ export default function Login() {
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
 
-            {/* M501 · Google girişi (BACKLOG §G1 perdesi kalktı, kullanıcı 2026-10-12).
-                Aynı kullanım koşulları kapısı; hesap yoksa açar, varsa giriş yapar. */}
-            <GoogleGirisDugmesi etkin={isChecked && !isGenerating} />
+            {/* M501 · Google girişi. 🔴 M502 FAZ 0 (kullanıcı, 2026-10-12): KAPALI —
+                düğme `create_new`'i doğrudan çağırıyor → Trakt'lı kullanıcı Google'a
+                basınca İKİNCİ, boş hesap açılıyordu (veri bölünmesi). Kimlik planı
+                Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır. */}
+            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} />}
 
             {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür. */}
             <>
