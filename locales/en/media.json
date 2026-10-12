@@ -299,6 +299,7 @@
   "unitDay": "d",
   "unitHour": "h",
   "unitMonth": "mo",
+  "unitMinute": "min",
   "unknown": "Unknown",
   "unnamed": "Unnamed",
   "unnamedMovie": "Unnamed Movie",

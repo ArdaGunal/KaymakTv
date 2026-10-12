@@ -10,6 +10,7 @@ import { oauthStateKaydet, oauthStateTuket } from '../../services/oauthState';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
+import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
@@ -270,6 +271,10 @@ export default function Login() {
             </>
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
+
+            {/* M501 · Google girişi (BACKLOG §G1 perdesi kalktı, kullanıcı 2026-10-12).
+                Aynı kullanım koşulları kapısı; hesap yoksa açar, varsa giriş yapar. */}
+            <GoogleGirisDugmesi etkin={isChecked && !isGenerating} />
 
             {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür. */}
             <>

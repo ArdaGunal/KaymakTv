@@ -201,6 +201,7 @@
   "googlePlayServicesMissing": "Google Play Hizmetleri bulunamadı veya güncel değil.",
   "googleLoadError": "Google ile giriş şu an yüklenemedi.",
   "accountCreateError": "Hesap oluşturulamadı, tekrar dene.",
+  "googleSigningIn": "Google ile giriş yapılıyor…",
   "dlBrandSub": "Android İndirme Merkezi",
   "dlGoWeb": "Web Sürümüne Git",
   "dlHome": "Ana Sayfa",

@@ -25,6 +25,7 @@ const StatsSummaryRowWide = ({ summary, activeTab }: StatsSummaryRowWideProps) =
     month: t('unitMonth', 'Ay'),
     day: t('unitDay', 'Gün'),
     hour: t('unitHour', 'Saat'),
+    minute: t('unitMinute', 'Dk'),
   });
 
   const isShows = activeTab === 'shows';

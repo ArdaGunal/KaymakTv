@@ -201,6 +201,7 @@
   "googlePlayServicesMissing": "Google Play Services is missing or out of date.",
   "googleLoadError": "Google sign-in couldn't be loaded right now.",
   "accountCreateError": "Couldn't create the account. Please try again.",
+  "googleSigningIn": "Signing in with Google…",
   "dlBrandSub": "Android Download Center",
   "dlGoWeb": "Go to Web Version",
   "dlHome": "Home",

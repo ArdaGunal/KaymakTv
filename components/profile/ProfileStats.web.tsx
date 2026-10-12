@@ -41,6 +41,7 @@ const ProfileStatsWeb = () => {
       month: t('unitMonth', 'Ay'),
       day: t('unitDay', 'Gün'),
       hour: t('unitHour', 'Saat'),
+      minute: t('unitMinute', 'Dk'),
     });
   }, [userStats, t]);
 
@@ -50,6 +51,7 @@ const ProfileStatsWeb = () => {
       month: t('unitMonth', 'Ay'),
       day: t('unitDay', 'Gün'),
       hour: t('unitHour', 'Saat'),
+      minute: t('unitMinute', 'Dk'),
     });
   }, [userStats, t]);
 

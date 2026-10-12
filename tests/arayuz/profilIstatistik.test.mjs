@@ -14,6 +14,7 @@ import yardimci from '../yardimci.js';
 import { yerelIstatistik, gosterilecekIstatistik } from '../../utils/yerelIstatistik.ts';
 import { getProgressBarColor, PROGRESS_BAR_COLOR } from '../../utils/progressBarColor.ts';
 import { yanitiSekillendir } from '../../services/library/kaymakSekil.ts';
+import { formatWatchDuration } from '../../utils/watchTimeHelper.ts';
 
 const { baslat } = yardimci;
 const T = baslat('ARAYUZ PROFIL ISTATISTIGI (C17)', { kokOneki: 'arayuz-c17-' });
@@ -192,5 +193,14 @@ T.ok('🔴 047 ONCESI yanit (genres alani HIC yok) cokme YAPMAZ',
   eS.watchedShows[0].show.genres === undefined && eS.watchedShows[0].show.runtime === 30);
 T.ok('sure hesabi tur eksikliginden ETKILENMEZ',
   yerelIstatistik(eS.watchedShows, [], eS.showProgressMap).episodes.minutes === 60);
+
+T.H('Sure bicimi: dakika (2.6.5 madde 1 cilasi)');
+const E = { month: 'Ay', day: 'Gun', hour: 'Saat', minute: 'Dk' };
+T.ok('199 dk film toplami -> 3 Saat, 19 Dk (eskiden 3 Saat)', formatWatchDuration(199, E) === '3 Saat, 19 Dk');
+T.ok('Bir saatten az -> yalniz dakika', formatWatchDuration(45, E) === '45 Dk');
+T.ok('Tam saat -> dakika eklenmez', formatWatchDuration(180, E) === '3 Saat');
+T.ok('Gun varken dakika gurultu yapmaz (2 birim kurali)', formatWatchDuration(1 * 1440 + 4 * 60 + 7, E) === '1 Gun, 4 Saat');
+T.ok('minute etiketi verilmezse eski davranis', formatWatchDuration(199, { month: 'Ay', day: 'Gun', hour: 'Saat' }) === '3 Saat');
+T.ok('Sifir -> 0 Saat (degismedi)', formatWatchDuration(0, E) === '0 Saat');
 
 T.bitir();
