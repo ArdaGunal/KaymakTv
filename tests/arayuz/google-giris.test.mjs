@@ -25,10 +25,19 @@ const kanca = oku('hooks/useGoogleHesapGiris.ts');
 T.ok('Web GIS konteyneri kosulsuz (Madde 231), onay yokken dokunulmaz', /nativeID=\{buttonElementId\}/.test(dugme) && /pointerEvents=\{etkin && durum === 'bos'/.test(dugme));
 T.ok('Native dugme onay yokken pasif', /disabled=\{!etkin\}/.test(dugme));
 T.ok('Kullanicinin kendi iptali hata sayilmaz', /if \(!sonuc\.cancelled\)/.test(dugme));
-T.ok('Tek uc: create_new (hesap varsa sunucu oturum verir)', /createGoogleOnlyAccount\(idToken/.test(kanca) && /saveGoogleSession/.test(kanca));
-T.ok('Hata sessiz yutulmaz', /logError\('googleGiris\.createGoogleOnly'/.test(kanca));
+T.ok('Faz 3: ONCE check, sonra (yalniz bagli degilse) create_new', kanca.indexOf('checkGoogleAccount(idToken') > -1 && kanca.indexOf('checkGoogleAccount(idToken') < kanca.indexOf('createGoogleOnlyAccount(idToken'));
+T.ok('Faz 3: trakt_ile_gir hata kodu da yonlendirmeye duser', /error\?\.code === 'trakt_ile_gir'/.test(kanca));
+T.ok('Faz 3: Trakt ile Gir kutusu + giris ekranindan handleTraktLogin', dugme.includes('<TraktIleGirKutusu') && /onTraktIleGir=\{handleTraktLogin\}/.test(ekran));
+T.ok('Hata sessiz yutulmaz', /logError\('googleGiris\.girisYap'/.test(kanca));
+
+T.H('Faz 3 saf karar (D2/D4)');
+const { googleGirisAdimi } = (await import('../ts-test-loader.mjs')).tsLoader(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'))('utils/googleGirisKarari.ts');
+T.ok('Bagli degil -> yeni (soru yok)', googleGirisAdimi({ status: 'unlinked' }) === 'yeni');
+T.ok('Google-only (belge var) -> oturum', googleGirisAdimi({ status: 'linked', traktLinked: false, sessionToken: 'x' }) === 'oturum');
+T.ok("Trakt'li -> trakt_ile_gir", googleGirisAdimi({ status: 'linked', traktLinked: true }) === 'trakt_ile_gir');
+T.ok('Belge yoksa guvenli taraf -> trakt_ile_gir', googleGirisAdimi({ status: 'linked', traktLinked: false }) === 'trakt_ile_gir');
 
 T.H('Ceviri');
 const tr = JSON.parse(oku('locales/tr/common.json')), en = JSON.parse(oku('locales/en/common.json'));
-T.ok('googleSigningIn TR + EN', !!tr.googleSigningIn && !!en.googleSigningIn);
+T.ok('googleSigningIn + googleTraktIleGir TR + EN', ['googleSigningIn', 'googleTraktIleGir'].every((k) => !!tr[k] && !!en[k]));
 T.bitir();

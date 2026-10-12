@@ -105,7 +105,9 @@ export const checkGoogleAccount = async (googleIdToken: string, nonce: string): 
 export const createGoogleOnlyAccount = async (googleIdToken: string, nonce: string): Promise<GoogleCreateNewResult> => {
   const data = await postAuthGoogle({ action: 'create_new', googleIdToken, nonce });
   if (!data?.success) {
-    throw new Error(data?.message || 'Hesap oluşturulamadı.');
+    // Kimlik Faz 3 (M509): `code` taşınır — `trakt_ile_gir` = bu Google hesabı Trakt'lı bir
+    // hesaba bağlı, Google ile oturum verilmez (D2).
+    throw Object.assign(new Error(data?.message || 'Hesap oluşturulamadı.'), { code: data?.code as string | undefined });
   }
   return {
     status: data.status,

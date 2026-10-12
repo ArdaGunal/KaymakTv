@@ -1,44 +1,71 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { createGoogleOnlyAccount } from '../services/api/googleAuth';
+import { checkGoogleAccount, createGoogleOnlyAccount } from '../services/api/googleAuth';
 import { useAuth } from '../context/AuthContext';
 import { logError } from '../utils/errorLog';
+import { googleGirisAdimi } from '../utils/googleGirisKarari';
+
+export type GoogleGirisDurumu = 'bos' | 'calisiyor' | 'trakt_ile_gir';
 
 /**
- * Google ile giriş — giriş ekranındaki düğmenin mantığı (M501). Eskiden 7
- * dokunuşla açılan gizli ekrandaydı (BACKLOG §G1); kullanıcı 2026-10-12'de
- * perdeyi kaldırdı. Akış AYNEN o ekranınki:
- * `create_new` hesap YOKSA açar, VARSA (google_sub çakışması) mevcut hesaba
- * oturum verir — yani tek düğme hem kayıt hem giriş. Yeni hesap ilk girişte
- * isim ekranını görür (M492, `useAdOnayKapisi`).
+ * Google ile giriş — giriş ekranındaki düğmenin mantığı.
+ *
+ * Kimlik birliği Faz 3 (M509, `docs/design/KIMLIK_BIRLIGI_PLANI.md`): ÖNCE `check`.
+ *   • Google-only hesap → doğrudan oturum.
+ *   • Trakt'lı hesaba bağlı → OTURUM YOK, `trakt_ile_gir` (D2: «Trakt hesabınız var onunla giriş
+ *     yapın… trakt ile gir butonu çıksın»). Worker da bu satıra Google oturumu vermiyor.
+ *   • Bağlı değil → soru sormadan yeni hesap (D4); yeni hesap ilk girişte isim ekranını görür.
+ * ⚠️ M501'de düğme doğrudan `create_new` çağırıyordu → Trakt'lı kişi Google'a basınca ikinci,
+ * boş hesap açılıyordu (M502'de kapatıldı).
  */
 export function useGoogleHesapGiris() {
   const { saveGoogleSession } = useAuth();
   const router = useRouter();
   const { t } = useTranslation('common');
-  const [durum, setDurum] = useState<'bos' | 'calisiyor'>('bos');
+  const [durum, setDurum] = useState<GoogleGirisDurumu>('bos');
   const [hata, setHata] = useState<string | null>(null);
+
+  const oturumAc = async (sessionToken: string, profil?: { username?: string; avatarUrl?: string | null }) => {
+    await saveGoogleSession(sessionToken, profil);
+    router.replace('/(protected)/(tabs)/explore');
+  };
 
   const girisYap = async (idToken: string, nonce?: string) => {
     setHata(null);
     setDurum('calisiyor');
     try {
-      // Native nonce ÜRETEMİYOR (`useGoogleNativeSignIn.ts` başlığı); Worker o
-      // durumda replay kontrolünü atlayıp imza + süre doğruluyor.
+      // Native nonce ÜRETEMİYOR (`useGoogleNativeSignIn.ts`); Worker o durumda yalnız imza + süre
+      // doğrular. Aynı belge `check` + `create_new` için kullanılabilir (sunucuda tek kullanım yok).
+      const kontrol = await checkGoogleAccount(idToken, nonce ?? '');
+      const adim = googleGirisAdimi(kontrol);
+      if (adim === 'trakt_ile_gir') {
+        setDurum('trakt_ile_gir');
+        return;
+      }
+      if (adim === 'oturum' && kontrol.status === 'linked') {
+        await oturumAc(kontrol.sessionToken);
+        return;
+      }
       const sonuc = await createGoogleOnlyAccount(idToken, nonce ?? '');
-      await saveGoogleSession(sonuc.sessionToken, {
-        username: sonuc.username,
-        avatarUrl: sonuc.avatarUrl,
-      });
-      router.replace('/(protected)/(tabs)/explore');
+      await oturumAc(sonuc.sessionToken, { username: sonuc.username, avatarUrl: sonuc.avatarUrl });
     } catch (error: any) {
+      if (error?.code === 'trakt_ile_gir') {
+        setDurum('trakt_ile_gir');
+        return;
+      }
       // AI_RULES §2: sessiz başarısızlık YASAK.
-      logError('googleGiris.createGoogleOnly', error);
+      logError('googleGiris.girisYap', error);
       setHata(t('accountCreateError', 'Hesap oluşturulamadı, tekrar dene.'));
       setDurum('bos');
     }
   };
 
-  return { girisYap, durum, hata, setHata };
+  /** «Trakt ile gir» kutusundan vazgeç — Google düğmesine dön. */
+  const sifirla = () => {
+    setHata(null);
+    setDurum('bos');
+  };
+
+  return { girisYap, durum, hata, sifirla };
 }

@@ -202,6 +202,7 @@
   "googleLoadError": "Google sign-in couldn't be loaded right now.",
   "accountCreateError": "Couldn't create the account. Please try again.",
   "googleSigningIn": "Signing in with Google…",
+  "googleTraktIleGir": "This Google account is linked to a KaymakTV account that uses Trakt. Log in with Trakt so your activity keeps syncing to Trakt.",
   "kaymakNoKopyala": "Copy number {{no}}",
   "kaymakNoKopyalandi": "Copied",
   "dlBrandSub": "Android Download Center",

@@ -279,7 +279,7 @@ export default function Login() {
                 düğme `create_new`'i doğrudan çağırıyor → Trakt'lı kullanıcı Google'a
                 basınca İKİNCİ, boş hesap açılıyordu (veri bölünmesi). Kimlik planı
                 Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır. */}
-            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} />}
+            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} onTraktIleGir={handleTraktLogin} />}
 
             {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür. */}
             <>
