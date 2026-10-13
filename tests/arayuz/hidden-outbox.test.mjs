@@ -190,7 +190,9 @@ const source = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const auth = source('context/AuthContext.tsx');
 const cleanup = auth.slice(auth.indexOf('const removeKeys'));
 T.ok('Cikista hidden surucu token silinmeden once durur', cleanup.indexOf('stopHiddenOutbox()') < cleanup.indexOf("deleteItemAsync('traktAccessToken')"));
-T.ok('Cikista iki journal oneki de korunur', cleanup.includes('!key.startsWith(OUTBOX_PREFIX) && !key.startsWith(HIDDEN_OUTBOX_PREFIX)'));
+// M517 · D8 (kullanici 2026-10-13): M439'un «cikista kuyruk korunur» kurali KALKTI —
+// cikis kuyruk dahil her seyi siler, bekleyen is varsa once uyarir (tests/arayuz/cikis-denetimi).
+T.ok('Cikista iki journal oneki de SILINIR (D8; uyari cikistan once)', cleanup.includes('await cihazAnahtarlariniSil();') && !cleanup.includes('startsWith(HIDDEN_OUTBOX_PREFIX)'));
 T.ok('Kok hook, UI bant ve iki dil bagli', source('app/_layout.tsx').includes('useHiddenOutbox();')
   && source('components/WatchedOutboxBanner.tsx').includes('hiddenQueued')
   && JSON.parse(source('locales/tr/common.json')).hiddenQueued && JSON.parse(source('locales/en/common.json')).hiddenQueued);

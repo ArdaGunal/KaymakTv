@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { notify } from '../utils/confirmDialog';
+import { confirmAsync, notify } from '../utils/confirmDialog';
+import { bekleyenIsSayisi } from '../services/auth/cikisTemizligi';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { deleteAccountData } from '../features/feed/services/accountDeletion';
@@ -21,6 +22,18 @@ export function useSettings(): UseSettingsResult {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const handleLogout = useCallback(async () => {
+    // D8 / Faz 4d (M517): çıkış çevrimdışı kuyruğu da siler — gönderilmemiş iş varsa
+    // önce açıkça uyar (kullanıcı: «çevrimdışı emeklerini sessizce silmek… sinirlendirir»).
+    const bekleyen = await bekleyenIsSayisi();
+    if (bekleyen > 0) {
+      const devam = await confirmAsync(
+        t('cikisBekleyenBaslik'),
+        t('cikisBekleyenMetin', { n: bekleyen }),
+        t('cikisYineDeCik'),
+        t('common:cancel')
+      );
+      if (!devam) return;
+    }
     setIsLoggingOut(true);
     try {
       await removeKeys();

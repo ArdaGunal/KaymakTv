@@ -220,5 +220,8 @@
   "yeniHesapBirakBaslik": "Delete this new account?",
   "yeniHesapBirakMetin": "The account that was just created will be deleted and you'll return to the login screen. You can then log in with your existing account.",
   "yeniHesapBirakOnay": "Delete and Go to Login",
-  "yeniHesapBirakHata": "This account can no longer be removed this way."
+  "yeniHesapBirakHata": "This account can no longer be removed this way.",
+  "cikisBekleyenBaslik": "You have unsent changes",
+  "cikisBekleyenMetin": "You have {{n}} marks waiting to be sent when you're back online. If you log out now, they will be lost.",
+  "cikisYineDeCik": "Log Out Anyway"
 }

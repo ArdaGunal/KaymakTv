@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from '../utils/secureStorage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
 import { useFollowStore } from '../store/followStore';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -25,9 +24,10 @@ import { getMyProfile } from '../features/feed/services/profile';
 import { supabase } from '../features/feed/services/supabaseClient';
 import { supabaseKimlikKaynaginiAyarla } from '../features/feed/services/supabaseKimlik';
 import { stopWatchedOutbox } from '../services/library/outbox/runtime';
-import { OUTBOX_PREFIX } from '../services/library/outbox/types';
 import { stopHiddenOutbox } from '../services/library/hiddenOutbox/runtime';
-import { HIDDEN_OUTBOX_PREFIX } from '../services/library/hiddenOutbox/types';
+import { cihazAnahtarlariniSil, gorselOnbelleginiSil, googleOturumunuKapat } from '../services/auth/cikisTemizligi';
+import { useWatchedOutboxStore } from '../store/watchedOutboxStore';
+import { useHiddenOutboxStore } from '../store/hiddenOutboxStore';
 
 type AuthContextType = {
   accessToken: string | null;
@@ -295,11 +295,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // an için yeni oturumda görünürdü.
       await SecureStore.deleteItemAsync('kaymakMyUsername');
       await SecureStore.deleteItemAsync('kaymakMyAvatarUrl');
-      // M439: bekleyen izleme niyeti önbellek DEĞİLDİR. Çıkışta korunur;
-      // yalnız aynı users.id tekrar giriş yapınca gönderilebilir, token içermez.
-      const cacheKeys = (await AsyncStorage.getAllKeys()).filter((key) =>
-        !key.startsWith(OUTBOX_PREFIX) && !key.startsWith(HIDDEN_OUTBOX_PREFIX));
-      await AsyncStorage.multiRemove(cacheKeys);
+      // 🔴 D8 / Faz 4d (M517): çıkış cihazı TAMAMEN temizler — M439'daki «bekleyen
+      // izleme kuyruğu korunur» kuralı KALKTI (kullanıcı, 2026-10-13). Bekleyen iş varsa
+      // uyarıyı çıkıştan ÖNCE `useSettings.handleLogout` gösterir. Kalan anahtar =
+      // `CIKISTA_KALAN_ANAHTARLAR` (bugün boş). Ayrıntı: services/auth/cikisTemizligi.ts.
+      await cihazAnahtarlariniSil();
+      useWatchedOutboxStore.setState({ ready: false, pendingCount: 0, pendingShowIds: [], hasError: false, saveError: false });
+      useHiddenOutboxStore.setState({ ready: false, pendingCount: 0, hasError: false, saveError: false });
+      // Telefon son Google hesabını hatırlamasın; profil fotoğrafları dahil görsel önbellek gitsin.
+      await googleOturumunuKapat();
+      await gorselOnbelleginiSil();
       // AsyncStorage.clear() yalnızca DİSKTEKİ kopyayı siler — followStore
       // RAM'de bir Zustand singleton'ı olduğundan bir önceki oturumun
       // connectionStates/isFetched'i JS süreci canlı kaldığı sürece (uygulama

@@ -220,5 +220,8 @@
   "yeniHesapBirakBaslik": "Bu yeni hesap silinsin mi?",
   "yeniHesapBirakMetin": "Az önce açılan bu hesap silinecek ve giriş ekranına döneceksin. Var olan hesabınla giriş yapabilirsin.",
   "yeniHesapBirakOnay": "Sil ve Girişe Dön",
-  "yeniHesapBirakHata": "Bu hesap artık bu yoldan silinemiyor."
+  "yeniHesapBirakHata": "Bu hesap artık bu yoldan silinemiyor.",
+  "cikisBekleyenBaslik": "Gönderilmemiş işaretlemelerin var",
+  "cikisBekleyenMetin": "İnternete bağlanınca gönderilecek {{n}} işaretlemen var. Şimdi çıkış yaparsan bunlar kaybolacak.",
+  "cikisYineDeCik": "Yine de Çık"
 }

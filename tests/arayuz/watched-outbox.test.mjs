@@ -251,7 +251,8 @@ runtime.stopWatchedOutbox();
 
 T.H('Baglanti denetimi: cikis kuyrugu korur, diger frozen dosyalar degismedi');
 const auth = fs.readFileSync(path.join(root, 'context/AuthContext.tsx'), 'utf8');
-T.ok('Cikista AsyncStorage.clear yerine kuyruk haric anahtarlar temizlenir', /filter\(\(key\) =>\s*!key.startsWith\(OUTBOX_PREFIX\)/.test(auth) && /await AsyncStorage.multiRemove\(cacheKeys\)/.test(auth));
+// M517 · D8: kuyruk istisnasi kalkti (bkz. tests/arayuz/cikis-denetimi.test.mjs).
+T.ok('Cikista kuyruk DAHIL tum anahtarlar temizlenir (D8)', /await cihazAnahtarlariniSil\(\);/.test(auth) && !/startsWith\(OUTBOX_PREFIX\)/.test(auth));
 const main = fs.readFileSync(path.join(root, 'services/library/mutations/progress.ts'), 'utf8');
 T.ok('progress.ts 400 satirin altinda', main.split(/\r?\n/).length <= 400);
 T.H('M465 H7: ilk parca tek, kalanlar sinirli dalga, Trakt sirali, kill/replay');

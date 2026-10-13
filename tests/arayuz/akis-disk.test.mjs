@@ -56,5 +56,5 @@ const kanca = fs.readFileSync(path.join(root, 'features/feed/hooks/useFeed.ts'),
 T.ok('useFeed soguk acilista diski agla YARISTIRIYOR', /akisiDisktenOku\(sahip\)[\s\S]{0,200}hydrateFromDisk\(satirlar\)/.test(kanca) && /hydrateFromDisk[\s\S]{0,400}loadFirstPage\(false\)/.test(kanca));
 T.ok('Diske yalniz sunucu gercegi (kaynak ag) yaziliyor, yazma aninda yeniden denetleniyor', (kanca.match(/kaynak !== 'ag'/g) || []).length >= 2);
 const auth = fs.readFileSync(path.join(root, 'context/AuthContext.tsx'), 'utf8');
-T.ok('Cikis tum AsyncStorage anahtarlarini siliyor (akis kopyasi dahil)', /await AsyncStorage.multiRemove\(cacheKeys\)/.test(auth) && /useFeedStore.getState\(\).reset\(\)/.test(auth));
+T.ok('Cikis tum AsyncStorage anahtarlarini siliyor (akis kopyasi dahil; D8/M517)', /await cihazAnahtarlariniSil\(\);/.test(auth) && /useFeedStore.getState\(\).reset\(\)/.test(auth));
 T.bitir();
