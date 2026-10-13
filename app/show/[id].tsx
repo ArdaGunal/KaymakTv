@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, Stack } from 'expo-router';
@@ -9,7 +9,7 @@ import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import { useShowDetailHandlers } from '../../hooks/useShowDetailHandlers';
 import { useMediaReviews } from '../../hooks/useMediaReviews';
-import { getShowBackdrop, getShowTrailer, getShowPoster } from '../../services/tmdbApi';
+import { useShowTmdbGorselleri } from '../../hooks/useShowTmdbGorselleri';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
 import MediaHero from '../../components/MediaHero';
@@ -19,10 +19,11 @@ import HorizontalMediaList from '../../components/HorizontalMediaList';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
 import { useScrollToComment } from '../../hooks/useScrollToComment';
 import { useTranslation } from 'react-i18next';
-import SeasonAccordion from '../../components/SeasonAccordion';
 import { useDetailLayout } from '../../hooks/useDetailLayout';
 import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
+import SeasonsListMobile from '../../components/detail/SeasonsListMobile';
+import { diziSayfaSirasi } from '../../utils/diziSayfaSirasi';
 import { sezonEvreniKur } from '../../utils/sezonEvreni';
 import ShowDetailOverlays from '../../components/detail/ShowDetailOverlays';
 
@@ -88,9 +89,7 @@ export default function ShowDetailScreen() {
     tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined,
   });
 
-  const [backdrop, setBackdrop] = useState<string | null>(null);
-  const [poster, setPoster] = useState<string | null>(null);
-  const [trailerId, setTrailerId] = useState<string | null>(null);
+  const { backdrop, poster, trailerId } = useShowTmdbGorselleri(etkinTmdbId);
 
   const [expandedSeasons, setExpandedSeasons] = useState<any>({});
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
@@ -161,31 +160,6 @@ export default function ShowDetailScreen() {
       setSnackbarVisible(false);
     }
   };
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchTmdb = async () => {
-      if (etkinTmdbId) {
-        const tmdbIdNum = parseInt(etkinTmdbId, 10);
-        try {
-          const [bd, tr, pst] = await Promise.all([
-            getShowBackdrop(tmdbIdNum),
-            getShowTrailer(tmdbIdNum),
-            getShowPoster(tmdbIdNum)
-          ]);
-          if (isMounted) {
-            setBackdrop(bd);
-            setTrailerId(tr);
-            setPoster(pst);
-          }
-        } catch (error) {
-          console.error('TMDB veri çekme hatası (show detail):', error);
-        }
-      }
-    };
-    fetchTmdb();
-    return () => { isMounted = false; };
-  }, [etkinTmdbId]);
 
   const handleRateEpisode = async (rating: number) => {
     if (!selectedEpisode?.traktId) return;
@@ -348,7 +322,7 @@ export default function ShowDetailScreen() {
     );
   }
 
-  // ── MOBIL (ve dar web) — YERLESIM DEGISTIRILMEDI ──────────────────────
+  // ── MOBIL (ve dar web) — sira: utils/diziSayfaSirasi.ts (DIZI-SAYFA-01) ──────────────────────
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -368,48 +342,32 @@ export default function ShowDetailScreen() {
               sınırlarında. Eskiden tek bir render istisnası kök
               ErrorBoundary'ye çıkıp TÜM SAYFAYI düşürüyordu — S13'ün
               gerekçesi buydu ama pratikte yalnızca bir yerde uygulanmıştı. */}
-          {castSection}
-
-          {/* ── KaymakTV İncelemeleri ──────────────────────────────────
-              Kendi sosyal evrenimiz: yanıt/beğeni burada yaşar, yazma işlemi
-              Trakt'a DA gider (dual-write). Aşağıdaki "Trakt Topluluğu"
-              bölümünden BİLİNÇLİ olarak ayrı — birleşik liste reddedildi
-              (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
-          <View style={styles.section}>{commentsSection}</View>
-
-
-          {computedSeasons && computedSeasons.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('seasons')}</Text>
-              {/* Y20: sınır SEZON BAŞINA — tüm listeyi tek sınıra sarmak,
-                  bozuk TEK bir sezonun diğerlerini de götürmesi demekti
-                  (feed.tsx'teki kart-başına sınırla aynı gerekçe). */}
-              {computedSeasons.map((season) => (
-                <SectionErrorBoundary key={season.number} label={'season:' + season.number}>
-                  <SeasonAccordion
-                    season={season}
-                    showTraktId={traktIdNum}
-                    showSlug={showData?.ids?.slug}
-                    showTitle={showData?.title}
-                    showTmdbId={etkinTmdbId}
-                    onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt})}
-                    isExpanded={expandedSeasons[season.number]}
-                    onToggle={() => toggleSeason(season.number)}
-                    seasonProgress={season.seasonProgress}
-                    // 🆕 M421 — "öncekileri de işaretle" ÖNCEKİ SEZONLARI da
-                    // kapsıyor; evren ekranın katalog verisinden geliyor.
-                    tumSezonlar={tumSezonlar}
-                    iskeletSezonlar={iskeletSezonlar}
-                    showMedia={showData}
-                  />
-                </SectionErrorBoundary>
-              ))}
-            </View>
-          )}
-
-          {/* RELATED SHOWS */}
-          {relatedSection}
-
+          {/* DIZI-SAYFA-01 (M513): sıra utils/diziSayfaSirasi.ts'te — uygulamada
+              sezonlar yorumların ÜSTÜNDE, web'de (dar) eski sırada.
+              KaymakTV İncelemeleri: kendi sosyal evrenimiz, "Trakt Topluluğu"
+              bölümünden BİLİNÇLİ olarak ayrı (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
+          {diziSayfaSirasi(Platform.OS).map((bolum) => (
+            <React.Fragment key={bolum}>
+              {bolum === 'oyuncular' && castSection}
+              {bolum === 'yorumlar' && <View style={styles.section}>{commentsSection}</View>}
+              {bolum === 'sezonlar' && (
+                <SeasonsListMobile
+                  seasons={computedSeasons}
+                  showTraktId={traktIdNum}
+                  showSlug={showData?.ids?.slug}
+                  showTitle={showData?.title}
+                  showTmdbId={etkinTmdbId}
+                  expandedSeasons={expandedSeasons}
+                  onToggleSeason={toggleSeason}
+                  onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt })}
+                  tumSezonlar={tumSezonlar}
+                  iskeletSezonlar={iskeletSezonlar}
+                  showMedia={showData}
+                />
+              )}
+              {bolum === 'benzerler' && relatedSection}
+            </React.Fragment>
+          ))}
         </View>
       </ScrollView>
 
@@ -422,7 +380,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B1120' },
   contentArea: { padding: 16 },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
   // Masaustu sol sutununda bloklar arasi dikey ritim.
   webBlock: { marginTop: 28 },
   // MediaCast/HorizontalMediaList kendi 16px yatay dolgusunu tasiyor —

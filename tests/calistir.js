@@ -78,6 +78,7 @@ const TAKIMLAR = [
   { ad: 'surum-kapisi', grup: 'arayuz', dosya: 'arayuz/surum-kapisi.test.mjs', aciklama: 'M458: surum kapisi agi beklemez, onbellekten anlik karar' },
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
+  { ad: 'dizi-sira', grup: 'arayuz', dosya: 'arayuz/dizi-sayfa-sirasi.test.mjs', aciklama: 'M513/DIZI-SAYFA-01: uygulamada sezonlar yorumlarin ustunde, web sirasi ayni' },
   { ad: 'push-kayit', grup: 'arayuz', dosya: 'arayuz/push-kayit.test.mjs', aciklama: 'M466: push kaydi tekrarlanamaz (Discord 429 koku)' },
   { ad: 'sezon-akis', grup: 'arayuz', dosya: 'arayuz/sezon-akis.test.mjs', aciklama: 'M467: her isaretleme yolu akisa tek temsilci olay' },
   { ad: 'aktivite-tazeleme', grup: 'arayuz', dosya: 'arayuz/aktivite-tazeleme.test.mjs', aciklama: 'M468/A1: silme sonrasi acik aktivite listesi tazelenir' },
