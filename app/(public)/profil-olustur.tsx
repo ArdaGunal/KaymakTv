@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
 import { useMyProfile } from '../../hooks/useMyProfile';
+import { useYeniHesapBirak } from '../../hooks/useYeniHesapBirak';
 import { kullaniciAdiHataMetni } from '../../utils/kullaniciAdiHataMetni';
 import { kullaniciAdiSorunu, KULLANICI_ADI_EN_COK } from '../../features/feed/services/profile';
 
@@ -34,6 +35,8 @@ import { kullaniciAdiSorunu, KULLANICI_ADI_EN_COK } from '../../features/feed/se
  *   «isimde linklerde sorun olmaması için boşluklu yapmayalım»). Kural dışı eski ad
  *   değiştirilmeden geçilemez.
  * - İlk seçim 14 günlük değiştirme beklemesini BAŞLATMAZ (Worker).
+ * - Kimlik Faz 4 (M515, D4): «Zaten hesabın var mı? Giriş yap» metin linki — popup değil;
+ *   ne zaman görüneceği `hooks/useYeniHesapBirak.ts`'te.
  */
 export default function ProfilOlusturScreen() {
   const router = useRouter();
@@ -41,6 +44,7 @@ export default function ProfilOlusturScreen() {
   const { myUsername, myAvatarUrl } = useAuth();
   const { profile } = useMyProfile();
   const { save, isSaving, error, clearError } = useUpdateProfile();
+  const yeniHesap = useYeniHesapBirak();
 
   // Sunucudaki ad esas (Trakt hesabında yerel kopya yok); gelene kadar yerel kopya.
   const sunucuAdi = profile?.username ?? myUsername ?? '';
@@ -143,6 +147,17 @@ export default function ProfilOlusturScreen() {
           >
             {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.continueBtnText}>{t('common:continue', 'Devam Et')}</Text>}
           </TouchableOpacity>
+
+          {yeniHesap.gorunur && (
+            <TouchableOpacity
+              style={localStyles.girisLinki}
+              onPress={yeniHesap.birak}
+              disabled={yeniHesap.birakiliyor || isSaving}
+              hitSlop={8}
+            >
+              <Text style={localStyles.girisLinkiMetin}>{t('settings:yeniHesapLink')}</Text>
+            </TouchableOpacity>
+          )}
 
         </View>
         </ScrollView>
@@ -267,5 +282,15 @@ const localStyles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 6,
+  },
+  girisLinki: {
+    alignSelf: 'center',
+    marginTop: 18,
+    paddingVertical: 4,
+  },
+  girisLinkiMetin: {
+    color: '#94a3b8',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 });

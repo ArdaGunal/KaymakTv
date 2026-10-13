@@ -215,5 +215,10 @@
   "profileOnboardingSubtitleAll": "Uygulamada görünecek kullanıcı adını seç. Önerilen adı kullanabilir ya da değiştirebilirsin.",
   "usernameRuleHint": "3–30 karakter · İngilizce harf, rakam ve alt çizgi (_) · boşluk yok",
   "usernameReserved": "Bu kullanıcı adı kullanılamaz, başka bir tane dene.",
-  "usernameCooldownGeneric": "Kullanıcı adını 14 günde bir değiştirebilirsin."
+  "usernameCooldownGeneric": "Kullanıcı adını 14 günde bir değiştirebilirsin.",
+  "yeniHesapLink": "Zaten hesabın var mı? Giriş yap",
+  "yeniHesapBirakBaslik": "Bu yeni hesap silinsin mi?",
+  "yeniHesapBirakMetin": "Az önce açılan bu hesap silinecek ve giriş ekranına döneceksin. Var olan hesabınla giriş yapabilirsin.",
+  "yeniHesapBirakOnay": "Sil ve Girişe Dön",
+  "yeniHesapBirakHata": "Bu hesap artık bu yoldan silinemiyor."
 }

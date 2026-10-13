@@ -12,8 +12,8 @@ import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
 
-// M502 Faz 0 — kimlik birliği planı Faz 3'e kadar kapalı (bkz. aşağıdaki not).
-const GOOGLE_GIRIS_ACIK = false;
+// M502 Faz 0 + D10 — yalnız --google-test APK'sında açık (bkz. utils/googleGirisBayragi.ts).
+import { GOOGLE_GIRIS_ACIK } from '../../utils/googleGirisBayragi';
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
@@ -278,7 +278,8 @@ export default function Login() {
             {/* M501 · Google girişi. 🔴 M502 FAZ 0 (kullanıcı, 2026-10-12): KAPALI —
                 düğme `create_new`'i doğrudan çağırıyor → Trakt'lı kullanıcı Google'a
                 basınca İKİNCİ, boş hesap açılıyordu (veri bölünmesi). Kimlik planı
-                Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır. */}
+                Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır.
+                D10 (2026-10-13): Faz 4–5 testleri için yalnız test APK'sında açık. */}
             {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} onTraktIleGir={handleTraktLogin} />}
 
             {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür. */}

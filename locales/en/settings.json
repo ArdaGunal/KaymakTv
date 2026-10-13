@@ -215,5 +215,10 @@
   "profileOnboardingSubtitleAll": "Choose the username others will see. Keep the suggested one or change it.",
   "usernameRuleHint": "3–30 characters · English letters, numbers and underscore (_) · no spaces",
   "usernameReserved": "This username isn't available. Try another one.",
-  "usernameCooldownGeneric": "You can change your username once every 14 days."
+  "usernameCooldownGeneric": "You can change your username once every 14 days.",
+  "yeniHesapLink": "Already have an account? Log in",
+  "yeniHesapBirakBaslik": "Delete this new account?",
+  "yeniHesapBirakMetin": "The account that was just created will be deleted and you'll return to the login screen. You can then log in with your existing account.",
+  "yeniHesapBirakOnay": "Delete and Go to Login",
+  "yeniHesapBirakHata": "This account can no longer be removed this way."
 }

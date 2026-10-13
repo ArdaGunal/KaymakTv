@@ -17,7 +17,16 @@ const ekran = oku('app/(public)/settings.tsx');
 const trakt = ekran.indexOf("t('loginTrakt')"), google = ekran.indexOf('<GoogleGirisDugmesi'), veya = ekran.indexOf('<OrDivider');
 T.ok('Google dugmesi Trakt dugmesinin ALTINDA, VEYA ayracinin USTUNDE', trakt > -1 && google > trakt && veya > google);
 T.ok('Kullanim kosullari kapisi Google icin de gecerli', /<GoogleGirisDugmesi etkin=\{isChecked/.test(ekran));
-T.ok('M502 Faz 0: dugme KAPALI (veri bolunmesi, kimlik plani Faz 3e kadar)', /const GOOGLE_GIRIS_ACIK = false;/.test(ekran) && /\{GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi/.test(ekran));
+T.ok('M502 Faz 0 + D10: dugme bayraga bagli, bayrak tek yerde', /import \{ GOOGLE_GIRIS_ACIK \} from '..\/..\/utils\/googleGirisBayragi'/.test(ekran) && !/const GOOGLE_GIRIS_ACIK/.test(ekran) && /\{GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi/.test(ekran));
+
+T.H("D10 · yalniz test APK'sinda acik (kullanici 2026-10-13)");
+const bayrak = oku('utils/googleGirisBayragi.ts');
+T.ok("Bayrak YALNIZ EXPO_PUBLIC_GOOGLE_GIRIS_TEST === '1' ile acilir", /export const GOOGLE_GIRIS_ACIK = process\.env\.EXPO_PUBLIC_GOOGLE_GIRIS_TEST === '1';/.test(bayrak));
+const envDosyalari = ['.env', '.env.local', '.env.production'].filter(var_);
+T.ok('.env dosyalarinda bayrak YOK (web/yayin paketine gomulmesin)', envDosyalari.every((f) => !/EXPO_PUBLIC_GOOGLE_GIRIS_TEST/.test(oku(f))), envDosyalari.join(','));
+const derle = oku('scripts/apk-derle.sh');
+T.ok('apk-derle.sh yayin derlemesinde bayragi SILIYOR', /unset EXPO_PUBLIC_AG_IZLE EXPO_PUBLIC_GOOGLE_GIRIS_TEST/.test(derle));
+T.ok('--google-test ayri adla cikiyor (yanlislikla yuklenmesin)', /--google-test\) export EXPO_PUBLIC_GOOGLE_GIRIS_TEST=1;.*EK="-GOOGLE-TEST"/.test(derle));
 
 T.H('Dugme + mantik');
 const dugme = oku('components/auth/GoogleGirisDugmesi.tsx');
