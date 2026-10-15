@@ -67,9 +67,10 @@ export async function gorselOnbelleginiSil(): Promise<void> {
 export async function googleOturumunuKapat(): Promise<void> {
   if (Platform.OS === 'web') return;
   try {
-    // Tembel yükleme: modül yalnız native derlemede var; web paketine girmesin.
-    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-    if (GoogleSignin?.hasPreviousSignIn?.()) await GoogleSignin.signOut();
+    // Tembel yükleme: web paketine girmesin. Yapılandırma dahil (M518 — eskiden
+    // `configure()` yapılmadan çağrılıyor ve sessizce düşüyordu).
+    const { googleSigninCikis } = require('./googleSignin');
+    await googleSigninCikis();
   } catch (hata) {
     console.warn('[cikis] Google oturumu kapatılamadı:', hata);
   }

@@ -17,12 +17,17 @@ const as = {
   multiGet: async (ks) => ks.map((k) => [k, disk.get(k) ?? null]),
   multiRemove: async (ks) => { ks.forEach((k) => disk.delete(k)); },
 };
-let gorselSilindi = 0, googleCikti = 0;
+let gorselSilindi = 0, googleCikti = 0, yapilandi = false;
 const load = tsLoader(root, {
   '@react-native-async-storage/async-storage': { default: as, ...as },
   'react-native': { Platform: { OS: 'android' } },
   'expo-image': { Image: { clearDiskCache: async () => { gorselSilindi++; return true; }, clearMemoryCache: async () => { gorselSilindi++; return true; } } },
-  '@react-native-google-signin/google-signin': { GoogleSignin: { hasPreviousSignIn: () => true, signOut: async () => { googleCikti++; return null; } } },
+  '@react-native-google-signin/google-signin': { GoogleSignin: {
+    configure: () => { yapilandi = true; },
+    // Gercek paket gibi: configure() yapilmadan signOut FIRLATIR (M518 canli bulgu).
+    hasPreviousSignIn: () => { if (!yapilandi) throw new Error('apiClient is null - call configure() first'); return true; },
+    signOut: async () => { if (!yapilandi) throw new Error('apiClient is null - call configure() first'); googleCikti++; return null; },
+  } },
 });
 const C = load('services/auth/cikisTemizligi.ts');
 
@@ -45,7 +50,7 @@ T.ok('Bos kuyrukta uyari yok', (await C.bekleyenIsSayisi()) === 0);
 await C.gorselOnbelleginiSil();
 T.ok('Gorsel onbellegi (disk + bellek) silindi', gorselSilindi === 2);
 await C.googleOturumunuKapat();
-T.ok('Yerel Google oturumu kapandi (sonraki giriste hesap secilir)', googleCikti === 1);
+T.ok('🔴 Yerel Google oturumu configure() ONCESI de kapanir (M518; sonraki giriste hesap secilir)', googleCikti === 1 && yapilandi);
 
 T.H('Baglanti (AuthContext.removeKeys)');
 const auth = oku('context/AuthContext.tsx');

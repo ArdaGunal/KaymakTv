@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import { useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import { googleSigninYapilandir } from '../services/auth/googleSignin';
 
 /**
  * Native (iOS/Android) Google Sign-In — `useGoogleSignIn.ts` (web/GIS) ile
@@ -34,21 +35,8 @@ import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google
  * dış bağımlılık, cihaz testinde ortaya çıkar.
  */
 
-let configured = false;
-
-function ensureConfigured() {
-  if (configured) return;
-  GoogleSignin.configure({
-    // `webClientId` HER platformda geçiliyor — dönen `idToken`'ın kimliğini
-    // (aud) Web client ID'sine sabitliyor, Worker'ın izin verdiği üç aud'dan
-    // biri (bkz. src/index.js `verifyGoogleIdToken`). Android'de bir idToken
-    // ALABİLMEK için bu alan zorunlu (paketin kendi dokümanı).
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    offlineAccess: false,
-  });
-  configured = true;
-}
+// Yapılandırma tek yerde (M518): çıkış da aynı istemciyi kullanır.
+const ensureConfigured = googleSigninYapilandir;
 
 export type GoogleNativeSignInResult =
   | { ok: true; idToken: string }
