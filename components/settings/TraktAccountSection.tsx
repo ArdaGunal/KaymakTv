@@ -7,6 +7,8 @@ import { SettingsSection } from './SettingsSection';
 interface TraktAccountSectionProps {
   isConnected: boolean;
   onGoToLogin: () => void;
+  /** PROFIL-AD-01 (M519): Trakt adı YALNIZ burada, bilgi olarak; profil kimliği bizden. */
+  traktKullaniciAdi?: string | null;
 }
 
 /**
@@ -22,7 +24,7 @@ interface TraktAccountSectionProps {
  * İNCE ama birincil renkli, ikonlu bir buton — "giriş butonu gibi görünsün"
  * isteği bu yüzden renk ve ikonla korunuyor, yalnızca hacim küçüldü.
  */
-export function TraktAccountSection({ isConnected, onGoToLogin }: TraktAccountSectionProps) {
+export function TraktAccountSection({ isConnected, onGoToLogin, traktKullaniciAdi }: TraktAccountSectionProps) {
   const { t } = useTranslation(['settings', 'common']);
 
   return (
@@ -30,7 +32,14 @@ export function TraktAccountSection({ isConnected, onGoToLogin }: TraktAccountSe
       {isConnected ? (
         <View style={styles.durumSatiri}>
           <CheckCircle2 size={17} color="#4ade80" />
-          <Text style={styles.durumMetin}>{t('settings:traktConnected')}</Text>
+          <View style={styles.durumGovde}>
+            <Text style={styles.durumMetin}>{t('settings:traktConnected')}</Text>
+            {!!traktKullaniciAdi && (
+              <Text style={styles.traktAdi} numberOfLines={1}>
+                {t('settings:traktBagliHesap', { ad: traktKullaniciAdi })}
+              </Text>
+            )}
+          </View>
         </View>
       ) : (
         <View style={styles.govde}>
@@ -58,8 +67,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
-  durumMetin: {
+  durumGovde: {
     flex: 1,
+    gap: 2,
+  },
+  traktAdi: {
+    color: '#8c90a0',
+    fontSize: 12.5,
+  },
+  durumMetin: {
     color: '#4ade80',
     fontWeight: '600',
     fontSize: 13.5,

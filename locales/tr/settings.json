@@ -223,5 +223,6 @@
   "yeniHesapBirakHata": "Bu hesap artık bu yoldan silinemiyor.",
   "cikisBekleyenBaslik": "Gönderilmemiş işaretlemelerin var",
   "cikisBekleyenMetin": "İnternete bağlanınca gönderilecek {{n}} işaretlemen var. Şimdi çıkış yaparsan bunlar kaybolacak.",
-  "cikisYineDeCik": "Yine de Çık"
+  "cikisYineDeCik": "Yine de Çık",
+  "traktBagliHesap": "Bağlı Trakt hesabı: @{{ad}}"
 }

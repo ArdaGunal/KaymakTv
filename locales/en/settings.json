@@ -223,5 +223,6 @@
   "yeniHesapBirakHata": "This account can no longer be removed this way.",
   "cikisBekleyenBaslik": "You have unsent changes",
   "cikisBekleyenMetin": "You have {{n}} marks waiting to be sent when you're back online. If you log out now, they will be lost.",
-  "cikisYineDeCik": "Log Out Anyway"
+  "cikisYineDeCik": "Log Out Anyway",
+  "traktBagliHesap": "Linked Trakt account: @{{ad}}"
 }

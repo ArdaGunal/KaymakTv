@@ -7,7 +7,7 @@ import {
   type KaymakProfil,
 } from '../../../services/api/kaymakSocial';
 import type { ProfilKimligi } from '../../../components/profile/ProfileHeader';
-import { usePublicProfile, type PublicProfileError } from './usePublicProfile';
+import { type PublicProfileError } from './usePublicProfile';
 import { takipMutasyonNesli, useFollowStore } from '../../../store/followStore';
 
 /**
@@ -93,7 +93,7 @@ export function usePublicProfileIdentity(username: string | null) {
   }, [username]));
 
   const traktSlug = kaymakProfil?.profile.traktSlug ?? null;
-  const { profile: traktProfil, isLoading: isTraktLoading } = usePublicProfile(traktSlug);
+  // PROFIL-AD-01 (M519): Trakt profili artık ÇEKİLMİYOR — tek kullanımı açıklama yedeğiydi.
 
   const profile: ProfilKimligi | null = kaymakProfil
     ? {
@@ -106,9 +106,10 @@ export function usePublicProfileIdentity(username: string | null) {
         // Bedeli: deploy'dan sonra uygulamayı henüz açmamış bir Trakt'lı
         // kullanıcı, açana kadar harfli daire ve yalnızca @adıyla görünür.
         name: kaymakProfil.profile.displayName ?? null,
-        // T4 · `043` — BİZİM açıklamamız öncelikli; yoksa (Trakt'lı ve henüz
-        // yazmamış kullanıcı) Trakt'ın `about`'u.
-        about: kaymakProfil.profile.bio ?? traktProfil?.about ?? null,
+        // PROFIL-AD-01 (M519, kullanıcı 2026-10-15): açıklama YALNIZ bizden. Trakt'ın
+        // `about`'una DÜŞÜLMEZ — *«Bizde açıklama boşsa ekranda da boş kalacak; Trakt'tan
+        // kesinlikle metin çekilmeyecek.»* (Silinen açıklamanın Trakt'tan geri gelmesi de biter.)
+        about: kaymakProfil.profile.bio ?? null,
         images: kaymakProfil.profile.avatarUrl
           ? { avatar: { full: kaymakProfil.profile.avatarUrl } }
           : undefined,
@@ -137,14 +138,12 @@ export function usePublicProfileIdentity(username: string | null) {
       !!kaymakProfil.profile.isPrivate &&
       !kaymakProfil.kendisi &&
       kaymakProfil.iliski !== 'takip',
-    /** Görünen açıklama BİZİM mi? Yalnızca o raporlanabilir — Trakt'ın `about`'u
-     *  Trakt'ın moderasyonunda, `content_reports`'ta karşılığı yok. */
+    /** Açıklama var mı? M519'dan beri gösterilen açıklama HER ZAMAN bizim (raporlanabilir). */
     bioBizden: !!kaymakProfil?.profile.bio,
     /** Trakt okumalarının TEK geçerli anahtarı. `null` = Trakt verisi yok. */
     traktSlug,
-    // Trakt zenginleştirmesi yalnızca VARSA ilk çizimi bekletir (isim ve
-    // biyografi sonradan "zıplamasın"); yoksa hiç beklenmez.
-    isLoading: kaymakYukleniyor || (!!traktSlug && isTraktLoading),
+    // Kimlik tamamen bizden (M519) — Trakt isteği beklenmez.
+    isLoading: kaymakYukleniyor,
     error: kaymakHata,
   };
 }

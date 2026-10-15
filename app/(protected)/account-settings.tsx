@@ -22,6 +22,7 @@ import { confirmAsync, notify } from '../../utils/confirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
+import { useBagliTraktHesabi } from '../../hooks/useBagliTraktHesabi';
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -29,6 +30,8 @@ export default function AccountSettingsScreen() {
   const { t } = useTranslation(['settings', 'common']);
   const navigateBack = useAppBack();
   const { accessToken, isGuest, authProvider } = useAuth();
+  // PROFIL-AD-01 (M519): Trakt adı yalnız burada, bilgi olarak.
+  const bagliTraktAdi = useBagliTraktHesabi(authProvider === 'trakt');
   const router = useRouter();
   const { handleLogout, handleDeleteAccount, isLoggingOut, isDeletingAccount } = useSettings();
   const profilePrivacy = useProfilePrivacy();
@@ -99,6 +102,7 @@ export default function AccountSettingsScreen() {
           <>
             <TraktAccountSection
               isConnected={authProvider === 'trakt'}
+              traktKullaniciAdi={bagliTraktAdi}
               onGoToLogin={() => router.push('/(public)/settings')}
             />
             <TraktImportSection />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfile, TraktUserProfile } from '../services/api/social';
 import { fetchKaymakGraph } from '../services/api/kaymakSocial';
@@ -45,7 +45,10 @@ import { logError } from '../utils/errorLog';
 // Yan kazanç: Trakt'lı kullanıcıda profil açılışı Trakt'a 3 değil 1 istek atıyor
 // (iki liste yalnızca `.length` için indiriliyordu).
 export function useMyTraktProfile() {
-  const { accessToken, isGuest, authProvider, myUsername, myAvatarUrl } = useAuth();
+  const { accessToken, isGuest, authProvider, myUsername, myAvatarUrl, updateMyProfile } = useAuth();
+  // AuthContext her çizimde yeni fonksiyon veriyor — bağımlılığa girerse profil sürekli yeniden çekilirdi.
+  const yerelProfiliGuncelle = useRef(updateMyProfile);
+  yerelProfiliGuncelle.current = updateMyProfile;
   const [profile, setProfile] = useState<TraktUserProfile | null>(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -123,61 +126,50 @@ export function useMyTraktProfile() {
         return;
       }
       // ══════════════════════════════════════════════════════════════════
-      // 🪪 TRAKT'LI KULLANICI — açıklama artık BİZDEN (§C15, 2026-09-15)
+      // 🪪 TRAKT'LI KULLANICI — KİMLİK TAMAMEN BİZDEN (PROFIL-AD-01, M519)
       // ══════════════════════════════════════════════════════════════════
-      // Bu dalın eski hâli yalnızca Trakt'ı okuyordu ve kendi yorumu bunu
-      // itiraf ediyordu: *"Trakt'lı kullanıcıda hâlâ Trakt'ın `about`'u"*.
-      // Ayarlar'da açıklama yazabilen ama kendi profilinde onu göremeyen bir
-      // kullanıcı, yarım bir özellik demekti.
+      // Kullanıcı (2026-10-15): *«Trakt artık kullanıcının profil kimliğini belirleyen
+      // ana kaynak değil, sadece arkada çalışan bir senkronizasyon eklentisidir.»*
+      // Ad, @kullanıcı adı, fotoğraf ve açıklama YALNIZ sunucudan (`users`). Eskiden
+      // `username` Trakt'tan geliyordu («K2: Trakt'lı hesapta ad değişmiyor») — K2
+      // kalkınca (M492) adını değiştiren Trakt'lı kişi kendi profilinde eski Trakt
+      // slug'ını görüyordu (canlı turda bulundu, M518). Açıklama da artık Trakt'ın
+      // `about`'una DÜŞMEZ: *«Bizde açıklama boşsa ekranda da boş kalacak.»*
       //
-      // 🔑 ÖNCELİK `usePublicProfileIdentity` İLE AYNI: bizim bio varsa o,
-      // yoksa Trakt'ın `about`'u. İki ekranın aynı kişide FARKLI açıklama
-      // göstermesi, düzeltmenin kendisinden kötü bir hata olurdu.
-      //
-      // ⏱️ Gecikme EKLEMİYOR: istek Trakt çağrısıyla PARALEL gidiyor ve
-      // hedefi Trakt değil kendi Worker'ımız — başlıktaki "3 istek → 1"
-      // kazanımı Trakt tarafında aynen duruyor.
+      // Sunucuya ulaşılamazsa yerel kopya (`myUsername`/`myAvatarUrl`) — Trakt'a değil.
+      // Trakt çağrısı yalnız iç alanlar için (`ids`, `vip`) ve düşerse profil yine çizilir.
       try {
-        const [myProfile, kaymakProfil] = await Promise.all([
-          getUserProfile('me'),
-          // 🔴 DÜŞERSE `null`: Trakt'ın `about`'u KORUNUR. "Boş yanıt" ile
-          // "yanıt yok" ayrı şeyler — boşla ezmek kullanıcının açıklamasını
-          // ekrandan silerdi (M381'in dersi).
+        const [traktProfil, kaymakProfil] = await Promise.all([
+          getUserProfile('me').catch((error) => {
+            logError('useMyTraktProfile.trakt', error);
+            return null;
+          }),
           getMyProfile(accessToken).catch((error) => {
-            logError('useMyTraktProfile.kaymakBio', error);
+            logError('useMyTraktProfile.kaymak', error);
             return null;
           }),
           sayilariTazele(),
         ]);
         if (isMounted && !isMounted()) return;
-        if (kaymakProfil) setKaymakNo(kaymakProfil.kaymakNo);
-        // ══════════════════════════════════════════════════════════════
-        // 🪪 §C24 · AD VE FOTOĞRAF DA BİZDEN (2026-09-18)
-        // ══════════════════════════════════════════════════════════════
-        // Kullanıcı: *"tamamen bizim sistemde olacak bu kısımlar."* Worker
-        // Trakt'taki adı ve fotoğrafı ilk istekte BİR KEZ kopyalıyor — ve bu
-        // `getMyProfile` çağrısının kendisi o istek, yani yanıt geldiğinde
-        // kopya çoktan yazılmış oluyor. Bu yüzden Trakt'a GERİ DÜŞÜLMEZ:
-        // kullanıcı fotoğrafını kaldırdıysa `null` gerçektir; Trakt'ınkini
-        // göstermek kaldırmayı ekranda geri almak olurdu.
-        //
-        // 🔴 Bizim yanıt YOKSA (`null` — ağ düştü) Trakt'ın profili aynen
-        // gösterilir: "yanıt yok" ≠ "boş yanıt" (M381'in dersi).
-        //
-        // `username` hâlâ Trakt'tan (`@` altındaki satır ve rotalar) — K2:
-        // Trakt'lı hesapta kullanıcı adı değişmiyor, ikisi aynı.
-        setProfile(
-          kaymakProfil
-            ? {
-                ...myProfile,
-                name: kaymakProfil.displayName,
-                images: kaymakProfil.avatarUrl ? { avatar: { full: kaymakProfil.avatarUrl } } : undefined,
-                about: kaymakProfil.bio ?? myProfile.about,
-              }
-            : myProfile
-        );
+        if (kaymakProfil) {
+          setKaymakNo(kaymakProfil.kaymakNo);
+          // Yerel kopya sunucuyla aynı kalsın (çevrimdışı yedek + iyimser kartlar).
+          if (kaymakProfil.username && kaymakProfil.username !== myUsername) {
+            yerelProfiliGuncelle.current({ username: kaymakProfil.username }).catch(() => {});
+          }
+        }
+        const avatarUrl = kaymakProfil ? kaymakProfil.avatarUrl : myAvatarUrl ?? null;
+        setProfile({
+          private: traktProfil?.private ?? false,
+          vip: traktProfil?.vip ?? false,
+          ids: traktProfil?.ids ?? { slug: '' },
+          username: kaymakProfil?.username || myUsername || '',
+          name: kaymakProfil?.displayName ?? null,
+          images: avatarUrl ? { avatar: { full: avatarUrl } } : undefined,
+          about: kaymakProfil?.bio ?? null,
+        });
       } catch (error) {
-        console.warn('[Profile] Trakt profili yüklenemedi:', error);
+        console.warn('[Profile] Profil yüklenemedi:', error);
       } finally {
         if (!isMounted || isMounted()) setIsLoading(false);
       }
