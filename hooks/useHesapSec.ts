@@ -9,6 +9,7 @@ import { hesapSec, GirisYontemiHatasi } from '../services/api/girisYontemi';
 import { useHesapSecStore, hesapSecDurumuTemizle } from '../store/hesapSecStore';
 import { useOturumGecisi } from './useOturumGecisi';
 import { useBekleyenIsOnayi } from './useBekleyenIsOnayi';
+import { kurulumKimliginiYenile } from '../services/api/telemetry';
 
 export type HesapSecimi = 'mevcut' | 'diger';
 
@@ -46,6 +47,8 @@ export function useHesapSec() {
     setCalisiyor(true);
     try {
       const r = await hesapSec(accessToken, durum.bilet, secim);
+      // DISCORD-01 (M529): Hesap Seç bir hesabı sildi → kurulum kimliği yenilenir.
+      await kurulumKimliginiYenile();
       const yeni = durum.yeniTrakt;
       hesapSecDurumuTemizle();
       if (r.oturum === 'trakt_ile_gir' || (r.oturum === 'yeni_trakt' && !yeni)) {

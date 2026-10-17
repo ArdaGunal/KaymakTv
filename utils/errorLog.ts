@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { geciciHataNedeni } from './geciciHata';
 
 const ERROR_LOG_KEY = '@kaymak_error_log_v1';
 const MAX_ENTRIES = 50;
@@ -56,13 +57,18 @@ export const logError = (
   tags?: Record<string, string>,
   level: 'error' | 'warn' = 'error'
 ): void => {
-  const { message, stack } = serializeError(error);
+  const { message: hamMesaj, stack } = serializeError(error);
+  // DISCORD-01 (M529): geçici ağ/altyapı hatası (522, zaman aşımı, bağlantı kopması) Discord'a
+  // GİTMEZ; yerel günlüğe GERÇEK nedeniyle yazılır. 500/400/JS hataları gider (utils/geciciHata.ts).
+  const gecici = geciciHataNedeni(error);
+  const message = gecici ? `${hamMesaj} [geçici: ${gecici}]` : hamMesaj;
+  const etiketler = gecici ? { ...(tags || {}), gecici } : tags;
   const entry: LoggedError = {
     timestamp: Date.now(),
     context,
     message,
     stack,
-    ...(tags ? { tags } : {}),
+    ...(etiketler ? { tags: etiketler } : {}),
     ...(level === 'warn' ? { level } : {}),
   };
 
@@ -91,7 +97,7 @@ export const logError = (
   //
   // Hata YUTULUR ve BURADA `logError` ÇAĞRILMAZ — çağrılsaydı sonsuz
   // özyineleme olurdu (logError → telemetri → hata → logError → …).
-  if (level === 'error') {
+  if (level === 'error' && !gecici) {
     try {
       const { reportErrorRemotely } = require('../services/api/telemetry');
       void reportErrorRemotely({ context, message, stack, tags });

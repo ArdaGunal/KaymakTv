@@ -32,7 +32,11 @@ const load = tsLoader(root, {
 const C = load('services/auth/cikisTemizligi.ts');
 
 T.H('Izin listesi');
-T.ok('CIKISTA_KALAN_ANAHTARLAR BOS (eklemek = D8 istisnasi → kullaniciya sor)', Array.isArray(C.CIKISTA_KALAN_ANAHTARLAR) && C.CIKISTA_KALAN_ANAHTARLAR.length === 0);
+// D8 istisnasi (kullanici onayi 2026-10-18, DISCORD-01 · M529): yalniz 3 KIMLIKSIZ telemetri anahtari.
+// Baska anahtar eklemek = yeni D8 istisnasi → kullaniciya sor.
+const TELEMETRI = ['@kaymak_install_id_v1', '@kaymak_telemetry_quota_v1', '@kaymak_telemetry_seen_v1'];
+T.ok('CIKISTA_KALAN_ANAHTARLAR = TAM OLARAK 3 telemetri anahtari', JSON.stringify([...C.CIKISTA_KALAN_ANAHTARLAR].sort()) === JSON.stringify([...TELEMETRI].sort()), C.CIKISTA_KALAN_ANAHTARLAR.join(','));
+T.ok('Adlar telemetry.ts ile ayni', TELEMETRI.every((k) => oku('services/api/telemetry.ts').includes(`'${k}'`)));
 
 T.H('Bekleyen is sayisi (cikis uyarisi)');
 disk.set('kaymak-watched-outbox-v1:u1', JSON.stringify({ version: 1, jobs: [{}, {}] }));
@@ -44,8 +48,10 @@ T.ok('Iki kuyrugun isleri toplanir, bozuk kayit sayilmaz', (await C.bekleyenIsSa
 T.H('Cikis temizligi');
 disk.set('akis-disk-kopyasi', '[]');
 disk.set('kaymakMyUsername', 'Arda_Gunal'); // web: secureStorage → localStorage = ayni depo
+for (const k of TELEMETRI) disk.set(k, 'x');
 await C.cihazAnahtarlariniSil();
-T.ok('🔴 Kuyruklar DAHIL hicbir anahtar kalmadi (M439 istisnasi kalkti)', disk.size === 0, [...disk.keys()].join(','));
+T.ok('🔴 Kuyruklar DAHIL hicbir kullanici anahtari kalmadi; yalniz 3 telemetri anahtari', disk.size === 3 && TELEMETRI.every((k) => disk.has(k)), [...disk.keys()].join(','));
+for (const k of TELEMETRI) disk.delete(k);
 T.ok('Bos kuyrukta uyari yok', (await C.bekleyenIsSayisi()) === 0);
 await C.gorselOnbelleginiSil();
 T.ok('Gorsel onbellegi (disk + bellek) silindi', gorselSilindi === 2);

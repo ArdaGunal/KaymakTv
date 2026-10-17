@@ -4,6 +4,7 @@ import { bekleyenIsSayisi } from '../services/auth/cikisTemizligi';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { deleteAccountData } from '../features/feed/services/accountDeletion';
+import { kurulumKimliginiYenile } from '../services/api/telemetry';
 
 export interface UseSettingsResult {
   isLoggingOut: boolean;
@@ -59,6 +60,8 @@ export function useSettings(): UseSettingsResult {
         await deleteAccountData(accessToken);
       }
       await removeKeys();
+      // DISCORD-01 (M529): hesap silmede kurulum kimliği de gider (çıkışta kalır; sayaçlar kalır).
+      await kurulumKimliginiYenile();
     } catch (error) {
       console.error('[useSettings] deleteAccount error:', error);
       notify(t('common:error'), t('deleteAccountError', 'Veriler silinirken hata oluştu.'));

@@ -326,7 +326,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // 🔴 D8 / Faz 4d (M517): çıkış cihazı TAMAMEN temizler — M439'daki «bekleyen
       // izleme kuyruğu korunur» kuralı KALKTI (kullanıcı, 2026-10-13). Bekleyen iş varsa
       // uyarıyı çıkıştan ÖNCE `useSettings.handleLogout` gösterir. Kalan anahtar =
-      // `CIKISTA_KALAN_ANAHTARLAR` (bugün boş). Ayrıntı: services/auth/cikisTemizligi.ts.
+      // `CIKISTA_KALAN_ANAHTARLAR` (yalnız 3 kimliksiz telemetri anahtarı, M529). Ayrıntı: services/auth/cikisTemizligi.ts.
       await cihazAnahtarlariniSil();
       useWatchedOutboxStore.setState({ ready: false, pendingCount: 0, pendingShowIds: [], hasError: false, saveError: false });
       useHiddenOutboxStore.setState({ ready: false, pendingCount: 0, hasError: false, saveError: false });

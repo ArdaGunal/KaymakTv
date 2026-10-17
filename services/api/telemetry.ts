@@ -66,6 +66,12 @@ const QUOTA_KEY = '@kaymak_telemetry_quota_v1';
 const SEEN_KEY = '@kaymak_telemetry_seen_v1';
 
 let sessionCount = 0;
+/**
+ * DISCORD-01 (M529): bu oturumda gönderilen/gönderilmekte olan parmak izleri — BELLEKTE ve senkron.
+ * Disk kontrolü (`dahaOnceGonderildiMi`) oku-değiştir-yaz olduğu için aynı anda gelen iki aynı hata
+ * ikisi de «gönderilmedi» okuyup Discord'a İKİ kez gidiyordu (canlı: iki `useMyTraktProfile.graf`).
+ */
+const oturumdaGorulen = new Set<string>();
 
 /** Rastgele, KİMLİĞE BAĞLI OLMAYAN kurulum kimliği.
  *
@@ -159,6 +165,9 @@ export const reportErrorRemotely = async (input: TelemetryInput): Promise<void> 
     if (SAMPLE_RATE < 1 && Math.random() > SAMPLE_RATE) return;
 
     const fp = parmakIzi(input.context, input.message);
+    // Senkron kontrol + işaret — ilk `await`ten ÖNCE (yarış burada kapanır).
+    if (oturumdaGorulen.has(fp)) return;
+    oturumdaGorulen.add(fp);
     if (await dahaOnceGonderildiMi(fp)) return;
     if (await gunlukKotaAsildiMi()) return;
 
@@ -188,3 +197,24 @@ export const reportErrorRemotely = async (input: TelemetryInput): Promise<void> 
     // hata → logError → ... sonsuz özyineleme.
   }
 };
+
+/**
+ * DISCORD-01 (M529) — HESAP SİLİNDİĞİNDE kurulum kimliği yenilenir.
+ * Kullanıcı (2026-10-18): *«eğer kullanıcı normal çıkış değil de 'Hesabımı Sil' işlemini yaparsa (veya
+ * Hesap Seç'te hesabı silinirse) kurulum kimliği sıfırlansın/yenilensin, yalnızca spam koruyucu
+ * sayaçlar (20 tavanı ve 24 saat penceresi) kalsın.»* Normal çıkışta üçü de kalır (D8 istisnası,
+ * `services/auth/cikisTemizligi.ts`). Hata yutulur — silme akışını durdurmaz.
+ */
+export const kurulumKimliginiYenile = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(INSTALL_ID_KEY);
+  } catch {
+    // yoksay
+  }
+};
+
+/** D8 izin listesi bu adları kullanır (tek kaynak). */
+export const TELEMETRI_ANAHTARLARI = { kurulum: INSTALL_ID_KEY, kota: QUOTA_KEY, gorulen: SEEN_KEY } as const;
+
+/** Yalnız test: oturum belleğini sıfırlar. */
+export const __telemetriOturumunuSifirla = () => { oturumdaGorulen.clear(); sessionCount = 0; };

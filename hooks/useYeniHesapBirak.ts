@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { confirmAsync, notify } from '../utils/confirmDialog';
 import { yeniHesapBirakilabilir, yeniHesabiBirak } from '../features/feed/services/accountDeletion';
 import { GOOGLE_GIRIS_ACIK } from '../utils/googleGirisBayragi';
+import { kurulumKimliginiYenile } from '../services/api/telemetry';
 
 /**
  * Kimlik Faz 4 (M515) · D4 — isim ekranındaki «Zaten hesabın var mı? Giriş yap».
@@ -56,6 +57,8 @@ export function useYeniHesapBirak() {
     // Sunucuda hesap YOK artık — yerel oturum da kapanır (D8: çıkış denetimi Faz 4d).
     try {
       await removeKeys();
+      // DISCORD-01 (M529): hesap silindi → kurulum kimliği de yenilenir.
+      await kurulumKimliginiYenile();
     } catch (hata) {
       console.error('[useYeniHesapBirak] çıkış:', hata);
     }

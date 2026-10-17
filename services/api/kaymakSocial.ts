@@ -64,7 +64,9 @@ export interface KaymakUserSonucu {
 export type AramaHatasi = 'cok_kisa' | 'yetki' | 'bulunamadi' | 'istek_yok' | 'genel';
 
 export class KaymakAramaHatasi extends Error {
-  constructor(public readonly tur: AramaHatasi, message: string) {
+  /** DISCORD-01 (M529): kök neden (axios hatası) — `genel` altında 522/zaman aşımı ile gerçek
+   *  500 ayırt edilsin diye (`utils/geciciHata.ts`). Eskiden kayboluyordu. */
+  constructor(public readonly tur: AramaHatasi, message: string, public readonly neden?: unknown) {
     super(message);
   }
 }
@@ -117,7 +119,7 @@ const sosyalIstek = async (yol: string, govde: Record<string, unknown>): Promise
     if (durum === 409 && yanit?.code === 'istek_yok') {
       throw new KaymakAramaHatasi('istek_yok', yanit?.message || 'Bekleyen bir istek bulunamadı.');
     }
-    throw new KaymakAramaHatasi('genel', yanit?.message || 'İşlem tamamlanamadı.');
+    throw new KaymakAramaHatasi('genel', yanit?.message || 'İşlem tamamlanamadı.', error);
   }
 };
 

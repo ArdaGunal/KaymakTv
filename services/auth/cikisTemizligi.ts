@@ -14,14 +14,25 @@ import { HIDDEN_OUTBOX_PREFIX } from '../library/hiddenOutbox/types';
  * → M439'daki «bekleyen izleme kuyruğu çıkışta korunur» kuralı KALKTI; yerine çıkıştan
  * önce uyarı (`bekleyenIsSayisi`).
  *
- * Çıkışta cihazda KALAN AsyncStorage anahtarları = bu izin listesi. Bugün BOŞ: dil
- * seçimi dahil her şey gider. Buraya anahtar eklemek = D8'e istisna → kullanıcıya sor,
+ * Çıkışta cihazda KALAN AsyncStorage anahtarları = bu izin listesi. Yalnız 3 telemetri
+ * anahtarı (kimliksiz, M529); dil seçimi dahil kalan her şey gider. Buraya anahtar eklemek = D8'e istisna → kullanıcıya sor,
  * gerekçeyi yanına yaz (`tests/arayuz/cikis-denetimi.test.mjs` bu listeyi denetler).
  *
  * SecureStore (web'de localStorage) anahtarları `AuthContext.removeKeys`'te tek tek
  * siliniyor — test, kodda yazılan HER SecureStore anahtarının orada silindiğini denetler.
  */
-export const CIKISTA_KALAN_ANAHTARLAR: readonly string[] = [];
+export const CIKISTA_KALAN_ANAHTARLAR: readonly string[] = [
+  // D8 İSTİSNASI — DISCORD-01 (M529), kullanıcı onayı 2026-10-18: *«Normal 'Çıkış Yap' işleminde bu
+  // 3 anahtar silinmesin.»* Üçü de KİMLİĞE BAĞLI DEĞİL (isim/e-posta/token yok):
+  //   kurulum kimliği = rastgele `ins_…`; aynı cihazdan gelen hatalar ayırt edilsin diye.
+  //   günlük 20 tavanı + 24 saat parmak izi = spam koruması. Silinince her çıkış-giriş korumayı
+  //   sıfırlıyor, aynı hata Discord'a yeniden yağıyordu (12:28 seli).
+  // Hesap SİLMEDE kurulum kimliği yenilenir (`telemetry.kurulumKimliginiYenile`), sayaçlar kalır.
+  // Adlar `services/api/telemetry.ts` → `TELEMETRI_ANAHTARLARI` ile aynı (test denetler).
+  '@kaymak_install_id_v1',
+  '@kaymak_telemetry_quota_v1',
+  '@kaymak_telemetry_seen_v1',
+];
 
 /** Sunucuya henüz gitmemiş işaretleme + gizleme işi sayısı (diskteki kuyruklardan). */
 export async function bekleyenIsSayisi(): Promise<number> {
