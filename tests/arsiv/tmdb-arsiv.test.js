@@ -55,6 +55,13 @@ const patla = () => { throw new Error('TMDB 503 Service Unavailable'); };
   const ters = await archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/movie/603', query: {}, data: TMDB_FILM });
   T.ok('Aile ile yol tipi uyusmazsa reddedilir', ters.ok === false);
   T.ok('🔴 TMDB yazimlari YENI VARLIK/KIMLIK ACMADI', say('SELECT count(*) c FROM entities') === varlik0 && say('SELECT count(*) c FROM external_ids') === kimlik0);
+  // M534: Madde 288 birlesmis varlik — tmdb:movie bir BOLUM varligina bagli
+  const db2 = db.getDb();
+  const bolumId = 'episode_' + 'f'.repeat(32);
+  db2.prepare("INSERT INTO entities (kaymak_id, type, parent_id, season_number, episode_number, title, created_at, updated_at) VALUES (?, 'episode', NULL, 0, 22, 'SAO Ordinal Scale', 1, 1)").run(bolumId);
+  db2.prepare("INSERT INTO external_ids (source, source_id, kaymak_id, first_seen_at, last_seen_at) VALUES ('tmdb:movie', '413594', ?, 1, 1)").run(bolumId);
+  const tur = await archiveCatalogResponse({ provider: 'tmdb', family: 'movie_detail', path: '/movie/413594', query: { language: 'tr-TR' }, data: { id: 413594, title: 'SAO' } });
+  T.ok('🔴 M534: film kunyesi BOLUM varligina yazilmaz (tur_uyusmuyor)', tur.ok === false && tur.reason === 'tur_uyusmuyor', JSON.stringify(tur));
 
   T.H('Okuma + orkestrator geri dususu');
   const o = await readCatalogFromArchive({ provider: 'tmdb', family: 'tv_detail', path: '/tv/1396', query: { language: 'tr-TR' } });

@@ -23,6 +23,7 @@
 // her afiş MISS'i Worker'a gereksiz bir çağrı olurdu. Bu yüzden kimlik
 // `arsivId` adıyla döner.
 
+const { getDb } = require('./db');
 const { findByExternal } = require('./identity');
 const { upsertPayload, readPayload } = require('./store');
 
@@ -56,6 +57,14 @@ async function archiveTmdbDetail({ family, path, data, lang, fetchedAt = Date.no
   try {
     const kaymakId = findByExternal(kimlik.source, kimlik.source_id);
     if (!kaymakId) return { ok: false, reason: 'trakt_kimligi_yok' };
+    // 🆕 M534 — TÜR KAPISI. Arşivde Madde 288'den kalma birleşmiş varlıklar var: Trakt'ta
+    // hem film hem dizinin özel bölümü olan yapım (ör. «Sword Art Online: Ordinal Scale»)
+    // tek BÖLÜM varlığında toplanmış ve `tmdb:movie` kimliği ona bağlı. Toplu aktarımda 2
+    // film künyesi böyle bölüm varlığına yazıldı (veri doğru, kimlikle bulunuyor; arşiv
+    // silmez). Bundan sonra film künyesi yalnız film, dizi künyesi yalnız dizi varlığına.
+    const beklenen = family === 'tv_detail' ? 'show' : 'movie';
+    const varlik = getDb() && getDb().prepare('SELECT type FROM entities WHERE kaymak_id = ?').get(kaymakId);
+    if (!varlik || varlik.type !== beklenen) return { ok: false, reason: 'tur_uyusmuyor' };
     const yazim = await upsertPayload({ kaymakId, provider: 'tmdb', endpoint: family, lang, data, fetchedAt });
     return yazim.ok ? { ok: true, arsivId: kaymakId } : { ok: false, reason: yazim.reason };
   } catch (error) {
