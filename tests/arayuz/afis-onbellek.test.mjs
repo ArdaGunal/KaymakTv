@@ -9,14 +9,20 @@ import yardimci from '../yardimci.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const T = yardimci.baslat('AFIS ONBELLEGI (K2 · M531)', { kokOneki: 'afis-' });
 
-let sonraki = []; // sıradaki axios.get davranışları
+let sonraki = []; // sıradaki /api/tmdb davranışları
 const istekler = [];
+const yedekler = new Map(); // 'show:123' -> /api/afis-yedek cevabındaki url (K1(b))
+const yedekIstekleri = [];
 const disk = new Map();
 const hata = (status, code) => Object.assign(new Error(status ? `Request failed with status code ${status}` : 'Network Error'),
   status ? { response: { status } } : { code: code || 'ERR_NETWORK' });
 
 const load = tsLoader(root, {
   axios: { default: { get: async (url, cfg) => {
+    if (url.includes('afis-yedek')) {
+      yedekIstekleri.push(`${cfg.params.tur}:${cfg.params.tmdb}`);
+      return { data: { url: yedekler.get(`${cfg.params.tur}:${cfg.params.tmdb}`) ?? null } };
+    }
     istekler.push(cfg.params.endpoint);
     const d = sonraki.shift();
     if (d instanceof Error) throw d;
@@ -69,4 +75,28 @@ await A.getShowBackdrop(404);
 const once2 = istekler.length;
 await A.getShowBackdrop(404);
 T.ok('Arka plan: 404 saklanir, tekrar istenmez', istekler.length === once2);
+
+T.H('K1(b) · M532 — TMDB afis vermezse arsivdeki Trakt afisi');
+const TRAKT = 'https://media.trakt.tv/images/shows/000/002/177/posters/medium/9cb5875b93.jpg.webp';
+yedekler.set('show:501', TRAKT);
+sonraki = [{ poster_path: null }];
+T.ok('TMDB de yol yok -> Trakt yedegi doner', (await A.getShowPoster(501)) === TRAKT);
+T.ok('Kesin cevapta yedek KALICI saklanir (disk)', disk.get('@tmdb_poster_cache_show_501') === TRAKT && A.peekPosterCache('show', 501).url === TRAKT);
+
+yedekler.set('movie:502', TRAKT);
+sonraki = [hata(503)];
+T.ok('🔴 Pi kotasi 503 -> Trakt yedegi doner (eskiden yer tutucu)', (await A.getMoviePoster(502)) === TRAKT);
+T.ok('Gecici hatada yedek YALNIZ oturumluk (diske yazilmaz)', A.peekPosterCache('movie', 502).url === TRAKT && !disk.has('@tmdb_poster_cache_movie_502'));
+
+sonraki = [hata(0)];
+T.ok('Ag hatasi + yedek yok -> null, onbellege yazilmaz', (await A.getShowPoster(503)) === null && A.peekPosterCache('show', 503).hit === false);
+
+yedekler.set('show:504', 'https://kotu.example.com/afis.jpg');
+sonraki = [{ poster_path: null }];
+T.ok('🔒 Trakt disi sunucu adresi REDDEDILIR', (await A.getShowPoster(504)) === null);
+
+const y0 = yedekIstekleri.length;
+sonraki = [{ poster_path: '/var.jpg' }];
+await A.getShowPoster(505);
+T.ok('TMDB afisi varsa yedek HIC sorulmaz', yedekIstekleri.length === y0);
 T.bitir();

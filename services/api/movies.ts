@@ -49,24 +49,6 @@ export const getMovieSummary = async (movieId: number | string) => {
   }
 };
 
-export const getMovieCast = async (movieId: number | string) => {
-  try {
-    return await fetchCatalogOrFallback(
-      'L7/getMovieCast',
-      `/movies/${movieId}/people`,
-      { extended: 'full' },
-      async () => (await (await getTraktClient()).get(`/movies/${movieId}/people?extended=full`)).data,
-      { movieId: String(movieId) }
-    );
-  } catch (error) {
-    // 🔴 Bu iki fonksiyonun hata sözleşmesi DİĞERLERİNDEN FARKLI: fırlatmak
-    // yerine boş bir varsayılan dönüyorlar (kadro/benzer filmler olmadan da
-    // film ekranı açılabilmeli). L7+ bunu DEĞİŞTİRMEDİ.
-    console.error(`Trakt API Hatasi (getMovieCast - ${movieId}):`, error);
-    return { cast: [] };
-  }
-};
-
 export const getRelatedMovies = async (movieId: number | string) => {
   try {
     return await fetchCatalogOrFallback(

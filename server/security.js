@@ -117,6 +117,9 @@ const traktCatalogLimiter = makeLimiter(180, 'Trakt katalog gecidi');
 // 🆕 K8 (M531) — `/api/health`. Salt okuma ama her çağrı arşive birkaç sorgu
 // atıyor; izleme betiği dakikada birkaç kez sorar, 30 cömert.
 const saglikLimiter = makeLimiter(30, 'Saglik ucu');
+// 🆕 K1(b) (M532) — `/api/afis-yedek`: yalnız TMDB afişi alınamayınca çağrılır,
+// ama soğuk önbellekte bir ızgara onlarca afiş birden sorabilir; TMDB'yle aynı pay.
+const afisYedekLimiter = makeLimiter(300, 'Afis yedegi');
 // Giriş/token yenileme seyrek bir işlem; burada dar olmak güvenli.
 const traktAuthLimiter = makeLimiter(20, 'Trakt auth');
 
@@ -269,6 +272,7 @@ module.exports = {
   traktCatalogLimiter,
   traktAuthLimiter,
   saglikLimiter,
+  afisYedekLimiter,
   traktProxyGuard,
   redirectUriGuard,
   logSecurityMode,

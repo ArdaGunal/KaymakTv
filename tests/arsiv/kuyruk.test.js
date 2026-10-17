@@ -181,8 +181,9 @@ const SEZONLAR = [
   // Kapsam disi aile: kuyruga girer ama yazici REDDEDER (gurultu loglanmaz)
   const oncekiHata = archiveQueue.getStats().hata;
   await orch.resolveRequest({
-    provider: 'trakt', path: '/shows/1388/people',
-    fetcher: async () => ({ data: { cast: [{ id: 1 }] }, maxAgeSeconds: 600 }),
+    // K7 (M532): people rotalari kalkti (PASSTHRU olurdu) — onbelleklenen ama arsivlenmeyen aile: related
+    provider: 'trakt', path: '/shows/1388/related',
+    fetcher: async () => ({ data: [{ title: 'Benzer', ids: { trakt: 2 } }], maxAgeSeconds: 600 }),
   });
   await archiveQueue.drain();
   T.ok('Kapsam disi aile atlandi, HATA sayilmadi', archiveQueue.getStats().hata === oncekiHata);

@@ -82,21 +82,6 @@ export const getShowSeasons = async (showId: number) => {
   }
 };
 
-export const getShowCast = async (showId: number) => {
-  try {
-    return await fetchCatalogOrFallback(
-      'L7/getShowCast',
-      `/shows/${showId}/people`,
-      {},
-      async () => (await (await getTraktClient()).get(`/shows/${showId}/people`)).data,
-      { showId: String(showId) }
-    );
-  } catch (error) {
-    console.error(`Trakt API Hatasi (getShowCast - ${showId}):`, error);
-    throw error;
-  }
-};
-
 export const getRelatedShows = async (showId: number) => {
   try {
     return await fetchCatalogOrFallback(

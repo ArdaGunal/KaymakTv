@@ -105,7 +105,7 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
             istatistik.atlanan += 1;
             // "Kapsam dışı aile" gürültü değil, normal akış — loglanmaz.
             // Gerçek bir başarısızlık (bozuk veri, disk) ise iz bırakır.
-            if (sonuc && sonuc.reason && !['kapsam_disi_aile', 'desteklenmeyen_saglayici', 'bos_yanit'].includes(sonuc.reason)) {
+            if (sonuc && sonuc.reason && !['kapsam_disi_aile', 'desteklenmeyen_saglayici', 'bos_yanit', 'trakt_kimligi_yok'].includes(sonuc.reason)) {
               logSync({ event: 'error', provider: is.provider, endpoint: is.family, detail: `kuyruk: ${sonuc.reason}` });
             }
           }

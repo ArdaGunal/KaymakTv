@@ -44,6 +44,8 @@
 const { transactionAsync } = require('./db');
 const { resolveOrCreate, traktIdsToExternal, findByExternal, findChild } = require('./identity');
 const { upsertPayload, logSync, DILSIZ } = require('./store');
+// 🆕 K4 (M532) — TMDB detayları ayrı modülde (bu dosya 400 satır sınırında).
+const { archiveTmdbDetail } = require('./tmdbArsiv');
 
 // ==========================================================================
 // 🔴🔴 OLAY DÖNGÜSÜ NEFESİ — ÖLÇÜMDEN DOĞDU
@@ -342,6 +344,9 @@ const DESTEKLENEN_AILELER = new Set(['show_seasons', 'show_detail', 'movie_detai
  * (03_FAZLAR.md A2). Hata `sync_log`'a yazılır ve `{ok:false}` döner.
  */
 async function archiveCatalogResponse({ provider, family, path, query = {}, data, fetchedAt = Date.now() }) {
+  // 🆕 K4 (M532): TMDB `tv_detail`/`movie_detail` artık arşive giriyor (eskiden
+  // burada `desteklenmeyen_saglayici` ile reddediliyordu). Kurallar `tmdbArsiv.js`.
+  if (provider === 'tmdb') return archiveTmdbDetail({ family, path, data, lang: dilCoz(query), fetchedAt });
   if (provider !== 'trakt') return { ok: false, reason: 'desteklenmeyen_saglayici' };
   if (!DESTEKLENEN_AILELER.has(family)) return { ok: false, reason: 'kapsam_disi_aile' };
 

@@ -153,8 +153,11 @@ const SEZONLAR = [
   T.ok('Dispatcher show_seasons i dogru yonlendiriyor', d1.ok === true);
   T.ok('Kapsam disi aile reddediliyor',
     (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_people', path: '/shows/1388/people', data: { cast: [] } })).reason === 'kapsam_disi_aile');
-  T.ok('TMDB saglayicisi bu turda kapsam disi',
-    (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/1396', data: { id: 1 } })).reason === 'desteklenmeyen_saglayici');
+  // K4 (M532): TMDB artik arsive giriyor — ama YALNIZ Trakt'tan gelmis (tmdb eslemesi olan) yapima.
+  T.ok('TMDB: Trakt eslemesi olmayan yapim YENI VARLIK ACMAZ (trakt_kimligi_yok)',
+    (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999999', data: { id: 999999 } })).reason === 'trakt_kimligi_yok');
+  T.ok('TMDB: kapsam disi TMDB ailesi reddediliyor',
+    (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'credits', path: '/tv/1396/credits', data: { cast: [] } })).reason === 'kapsam_disi_aile');
   T.ok('Cozulemeyen yol reddediliyor',
     (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/bozuk/yol', data: SEZONLAR })).reason === 'yol_cozulemedi');
 

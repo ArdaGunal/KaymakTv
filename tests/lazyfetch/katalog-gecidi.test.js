@@ -31,20 +31,17 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
 
 (async () => {
   // ======================================================================
-  T.H('Beyaz liste - ACIK olmasi gerekenler (8 aile)');
+  T.H('Beyaz liste - ACIK olmasi gerekenler (6 aile; K7 ile people cikti)');
   // ======================================================================
   const acik = {
     '/shows/1388': 'show_detail',
     '/shows/1388/seasons': 'show_seasons',
     '/shows/breaking-bad/seasons': 'show_seasons',
     '/shows/1388/related': 'show_related',
-    '/shows/1388/people': 'show_people',
-    '/shows/breaking-bad/people': 'show_people',
     '/shows/1388/seasons/1/episodes/1': 'episode_detail',
     '/shows/1388/seasons/12/episodes/103': 'episode_detail',
     '/movies/481': 'movie_detail',
     '/movies/481/related': 'movie_related',
-    '/movies/481/people': 'movie_people',
   };
   for (const [yol, beklenen] of Object.entries(acik)) {
     const r = rr.resolveRoute('trakt', yol);
@@ -65,6 +62,8 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
     '/sync/history', '/sync/watchlist', '/sync/collection',
     '/calendars/my/shows', '/oauth/token',
     // Bilincli olarak kapsam disi
+    // 🆕 K7 (M532): kadro TMDB `credits`'ten — Trakt people rotalari kaldirildi
+    '/shows/1388/people', '/shows/breaking-bad/people', '/movies/481/people',
     '/search/show', '/search/movie', '/shows/1388/comments', '/shows/1388/ratings',
     // Yol gecisi denemeleri
     '/shows/../users/settings', '/shows/1388/seasons/../../users/settings', '/movies/../../etc/passwd',
@@ -136,6 +135,12 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
   );
 
   // ======================================================================
+  T.H('K6 (M532) - TMDB /person beyaz listede');
+  T.ok('/person/17419 -> person_detail (PASSTHRU degil)', rr.resolveRoute('tmdb', '/person/17419').family === 'person_detail');
+  T.ok('/person/17419/images ve /person/abc KAPALI', !rr.resolveRoute('tmdb', '/person/17419/images').cacheable && !rr.resolveRoute('tmdb', '/person/abc').cacheable);
+  T.ok("Denetci taniyor: tmdb/person_detail", fs.readFileSync(path.join(PROJE_KOKU, 'scripts', 'lazyfetch-inspect.js'), 'utf8').includes("'tmdb/person_detail'"));
+
+  // ======================================================================
   T.H('Denetci yeni aileleri taniyor mu (Madde 260 kurali)');
   // ======================================================================
   // 🔴 Madde 260: denetci L7'den once yaziImisti ve L7 sonrasi SABIT bir
@@ -143,7 +148,7 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
   // Kural: bir faz aile/saglayici degistiriyorsa denetci AYNI TURDA
   // guncellenmeli. Bu test o kurali otomatiklestiriyor.
   const denetciKaynak = fs.readFileSync(path.join(PROJE_KOKU, 'scripts', 'lazyfetch-inspect.js'), 'utf8');
-  const aileler = ['show_detail', 'show_seasons', 'show_related', 'show_people', 'episode_detail', 'movie_detail', 'movie_related', 'movie_people'];
+  const aileler = ['show_detail', 'show_seasons', 'show_related', 'episode_detail', 'movie_detail', 'movie_related'];
   for (const aile of aileler) {
     T.ok('Denetci taniyor: trakt/' + aile, denetciKaynak.includes("'trakt/" + aile + "'"));
   }

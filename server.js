@@ -164,6 +164,9 @@ app.use('/api/katalog-cek', require('./server/katalogCek'));
 // K8 (M531) — LazyFetch + arşiv sağlık ucu (salt okuma, sırsız; gerekçe dosya başlığında).
 app.use('/api/health', require('./server/saglik'));
 
+// K1(b) (M532) — TMDB afişi yoksa arşivdeki Trakt afiş adresi (salt okuma, ağa çıkmaz).
+app.use('/api/afis-yedek', require('./server/afisYedek'));
+
 // ==========================================
 // TRAKT GENERIC PROXY (CORS Köprüsü)
 // ==========================================

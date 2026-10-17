@@ -44,6 +44,7 @@ const TAKIMLAR = [
   { ad: 'yedek', grup: 'arsiv', dosya: 'arsiv/yedek.test.js', aciklama: 'A2.5: gece yedegi, ayni-disk reddi, kopya dondurme' },
   { ad: 'tamamlama', grup: 'arsiv', dosya: 'arsiv/tamamlama.test.js', aciklama: 'A3/2: eksik tespiti, defter, ardisik hata freni' },
   { ad: 'geridusus', grup: 'arsiv', dosya: 'arsiv/geri-dusus.test.js', aciklama: 'A4: saglayici cokunce arsive gerileme (karar A5)' },
+  { ad: 'tmdb-arsiv', grup: 'arsiv', dosya: 'arsiv/tmdb-arsiv.test.js', aciklama: 'K4/M532: TMDB kunyesi arsive (yalniz Trakt eslemeli yapima), geri dusus, anlik aktarim yok' },
   { ad: 'ayna', grup: 'arsiv', dosya: 'arsiv/ayna.test.js', aciklama: 'C30: ayna satir bicimi + tekil aktarim esitligi' },
   { ad: 'anlik', grup: 'arsiv', dosya: 'arsiv/anlik-aktarim.test.js', aciklama: 'C30: anlik aktarim kuyrugu, eksikte cekme, kapi' },
   // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,

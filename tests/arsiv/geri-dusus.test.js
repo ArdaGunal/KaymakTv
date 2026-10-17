@@ -158,8 +158,11 @@ const patla = () => { throw new Error('Trakt 504 Gateway Timeout'); };
   // ==================================================================
   T.H('Kapsam kapilari — sessizce genislemiyor');
   // ==================================================================
-  const tmdb = await readCatalogFromArchive({ provider: 'tmdb', family: 'tv_detail', path: '/tv/1396', query: {} });
-  T.ok('TMDB desteklenmiyor', tmdb.ok === false && tmdb.reason === 'desteklenmeyen_saglayici');
+  // K4 (M532): TMDB okunuyor; arsivde olmayan yapim icin dürüst "yok".
+  const tmdb = await readCatalogFromArchive({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999999', query: {} });
+  T.ok('TMDB: arsivde olmayan yapim -> kimlik_bulunamadi (varlik yaratmaz)', tmdb.ok === false && tmdb.reason === 'kimlik_bulunamadi', tmdb.reason);
+  const tmdbKapsam = await readCatalogFromArchive({ provider: 'tmdb', family: 'credits', path: '/tv/1396/credits', query: {} });
+  T.ok('TMDB: kapsam disi aile', tmdbKapsam.ok === false && tmdbKapsam.reason === 'kapsam_disi_aile');
 
   const kapsamDisi = await readCatalogFromArchive({
     provider: 'trakt', family: 'show_people', path: '/shows/1388/people', query: {},
@@ -231,7 +234,8 @@ const patla = () => { throw new Error('Trakt 504 Gateway Timeout'); };
   let hata2 = null;
   try {
     await resolveRequest({
-      provider: 'trakt', path: '/shows/1388/people', query: {}, fetcher: patla,
+      // K7 (M532): people rotasi kalkti (PASSTHRU olur, devreye sayilmaz) — arsivlenmeyen aile: related
+      provider: 'trakt', path: '/shows/1388/related', query: {}, fetcher: patla,
     });
   } catch (e) { hata2 = e; }
   T.ok('Arsivlenmeyen ailede geri dusus YOK, hata firlatiliyor',

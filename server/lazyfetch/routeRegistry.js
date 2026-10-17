@@ -132,6 +132,10 @@ const TMDB_ROUTES = [
   { family: 'episode_detail', regex: /^\/tv\/\d+\/season\/\d+\/episode\/\d+$/ },
   { family: 'credits', regex: /^\/(tv|movie)\/\d+\/credits$/ },
   { family: 'episode_credits', regex: /^\/tv\/\d+\/season\/\d+\/episode\/\d+\/credits$/ },
+  // 🆕 K6 (M532) — oyuncu penceresi (`services/tmdbPerson.ts`). PASSTHRU idi:
+  // her dokunuş TMDB'ye gidiyordu ve TMDB çökünce pencere boş kalıyordu.
+  // Kişi biyografisi nadiren değişir; katalog politikası (30/180 gün) uygun.
+  { family: 'person_detail', regex: /^\/person\/\d+$/ },
 ];
 
 // 🆕 L7 — TRAKT KATALOG ROTALARI.
@@ -183,13 +187,15 @@ const TRAKT_ROUTES = [
   // — istemci ikisini de kullanıyor. Slug karakter kümesi dar tutuldu.
   { family: 'show_seasons', regex: /^\/shows\/[A-Za-z0-9-]+\/seasons$/ },
   { family: 'show_related', regex: /^\/shows\/[A-Za-z0-9-]+\/related$/ },
-  { family: 'show_people', regex: /^\/shows\/[A-Za-z0-9-]+\/people$/ },
   // Trakt'ın yolu ÇOĞUL: `/seasons/1/episodes/1` (TMDB'de `/season/1/episode/1`).
   { family: 'episode_detail', regex: /^\/shows\/[A-Za-z0-9-]+\/seasons\/\d+\/episodes\/\d+$/ },
   // --- Filmler ---
   { family: 'movie_detail', regex: /^\/movies\/\d+$/ },
   { family: 'movie_related', regex: /^\/movies\/[A-Za-z0-9-]+\/related$/ },
-  { family: 'movie_people', regex: /^\/movies\/[A-Za-z0-9-]+\/people$/ },
+  // 🆕 K7 (M532) — `show_people` / `movie_people` KALDIRILDI (8 → 6 rota).
+  // Canlıda 0 dosyaydı: istemcide onları çağıran `getShowCast`/`getMovieCast`'in
+  // hiçbir kullanıcısı yoktu, kadro TMDB `credits`'ten geliyor (M530). Artık
+  // `/api/trakt-catalog` bu yollara 403 döner.
 ];
 
 const PROVIDER_ROUTES = {

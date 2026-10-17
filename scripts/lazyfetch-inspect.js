@@ -77,6 +77,8 @@ function describe(envelope) {
     case 'tmdb/credits':
     case 'tmdb/episode_credits':
       return `${(p.cast || []).length} oyuncu · ${(p.crew || []).length} ekip`;
+    case 'tmdb/person_detail':
+      return `${p.name || '?'}${p.known_for_department ? ' · ' + p.known_for_department : ''}`;
 
     // ---------------- TRAKT (L7 / L7+) ----------------
     // Yanıt şekilleri TMDB'ninkinden tamamen farklı: Trakt `title`/`year`/
@@ -97,14 +99,6 @@ function describe(envelope) {
       return Array.isArray(p)
         ? `${p.length} benzer yapım${p.length ? ' — ör. ' + (p[0].title || '?') : ''}`
         : '(beklenmeyen benzer yapım yanıtı)';
-    case 'trakt/show_people':
-    case 'trakt/movie_people': {
-      // Trakt kadroyu `cast` + `crew` (departmanlara bölünmüş nesne) döndürür.
-      const ekip = p.crew && typeof p.crew === 'object'
-        ? Object.values(p.crew).reduce((t, liste) => t + (Array.isArray(liste) ? liste.length : 0), 0)
-        : 0;
-      return `${(p.cast || []).length} oyuncu · ${ekip} ekip`;
-    }
 
     default:
       return '(bilinmeyen aile)';
@@ -269,8 +263,7 @@ function ozet(rows) {
     'trakt/episode_detail': '🆕 L7+ — Trakt BÖLÜM detayı (başlık, özet, ilk yayın)',
     'trakt/show_related': '🆕 L7+ — benzer diziler',
     'trakt/movie_related': '🆕 L7+ — benzer filmler',
-    'trakt/show_people': '🆕 L7+ — dizi kadrosu (Trakt)',
-    'trakt/movie_people': '🆕 L7+ — film kadrosu (Trakt)',
+    'tmdb/person_detail': '🆕 K6 — oyuncu sayfası (biyografi, fotoğraf yolu)',
   };
   for (const [f, g] of sirali) {
     // Sağlayıcı öneki KORUNUYOR — L7'den beri iki sağlayıcı var,
@@ -434,8 +427,8 @@ function listele(rows, aile) {
   if (!filtre.length) {
     say(
       `\n"${aile}" ailesinde kayıt yok.` +
-      '\n  TMDB:  tv_detail, movie_detail, episode_detail, credits, episode_credits, tv_images, tv_videos, movie_videos' +
-      '\n  Trakt: show_detail, show_seasons, show_related, show_people, episode_detail, movie_detail, movie_related, movie_people' +
+      '\n  TMDB:  tv_detail, movie_detail, episode_detail, credits, episode_credits, tv_images, tv_videos, movie_videos, person_detail' +
+      '\n  Trakt: show_detail, show_seasons, show_related, episode_detail, movie_detail, movie_related' +
       `\n  İpucu: "${aile}" iki sağlayıcıda da varsa sağlayıcıyla daralt — ör. --list trakt/${aile}`
     );
     return;

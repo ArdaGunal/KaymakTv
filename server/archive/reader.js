@@ -37,6 +37,7 @@ const { readPayload } = require('./store');
 // "boş" görünürdü. Madde 286 tam olarak bu ailedendi (dil yanlış
 // etiketlenince 523 mükerrer satır). Test bu eşitliği ayrıca kilitliyor.
 const { dilCoz, yoldanKimlik, DESTEKLENEN_AILELER } = require('./writer');
+const { readTmdbDetail } = require('./tmdbArsiv');
 
 /**
  * 🔴 ACİL KAPATMA. Arşiv geri düşüşü beklenmedik bir davranış üretirse
@@ -116,6 +117,11 @@ function kimlikleriAra(kimlikler) {
 async function readCatalogFromArchive({ provider, family, path, query = {} }) {
   try {
     if (!geriDususAcikMi()) return { ok: false, reason: 'geri_dusus_kapali' };
+    // 🆕 K4 (M532): TMDB künyesi (afiş/arka plan YOLU dahil) arşivden geri döner.
+    if (provider === 'tmdb') {
+      if (!getDb()) return { ok: false, reason: 'arsiv_kapali' };
+      return await readTmdbDetail({ family, path, lang: dilCoz(query) });
+    }
     if (provider !== 'trakt') return { ok: false, reason: 'desteklenmeyen_saglayici' };
 
     // 🔴 Yazıcının listesiyle AYNI KÜME — ayrı bir liste tutmak, bir aile

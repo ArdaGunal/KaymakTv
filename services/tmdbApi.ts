@@ -2,6 +2,7 @@ import axios from 'axios';
 import i18n from '../locales/index';
 import { cacheManager } from '../utils/cacheManager';
 import { CACHE_TTL } from '../utils/cacheTTL';
+import { traktAfisYedegi } from './afisYedek';
 
 // TMDB anahtarı istemciye ASLA gömülmez (`EXPO_PUBLIC_TMDB_API_KEY` KALDIRILDI
 // — bkz. google_play_eksikler.md Aşama 5). `services/api/auth.ts`'teki
@@ -95,6 +96,15 @@ export const peekPosterCache = (type: 'show' | 'movie', tmdbId: number): { hit: 
 // 503). Geçici hatada önbelleğe dokunulmaz → bir sonraki mount yeniden dener.
 const kesinYokMu = (error: any): boolean => error?.response?.status === 404;
 
+// K1(b) (M532): TMDB afiş vermediyse arşivdeki Trakt afişi. KESİN cevapta (boş yol, 404)
+// sonuç — yedek ya da «yok» — saklanır; GEÇİCİ hatada yedek yalnız bu oturumluk tutulur.
+const yedekleSonuclandir = async (type: 'show' | 'movie', tmdbId: number, cacheKey: string, kesin: boolean) => {
+  const yedek = await traktAfisYedegi(type, tmdbId);
+  if (kesin) await setCachedData(cacheKey, yedek);
+  else if (yedek) memoryCache.set(cacheKey, yedek);
+  return yedek;
+};
+
 // TMDB'ye HER ZAMAN proxy üzerinden gidilir (native dahil) — anahtar yalnızca
 // sunucu tarafında (`server.js` → `TMDB_API_KEY`) tutulur.
 export const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
@@ -120,12 +130,10 @@ export const getShowPoster = async (tmdbId: number): Promise<string | null> => {
       return fullUrl;
     }
 
-    await setCachedData(cacheKey, null);
-    return null;
+    return await yedekleSonuclandir('show', tmdbId, cacheKey, true);
   } catch (error: any) {
     console.warn(`TMDB API Hatası (show tmdbId: ${tmdbId}):`, error.message);
-    if (kesinYokMu(error)) await setCachedData(cacheKey, null);
-    return null;
+    return await yedekleSonuclandir('show', tmdbId, cacheKey, kesinYokMu(error));
   }
 };
 
@@ -148,16 +156,14 @@ export const getMoviePoster = async (tmdbId: number): Promise<string | null> => 
       return fullUrl;
     }
 
-    await setCachedData(cacheKey, null);
-    return null;
+    return await yedekleSonuclandir('movie', tmdbId, cacheKey, true);
   } catch (error: any) {
     if (error.response && error.response.status === 404) {
       console.log(`[TMDB] Afiş bulunamadı (movie tmdbId: ${tmdbId})`);
     } else {
       console.warn(`TMDB API Hatası (movie tmdbId: ${tmdbId}):`, error.message);
     }
-    if (kesinYokMu(error)) await setCachedData(cacheKey, null);
-    return null;
+    return await yedekleSonuclandir('movie', tmdbId, cacheKey, kesinYokMu(error));
   }
 };
 
