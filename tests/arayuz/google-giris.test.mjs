@@ -19,9 +19,10 @@ T.ok('Google dugmesi Trakt dugmesinin ALTINDA, VEYA ayracinin USTUNDE', trakt > 
 T.ok('Kullanim kosullari kapisi Google icin de gecerli', /<GoogleGirisDugmesi etkin=\{isChecked/.test(ekran));
 T.ok('M502 Faz 0 + D10: dugme bayraga bagli, bayrak tek yerde', /import \{ GOOGLE_GIRIS_ACIK \} from '..\/..\/utils\/googleGirisBayragi'/.test(ekran) && !/const GOOGLE_GIRIS_ACIK/.test(ekran) && /\{GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi/.test(ekran));
 
-T.H("D10 · yalniz test APK'sinda acik (kullanici 2026-10-13)");
+T.H("D10 → GIRIS-G-02 · once yalniz test APK'si (2026-10-13), sonra herkese (2026-10-17)");
 const bayrak = oku('utils/googleGirisBayragi.ts');
-T.ok("Bayrak YALNIZ EXPO_PUBLIC_GOOGLE_GIRIS_TEST === '1' ile acilir", /export const GOOGLE_GIRIS_ACIK = process\.env\.EXPO_PUBLIC_GOOGLE_GIRIS_TEST === '1';/.test(bayrak));
+// GIRIS-G-02 (kullanici 2026-10-17): «butonu ac ve su an kalsin» — herkese acik, tek yerde.
+T.ok('GIRIS-G-02: Google girisi HERKESE ACIK (tek satir, kapatmak = false)', /export const GOOGLE_GIRIS_ACIK = true;/.test(bayrak));
 const envDosyalari = ['.env', '.env.local', '.env.production'].filter(var_);
 T.ok('.env dosyalarinda bayrak YOK (web/yayin paketine gomulmesin)', envDosyalari.every((f) => !/EXPO_PUBLIC_GOOGLE_GIRIS_TEST/.test(oku(f))), envDosyalari.join(','));
 const derle = oku('scripts/apk-derle.sh');
