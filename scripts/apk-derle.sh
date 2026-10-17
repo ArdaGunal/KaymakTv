@@ -15,7 +15,7 @@ KOK="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$KOK/android"
 
 unset EXPO_PUBLIC_AG_IZLE EXPO_PUBLIC_GOOGLE_GIRIS_TEST
-TUR="YAYIN (AG kapali, Google kapali)"; EK=""
+TUR="YAYIN (AG kapali; Google girisi utils/googleGirisBayragi.ts)"; EK=""
 case "${1:-}" in
   --ag) export EXPO_PUBLIC_AG_IZLE=1; TUR="TEST (AG acik)"; EK="-AG-TEST" ;;
   --google-test) export EXPO_PUBLIC_GOOGLE_GIRIS_TEST=1; TUR="TEST (Google giris acik — YAYINLANMAZ)"; EK="-GOOGLE-TEST" ;;
