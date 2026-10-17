@@ -39,8 +39,8 @@ const ARAMA = [{ type: 'show', score: 900, show: { title: 'Dark', ids: { trakt: 
 
   T.H('Sorgu sadelestirme');
   T.ok('Bilinmeyen parametre anahtara girmez', JSON.stringify(katman.sadeSorgu({ endpoint: '/x', query: 'a', foo: '1', _: '9' })) === '{"query":"a"}');
-  T.ok('Arama metni kucuk harf + bosluk sade', katman.sadeSorgu({ query: '  Breaking   BAD ' }).query === 'breaking bad');
-  T.ok('Turkce buyuk I dogru kuculur', katman.sadeSorgu({ query: 'İSTANBUL' }).query === 'istanbul');
+  T.ok('Arama metni: yalniz bosluk sade, harfler AYNEN', katman.sadeSorgu({ query: '  Breaking   BAD ' }).query === 'Breaking BAD');
+  T.ok('🔴 M535: harf KUCULTULMEZ (Trakt «severance» 0, «Severance» 1 donduruyor)', katman.sadeSorgu({ query: 'Severance' }).query === 'Severance');
 
   const app = express();
   app.get('/api/trakt-proxy', katman);
@@ -65,9 +65,16 @@ const ARAMA = [{ type: 'show', score: 900, show: { title: 'Dark', ids: { trakt: 
   trakt = async () => ({ data: ARAMA, headers: {} });
   const c0 = cagrilar.length;
   await getir('endpoint=/search/show&query=Dark&extended=full');
-  const a2 = await getir('endpoint=/search/show&query=%20dark%20&extended=full');
-  T.ok('🔴 «Dark» ve « dark » ayni kayit (Trakt a tek cagri)', a2.lf === 'fresh' && cagrilar.length === c0 + 1, `${a2.lf} ${cagrilar.length - c0}`);
-  T.ok('Bos arama -> [] (Trakt a gidilmez)', (await getir('endpoint=/search/show&query=%20')).govde.length === 0 && cagrilar.length === c0 + 1);
+  const a2 = await getir('endpoint=/search/show&query=%20Dark%20&extended=full');
+  T.ok('«Dark» ve « Dark » ayni kayit (Trakt a tek cagri)', a2.lf === 'fresh' && cagrilar.length === c0 + 1, `${a2.lf} ${cagrilar.length - c0}`);
+  const a3 = await getir('endpoint=/search/show&query=dark&extended=full');
+  T.ok('🔴 M535: «dark» AYRI kayit — Trakt a kullanicinin yazdigi gider', a3.lf === 'miss' && cagrilar[cagrilar.length - 1].cfg.params.query === 'dark', a3.lf);
+  T.ok('Bos arama -> [] (Trakt a gidilmez)', (await getir('endpoint=/search/show&query=%20')).govde.length === 0 && cagrilar.length === c0 + 2);
+
+  trakt = async () => ({ data: [], headers: {} });
+  const b1 = await getir('endpoint=/search/show&query=Bos&extended=full');
+  const b2 = await getir('endpoint=/search/show&query=Bos&extended=full');
+  T.ok('🔴 M535: BOS arama sonucu saklanmaz (iki istek de no-store, Trakt a yeniden sorulur)', b1.lf === 'no-store' && b2.lf === 'no-store', `${b1.lf}/${b2.lf}`);
 
   T.H('Diger yollar eski isleyiciye AYNEN duser');
   T.ok('/users/settings -> next()', (await getir('endpoint=/users/settings')).govde.eski === true);

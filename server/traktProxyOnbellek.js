@@ -9,8 +9,12 @@
 //
 // 🔒 Bu iki uç PUBLIC: `Authorization` okunmaz, Trakt'a gönderilmez
 // (`createTraktCatalogFetcher` yapısal olarak gönderemez). Önbellek anahtarına
-// yalnız izinli parametreler girer; arama metni küçük harfe çevrilip boşlukları
-// sadeleştirilir (Trakt araması büyük/küçük harf ayırmıyor → «Dark» = «dark»).
+// yalnız izinli parametreler girer; arama metninin yalnız BOŞLUKLARI sadeleşir.
+// 🔴 M535: harf KÜÇÜLTÜLMEZ. İlk sürüm «Trakt büyük/küçük harf ayırmıyor» diye
+// küçültüyordu («Dark»/«dark» ölçümü tesadüfen aynıydı). Canlı turda yakalandı:
+// Trakt «Severance» → 1, «severance» → 0, «SEVERANCE» → 1 sonuç döndürüyor —
+// küçültmek, kullanıcının «Severance» aramasını «Sonuç Bulunamadı» yapıyordu.
+// Kural: Trakt'a kullanıcının yazdığı metin AYNEN gider.
 //
 // 🔴 BAŞARISIZLIK MERDİVENİ:
 //   1. LazyFetch (bellek → SSD → Trakt; Trakt çökerse 24 saate kadar eski liste)
@@ -36,9 +40,23 @@ function sadeSorgu(query) {
   for (const k of IZINLI_PARAMETRE) {
     const v = query[k];
     if (typeof v !== 'string' || !v.length) continue;
-    sade[k] = k === 'query' ? v.trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR') : v;
+    sade[k] = k === 'query' ? v.trim().replace(/\s+/g, ' ') : v;
   }
   return sade;
+}
+
+/**
+ * 🔴 M535 — BOŞ ARAMA SONUCU SAKLANMAZ. Trakt aynı sorguya zaman zaman boş liste
+ * döndürüyor (canlı: «severance» 0, «Severance» 1). Boş listeyi 24 saat «sonuç yok»
+ * diye servis etmek, geçici bir boşluğu kalıcılaştırırdı. `storable:false` →
+ * orkestratör yazmaz (`x-lazyfetch: no-store`), sonraki arama Trakt'a yeniden sorar.
+ */
+function bosAramayiSaklama(fetcher) {
+  return async (yol, sorgu) => {
+    const sonuc = await fetcher(yol, sorgu);
+    if (Array.isArray(sonuc.data) && sonuc.data.length === 0) return { ...sonuc, storable: false };
+    return sonuc;
+  };
 }
 
 async function dogrudanTrakt(endpoint, sorgu, clientId) {
@@ -64,7 +82,8 @@ async function onbellekliTraktGet(req, res, next) {
   let hata;
   try {
     const sonuc = await resolveRequest({
-      provider: 'trakt', path: endpoint, query: sorgu, fetcher: createTraktCatalogFetcher(clientId),
+      provider: 'trakt', path: endpoint, query: sorgu,
+      fetcher: aramaTuru ? bosAramayiSaklama(createTraktCatalogFetcher(clientId)) : createTraktCatalogFetcher(clientId),
     });
     if (sonuc.status === 'not-found') return res.status(404).json({ error: 'Resource not found' });
     res.setHeader('x-lazyfetch', sonuc.status);
