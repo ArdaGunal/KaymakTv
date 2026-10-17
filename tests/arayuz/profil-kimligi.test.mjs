@@ -29,9 +29,10 @@ T.ok('Aciklama yalniz bizden', /about: kaymakProfil\.profile\.bio \?\? null,/.te
 T.ok('Trakt profili artik CEKILMIYOR (yukleme Trakt\'i beklemiyor)', !/=\s*usePublicProfile\(/.test(dis) && /isLoading: kaymakYukleniyor,/.test(dis));
 
 T.H('Trakt adi yalniz Ayarlar\'da');
-const bolum = oku('components/settings/TraktAccountSection.tsx');
-T.ok('«Bagli Trakt hesabi: @…» satiri', /t\('settings:traktBagliHesap', \{ ad: traktKullaniciAdi \}\)/.test(bolum));
-T.ok('Hesap ayarlari slug\'i kancadan veriyor', /useBagliTraktHesabi\(authProvider === 'trakt'\)/.test(oku('app/(protected)/account-settings.tsx')));
+// M520: «Trakt Hesabı» bölümü Faz 5'te «Giriş yöntemleri»ne dönüştü.
+const bolum = oku('components/settings/GirisYontemleriSection.tsx');
+T.ok('«Bagli Trakt hesabi: @…» satiri', /t\('settings:traktBagliHesap', \{ ad: y\.traktAdi \}\)/.test(bolum));
+T.ok('Slug kancadan (useGirisYontemleri → useBagliTraktHesabi)', /useBagliTraktHesabi\(authProvider === 'trakt'\)/.test(oku('hooks/useGirisYontemleri.ts')) && /<GirisYontemleriSection \/>/.test(oku('app/(protected)/account-settings.tsx')));
 for (const dil of ['tr', 'en']) {
   const s = JSON.parse(oku(`locales/${dil}/settings.json`));
   T.ok(`${dil}: traktBagliHesap {{ad}} ile`, /@\{\{ad\}\}/.test(s.traktBagliHesap || ''));

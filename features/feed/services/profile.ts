@@ -37,6 +37,9 @@ export interface MyProfile {
   isPrivate: boolean;
   /** Kimlik birliği Faz 2 · `066` — değişmez hesap numarası; `null` = yok (066 öncesi). */
   kaymakNo: number | null;
+  /** Faz 5 (M520) · «Giriş yöntemleri» — yalnız var/yok. Eski Worker'da `false`. */
+  googleBagli: boolean;
+  traktBagli: boolean;
 }
 
 const USERNAME_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
@@ -142,6 +145,8 @@ async function getMyProfileTekil(traktAccessToken: string): Promise<MyProfile> {
     adOnaylandi: response.data.adOnaylandi !== false,
     isPrivate: !!response.data.isPrivate,
     kaymakNo: typeof response.data.kaymakNo === 'number' ? response.data.kaymakNo : null,
+    googleBagli: response.data.googleBagli === true,
+    traktBagli: response.data.traktBagli === true,
   };
 }
 

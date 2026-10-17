@@ -15,14 +15,13 @@ import { SettingsSection, SettingsSectionDivider } from '../../components/settin
 import SettingsRow from '../../components/settings/SettingsRow';
 import SettingsSwitchRow from '../../components/settings/SettingsSwitchRow';
 import DeleteAccountModal from '../../components/settings/DeleteAccountModal';
-import { TraktAccountSection } from '../../components/settings/TraktAccountSection';
+import { GirisYontemleriSection } from '../../components/settings/GirisYontemleriSection';
 import TraktImportSection from '../../components/settings/TraktImportSection';
 import { Lock, LogOut, Trash2 } from '../../components/icons';
 import { confirmAsync, notify } from '../../utils/confirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
-import { useBagliTraktHesabi } from '../../hooks/useBagliTraktHesabi';
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -30,8 +29,6 @@ export default function AccountSettingsScreen() {
   const { t } = useTranslation(['settings', 'common']);
   const navigateBack = useAppBack();
   const { accessToken, isGuest, authProvider } = useAuth();
-  // PROFIL-AD-01 (M519): Trakt adı yalnız burada, bilgi olarak.
-  const bagliTraktAdi = useBagliTraktHesabi(authProvider === 'trakt');
   const router = useRouter();
   const { handleLogout, handleDeleteAccount, isLoggingOut, isDeletingAccount } = useSettings();
   const profilePrivacy = useProfilePrivacy();
@@ -100,11 +97,8 @@ export default function AccountSettingsScreen() {
             Aktarım bölümü kendi kapısını kendi tutuyor (`useTraktImport.uygun`). */}
         {!isGuest && (
           <>
-            <TraktAccountSection
-              isConnected={authProvider === 'trakt'}
-              traktKullaniciAdi={bagliTraktAdi}
-              onGoToLogin={() => router.push('/(public)/settings')}
-            />
+            {/* Kimlik Faz 5 (M520): «Giriş yöntemleri» — eski «Trakt Hesabı» bölümünün yerine. */}
+            <GirisYontemleriSection />
             <TraktImportSection />
           </>
         )}

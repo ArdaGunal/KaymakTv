@@ -15,6 +15,8 @@ import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
 // M502 Faz 0 + D10 — yalnız --google-test APK'sında açık (bkz. utils/googleGirisBayragi.ts).
 import { GOOGLE_GIRIS_ACIK } from '../../utils/googleGirisBayragi';
 import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
+import { useTraktBaglamaTamamla } from '../../hooks/useTraktBaglamaTamamla';
+import { traktBaglamaNiyetiVarMi } from '../../services/auth/baglamaNiyeti';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -56,6 +58,10 @@ export default function Login() {
   //
   // ⚠️ `completeIfPending` BİLİNÇLİ OLARAK DURUYOR (UI gitti, bu kalmalı):
   const { completeIfPending: completeGoogleLinkIfPending } = useGoogleTraktLink();
+  // Kimlik Faz 5 (M520): Ayarlar → «Trakt'ı bağla» niyeti varsa token oturum AÇMAZ, bağlanır.
+  const traktBaglamaTamamla = useTraktBaglamaTamamla();
+  const [baglamaModu, setBaglamaModu] = useState(false);
+  useEffect(() => { traktBaglamaNiyetiVarMi().then(setBaglamaModu).catch(() => {}); }, []);
 
   // Redirect URI (app.json'daki scheme ile eşleşmeli)
   const redirectUri = AuthSession.makeRedirectUri({
@@ -160,6 +166,7 @@ export default function Login() {
       // hiçbir iz bırakmadan yutuluyor, kullanıcı sebebini göremeden misafir
       // olarak kalıyordu. Artık her başarısızlık aşağıdaki catch'e düşer.
       const tokenData = await exchangeAuthCode(code, redirectUri);
+      if (await traktBaglamaTamamla(tokenData)) return;
 
       // F8 — bekleyen bir Google bağlama akışı varsa tamamlar (yoksa no-op).
       // ⚠️ Bağlama BAŞARISIZ olsa bile normal Trakt girişi ENGELLENMEZ —
@@ -274,6 +281,7 @@ export default function Login() {
             </>
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
+            {baglamaModu && <Text style={styles.pollingText}>{t('settings:baglamaModuNotu')}</Text>}
 
             {/* M501 · Google girişi. 🔴 M502 FAZ 0 (kullanıcı, 2026-10-12): KAPALI —
                 düğme `create_new`'i doğrudan çağırıyor → Trakt'lı kullanıcı Google'a

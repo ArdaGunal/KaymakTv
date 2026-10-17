@@ -78,6 +78,7 @@ const TAKIMLAR = [
   { ad: 'surum-kapisi', grup: 'arayuz', dosya: 'arayuz/surum-kapisi.test.mjs', aciklama: 'M458: surum kapisi agi beklemez, onbellekten anlik karar' },
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
+  { ad: 'hesap-sec', grup: 'arayuz', dosya: 'arayuz/hesap-sec.test.mjs', aciklama: 'M520/Faz 5: giris yontemleri, baglama niyeti, Hesap Sec + kaydirarak onay' },
   { ad: 'profil-kimlik', grup: 'arayuz', dosya: 'arayuz/profil-kimligi.test.mjs', aciklama: 'M519/PROFIL-AD-01: ad ve aciklama yalniz bizden, Trakt adi yalniz Ayarlarda' },
   { ad: 'cikis', grup: 'arayuz', dosya: 'arayuz/cikis-denetimi.test.mjs', aciklama: 'M517/Faz 4d (D8): cikista anahtar listesi = izin listesi (bos), kuyruk uyarisi' },
   { ad: 'yeni-hesap', grup: 'arayuz', dosya: 'arayuz/yeni-hesap-birak.test.mjs', aciklama: 'M515/Faz 4b: isim ekraninda Zaten hesabin var mi linki (Google acik + sunucu karari)' },
