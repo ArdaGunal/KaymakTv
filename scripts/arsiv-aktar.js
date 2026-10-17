@@ -50,8 +50,15 @@ const { resolveRoute } = require(path.join(LF, 'routeRegistry'));
 const db = require(path.join(AR, 'db'));
 const { archiveCatalogResponse, DESTEKLENEN_AILELER } = require(path.join(AR, 'writer'));
 const { summary } = require(path.join(AR, 'store'));
+// 🆕 K4 toplu aktarım (M534) — TMDB `tv_detail`/`movie_detail` de aktarılabilir.
+const { TMDB_AILELERI, tmdbYoldanKimlik } = require(path.join(AR, 'tmdbArsiv'));
+const { findByExternal } = require(path.join(AR, 'identity'));
 
 const UYGULA = process.argv.includes('--uygula');
+// 🔴 `--yalniz-tmdb`: Trakt zarflarına DOKUNMA. `upsertPayload` tazelik kontrolü
+// yapmıyor; Trakt satırlarını önbellekteki ESKİ zarfla yeniden yazmak, gece
+// backfill'inin zorla tazelediği arşiv kaydını geriye götürebilirdi (M534).
+const YALNIZ_TMDB = process.argv.includes('--yalniz-tmdb');
 const AYRINTILI = process.argv.includes('--ayrintili');
 
 const say = (s = '') => console.log(s);
@@ -123,6 +130,7 @@ function queryCoz(str) {
     toplam: 0, bozuk: 0, negatif: 0,
     kapsamDisi: 0, yolsuzAtlandi: 0,
     aktarildi: 0, basarisiz: 0,
+    tmdbDilsiz: 0, tmdbEslemesiz: 0, tmdbDahaYeniVar: 0,
   };
   const aileBazinda = new Map();
   const yolsuzAileler = new Map();
@@ -136,7 +144,9 @@ function queryCoz(str) {
     if (zarf.isNegative) { sayac.negatif++; continue; }
 
     const { provider, family } = zarf;
-    if (provider !== 'trakt' || !DESTEKLENEN_AILELER.has(family)) {
+    const tmdbMi = provider === 'tmdb' && TMDB_AILELERI.has(family);
+    const traktMi = provider === 'trakt' && DESTEKLENEN_AILELER.has(family) && !YALNIZ_TMDB;
+    if (!tmdbMi && !traktMi) {
       sayac.kapsamDisi++;
       continue;
     }
@@ -167,9 +177,26 @@ function queryCoz(str) {
       continue;
     }
 
+    // 🆕 M534 — TMDB'ye özel üç kapı (kuru çalışmada da uygulanır, sayılar dürüst olsun):
+    //   1. `language` YOKSA aktarılmaz — 523 yanlış etiketli satır dersinin TMDB karşılığı.
+    //   2. Arşivde Trakt eşlemesi (`tmdb:show|movie`) yoksa aktarılmaz — yazıcı yeni varlık açmaz.
+    //   3. Arşivde aynı dilde AYNI ya da DAHA YENİ kayıt varsa atlanır (canlı kanca yazmış olabilir).
+    if (tmdbMi) {
+      const q = queryCoz(zarf.requestQuery);
+      if (!q.language) { sayac.tmdbDilsiz++; continue; }
+      const kimlik = tmdbYoldanKimlik(family, zarf.requestPath);
+      const kaymakId = kimlik && findByExternal(kimlik.source, kimlik.source_id);
+      if (!kaymakId) { sayac.tmdbEslemesiz++; continue; }
+      const mevcut = db.getDb().prepare(
+        "SELECT fetched_at FROM payloads WHERE kaymak_id = ? AND provider = 'tmdb' AND endpoint = ? AND lang = ?"
+      ).get(kaymakId, family, q.language.slice(0, 2).toLowerCase());
+      if (mevcut && mevcut.fetched_at >= (zarf.fetchedAt || 0)) { sayac.tmdbDahaYeniVar++; continue; }
+    }
+
+    const aileAdi = `${provider}/${family}`;
     if (!UYGULA) {
       sayac.aktarildi++;
-      aileBazinda.set(family, (aileBazinda.get(family) || 0) + 1);
+      aileBazinda.set(aileAdi, (aileBazinda.get(aileAdi) || 0) + 1);
       continue;
     }
 
@@ -185,7 +212,7 @@ function queryCoz(str) {
 
     if (sonuc && sonuc.ok) {
       sayac.aktarildi++;
-      aileBazinda.set(family, (aileBazinda.get(family) || 0) + 1);
+      aileBazinda.set(aileAdi, (aileBazinda.get(aileAdi) || 0) + 1);
       if (AYRINTILI) say(`  ✓ ${provider}/${family} ${zarf.requestPath || '(kimlikten)'}`);
     } else {
       sayac.basarisiz++;
@@ -197,6 +224,10 @@ function queryCoz(str) {
   say(`Taranan zarf        : ${sayac.toplam}`);
   say(`  kapsam disi aile  : ${sayac.kapsamDisi}  (tmdb + arsivlenmeyen trakt aileleri)`);
   say(`  negatif kayit     : ${sayac.negatif}  (arsiv yokluk bilgisi saklamaz)`);
+  if (YALNIZ_TMDB) say('  (--yalniz-tmdb: Trakt zarflari kapsam disi sayildi)');
+  if (sayac.tmdbDilsiz) say(`  TMDB dilsiz        : ${sayac.tmdbDilsiz}  (istekte language yok — yanlis etiket riski, atlandi)`);
+  if (sayac.tmdbEslemesiz) say(`  TMDB eslemesiz     : ${sayac.tmdbEslemesiz}  (arsivde Trakt eslemesi yok — yeni varlik acilmaz)`);
+  if (sayac.tmdbDahaYeniVar) say(`  TMDB arsivde yeni  : ${sayac.tmdbDahaYeniVar}  (arsivdeki kayit ayni/daha yeni, atlandi)`);
   if (sayac.bozuk) say(`  okunamayan        : ${sayac.bozuk}`);
   say(`${UYGULA ? 'Aktarilan' : 'Aktarilabilir'}       : ${sayac.aktarildi}`);
   if (sayac.basarisiz) say(`  BASARISIZ         : ${sayac.basarisiz}`);

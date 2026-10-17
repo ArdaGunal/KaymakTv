@@ -77,7 +77,7 @@ function calistir(...args) {
   zarfYaz('trakt/show_seasons/cc/eski-yolsuz.json.gz', temelZarf({
     provider: 'trakt', family: 'show_seasons', payload: SEZONLAR,
   }));
-  // 4) Kapsam dışı sağlayıcı
+  // 4) TMDB ama istekte `language` YOK -> dil bilinmiyor, aktarilmaz (M534)
   zarfYaz('tmdb/tv_detail/dd/tmdb.json.gz', temelZarf({
     provider: 'tmdb', family: 'tv_detail', payload: { id: 1396, name: 'Breaking Bad' },
     requestPath: '/tv/1396',
@@ -106,7 +106,8 @@ function calistir(...args) {
   T.ok('Yalnizca YOLLU kayit aktarilabilir gorundu', /Aktarilabilir\s+:\s*1/.test(kuru.stdout), (kuru.stdout.match(/Aktarilabilir.*/) || [''])[0].trim());
   T.ok('Bozuk dosya sayildi, cokme YOK', /okunamayan\s+:\s*1/.test(kuru.stdout));
   T.ok('Negatif kayit ayri sayildi', /negatif kayit\s+:\s*1/.test(kuru.stdout));
-  T.ok('Kapsam disi 2 (tmdb + show_people)', /kapsam disi aile\s+:\s*2/.test(kuru.stdout));
+  T.ok('Kapsam disi 1 (show_people)', /kapsam disi aile\s+:\s*1/.test(kuru.stdout));
+  T.ok('Dilsiz TMDB zarfi AYRI sayildi, aktarilmadi (M534)', /TMDB dilsiz\s+:\s*1/.test(kuru.stdout));
   T.ok('🔴 Eski bicim kayitlar RAPORLANDI (sessizce atlanmadi)', /2 kayit ESKI BICIM/.test(kuru.stdout),
     (kuru.stdout.match(/\d+ kayit ESKI BICIM/) || [''])[0]);
 
