@@ -253,5 +253,7 @@
   "hesapSecTamamBaslik": "Tamam",
   "hesapSecTamamMetin": "Hesabın tek hesapta toplandı.",
   "hesapSecTraktIleGir": "Hesap seçildi. Devam etmek için Trakt ile giriş yap.",
-  "hesapSecSureDoldu": "Bu işlemin süresi doldu ya da hesaplar değişti. Ayarlar'dan yeniden dene."
+  "hesapSecSureDoldu": "Bu işlemin süresi doldu ya da hesaplar değişti. Ayarlar'dan yeniden dene.",
+  "hesapDegisimBekleyenMetin": "İnternete bağlanınca gönderilecek {{n}} işaretlemen var. Hesap değişirken bunlar kaybolacak.",
+  "yineDeDevam": "Yine de Devam Et"
 }

@@ -45,6 +45,8 @@ import {
   writeChunkedRecord,
 } from './utils';
 import { reconcileHiddenIds } from './hiddenSyncGuard';
+import { isKaymakSessionToken } from '../api/traktClient';
+import { oturumHalaBuMu } from '../auth/oturumDenetimi';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 import { logError } from '../../utils/errorLog';
 import { requestQueue } from '../api/requestQueue';
@@ -209,7 +211,9 @@ export const loadCache = async () => {
  * eski bir sunucu anlık görüntüsüyle geri alınamaz (bkz. hiddenSyncGuard.ts).
  */
 export const syncHiddenLists = async (accessToken: string | null) => {
-  if (!accessToken) return;
+  // M525 (a): KaymakTV oturum belgesi Trakt'a gitmez (Google-only'de Trakt yok) ve oturum
+  // bu arada değiştiyse (çıkış / hesap geçişi) Trakt'a token'sız istek atılmaz → 401 kirliliği biter.
+  if (!accessToken || isKaymakSessionToken(accessToken) || !(await oturumHalaBuMu(accessToken))) return;
 
   // NOT: Hatalar `logError` ile KALICI günlüğe de yazılır. Eskiden bu iki
   // istek yalnızca `console.error` ile yutuluyordu — cihazda geliştirici
@@ -300,7 +304,10 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     return;
   }
 
-  const kaymakKullanici = await kaymakKullanicisiMi();
+  // M525 (a): karar ÇAĞRININ token'ından — eskiden yalnız SecureStore'a bakılıyordu; çıkış/geçişte
+  // SecureStore boşalınca Google-only tur «Trakt'lı» sanılıp Trakt fetcher'ları token'sız 401 alıyordu.
+  if (accessToken && !(await oturumHalaBuMu(accessToken))) return;
+  const kaymakKullanici = isKaymakSessionToken(accessToken) || (await kaymakKullanicisiMi());
   const traktVar = !kaymakKullanici && !!accessToken;
   // 🔒 §D17 — bu tur SÖZ olarak tutuluyor ki üst üste binen çağrı onu
   // bekleyebilsin (bkz. `suregelenTur` başlığı). Dönüş: tur BİTTİYSE

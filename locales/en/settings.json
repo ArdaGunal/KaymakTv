@@ -253,5 +253,7 @@
   "hesapSecTamamBaslik": "Done",
   "hesapSecTamamMetin": "Your account is now in one place.",
   "hesapSecTraktIleGir": "Account chosen. Sign in with Trakt to continue.",
-  "hesapSecSureDoldu": "This request expired or the accounts changed. Try again from Settings."
+  "hesapSecSureDoldu": "This request expired or the accounts changed. Try again from Settings.",
+  "hesapDegisimBekleyenMetin": "You have {{n}} marks waiting to be sent when you're back online. They will be lost when the account changes.",
+  "yineDeDevam": "Continue Anyway"
 }

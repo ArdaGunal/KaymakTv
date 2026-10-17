@@ -8,6 +8,7 @@ import { girisYontemiHataMetni } from '../utils/girisYontemiHataMetni';
 import { hesapSec, GirisYontemiHatasi } from '../services/api/girisYontemi';
 import { useHesapSecStore, hesapSecDurumuTemizle } from '../store/hesapSecStore';
 import { useOturumGecisi } from './useOturumGecisi';
+import { useBekleyenIsOnayi } from './useBekleyenIsOnayi';
 
 export type HesapSecimi = 'mevcut' | 'diger';
 
@@ -23,6 +24,7 @@ export function useHesapSec() {
   const durum = useHesapSecStore((s) => s.durum);
   const { accessToken, removeKeys } = useAuth();
   const gecis = useOturumGecisi();
+  const bekleyenIsOnayi = useBekleyenIsOnayi();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
   const [secim, setSecim] = useState<HesapSecimi | null>(null);
@@ -39,6 +41,8 @@ export function useHesapSec() {
 
   const onayla = useCallback(async () => {
     if (!durum || !secim || !accessToken || !kaydirildi || calisiyor) return;
+    // M525 (d): silme/oturum geçişinden ÖNCE — bekleyen çevrimdışı iş varsa sessizce yanmasın.
+    if (!(await bekleyenIsOnayi())) return;
     setCalisiyor(true);
     try {
       const r = await hesapSec(accessToken, durum.bilet, secim);
@@ -64,7 +68,7 @@ export function useHesapSec() {
       setCalisiyor(false);
       if (kod === 'durum_degisti' || kod === 'bilet_gecersiz') vazgec();
     }
-  }, [durum, secim, accessToken, kaydirildi, calisiyor, removeKeys, gecis, router, t, vazgec]);
+  }, [durum, secim, accessToken, kaydirildi, calisiyor, removeKeys, gecis, router, t, vazgec, bekleyenIsOnayi]);
 
   return { durum, secim, setSecim, adim, devam, geri, vazgec, kaydirildi, setKaydirildi, calisiyor, onayla };
 }

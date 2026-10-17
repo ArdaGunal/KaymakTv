@@ -5,6 +5,7 @@ import { checkGoogleAccount, createGoogleOnlyAccount } from '../services/api/goo
 import { useAuth } from '../context/AuthContext';
 import { logError } from '../utils/errorLog';
 import { googleGirisAdimi } from '../utils/googleGirisKarari';
+import { googleOturumunuKapat } from '../services/auth/cikisTemizligi';
 
 export type GoogleGirisDurumu = 'bos' | 'calisiyor' | 'trakt_ile_gir';
 
@@ -40,6 +41,9 @@ export function useGoogleHesapGiris() {
       const kontrol = await checkGoogleAccount(idToken, nonce ?? '');
       const adim = googleGirisAdimi(kontrol);
       if (adim === 'trakt_ile_gir') {
+        // M525 (e): oturum açılmadı → yerel Google oturumu da kapansın; «Vazgeç» + tekrar Google
+        // hesap seçtirmeden aynı hesabı almasın (D8 ile aynı ilke).
+        void googleOturumunuKapat();
         setDurum('trakt_ile_gir');
         return;
       }
@@ -51,6 +55,7 @@ export function useGoogleHesapGiris() {
       await oturumAc(sonuc.sessionToken, { username: sonuc.username, avatarUrl: sonuc.avatarUrl });
     } catch (error: any) {
       if (error?.code === 'trakt_ile_gir') {
+        void googleOturumunuKapat();
         setDurum('trakt_ile_gir');
         return;
       }

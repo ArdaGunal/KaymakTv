@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as SecureStore from '../utils/secureStorage';
 import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
 import { useFollowStore } from '../store/followStore';
@@ -25,6 +25,12 @@ import { supabase } from '../features/feed/services/supabaseClient';
 import { supabaseKimlikKaynaginiAyarla } from '../features/feed/services/supabaseKimlik';
 import { stopWatchedOutbox } from '../services/library/outbox/runtime';
 import { stopHiddenOutbox } from '../services/library/hiddenOutbox/runtime';
+import { onHesapGecersiz } from '../services/auth/oturumDenetimi';
+import { onKimlikDegisti } from '../services/auth/benKimligi';
+import { workerYanitKoruyucusunuKur } from '../services/api/workerYanitKoruyucu';
+
+// M525 (b): Worker `invalid_token` (silinmiş hesabın oturum belgesi) → tam çıkış.
+workerYanitKoruyucusunuKur();
 import { cihazAnahtarlariniSil, gorselOnbelleginiSil, googleOturumunuKapat } from '../services/auth/cikisTemizligi';
 import { useWatchedOutboxStore } from '../store/watchedOutboxStore';
 import { useHiddenOutboxStore } from '../store/hiddenOutboxStore';
@@ -112,6 +118,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // kapatıldı; bu satır üçüncü kalkan.
     });
   }, []);
+
+  // M525 (b): hesabın oturum belgesi Worker'da geçersiz (hesap silindi — ör. başka cihazda
+  // «Hesap Seç») → hayalet oturumda kalma; D8 tam çıkış. `removeKeys` aşağıda tanımlı → ref.
+  const removeKeysRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => onHesapGecersiz(() => {
+    console.warn('[Auth] Hesap artık yok (invalid_token) — çıkış yapılıyor.');
+    void removeKeysRef.current();
+  }), []);
+
+  // M525 (c): sunucu bu token'ı BAŞKA bir hesaba çözüyor (Hesap Seç başka cihazda yapıldı) →
+  // kimliğe bağlı önbellekler çıkıştakiyle aynı biçimde sıfırlanır; oturum KAPANMAZ.
+  useEffect(() => onKimlikDegisti(() => {
+    useFollowStore.getState().reset();
+    useFeedStore.getState().reset();
+    clearMyTraktSlug();
+    clearFeedPublishIdentity();
+    invalidateFeedCache();
+    invalidateVisibleUserIds();
+    invalidateBlockedUserIds();
+    invalidateIdentityScopedFeedCaches();
+    resetFetchState();
+  }), []);
 
   // Simetrik abonelik: token arka planda SESSİZCE yenilendiğinde de bu
   // state'in haberi olsun — aksi halde `useAuth().accessToken`'ı okuyup
@@ -370,6 +398,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error removing keys:', error);
     }
   };
+
+  removeKeysRef.current = removeKeys;
 
   return (
     <AuthContext.Provider

@@ -9,6 +9,7 @@ import { hesapSecDurumuKoy } from '../store/hesapSecStore';
 import { notify } from '../utils/confirmDialog';
 import { girisYontemiHataMetni } from '../utils/girisYontemiHataMetni';
 import { useBagliTraktHesabi } from './useBagliTraktHesabi';
+import { useBekleyenIsOnayi } from './useBekleyenIsOnayi';
 
 /**
  * Kimlik Faz 5 (M520) · D3 — Ayarlar → «Giriş yöntemleri».
@@ -25,6 +26,7 @@ export function useGirisYontemleri() {
   const [sunucu, setSunucu] = useState<{ googleBagli: boolean; traktBagli: boolean } | null>(null);
   const [calisiyor, setCalisiyor] = useState(false);
   const traktAdi = useBagliTraktHesabi(authProvider === 'trakt');
+  const bekleyenIsOnayi = useBekleyenIsOnayi();
 
   const tazele = useCallback(() => {
     if (!accessToken || isGuest) return;
@@ -38,9 +40,11 @@ export function useGirisYontemleri() {
   const googleBagli = sunucu?.googleBagli || authProvider === 'google';
 
   const traktBaglaBaslat = useCallback(async () => {
+    // M525 (d): bağlanınca oturum yeni Trakt'a geçer (tam temizlik) — bekleyen iş varsa önce sor.
+    if (!(await bekleyenIsOnayi())) return;
     await traktBaglamaNiyetiYaz();
     router.push('/(public)/settings');
-  }, [router]);
+  }, [router, bekleyenIsOnayi]);
 
   const googleIleBagla = useCallback(
     async (idToken: string, nonce?: string) => {

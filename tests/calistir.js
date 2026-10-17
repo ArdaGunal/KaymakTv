@@ -78,6 +78,7 @@ const TAKIMLAR = [
   { ad: 'surum-kapisi', grup: 'arayuz', dosya: 'arayuz/surum-kapisi.test.mjs', aciklama: 'M458: surum kapisi agi beklemez, onbellekten anlik karar' },
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
+  { ad: 'oturum', grup: 'arayuz', dosya: 'arayuz/oturum-butunlugu.test.mjs', aciklama: 'M525: 401 korumasi, invalid_token cikisi, bayat ben, baglama oncesi uyari, Google oturumu' },
   { ad: 'kisa-link', grup: 'arayuz', dosya: 'arayuz/kisa-link.test.mjs', aciklama: 'M522/Faz 6: kaymaktv.com/u/<KaymakNo> rota, paylasim, App Links' },
   { ad: 'hesap-sec', grup: 'arayuz', dosya: 'arayuz/hesap-sec.test.mjs', aciklama: 'M520/Faz 5: giris yontemleri, baglama niyeti, Hesap Sec + kaydirarak onay' },
   { ad: 'profil-kimlik', grup: 'arayuz', dosya: 'arayuz/profil-kimligi.test.mjs', aciklama: 'M519/PROFIL-AD-01: ad ve aciklama yalniz bizden, Trakt adi yalniz Ayarlarda' },

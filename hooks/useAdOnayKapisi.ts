@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { getMyProfile } from '../features/feed/services/profile';
+import { benKimliginiDogrula } from '../services/auth/benKimligi';
 
 /**
  * M492 · İsim ekranı kapısı — korumalı düzende (`app/(protected)/_layout.tsx`) çalışır.
@@ -25,6 +26,8 @@ export function useAdOnayKapisi(): void {
     let iptal = false;
     getMyProfile(accessToken)
       .then((p) => {
+        // M525 (c): oturum başına bir kez — cihazdaki «ben» sunucuyla aynı mı (Hesap Seç sonrası başka cihaz).
+        void benKimliginiDogrula(p.userId);
         if (!iptal && p.adOnaylandi === false) router.replace('/(public)/profil-olustur');
       })
       .catch((error) => console.warn('[AdOnay] Profil okunamadı, kapı atlandı:', error));
