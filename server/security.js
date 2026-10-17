@@ -114,6 +114,9 @@ const traktProxyLimiter = makeLimiter(120, 'Trakt proxy');
 // istek zaten SSD'den dönüyor, yani gerçek origin yükü bu sayıdan çok daha
 // düşük. Sayı ölçülmedi, gerekçelendirildi (04_KARARLAR.md B).
 const traktCatalogLimiter = makeLimiter(180, 'Trakt katalog gecidi');
+// 🆕 K8 (M531) — `/api/health`. Salt okuma ama her çağrı arşive birkaç sorgu
+// atıyor; izleme betiği dakikada birkaç kez sorar, 30 cömert.
+const saglikLimiter = makeLimiter(30, 'Saglik ucu');
 // Giriş/token yenileme seyrek bir işlem; burada dar olmak güvenli.
 const traktAuthLimiter = makeLimiter(20, 'Trakt auth');
 
@@ -265,6 +268,7 @@ module.exports = {
   traktProxyLimiter,
   traktCatalogLimiter,
   traktAuthLimiter,
+  saglikLimiter,
   traktProxyGuard,
   redirectUriGuard,
   logSecurityMode,

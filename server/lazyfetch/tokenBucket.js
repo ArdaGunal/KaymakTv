@@ -20,8 +20,17 @@
 // BEKLETİLMEZ — bu, L4'ün kapsamını büyütmemek için bilinçli bir
 // sadeleştirme; reddedilen istek orchestrator'da grace fallback'e düşer).
 
+// 🆕 K3 (2026-10-18, M531) — TMDB 20/20'den 40/30'a. Canlıda kendi kovamız iki
+// kez doldu ve TMDB'ye hiç gitmeden 503 verdik: 2026-09-20 03:44 (31 istek) ve
+// 2026-10-09 02:36 (37 istek) — soğuk önbellekte uzun bir afiş ızgarası aynı
+// saniyede 30-40 MISS üretiyor. TMDB'nin güncel beyanı (developer.themoviedb.org
+// /docs/rate-limiting, 2026-10-18 okundu): «somewhere in the 40 requests per
+// second range». `capacity: 40` = o patlamayı tek seferde karşılar; sürekli hız
+// 30/sn = beyanın %75'i (arka plan SWR yenilemeleri de bu kovadan yer, en fazla
+// 2 paralel — `refreshQueue.js`). Jeton YALNIZCA sağlayıcıya çıkarken harcanır
+// (`fetchAndStore.js`); önbellek isabeti ve bayat dönüş kovaya dokunmaz.
 const DEFAULT_LIMITS = {
-  tmdb: { capacity: 20, refillRatePerSecond: 20 },
+  tmdb: { capacity: 40, refillRatePerSecond: 30 },
   // 🆕 L7 — Trakt. TMDB'den ÇOK daha düşük, çünkü Trakt'ın beyan ettiği
   // sınır çok daha dar: dokümanında 5 dakikada 1.000 çağrı (≈200/dk ≈
   // 3,3/sn) diyor. Bu BİZİM ölçümümüz DEĞİL, sağlayıcının beyanı — ve
@@ -87,8 +96,23 @@ function tryConsume(providerId) {
   return getBucket(providerId).tryConsume();
 }
 
+/**
+ * 🆕 K8 (M531) — sağlık ucu için SALT OKUMA anlık görüntü. Kovanın durumunu
+ * DEĞİŞTİRMEZ (`_refill` çağrılmaz, jeton harcanmaz); dolumu yalnızca hesaplar.
+ */
+function kovaDurumu(providerId, now = Date.now()) {
+  const limit = DEFAULT_LIMITS[providerId];
+  if (!limit) return null;
+  const kova = buckets.get(providerId);
+  if (!kova) return { jeton: limit.capacity, kapasite: limit.capacity, dolumSn: limit.refillRatePerSecond };
+  const gecen = Math.max(0, (now - kova.lastRefillAt) / 1000);
+  const jeton = Math.min(kova.capacity, kova.tokens + gecen * kova.refillRatePerSecond);
+  return { jeton: Math.floor(jeton), kapasite: kova.capacity, dolumSn: kova.refillRatePerSecond };
+}
+
 module.exports = {
   tryConsume,
+  kovaDurumu,
   // Yalnızca test için dışa veriliyor.
   TokenBucket,
   DEFAULT_LIMITS,

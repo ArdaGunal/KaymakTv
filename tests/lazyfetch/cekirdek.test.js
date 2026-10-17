@@ -169,6 +169,35 @@ const { NotFoundError } = require(path.join(LF, 'errors'));
   T.ok('Kapasite bitince REDDEDIYOR (kuyruga almiyor)', kova.tryConsume(1000) === false);
   T.ok('1 sn sonra tam 1 token dolmus', kova.tryConsume(2000) === true && kova.tryConsume(2000) === false);
 
+  // 🆕 K3 (M531) — canlida kendi kovamiz 31 ve 37 istekte doldu, 503 verdik.
+  const tmdbKova = new tb.TokenBucket({ ...tb.DEFAULT_LIMITS.tmdb, now: 5000 });
+  let gecen = 0;
+  for (let i = 0; i < 37; i++) if (tmdbKova.tryConsume(5000)) gecen++;
+  T.ok('🔴 K3: ayni milisaniyede 37 TMDB MISS (10-09 patlamasi) REDDEDILMIYOR', gecen === 37, `${gecen}/37`);
+  T.ok('K3: surekli hiz TMDB beyaninin (≈40/sn) ALTINDA', tb.DEFAULT_LIMITS.tmdb.refillRatePerSecond < 40,
+    JSON.stringify(tb.DEFAULT_LIMITS.tmdb));
+
+  // 🔴 K3: jeton YALNIZCA saglayiciya cikarken harcanir. Paylasilan TMDB kovasini
+  // bosalt; taze bir onbellek kaydi yine servis edilmeli, MISS ise RateLimited almali.
+  const kHit = key.buildCacheKey({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999100' });
+  const zHit = env.createEnvelope({ provider: 'tmdb', family: 'tv_detail', payload: { v: 'ONBELLEK' }, ttlMs: 3600e3, graceMs: 3600e3 });
+  await disk.writeCacheEntry(kHit.relativePath, zHit);
+  while (tb.tryConsume('tmdb')) { /* kovayi bosalt */ }
+  let hitCagri = 0;
+  const rHit = await orch.resolveRequest({
+    provider: 'tmdb', path: '/tv/999100',
+    fetcher: async () => { hitCagri++; return { data: { v: 'AG' } }; },
+  });
+  T.ok('🔴 K3: kova BOSKEN onbellek isabeti yine doner (jeton harcamaz)', rHit.status === 'fresh' && rHit.data.v === 'ONBELLEK' && hitCagri === 0,
+    `status=${rHit.status}`);
+  let missHata = null;
+  try {
+    await orch.resolveRequest({ provider: 'tmdb', path: '/tv/999101', fetcher: async () => ({ data: { v: 'AG' } }) });
+  } catch (e) { missHata = e; }
+  T.ok('K3: kova BOSKEN MISS RateLimited alir (jeton yalniz aga cikista)', missHata && missHata.name === 'RateLimitedError',
+    missHata ? missHata.name : 'hata yok');
+  await new Promise((r) => setTimeout(r, 1500)); // sonraki takim kovayi dolu bulsun
+
   // ======================================================================
   T.H('L5 - SWR + yenileme kuyrugu');
   // ======================================================================

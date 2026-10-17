@@ -161,6 +161,9 @@ app.use('/api/trakt-catalog', require('./server/traktCatalog'));
 // §C30 — Worker'ın eksikte çekme kapısı (sırlı + kendi sınırlayıcısı).
 app.use('/api/katalog-cek', require('./server/katalogCek'));
 
+// K8 (M531) — LazyFetch + arşiv sağlık ucu (salt okuma, sırsız; gerekçe dosya başlığında).
+app.use('/api/health', require('./server/saglik'));
+
 // ==========================================
 // TRAKT GENERIC PROXY (CORS Köprüsü)
 // ==========================================

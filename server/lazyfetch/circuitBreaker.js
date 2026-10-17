@@ -110,8 +110,19 @@ function recordFailure(providerId) {
   getBreaker(providerId).recordFailure();
 }
 
+/**
+ * 🆕 K8 (M531) — sağlık ucu için SALT OKUMA. `canRequest()` OPEN→HALF_OPEN geçişi
+ * yaptığı için burada KULLANILMAZ; alanlar doğrudan okunur, devre değişmez.
+ */
+function devreDurumu(providerId) {
+  const devre = breakers.get(providerId);
+  if (!devre) return { durum: 'CLOSED', ardisikHata: 0 };
+  return { durum: devre.state, ardisikHata: devre.consecutiveFailures || 0 };
+}
+
 module.exports = {
   canRequest,
+  devreDurumu,
   recordSuccess,
   recordFailure,
   // Yalnızca test için dışa veriliyor.

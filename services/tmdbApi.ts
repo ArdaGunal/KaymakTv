@@ -87,6 +87,14 @@ export const peekPosterCache = (type: 'show' | 'movie', tmdbId: number): { hit: 
   return { hit: false, url: null };
 };
 
+// 🔴 K2 (LAZYFETCH-01, M531): «görsel YOK» yalnızca KESİN cevapta saklanır —
+// TMDB başarılı yanıt verip yolu boş döndüyse ya da 404 dediyse. Eskiden HER
+// hata (Pi'nin kendi kotası dolunca 503, 5xx, zaman aşımı, ağ kopması) belleğe
+// `null` yazıyordu; `peekPosterCache` bunu isabet saydığı için afiş o oturum
+// boyunca bir daha denenmiyordu (canlı: 2026-09-20 ve 10-09'da 31 + 37 istek
+// 503). Geçici hatada önbelleğe dokunulmaz → bir sonraki mount yeniden dener.
+const kesinYokMu = (error: any): boolean => error?.response?.status === 404;
+
 // TMDB'ye HER ZAMAN proxy üzerinden gidilir (native dahil) — anahtar yalnızca
 // sunucu tarafında (`server.js` → `TMDB_API_KEY`) tutulur.
 export const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
@@ -116,7 +124,7 @@ export const getShowPoster = async (tmdbId: number): Promise<string | null> => {
     return null;
   } catch (error: any) {
     console.warn(`TMDB API Hatası (show tmdbId: ${tmdbId}):`, error.message);
-    await setCachedData(cacheKey, null);
+    if (kesinYokMu(error)) await setCachedData(cacheKey, null);
     return null;
   }
 };
@@ -148,7 +156,7 @@ export const getMoviePoster = async (tmdbId: number): Promise<string | null> => 
     } else {
       console.warn(`TMDB API Hatası (movie tmdbId: ${tmdbId}):`, error.message);
     }
-    await setCachedData(cacheKey, null);
+    if (kesinYokMu(error)) await setCachedData(cacheKey, null);
     return null;
   }
 };
@@ -174,7 +182,7 @@ export const getShowBackdrop = async (tmdbId: number): Promise<string | null> =>
     memoryCache.set(cacheKey, null);
     return null;
   } catch (error) {
-    memoryCache.set(cacheKey, null);
+    if (kesinYokMu(error)) memoryCache.set(cacheKey, null);
     return null;
   }
 };
@@ -202,7 +210,7 @@ export const getShowTrailer = async (tmdbId: number): Promise<string | null> => 
     memoryCache.set(cacheKey, null);
     return null;
   } catch (error) {
-    memoryCache.set(cacheKey, null);
+    if (kesinYokMu(error)) memoryCache.set(cacheKey, null);
     return null;
   }
 };
@@ -237,7 +245,7 @@ export const getEpisodeStill = async (tmdbId: number, season: number, episode: n
     memoryCache.set(cacheKey, null);
     return null;
   } catch (error) {
-    memoryCache.set(cacheKey, null);
+    if (kesinYokMu(error)) memoryCache.set(cacheKey, null);
     return null;
   }
 };
@@ -265,7 +273,7 @@ export const getMovieBackdrop = async (tmdbId: number): Promise<string | null> =
     memoryCache.set(cacheKey, null);
     return null;
   } catch (error) {
-    memoryCache.set(cacheKey, null);
+    if (kesinYokMu(error)) memoryCache.set(cacheKey, null);
     return null;
   }
 };
@@ -301,7 +309,7 @@ export const getMovieTrailer = async (tmdbId: number): Promise<string | null> =>
     memoryCache.set(cacheKey, null);
     return null;
   } catch (error) {
-    memoryCache.set(cacheKey, null);
+    if (kesinYokMu(error)) memoryCache.set(cacheKey, null);
     return null;
   }
 };
