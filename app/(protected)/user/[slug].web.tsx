@@ -28,6 +28,7 @@ import MediaPoster from '../../../components/MediaPoster';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import { styles } from '../../../features/publicProfile/publicProfile.web.styles';
 import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
+import { useKendiProfilineYonlendir } from '../../../hooks/useKendiProfilineYonlendir';
 
 // Dar ekran (mobil genişlikte web tarayıcı): ProfileMobile ile aynı desen
 // (bkz. profile.web.tsx'in `!isDesktop` dalı) — screens/PublicProfileMobile.tsx
@@ -58,6 +59,8 @@ export default function PublicProfileScreenWeb() {
     isLoading: isProfileLoading,
     error,
   } = usePublicProfileIdentity(slug);
+  // M522: kendi profilime (ör. /u/<benim no>) gelirsem kendi Profil sekmeme.
+  useKendiProfilineYonlendir(kaymakProfil?.kendisi);
 
   const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(
     kaymakProfil?.profile.userId ?? null,

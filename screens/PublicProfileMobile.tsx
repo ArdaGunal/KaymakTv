@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { isMarathonActivity } from '../features/feed/types';
 import MediaPoster from '../components/MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
+import { useKendiProfilineYonlendir } from '../hooks/useKendiProfilineYonlendir';
 
 // Başkasının aktivitesi asla silinemez — bu ekran bilinçli olarak
 // usePublicProfileActivity (salt okuma) kullanıyor, useUserActivity (silme
@@ -63,6 +64,8 @@ export default function PublicProfileMobile() {
     isLoading: isProfileLoading,
     error,
   } = usePublicProfileIdentity(slug);
+  // M522: kendi profilime (ör. /u/<benim no>) gelirsem kendi Profil sekmeme.
+  useKendiProfilineYonlendir(kaymakProfil?.kendisi);
 
   const { connectionState, isLoadingConnection, isFollowPending, toggleFollow } = useFollowState(
     kaymakProfil?.profile.userId ?? null,

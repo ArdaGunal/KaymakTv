@@ -21,6 +21,10 @@ T.ok('🔴 Girissiz/misafir → giris ekrani, numara SORULMAZ (D6)', kanca.index
 T.ok('Girisli → /user/<ad> (gizlilik kurallari orada)', /router\.replace\(`\/user\/\$\{encodeURIComponent\(sonuc\)\}`\)/.test(kanca));
 T.ok('Yok / goruntulenemez ayri metin (engel sizmaz: ad yok)', /setDurum\(sonuc\)/.test(kanca));
 
+T.ok('🔴 Kendi numaram → herkese acik ekran degil, kendi Profil sekmem (canli bulgu M522: «Follow» cikiyordu)',
+  ['screens/PublicProfileMobile.tsx', 'app/(protected)/user/[slug].web.tsx'].every((f) => /useKendiProfilineYonlendir\(kaymakProfil\?\.kendisi\)/.test(oku(f))) &&
+  /if \(kendisi\) router\.replace\('\/\(protected\)\/\(tabs\)\/profile'\)/.test(oku('hooks/useKendiProfilineYonlendir.ts')));
+
 T.H('Paylasim + App Links');
 const etiket = oku('components/profile/KaymakNoEtiketi.tsx');
 T.ok('Profil etiketinde paylas: native Share, web share ya da panoya', /profilPaylasimLinki\(no\)/.test(etiket) && /Share\.share\(/.test(etiket) && /nav\.share\(/.test(etiket) && /Clipboard\.setStringAsync\(link\)/.test(etiket));
