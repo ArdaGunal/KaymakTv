@@ -226,5 +226,12 @@
   "dlStep3Title": "Kurun ve Başlatın",
   "dlStep3Text": "İndirme tamamlandığında dosyaya dokunup kurulumu bitirin ve giriş yapın.",
   "dlFooter": "KaymakTV • Tüm hakları saklıdır.",
-  "dlNotesError": "Sürüm notlarına GitHub üzerinden ulaşabilirsiniz."
+  "dlNotesError": "Sürüm notlarına GitHub üzerinden ulaşabilirsiniz.",
+  "profilPaylas": "Profil bağlantısını paylaş",
+  "profilPaylasMesaj": "KaymakTV'deki profilim:",
+  "profilLinkKopyalandi": "Bağlantı kopyalandı",
+  "kisaLinkYok": "Bu numarayla bir profil bulunamadı.",
+  "kisaLinkGorulemez": "Bu profil görüntülenemiyor.",
+  "kisaLinkHata": "Profil açılamadı. Biraz sonra tekrar dene.",
+  "kisaLinkAnaSayfa": "Akışa Dön"
 }

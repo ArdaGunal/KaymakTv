@@ -29,7 +29,8 @@ T.ok('autoVerify filtresi https + kaymaktv.com', !!filtre && filtre.data.every((
 T.ok('Kok/indirme sayfasi uygulamaya kapilmaz (yalniz yol onekleri)', filtre.data.every((d) => d.pathPrefix && d.pathPrefix !== '/'));
 // Koddaki her paylasim baglantisi filtrede olmali — yeni paylasim yolu eklenirse bu test uyarir.
 const kaynaklar = ['components/modals/OptionsModal.tsx', 'components/tracking/TrackingCardMenu.tsx',
-  'features/feed/hooks/useActivityActions.tsx', 'hooks/useEpisodeActions.ts'];
+  'features/feed/hooks/useActivityActions.tsx', 'hooks/useEpisodeActions.ts',
+  'utils/kaymakNo.ts']; // Faz 6 (M522): profil paylaşımı /u/<KaymakNo>
 const paylasilan = new Set();
 for (const f of kaynaklar) {
   for (const m of oku(f).matchAll(/https:\/\/kaymaktv\.com\/([a-z]+|\$\{[a-zA-Z]+\})\//g)) {

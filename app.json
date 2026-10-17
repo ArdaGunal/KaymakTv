@@ -39,7 +39,8 @@
             { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/show/" },
             { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/movie/" },
             { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/episode/" },
-            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/activity/" }
+            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/activity/" },
+            { "scheme": "https", "host": "kaymaktv.com", "pathPrefix": "/u/" }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }

@@ -226,5 +226,12 @@
   "dlStep3Title": "Install and Launch",
   "dlStep3Text": "When the download finishes, tap the file, complete the install and sign in.",
   "dlFooter": "KaymakTV • All rights reserved.",
-  "dlNotesError": "You can find the release notes on GitHub."
+  "dlNotesError": "You can find the release notes on GitHub.",
+  "profilPaylas": "Share profile link",
+  "profilPaylasMesaj": "My profile on KaymakTV:",
+  "profilLinkKopyalandi": "Link copied",
+  "kisaLinkYok": "No profile found with this number.",
+  "kisaLinkGorulemez": "This profile can't be viewed.",
+  "kisaLinkHata": "Couldn't open the profile. Please try again shortly.",
+  "kisaLinkAnaSayfa": "Back to Feed"
 }
