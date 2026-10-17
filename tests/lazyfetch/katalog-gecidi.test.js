@@ -55,8 +55,9 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
     // 🔴 LISTE UCLARI: `/shows/:id` deseniyle cakismamali. Cakissaydi bir
     // trend listesi `show_detail` ailesinin TTL'iyle servis edilirdi
     // (trending s-maxage=3600, detay 43200). Sayisal kisit bunu onluyor.
-    '/shows/trending', '/shows/popular', '/shows/anticipated', '/shows/played', '/shows/collected',
-    '/movies/trending', '/movies/popular', '/movies/boxoffice',
+    // (K5/M533: `/shows|movies/trending` artik KISA OMURLU `trending` ailesi — asagida ayrica olculuyor)
+    '/shows/popular', '/shows/anticipated', '/shows/played', '/shows/collected',
+    '/movies/popular', '/movies/boxoffice',
     // 🔴 KULLANICIYA OZEL - bu listeye ASLA giremez (02_ENVANTER.md)
     '/users/settings', '/users/me/history', '/users/me/lists',
     '/sync/history', '/sync/watchlist', '/sync/collection',
@@ -64,7 +65,7 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
     // Bilincli olarak kapsam disi
     // 🆕 K7 (M532): kadro TMDB `credits`'ten — Trakt people rotalari kaldirildi
     '/shows/1388/people', '/shows/breaking-bad/people', '/movies/481/people',
-    '/search/show', '/search/movie', '/shows/1388/comments', '/shows/1388/ratings',
+    '/search/person', '/search', '/shows/1388/comments', '/shows/1388/ratings',
     // Yol gecisi denemeleri
     '/shows/../users/settings', '/shows/1388/seasons/../../users/settings', '/movies/../../etc/passwd',
     // Yanlis derinlik
@@ -135,6 +136,11 @@ const { parseSharedMaxAge, isStorable } = require(path.join(LF, 'providers', 'ca
   );
 
   // ======================================================================
+  T.H('K5 (M533) - trend ve arama KISA OMURLU ayri aileler');
+  T.ok('/shows/trending -> trending (show_detail DEGIL)', rr.resolveRoute('trakt', '/shows/trending').family === 'trending');
+  T.ok('/movies/trending -> trending', rr.resolveRoute('trakt', '/movies/trending').family === 'trending');
+  T.ok('/search/show ve /search/movie -> search', rr.resolveRoute('trakt', '/search/show').family === 'search' && rr.resolveRoute('trakt', '/search/movie').family === 'search');
+
   T.H('K6 (M532) - TMDB /person beyaz listede');
   T.ok('/person/17419 -> person_detail (PASSTHRU degil)', rr.resolveRoute('tmdb', '/person/17419').family === 'person_detail');
   T.ok('/person/17419/images ve /person/abc KAPALI', !rr.resolveRoute('tmdb', '/person/17419/images').cacheable && !rr.resolveRoute('tmdb', '/person/abc').cacheable);

@@ -94,6 +94,14 @@ function describe(envelope) {
       return `${p.title || '?'}${p.year ? ` (${p.year})` : ''}${p.runtime ? ` · ${p.runtime} dk` : ''}`;
     case 'trakt/episode_detail':
       return `S${String(p.season ?? '?').padStart(2, '0')}E${String(p.number ?? '?').padStart(2, '0')} — ${p.title || '?'}${p.first_aired ? ' · ' + String(p.first_aired).slice(0, 10) : ''}`;
+    case 'trakt/trending':
+      return Array.isArray(p)
+        ? `${p.length} trend yapım${p.length ? ' — ilk: ' + ((p[0].show || p[0].movie || {}).title || '?') : ''}`
+        : '(beklenmeyen trend yanıtı)';
+    case 'trakt/search':
+      return Array.isArray(p)
+        ? `${p.length} arama sonucu${p.length ? ' — ilk: ' + ((p[0].show || p[0].movie || {}).title || '?') : ''}`
+        : '(beklenmeyen arama yanıtı)';
     case 'trakt/show_related':
     case 'trakt/movie_related':
       return Array.isArray(p)
@@ -264,6 +272,8 @@ function ozet(rows) {
     'trakt/show_related': '🆕 L7+ — benzer diziler',
     'trakt/movie_related': '🆕 L7+ — benzer filmler',
     'tmdb/person_detail': '🆕 K6 — oyuncu sayfası (biyografi, fotoğraf yolu)',
+    'trakt/trending': '🆕 K5 — trend listeleri (1 sa taze / 24 sa)',
+    'trakt/search': '🆕 K5 — arama sonuçları (1 sa taze / 24 sa)',
   };
   for (const [f, g] of sirali) {
     // Sağlayıcı öneki KORUNUYOR — L7'den beri iki sağlayıcı var,
@@ -428,7 +438,7 @@ function listele(rows, aile) {
     say(
       `\n"${aile}" ailesinde kayıt yok.` +
       '\n  TMDB:  tv_detail, movie_detail, episode_detail, credits, episode_credits, tv_images, tv_videos, movie_videos, person_detail' +
-      '\n  Trakt: show_detail, show_seasons, show_related, episode_detail, movie_detail, movie_related' +
+      '\n  Trakt: show_detail, show_seasons, show_related, episode_detail, movie_detail, movie_related, trending, search' +
       `\n  İpucu: "${aile}" iki sağlayıcıda da varsa sağlayıcıyla daralt — ör. --list trakt/${aile}`
     );
     return;

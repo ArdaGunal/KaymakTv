@@ -86,6 +86,16 @@ const TTL_CEILING_MS = KATALOG_TOPLAM_MS;
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // sağlayıcı hiç Cache-Control döndürmezse (uç durum) kullanılan yedek
 const DEFAULT_GRACE_MULTIPLIER = 4; // yalnızca politika DIŞI (beyaz liste dışı) durumlar için
 
+// 🆕 K5 (M533) — katalog politikasının (30/180 gün) DIŞINDA kalan kısa ömürlü aileler.
+// Trend listesi saatler içinde değişir (Trakt `s-maxage=3600` diyor); arama sonucu
+// yeni yapım eklendikçe değişir. 1 saat taze: sağlayıcının beyanıyla aynı. 24 saat
+// toplam: süre dolunca SWR arkada yeniler, Trakt çökerse eski liste 1 gün daha döner.
+const SAAT_MS = 60 * 60 * 1000;
+const KISA_OMUR = {
+  trending: { tazeMs: SAAT_MS, toplamMs: 24 * SAAT_MS },
+  search: { tazeMs: SAAT_MS, toplamMs: 24 * SAAT_MS },
+};
+
 // 🆕 (L5, "grace tavanı sınırlı" — 03_FAZLAR.md): çarpanın MUTLAK tavanı.
 // Çarpan tek başına sınırsızdı: `TTL_CEILING_MS` 7 gün olduğu için sağlayıcı
 // uzun bir `max-age` dönerse grace 28 güne kadar çıkabiliyordu — yani bir ay
@@ -192,6 +202,14 @@ const TRAKT_ROUTES = [
   // --- Filmler ---
   { family: 'movie_detail', regex: /^\/movies\/\d+$/ },
   { family: 'movie_related', regex: /^\/movies\/[A-Za-z0-9-]+\/related$/ },
+  // 🆕 K5 (M533) — TREND ve ARAMA, KISA ÖMÜRLÜ ayrı aileler (`KISA_OMUR` aşağıda).
+  // Eskiden bilinçli olarak dışarıdaydı («isabet oranı ölçülmeden açılmaz»);
+  // kullanıcı + danışman kararı (2026-10-18): kısa TTL ile önbelleğe girsin,
+  // Trakt kesintisinde arama arşivden yerel başlık aramasına düşsün
+  // (`server/traktProxyOnbellek.js`). `trending` ailesi `show_detail`'den AYRI —
+  // yukarıdaki «liste ucu detay TTL'iyle servis edilmesin» gerekçesi aynen geçerli.
+  { family: 'trending', regex: /^\/(shows|movies)\/trending$/ },
+  { family: 'search', regex: /^\/search\/(show|movie)$/ },
   // 🆕 K7 (M532) — `show_people` / `movie_people` KALDIRILDI (8 → 6 rota).
   // Canlıda 0 dosyaydı: istemcide onları çağıran `getShowCast`/`getMovieCast`'in
   // hiçbir kullanıcısı yoktu, kadro TMDB `credits`'ten geliyor (M530). Artık
@@ -294,6 +312,13 @@ function resolveTtl(providerMaxAgeSeconds, { family = null, data = null } = {}) 
   // davranışta kalır — geriye dönük güvenli.
   const politikaVar = !!family;
 
+  // K5: kısa ömürlü aileler sağlayıcının daha uzun beyanını da DİNLEMEZ — bir trend
+  // listesini «sağlayıcı 12 saat dedi» diye yarım gün dondurmak istenmiyor.
+  if (family && KISA_OMUR[family]) {
+    const { tazeMs, toplamMs } = KISA_OMUR[family];
+    return { ttlMs: tazeMs, graceMs: toplamMs - tazeMs };
+  }
+
   if (!politikaVar) {
     const raw = saglayici || DEFAULT_TTL_MS;
     const ttlMs = Math.min(Math.max(raw, TTL_FLOOR_MS), TTL_CEILING_MS);
@@ -328,4 +353,5 @@ module.exports = {
   DEFAULT_TTL_MS,
   DEFAULT_GRACE_MULTIPLIER,
   GRACE_CEILING_MS,
+  KISA_OMUR,
 };

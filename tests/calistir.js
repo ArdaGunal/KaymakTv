@@ -34,6 +34,7 @@ const TAKIMLAR = [
   { ad: 'kopru', grup: 'lazyfetch', dosya: 'lazyfetch/trakt-koprusu.test.js', aciklama: 'M414: trakt-proxy beyaz listesi (arama acik, kapsam dar)' },
   { ad: 'supurucu', grup: 'lazyfetch', dosya: 'lazyfetch/supurucu.test.js', aciklama: 'L6: yalnizca cache/ silinir' },
   { ad: 'saglik', grup: 'lazyfetch', dosya: 'lazyfetch/saglik.test.js', aciklama: 'K8/M531: /api/health salt okuma, sirsiz, durumu degistirmez' },
+  { ad: 'trend-arama', grup: 'lazyfetch', dosya: 'lazyfetch/trend-arama.test.js', aciklama: 'K5/M533: trend+arama onbellekten, kova doluysa dogrudan, Trakt cokunce arsivden yerel arama' },
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
   { ad: 'goc', grup: 'arsiv', dosya: 'arsiv/goc.test.js', aciklama: 'A1: sema gocu v1 -> v2 -> v3 (C16)' },

@@ -178,6 +178,9 @@ app.use('/api/afis-yedek', require('./server/afisYedek'));
 // /api/tmdb ile AYNI proxy deseni burada da uygulandı. Token, sızıntı
 // riskini azaltmak için URL/query string'e DEĞİL, isteğin kendi
 // Authorization başlığına konur ve olduğu gibi Trakt'a iletilir.
+// K5 (M533) — trend + arama önce LazyFetch önbelleğinden (arama: kesintide arşivden
+// yerel arama). Diğer her yol `next()` ile aşağıdaki saf geçişe AYNEN düşer.
+app.get('/api/trakt-proxy', require('./server/traktProxyOnbellek'));
 app.get('/api/trakt-proxy', async (req, res) => {
   try {
     const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
