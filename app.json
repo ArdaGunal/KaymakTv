@@ -2,7 +2,7 @@
   "expo": {
     "name": "KaymakTV",
     "slug": "kaymak",
-    "version": "2.6.6",
+    "version": "2.6.7",
     "orientation": "portrait",
     "scheme": "kaymak",
     "userInterfaceStyle": "dark",
@@ -23,7 +23,7 @@
       },
       "package": "com.ardagnl.kaymak",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 10,
+      "versionCode": 11,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WRITE_EXTERNAL_STORAGE",

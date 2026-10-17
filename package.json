@@ -1,6 +1,6 @@
 {
   "name": "kaymak",
-  "version": "2.6.6",
+  "version": "2.6.7",
   "main": "expo-router/entry",
   "scripts": {
     "postinstall": "patch-package",
