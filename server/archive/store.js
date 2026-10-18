@@ -212,9 +212,10 @@ function summary() {
   // ise RUTİN bir olay; aynı sayaca girerse alarm gürültüye dönüşür ve
   // "iki farklı yapım birleşti" gibi ciddi bir vaka içinde kaybolur.
   //
-  // ⚠️ `sync_log.event` CHECK'i yeni bir değer kabul etmiyor (§C16'nın
-  // tuzağı: `mirror` değeri tam bu yüzden reddediliyor). Bu yüzden ayrım
-  // olay tipinde değil, `detail` önekinde yapılıyor.
+  // Ayrım olay tipinde değil, `detail` önekinde yapılıyor. Tarihçe: o dönem
+  // `sync_log.event` CHECK'i yeni değer kabul etmiyordu (§C16); M381 şema v3'te
+  // CHECK kalktı (canlıda `mirror`/`sayac` olayları duruyor, 2026-10-18) ama
+  // önek düzeni korundu — eski satırlar ve sayaçlar ona dayanıyor.
   const cakisma = db.prepare(
     "SELECT count(*) c FROM sync_log WHERE event = 'conflict'" +
       " AND COALESCE(detail, '') NOT LIKE 'KIMLIK_DEGISIMI:%'" +

@@ -107,7 +107,9 @@ try {
 try {
   const backlog = fs.readFileSync(path.join(KOK, 'docs', 'BACKLOG.md'), 'utf8');
   const say = (re) => (backlog.match(re) || []).length;
-  rapor.borc.C = say(/^### C\d+/gm);
+  // M540: C maddeleri artık «## 🟠 C» bölümündeki TABLO satırları (eski «### C» başlıkları da sayılır).
+  const cBolum = (backlog.split(/^## 🟠 C/m)[1] || '').split(/^## /m)[0];
+  rapor.borc.C = say(/^### C\d+/gm) + (cBolum.match(/^\| (?!#|---)[^|]+\|/gm) || []).length;
   rapor.borc.D = say(/^\| D\d+ /gm);
   rapor.borc.kirmiziBayrak = say(/^🔴 /gm);
   const denetim = backlog.match(/^> Son denetim: (.*)$/m);
