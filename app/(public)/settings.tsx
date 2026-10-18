@@ -228,9 +228,11 @@ export default function Login() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
-        <View style={[styles.headerContainer, isDesktop && { alignItems: 'center', marginBottom: 40 }]}>
-          <Text style={[styles.title, isDesktop && { fontSize: 36, textAlign: 'center' }]}>{t(kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
-          <Text style={[styles.subtitle, isDesktop && { textAlign: 'center', fontSize: 18 }]}>{t(kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
+        {/* M536: başlık her genişlikte ORTALI — eskiden yalnız masaüstünde ortalanıyordu, dar ekranda başlık sola,
+            gövde ortaya yaslı kalıyordu (kullanıcı: «dar ekranda da başlık ve alt başlık ortalansın»). */}
+        <View style={[styles.headerContainer, isDesktop && { marginBottom: 40 }]}>
+          <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
+          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
         </View>
 
       <View style={styles.formContainer}>

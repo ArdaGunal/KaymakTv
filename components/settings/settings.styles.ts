@@ -41,16 +41,19 @@ export const styles = StyleSheet.create({
   },
   headerContainer: {
     marginBottom: 32,
+    alignItems: 'center',
   },
   title: {
     fontSize: 30,
     fontWeight: 'bold',
     color: '#e2e8f0',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#94a3b8',
+    textAlign: 'center',
   },
   formContainer: {
     gap: 16,
