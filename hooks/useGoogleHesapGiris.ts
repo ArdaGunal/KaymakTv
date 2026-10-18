@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { checkGoogleAccount, createGoogleOnlyAccount } from '../services/api/googleAuth';
+import { checkGoogleAccount, createGoogleOnlyAccount, type GoogleBagliHesap } from '../services/api/googleAuth';
 import { useAuth } from '../context/AuthContext';
 import { logError } from '../utils/errorLog';
 import { googleGirisAdimi } from '../utils/googleGirisKarari';
@@ -26,6 +26,8 @@ export function useGoogleHesapGiris() {
   const { t } = useTranslation('common');
   const [durum, setDurum] = useState<GoogleGirisDurumu>('bos');
   const [hata, setHata] = useState<string | null>(null);
+  // GIRIS-TASARIM-01 (M536): «Trakt ile devam et» kutusunda gösterilen kendi profil (@ad, #no).
+  const [bagliHesap, setBagliHesap] = useState<GoogleBagliHesap | null>(null);
 
   const oturumAc = async (sessionToken: string, profil?: { username?: string; avatarUrl?: string | null }) => {
     await saveGoogleSession(sessionToken, profil);
@@ -41,6 +43,7 @@ export function useGoogleHesapGiris() {
       const kontrol = await checkGoogleAccount(idToken, nonce ?? '');
       const adim = googleGirisAdimi(kontrol);
       if (adim === 'trakt_ile_gir') {
+        setBagliHesap(kontrol.status === 'linked' ? kontrol.hesap ?? null : null);
         // M525 (e): oturum açılmadı → yerel Google oturumu da kapansın; «Vazgeç» + tekrar Google
         // hesap seçtirmeden aynı hesabı almasın (D8 ile aynı ilke).
         void googleOturumunuKapat();
@@ -66,11 +69,17 @@ export function useGoogleHesapGiris() {
     }
   };
 
-  /** «Trakt ile gir» kutusundan vazgeç — Google düğmesine dön. */
+  /**
+   * «Başka bir hesapla dene» — kutudan çıkıp temiz giriş ekranına dön. Yerel Google oturumu
+   * `trakt_ile_gir` anında zaten kapatıldı (M525 e); burada da kapatılır ki bir sonraki
+   * Google basışı hesap seçiciyi AÇSIN, aynı hesabı sessizce yeniden almasın.
+   */
   const sifirla = () => {
+    void googleOturumunuKapat();
     setHata(null);
+    setBagliHesap(null);
     setDurum('bos');
   };
 
-  return { girisYap, durum, hata, sifirla };
+  return { girisYap, durum, hata, sifirla, bagliHesap };
 }

@@ -192,6 +192,7 @@ export function useGoogleSignIn(onCredential: (idToken: string, nonce: string) =
         size: 'large',
         text: 'continue_with',
         shape: 'rectangular',
+        // M536: `TraktGirisDugmesi` GIRIS_DUGME_GENISLIK_WEB ile AYNI olmalı (eşit iki düğme).
         // 280: settings.tsx'in `container` dolgusu (24+24) dar telefon
         // genişliklerinde (ör. 320px) 320'lik sabit genişliğin taşmasına
         // yol açabilirdi — 280 daha güvenli bir alt sınır.

@@ -16,6 +16,8 @@ export type GoogleAuthCheckResult =
        */
       traktLinked: boolean;
       userId?: string;
+      /** M536 — yalnız Trakt'lı hesapta: kutuda gösterilecek kendi profil bilgisi. */
+      hesap?: GoogleBagliHesap | null;
     }
   | { status: 'unlinked' };
 
@@ -68,6 +70,14 @@ const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
  * kullanılır — Trakt round-trip'i yapmak anlamsız olurdu, kullanıcının zaten
  * Trakt hesabı yok.
  */
+export interface GoogleBagliHesap { username: string; kaymakNo: number | null }
+
+/** Worker'ın `hesap` alanını süzer — beklenmeyen şekil ekrana sızmasın. */
+export const bagliHesap = (h: any): GoogleBagliHesap | null =>
+  h && typeof h.username === 'string' && h.username.trim()
+    ? { username: h.username.trim(), kaymakNo: Number.isInteger(h.kaymakNo) ? h.kaymakNo : null }
+    : null;
+
 export const checkGoogleAccount = async (googleIdToken: string, nonce: string): Promise<GoogleAuthCheckResult> => {
   const data = await postAuthGoogle({ action: 'check', googleIdToken, nonce });
   if (!data?.success) {
@@ -83,6 +93,9 @@ export const checkGoogleAccount = async (googleIdToken: string, nonce: string): 
         // token'ıyla oturum açmaya zorlardı.
         traktLinked: data.traktLinked ?? true,
         userId: data.userId,
+        // GIRIS-TASARIM-01 (M536): «Trakt ile devam et» kutusu kişinin kendi profilini gösterir.
+        // Eski Worker göndermez → kutu adsız metne düşer.
+        hesap: bagliHesap(data.hesap),
       }
     : { status: 'unlinked' };
 };

@@ -58,7 +58,7 @@ T.ok('Hesap Sec: sunucu cagrisindan ONCE sorulur', hs.indexOf('if (!(await bekle
 T.ok('Onay kancasi bekleyen is yoksa sormaz', /if \(n === 0\) return true;/.test(oku('hooks/useBekleyenIsOnayi.ts')));
 
 T.H('(e) Trakt\'li hesap kutusunda yerel Google oturumu kapanir');
-T.ok('Iki dalda da googleOturumunuKapat', (oku('hooks/useGoogleHesapGiris.ts').match(/void googleOturumunuKapat\(\);/g) || []).length === 2);
+T.ok('Iki dalda da googleOturumunuKapat + «Baska bir hesapla dene» (M536) de kapatir', (oku('hooks/useGoogleHesapGiris.ts').match(/void googleOturumunuKapat\(\);/g) || []).length === 3);
 
 T.H('Ceviri');
 for (const dil of ['tr', 'en']) {

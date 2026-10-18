@@ -14,8 +14,12 @@ T.ok('Vitrinlerde gizli kapi izi yok', ['app/(public)/index.tsx', 'app/(public)/
 
 T.H('Giris ekrani');
 const ekran = oku('app/(public)/settings.tsx');
-const trakt = ekran.indexOf("t('loginTrakt')"), google = ekran.indexOf('<GoogleGirisDugmesi'), veya = ekran.indexOf('<OrDivider');
+const trakt = ekran.indexOf('<TraktGirisDugmesi'), google = ekran.indexOf('<GoogleGirisDugmesi'), veya = ekran.indexOf('<OrDivider');
 T.ok('Google dugmesi Trakt dugmesinin ALTINDA, VEYA ayracinin USTUNDE', trakt > -1 && google > trakt && veya > google);
+// M536 (GIRIS-TASARIM-01): iki dugme AYNI olcu — web genisligi tek sabitte, Google cizimi ona bagli.
+const td = oku('components/auth/TraktGirisDugmesi.tsx'), gis = oku('hooks/useGoogleSignIn.ts');
+const gen = Number((td.match(/GIRIS_DUGME_GENISLIK_WEB = (\d+)/) || [])[1]);
+T.ok('M536: webde Trakt ve Google dugmesi AYNI genislik', gen > 0 && new RegExp(`width: ${gen},`).test(gis), String(gen));
 T.ok('Kullanim kosullari kapisi Google icin de gecerli', /<GoogleGirisDugmesi etkin=\{isChecked/.test(ekran));
 T.ok('M502 Faz 0 + D10: dugme bayraga bagli, bayrak tek yerde', /import \{ GOOGLE_GIRIS_ACIK \} from '..\/..\/utils\/googleGirisBayragi'/.test(ekran) && !/const GOOGLE_GIRIS_ACIK/.test(ekran) && /\{GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi/.test(ekran));
 
@@ -37,7 +41,12 @@ T.ok('Native dugme onay yokken pasif', /disabled=\{!etkin\}/.test(dugme));
 T.ok('Kullanicinin kendi iptali hata sayilmaz', /if \(!sonuc\.cancelled\)/.test(dugme));
 T.ok('Faz 3: ONCE check, sonra (yalniz bagli degilse) create_new', kanca.indexOf('checkGoogleAccount(idToken') > -1 && kanca.indexOf('checkGoogleAccount(idToken') < kanca.indexOf('createGoogleOnlyAccount(idToken'));
 T.ok('Faz 3: trakt_ile_gir hata kodu da yonlendirmeye duser', /error\?\.code === 'trakt_ile_gir'/.test(kanca));
-T.ok('Faz 3: Trakt ile Gir kutusu + giris ekranindan handleTraktLogin', dugme.includes('<TraktIleGirKutusu') && /onTraktIleGir=\{handleTraktLogin\}/.test(ekran));
+T.ok('Faz 3: Trakt ile devam kutusu giris ekraninda + handleTraktLogin', ekran.includes('<TraktIleGirKutusu') && /onTraktIleDevam=\{handleTraktLogin\}/.test(ekran));
+// 🔴 M536: eskiden kutu ana Trakt dugmesinin ALTINA ciziliyordu → ekranda iki «Trakt ile Giris Yap».
+T.ok('🔴 M536: kutu acikken ana Trakt dugmesi ve misafir baglantilari GIZLI (tek birincil dugme)',
+  /\{!kutuAcik && \(\s*<TraktGirisDugmesi/.test(ekran) && /\{!kutuAcik && <>\s*<>\s*<OrDivider/.test(ekran) && !dugme.includes('<TraktIleGirKutusu'));
+const kutu = oku('components/auth/TraktIleGirKutusu.tsx');
+T.ok('M536: kutu kisinin kendi @ad + #no bilgisini gosterir, tek birincil + ikincil', /`@\$\{hesap\.username\}`/.test(kutu) && /#\{hesap!\.kaymakNo\}/.test(kutu) && /baskaHesaplaDene/.test(kutu) && (kutu.match(/onPress=/g) || []).length === 2);
 T.ok('Hata sessiz yutulmaz', /logError\('googleGiris\.girisYap'/.test(kanca));
 
 T.H('Faz 3 saf karar (D2/D4)');

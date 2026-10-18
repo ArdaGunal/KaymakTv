@@ -148,14 +148,19 @@ export default function ProfilOlusturScreen() {
             {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.continueBtnText}>{t('common:continue', 'Devam Et')}</Text>}
           </TouchableOpacity>
 
+          {/* GIRIS-TASARIM-01 (M536): gözden kaçmayan ama ekranı boğmayan bilgi kutusu. Basınca
+              az önce açılan boş hesap silinir, Google oturumu kapanır, temiz giriş ekranına dönülür. */}
           {yeniHesap.gorunur && (
             <TouchableOpacity
-              style={localStyles.girisLinki}
+              style={[localStyles.zatenKutu, (yeniHesap.birakiliyor || isSaving) && localStyles.zatenKutuPasif]}
               onPress={yeniHesap.birak}
               disabled={yeniHesap.birakiliyor || isSaving}
-              hitSlop={8}
+              accessibilityRole="button"
             >
-              <Text style={localStyles.girisLinkiMetin}>{t('settings:yeniHesapLink')}</Text>
+              <Text style={localStyles.zatenBaslik}>{t('settings:zatenHesapBaslik')}</Text>
+              {yeniHesap.birakiliyor
+                ? <ActivityIndicator size="small" color="#60a5fa" />
+                : <Text style={localStyles.zatenEylem}>{t('settings:zatenHesapEylem')}</Text>}
             </TouchableOpacity>
           )}
 
@@ -283,14 +288,27 @@ const localStyles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 6,
   },
-  girisLinki: {
-    alignSelf: 'center',
-    marginTop: 18,
-    paddingVertical: 4,
+  zatenKutu: {
+    marginTop: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#1e293b',
+    alignItems: 'center',
+    gap: 6,
   },
-  girisLinkiMetin: {
-    color: '#94a3b8',
-    fontSize: 13,
-    textDecorationLine: 'underline',
+  zatenKutuPasif: { opacity: 0.6 },
+  zatenBaslik: {
+    color: '#cbd5e1',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  zatenEylem: {
+    color: '#60a5fa',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

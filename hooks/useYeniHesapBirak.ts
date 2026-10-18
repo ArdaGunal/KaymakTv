@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { confirmAsync, notify } from '../utils/confirmDialog';
+import { notify } from '../utils/confirmDialog';
 import { yeniHesapBirakilabilir, yeniHesabiBirak } from '../features/feed/services/accountDeletion';
 import { GOOGLE_GIRIS_ACIK } from '../utils/googleGirisBayragi';
 import { kurulumKimliginiYenile } from '../services/api/telemetry';
@@ -17,7 +17,11 @@ import { kurulumKimliginiYenile } from '../services/api/telemetry';
  *  2. Worker «bırakılabilir» der (onaysız + 1 saatten genç + elle üretilmiş iz yok).
  *     Kurallardan önce açılmış, adı kural dışı ESKİ hesaplar da bu ekrana gelir —
  *     onlarda link görünmez (sunucu kararı).
- * Basınca onay → Worker siler → çıkış (`removeKeys`) → giriş ekranı.
+ * Basınca Worker siler → çıkış (`removeKeys`: yerel Google oturumu da kapanır, hesap seçici
+ * sıfırlanır) → temiz giriş ekranı.
+ * 🆕 GIRIS-TASARIM-01 (M536) — ONAY SORUSU KALKTI. Kullanıcı (2026-10-18): «bu bağlantıya bastığı
+ * anda `yeni_hesabi_birak` çalışsın». Güvenli: Worker yalnız onaysız + 1 saatten genç + elle
+ * üretilmiş izi olmayan hesabı siler (`yeniHesap` 18/18); dolu bir hesap bu yoldan silinemez.
  */
 export function useYeniHesapBirak() {
   const { accessToken, isGuest, removeKeys } = useAuth();
@@ -37,13 +41,6 @@ export function useYeniHesapBirak() {
 
   const birak = useCallback(async () => {
     if (!accessToken || birakiliyor) return;
-    const onay = await confirmAsync(
-      t('settings:yeniHesapBirakBaslik'),
-      t('settings:yeniHesapBirakMetin'),
-      t('settings:yeniHesapBirakOnay'),
-      t('common:cancel')
-    );
-    if (!onay) return;
     setBirakiliyor(true);
     try {
       await yeniHesabiBirak(accessToken);

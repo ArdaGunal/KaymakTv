@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ScrollView } from 'react-native';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
@@ -11,6 +11,9 @@ import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
+import TraktGirisDugmesi from '../../components/auth/TraktGirisDugmesi';
+import TraktIleGirKutusu from '../../components/auth/TraktIleGirKutusu';
+import { useGoogleHesapGiris } from '../../hooks/useGoogleHesapGiris';
 
 // M502 Faz 0 + D10 — yalnız --google-test APK'sında açık (bkz. utils/googleGirisBayragi.ts).
 import { GOOGLE_GIRIS_ACIK } from '../../utils/googleGirisBayragi';
@@ -38,7 +41,11 @@ export default function Login() {
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const router = useRouter();  
+  const router = useRouter();
+  // GIRIS-TASARIM-01 (M536): Google giriş durumu BU EKRANDA tutulur — «Trakt ile devam et»
+  // kutusu açılınca diğer bütün giriş seçenekleri gizlenir (kullanıcı: tek birincil düğme kalsın).
+  const google = useGoogleHesapGiris();
+  const kutuAcik = GOOGLE_GIRIS_ACIK && google.durum === 'trakt_ile_gir';
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
@@ -222,16 +229,19 @@ export default function Login() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
         <View style={[styles.headerContainer, isDesktop && { alignItems: 'center', marginBottom: 40 }]}>
-          <Text style={[styles.title, isDesktop && { fontSize: 36, textAlign: 'center' }]}>{t('traktAccount')}</Text>
-          <Text style={[styles.subtitle, isDesktop && { textAlign: 'center', fontSize: 18 }]}>{t('traktSubtitle')}</Text>
+          <Text style={[styles.title, isDesktop && { fontSize: 36, textAlign: 'center' }]}>{t(kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
+          <Text style={[styles.subtitle, isDesktop && { textAlign: 'center', fontSize: 18 }]}>{t(kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
         </View>
 
       <View style={styles.formContainer}>
           <>
-            <>
+            {kutuAcik && (
+              <TraktIleGirKutusu hesap={google.bagliHesap} onTraktIleDevam={handleTraktLogin} onBaskaHesap={google.sifirla} />
+            )}
+            {!kutuAcik && <>
               <>
                 <Text style={styles.description}>
-                  {t('traktDescription')}
+                  {t('girisAciklama')}
                 </Text>
 
                 {/* 2026-08-21 — kullanım koşulları onayı artık İKİ girişin de
@@ -257,7 +267,7 @@ export default function Login() {
                   </Text>
                 </TouchableOpacity>
               </>
-            </>
+            </>}
 
             {/* 🔴 Buradaki `!awaitingTraktLink` KAPISI KALDIRILDI (2026-08-23).
                 Google köprü kartı bu ekrandan gidince, AsyncStorage'ında eski
@@ -265,20 +275,11 @@ export default function Login() {
                 ve Trakt butonunu GİZLİYORDU — yani giriş ekranı HİÇBİR giriş
                 seçeneği göstermeyen bir çıkmaza dönüşürdü. Trakt butonu artık
                 KOŞULSUZ çiziliyor. */}
-            <>
-              <TouchableOpacity
-                style={[styles.button, (!request || !isChecked) ? styles.buttonDisabled : null]}
-                activeOpacity={0.8}
-                onPress={handleTraktLogin}
-                disabled={!request || isGenerating || !isChecked}
-              >
-                {isGenerating ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>{t('loginTrakt')}</Text>
-                )}
-              </TouchableOpacity>
-            </>
+            {/* M536: Google + Trakt AYNI ölçüde, alt alta (`TraktGirisDugmesi.tsx`). Kutu açıkken gizli —
+                Google konteyneri ise ASLA unmount edilmez (Madde 231), kendisi gizlenir. */}
+            {!kutuAcik && (
+              <TraktGirisDugmesi etkin={!!request && isChecked} yukleniyor={isGenerating} onPress={handleTraktLogin} />
+            )}
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
             {baglamaModu && <Text style={styles.pollingText}>{t('settings:baglamaModuNotu')}</Text>}
@@ -288,10 +289,10 @@ export default function Login() {
                 basınca İKİNCİ, boş hesap açılıyordu (veri bölünmesi). Kimlik planı
                 Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır.
                 D10 (2026-10-13): Faz 4–5 testleri için yalnız test APK'sında açık. */}
-            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} onTraktIleGir={handleTraktLogin} />}
+            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} giris={google} />}
 
-            {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür. */}
-            <>
+            {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür (kutu açıkken değil — tek seçenek kalsın). */}
+            {!kutuAcik && <>
               <>
                 <OrDivider t={t} />
 
@@ -311,7 +312,7 @@ export default function Login() {
                   </TouchableOpacity>
                 </View>
               </>
-            </>
+            </>}
           </>
         </View>
       </View>
