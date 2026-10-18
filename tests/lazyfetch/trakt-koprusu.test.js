@@ -39,4 +39,10 @@ T.ok('Kisisel gecmis KAPALI (ornek: /sync/history)',
 T.ok('Bilinmeyen fiil KAPALI', isTraktEndpointAllowed('PATCH', '/shows/trending') === false);
 T.ok('PUT listesi bos', isTraktEndpointAllowed('PUT', '/users/settings') === false);
 
+T.H('F7 (M541) — olu Trakt takip/istek yazma uclari KAPALI');
+for (const [m, u] of [['GET', '/users/requests'], ['POST', '/users/ardagnl/follow'], ['DELETE', '/users/ardagnl/follow'], ['POST', '/users/requests/123'], ['DELETE', '/users/requests/123']]) {
+  T.ok(`${m} ${u} KAPALI`, isTraktEndpointAllowed(m, u) === false);
+}
+T.ok('Gizleme (hidden) yazma uclari hala ACIK (istemci kullaniyor)', isTraktEndpointAllowed('POST', '/users/hidden/progress_watched') === true && isTraktEndpointAllowed('POST', '/users/hidden/calendar/remove') === true);
+
 T.bitir();

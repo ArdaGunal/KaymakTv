@@ -140,7 +140,6 @@ const traktAuthLimiter = makeLimiter(20, 'Trakt auth');
 const TRAKT_ENDPOINT_ALLOWLIST = {
   GET: [
     /^\/users\/hidden\/(progress_watched|calendar)$/, // getHiddenShows / getHiddenMovies
-    /^\/users\/requests$/, // getFollowRequests
     /^\/users\/settings$/, // getUserSettings / getProfilePrivacy
     /^\/shows\/trending$/, // getTrendingShows (karşılama ekranı poster duvarı — kimliksiz/public veri)
     /^\/movies\/trending$/, // getTrendingMovies (karşılama ekranı poster duvarı — kimliksiz/public veri)
@@ -154,13 +153,13 @@ const TRAKT_ENDPOINT_ALLOWLIST = {
   POST: [
     /^\/users\/hidden\/(progress_watched|calendar)$/, // hideItemTrakt
     /^\/users\/hidden\/(progress_watched|calendar)\/remove$/, // unhideItemTrakt
-    /^\/users\/[^/]+\/follow$/, // followTraktUser
-    /^\/users\/requests\/\d+$/, // approveFollowRequest
   ],
-  DELETE: [
-    /^\/users\/[^/]+\/follow$/, // unfollowTraktUser
-    /^\/users\/requests\/\d+$/, // denyFollowRequest
-  ],
+  // 🆕 F7 (M541): Trakt takip/istek yazma uçları (`/users/:id/follow` POST/DELETE,
+  // `/users/requests/:id` POST/DELETE, `GET /users/requests`) KALDIRILDI. İstemci 2026-09-13'ten
+  // (`cb73af4`) beri çağırmıyor — takip grafiği Supabase'te (`/social/follow`); yayınlanan 2.5.7 ve
+  // 2.6.0 kaynağında da çağıran yok (git grep ile teyit). Açık kalmaları, kimliksiz bir proxy'nin
+  // kullanıcı token'ıyla Trakt'ta takip yazabilmesi demekti.
+  DELETE: [],
   // PUT handler'ı `server.js`'te bilinçli olarak duruyor (GET/POST/DELETE ile
   // simetrik, genel amaçlı köprü) ama BUGÜN hiçbir istemci çağrısı yok —
   // `PUT /users/settings` Trakt'ın public API'sinde 401 döndüğü için istemci

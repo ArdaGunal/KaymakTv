@@ -82,6 +82,10 @@ export class KaymakAramaHatasi extends Error {
  * tekrar etmiyoruz. İki yerde yaşayan bir kural ıraksar; sunucu tarafı
  * güvenlik sınırı olduğu için otorite ORASI.
  */
+/** C25 (M541) — 400 gerçekten «arama terimi çok kısa» mı? Saf; test edilir. */
+export const aramaCokKisaMi = (yanit: any): boolean =>
+  yanit?.code === 'cok_kisa' || /en az \d+ karakter/i.test(String(yanit?.message || ''));
+
 const sosyalIstek = async (yol: string, govde: Record<string, unknown>): Promise<any> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
 
@@ -104,7 +108,10 @@ const sosyalIstek = async (yol: string, govde: Record<string, unknown>): Promise
 
     // 🔴 SESSİZ KAYIP YASAK (AI_RULES §2): boş sonuç dönmek, "bulunamadı" ile
     // "istek başarısız" durumlarını aynı ekrana düşürürdü.
-    if (durum === 400) {
+    // C25 (M541): eskiden HER 400 `cok_kisa`ydı → eksik token / geçersiz kimlik gibi başka sebepli 400'ler
+    // «Aramak için en az 2 karakter yaz» yalanını gösteriyordu. Artık yalnız Worker `code: "cok_kisa"`
+    // dediğinde (eski Worker için mesaj kalıbı yedeği); diğer 400'ler `genel`, kök neden taşınarak.
+    if (durum === 400 && aramaCokKisaMi(yanit)) {
       throw new KaymakAramaHatasi('cok_kisa', yanit?.message || 'İstek geçersiz.');
     }
     if (durum === 401 || durum === 403) {

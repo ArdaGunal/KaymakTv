@@ -23,7 +23,6 @@ import SettingsRow from '../../components/settings/SettingsRow';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 import { SettingsSection, SettingsSectionDivider } from '../../components/settings/SettingsSection';
 
-import { GoogleLinkSection } from '../../components/settings/GoogleLinkSection';
 import ClearCacheRow from '../../components/settings/ClearCacheRow';
 import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
@@ -125,12 +124,8 @@ export default function SettingsScreen() {
               yeterli bir bileşen, bkz. ProfileUsernameSection.tsx başlığı. */}
           <ProfileUsernameSection />
 
-          {/* Google artık bir GİRİŞ yöntemi değil, Trakt'lı hesaba eklenen bir
-              BAĞLAMA seçeneği (2026-08-23 ürün kararı). Bileşen kendi kapısını
-              kendi tutuyor: yalnızca web + gerçek Trakt kullanıcısı görür,
-              misafir GÖRMEZ (`link_trakt` Trakt token'ı zorunlu kılıyor).
-              Gerekçe ve geri alma: docs/design/GOOGLE_AUTH_MIGRATION.md */}
-          <GoogleLinkSection />
+          {/* M541: eski `GoogleLinkSection` (kalıcı kapalıydı, `GOOGLE_LINK_ENABLED = false`) silindi —
+              Google/Trakt bağlama artık Hesap Ayarları → «Giriş yöntemleri» (Kimlik Faz 5, M520). */}
 
           <SettingsSection title={t('settings:accountPreferences', 'Hesap Tercihleri')}>
             <SettingsRow

@@ -15,8 +15,8 @@ import { getTraktClient } from './traktClient';
 // onların kullandığı `TRAKT_PROXY_URL`. Geri getirmek bir takip yolunu tekrar
 // Trakt'a bağlamak olurdu — Google-only kullanıcıda 401 veren sınıf
 // (`FAZ_T3_TASLAK` §1.1, M324'teki puanlama hatasıyla aynı).
-// ⚠️ Web sunucusunun proxy izin listesi (`server/security.js`) bu Trakt yazma
-// uçlarına HÂLÂ izin veriyor — `BACKLOG` §F7.
+// ✅ F7 (M541): web sunucusunun proxy izin listesi (`server/security.js`) bu Trakt yazma
+// uçlarını artık reddediyor (403).
 //
 // Kalanlar yalnızca OKUMA ve yalnızca Trakt ZENGİNLEŞTİRMESİ içindir: isim,
 // biyografi, avatar ve Trakt izleme kütüphanesi. Başkası için çağrılırken

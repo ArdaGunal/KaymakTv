@@ -83,6 +83,7 @@ const TAKIMLAR = [
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
   { ad: 'afis', grup: 'arayuz', dosya: 'arayuz/afis-onbellek.test.mjs', aciklama: 'K2/M531: gecici TMDB hatasi afisi oturum boyu "yok" diye saklamaz' },
+  { ad: 'sosyal-400', grup: 'arayuz', dosya: 'arayuz/sosyal-400.test.mjs', aciklama: 'C25/M541: yalniz cok_kisa kodlu 400 «cok kisa», digerleri genel' },
   { ad: 'telemetri', grup: 'arayuz', dosya: 'arayuz/telemetri.test.mjs', aciklama: 'M529/DISCORD-01: ayni hata tek kez, gecici ag hatasi Discorda gitmez, hesap silmede kurulum kimligi yenilenir' },
   { ad: 'oturum', grup: 'arayuz', dosya: 'arayuz/oturum-butunlugu.test.mjs', aciklama: 'M525: 401 korumasi, invalid_token cikisi, bayat ben, baglama oncesi uyari, Google oturumu' },
   { ad: 'oturum-kusagi', grup: 'arayuz', dosya: 'arayuz/oturum-kusagi.test.mjs', aciklama: 'M538: cikis/hesap silme aninda kusak ilerler; eski oturumun gec yaniti diske/gunluge yazmaz (D8 yarisi)' },

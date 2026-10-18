@@ -58,7 +58,7 @@ export default function Login() {
   // TAKİBİ YAPAMIYOR — Kütüphane ve Takvim ona "Trakt'a bağlan" diyor. Bu,
   // lansmanda "uygulama bozuk" izlenimi yaratıyordu. Google artık bir GİRİŞ
   // yöntemi değil, Trakt'lı bir hesaba eklenen bir BAĞLAMA seçeneği
-  // (Ayarlar -> `GoogleLinkSection`).
+  // (bugün: Hesap Ayarları → «Giriş yöntemleri», Kimlik Faz 5; eski `GoogleLinkSection` M541'de silindi).
   //
   // Geri alma yolu, neyin neden değiştiği ve hangi kodun bilinçli olarak
   // KORUNDUĞU: docs/design/GOOGLE_AUTH_MIGRATION.md
