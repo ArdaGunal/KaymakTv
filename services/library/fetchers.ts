@@ -46,7 +46,7 @@ import {
 } from './utils';
 import { reconcileHiddenIds } from './hiddenSyncGuard';
 import { isKaymakSessionToken } from '../api/traktClient';
-import { oturumHalaBuMu } from '../auth/oturumDenetimi';
+import { oturumHalaBuMu, oturumKusagi } from '../auth/oturumDenetimi';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 import { logError } from '../../utils/errorLog';
 import { requestQueue } from '../api/requestQueue';
@@ -306,6 +306,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
 
   // M525 (a): karar ÇAĞRININ token'ından — eskiden yalnız SecureStore'a bakılıyordu; çıkış/geçişte
   // SecureStore boşalınca Google-only tur «Trakt'lı» sanılıp Trakt fetcher'ları token'sız 401 alıyordu.
+  const kusak = oturumKusagi();
   if (accessToken && !(await oturumHalaBuMu(accessToken))) return;
   const kaymakKullanici = isKaymakSessionToken(accessToken) || (await kaymakKullanicisiMi());
   const traktVar = !kaymakKullanici && !!accessToken;
@@ -326,6 +327,9 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
       kaymakKutuphaneSenkronu(),
       fetchTakvim(365),
     ]);
+    // 🔒 M538 — istekler yoldayken çıkış olduysa HİÇBİR şey yazılmaz (takvim, TTL damgası) ve
+    // emniyet turuna düşülmez: `oturumHalaBuMu` yalnız turun başına bakıyordu (D8 yarışı).
+    if (kusak !== oturumKusagi()) return true;
 
     // 🔴 `null` = alamadım → önbellektekini KORU. Boşla ezmek takvimi
     // ekrandan silerdi (bkz. `fetchTakvim` başlığı).

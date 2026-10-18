@@ -25,7 +25,7 @@ import { supabase } from '../features/feed/services/supabaseClient';
 import { supabaseKimlikKaynaginiAyarla } from '../features/feed/services/supabaseKimlik';
 import { stopWatchedOutbox } from '../services/library/outbox/runtime';
 import { stopHiddenOutbox } from '../services/library/hiddenOutbox/runtime';
-import { onHesapGecersiz } from '../services/auth/oturumDenetimi';
+import { onHesapGecersiz, oturumKusaginiIlerlet } from '../services/auth/oturumDenetimi';
 import { onKimlikDegisti } from '../services/auth/benKimligi';
 import { workerYanitKoruyucusunuKur } from '../services/api/workerYanitKoruyucu';
 
@@ -288,6 +288,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const removeKeys = async () => {
+    oturumKusaginiIlerlet(); // M538: yoldaki eski-oturum istekleri artık hiçbir şey yazmaz (D8 yarışı)
     try {
       // ── §C33 / M430: otomatik aktarım motoru TOKEN'LARDAN ÖNCE durur ──
       // Aksi hâlde silme ile bir sonraki render arasında adım atan şerit

@@ -21,6 +21,7 @@ import {
   setHiddenMovieIds,
 } from './utils';
 import { reconcileHiddenIds } from './hiddenSyncGuard';
+import { oturumKusagi } from '../auth/oturumDenetimi';
 
 /**
  * ==========================================================================
@@ -66,8 +67,11 @@ import { yanitiSekillendir } from './kaymakSekil';
  * @returns başarılı mı — çağıran TTL'i buna göre işaretler.
  */
 export const kaymakKutuphaneSenkronu = async (): Promise<boolean> => {
+  // 🔒 M538 — istek yoldayken çıkış/hesap silme olduysa yanıt (başarı da hata da) yazılmaz (D8).
+  const kusak = oturumKusagi();
   try {
     const yanit = await syncLibrary();
+    if (kusak !== oturumKusagi()) return false;
     if (!yanit.success) {
       // Sunucu "başarısız" dedi ama HTTP hata vermedi — yine de hata.
       setHasSyncError(true);
@@ -126,6 +130,8 @@ export const kaymakKutuphaneSenkronu = async (): Promise<boolean> => {
     setHasSyncError(false);
     return true;
   } catch (error) {
+    // Silinen hesabın token'ıyla dönen 401/502 — çıkış temizliğinden sonra günlüğe düşmesin.
+    if (kusak !== oturumKusagi()) return false;
     console.error('[KAYMAK SYNC] Kütüphane çekilemedi:', error);
     logError('library.kaymakKutuphaneSenkronu', error);
     // Önbellek KORUNUYOR — kullanıcı çevrimdışıyken son bilinen kütüphanesini

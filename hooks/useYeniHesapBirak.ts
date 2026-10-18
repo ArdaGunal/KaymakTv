@@ -6,6 +6,7 @@ import { notify } from '../utils/confirmDialog';
 import { yeniHesabiBirak } from '../features/feed/services/accountDeletion';
 import { GOOGLE_GIRIS_ACIK } from '../utils/googleGirisBayragi';
 import { kurulumKimliginiYenile } from '../services/api/telemetry';
+import { oturumKusaginiIlerlet } from '../services/auth/oturumDenetimi';
 
 /**
  * Kimlik Faz 4 (M515) · D4 — isim ekranındaki «Zaten hesabın var mı? Giriş yap».
@@ -43,6 +44,9 @@ export function useYeniHesapBirak() {
   const birak = useCallback(async () => {
     if (!accessToken || birakiliyor) return;
     setBirakiliyor(true);
+    // M538: süren kütüphane senkronu silinen hesabın 401/502'sini yazmasın. Silme reddedilirse
+    // yalnız o tur düşer; sonraki senkron (aynı oturum) normal yazar.
+    oturumKusaginiIlerlet();
     try {
       await yeniHesabiBirak(accessToken);
     } catch (hata) {

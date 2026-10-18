@@ -85,6 +85,7 @@ const TAKIMLAR = [
   { ad: 'afis', grup: 'arayuz', dosya: 'arayuz/afis-onbellek.test.mjs', aciklama: 'K2/M531: gecici TMDB hatasi afisi oturum boyu "yok" diye saklamaz' },
   { ad: 'telemetri', grup: 'arayuz', dosya: 'arayuz/telemetri.test.mjs', aciklama: 'M529/DISCORD-01: ayni hata tek kez, gecici ag hatasi Discorda gitmez, hesap silmede kurulum kimligi yenilenir' },
   { ad: 'oturum', grup: 'arayuz', dosya: 'arayuz/oturum-butunlugu.test.mjs', aciklama: 'M525: 401 korumasi, invalid_token cikisi, bayat ben, baglama oncesi uyari, Google oturumu' },
+  { ad: 'oturum-kusagi', grup: 'arayuz', dosya: 'arayuz/oturum-kusagi.test.mjs', aciklama: 'M538: cikis/hesap silme aninda kusak ilerler; eski oturumun gec yaniti diske/gunluge yazmaz (D8 yarisi)' },
   { ad: 'kisa-link', grup: 'arayuz', dosya: 'arayuz/kisa-link.test.mjs', aciklama: 'M522/Faz 6: kaymaktv.com/u/<KaymakNo> rota, paylasim, App Links' },
   { ad: 'hesap-sec', grup: 'arayuz', dosya: 'arayuz/hesap-sec.test.mjs', aciklama: 'M520/Faz 5: giris yontemleri, baglama niyeti, Hesap Sec + kaydirarak onay' },
   { ad: 'profil-kimlik', grup: 'arayuz', dosya: 'arayuz/profil-kimligi.test.mjs', aciklama: 'M519/PROFIL-AD-01: ad ve aciklama yalniz bizden, Trakt adi yalniz Ayarlarda' },
