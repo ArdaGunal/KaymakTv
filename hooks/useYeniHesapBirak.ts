@@ -1,16 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { notify } from '../utils/confirmDialog';
-import { yeniHesapBirakilabilir, yeniHesabiBirak } from '../features/feed/services/accountDeletion';
+import { yeniHesabiBirak } from '../features/feed/services/accountDeletion';
 import { GOOGLE_GIRIS_ACIK } from '../utils/googleGirisBayragi';
 import { kurulumKimliginiYenile } from '../services/api/telemetry';
 
 /**
  * Kimlik Faz 4 (M515) · D4 — isim ekranındaki «Zaten hesabın var mı? Giriş yap».
  *
- * Link YALNIZ iki koşulda görünür:
+ * 🆕 M537 — ÖN SORGU KALKTI, KUTU DOĞRUDAN GÖRÜNÜR. Canlı bulgu (2026-10-18, ilk kez giren Google
+ * hesabı `Geek_Evreni`): ekran açılınca atılan `/account/yeni-hesap/durum` 10 sn cevapsız kalıp zaman
+ * aşımına düştü → kutu bütün oturum boyunca gizlendi (Worker aynı hesap için «bırakılabilir» diyordu).
+ * Kullanıcı kararı: «Kullanıcı zaten isim ekranındaysa bu hesap yeni açılmış demektir… doğrudan göster;
+ * sunucu yalnız butona basıldığında 1 saat kontrolünü yapsın.» Koşulun TEK yeri artık silme anı
+ * (Worker `yeni-hesabi-birak`: onaysız + 1 saatten genç + izsiz; değilse 409 → uyarı, kutu gizlenir).
+ * Aşağıdaki eski açıklama (ön sorgu) tarihsel kayıttır.
+ *
+ * (Eski) Link YALNIZ iki koşulda görünür:
  *  1. Google girişi açık (`GOOGLE_GIRIS_ACIK`; bugün yalnız --google-test APK'sı, D10).
  *     Kapalıyken giriş ekranında tek yol Trakt — bırakılan kişi Trakt ile yine YENİ
  *     hesaba düşerdi; link işe yaramaz, zarar verirdi.
@@ -27,17 +35,10 @@ export function useYeniHesapBirak() {
   const { accessToken, isGuest, removeKeys } = useAuth();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common']);
-  const [gorunur, setGorunur] = useState(false);
+  // M537: isim ekranında Google girişi açık ve gerçek bir oturum varsa kutu HEMEN görünür.
+  const [reddedildi, setReddedildi] = useState(false);
+  const gorunur = GOOGLE_GIRIS_ACIK && !!accessToken && !isGuest && !reddedildi;
   const [birakiliyor, setBirakiliyor] = useState(false);
-
-  useEffect(() => {
-    if (!GOOGLE_GIRIS_ACIK || !accessToken || isGuest) return;
-    let canli = true;
-    yeniHesapBirakilabilir(accessToken)
-      .then((evet) => canli && setGorunur(evet))
-      .catch(() => canli && setGorunur(false));
-    return () => { canli = false; };
-  }, [accessToken, isGuest]);
 
   const birak = useCallback(async () => {
     if (!accessToken || birakiliyor) return;
@@ -46,7 +47,8 @@ export function useYeniHesapBirak() {
       await yeniHesabiBirak(accessToken);
     } catch (hata) {
       console.warn('[useYeniHesapBirak] bırakılamadı:', hata);
-      setGorunur(false);
+      // Sunucu reddetti (1 saat geçti / ad onaylandı / iz var) → kutu bu oturumda bir daha görünmez.
+      setReddedildi(true);
       setBirakiliyor(false);
       notify(t('common:error'), t('settings:yeniHesapBirakHata'));
       return;

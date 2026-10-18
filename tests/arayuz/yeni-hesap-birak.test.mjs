@@ -12,9 +12,11 @@ const servis = oku('features/feed/services/accountDeletion.ts');
 const ekran = oku('app/(public)/profil-olustur.tsx');
 
 T.H('Ne zaman gorunur');
-T.ok('Google girisi kapaliyken hic sorulmaz (tek yol Trakt → link zarar verirdi)', /if \(!GOOGLE_GIRIS_ACIK \|\| !accessToken \|\| isGuest\) return;/.test(kanca));
-T.ok('Karar SUNUCUDA: durum ucu birakilabilir === true olmali', servis.includes('/account/yeni-hesap/durum') && /birakilabilir === true/.test(servis));
-T.ok('Durum okunamazsa link gizli', /\.catch\(\(\) => canli && setGorunur\(false\)\)/.test(kanca));
+// M537 — canli bulgu: on sorgu 10 sn zaman asimina dustu, kutu gizlendi. Kullanici: dogrudan goster,
+// kosulu sunucu yalniz silme aninda denetlesin.
+T.ok('🔴 M537: kutu DOGRUDAN gorunur (Google acik + oturum + misafir degil), on sorgu YOK',
+  /const gorunur = GOOGLE_GIRIS_ACIK && !!accessToken && !isGuest && !reddedildi;/.test(kanca) && !kanca.includes('yeniHesapBirakilabilir('));
+T.ok('Kosul SUNUCUDA, silme aninda (yeni-hesabi-birak); reddedilirse kutu gizlenir', servis.includes('/account/yeni-hesabi-birak') && /setReddedildi\(true\)/.test(kanca));
 T.ok('M536: bilgi kutusu yalniz gorunur iken ciziliyor (soru ekrani degil, D4 / Secenek A)', /\{yeniHesap\.gorunur && \(/.test(ekran) && /t\('settings:zatenHesapEylem'\)/.test(ekran) && /t\('settings:zatenHesapBaslik'\)/.test(ekran));
 
 T.H('Basinca');
