@@ -34,7 +34,13 @@ T.ok('updateUrl yoksa null', onbellegiCoz('{"minRequiredVersion":"2.6.0"}').upda
 T.H('Kaynak denetimi');
 const hook = source('features/versionGate/hooks/useVersionGate.ts');
 T.ok('Kanca agi beklemiyor (zaman asimi yarisi yok)', !hook.includes('Promise.race') && !hook.includes('VERSION_GATE_TIMEOUT_MS'));
-T.ok('Once onbellek karari, sonra arka plan kontrolu', hook.indexOf('SURUM_ONBELLEK_ANAHTARI)') < hook.indexOf('fetchSettings()'));
+// M542: sunucu kontrolü modül düzeyinde TEK KEZ (`sunucuKontrolu`) — sıra kancanın gövdesinde aranır.
+const kancaGovdesi = hook.slice(hook.indexOf('export function useVersionGate'));
+T.ok('Once onbellek karari, sonra arka plan kontrolu', kancaGovdesi.indexOf('SURUM_ONBELLEK_ANAHTARI)') > -1
+  && kancaGovdesi.indexOf('SURUM_ONBELLEK_ANAHTARI)') < kancaGovdesi.indexOf('sunucuKontrolu()'));
+T.ok('M542: sunucu kontrolu oturum basina tek (modul duzeyi soz)', /let sunucuKontrolSozu/.test(hook) && /if \(sunucuKontrolSozu\) return sunucuKontrolSozu/.test(hook));
+const api = source('features/versionGate/services/appSettingsApi.ts');
+T.ok('M542: surum okumasi supabase-js degil, sinirli duz REST (belge zincirini beklemez)', !api.includes('supabaseClient') && /AbortController/.test(api) && /SURUM_ISTEGI_SINIRI_MS = 5000/.test(api));
 T.ok('Sunucu sonucu saklaniyor', hook.includes('AsyncStorage.setItem(SURUM_ONBELLEK_ANAHTARI'));
 T.ok('Sunucu sonucu oturum ici kuraldan geciyor', hook.includes('uygula(oturumIciKarar(mevcut, surumKarari(kurulu, yeni)))'));
 const bant = source('hooks/useSoftUpdate.ts');

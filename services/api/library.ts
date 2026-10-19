@@ -7,6 +7,7 @@ import axios from 'axios';
 // yani Google-only kullanıcının TÜM kütüphane yazmaları Trakt'a yönleniyor ve
 // 401 alıyordu. Web'e Faz T kodu hiç dağıtılmadığı için turlarca görünmedi.
 import * as SecureStore from '../../utils/secureStorage';
+import { geciciseBirKezDaha } from '../../utils/geciciseTekrarla';
 
 import { isKaymakSessionToken } from './traktClient';
 
@@ -423,11 +424,12 @@ export const fetchTakvim = async (
   if (!KAYMAK_WORKER_URL) return null;
   try {
     const token = await SecureStore.getItemAsync('traktAccessToken');
-    const res = await axios.post(
+    // HIZ-01 (M542): takılan ilk bağlantıda boş takvim yerine bir kez daha (salt-okur).
+    const res = await geciciseBirKezDaha(() => axios.post(
       `${KAYMAK_WORKER_URL}/library/takvim`,
       { traktAccessToken: token, gun },
       { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
-    );
+    ));
     return {
       diziler: Array.isArray(res.data?.diziler) ? res.data.diziler : [],
       filmler: Array.isArray(res.data?.filmler) ? res.data.filmler : [],
@@ -444,11 +446,14 @@ export const syncLibrary = async (): Promise<KutuphaneYaniti> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const token = await SecureStore.getItemAsync('traktAccessToken');
 
-  const res = await axios.post(
+  // HIZ-01 (M542): canlıda ilk istek 21,5 sn bekleyip 502 alıyordu, ikincisi 1,2 sn. Sınır 30 → 15 sn
+  // (Worker artık takılan Supabase bağlantısını 6–8 sn'de kesip yeniden deniyor) + geçici hatada
+  // bir kez daha. Sarı uyarı / Trakt emniyet turu yalnız İKİNCİ deneme de düşerse (çağıran).
+  const res = await geciciseBirKezDaha(() => axios.post(
     `${KAYMAK_WORKER_URL}/library/sync`,
     { traktAccessToken: token },
-    { headers: { 'Content-Type': 'application/json' }, timeout: 30000 },
-  );
+    { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
+  ));
   const d = res.data || {};
   const dizi = (x: any) => (Array.isArray(x) ? x : []);
   return {

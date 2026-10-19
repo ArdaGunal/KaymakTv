@@ -66,7 +66,11 @@ T.ok('Filtre degisince liste bosalir, imlec sifirlanir', st().activities.length 
 st().upsertActivity(kart('canli-izleme'), true);
 T.ok('Gonderiler acikken canli «izledi» listeye GIRMEZ, rozete sayilmaz', st().activities.length === 0 && st().unseenCount === 0);
 st().upsertActivity(kart('canli-gonderi', { activityType: 'posted', note: 'merhaba' }), true);
-T.ok('Uyan canli gonderi girer', st().activities.some((a) => a.id === 'canli-gonderi') && st().unseenCount === 1);
+// M542: liste henüz kurulmadıysa (filtre yeni değişti) rozet tabanı yok → girer ama SAYILMAZ.
+T.ok('Uyan canli gonderi girer (liste kurulmadan rozete sayilmaz, M542)', st().activities.some((a) => a.id === 'canli-gonderi') && st().unseenCount === 0);
+st().setFirstPage({ items: [kart('g1', { activityType: 'posted', note: 'a', activityAt: new Date(Date.now() - 3600_000).toISOString() })], hasMore: false, nextCursor: null });
+st().upsertActivity(kart('canli-gonderi-2', { activityType: 'posted', note: 'b', activityAt: new Date().toISOString() }), true);
+T.ok('Liste kurulduktan sonra uyan YENI canli gonderi rozete sayilir', st().unseenCount === 1);
 st().upsertActivity(kart('temp-x', { isPending: true, activityType: 'posted', note: 'y' }), false);
 st().replaceActivity('temp-x', kart('gercek-izleme'));
 T.ok('Gercek satir filtreye uymazsa gecici kart yalniz duser', !st().activities.some((a) => a.id === 'temp-x' || a.id === 'gercek-izleme'));

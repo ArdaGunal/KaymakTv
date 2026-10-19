@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { FeedActivity } from '../types';
 import type { FeedCursor, FeedPage } from '../services/feedApi';
 import { FeedFilter, filtreyeUyar } from '../utils/feedFilter';
+import { yeniSayisi } from './yeniSayaci';
 
 /**
  * Akış'ın PAYLAŞILAN durumu.
@@ -52,6 +53,8 @@ interface FeedState {
   setFiltre: (filtre: FeedFilter, benimId: string | null) => void;
   /** Kullanıcı listenin tepesinde değilken gelen, henüz görülmemiş aktivite sayısı. */
   unseenCount: number;
+  /** M542 · Liste bu oturumda ilk kurulduğu an (ms); rozet tabanı (`yeniSayaci`). 0 = henüz yok. */
+  sayacTabani: number;
 
   // ── Sayfalama ───────────────────────────────────────────────────────────
   /** Bir sonraki sayfanın imleci; `hasMore` false ise null. */
@@ -76,7 +79,7 @@ interface FeedState {
   /**
    * M470 · Arka plandan dönüşte kaçanları yakala — listeyi DEĞİŞTİRMEDEN
    * birleştirir (kullanıcının kaydırma konumu ve yüklü sayfalar korunur).
-   * Yeniler eklenir ve «N yeni gönderi»ye sayılır; var olanlar tazelenir;
+   * Yeniler eklenir; yalnız bilinen en yeniden YENİ olanlar «N yeni gönderi»ye sayılır (M542); var olanlar tazelenir;
    * taze sayfanın KAPSADIĞI zaman aralığında olup artık sunucuda olmayanlar
    * (yokken silinenler) çıkarılır. İyimser `temp-` kartlara dokunulmaz.
    */
@@ -140,6 +143,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   filtre: 'tumu',
   benimId: null,
   unseenCount: 0,
+  sayacTabani: 0,
   nextCursor: null,
   hasMore: false,
   isLoadingMore: false,
@@ -147,14 +151,15 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   setLoadingMore: (value) => set({ isLoadingMore: value }),
 
   setFirstPage: (page) =>
-    set({
+    set((state) => ({
       activities: sortDesc(dedupeById(page.items)),
+      sayacTabani: state.sayacTabani || Date.now(),
       isHydrated: true,
       kaynak: 'ag',
       nextCursor: page.nextCursor,
       hasMore: page.hasMore,
       isLoadingMore: false,
-    }),
+    })),
 
   setFiltre: (filtre, benimId) =>
     set({
@@ -164,6 +169,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       isHydrated: false,
       kaynak: 'yok',
       unseenCount: 0,
+      sayacTabani: 0,
       nextCursor: null,
       hasMore: false,
       isLoadingMore: false,
@@ -174,6 +180,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     if (get().isHydrated || items.length === 0 || get().filtre !== 'tumu') return false;
     set({
       activities: sortDesc(dedupeById(items)),
+      sayacTabani: get().sayacTabani || Date.now(),
       isHydrated: true,
       kaynak: 'disk',
       nextCursor: null,
@@ -199,6 +206,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       if (!state.isHydrated) {
         return {
           activities: sortDesc(dedupeById(page.items)), isHydrated: true, kaynak: 'ag',
+          sayacTabani: state.sayacTabani || Date.now(),
           nextCursor: page.nextCursor, hasMore: page.hasMore, isLoadingMore: false,
         };
       }
@@ -215,7 +223,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       const yeniler = page.items.filter((a) => !mevcut.has(a.id));
       return {
         activities: sortDesc(dedupeById([...kalan, ...yeniler])),
-        unseenCount: state.unseenCount + yeniler.length,
+        // Faz 4 (M542): «listede yoktu» ≠ «yeni» — yalnız bilinen en yeniden yeniler (`yeniSayaci`).
+        unseenCount: state.unseenCount + yeniSayisi(state.activities, yeniler, state.sayacTabani),
       };
     }),
   upsertActivity: (activity, countAsUnseen = false) =>
@@ -232,7 +241,11 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       }
       return {
         activities: sortDesc([activity, ...state.activities]),
-        unseenCount: countAsUnseen ? state.unseenCount + 1 : state.unseenCount,
+        // Faz 4 (M542): ilk girişte Realtime eski Trakt geçmişini INSERT olarak getiriyor —
+        // yalnız bilinen en yeniden yeni olan sayılır.
+        unseenCount: countAsUnseen
+          ? state.unseenCount + yeniSayisi(state.activities, [activity], state.sayacTabani)
+          : state.unseenCount,
       };
     }),
 
@@ -280,6 +293,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       filtre: 'tumu',
       benimId: null,
       unseenCount: 0,
+      sayacTabani: 0,
       nextCursor: null,
       hasMore: false,
       isLoadingMore: false,

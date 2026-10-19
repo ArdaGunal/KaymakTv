@@ -35,6 +35,37 @@ export interface VersionGateResult {
  * "varsa ekstra güvenlik"tir. Bir Supabase kesintisi tüm kullanıcıları dışarıda
  * bırakmamalı.
  */
+type SunucuSiniri = { minRequiredVersion: string; updateUrl: string };
+let sunucuKontrolSozu: Promise<SunucuSiniri | null> | null = null;
+
+/**
+ * HIZ-01 (M542) · Sunucu kontrolü JS oturumu başına TEK KEZ. Panelde aynı açılışta iki
+ * «Sürüm Kontrolü» kaydı vardı (kök iki kez bağlandığında her bağlanma ayrı ölçüyordu). İstek
+ * zaten tek uçuştu (`appSettingsStore`); artık ölçüm ve önbellek yazımı da tek. Sınır
+ * `appSettingsApi`'de (5 sn) — açılışı zaten beklemiyordu (M458), yalnız arka planda.
+ */
+function sunucuKontrolu(): Promise<SunucuSiniri | null> {
+  if (sunucuKontrolSozu) return sunucuKontrolSozu;
+  sunucuKontrolSozu = (async () => {
+    const startedAt = Date.now();
+    try {
+      const settings = await useAppSettingsStore.getState().fetchSettings();
+      if (!settings) return null;
+      const yeni = { minRequiredVersion: settings.minRequiredVersion, updateUrl: settings.updateUrl };
+      AsyncStorage.setItem(SURUM_ONBELLEK_ANAHTARI, JSON.stringify(yeni)).catch(() => {});
+      return yeni;
+    } catch (error) {
+      console.error('Sürüm kontrolü hatası (fail-open, uygulama engellenmiyor):', error);
+      logWarning('versionGate.check', error);
+      return null;
+    } finally {
+      // Artık açılışı bloklamıyor; panelde yalnız arka plan süresi olarak görünür.
+      recordPerfMark('Sürüm Kontrolü (arka plan)', 'startup', Date.now() - startedAt);
+    }
+  })();
+  return sunucuKontrolSozu;
+}
+
 export function useVersionGate(): VersionGateResult {
   const [status, setStatus] = useState<VersionGateStatus>(Platform.OS === 'web' ? 'ok' : 'checking');
   const [updateUrl, setUpdateUrl] = useState<string | null>(null);
@@ -61,20 +92,9 @@ export function useVersionGate(): VersionGateResult {
       }
       uygula(surumKarari(kurulu, kayit));
 
-      const startedAt = Date.now();
-      try {
-        const settings = await useAppSettingsStore.getState().fetchSettings();
-        if (!settings) return; // erişilemedi → mevcut karar kalır
-        const yeni = { minRequiredVersion: settings.minRequiredVersion, updateUrl: settings.updateUrl };
-        AsyncStorage.setItem(SURUM_ONBELLEK_ANAHTARI, JSON.stringify(yeni)).catch(() => {});
-        uygula(oturumIciKarar(mevcut, surumKarari(kurulu, yeni)));
-      } catch (error) {
-        console.error('Sürüm kontrolü hatası (fail-open, uygulama engellenmiyor):', error);
-        logWarning('versionGate.check', error);
-      } finally {
-        // Artık açılışı bloklamıyor; panelde yalnız arka plan süresi olarak görünür.
-        recordPerfMark('Sürüm Kontrolü (arka plan)', 'startup', Date.now() - startedAt);
-      }
+      const yeni = await sunucuKontrolu();
+      if (!yeni) return; // erişilemedi → mevcut karar kalır
+      uygula(oturumIciKarar(mevcut, surumKarari(kurulu, yeni)));
     })();
 
     return () => {

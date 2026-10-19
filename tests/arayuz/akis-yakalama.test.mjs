@@ -10,7 +10,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const require = createRequire(import.meta.url);
 const T = yardimci.baslat('AKIS ARKA PLAN YAKALAMA (M470)', { kokOneki: 'akis-yakalama-' });
 const { useFeedStore } = tsLoader(root, { zustand: require('zustand') })('features/feed/store/feedStore.ts');
-const a = (id, saat) => ({ id, activityAt: new Date(Date.UTC(2026, 9, 9, saat)).toISOString(), likeCount: 0 });
+// M542: zaman ŞİMDİYE göre (sıra aynı; «saat» = dakika ofseti, 10 = şimdi). Sabit tarih rozet
+// tabanının (`sayacTabani` − 30 dk) çok gerisinde kalıyor, «yokken gelenler» hiç sayılmıyordu.
+const SIMDI = Date.now();
+const a = (id, saat) => ({ id, activityAt: new Date(SIMDI + (saat - 10) * 60_000).toISOString(), likeCount: 0 });
 const ids = () => useFeedStore.getState().activities.map((x) => x.id);
 const st = useFeedStore.getState;
 

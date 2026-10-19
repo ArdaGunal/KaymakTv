@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { tekUcus } from '../../utils/tekUcus';
+import { geciciseBirKezDaha } from '../../utils/geciciseTekrarla';
 // 🔴 `expo-secure-store` DEĞİL — web'de yerel anahtarlık yok, ham SecureStore
 // orada FIRLATIR. `utils/secureStorage` web'de `localStorage`'a düşüyor.
 // ⚠️ Bu tam olarak canlıda ısırdı (2026-09-10): web'de arama "Bir şeyler ters
@@ -188,7 +189,11 @@ export interface KaymakGraf {
 export const fetchKaymakGraph = tekUcus(
   (targetUserId?: string) => targetUserId || '<ben>',
   async (targetUserId?: string): Promise<KaymakGraf> =>
-    (await sosyalIstek('/social/graph', targetUserId ? { targetUserId } : {})) as KaymakGraf,
+    // HIZ-01 (M542): salt-okur — ilk geçici hatada «Takip listesi güncellenemedi» sarı notu yerine
+    // bir kez daha (canlıda ilk girişte not çıkıp az sonra kayboluyordu).
+    (await geciciseBirKezDaha(() =>
+      sosyalIstek('/social/graph', targetUserId ? { targetUserId } : {}),
+    )) as KaymakGraf,
 );
 
 /**

@@ -24,6 +24,39 @@ const YENILEME_PAYI_SN = 120;
 // Worker'ı dövmesin); bu arada anon anahtar kullanılır.
 const HATA_BEKLEMESI_MS = 60_000;
 
+// HIZ-01 (M542): istek ESKİDEN SINIRSIZDI — supabase-js HER istekte (akış, sürüm kontrolü…) bu
+// belgeyi beklediği için takılan tek bağlantı tüm Supabase okumalarını ~20 sn kilitliyordu.
+// Sınır + geçici hatada (zaman aşımı / ağ / 502-524) bir kez daha; ikisi de düşerse eskisi gibi anon.
+const ISTEK_SINIRI_MS = 8000;
+const GECICI_DURUMLAR = [502, 503, 504, 522, 524];
+
+class GeciciBelgeHatasi extends Error {}
+
+async function belgeIste(oturumTokeni: string): Promise<{ token: string; expiresAt: number }> {
+  const denetci = new AbortController();
+  const zamanlayici = setTimeout(() => denetci.abort(), ISTEK_SINIRI_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${KAYMAK_WORKER_URL}/auth/supabase-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ traktAccessToken: oturumTokeni }),
+      signal: denetci.signal,
+    });
+  } catch (error) {
+    // Ağ hatası ya da sınır aşımı → geçici.
+    throw new GeciciBelgeHatasi(`supabase-token ağ: ${(error as Error)?.message ?? error}`);
+  } finally {
+    clearTimeout(zamanlayici);
+  }
+  const veri = await res.json().catch(() => null);
+  if (!res.ok || !veri?.success || typeof veri.token !== 'string') {
+    const mesaj = `supabase-token ${res.status} ${veri?.code ?? ''}`.trim();
+    throw GECICI_DURUMLAR.includes(res.status) ? new GeciciBelgeHatasi(mesaj) : new Error(mesaj);
+  }
+  return { token: veri.token, expiresAt: Number(veri.expiresAt) || 0 };
+}
+
 let kaynak: string | null = null;
 let onbellek: { token: string; bitis: number } | null = null;
 let sonHata = 0;
@@ -52,19 +85,17 @@ export async function supabaseErisimTokeni(): Promise<string | null> {
   const istenen = kaynak;
   yoldaki = (async () => {
     try {
-      const res = await fetch(`${KAYMAK_WORKER_URL}/auth/supabase-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ traktAccessToken: istenen }),
-      });
-      const veri = await res.json().catch(() => null);
-      if (!res.ok || !veri?.success || typeof veri.token !== 'string') {
-        throw new Error(`supabase-token ${res.status} ${veri?.code ?? ''}`.trim());
+      let veri: { token: string; expiresAt: number };
+      try {
+        veri = await belgeIste(istenen);
+      } catch (error) {
+        if (!(error instanceof GeciciBelgeHatasi) || kaynak !== istenen) throw error;
+        veri = await belgeIste(istenen);
       }
       // Yol üstündeyken kimlik değiştiyse bu belge ESKİ kişinindir — kullanma.
       if (kaynak !== istenen) return null;
-      onbellek = { token: veri.token, bitis: Number(veri.expiresAt) || 0 };
-      return veri.token as string;
+      onbellek = { token: veri.token, bitis: veri.expiresAt };
+      return veri.token;
     } catch (error) {
       sonHata = Date.now();
       console.warn('[supabaseKimlik] belge alınamadı, anon anahtara düşülüyor:', error);
