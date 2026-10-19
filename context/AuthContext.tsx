@@ -8,6 +8,7 @@ import { clearMyTraktSlug } from '../services/api/myIdentity';
 import { unregisterPushToken } from '../features/notifications/services/pushTokens';
 import { aktarimiDurdur } from '../services/import/aktarimBaglanti';
 import { useFeedStore } from '../features/feed/store/feedStore';
+import { useBenimProfilimStore } from '../store/benimProfilimStore';
 // ⚠️ Barrel'dan (`features/notifications`) DEĞİL, doğrudan dosyadan:
 // barrel `NotificationBadge`'i de dışa açıyor ve o bu dosyayı import ediyor —
 // barrel üzerinden çağırmak import döngüsü kurardı (bkz. reset.ts başlığı).
@@ -132,6 +133,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => onKimlikDegisti(() => {
     useFollowStore.getState().reset();
     useFeedStore.getState().reset();
+    // M544: kendi profilim (disk + RAM) — önceki hesabın adı/sayıları sızmasın.
+    useBenimProfilimStore.getState().sifirla();
     clearMyTraktSlug();
     clearFeedPublishIdentity();
     invalidateFeedCache();
@@ -361,6 +364,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Akış da RAM'de bir singleton — temizlenmezse yeni oturumda bir an
       // için ÖNCEKİ hesabın akışı görünürdü.
       useFeedStore.getState().reset();
+      // M544: kendi profilim de RAM singleton'ı + disk kopyası — aynı sınıf.
+      useBenimProfilimStore.getState().sifirla();
       clearFeedPublishIdentity();
       // Bildirimler de aynı sınıfa girer — üstelik iki katmanlı: store'lar
       // RAM'de singleton VE zamanlanmış bildirimler işletim sisteminde,

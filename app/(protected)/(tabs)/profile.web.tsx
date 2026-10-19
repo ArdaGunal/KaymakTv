@@ -159,7 +159,7 @@ export default function ProfileScreenWeb() {
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
   const { ozelListeler } = useKaymakYetenekleri();
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile, tazeleGerekirse } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   // Profili Düzenle ekranından dönüldüğünde güncel veriyi çeker — mobil
@@ -167,8 +167,9 @@ export default function ProfileScreenWeb() {
   // aynı `useFocusEffect`'ine sahip), bu yalnızca masaüstü dalı için gerekli.
   useFocusEffect(
     useCallback(() => {
-      refetchProfile();
-    }, [refetchProfile])
+      // M544: bayatsa (30 sn) — açılışta bağlanma turuyla üst üste ikinci tur atılmaz.
+      void tazeleGerekirse();
+    }, [tazeleGerekirse])
   );
 
   const shows = useMemo(() => mapMedia(sortRecent(watchedShows || []).slice(0, 100), 'show'), [watchedShows]);

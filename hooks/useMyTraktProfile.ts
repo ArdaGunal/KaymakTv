@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getUserProfile, TraktUserProfile } from '../services/api/social';
-import { fetchKaymakGraph } from '../services/api/kaymakSocial';
-import { getMyProfile } from '../features/feed/services/profile';
-import { logError } from '../utils/errorLog';
+import { useBenimProfilimStore, type ProfilBaglami } from '../store/benimProfilimStore';
 
 // Profil ekranındaki sosyal başlık (avatar, isim, takipçi/takip edilen
 // sayıları) için — "me" kısaltması Trakt'ın kendi konvansiyonu (bkz.
@@ -44,146 +41,54 @@ import { logError } from '../utils/errorLog';
 // takip edildiğinde kendi "Takip Edilen" sayın hiç değişmezdi.
 // Yan kazanç: Trakt'lı kullanıcıda profil açılışı Trakt'a 3 değil 1 istek atıyor
 // (iki liste yalnızca `.length` için indiriliyordu).
+// ══════════════════════════════════════════════════════════════════════════
+// ⚡ HIZ-01 Paket 2 (M544) — VERİ ARTIK PAYLAŞILAN STORE'DA
+// ══════════════════════════════════════════════════════════════════════════
+// Çekme mantığı (Google-only / Trakt'lı dalları, sayılar, KaymakNo) AYNEN
+// `store/benimProfilimStore.ts`'e taşındı. Bu kanca yalnız bağlar: diskteki son
+// bilinen profil anında görünür, ağ arkada TEK uçuşla tazeler. Dönüş biçimi
+// değişmedi — tüketiciler (profil, düzenle, akış kutusu…) dokunulmadı.
 export function useMyTraktProfile() {
   const { accessToken, isGuest, authProvider, myUsername, myAvatarUrl, updateMyProfile } = useAuth();
-  // AuthContext her çizimde yeni fonksiyon veriyor — bağımlılığa girerse profil sürekli yeniden çekilirdi.
-  const yerelProfiliGuncelle = useRef(updateMyProfile);
-  yerelProfiliGuncelle.current = updateMyProfile;
-  const [profile, setProfile] = useState<TraktUserProfile | null>(null);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  // Kimlik birliği Faz 2 · `066` — bizim sunucudan; Trakt'ta yok.
-  const [kaymakNo, setKaymakNo] = useState<number | null>(null);
+  const veri = useBenimProfilimStore((s) => s.veri);
+  const isLoading = useBenimProfilimStore((s) => s.isLoading);
 
-  // `refetch` olarak da dışa aktarılıyor — Profili Düzenle ekranından
-  // `router.back()` ile dönüldüğünde profil ekranının `useFocusEffect` ile
-  // güncel veriyi çekebilmesi için (bkz. screens/ProfileMobile.tsx).
-  // `isMounted` parametresi, mount-effect'in unmount/deps-değişimi sonrası
-  // yarışan bir yanıtı sessizce yok saymasını sağlar — `refetch()` çağrıları
-  // bu korumaya ihtiyaç duymadığı için `undefined` bırakır.
-  const fetchProfile = useCallback(
-    async (isMounted?: () => boolean) => {
-      if (!accessToken || isGuest) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Sayılar iki sağlayıcıda da AYNI kaynaktan. Düşerse önceki değer
-      // KORUNUR (0'a çekilmez) — "0 takipçi" yalanı, "sayı güncellenemedi"den
-      // kötü; ama sessiz de kalmıyor.
-      const sayilariTazele = async () => {
-        try {
-          const graf = await fetchKaymakGraph();
-          if (isMounted && !isMounted()) return;
-          setFollowersCount(graf.followersCount);
-          setFollowingCount(graf.followingCount);
-        } catch (error) {
-          logError('useMyTraktProfile.graf', error);
-        }
-      };
-
-      // Google-only: Trakt'a HİÇ gitme (bkz. başlık). Kaynak SUNUCU —
-      // `AuthContext.myUsername`/`myAvatarUrl` yalnızca `create_new` anında
-      // yazılıyor, yani BU özellikten ÖNCE açılmış hesapların diskinde hiç
-      // yok (2026-08-22 testinde profil resmi bu yüzden gelmedi). Worker'ın
-      // `/account/profile/get`'i her zaman güncel gerçeği veriyor; yerel
-      // değerler yalnızca ağ düşerse devreye giren yedek.
-      if (authProvider === 'google') {
-        let username = myUsername ?? '';
-        let avatarUrl = myAvatarUrl ?? null;
-        let bio: string | null = null;
-        let displayName: string | null = null;
-        try {
-          const remote = await getMyProfile(accessToken);
-          username = remote.username || username;
-          // 🔑 Sunucu yanıt VERDİYSE onun fotoğrafı esastır — `null` "kaldırıldı"
-          // demektir, yerel kopyaya düşülmez (§C24: kaldırma kalıcı olmalı).
-          avatarUrl = remote.avatarUrl;
-          bio = remote.bio;
-          displayName = remote.displayName;
-          setKaymakNo(remote.kaymakNo);
-        } catch (error) {
-          console.warn('[Profile] Kaymak profili okunamadı, yerel kopyaya düşülüyor:', error);
-        }
-        if (isMounted && !isMounted()) return;
-        setProfile({
-          username,
-          private: false,
-          // §C24 · `053` — görünen ad bizden. `null` → ekran @username'e düşer
-          // (eskiden burada kullanıcı adı "ad" gibi tekrar ediliyordu).
-          name: displayName,
-          vip: false,
-          // Google-only kullanıcının Trakt slug'ı YOK — boş bırakmak doğru.
-          ids: { slug: '' },
-          images: avatarUrl ? { avatar: { full: avatarUrl } } : undefined,
-          // T4 · `043` — açıklama bizden. (§C15'ten sonra Trakt'lı dal da
-          // aynısını yapıyor; aşağıya bak.)
-          about: bio,
-        });
-        await sayilariTazele();
-        if (!isMounted || isMounted()) setIsLoading(false);
-        return;
-      }
-      // ══════════════════════════════════════════════════════════════════
-      // 🪪 TRAKT'LI KULLANICI — KİMLİK TAMAMEN BİZDEN (PROFIL-AD-01, M519)
-      // ══════════════════════════════════════════════════════════════════
-      // Kullanıcı (2026-10-15): *«Trakt artık kullanıcının profil kimliğini belirleyen
-      // ana kaynak değil, sadece arkada çalışan bir senkronizasyon eklentisidir.»*
-      // Ad, @kullanıcı adı, fotoğraf ve açıklama YALNIZ sunucudan (`users`). Eskiden
-      // `username` Trakt'tan geliyordu («K2: Trakt'lı hesapta ad değişmiyor») — K2
-      // kalkınca (M492) adını değiştiren Trakt'lı kişi kendi profilinde eski Trakt
-      // slug'ını görüyordu (canlı turda bulundu, M518). Açıklama da artık Trakt'ın
-      // `about`'una DÜŞMEZ: *«Bizde açıklama boşsa ekranda da boş kalacak.»*
-      //
-      // Sunucuya ulaşılamazsa yerel kopya (`myUsername`/`myAvatarUrl`) — Trakt'a değil.
-      // Trakt çağrısı yalnız iç alanlar için (`ids`, `vip`) ve düşerse profil yine çizilir.
-      try {
-        const [traktProfil, kaymakProfil] = await Promise.all([
-          getUserProfile('me').catch((error) => {
-            logError('useMyTraktProfile.trakt', error);
-            return null;
-          }),
-          getMyProfile(accessToken).catch((error) => {
-            logError('useMyTraktProfile.kaymak', error);
-            return null;
-          }),
-          sayilariTazele(),
-        ]);
-        if (isMounted && !isMounted()) return;
-        if (kaymakProfil) {
-          setKaymakNo(kaymakProfil.kaymakNo);
-          // Yerel kopya sunucuyla aynı kalsın (çevrimdışı yedek + iyimser kartlar).
-          if (kaymakProfil.username && kaymakProfil.username !== myUsername) {
-            yerelProfiliGuncelle.current({ username: kaymakProfil.username }).catch(() => {});
-          }
-        }
-        const avatarUrl = kaymakProfil ? kaymakProfil.avatarUrl : myAvatarUrl ?? null;
-        setProfile({
-          private: traktProfil?.private ?? false,
-          vip: traktProfil?.vip ?? false,
-          ids: traktProfil?.ids ?? { slug: '' },
-          username: kaymakProfil?.username || myUsername || '',
-          name: kaymakProfil?.displayName ?? null,
-          images: avatarUrl ? { avatar: { full: avatarUrl } } : undefined,
-          about: kaymakProfil?.bio ?? null,
-        });
-      } catch (error) {
-        console.warn('[Profile] Profil yüklenemedi:', error);
-      } finally {
-        if (!isMounted || isMounted()) setIsLoading(false);
-      }
-    },
-    [accessToken, isGuest, authProvider, myUsername, myAvatarUrl]
-  );
+  // AuthContext her çizimde yeni fonksiyon veriyor — bağımlılığa girerse sürekli yeniden çekilirdi.
+  const baglamRef = useRef<ProfilBaglami>(null as unknown as ProfilBaglami);
+  baglamRef.current = {
+    accessToken: accessToken ?? null,
+    isGuest: !!isGuest,
+    authProvider: authProvider ?? null,
+    myUsername: myUsername ?? null,
+    myAvatarUrl: myAvatarUrl ?? null,
+    updateMyProfile,
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    fetchProfile(() => !cancelled);
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchProfile]);
+    void useBenimProfilimStore.getState().tazele(baglamRef.current);
+  }, [accessToken, isGuest, authProvider, myUsername, myAvatarUrl]);
 
-  return { profile, followersCount, followingCount, isLoading, kaymakNo, refetch: fetchProfile };
+  // `refetch` — Profili Düzenle'den dönüş / kaydetme / çekmeli yenileme: ZORLA taze.
+  const refetch = useCallback(
+    () => useBenimProfilimStore.getState().tazele(baglamRef.current, true),
+    [],
+  );
+
+  // Odak tazelemesi: bayatsa (`TAZE_SURE_MS`) tazeler — açılışta bağlanma turu ile odak turu
+  // üst üste İKİ ağ turu yapmasın (M544, Faz 3). Uygulama içi düzenleme zaten `refetch` ile zorlar.
+  const tazeleGerekirse = useCallback(
+    () => useBenimProfilimStore.getState().tazele(baglamRef.current),
+    [],
+  );
+
+  return {
+    tazeleGerekirse,
+    profile: veri?.profile ?? null,
+    followersCount: veri?.followersCount ?? 0,
+    followingCount: veri?.followingCount ?? 0,
+    // Misafirde/oturumsuzda iskelet dönmesin (eski davranış: token yoksa isLoading=false).
+    isLoading: !accessToken || isGuest ? false : isLoading && !veri,
+    kaymakNo: veri?.kaymakNo ?? null,
+    refetch,
+  };
 }

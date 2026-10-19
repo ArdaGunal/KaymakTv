@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseErisimTokeni } from './supabaseKimlik';
+import { sinirliFetchKur } from './supabaseSinirliFetch';
 
 // Supabase Auth KULLANILMIYOR (kimlik doğrulama Trakt OAuth / Kaymak oturumu
 // üzerinden). §S1/§S2 · yol B (M403): Worker'ın bastığı 1 saatlik belge
@@ -49,5 +50,6 @@ export const supabase = createClient(
   // istek atılırsa çözümlenemez ve normal bir ağ hatası olarak döner.
   isConfigured ? supabaseUrl : 'https://supabase-yapilandirilmadi.invalid',
   isConfigured ? supabaseAnonKey : 'yapilandirilmadi',
-  isConfigured ? { accessToken: supabaseErisimTokeni } : undefined,
+  // M544: okumalara 6 sn sınır + tek yeniden deneme (bkz. `supabaseSinirliFetch.ts`).
+  isConfigured ? { accessToken: supabaseErisimTokeni, global: { fetch: sinirliFetchKur() } } : undefined,
 );

@@ -75,7 +75,7 @@ export default function ProfileScreen() {
   }));
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile, tazeleGerekirse } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   // Pull-to-refresh: bu ekran İKİ ayrı kaynaktan okuyor — Trakt profili
@@ -99,8 +99,9 @@ export default function ProfileScreen() {
   // uygulamayı yeniden başlatmaya gerek kalmadan görünsün.
   useFocusEffect(
     useCallback(() => {
-      refetchProfile();
-    }, [refetchProfile])
+      // M544: bayatsa (30 sn) — açılışta bağlanma turuyla üst üste ikinci tur atılmaz.
+      void tazeleGerekirse();
+    }, [tazeleGerekirse])
   );
 
   const seeAllLabel = t('seeAll', 'Tümü');

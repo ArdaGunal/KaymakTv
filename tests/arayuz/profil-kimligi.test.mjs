@@ -13,14 +13,16 @@ const T = yardimci.baslat('PROFIL KIMLIGI BIZDEN (PROFIL-AD-01 · M519)', { kokO
 const oku = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 
 T.H('Kendi profilim (useMyTraktProfile — ProfileHeader + Edit Profile ayni kaynak)');
+// M544: çekme mantığı paylaşılan store'a taşındı (kanca yalnız bağlıyor) — denetim orada.
 const kendi = oku('hooks/useMyTraktProfile.ts');
-const traktDali = kendi.slice(kendi.indexOf("KİMLİK TAMAMEN BİZDEN"));
-T.ok('@kullanici adi sunucudan, yoksa yerel kopya — Trakt\'tan DEGIL', /username: kaymakProfil\?\.username \|\| myUsername \|\| ''/.test(traktDali));
+const magaza = oku('store/benimProfilimStore.ts');
+const traktDali = magaza.slice(magaza.indexOf("TRAKT'LI KULLANICI"));
+T.ok('@kullanici adi sunucudan, yoksa yerel kopya — Trakt\'tan DEGIL', /username: kaymakProfil\?\.username \|\| b\.myUsername \|\| ''/.test(traktDali));
 T.ok('Aciklama yalniz bizden (Trakt about yedegi YOK)', /about: kaymakProfil\?\.bio \?\? null/.test(traktDali) && !/\.about\b(?!:)/.test(traktDali.replace(/about: kaymakProfil\?\.bio \?\? null/, '')));
 T.ok('Trakt profili kimlik alani tasimiyor (ad/foto/aciklama)', !/\.\.\.myProfile|\.\.\.traktProfil/.test(traktDali) && !/traktProfil\?\.(username|name|about|images)/.test(traktDali));
 T.ok('Trakt cagrisi duserse profil yine cizilir (catch → null)', /getUserProfile\('me'\)\.catch\(/.test(traktDali));
 T.ok('Edit Profile ayni kancayi kullaniyor', /useMyTraktProfile\(\)/.test(oku('screens/EditProfileMobile.tsx')));
-T.ok('Kendi ad yerel kopyaya da yaziliyor, kanca bagimliligina girmeden (ref)', /yerelProfiliGuncelle\.current\(\{ username: kaymakProfil\.username \}\)/.test(traktDali) && !/myAvatarUrl, updateMyProfile\]/.test(kendi));
+T.ok('Kendi ad yerel kopyaya da yaziliyor, kanca bagimliligina girmeden (ref)', /b\.updateMyProfile\(\{ username: kaymakProfil\.username \}\)/.test(traktDali) && !/myAvatarUrl, updateMyProfile\]/.test(kendi));
 
 T.H('Baskasinin profili (usePublicProfileIdentity)');
 const dis = oku('features/publicProfile/hooks/usePublicProfileIdentity.ts');

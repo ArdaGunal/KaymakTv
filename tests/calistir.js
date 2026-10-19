@@ -98,6 +98,7 @@ const TAKIMLAR = [
   { ad: 'aktivite-tazeleme', grup: 'arayuz', dosya: 'arayuz/aktivite-tazeleme.test.mjs', aciklama: 'M468/A1: silme sonrasi acik aktivite listesi tazelenir' },
   { ad: 'akis-yakalama', grup: 'arayuz', dosya: 'arayuz/akis-yakalama.test.mjs', aciklama: 'M470: arka plan donusunde kacan akis olaylari' },
   { ad: 'akis-yeni-sayaci', grup: 'arayuz', dosya: 'arayuz/akis-yeni-sayaci.test.mjs', aciklama: 'M542: «N yeni gonderi» yalniz bilinen en yeniden yenileri sayar + gecici hatada tek tekrar' },
+  { ad: 'benim-profilim', grup: 'arayuz', dosya: 'arayuz/benim-profilim.test.mjs', aciklama: 'M544: kendi profilim tek store (disk aninda, tek ucus) + supabase-js okuma siniri' },
   { ad: 'akis-disk', grup: 'arayuz', dosya: 'arayuz/akis-disk.test.mjs', aciklama: 'M472/B-2: akis son kopyadan aninda acilir, hesap anahtarli' },
   { ad: 'akis-dil', grup: 'arayuz', dosya: 'arayuz/akis-dil.test.mjs', aciklama: 'A-3/C0: akis sistem metinleri ceviride, tekil/cogul zaman' },
   { ad: 'akis-dokunma', grup: 'arayuz', dosya: 'arayuz/akis-dokunma.test.mjs', aciklama: 'C1: kart dokunma haritasi (detay / maraton -> dizi)' },
