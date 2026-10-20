@@ -22,6 +22,8 @@ const saglik = require(path.join(__dirname, '..', '..', 'server', 'saglik'));
   T.ok('LazyFetch ve arsiv acik -> ok:true', r.ok === true && r.lazyfetch.etkin && r.arsiv.etkin, JSON.stringify({ ok: r.ok }));
   T.ok('Iki saglayici raporlaniyor (devre + kova)', ['tmdb', 'trakt'].every((p) => r.lazyfetch.saglayicilar[p].devre && r.lazyfetch.saglayicilar[p].kova));
   T.ok('Yeni K3 kovasi gorunuyor (tmdb kapasite 40)', r.lazyfetch.saglayicilar.tmdb.kova.kapasite === 40);
+  T.ok('M551: arsiv kuyrugu + kanonik kapi sayaci raporda', Number.isInteger(r.arsiv.kuyruk.yazilan) && Number.isInteger(r.arsiv.kuyruk.atlanan)
+    && Number.isInteger(r.arsiv.kanonikKapi.gecen) && Number.isInteger(r.arsiv.kanonikKapi.reddedilen), JSON.stringify({ k: r.arsiv.kuyruk, kk: r.arsiv.kanonikKapi }));
   const metin = JSON.stringify(r);
   T.ok('🔴 Dosya yolu SIZMIYOR (kok, dbPath, root yok)', !metin.includes(T.kok) && !/dbPath|"root"|katalog\.db/.test(metin));
   T.ok('🔴 Sir/ortam degeri SIZMIYOR', !/secret|api_key|TMDB_API_KEY|SYNC_SECRET|Bearer/i.test(metin));

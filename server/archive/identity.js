@@ -156,12 +156,42 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
     const simdi = Date.now();
 
     // 1) Verilen kimliklerin HANGİLERİ zaten bağlı?
-    const bul = db.prepare('SELECT kaymak_id FROM external_ids WHERE source = ? AND source_id = ?');
-    const tipBul = db.prepare('SELECT type FROM entities WHERE kaymak_id = ?');
+    const bul = db.prepare('SELECT kaymak_id, retired_at FROM external_ids WHERE source = ? AND source_id = ?');
+    const tipBul = db.prepare('SELECT type, parent_id, season_number, episode_number FROM entities WHERE kaymak_id = ?');
+    const aktifBirincil = db.prepare(
+      'SELECT source_id FROM external_ids WHERE kaymak_id = ? AND source = ? AND retired_at IS NULL'
+    );
+
+    // ══════════════════════════════════════════════════════════════════
+    // 🆕 A1 (M549) · BİRİNCİL ANAHTAR KURALI — dış denetim K-3, 2026-10-20 teyidi
+    // ══════════════════════════════════════════════════════════════════
+    // CANLI HATA: 315 bölüm kaydı / 78 dizi birden çok Trakt bölümünü TEK kayıtta topluyordu;
+    // «The Haunting of Hill House» ile «Bly Manor» tek dizi kaydıydı. Kök neden tipsiz `imdb`
+    // DEĞİL (Madde 288'in bariyeri onu zaten tutuyor) — 315/315'te ortak anahtar TİPLİ
+    // `tvdb:episode`/`tvdb:show`: TVDB çift bölümleri ve aynı «evren»deki dizileri TEK kimlikte
+    // tutuyor, Trakt ayrı sayıyor. Eski kural «HERHANGİ bir anahtar bir yapıma çözülürse o yapım
+    // kazanır» idi ve yuva yalnız HİÇBİR anahtar eşleşmediğinde kontrol ediliyordu.
+    //
+    // KURAL: kimliğin sahibi `trakt:<tip>`tir (BİRİNCİL). Başka bir anahtarla (tvdb/tmdb/imdb/slug —
+    // İKİNCİL) bulunan yapım ancak şu durumda «aynı yapım» sayılır:
+    //   • o yapımın AKTİF birincil kimliği gelenle AYNI, ya da
+    //   • hiç aktif birincili yok VE (sezon/bölümde) yuvası (ebeveyn + numara) gelenle aynı.
+    // Aksi hâlde eşleşme YOK SAYILIR → yuva/yeni kayıt yoluna gidilir; paylaşılan ikincil kimlik ilk
+    // sahibinde kalır (aşağıda «başka yapıma ait» ile zaten bağlanmaz).
+    // Birincil anahtarın kendisi her zaman kazanır — var olan birleşmelerin onarımı A3'ün işi.
+    const birincilKaynak = `trakt:${type}`;
+    const gelenBirincil = externalIds.find((e) => e.source === birincilKaynak);
+    const gelenBirincilDeger = gelenBirincil ? String(gelenBirincil.source_id) : null;
+    const yuvaVar = (type === 'season' || type === 'episode') && parentId !== null && parentId !== undefined;
+    const reddedilenIkinciller = [];
+    let turReddi = false;
+    let birincilBulundu = false;
+
     const bulunanlar = new Set();
     for (const { source, source_id } of externalIds) {
       const satir = bul.get(source, String(source_id));
       if (!satir) continue;
+      const sahipKaydi = tipBul.get(satir.kaymak_id);
 
       // 🔴🔴 TİPSİZ ANAHTAR BARİYERİ (2026-09-03, Madde 288)
       // ----------------------------------------------------------------
@@ -193,7 +223,7 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
       // 44.287 satırlık bir UPDATE, SSD yeni BOT moduna alındığı için
       // bilerek ertelendi (MASTER_PLAN §0 açık iş).
       if (TIPSIZ_KAYNAKLAR.has(source)) {
-        const sahip = tipBul.get(satir.kaymak_id);
+        const sahip = sahipKaydi;
         if (sahip && sahip.type !== type) {
           // 🔴 SESSİZ GEÇME YOK. Bu satırın yokluğu hatanın haftalarca
           // görünmemesinin sebebiydi (Madde 284/286: fail-soft sessizdir).
@@ -205,6 +235,47 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
             satir.kaymak_id,
             `TIPSIZ_ANAHTAR: "${source}/${source_id}" ${sahip.type} tipinde bir yapima bagli, istenen tip ${type} — birlestirme ENGELLENDI`
           );
+          continue;
+        }
+      }
+
+      // 🆕 A1 · TÜR KAPISI TİPLİ ANAHTARLARA DA: Madde 288 mirası birleşik kayıtlarda tipli bir
+      // kimlik (ör. `trakt:episode`) BAŞKA TÜRDE bir yapıma bağlı kalmış (canlıda 7 dizi kaydı bölüm
+      // kimliği taşıyor, başlığı «Episode 1» gibi bölüm adına dönmüş). Eskiden o kayıt bölüm gibi
+      // kullanılıp her yazımda biraz daha bozuluyordu. Artık eşleşme sayılmaz; onarım A3'te.
+      if (sahipKaydi && sahipKaydi.type !== type) {
+        db.prepare(
+          'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+        ).run(
+          simdi,
+          'conflict',
+          satir.kaymak_id,
+          `TUR_UYUSMAZ: "${source}/${source_id}" ${sahipKaydi.type} tipinde bir yapima bagli, istenen tip ${type} — eslesme SAYILMADI`
+        );
+        turReddi = true;
+        continue;
+      }
+
+      if (source === birincilKaynak) {
+        birincilBulundu = true;
+        bulunanlar.add(satir.kaymak_id);
+        continue;
+      }
+
+      // İKİNCİL ANAHTAR. Emekli bir ikincil kimlik hiçbir şeyi çözmez (sağlayıcı onu bıraktı).
+      if (satir.retired_at !== null && satir.retired_at !== undefined) continue;
+      if (gelenBirincilDeger !== null) {
+        const sahipBirincilleri = aktifBirincil.all(satir.kaymak_id, birincilKaynak).map((r) => String(r.source_id));
+        const birincilFarkli = sahipBirincilleri.length > 0 && !sahipBirincilleri.includes(gelenBirincilDeger);
+        const yuvaFarkli = sahipBirincilleri.length === 0 && yuvaVar && (
+          !sahipKaydi || sahipKaydi.parent_id !== parentId || sahipKaydi.season_number !== seasonNumber ||
+          (type === 'episode' && sahipKaydi.episode_number !== episodeNumber)
+        );
+        if (birincilFarkli || yuvaFarkli) {
+          reddedilenIkinciller.push({
+            anahtar: `${source}/${source_id}`, kaymakId: satir.kaymak_id,
+            neden: birincilFarkli ? `${birincilKaynak} ${sahipBirincilleri[0]} != ${gelenBirincilDeger}` : 'yuva farkli',
+          });
           continue;
         }
       }
@@ -327,6 +398,22 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
             (asilmis.map((e) => e.source + '/' + e.source_id).join(', ') || 'yok')
         );
       } else {
+        // 🆕 A1 · KİMLİKSİZ KAYIT YARATILMAZ. Gelen kimliklerin HEPSİ başka yapımlara bağlıysa
+        // (tür kapısı / ikincil ret sonrası) yeni kayıt hiçbir dış kimlik alamaz — bir daha ASLA
+        // bulunamaz ve her yazımda yenisi açılırdı. Kayıt düşer, insan bakar (onarım A3).
+        const baglanabilir = externalIds.some(({ source, source_id }) => !bul.get(source, String(source_id)));
+        if (!baglanabilir) {
+          db.prepare(
+            'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+          ).run(
+            simdi,
+            'conflict',
+            null,
+            `KIMLIKSIZ_KAYIT_ENGELLENDI: ${type} icin gelen kimliklerin hepsi baska yapimlara bagli: ` +
+              externalIds.map((e) => e.source + '/' + e.source_id).join(', ')
+          );
+          return null;
+        }
         kaymakId = yeniKaymakId(type);
         yaratildi = true;
         db.prepare(
@@ -350,6 +437,9 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(source, source_id) DO UPDATE SET last_seen_at = excluded.last_seen_at`
     );
+    const baskaAktifAyniKaynak = db.prepare(
+      'SELECT 1 FROM external_ids WHERE kaymak_id = ? AND source = ? AND source_id <> ? AND retired_at IS NULL LIMIT 1'
+    );
     for (const { source, source_id } of externalIds) {
       const mevcut = bul.get(source, String(source_id));
       if (mevcut && mevcut.kaymak_id !== kaymakId) {
@@ -357,7 +447,39 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
         // gerekçe). Yalnızca kaydederiz.
         continue;
       }
+      // 🆕 A1 · O-6 — EMEKLİ KİMLİK GERİ GELDİ. Eskiden `ON CONFLICT` yalnız `last_seen_at`'i
+      // tazeliyordu; kimlik sonsuza dek «emekli» kalıyor, Supabase'te de emekli görünüyordu.
+      // Yalnız GÜVENLİYSE etkinleşir: yapımda aynı kaynaktan BAŞKA aktif kimlik yoksa (varsa iki
+      // aktif `trakt:episode` = birleşme olurdu; o durum A3 onarımının işi).
+      if (mevcut && mevcut.retired_at !== null && mevcut.retired_at !== undefined
+          && !baskaAktifAyniKaynak.get(kaymakId, source, String(source_id))) {
+        db.prepare(
+          'UPDATE external_ids SET retired_at = NULL, last_seen_at = ? WHERE source = ? AND source_id = ?'
+        ).run(simdi, source, String(source_id));
+        db.prepare(
+          'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+        ).run(simdi, 'conflict', kaymakId, `KIMLIK_GERI_DONDU: "${source}/${source_id}" yeniden etkin`);
+        continue;
+      }
       kimlikYaz.run(source, String(source_id), kaymakId, simdi, simdi);
+    }
+
+    // 🆕 A1 · Engellenen birleşmeyi kaydet — yalnız SONUCU değiştirdiyse:
+    //   • yapım KENDİ birincil kimliğiyle bulunamadıysa (bulunduysa ret kararlı hâldir: çift bölüm
+    //     her gece yazılır, paylaşılan tvdb her seferinde reddedilir — her yazımda satır = gürültü),
+    //   • ve seçilen yapım reddedilen adaydan farklıysa (sağlayıcının yeniden kimliklendirmesinde
+    //     aday = yuva sahibi = seçilen yapım; o durum zaten `KIMLIK_DEGISIMI` olarak kayıtlı).
+    const etkiliRet = birincilBulundu ? [] : reddedilenIkinciller.filter((r) => r.kaymakId !== kaymakId);
+    if (etkiliRet.length) {
+      db.prepare(
+        'INSERT INTO sync_log (at, event, kaymak_id, detail) VALUES (?, ?, ?, ?)'
+      ).run(
+        simdi,
+        'conflict',
+        kaymakId,
+        'IKINCIL_ANAHTAR_REDDI: ' + etkiliRet.map((r) => `${r.anahtar} -> ${r.kaymakId} (${r.neden})`).join('; ') +
+          ' — birlestirme ENGELLENDI'
+      );
     }
 
     // 3) Türetilmiş alanları tazele — gerçeğin kaynağı payload, bunlar
@@ -373,6 +495,9 @@ function resolveOrCreate({ type, externalIds, derived = {}, parentId = null, sea
       ).run(derived.title ?? null, derived.year ?? null, derived.status ?? null, simdi, kaymakId);
     }
 
+    // Girdideki bir kimlik BAŞKA bir yapımı gösteriyorduysa (tür kapısı ya da sonucu değiştiren ikincil
+    // ret) bu bir çakışmadır — birleştirilmedi ama işaretlenir (dönüş sözleşmesi, Madde 288).
+    if (turReddi || etkiliRet.length) cakisma = true;
     return { kaymak_id: kaymakId, created: yaratildi, conflict: cakisma };
   });
 }

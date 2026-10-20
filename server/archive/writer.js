@@ -46,6 +46,7 @@ const { resolveOrCreate, traktIdsToExternal, findByExternal, findChild } = requi
 const { upsertPayload, logSync, DILSIZ } = require('./store');
 // 🆕 K4 (M532) — TMDB detayları ayrı modülde (bu dosya 400 satır sınırında).
 const { archiveTmdbDetail } = require('./tmdbArsiv');
+const { kanonikMi } = require('./kanonik');
 
 // ==========================================================================
 // 🔴🔴 OLAY DÖNGÜSÜ NEFESİ — ÖLÇÜMDEN DOĞDU
@@ -102,6 +103,26 @@ function yoldanKimlik(tip, rawId) {
     : [{ source: 'trakt:slug', source_id: id }];
 }
 
+/**
+ * 🆕 A1 · O-7 (M549) — DİZİ KÖKÜ YALNIZ SAYISAL TRAKT KİMLİĞİYLE AÇILIR.
+ *
+ * CANLI: 2026-08-29'da slug'la gelen istekler (`/shows/twin-peaks/seasons` …) arşivde YALNIZ
+ * `trakt:slug` taşıyan, başlıksız üç dizi kökü açtı; 248 bölüm onların altında. Bu köklerin Trakt
+ * dizi kimliği olmadığı için Worker'ın kütüphane senkronu bu dizileri «kimliksiz» diye atlıyor —
+ * izleyen kişi ilerlemesini göremiyor (A2: 56 izleme satırı).
+ *
+ * Kural: sayısal kimlik → eskisi gibi `resolveOrCreate`. Slug → YALNIZ arşivde zaten bilinen bir
+ * slug'ın yapımı kullanılır; bilinmiyorsa yazılmaz (`slug_kok_bilinmiyor`, yanıt önbellekte kalır).
+ * @returns {{kok: {kaymak_id: string}|null, kimlik: Array|null, hata: string|null}}
+ */
+function diziKokunuHazirla(showId) {
+  const kimlik = yoldanKimlik('show', showId);
+  if (!kimlik.length) return { kok: null, kimlik: null, hata: 'kimliksiz_istek' };
+  if (kimlik[0].source !== 'trakt:slug') return { kok: null, kimlik, hata: null };
+  const mevcut = findByExternal('trakt:slug', kimlik[0].source_id);
+  return mevcut ? { kok: { kaymak_id: mevcut }, kimlik: null, hata: null } : { kok: null, kimlik: null, hata: 'slug_kok_bilinmiyor' };
+}
+
 /** `?extended=...&translations=tr` → 'tr'; dil yoksa DILSIZ sentinel'i. */
 function dilCoz(query = {}) {
   const t = query.translations || query.language || query.lang;
@@ -140,12 +161,12 @@ function iseYararMi(data) {
 async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = Date.now() }) {
   if (!iseYararMi(seasons)) return { ok: false, reason: 'bos_yanit' };
 
-  const disKimlik = yoldanKimlik('show', showId);
-  if (!disKimlik.length) return { ok: false, reason: 'kimliksiz_istek' };
+  const kokHazirlik = diziKokunuHazirla(showId);
+  if (kokHazirlik.hata) return { ok: false, reason: kokHazirlik.hata };
 
   return transactionAsync(async () => {
-    const dizi = resolveOrCreate({ type: 'show', externalIds: disKimlik });
-    if (!dizi) return { ok: false, reason: 'arsiv_kapali' };
+    const dizi = kokHazirlik.kok || resolveOrCreate({ type: 'show', externalIds: kokHazirlik.kimlik });
+    if (!dizi) return { ok: false, reason: 'kimlik_cakismasi' };
 
     // Payload TEK PARÇA — dizinin kendisine bağlı.
     const yazim = await upsertPayload({
@@ -187,6 +208,9 @@ async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = 
         seasonNumber: sezon.number,
         derived: { title: sezon.title || null },
       });
+      // 🆕 A1 (M549): çözüm `null` dönebilir (kimlik çakışması — `sync_log`'da kayıtlı). Eskiden
+      // `s.kaymak_id` TypeError fırlatıp dizinin TÜM sezon yazımını geri aldırırdı.
+      if (!s) { atlanan++; continue; }
       sezonSayisi++;
 
       for (const bolum of sezon.episodes || []) {
@@ -249,7 +273,9 @@ async function archiveSimplePayload({ type, endpoint, data, lang = DILSIZ, fetch
       externalIds: kimlikler,
       derived: { title: data.title || null, year: data.year || null, status: data.status || null },
     });
-    if (!e) return { ok: false, reason: 'arsiv_kapali' };
+    // 🆕 A1 (M549): `null` artık «kimlik çakışması» da olabilir (ör. tipli kimlik başka türde bir
+    // yapıma bağlı — O-5 / Madde 288 mirası). Yanlış türdeki yapıma yük YAZILMAZ.
+    if (!e) return { ok: false, reason: 'kimlik_cakismasi' };
 
     const yazim = await upsertPayload({ kaymakId: e.kaymak_id, provider: 'trakt', endpoint, lang, data, fetchedAt });
     return yazim.ok
@@ -294,13 +320,13 @@ async function archiveEpisodeDetail({ showId, data, lang = DILSIZ, fetchedAt = D
   const bolumNo = typeof data.number === 'number' ? data.number : null;
   if (sezonNo === null || bolumNo === null) return { ok: false, reason: 'numarasiz_bolum' };
 
-  const diziKimlikleri = yoldanKimlik('show', showId);
-  if (!diziKimlikleri.length) return { ok: false, reason: 'kimliksiz_istek' };
+  const kokHazirlik = diziKokunuHazirla(showId);
+  if (kokHazirlik.hata) return { ok: false, reason: kokHazirlik.hata };
 
   return transactionAsync(async () => {
-    // Dizi: yoksa yaratılır (yalnızca istek yolundaki kimlikle).
-    const dizi = resolveOrCreate({ type: 'show', externalIds: diziKimlikleri });
-    if (!dizi) return { ok: false, reason: 'arsiv_kapali' };
+    // Dizi: yoksa yaratılır (yalnızca istek yolundaki SAYISAL kimlikle — slug kök açmaz, O-7).
+    const dizi = kokHazirlik.kok || resolveOrCreate({ type: 'show', externalIds: kokHazirlik.kimlik });
+    if (!dizi) return { ok: false, reason: 'kimlik_cakismasi' };
 
     // Sezon: ARANIR, yaratılmaz (yukarıdaki kırmızı not).
     const sezonId = findChild({ parentId: dizi.kaymak_id, type: 'season', seasonNumber: sezonNo });
@@ -314,6 +340,9 @@ async function archiveEpisodeDetail({ showId, data, lang = DILSIZ, fetchedAt = D
       episodeNumber: bolumNo,
       derived: { title: data.title || null },
     });
+    // 🆕 A1 (M549): KAYDIRMA şüphesi ya da kimlik çakışması `null` döndürür — eskiden burada
+    // `bolum.kaymak_id` TypeError fırlatıyordu (gizli hata, yalnız o yollar tetiklenince görünürdü).
+    if (!bolum) return { ok: false, reason: 'kimlik_cakismasi' };
 
     const yazim = await upsertPayload({
       kaymakId: bolum.kaymak_id, provider: 'trakt', endpoint: 'episode_detail',
@@ -346,9 +375,17 @@ const DESTEKLENEN_AILELER = new Set(['show_seasons', 'show_detail', 'movie_detai
 async function archiveCatalogResponse({ provider, family, path, query = {}, data, fetchedAt = Date.now() }) {
   // 🆕 K4 (M532): TMDB `tv_detail`/`movie_detail` artık arşive giriyor (eskiden
   // burada `desteklenmeyen_saglayici` ile reddediliyordu). Kurallar `tmdbArsiv.js`.
-  if (provider === 'tmdb') return archiveTmdbDetail({ family, path, data, lang: dilCoz(query), fetchedAt });
+  // 🆕 Paket C (M550): yalnız KANONİK sorguyla gelen yanıt kalıcı kayda girer (`kanonik.js`).
+  // Varyantlar (extended'sız, fazladan parametreli…) önbellekte kalır, arşiv yuvasını EZMEZ.
+  if (provider === 'tmdb') {
+    if ((family === 'tv_detail' || family === 'movie_detail') && !kanonikMi(provider, family, query)) {
+      return { ok: false, reason: 'kanonik_degil' };
+    }
+    return archiveTmdbDetail({ family, path, data, lang: dilCoz(query), fetchedAt });
+  }
   if (provider !== 'trakt') return { ok: false, reason: 'desteklenmeyen_saglayici' };
   if (!DESTEKLENEN_AILELER.has(family)) return { ok: false, reason: 'kapsam_disi_aile' };
+  if (!kanonikMi(provider, family, query)) return { ok: false, reason: 'kanonik_degil' };
 
   const lang = dilCoz(query);
 

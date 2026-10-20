@@ -20,6 +20,7 @@ const { NotFoundError, CircuitOpenError, RateLimitedError } = require('./errors'
 // tanır, arşiv LazyFetch'i tanımaz. Arşiv kapalıysa `enqueue` no-op'tur,
 // yani bu require bir çalışma zamanı riski taşımaz.
 const { archiveQueue } = require('../archive/queue');
+const { kanonikMi, kapiKaydet } = require('../archive/kanonik');
 // 🔴 SINGLETON PAYLAŞIMI: `memoryCache` burada YARATILMAZ, `state.js`'ten
 // alınır. Yaratsaydık bu dosya kendi önbelleğine yazar, `resolveRequest`
 // onu hiç göremezdi — sessizce yanlış çalışan bir sistem (state.js başlığı).
@@ -91,11 +92,19 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
     // ⚠️ Bu, LazyFetch'in arşivi YAZMA amacıyla tanıdığı tek yer. Sağlayıcı
     // soyutlamasını bozmuyor: hangi ailenin arşivlenebilir olduğuna
     // `writer.js` karar veriyor, buradan yalnızca haber veriliyor.
-    archiveQueue.enqueue({
-      provider, family, path, query,
-      data: result.data,
-      fetchedAt: envelope.fetchedAt,
-    });
+    // 🆕 Paket C (M550): YALNIZ KANONİK sorgu kuyruğa girer (`archive/kanonik.js`). Varyant hem
+    // arşiv yuvasını ezmesin hem de kuyrukta bekleyen DOĞRU yazımın yerini almasın — kuyruk anahtarı
+    // yalnız dili ayırıyor, varyant onu `bekleyenler.set` ile değiştiriyordu (dış denetim K-1).
+    // 🆕 M551: karar SAYILIR (`/api/health` → `arsiv.kanonikKapi`) — ret sessiz kalmasın (Madde 286).
+    const kanonik = kanonikMi(provider, family, query);
+    kapiKaydet(provider, family, query, kanonik);
+    if (kanonik) {
+      archiveQueue.enqueue({
+        provider, family, path, query,
+        data: result.data,
+        fetchedAt: envelope.fetchedAt,
+      });
+    }
 
     return envelope;
   } catch (error) {

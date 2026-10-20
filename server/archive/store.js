@@ -69,7 +69,7 @@ async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data
     const gz = await gzipAsync(ham);
     const simdi = Date.now();
 
-    db.prepare(
+    const sonuc = db.prepare(
       `INSERT INTO payloads (kaymak_id, provider, endpoint, lang, body, bytes_raw, bytes_gz, fetched_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(kaymak_id, provider, endpoint, lang) DO UPDATE SET
@@ -77,9 +77,15 @@ async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data
          bytes_raw  = excluded.bytes_raw,
          bytes_gz   = excluded.bytes_gz,
          fetched_at = excluded.fetched_at,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at
+       -- 🆕 Paket C (M550) · O-8: DAHA ESKİ veri daha yeniyi EZMEZ. Eskiden koşulsuzdu: önbellekteki
+       -- 150 günlük bir zarfla çalışan aktarım betiği, dün sağlayıcıdan zorla tazelenmiş yükü geri
+       -- götürebiliyordu (yeniden üretildi, R6). Eşit damga yazar (aynı yanıtın tekrarı zararsız).
+       WHERE excluded.fetched_at >= payloads.fetched_at`
     ).run(kaymakId, provider, endpoint, lang || DILSIZ, gz, ham.length, gz.length, fetchedAt, simdi);
 
+    // `changes === 0` → satır vardı ve DAHA YENİSİYDİ; yazılmadı. Hata değil, sonuç.
+    if (sonuc.changes === 0) return { ok: true, atlandi: 'daha_yeni_var', bytesRaw: ham.length, bytesGz: gz.length };
     return { ok: true, bytesRaw: ham.length, bytesGz: gz.length };
   } catch (error) {
     // Kendi hatamızı kendi loguzmuza yazmayı da deneriz — o da patlarsa
@@ -219,12 +225,18 @@ function summary() {
   const cakisma = db.prepare(
     "SELECT count(*) c FROM sync_log WHERE event = 'conflict'" +
       " AND COALESCE(detail, '') NOT LIKE 'KIMLIK_DEGISIMI:%'" +
-      " AND COALESCE(detail, '') NOT LIKE 'KAYDIRMA_SUPHESI:%'"
+      " AND COALESCE(detail, '') NOT LIKE 'KAYDIRMA_SUPHESI:%'" +
+      // M549: engellenen birleşme (TVDB çift bölümü meşru olarak paylaşır) ve geri gelen emekli
+      // kimlik RUTİN — alarm sayılmaz. `TUR_UYUSMAZ`/`KIMLIKSIZ_KAYIT_ENGELLENDI` ise alarm kalır.
+      " AND COALESCE(detail, '') NOT LIKE 'IKINCIL_ANAHTAR_REDDI:%'" +
+      " AND COALESCE(detail, '') NOT LIKE 'KIMLIK_GERI_DONDU:%'"
   ).get().c;
   const kimlikDegisimi = db.prepare(
     "SELECT count(*) c FROM sync_log WHERE event = 'conflict'" +
       " AND (COALESCE(detail, '') LIKE 'KIMLIK_DEGISIMI:%'" +
-      "   OR COALESCE(detail, '') LIKE 'KAYDIRMA_SUPHESI:%')"
+      "   OR COALESCE(detail, '') LIKE 'KAYDIRMA_SUPHESI:%'" +
+      "   OR COALESCE(detail, '') LIKE 'IKINCIL_ANAHTAR_REDDI:%'" +
+      "   OR COALESCE(detail, '') LIKE 'KIMLIK_GERI_DONDU:%')"
   ).get().c;
   const hata = db.prepare("SELECT count(*) c FROM sync_log WHERE event = 'error'").get().c;
   return { enabled: true, entities: e, payloads: p.c, bytes: p.b, externalIds: x, externalIdsEmekli: emekli, conflicts: cakisma, kimlikDegisimi, errors: hata };

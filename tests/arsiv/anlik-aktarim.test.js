@@ -182,7 +182,7 @@ const kokleri = (cagri) => cagri[0].satirlar.map((s) => s.kaymak_id);
     JSON.stringify(istegiDogrula({ tur: 'show', traktId: 5, sezon: 2, bolumler: [3, 3, 4] }).bolumler) === '[3,4]');
 
   // Arsivde VAR → Trakt'a gidilmez
-  await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/shows/777/seasons', data: [
+  await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/shows/777/seasons', query: { extended: 'full,episodes' }, data: [
     { number: 1, ids: { trakt: 7771 }, episodes: [{ number: 1, ids: { trakt: 77711 } }] },
   ] });
   let traktCagrisi = 0;

@@ -30,6 +30,7 @@
 const axios = require('axios');
 const { NotFoundError } = require('../errors');
 const { parseSharedMaxAge, isStorable } = require('./cacheControl');
+const { saglayiciSecenekleri } = require('../zamanSiniri');
 
 const TRAKT_API_URL = 'https://api.trakt.tv';
 
@@ -50,6 +51,8 @@ function createTraktCatalogFetcher(clientId) {
           'trakt-api-key': clientId,
           // ⛔ `Authorization` BİLEREK YOK — dosya başlığındaki üç sebep.
         },
+        // 🆕 Paket B (M548): boşta 10 sn / toplam 45 sn (bkz. `zamanSiniri.js`).
+        ...saglayiciSecenekleri(),
       });
 
       return {

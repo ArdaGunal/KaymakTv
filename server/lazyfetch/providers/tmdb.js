@@ -33,6 +33,7 @@
 const axios = require('axios');
 const { NotFoundError } = require('../errors');
 const { parseSharedMaxAge, isStorable } = require('./cacheControl');
+const { saglayiciSecenekleri } = require('../zamanSiniri');
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
@@ -54,6 +55,8 @@ function createTmdbFetcher(apiKey) {
           api_key: apiKey,
         },
         headers: { 'Content-Type': 'application/json' },
+        // 🆕 Paket B (M548): boşta 10 sn / toplam 45 sn — asılı istek tek-uçuşu ve devreyi kilitlemesin.
+        ...saglayiciSecenekleri(),
       });
 
       return {

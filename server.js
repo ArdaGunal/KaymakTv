@@ -43,7 +43,9 @@ const compression = require('compression');
 // ayrıca sonraki isteklerde TCP+TLS el sıkışmasını da atlar (~0.3s ekstra
 // tasarruf, ayrıca ölçüldü). Axios'un varsayılan `httpsAgent`'ını
 // değiştirir; her çağrı noktasına ayrı ayrı eklemeye gerek kalmaz.
-axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50, family: 4 });
+// 🆕 Paket B (M548): `timeout` — havuzda boşta bekleyen keep-alive soketleri 60 sn sonra kapanır
+// (NAT/ISS kopuşunda ölü kalan soket yeni isteği yutmasın). Etkin isteklerin kendi süre sınırı var.
+axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50, family: 4, timeout: 60_000 });
 
 // Açık proxy koruması (MASTER_PLAN F16 / Y12) — gerekçeler ve beyaz listeler
 // `server/security.js` içinde. Ayrı modül olmasının sebebi AI_RULES §1'in
@@ -64,6 +66,7 @@ const {
 // çağrılan genel altyapı init'i kalıyor (TMDB'ye özel değil — L7'de Trakt
 // da aynı `paths.js`'i paylaşacak).
 const { initLazyFetchPaths } = require('./server/lazyfetch/paths');
+const { kopruSecenekleri } = require('./server/lazyfetch/zamanSiniri');
 // L6 — süpürücü zamanlayıcısı. Kendi içinde "cache kapalıysa hiç kurulma"
 // kontrolü var, burada koşul yazmaya gerek yok.
 const { startSweeperSchedule } = require('./server/lazyfetch/sweeper');
@@ -211,6 +214,7 @@ app.get('/api/trakt-proxy', async (req, res) => {
     const traktResponse = await axios.get(`https://api.trakt.tv${endpoint}`, {
       params: queryParams,
       headers,
+      ...kopruSecenekleri(), // Paket B (M548): boşta 15 sn / toplam 60 sn
     });
 
     // Sayfalama bilgisini (getAllHiddenItems bunu okuyor) yanıt başlığında koru.
@@ -253,7 +257,7 @@ app.post('/api/trakt-proxy', async (req, res) => {
       headers['Authorization'] = req.headers.authorization;
     }
 
-    const traktResponse = await axios.post(`https://api.trakt.tv${endpoint}`, req.body, { headers });
+    const traktResponse = await axios.post(`https://api.trakt.tv${endpoint}`, req.body, { headers, ...kopruSecenekleri() });
     res.json(traktResponse.data);
   } catch (error) {
     console.error('Error in Trakt proxy (POST):', error.response?.data || error.message);
@@ -385,7 +389,8 @@ app.post('/api/trakt', traktAuthLimiter, redirectUriGuard, async (req, res) => {
     };
 
     const traktResponse = await axios.post('https://api.trakt.tv/oauth/token', payload, {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      ...kopruSecenekleri(),
     });
 
     res.json(traktResponse.data);

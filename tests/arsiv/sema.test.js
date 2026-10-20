@@ -256,7 +256,12 @@ const depo = require(path.join(AR, 'store'));
   const slugFilm = kimlik.resolveOrCreate({
     type: 'movie', externalIds: [{ source: 'trakt:slug', source_id: 'ayni-ad-2019' }],
   });
-  T.ok('🔴 Ayni slug DIZI ile FILM i birlestirmiyor', slugDizi.kaymak_id !== slugFilm.kaymak_id);
+  // M549 (A1): slug zaten diziye bağlı → filme bağlanacak HİÇBİR kimlik kalmıyor. Eskiden yine de
+  // bir film kaydı açılıyordu — dış kimliksiz, yani bir daha ASLA bulunamayan ve her çağrıda yenisi
+  // açılan bir kayıt. Artık açılmıyor (`null`) ve engel `sync_log`'a yazılıyor.
+  T.ok('🔴 Ayni slug DIZI ile FILM i birlestirmiyor (kimliksiz kayit da ACILMIYOR)', slugFilm === null && !!slugDizi.kaymak_id);
+  T.ok('Kimliksiz kayit engeli sync_log a yazildi',
+    h.prepare("SELECT count(*) c FROM sync_log WHERE detail LIKE 'KIMLIKSIZ_KAYIT_ENGELLENDI:%'").get().c >= 1);
 
   // ---- Bariyer YALNIZCA tipsiz anahtarlara: tipli anahtar eskisi gibi eslesir.
   const tekrar = kimlik.resolveOrCreate({

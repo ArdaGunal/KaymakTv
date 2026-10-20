@@ -148,23 +148,25 @@ const SEZONLAR = [
 
   const d1 = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'show_seasons', path: '/shows/1388/seasons',
-    query: { extended: 'full,episodes', translations: 'tr' }, data: SEZONLAR,
+    // M550 (Paket C): arşiv girişi yalnız KANONİK sorguyu kabul eder — üreticilerin gönderdiği tam
+    // biçim (`server/archive/kanonik.js`). Sezon listesinde `translations` YOK.
+    query: { extended: 'full,episodes' }, data: SEZONLAR,
   });
   T.ok('Dispatcher show_seasons i dogru yonlendiriyor', d1.ok === true);
   T.ok('Kapsam disi aile reddediliyor',
     (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_people', path: '/shows/1388/people', data: { cast: [] } })).reason === 'kapsam_disi_aile');
   // K4 (M532): TMDB artik arsive giriyor — ama YALNIZ Trakt'tan gelmis (tmdb eslemesi olan) yapima.
   T.ok('TMDB: Trakt eslemesi olmayan yapim YENI VARLIK ACMAZ (trakt_kimligi_yok)',
-    (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999999', data: { id: 999999 } })).reason === 'trakt_kimligi_yok');
+    (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999999', query: { language: 'tr-TR' }, data: { id: 999999 } })).reason === 'trakt_kimligi_yok');
   T.ok('TMDB: kapsam disi TMDB ailesi reddediliyor',
     (await yazici.archiveCatalogResponse({ provider: 'tmdb', family: 'credits', path: '/tv/1396/credits', data: { cast: [] } })).reason === 'kapsam_disi_aile');
   T.ok('Cozulemeyen yol reddediliyor',
-    (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/bozuk/yol', data: SEZONLAR })).reason === 'yol_cozulemedi');
+    (await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/bozuk/yol', query: { extended: 'full,episodes' }, data: SEZONLAR })).reason === 'yol_cozulemedi');
 
   // Kendi `ids` blogunu tasiyan duz yanit
   const d2 = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'show_detail', path: '/shows/1388',
-    query: { translations: 'tr' },
+    query: { extended: 'full', translations: 'tr' },
     data: { title: 'Breaking Bad', year: 2008, status: 'ended', ids: { trakt: 1388, slug: 'breaking-bad', tmdb: 1396 } },
   });
   T.ok('show_detail yaniti kendi ids inden cozuluyor', d2.ok === true);
@@ -191,7 +193,7 @@ const SEZONLAR = [
   const sezonsuz = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'episode_detail',
     path: '/shows/424242/seasons/1/episodes/1',
-    query: { translations: 'tr' }, data: BOLUM_YANITI,
+    query: { extended: 'full', translations: 'tr' }, data: BOLUM_YANITI,
   });
   T.ok('🔴 Sezon bilinmiyorken temiz ATLIYOR (CHECK ihlali YOK)',
     sezonsuz.ok === false && sezonsuz.reason === 'sezon_bilinmiyor', sezonsuz.reason);
@@ -202,7 +204,7 @@ const SEZONLAR = [
   const d3 = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'episode_detail',
     path: '/shows/1388/seasons/1/episodes/1',
-    query: { translations: 'tr' }, data: BOLUM_YANITI,
+    query: { extended: 'full', translations: 'tr' }, data: BOLUM_YANITI,
   });
   T.ok('🔴 Sezon bilindiginde bolum detayi YAZILIYOR', d3.ok === true, d3.reason || '');
   T.ok('Ayni bolum entity sine baglandi (cift kayit yok)',
@@ -217,6 +219,7 @@ const SEZONLAR = [
   // --- Numarasiz yanit reddedilmeli
   const numarasiz = await yazici.archiveCatalogResponse({
     provider: 'trakt', family: 'episode_detail', path: '/shows/1388/seasons/1/episodes/9',
+    query: { extended: 'full', translations: 'tr' },
     data: { ids: { trakt: 999111 }, title: 'Numarasiz' },
   });
   T.ok('Numarasiz bolum yaniti reddediliyor', numarasiz.reason === 'numarasiz_bolum', numarasiz.reason);

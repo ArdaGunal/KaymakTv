@@ -26,6 +26,8 @@ const { kovaDurumu } = require('./lazyfetch/tokenBucket');
 const { memoryCache, refreshQueue } = require('./lazyfetch/state');
 const { getArchiveStatus, getDb } = require('./archive/db');
 const { readFallbackStats } = require('./archive/stats');
+const { archiveQueue } = require('./archive/queue');
+const { kapiDurumu } = require('./archive/kanonik');
 
 const SAGLAYICILAR = ['tmdb', 'trakt'];
 
@@ -88,6 +90,10 @@ async function saglikRaporu() {
     arsiv: {
       etkin: !!arsiv.enabled,
       sayac: arsivSayaclari(db),
+      // 🆕 M551 — süreç başından beri, bellekten (yeniden başlatmada sıfırlanır). `kuyruk.yazilan`
+      // arşive giren canlı yazımı, `kanonikKapi` kapının geçirdiği/reddettiği sorguları sayar.
+      kuyruk: archiveQueue.getStats(),
+      kanonikKapi: kapiDurumu(),
       geriDusus: geriDusus
         ? {
             toplam: geriDusus.toplam,

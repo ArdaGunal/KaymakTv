@@ -62,7 +62,8 @@ function calistir(...args) {
   // 1) YENİ biçim: `requestPath` var → tam aktarılabilir
   zarfYaz('trakt/show_seasons/aa/yeni.json.gz', temelZarf({
     provider: 'trakt', family: 'show_seasons', payload: SEZONLAR,
-    requestPath: '/shows/1388/seasons', requestQuery: 'extended=full,episodes&translations=tr',
+    // M550: üreticilerin gönderdiği KANONİK biçim — sezon listesi dilsizdir (`kanonik.js`).
+    requestPath: '/shows/1388/seasons', requestQuery: 'extended=full,episodes',
   }));
   // 2) 🔴 ESKİ biçim, kendi `ids`'i OLSA BİLE aktarılmaz — GERÇEK BİR
   // HATADAN doğan kural (2026-09-02): kimlik kurtarılabiliyordu ama
@@ -138,11 +139,14 @@ function calistir(...args) {
   // 🔴🔴 ASIL REGRESYON KORUMASI: yolsuz zarf HIC yazilmamali.
   T.ok('🔴 Yolsuz zarf icin payload YAZILMADI',
     h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='show_detail'").get().c === 0);
-  T.ok("🔴 HICBIR payload '-' diliyle yazilmadi (523 mukerrer satir hatasi)",
-    h.prepare("SELECT count(*) c FROM payloads WHERE lang='-'").get().c === 0,
-    h.prepare("SELECT count(*) c FROM payloads WHERE lang='-'").get().c + " adet [-]");
-  T.ok('Yollu kayit DOGRU dille yazildi',
-    h.prepare("SELECT count(*) c FROM payloads WHERE lang='tr'").get().c === 1);
+  // 523 mükerrer satır hatası DETAY ailelerindeydi (istemci onlara HER ZAMAN `translations` gönderir;
+  // dilsiz '-' satırı yanlış etiketti). Sezon listesinin kanonik yuvası ise GERÇEKTEN '-' (M550,
+  // canlı: 1.050 sezon yükünün 1.050'si '-').
+  T.ok("🔴 HICBIR DETAY payload'u '-' diliyle yazilmadi (523 mukerrer satir hatasi)",
+    h.prepare("SELECT count(*) c FROM payloads WHERE lang='-' AND endpoint <> 'show_seasons'").get().c === 0,
+    h.prepare("SELECT count(*) c FROM payloads WHERE lang='-' AND endpoint <> 'show_seasons'").get().c + " adet [-]");
+  T.ok('Yollu sezon kaydi kanonik (dilsiz) yuvaya yazildi',
+    h.prepare("SELECT count(*) c FROM payloads WHERE endpoint='show_seasons' AND lang='-'").get().c === 1);
   T.ok('🔴 Kurtarilamayan kayit YAZILMADI (cakisma da uretmedi)',
     h.prepare("SELECT count(*) c FROM sync_log WHERE event='conflict'").get().c === 0);
   T.ok('Kapsam disi aileler yazilmadi',

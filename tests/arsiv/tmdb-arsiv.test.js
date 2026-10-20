@@ -31,8 +31,8 @@ const patla = () => { throw new Error('TMDB 503 Service Unavailable'); };
   const h = db.getDb();
   const say = (sql) => h.prepare(sql).get().c;
 
-  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { translations: 'tr' }, data: DIZI });
-  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/481', query: { translations: 'tr' }, data: FILM });
+  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { extended: 'full', translations: 'tr' }, data: DIZI });
+  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/481', query: { extended: 'full', translations: 'tr' }, data: FILM });
   const varlik0 = say('SELECT count(*) c FROM entities');
   const kimlik0 = say('SELECT count(*) c FROM external_ids');
 
@@ -50,9 +50,9 @@ const patla = () => { throw new Error('TMDB 503 Service Unavailable'); };
   T.ok('🔴 Esleme yoksa ATLANIR (trakt_kimligi_yok)', yok.ok === false && yok.reason === 'trakt_kimligi_yok');
   const uyusmaz = await archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/tv/1396', query: { language: 'tr-TR' }, data: { id: 9, poster_path: '/y.jpg' } });
   T.ok('🔴 Yanit kimligi yoldakiyle uyusmuyorsa YAZILMAZ', uyusmaz.ok === false && uyusmaz.reason === 'yanit_kimligi_uyusmuyor');
-  const bos = await archiveCatalogResponse({ provider: 'tmdb', family: 'movie_detail', path: '/movie/603', query: {}, data: {} });
+  const bos = await archiveCatalogResponse({ provider: 'tmdb', family: 'movie_detail', path: '/movie/603', query: { language: 'tr-TR' }, data: {} });
   T.ok('Bos yanit yazilmaz', bos.ok === false && bos.reason === 'bos_yanit');
-  const ters = await archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/movie/603', query: {}, data: TMDB_FILM });
+  const ters = await archiveCatalogResponse({ provider: 'tmdb', family: 'tv_detail', path: '/movie/603', query: { language: 'tr-TR' }, data: TMDB_FILM });
   T.ok('Aile ile yol tipi uyusmazsa reddedilir', ters.ok === false);
   T.ok('🔴 TMDB yazimlari YENI VARLIK/KIMLIK ACMADI', say('SELECT count(*) c FROM entities') === varlik0 && say('SELECT count(*) c FROM external_ids') === kimlik0);
   // M534: Madde 288 birlesmis varlik — tmdb:movie bir BOLUM varligina bagli
@@ -83,9 +83,9 @@ const patla = () => { throw new Error('TMDB 503 Service Unavailable'); };
   T.H('K1(b) - arsivden Trakt afis yedegi (aga cikmaz)');
   const { traktAfisYedegi, afisAdresi } = require(path.join(AR, 'traktAfis'));
   const POSTER = 'media.trakt.tv/images/shows/000/002/177/posters/medium/9cb5875b93.jpg.webp';
-  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/2177', query: { translations: 'tr' },
+  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/2177', query: { extended: 'full', translations: 'tr' },
     data: { title: 'South Park', ids: { trakt: 2177, tmdb: 2190 }, images: { poster: [POSTER] } } });
-  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/59753', query: { translations: 'en' },
+  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/59753', query: { extended: 'full', translations: 'en' },
     data: { title: "Ender's Game", ids: { trakt: 59753, tmdb: 80274 }, images: { poster: ['media.trakt.tv/images/movies/x/posters/medium/a.jpg.webp'] } } });
   T.ok('Dizi: tmdb 2190 -> https Trakt afisi', (await traktAfisYedegi('show', 2190)) === 'https://' + POSTER);
   T.ok('Film: yalniz en kaydi olsa da bulunur', (await traktAfisYedegi('movie', 80274)) === 'https://media.trakt.tv/images/movies/x/posters/medium/a.jpg.webp');

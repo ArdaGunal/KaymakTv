@@ -59,11 +59,19 @@ function bosAramayiSaklama(fetcher) {
   };
 }
 
-async function dogrudanTrakt(endpoint, sorgu, clientId) {
+// K2 (kullanıcı kararı 2026-10-20): kova DOLUYKEN doğrudan geçiş aynen (15 sn) — sağlayıcı sağlıklı,
+// sınır bizim. Devre AÇIKKEN ise sağlayıcı zaten düşüyor: 15 sn beklemek aramayı kilitliyordu
+// (dış denetim O-13) → 4 sn, sonra yerel arşiv araması. M533'ün «kendi sınırımızla hata verilmez»
+// ilkesi korunuyor; yalnız ölü sağlayıcıyı bekleme süresi kısaldı.
+const DOGRUDAN_KOVA_MS = 15_000;
+const DOGRUDAN_DEVRE_ACIK_MS = 4_000;
+
+async function dogrudanTrakt(endpoint, sorgu, clientId, zamanSiniriMs = DOGRUDAN_KOVA_MS) {
   const yanit = await axios.get(`https://api.trakt.tv${endpoint}`, {
     params: sorgu,
     headers: { 'Content-Type': 'application/json', 'trakt-api-version': '2', 'trakt-api-key': clientId },
-    timeout: 15000,
+    timeout: zamanSiniriMs,
+    signal: AbortSignal.timeout(zamanSiniriMs * 3),
   });
   return yanit.data;
 }
@@ -94,7 +102,8 @@ async function onbellekliTraktGet(req, res, next) {
 
   if (hata instanceof RateLimitedError || hata instanceof CircuitOpenError) {
     try {
-      const veri = await dogrudanTrakt(endpoint, sorgu, clientId);
+      const sinir = hata instanceof CircuitOpenError ? DOGRUDAN_DEVRE_ACIK_MS : DOGRUDAN_KOVA_MS;
+      const veri = await dogrudanTrakt(endpoint, sorgu, clientId, sinir);
       res.setHeader('x-lazyfetch', 'passthru-kapi');
       return res.json(veri);
     } catch (error) {
@@ -121,3 +130,5 @@ async function onbellekliTraktGet(req, res, next) {
 module.exports = onbellekliTraktGet;
 module.exports.sadeSorgu = sadeSorgu;
 module.exports.ONBELLEKLI = ONBELLEKLI;
+module.exports.DOGRUDAN_KOVA_MS = DOGRUDAN_KOVA_MS;
+module.exports.DOGRUDAN_DEVRE_ACIK_MS = DOGRUDAN_DEVRE_ACIK_MS;

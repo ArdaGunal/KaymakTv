@@ -35,6 +35,7 @@ const TAKIMLAR = [
   { ad: 'supurucu', grup: 'lazyfetch', dosya: 'lazyfetch/supurucu.test.js', aciklama: 'L6: yalnizca cache/ silinir' },
   { ad: 'saglik', grup: 'lazyfetch', dosya: 'lazyfetch/saglik.test.js', aciklama: 'K8/M531: /api/health salt okuma, sirsiz, durumu degistirmez' },
   { ad: 'trend-arama', grup: 'lazyfetch', dosya: 'lazyfetch/trend-arama.test.js', aciklama: 'K5/M533: trend+arama onbellekten, kova doluysa dogrudan, Trakt cokunce arsivden yerel arama' },
+  { ad: 'denetim-lazyfetch', grup: 'lazyfetch', dosya: 'lazyfetch/denetim-regresyon.test.js', aciklama: 'M548/M550: dis denetim R9 (HALF_OPEN bekcisi), sure sinirlari, K2, K4, parametre suzgeci' },
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
   { ad: 'goc', grup: 'arsiv', dosya: 'arsiv/goc.test.js', aciklama: 'A1: sema gocu v1 -> v2 -> v3 (C16)' },
@@ -49,6 +50,7 @@ const TAKIMLAR = [
   { ad: 'tmdb-arsiv', grup: 'arsiv', dosya: 'arsiv/tmdb-arsiv.test.js', aciklama: 'K4/M532: TMDB kunyesi arsive (yalniz Trakt eslemeli yapima), geri dusus, anlik aktarim yok' },
   { ad: 'ayna', grup: 'arsiv', dosya: 'arsiv/ayna.test.js', aciklama: 'C30: ayna satir bicimi + tekil aktarim esitligi' },
   { ad: 'anlik', grup: 'arsiv', dosya: 'arsiv/anlik-aktarim.test.js', aciklama: 'C30: anlik aktarim kuyrugu, eksikte cekme, kapi' },
+  { ad: 'denetim-arsiv', grup: 'arsiv', dosya: 'arsiv/denetim-regresyon.test.js', aciklama: 'M549/M550: dis denetim R1-R6 (kimlik birlesmesi, kanonik sorgu, tazelik, slug koku, tur kapisi)' },
   // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,
   // ISTEMCI kodunu test eder (`features/notifications/` saf katmani) ve bu
   // yuzden `.mjs` + Node'un yerel TypeScript soymasini kullanir — ayrinti

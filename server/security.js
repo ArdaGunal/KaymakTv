@@ -79,10 +79,20 @@ const corsMiddleware = cors(corsOptions);
 // `X-Forwarded-For`'a ziyaretçi IP'sini EKLER (üzerine yazmaz), dolayısıyla
 // saldırganın gönderdiği sahte değer en solda kalır ve limit atlatılabilir.
 // `CF-Connecting-IP` ise Cloudflare tarafından her zaman ÜZERİNE YAZILIR.
+//
+// 🆕 K4 (M550) — kullanıcı kararı (2026-10-20): *«LAN erişimini kesmeden çöz … CF-Connecting-IP
+// başlığına yalnızca istek loopback (yerel cloudflared tüneli) üzerinden geliyorsa güvenilsin;
+// doğrudan LAN IP'sinden gelen isteklerde soket IP'si kullanılsın.»* Eskiden başlığa KOŞULSUZ
+// güveniliyordu: 4830'a doğrudan erişen (yerel ağdaki) herkes her istekte farklı bir başlık yazıp
+// dakikalık sınırları sıfırlayabiliyordu — denendi, her sahte IP taze kota aldı (2026-10-20).
+// kaymaktv.com trafiği cloudflared'den `localhost:4830`'a gelir (tünel logu, `ingressRule=2`);
+// sunucu çift yığın dinlediği için IPv4 loopback `::ffff:127.0.0.1` olarak görünür.
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const clientIpKey = (req) => {
+  const soket = req.socket?.remoteAddress || '';
   const cfIp = req.headers['cf-connecting-ip'];
-  if (typeof cfIp === 'string' && cfIp.length > 0) return cfIp;
-  return ipKeyGenerator(req.ip ?? '');
+  if (LOOPBACK.has(soket) && typeof cfIp === 'string' && cfIp.length > 0) return cfIp;
+  return ipKeyGenerator(req.ip ?? soket);
 };
 
 const makeLimiter = (max, label) =>
@@ -279,4 +289,5 @@ module.exports = {
   // kullanmaz, guard'ların içinden çağrılır.
   isTraktEndpointAllowed,
   isAllowedRedirectUri,
+  clientIpKey, // K4 (M550) — kova anahtarı: başlığa yalnız loopback'ten güvenilir
 };

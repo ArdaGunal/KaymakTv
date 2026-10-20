@@ -32,6 +32,8 @@ const { createTraktCatalogFetcher } = require('./lazyfetch/providers/trakt');
 const { resolveRoute } = require('./lazyfetch/routeRegistry');
 const { CircuitOpenError, RateLimitedError } = require('./lazyfetch/errors');
 const { traktCatalogLimiter } = require('./security');
+/** Paket C (M550): katalog geçidinin sağlayıcıya ilettiği parametreler — başkası atılır. */
+const KATALOG_IZINLI_PARAMETRE = ['extended', 'translations', 'limit', 'page'];
 
 const router = express.Router();
 
@@ -62,8 +64,16 @@ router.get('/', traktCatalogLimiter, async (req, res) => {
       });
     }
 
-    const queryParams = { ...req.query };
-    delete queryParams.endpoint;
+    // 🆕 Paket C (M550) · K-1: İZİNLİ PARAMETRE SÜZGECİ (K5'teki `sadeSorgu` deseni). Eskiden
+    // `{ ...req.query }` her parametreyi sağlayıcıya ve önbellek anahtarına taşıyordu: herkes
+    // sınırsız varyant üretebiliyordu. Arşiv ayrıca `kanonik.js` ile korunuyor; bu süzgeç önbellek
+    // şişmesini ve beklenmedik sağlayıcı parametrelerini keser. Liste istemcinin GERÇEK çağrılarından
+    // (`services/api/shows.ts`, `movies.ts`): extended · translations · limit (+ sayfalama).
+    const queryParams = {};
+    for (const ad of KATALOG_IZINLI_PARAMETRE) {
+      const deger = req.query[ad];
+      if (typeof deger === 'string' && deger.length > 0 && deger.length <= 100) queryParams[ad] = deger;
+    }
 
     const result = await resolveRequest({
       provider: 'trakt',

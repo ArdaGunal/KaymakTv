@@ -41,6 +41,8 @@ class CircuitBreaker {
     this.state = 'CLOSED';
     this.consecutiveFailures = 0;
     this.openedAt = null;
+    // Paket B (M548): HALF_OPEN'a geçiş anı — asılı kalan sondanın bekçisi (aşağıda).
+    this.halfOpenAt = null;
   }
 
   /**
@@ -55,11 +57,20 @@ class CircuitBreaker {
     if (this.state === 'OPEN') {
       if (now - this.openedAt >= this.openDurationMs) {
         this.state = 'HALF_OPEN';
+        this.halfOpenAt = now;
         return true;
       }
       return false;
     }
     // HALF_OPEN: deneme hakkı zaten verilmişti (veya kullanılmayı bekliyor) — yeni istek beklemeli.
+    // 🛡️ Paket B (M548) BEKÇİ: sonda sonuçlanmadan (başarı/başarısızlık yazılmadan) iki açık-kalma
+    // süresi geçtiyse sonda ASILI demektir — adaptörde süre sınırı olmayan bir çağrı ya da kayıp bir
+    // söz. Eskiden devre o sağlayıcıya giden TÜM ıskaları süresiz kilitliyordu (R9: 10 dk sonra
+    // bile). Artık yeni bir sonda hakkı verilir; asılı olan sonradan dönerse sonucu yine işlenir.
+    if (now - this.halfOpenAt >= this.openDurationMs * 2) {
+      this.halfOpenAt = now;
+      return true;
+    }
     return false;
   }
 
@@ -67,6 +78,7 @@ class CircuitBreaker {
     this.state = 'CLOSED';
     this.consecutiveFailures = 0;
     this.openedAt = null;
+    this.halfOpenAt = null;
   }
 
   recordFailure(now = Date.now()) {

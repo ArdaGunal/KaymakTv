@@ -33,9 +33,9 @@ const satir = (re, metin) => (metin.match(re) || [''])[0];
   // Arşivde Trakt'tan gelmiş iki yapım (tmdb eşlemeli)
   db.initArchive();
   const { archiveCatalogResponse } = require(path.join(AR, 'writer'));
-  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { translations: 'tr' },
+  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { extended: 'full', translations: 'tr' },
     data: { title: 'Breaking Bad', ids: { trakt: 1388, tmdb: 1396 } }, fetchedAt: Date.now() });
-  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/481', query: { translations: 'tr' },
+  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/481', query: { extended: 'full', translations: 'tr' },
     data: { title: 'The Matrix', ids: { trakt: 481, tmdb: 603 } }, fetchedAt: Date.now() });
   // Canlı kancanın daha önce yazdığı, önbellektekinden YENİ bir film kaydı
   await archiveCatalogResponse({ provider: 'tmdb', family: 'movie_detail', path: '/movie/603', query: { language: 'en-US' },

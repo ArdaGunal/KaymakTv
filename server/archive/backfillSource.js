@@ -92,6 +92,7 @@ async function fetchTakipEdilenler({ url, anonKey, fetchImpl = fetch, sayfaBoyu 
           // KALDI"yı da söylüyor — kırpılmayı görebilmemizin tek yolu.
           Range: `${ofset}-${ofset + sayfaBoyu - 1}`,
         },
+        signal: AbortSignal.timeout(30_000), // Paket B (M548)
       });
     } catch (error) {
       return { ok: false, reason: `ag: ${error.message}` };
@@ -259,6 +260,7 @@ async function workerCagir(cfg, yol, govde, fetchImpl) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-kaymak-sync-secret': cfg.secret },
       body: JSON.stringify(govde),
+      signal: AbortSignal.timeout(30_000), // Paket B (M548)
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');

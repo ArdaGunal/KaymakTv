@@ -146,9 +146,11 @@ const SEZONLAR = [
     return { data: SEZONLAR, maxAgeSeconds: 600 };
   };
 
+  // M550 (Paket C): kuyruğa yalnız KANONİK sorgu girer — sezon listesinin kanonik biçimi
+  // `extended=full,episodes` (dilsiz; `server/archive/kanonik.js`).
   const yanit = await orch.resolveRequest({
     provider: 'trakt', path: '/shows/1388/seasons',
-    query: { extended: 'full,episodes', translations: 'tr' },
+    query: { extended: 'full,episodes' },
     fetcher: sahteFetcher,
   });
   T.ok('Istek normal sekilde cevaplandi', yanit.status === 'miss' && Array.isArray(yanit.data));
@@ -157,18 +159,34 @@ const SEZONLAR = [
   const diziId = kimlik.findByExternal('trakt:show', '1388');
   T.ok('🔴 Orchestrator kancasi ARSIVE YAZDI', diziId !== null, diziId || 'yazilmadi');
   T.ok('Hiyerarsi de acildi (bolum kimligi cozuluyor)', kimlik.findByExternal('tmdb:episode', 62085) !== null);
-  const p = await depo.readPayload({ kaymakId: diziId, provider: 'trakt', endpoint: 'show_seasons', lang: 'tr' });
-  T.ok('Payload dogru dille yazildi', p.ok === true);
+  const p = await depo.readPayload({ kaymakId: diziId, provider: 'trakt', endpoint: 'show_seasons', lang: '-' });
+  T.ok('Payload dogru (dilsiz) yuvaya yazildi', p.ok === true);
 
   // 🔴 CACHE HIT arsive UGRAMAZ — zaten yazilmis veriyi tekrar yazmak bosuna
   const oncekiAlinan = archiveQueue.getStats().alinan;
   const ikinci = await orch.resolveRequest({
     provider: 'trakt', path: '/shows/1388/seasons',
-    query: { extended: 'full,episodes', translations: 'tr' },
+    query: { extended: 'full,episodes' },
     fetcher: sahteFetcher,
   });
   T.ok('Ikinci istek cache ten geldi', ikinci.status === 'fresh' && saglayiciCagri === 1);
   T.ok('🔴 Cache hit kuyruga IS EKLEMEDI', archiveQueue.getStats().alinan === oncekiAlinan);
+
+  // 🔴 M550 · K-1: KANONİK OLMAYAN varyant (extended YOK → bölümsüz yanıt) önbelleğe girer ama
+  // kuyruğa GİRMEZ — ne arşiv yuvasını ezer ne de bekleyen doğru yazımın yerini alır.
+  const oncekiVaryant = archiveQueue.getStats().alinan;
+  const varyant = await orch.resolveRequest({
+    provider: 'trakt', path: '/shows/1388/seasons', query: {},
+    fetcher: async () => ({ data: [{ number: 1, ids: { trakt: 3950 } }], maxAgeSeconds: 600 }),
+  });
+  T.ok('Varyant istek yine cevaplandi (onbellek tutar)', varyant.status === 'miss');
+  T.ok('🔴 Varyant kuyruga IS EKLEMEDI (arsiv yuvasi korunur)', archiveQueue.getStats().alinan === oncekiVaryant);
+  // 🆕 M551 — kapının iki kararı da GÖRÜNÜR (`/api/health` → `arsiv.kanonikKapi`), ret sessiz değil.
+  const kapi = require(path.join(AR, 'kanonik')).kapiDurumu().aileler['trakt/show_seasons'];
+  T.ok('🔴 Kapi sayaci: kanonik istek GECEN, varyant REDDEDILEN', kapi && kapi.gecen === 1 && kapi.reddedilen === 1 && kapi.sonRet.bicim === '(bos)', JSON.stringify(kapi));
+  await archiveQueue.drain();
+  const korunan = await depo.readPayload({ kaymakId: diziId, provider: 'trakt', endpoint: 'show_seasons', lang: '-' });
+  T.ok('🔴 Arsivdeki sezon yuku BOLUMLERIYLE duruyor', korunan.ok === true && Array.isArray(korunan.data?.[0]?.episodes));
 
   // 🔴 PASSTHRU (beyaz liste disi) arsive ugramaz
   const oncekiPassthru = archiveQueue.getStats().alinan;
@@ -178,8 +196,10 @@ const SEZONLAR = [
   });
   T.ok('🔴 PASSTHRU kuyruga IS EKLEMEDI (kullaniciya ozel veri)', archiveQueue.getStats().alinan === oncekiPassthru);
 
-  // Kapsam disi aile: kuyruga girer ama yazici REDDEDER (gurultu loglanmaz)
+  // Kapsam disi aile: M550'den beri kuyruğa HİÇ girmez (kanonik tanımı yok) — eskiden girip
+  // yazıcıda reddediliyordu (boşuna iş). Gürültü loglanmaz, hata sayılmaz.
   const oncekiHata = archiveQueue.getStats().hata;
+  const oncekiKapsamDisi = archiveQueue.getStats().alinan;
   await orch.resolveRequest({
     // K7 (M532): people rotalari kalkti (PASSTHRU olurdu) — onbelleklenen ama arsivlenmeyen aile: related
     provider: 'trakt', path: '/shows/1388/related',
@@ -187,7 +207,8 @@ const SEZONLAR = [
   });
   await archiveQueue.drain();
   T.ok('Kapsam disi aile atlandi, HATA sayilmadi', archiveQueue.getStats().hata === oncekiHata);
-  T.ok('Atlanan sayaca islendi', archiveQueue.getStats().atlanan > 0);
+  T.ok('Kapsam disi aile kuyruga HIC GIRMEDI', archiveQueue.getStats().alinan === oncekiKapsamDisi);
+  T.ok('Kapsam disi aile kapi sayacinda RET sayilmadi', !require(path.join(AR, 'kanonik')).kapiDurumu().aileler['trakt/show_related']);
 
   T.bitir();
 })();

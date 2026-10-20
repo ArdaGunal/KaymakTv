@@ -24,6 +24,8 @@ const crypto = require('crypto');
 const SECRET_PARAM_NAMES = new Set([
   'api_key', 'apikey', 'key', 'token', 'access_token', 'accesstoken',
   'authorization', 'auth', 'client_secret', 'session_token', 'session',
+  // Paket C (M550) · D-8: TMDB'nin kullanıcıya özel oturum parametreleri — dosya adına/diske sızmasın.
+  'session_id', 'guest_session_id', 'request_token',
 ]);
 
 /**

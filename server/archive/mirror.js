@@ -90,6 +90,9 @@ async function partiGonder(cfg, faz, satirlar) {
         'x-kaymak-sync-secret': cfg.secret,
       },
       body: JSON.stringify({ faz, satirlar }),
+      // Paket B (M548): Worker kendi içinde Supabase'i en fazla 2 × 6 sn bekliyor (M542); 60 sn ölü
+      // bağlantı için. Zaman aşımı ağ hatası gibi işlenir — tur durur, imleç İLERLEMEZ, ertesi gece tekrar.
+      signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) {
       const govde = await res.text().catch(() => '');

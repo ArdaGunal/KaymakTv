@@ -131,6 +131,8 @@ function queryCoz(str) {
     kapsamDisi: 0, yolsuzAtlandi: 0,
     aktarildi: 0, basarisiz: 0,
     tmdbDilsiz: 0, tmdbEslemesiz: 0, tmdbDahaYeniVar: 0,
+    // M549/M550: arşive yazılmayan AMA hata da olmayan sonuçlar (yazıcının kendi kararı).
+    kanonikDisi: 0, slugKokBilinmiyor: 0,
   };
   const aileBazinda = new Map();
   const yolsuzAileler = new Map();
@@ -210,6 +212,11 @@ function queryCoz(str) {
       sonuc = { ok: false, reason: e.message };
     }
 
+    // M550: kanonik olmayan sorgunun zarfı (ör. `extended`'sız istek) arşive YAZILMAZ — önbellekte
+    // kalır. M549: yalnız slug'la gelen ve arşivde slug'ı bilinmeyen kök de yazılmaz. İkisi de hata değil.
+    if (sonuc && sonuc.reason === 'kanonik_degil') { sayac.kanonikDisi++; continue; }
+    if (sonuc && sonuc.reason === 'slug_kok_bilinmiyor') { sayac.slugKokBilinmiyor++; continue; }
+
     if (sonuc && sonuc.ok) {
       sayac.aktarildi++;
       aileBazinda.set(aileAdi, (aileBazinda.get(aileAdi) || 0) + 1);
@@ -228,6 +235,8 @@ function queryCoz(str) {
   if (sayac.tmdbDilsiz) say(`  TMDB dilsiz        : ${sayac.tmdbDilsiz}  (istekte language yok — yanlis etiket riski, atlandi)`);
   if (sayac.tmdbEslemesiz) say(`  TMDB eslemesiz     : ${sayac.tmdbEslemesiz}  (arsivde Trakt eslemesi yok — yeni varlik acilmaz)`);
   if (sayac.tmdbDahaYeniVar) say(`  TMDB arsivde yeni  : ${sayac.tmdbDahaYeniVar}  (arsivdeki kayit ayni/daha yeni, atlandi)`);
+  if (sayac.kanonikDisi) say(`  kanonik disi       : ${sayac.kanonikDisi}  (istek sorgusu uretici bicimi degil — onbellekte kalir)`);
+  if (sayac.slugKokBilinmiyor) say(`  slug koku yok      : ${sayac.slugKokBilinmiyor}  (yalniz slug'li istek, arsivde bilinmeyen dizi)`);
   if (sayac.bozuk) say(`  okunamayan        : ${sayac.bozuk}`);
   say(`${UYGULA ? 'Aktarilan' : 'Aktarilabilir'}       : ${sayac.aktarildi}`);
   if (sayac.basarisiz) say(`  BASARISIZ         : ${sayac.basarisiz}`);

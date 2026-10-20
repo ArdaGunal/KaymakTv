@@ -88,9 +88,9 @@ const ARAMA = [{ type: 'show', score: 900, show: { title: 'Dark', ids: { trakt: 
   await new Promise((r) => setTimeout(r, 5500)); // kova dolsun (2/sn)
 
   T.H('🔴 Trakt coktu -> arsivden yerel arama');
-  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { translations: 'tr' },
+  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { extended: 'full', translations: 'tr' },
     data: { title: 'Breaking Bad', year: 2008, overview: 'Kimya ogretmeni', ids: { trakt: 1388, slug: 'breaking-bad', tmdb: 1396 } } });
-  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/481', query: { translations: 'tr' },
+  await archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/481', query: { extended: 'full', translations: 'tr' },
     data: { title: 'The Matrix', year: 1999, ids: { trakt: 481, tmdb: 603 } } });
   trakt = async () => { throw Object.assign(new Error('Request failed with status code 503'), { response: { status: 503, data: 'down' } }); };
   const y = await getir('endpoint=/search/show&query=breaking&extended=full');

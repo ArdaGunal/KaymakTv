@@ -60,9 +60,9 @@ function sahteAg() {
   process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL = 'http://sahte-worker';
   process.env.PI_SYNC_SECRET = 'x'.repeat(40);
 
-  await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', data: DIZI });
+  await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/1388', query: { extended: 'full', translations: 'tr' }, data: DIZI });
   await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'show_seasons', path: '/shows/1388/seasons', query: { extended: 'full,episodes' }, data: SEZONLAR });
-  await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/16662', data: FILM });
+  await yazici.archiveCatalogResponse({ provider: 'trakt', family: 'movie_detail', path: '/movies/16662', query: { extended: 'full', translations: 'tr' }, data: FILM });
 
   const { runMirror } = require(path.join(AR, 'mirror'));
 
