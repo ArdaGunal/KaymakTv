@@ -51,6 +51,7 @@ const TAKIMLAR = [
   { ad: 'ayna', grup: 'arsiv', dosya: 'arsiv/ayna.test.js', aciklama: 'C30: ayna satir bicimi + tekil aktarim esitligi' },
   { ad: 'anlik', grup: 'arsiv', dosya: 'arsiv/anlik-aktarim.test.js', aciklama: 'C30: anlik aktarim kuyrugu, eksikte cekme, kapi' },
   { ad: 'denetim-arsiv', grup: 'arsiv', dosya: 'arsiv/denetim-regresyon.test.js', aciklama: 'M549/M550: dis denetim R1-R6 (kimlik birlesmesi, kanonik sorgu, tazelik, slug koku, tur kapisi)' },
+  { ad: 'kimlik-onarim', grup: 'arsiv', dosya: 'arsiv/kimlik-onarim.test.js', aciklama: 'M552: A3 onarim araci — G1/G1s/G2/G3/G5, veri kaybi yok, tekrar kosuda is yok, hata -> ROLLBACK' },
   // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,
   // ISTEMCI kodunu test eder (`features/notifications/` saf katmani) ve bu
   // yuzden `.mjs` + Node'un yerel TypeScript soymasini kullanir — ayrinti
