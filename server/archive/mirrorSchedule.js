@@ -41,33 +41,47 @@ const PENCERE_SONU = 9;
 
 const KONTROL_ARALIGI_MS = 60 * 60 * 1000;
 
+// 🆕 M555 — AYNI SABAH YENİDEN DENEME. 2026-10-21 07:26 turu `supabase_zaman_asimi` ile düştü ve
+// zamanlayıcı düşen turu da «bugün koşuldu» saydığı için gün boyu yeniden denenmedi (son 8 turun 4'ü
+// düşmüştü). Artık: düşen turdan 20 dk sonra yeniden dene; günde en çok 3 deneme (upsert idempotent,
+// imleç yalnız başarıda ilerler — tekrar denemek zararsız, sonsuz döngü ise bant israfı).
+const YENIDEN_DENEME_MS = 20 * 60 * 1000;
+const GUNLUK_EN_COK_DENEME = 3;
+
 let zamanlayici = null;
-let sonKosuGunu = null;
+let yenidenZamanlayici = null;
+let tamamGunu = null;
+let calisiyor = false;
+const bellekDeneme = new Map(); // gün → bu süreçteki deneme sayısı (kesin üst sınır)
 
 /**
- * 🔴 BUGÜN ZATEN KOŞULDU MU? — `sync_log`'dan okunur, bellekten DEĞİL.
- * `sonKosuGunu` her yeniden başlatmada sıfırlanır; pencere içinde üç deploy
- * = üç tur olurdu. `runMirror` her turda `event='mirror'` satırı yazıyor
- * (hiçbir şey yapmasa bile) — o satır günün kalıcı kanıtı.
+ * 🔴 BUGÜNKÜ AYNA DURUMU — `sync_log`'dan okunur, bellekten DEĞİL (yeniden başlatmaya dayanıklı).
+ * `runMirror` başarıda `yazilan=…`, düşüşte `… basarisiz: …` / `exception: …` satırı yazar.
+ * @returns {{basarili: boolean, deneme: number}}
  */
-function bugunAynalandiMi(simdi = new Date()) {
+function bugunkuAyna(simdi = new Date()) {
   const db = getDb();
-  if (!db) return false;
+  if (!db) return { basarili: false, deneme: 0 };
   try {
     const gunBasi = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate()).getTime();
-    const r = db.prepare("SELECT count(*) c FROM sync_log WHERE event = 'mirror' AND at >= ?").get(gunBasi);
-    return (r && r.c) > 0;
+    const satirlar = db.prepare("SELECT detail FROM sync_log WHERE event = 'mirror' AND at >= ?").all(gunBasi);
+    return { basarili: satirlar.some((r) => String(r.detail || '').startsWith('yazilan=')), deneme: satirlar.length };
   } catch (_) {
-    // Okuyamıyorsak "koşulmadı" say — bir tur fazla koşmak zararsız
-    // (upsert idempotent), hiç koşmamak ise aynayı bayatlatır.
-    return false;
+    // Okuyamıyorsak "koşulmadı" say — bir tur fazla koşmak zararsız (upsert idempotent).
+    return { basarili: false, deneme: 0 };
   }
+}
+
+/** Bugün BAŞARILI bir tur oldu mu? (M555'ten önce düşen tur da «oldu» sayılıyordu.) */
+function bugunAynalandiMi(simdi = new Date()) {
+  return bugunkuAyna(simdi).basarili;
 }
 
 /**
  * Gece zamanlayıcısını kurar. `server.js` açılışta bir kez çağırır.
+ * İkinci parametre yalnız testler için (çalıştırıcı, saat, süreler).
  */
-function startMirrorSchedule(config = {}) {
+function startMirrorSchedule(config = {}, { kosucu = runMirror, saat = () => new Date(), yenidenMs = YENIDEN_DENEME_MS, acilisMs = 120 * 1000 } = {}) {
   if (!isArchiveEnabled()) {
     console.log('[Ayna] Kurulmadi — arsiv devre disi.');
     return null;
@@ -84,15 +98,33 @@ function startMirrorSchedule(config = {}) {
   }
   if (zamanlayici) return zamanlayici;
 
-  const kontrolEt = () => {
-    const simdi = new Date();
-    const saat = simdi.getHours();
+  // `yenidenDeneme`: düşen turun ardından gelen deneme pencere sonunu (09:00) aşabilir — sayıyla sınırlı.
+  const kontrolEt = ({ yenidenDeneme = false } = {}) => {
+    const simdi = saat();
+    const s = simdi.getHours();
     const gun = simdi.toDateString();
-    if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
-    if (sonKosuGunu === gun) return;
-    if (bugunAynalandiMi(simdi)) { sonKosuGunu = gun; return; }
-    sonKosuGunu = gun;
-    runMirror(config).catch(() => { /* runMirror zaten yutuyor */ });
+    if (!yenidenDeneme && (s < PENCERE_BASI || s >= PENCERE_SONU)) return;
+    if (calisiyor || tamamGunu === gun) return;
+    const durum = bugunkuAyna(simdi);
+    const deneme = Math.max(durum.deneme, bellekDeneme.get(gun) || 0);
+    if (durum.basarili || deneme >= GUNLUK_EN_COK_DENEME) { tamamGunu = gun; return; }
+    calisiyor = true;
+    bellekDeneme.set(gun, deneme + 1);
+    Promise.resolve()
+      .then(() => kosucu(config))
+      .then((r) => {
+        if (r && r.ok) { tamamGunu = gun; return; }
+        if (deneme + 1 >= GUNLUK_EN_COK_DENEME) {
+          console.error(`[Ayna] Bugun ${deneme + 1}. deneme de dustu — yarin pencerede yeniden.`);
+          return;
+        }
+        console.error(`[Ayna] Tur dustu (${(r && r.reason) || '?'}) — ${Math.round(yenidenMs / 60000)} dk sonra yeniden (deneme ${deneme + 2}/${GUNLUK_EN_COK_DENEME}).`);
+        if (yenidenZamanlayici) clearTimeout(yenidenZamanlayici);
+        yenidenZamanlayici = setTimeout(() => { yenidenZamanlayici = null; kontrolEt({ yenidenDeneme: true }); }, yenidenMs);
+        if (typeof yenidenZamanlayici.unref === 'function') yenidenZamanlayici.unref();
+      })
+      .catch(() => { /* runMirror zaten yutuyor */ })
+      .finally(() => { calisiyor = false; });
   };
 
   zamanlayici = setInterval(kontrolEt, KONTROL_ARALIGI_MS);
@@ -105,24 +137,30 @@ function startMirrorSchedule(config = {}) {
   // ⏳ 120 sn: backfill'in 90 sn'sinden uzun, çünkü ayna açılışta tüm
   // payload'ları açıp runtime haritası kuruyor (CPU'lu bir iş) — sunucunun
   // önce isteklere cevap verebilir hale gelmesini bekliyoruz.
-  const acilisKontrolu = setTimeout(kontrolEt, 120 * 1000);
+  const acilisKontrolu = setTimeout(kontrolEt, acilisMs);
   if (typeof acilisKontrolu.unref === 'function') acilisKontrolu.unref();
 
   if (typeof zamanlayici.unref === 'function') zamanlayici.unref();
 
-  console.log(`[Ayna] Kuruldu — her gun ${PENCERE_BASI}:00-${PENCERE_SONU}:00.`);
+  console.log(`[Ayna] Kuruldu — her gun ${PENCERE_BASI}:00-${PENCERE_SONU}:00, dusen tura ${Math.round(yenidenMs / 60000)} dk sonra yeniden (gunde en cok ${GUNLUK_EN_COK_DENEME}).`);
   return zamanlayici;
 }
 
 function stopMirrorSchedule() {
   if (zamanlayici) { clearInterval(zamanlayici); zamanlayici = null; }
-  sonKosuGunu = null;
+  if (yenidenZamanlayici) { clearTimeout(yenidenZamanlayici); yenidenZamanlayici = null; }
+  tamamGunu = null;
+  calisiyor = false;
+  bellekDeneme.clear();
 }
 
 module.exports = {
   startMirrorSchedule,
   stopMirrorSchedule,
   bugunAynalandiMi,
+  bugunkuAyna,
+  YENIDEN_DENEME_MS,
+  GUNLUK_EN_COK_DENEME,
   PENCERE_BASI,
   PENCERE_SONU,
   KONTROL_ARALIGI_MS,
