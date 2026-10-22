@@ -21,10 +21,10 @@ function rapor(plan, once) {
   p(`Trakt istekleri ${Object.keys(plan.trakt).length}${plan.yeniIstek != null ? ` (bu koşuda ağdan çekilen: ${plan.yeniIstek})` : ''}`);
   for (const [k, v] of Object.entries(plan.trakt)) p(`   ${v.govde == null ? '✗ ' + v.durum : '✓'} ${k}`);
   p();
-  p(`ŞİMDİ           varlık ${once.varlik} · kimlik ${once.kimlik} · yük ${once.yuk} · çoklu-aktif trakt:episode ${once.cokluTraktBolum} · trakt:season ${once.cokluTraktSezon} · trakt:show ${once.cokluTraktDizi}`);
+  p(`ŞİMDİ           varlık ${once.varlik} · kimlik ${once.kimlik} · yük ${once.yuk} · çoklu-aktif trakt:episode ${once.cokluTraktBolum} · trakt:season ${once.cokluTraktSezon} · trakt:show ${once.cokluTraktDizi} · tmdb:episode ${once.cokluTmdbBolum}`);
   p(`UYGULANIRSA     +${fark.varlik} varlık · +${fark.kimlik} kimlik · +${fark.yuk} yük · SİLİNEN 0`);
   p(`                ${satir(tur)}`);
-  p(`BEKLENEN SONRA  çoklu-aktif trakt:episode ${plan.beklenen.cokluTraktBolum} · trakt:season ${plan.beklenen.cokluTraktSezon} · trakt:show ${plan.beklenen.cokluTraktDizi}`);
+  p(`BEKLENEN SONRA  çoklu-aktif trakt:episode ${plan.beklenen.cokluTraktBolum} · trakt:season ${plan.beklenen.cokluTraktSezon} · trakt:show ${plan.beklenen.cokluTraktDizi} · tmdb:episode ${plan.beklenen.cokluTmdbBolum ?? '(G1 ile birlikte — sayı sonradan ölçülür)'}`);
 
   p();
   p(`── G1s · sezon birleşmeleri — 🆕 08 raporunda YOKTU, ONAYIN GEREKİR${plan.secenek && plan.secenek.g1sYok ? ' (--g1s-yok: PLANA ALINMADI)' : ''}`);
@@ -78,6 +78,11 @@ function rapor(plan, once) {
     for (const e of k.eylem) p(`      • ${e}`);
   }
 
+  if (plan.gruplar.g6) {
+    p();
+    p(`── G6 · çift aktif tmdb:episode (O-6) — ${plan.gruplar.g6.length} kayıt · ${satir(say(plan.gruplar.g6, (k) => k.durum))}`);
+    for (const k of plan.gruplar.g6) p(`   ${k.dizi || '(başlıksız)'} ${k.yuva} «${k.baslik}» → ${k.durum}${k.kalan ? ` · kalan ${k.kalan}` : ''}${k.emekli.length ? ` · emekli ${k.emekli.join(', ')}` : ''}`);
+  }
   p();
   p('── Supabase (bu betik YAZMAZ)');
   p('   S1: G1 izleme satırları sahip kayıtta kalır — dokunulmaz. G5 film satırları bölümde kalır.');

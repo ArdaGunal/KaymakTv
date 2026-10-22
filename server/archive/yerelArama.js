@@ -44,6 +44,14 @@ async function arsivKunyesi(kaymakId, tur) {
 }
 
 /**
+ * Arama için Türkçe katlama: NFC + `tr` küçük harf, sonra noktasız «ı» → «i» (İ/I/ı/i hepsi eşleşsin).
+ * Saf — sınanır.
+ */
+function katla(metin) {
+  return String(metin).normalize('NFC').toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
+}
+
+/**
  * @param {'show'|'movie'} tur
  * @param {string} sorgu
  * @returns {Promise<Array>} Trakt `/search/:type` şeklinde; bulunamazsa ya da hata olursa [].
@@ -55,14 +63,16 @@ async function yerelAra(tur, sorgu, limit = VARSAYILAN_LIMIT) {
   const db = getDb();
   if (!db) return [];
   try {
-    // LIKE joker karakterleri kaçırılır: kullanıcının yazdığı «%» ya da «_» kalıp olmasın.
-    const kalip = `%${metin.replace(/[\\%_]/g, (k) => `\\${k}`)}%`;
-    const satirlar = db.prepare(
-      `SELECT kaymak_id, title, year FROM entities
-        WHERE type = ? AND title LIKE ? ESCAPE '\\'
-        ORDER BY (lower(title) = lower(?)) DESC, (lower(title) LIKE lower(?) || '%') DESC, length(title)
-        LIMIT ?`
-    ).all(tur, kalip, metin, metin, limit * 2);
+    // 🆕 M558 · D-11: eşleştirme JS'te, TÜRKÇE kurallarla. SQLite `LIKE`/`lower()` yalnız ASCII'de büyük/küçük
+    // harfi katlıyordu: «şahsiyet» «Şahsiyet»i bulmuyordu. Dizi+film başlıkları ~2,3 bin satır — her aramada
+    // taramak ucuz (ms). Sıra aynı: tam eşleşme → başta geçen → kısa başlık. Joker karakter sorunu da yok.
+    const aranan = katla(metin);
+    const satirlar = db.prepare('SELECT kaymak_id, title, year FROM entities WHERE type = ? AND title IS NOT NULL')
+      .all(tur)
+      .map((r) => ({ ...r, k: katla(r.title) }))
+      .filter((r) => r.k.includes(aranan))
+      .sort((x, y) => (y.k === aranan) - (x.k === aranan) || y.k.startsWith(aranan) - x.k.startsWith(aranan) || x.title.length - y.title.length)
+      .slice(0, limit * 2);
 
     const sonuc = [];
     for (const s of satirlar) {
@@ -78,4 +88,4 @@ async function yerelAra(tur, sorgu, limit = VARSAYILAN_LIMIT) {
   }
 }
 
-module.exports = { yerelAra };
+module.exports = { yerelAra, katla };

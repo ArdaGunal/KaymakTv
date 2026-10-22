@@ -71,6 +71,33 @@ const gunSaat = (gunEk, saat, dk = 30) => { const d = new Date(); d.setDate(d.ge
     await bekle(150);
     T.ok('12:30 → hiç deneme yok', k4.n === 0, String(k4.n));
     zam.stopMirrorSchedule();
+
+    // Saatlik tik / yeniden başlatma yolu: karar bellekten değil, ÖNCEDEN yazılmış `sync_log` satırından.
+    T.H('sync_log önceden dolu: karar satırlara göre');
+    const s5 = () => gunSaat(3, 8, 10);
+    satirYaz(gunSaat(3, 7, 10).getTime(), 'yazilan=5 atlanan=0 imlec=5');
+    const k5 = kosucuYap(s5, [true]);
+    zam.startMirrorSchedule({}, { kosucu: k5.fn, saat: s5, yenidenMs: 30, acilisMs: 10 });
+    await bekle(150);
+    T.ok('Başarılı satır var → koşmaz', k5.n === 0, String(k5.n));
+    zam.stopMirrorSchedule();
+
+    const s6 = () => gunSaat(4, 8, 10);
+    satirYaz(gunSaat(4, 7, 10).getTime(), 'entities season basarisiz: http_502 supabase_zaman_asimi');
+    const k6 = kosucuYap(s6, [true]);
+    zam.startMirrorSchedule({}, { kosucu: k6.fn, saat: s6, yenidenMs: 30, acilisMs: 10 });
+    await bekle(150);
+    T.ok('🔴 Yalnız düşen satır var → koşar (2026-10-21 hatası)', k6.n === 1, String(k6.n));
+    zam.stopMirrorSchedule();
+
+    const s7 = () => gunSaat(5, 8, 10);
+    satirYaz(gunSaat(5, 7, 10).getTime(), 'exception: ECONNRESET');
+    satirYaz(gunSaat(5, 7, 40).getTime(), 'entities season basarisiz: http_502 error code: 522');
+    const k7 = kosucuYap(s7, [false]);
+    zam.startMirrorSchedule({}, { kosucu: k7.fn, saat: s7, yenidenMs: 30, acilisMs: 10 });
+    await bekle(200);
+    T.ok(`İki düşen satır → son (${zam.GUNLUK_EN_COK_DENEME}.) deneme koşar, düşünce yenisi kurulmaz`, k7.n === 1, String(k7.n));
+    zam.stopMirrorSchedule();
   } finally {
     console.error = hata;
   }

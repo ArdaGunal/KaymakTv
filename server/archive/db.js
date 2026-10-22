@@ -382,6 +382,7 @@ function transaction(is) {
     throw error;
   } finally {
     acikIslemVar = false;
+    bekleyenleriYaz();
   }
 }
 
@@ -445,9 +446,63 @@ async function transactionAsync(is) {
     throw error;
   } finally {
     acikIslemVar = false;
+    // İşlem açıkken gelen işlem-dışı yazımlar ŞİMDİ, bir sonraki işlem BEGIN'den önce yazılır.
+    bekleyenleriYaz();
     serbestBirak();
   }
 }
+
+// ==========================================================================
+// 🆕 TEK YAZIM KAPISI — işlem DIŞI yazımlar (Paket D · M558 · dış denetim O-1a / R7)
+// ==========================================================================
+// SORUN (yeniden üretildi, R7): tek `DatabaseSync` bağlantısı var ve `transactionAsync` işlemi
+// `await`ler boyunca AÇIK tutuyor (yazıcının `nefesAl`'ı, gzip). O sırada işlem DIŞINDAN yapılan her
+// yazım (`logSync`, backfill defteri, geri düşüş sayacı, ayna imleci, gece sayacı) aynı bağlantıda
+// olduğu için o açık işleme KATILIYORDU; işlem geri alınınca onlar da sessizce kayboluyordu.
+//
+// KURAL: işlem dışı yazım ya hemen (açık işlem yoksa) ya da açık işlem KAPANDIKTAN sonra, bir sonraki
+// işlem başlamadan, sırayla yazılır. İşlemin İÇİNDEN yapılan yazım (aynı birim) bu kapıyı kullanmaz —
+// `islemIcindeMi()` ile ayırt edilir (aksi hâlde işlem kendi yazımını bekleyip kilitlenirdi).
+const bekleyenYazimlar = [];
+
+/** Şu an bir `transaction`/`transactionAsync` bağlamının İÇİNDE miyiz? */
+function islemIcindeMi() {
+  return !!islemBaglami.getStore();
+}
+
+/** 🆕 Paket E (M558): sıradaki bütün işlemler bitince çözülür (düzgün kapanış bekler). */
+function yazimlarBitsin() {
+  return yazimZinciri.catch(() => {});
+}
+
+/** Bağlantıda şu an AÇIK bir işlem var mı? (Kapı yazımı erteleyecek mi?) */
+function islemAcikMi() {
+  return acikIslemVar;
+}
+
+/**
+ * İşlem DIŞI (autocommit) yazım. Açık işlem yoksa hemen; varsa işlem kapanınca yazılır.
+ * @param {(db: object) => any} is  senkron yazım işi
+ * @returns {Promise<any>} işin sonucu (yazıldığında). Çağıran beklemek zorunda değil.
+ */
+function islemDisiYaz(is) {
+  const db = getDb();
+  if (!db) return Promise.resolve(null);
+  if (!acikIslemVar) {
+    try { return Promise.resolve(is(db)); } catch (error) { return Promise.reject(error); }
+  }
+  return new Promise((coz, red) => { bekleyenYazimlar.push({ is, coz, red }); });
+}
+
+function bekleyenleriYaz() {
+  if (!bekleyenYazimlar.length) return;
+  const db = getDb();
+  while (bekleyenYazimlar.length && !acikIslemVar) {
+    const { is, coz, red } = bekleyenYazimlar.shift();
+    try { coz(db ? is(db) : null); } catch (error) { red(error); }
+  }
+}
+
 
 /**
  * Çalışan veritabanından TUTARLI bir yedek alır.
@@ -457,17 +512,52 @@ async function transactionAsync(is) {
  * sırasında yazım olursa BOZUK bir yedek üretir. `VACUUM INTO` tek dosyalık,
  * tutarlı ve sıkıştırılmış bir kopya yazar (SQLite 3.27+).
  */
+//
+// 🆕 Paket D (M558 · O-1b / R8): yedek ARTIK ana bağlantıdan alınmıyor. Ana bağlantıda bir işlem açıkken
+// (yazıcının `nefesAl`'ı) `VACUUM INTO` «cannot VACUUM from within a transaction» ile düşüyordu ve o gün
+// yedeksiz geçiyordu (yeniden üretildi). Ayrı salt-okur bağlantı WAL'daki son İŞLENMİŞ durumu görür.
 function backupTo(hedefYol) {
-  const db = getDb();
-  if (!db) return { ok: false, reason: 'arsiv kapali' };
+  if (!getDb()) return { ok: false, reason: 'arsiv kapali' };
+  const kaynak = durum && durum.dbPath;
+  if (!kaynak) return { ok: false, reason: 'db yolu yok' };
   try {
-    // SQLite yol ayracı olarak `/` bekler; Windows'ta test edilebilsin.
-    const guvenliYol = hedefYol.replace(/\\/g, '/').replace(/'/g, "''");
-    db.exec(`VACUUM INTO '${guvenliYol}'`);
+    const ayri = new sqlite.DatabaseSync(kaynak, { readOnly: true });
+    try { ayri.prepare('VACUUM INTO ?').run(hedefYol); } finally { ayri.close(); }
     return { ok: true, path: hedefYol, bytes: fs.statSync(hedefYol).size };
   } catch (error) {
     return { ok: false, reason: error.message };
   }
+}
+
+/**
+ * 🆕 Paket D (M558 · O-2): `backupTo`'nun ASENKRON ikizi — `VACUUM INTO` ayrı bir İŞ PARÇACIĞINDA
+ * (`yedekIsci.js`), kendi salt-okur bağlantısıyla koşar; ana olay döngüsü donmaz (ölçüldü: Pi'de yedek
+ * 5,4–8,2 sn donduruyordu). Hedef `quick_check` ile doğrulanır; bozuksa silinir ve başarısız sayılır.
+ * Throw ETMEZ.
+ * @returns {Promise<{ok: boolean, path?: string, bytes?: number, reason?: string}>}
+ */
+function backupToAsync(hedefYol, { zamanAsimiMs = 10 * 60 * 1000 } = {}) {
+  if (!getDb()) return Promise.resolve({ ok: false, reason: 'arsiv kapali' });
+  const kaynak = durum && durum.dbPath;
+  if (!kaynak) return Promise.resolve({ ok: false, reason: 'db yolu yok' });
+  return new Promise((coz) => {
+    let bitti = false;
+    let sure = null;
+    const sonuclan = (r) => { if (!bitti) { bitti = true; if (sure) clearTimeout(sure); coz(r); } };
+    let isci;
+    try {
+      const { Worker } = require('node:worker_threads');
+      isci = new Worker(path.join(__dirname, 'yedekIsci.js'), { workerData: { kaynak, hedef: hedefYol } });
+    } catch (error) {
+      sonuclan({ ok: false, reason: `isci_acilamadi: ${error.message}` });
+      return;
+    }
+    sure = setTimeout(() => { isci.terminate().catch(() => {}); sonuclan({ ok: false, reason: 'zaman_asimi' }); }, zamanAsimiMs);
+    if (typeof sure.unref === 'function') sure.unref();
+    isci.once('message', (m) => sonuclan(m && m.ok ? { ok: true, path: hedefYol, bytes: m.bytes } : { ok: false, reason: (m && m.reason) || 'bilinmeyen' }));
+    isci.once('error', (e) => sonuclan({ ok: false, reason: e.message }));
+    isci.once('exit', (kod) => sonuclan({ ok: false, reason: `isci_cikti_${kod}` }));
+  });
 }
 
 /**
@@ -519,7 +609,12 @@ module.exports = {
   getDb,
   transaction,
   transactionAsync,
+  islemDisiYaz,
+  islemIcindeMi,
+  islemAcikMi,
+  yazimlarBitsin,
   backupTo,
+  backupToAsync,
   openReadOnly,
   closeArchive,
   HEDEF_SEMA_SURUMU,

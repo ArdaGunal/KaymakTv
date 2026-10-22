@@ -6,7 +6,7 @@
 // iki varlık, var olmayan satıra işlem → eylem YAZILMAZ, uyarı düşer (insan bakar).
 //
 // 🔴 SİLME EYLEMİ YOK. Arşiv silmez (K1 istisnası yalnız bağı TAŞIMAYA izin verir). Eylem türleri:
-//   varlikEkle · varlikGuncelle · kimlikTasi · kimlikEmekli · kimlikEtkin · kimlikEkle · yukTasi · yukEkle
+//   varlikEkle · varlikGuncelle · varlikDokun · kimlikTasi · kimlikEmekli · kimlikEtkin · kimlikEkle · yukTasi · yukEkle
 
 const crypto = require('crypto');
 const zlib = require('zlib');
@@ -156,6 +156,16 @@ function defterOlustur(q) {
     return true;
   }
 
+  // M557: alan değişmeden yalnız `updated_at` tazelenir — ayna türetilmiş alanı (ör. `tmdb_id`) yeniden göndersin.
+  const dokunulanVarlik = new Set();
+  function varlikDokun(kid, neden) {
+    if (!q.varlik.get(kid)) { uyarilar.push(`dokunulacak varlık yok: ${kid}`); return false; }
+    if (dokunulanVarlik.has(kid)) return false;
+    dokunulanVarlik.add(kid);
+    eylemler.push({ tur: 'varlikDokun', kaymak_id: kid, neden });
+    return true;
+  }
+
   // Yük yuvasının PLAN İÇİNDEKİ durumu: taşınan yükün eski yuvası boşalır, yeni yuvası dolar.
   function yukDolu(kid, provider, endpoint, lang) {
     const k = `${kid}|${provider}/${endpoint}/${lang}`;
@@ -175,7 +185,7 @@ function defterOlustur(q) {
   }
 
   return {
-    eylemler, uyarilar, yuvadaki, varlikEkle, varlikGuncelle,
+    eylemler, uyarilar, yuvadaki, varlikEkle, varlikGuncelle, varlikDokun,
     kimlikTasi: (kd, kid, hedef) => kimlik('kimlikTasi', kd, kid, hedef),
     kimlikEmekli: (kd, kid) => kimlik('kimlikEmekli', kd, kid),
     kimlikEtkin: (kd, kid) => kimlik('kimlikEtkin', kd, kid),

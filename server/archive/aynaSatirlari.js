@@ -88,15 +88,17 @@ function kapsamEki(kimlikler) {
 /**
  * `{runtime, tmdb, genres, firstAired}` — dördü de `kaymak_id → değer`.
  *
+ * 🆕 Paket D (M558 · O-2): mantık TEK yerde, bir ÜRETİCİDE (`haritaAdimlari`); her yük işlendikten sonra
+ * `yield` eder. Senkron `haritalariKur` onu sonuna kadar koşturur (anlık aktarım — küçük kapsam);
+ * `haritalariKurAsync` her N yükte olay döngüsüne döner (gece aynası — tüm arşiv; ölçüldü: tek blokta
+ * ~2,5 sn donma). Satırlar `.all()` ile ALINIR: aradaki nefeslerde aynı bağlantıdan yapılan yazımlar
+ * açık bir okuma imlecini etkilemesin.
+ *
  * @param {Object} db
  * @param {{kokler: string[], altAgac: string[]} | null} kapsam
  */
-function haritalariKur(db, kapsam = null) {
-  const runtime = new Map();
-  const genres = new Map();
-  const firstAired = new Map();
-  const tmdb = new Map();
-
+function* haritaAdimlari(db, kapsam, h) {
+  const { runtime, genres, firstAired, tmdb } = h;
   const kok = kapsamEki(kapsam && kapsam.kokler);
   const alt = kapsamEki(kapsam && kapsam.altAgac);
   // 📏 ÖLÇÜLDÜ (Pi, 2026-09-19): `source = ? AND kaymak_id IN (json_each)`
@@ -108,15 +110,17 @@ function haritalariKur(db, kapsam = null) {
   // Dizi/film KÖKÜ: runtime · genres · first_aired (film: released)
   for (const r of db.prepare(
     "SELECT kaymak_id, body FROM payloads WHERE endpoint IN ('show_detail','movie_detail')" + kok.sql
-  ).iterate(...kok.p)) {
+  ).all(...kok.p)) {
     const j = ac(r.body);
     const k = Array.isArray(j) ? j[0] : j;
-    if (!k) continue;
-    if (Number.isFinite(k.runtime)) runtime.set(r.kaymak_id, k.runtime);
-    const g = temizGenres(k.genres);
-    if (g) genres.set(r.kaymak_id, g);
-    const d = gecerliTarih(k.first_aired || k.released);
-    if (d) firstAired.set(r.kaymak_id, d);
+    if (k) {
+      if (Number.isFinite(k.runtime)) runtime.set(r.kaymak_id, k.runtime);
+      const g = temizGenres(k.genres);
+      if (g) genres.set(r.kaymak_id, g);
+      const d = gecerliTarih(k.first_aired || k.released);
+      if (d) firstAired.set(r.kaymak_id, d);
+    }
+    yield;
   }
 
   // Bölümler: `show_seasons` içinde yalnızca TRAKT id'si var → trakt id →
@@ -125,10 +129,9 @@ function haritalariKur(db, kapsam = null) {
   const traktTarih = new Map();
   for (const r of db.prepare(
     "SELECT body FROM payloads WHERE endpoint = 'show_seasons'" + kok.sql
-  ).iterate(...kok.p)) {
+  ).all(...kok.p)) {
     const j = ac(r.body);
-    if (!j) continue;
-    for (const sezon of (Array.isArray(j) ? j : [j])) {
+    for (const sezon of (j ? (Array.isArray(j) ? j : [j]) : [])) {
       for (const b of (sezon?.episodes || [])) {
         const tid = b?.ids?.trakt;
         if (tid == null) continue;
@@ -137,30 +140,50 @@ function haritalariKur(db, kapsam = null) {
         if (d) traktTarih.set(String(tid), d);
       }
     }
+    yield;
   }
   if (traktRuntime.size > 0 || traktTarih.size > 0) {
     // 🪦 Emekli kimlik türetmez (v2): sağlayıcının sildiği bölüm kimliğinden
     // değer iliştirmek bayat veriyi canlı tutardı.
     for (const r of db.prepare(
       `SELECT source_id, kaymak_id FROM external_ids WHERE ${kaynak} = 'trakt:episode' AND retired_at IS NULL` + alt.sql
-    ).iterate(...alt.p)) {
+    ).all(...alt.p)) {
       const rt = traktRuntime.get(String(r.source_id));
       if (rt !== undefined) runtime.set(r.kaymak_id, rt);
       const d = traktTarih.get(String(r.source_id));
       if (d !== undefined) firstAired.set(r.kaymak_id, d);
     }
   }
+  yield;
 
   // 🪦 Emekli kimlik elenir — aksi hâlde aynı kayda bağlı İKİ tmdb kimliği
   // olur ve değer satır sırasına göre BELİRSİZ olur.
   for (const r of db.prepare(
     `SELECT source_id, kaymak_id FROM external_ids WHERE ${kaynak} IN ('tmdb:show','tmdb:movie','tmdb:episode') AND retired_at IS NULL` + alt.sql
-  ).iterate(...alt.p)) {
+  ).all(...alt.p)) {
     const n = Number(r.source_id);
     if (Number.isInteger(n)) tmdb.set(r.kaymak_id, n);
   }
+}
 
-  return { runtime, tmdb, genres, firstAired };
+const bosHarita = () => ({ runtime: new Map(), tmdb: new Map(), genres: new Map(), firstAired: new Map() });
+
+/** Senkron — küçük kapsam (anlık aktarım) ya da testler. */
+function haritalariKur(db, kapsam = null) {
+  const h = bosHarita();
+  for (const _ of haritaAdimlari(db, kapsam, h)) { /* sonuna kadar */ }
+  return h;
+}
+
+/** 🆕 M558 — her `parca` yükte olay döngüsüne döner (gece aynası). Sonuç `haritalariKur` ile BİREBİR aynı. */
+async function haritalariKurAsync(db, kapsam = null, { parca = 25 } = {}) {
+  const h = bosHarita();
+  let n = 0;
+  for (const _ of haritaAdimlari(db, kapsam, h)) {
+    n += 1;
+    if (n % parca === 0) await new Promise((r) => setImmediate(r));
+  }
+  return h;
 }
 
 // ── Satırlar ──────────────────────────────────────────────────────────────
@@ -249,6 +272,7 @@ module.exports = {
   AYNALANAN_KAYNAKLAR,
   TIP_SIRASI,
   haritalariKur,
+  haritalariKurAsync,
   varlikSatiri,
   disKimlikSatiri,
   altAgacFazlari,

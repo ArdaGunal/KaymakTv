@@ -465,10 +465,37 @@ app.use((req, res) => {
 // ==========================================
 // START SERVER
 // ==========================================
-app.listen(PORT, () => {
+const sunucu = app.listen(PORT, () => {
   console.log(`==========================================`);
   console.log(`🚀 Kaymak Server is running on port ${PORT}`);
   console.log(`🌐 Local URL: http://localhost:${PORT}`);
   logSecurityMode();
   console.log(`==========================================`);
 });
+
+// ==========================================
+// 🆕 DÜZGÜN KAPANIŞ — Paket E (M558 · dış denetim O-10)
+// ==========================================
+// Servis sık yeniden başlatılıyor (`kaymakbaslat`, `Restart=always`) ve eskiden SIGTERM'de arşiv
+// kuyruğundaki yazımlar ve açık işlem sessizce kayboluyordu. Artık: yeni bağlantı alma → arşiv kuyruğunu
+// ve yazım zincirini en çok 8 sn boşalt → bağlantıyı kapat (WAL işlenir) → çık. Anlık aktarımın
+// bekleyenleri gece aynasıyla zaten taşınır (zaman damgası) — yalnız sayısı loglanır.
+let kapaniyor = false;
+async function duzgunKapan(sinyal) {
+  if (kapaniyor) return;
+  kapaniyor = true;
+  const { archiveQueue } = require('./server/archive/queue');
+  const { anlikAktarim } = require('./server/archive/anlikAktarim');
+  const { yazimlarBitsin, closeArchive } = require('./server/archive/db');
+  const bas = Date.now();
+  console.log(`[Kapanis] ${sinyal} — yeni istek alinmiyor; arsiv kuyrugu bosaltiliyor (kuyruk ${archiveQueue.getStats().bekleyen}, anlik aktarim ${anlikAktarim.getStats().bekleyen}).`);
+  try { sunucu.close(); } catch (_) { /* zaten kapali */ }
+  const sinir = new Promise((r) => { const t = setTimeout(r, 8000); if (t.unref) t.unref(); });
+  await Promise.race([archiveQueue.drain().then(() => yazimlarBitsin()), sinir]);
+  const kalan = archiveQueue.getStats().bekleyen;
+  try { closeArchive(); } catch (_) { /* kapanırken hata çıkışı engellemez */ }
+  console.log(`[Kapanis] tamam (${Date.now() - bas} ms${kalan ? `, ${kalan} yazim YETISMEDI` : ''}).`);
+  process.exit(0);
+}
+process.on('SIGTERM', () => { duzgunKapan('SIGTERM'); });
+process.on('SIGINT', () => { duzgunKapan('SIGINT'); });

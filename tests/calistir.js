@@ -51,6 +51,7 @@ const TAKIMLAR = [
   { ad: 'ayna', grup: 'arsiv', dosya: 'arsiv/ayna.test.js', aciklama: 'C30: ayna satir bicimi + tekil aktarim esitligi' },
   { ad: 'anlik', grup: 'arsiv', dosya: 'arsiv/anlik-aktarim.test.js', aciklama: 'C30: anlik aktarim kuyrugu, eksikte cekme, kapi' },
   { ad: 'denetim-arsiv', grup: 'arsiv', dosya: 'arsiv/denetim-regresyon.test.js', aciklama: 'M549/M550: dis denetim R1-R6 (kimlik birlesmesi, kanonik sorgu, tazelik, slug koku, tur kapisi)' },
+  { ad: 'paket-de', grup: 'arsiv', dosya: 'arsiv/paket-de-regresyon.test.js', aciklama: 'M558: dis denetim R7 (sizma) + R8 (yedek) + O-2/O-4/O-10 + D-1/D-9 (once KALDI, sonra GECTI)' },
   { ad: 'ayna-zamanlayici', grup: 'arsiv', dosya: 'arsiv/ayna-zamanlayici.test.js', aciklama: 'M555: dusen ayna turu ayni sabah yeniden denenir (gunde en cok 3), yeniden baslatma sayimi korur' },
   { ad: 'kimlik-onarim', grup: 'arsiv', dosya: 'arsiv/kimlik-onarim.test.js', aciklama: 'M552: A3 onarim araci — G1/G1s/G2/G3/G5, veri kaybi yok, tekrar kosuda is yok, hata -> ROLLBACK' },
   // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,

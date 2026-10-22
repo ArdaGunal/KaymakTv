@@ -28,6 +28,8 @@ const { getArchiveStatus, getDb } = require('./archive/db');
 const { readFallbackStats } = require('./archive/stats');
 const { archiveQueue } = require('./archive/queue');
 const { kapiDurumu } = require('./archive/kanonik');
+const { anlikAktarim } = require('./archive/anlikAktarim');
+const { bugunkuAyna } = require('./archive/mirrorSchedule');
 
 const SAGLAYICILAR = ['tmdb', 'trakt'];
 
@@ -66,6 +68,26 @@ function arsivSayaclari(db) {
   }
 }
 
+/**
+ * 🆕 Paket E (M558 · N-1/O-10): son ayna turu — «iki gece üst üste düştü» artık tek `curl`'de görünür.
+ * Herkese açık uç: hata METNİ dönmez, yalnız kısa neden kodu (`http_502`, `network`, `exception`).
+ */
+function sonAynaDurumu(db) {
+  if (!db) return null;
+  try {
+    const r = db.prepare("SELECT at, detail FROM sync_log WHERE event = 'mirror' ORDER BY id DESC LIMIT 1").get();
+    const bugun = bugunkuAyna();
+    if (!r) return { at: null, basarili: null, bugunDeneme: bugun.deneme };
+    const d = String(r.detail || '');
+    const basarili = d.startsWith('yazilan=');
+    const yazilan = basarili ? Number((d.match(/^yazilan=(\d+)/) || [])[1]) || 0 : null;
+    const neden = basarili ? null : ((d.match(/basarisiz: (\w+)/) || d.match(/^(exception)/) || [])[1] || 'bilinmeyen');
+    return { at: new Date(r.at).toISOString(), basarili, yazilan, neden, bugunDeneme: bugun.deneme, bugunBasarili: bugun.basarili };
+  } catch (_) {
+    return null;
+  }
+}
+
 /** Uç gövdesi — saf veri, Express'ten bağımsız (testler doğrudan çağırır). */
 async function saglikRaporu() {
   const lf = getLazyFetchStatus();
@@ -93,6 +115,8 @@ async function saglikRaporu() {
       // 🆕 M551 — süreç başından beri, bellekten (yeniden başlatmada sıfırlanır). `kuyruk.yazilan`
       // arşive giren canlı yazımı, `kanonikKapi` kapının geçirdiği/reddettiği sorguları sayar.
       kuyruk: archiveQueue.getStats(),
+      anlikAktarim: anlikAktarim.getStats(),
+      sonAyna: sonAynaDurumu(db),
       kanonikKapi: kapiDurumu(),
       geriDusus: geriDusus
         ? {

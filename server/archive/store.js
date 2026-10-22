@@ -22,7 +22,7 @@
 
 const zlib = require('zlib');
 const { promisify } = require('util');
-const { getDb } = require('./db');
+const { getDb, islemDisiYaz, islemIcindeMi, islemAcikMi } = require('./db');
 
 // 🔴 ASENKRON SIKIŞTIRMA — ÖLÇÜMDEN DOĞDU (2026-08-29).
 // `zlib.gzipSync` olay döngüsünü BLOKLAR. Ölçüm (`general-hospital`
@@ -67,9 +67,11 @@ async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data
   try {
     const ham = Buffer.from(JSON.stringify(data));
     const gz = await gzipAsync(ham);
-    const simdi = Date.now();
 
-    const sonuc = db.prepare(
+    // 🆕 Paket D (M558 · O-1a / R7): işlemin İÇİNDEN çağrıldıysa (Trakt yazıcısı) işlemin parçasıdır,
+    // hemen yazılır. İşlem DIŞINDAN çağrıldıysa tek yazım kapısından geçer — başkasının açık işlemine
+    // katılıp onunla birlikte geri alınmasın (yeniden üretildi: TMDB künyesi KAYBOLUYORDU).
+    const yaz = (h) => h.prepare(
       `INSERT INTO payloads (kaymak_id, provider, endpoint, lang, body, bytes_raw, bytes_gz, fetched_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(kaymak_id, provider, endpoint, lang) DO UPDATE SET
@@ -82,7 +84,8 @@ async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data
        -- 150 günlük bir zarfla çalışan aktarım betiği, dün sağlayıcıdan zorla tazelenmiş yükü geri
        -- götürebiliyordu (yeniden üretildi, R6). Eşit damga yazar (aynı yanıtın tekrarı zararsız).
        WHERE excluded.fetched_at >= payloads.fetched_at`
-    ).run(kaymakId, provider, endpoint, lang || DILSIZ, gz, ham.length, gz.length, fetchedAt, simdi);
+    ).run(kaymakId, provider, endpoint, lang || DILSIZ, gz, ham.length, gz.length, fetchedAt, Date.now());
+    const sonuc = islemIcindeMi() ? yaz(db) : await islemDisiYaz(yaz);
 
     // `changes === 0` → satır vardı ve DAHA YENİSİYDİ; yazılmadı. Hata değil, sonuç.
     if (sonuc.changes === 0) return { ok: true, atlandi: 'daha_yeni_var', bytesRaw: ham.length, bytesGz: gz.length };
@@ -168,21 +171,31 @@ function logSync({ event, provider = null, endpoint = null, kaymakId = null, det
     );
   }
 
+  // 🆕 Paket D (M558 · R7): log TEK YAZIM KAPISINDAN — açık bir işlem varsa o kapanınca yazılır. Eskiden
+  // işlemin içine sızıyor, işlem geri alınınca TAM DA o hatayı anlatan satır kayboluyordu. Damga ŞİMDİ
+  // alınır (olayın anı), yazım ertelense de.
+  const at = Date.now();
+  const uyar = (error) => {
+    const imza = `${event}|${error.message}`;
+    if (!uyarilanHatalar.has(imza)) {
+      uyarilanHatalar.add(imza);
+      console.error(`[Arsiv] 🔴 sync_log YAZILAMADI (event=${event}): ${error.message}`);
+    }
+  };
+  const yaz = (h) => h.prepare(
+    'INSERT INTO sync_log (at, event, provider, endpoint, kaymak_id, detail) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(at, event, provider, endpoint, kaymakId, detail);
   try {
-    db.prepare(
-      'INSERT INTO sync_log (at, event, provider, endpoint, kaymak_id, detail) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(Date.now(), event, provider, endpoint, kaymakId, detail);
+    // Açık işlem yoksa ŞİMDİ ve senkron (sonuç doğru döner); varsa işlem kapanınca (hata o zaman uyarılır).
+    if (!islemAcikMi()) { yaz(db); return true; }
+    islemDisiYaz(yaz).catch(uyar);
     return true;
   } catch (error) {
     // 🔴 HÂLÂ THROW ETMİYOR — log yazamamak işi durdurmaz (A2 sözleşmesi).
     // AMA ARTIK SESSİZ DEĞİL. §C16'nın asıl dersi CHECK değil BURASIYDI:
     // `catch (_) { return false; }` üç kat savunmacı sarmalayıcının en
     // alttakiydi ve aynanın sekiz günlük sessizliğini o üretti.
-    const imza = `${event}|${error.message}`;
-    if (!uyarilanHatalar.has(imza)) {
-      uyarilanHatalar.add(imza);
-      console.error(`[Arsiv] 🔴 sync_log YAZILAMADI (event=${event}): ${error.message}`);
-    }
+    uyar(error);
     return false;
   }
 }

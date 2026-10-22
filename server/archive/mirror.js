@@ -31,11 +31,19 @@
 // bölüm için `show_seasons` → `episodes[].runtime`. Doluluk ölçüldü
 // (M311): dizi %98,9 · film %99,8 · bölüm %100.
 
-const { isArchiveEnabled, getDb } = require('./db');
+const { isArchiveEnabled, getDb, islemDisiYaz } = require('./db');
 const { logSync } = require('./store');
 const {
-  AYNALANAN_KAYNAKLAR, TIP_SIRASI, haritalariKur, varlikSatiri, disKimlikSatiri,
+  AYNALANAN_KAYNAKLAR, TIP_SIRASI, haritalariKurAsync, varlikSatiri, disKimlikSatiri,
 } = require('./aynaSatirlari');
+
+/**
+ * 🆕 Paket E (M558 · O-4): imleç TUR BAŞINDAN bu kadar geride sınırlanır. Tur sırasında (fazlar arası
+ * `await`) yazılan bir satırın damgası, ondan SONRA seçilen fazın en büyük damgasından küçük kalabilir;
+ * imleç o en büyük damgaya ilerlerse satır bir daha hiç seçilmezdi (kalıcı, sessiz eksik). Son 5 dk'nın
+ * satırları ertesi turda bir kez daha gider — upsert idempotent, zararsız.
+ */
+const IMLEC_GUVENLIK_PAYI_MS = 5 * 60 * 1000;
 
 /** Worker'ın kabul ettiği parti tavanı (`routes/catalogSync.js` ile AYNI). */
 const PARTI = 500;
@@ -68,9 +76,11 @@ function imlecOku(db) {
   }
 }
 
+// 🆕 Paket D (M558 · R7): tek yazım kapısından — açık bir işleme sızıp onunla geri alınmasın.
+// `db` parametresi geriye uyum için duruyor (testler doğrudan çağırıyor).
 function imlecYaz(db, deger) {
-  db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-    .run(IMLEC_ANAHTARI, String(deger));
+  return islemDisiYaz((h) => h.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+    .run(IMLEC_ANAHTARI, String(deger)));
 }
 
 // ── Gönderim ──────────────────────────────────────────────────────────────
@@ -134,12 +144,14 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
     if (!cfg.workerUrl) return { ok: false, reason: 'worker_url_yok' };
     if (cfg.secret.length < 32) return { ok: false, reason: 'sir_yok' };
 
+    const turBasi = Date.now();
     const imlec = tamAyna ? 0 : imlecOku(db);
     const sayac = { yazilan: 0, atlanan: 0 };
     let enYuksek = imlec;
     let toplam = 0;
 
-    const h = haritalariKur(db);
+    // 🆕 Paket D (M558 · O-2): parça parça — olay döngüsü ~2,5 sn tek blokta donmasın.
+    const h = await haritalariKurAsync(db);
 
     // 1-3) Varlıklar — TİP SIRASINDA (FK zorunluluğu)
     for (const tipler of TIP_SIRASI) {
@@ -187,17 +199,18 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
 
     // 🔴 İmleç YALNIZCA tur eksiksiz bittiyse ilerler.
     const tamamlandi = toplam <= tavan;
-    if (tamamlandi && enYuksek > imlec) imlecYaz(db, enYuksek);
+    const yeniImlec = Math.max(imlec, Math.min(enYuksek, turBasi - IMLEC_GUVENLIK_PAYI_MS));
+    if (tamamlandi && yeniImlec > imlec) await imlecYaz(db, yeniImlec);
 
     // "Sessizce hiçbir şey yapmadı" ile "çalışmadı" ayırt edilebilmeli
     // (Madde 284/286'nın dersi) — eksik olmasa BİLE logla.
     logSync({
       event: 'mirror',
       provider: 'supabase',
-      detail: `yazilan=${sayac.yazilan} atlanan=${sayac.atlanan} imlec=${tamamlandi ? enYuksek : imlec}${tamamlandi ? '' : ' TAVAN_ASILDI'}`,
+      detail: `yazilan=${sayac.yazilan} atlanan=${sayac.atlanan} imlec=${tamamlandi ? yeniImlec : imlec}${tamamlandi ? '' : ' TAVAN_ASILDI'}`,
     });
 
-    return { ok: true, ...sayac, toplam, imlec: tamamlandi ? enYuksek : imlec, tamamlandi };
+    return { ok: true, ...sayac, toplam, imlec: tamamlandi ? yeniImlec : imlec, tamamlandi };
   } catch (error) {
     console.error('[Ayna] beklenmeyen hata:', error?.message || error);
     try { logSync({ event: 'mirror', provider: 'supabase', detail: `exception: ${error?.message}` }); } catch (_) {}
@@ -206,6 +219,7 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
 }
 
 module.exports = {
+  IMLEC_GUVENLIK_PAYI_MS,
   runMirror,
   partiGonder,
   akisiGonder,

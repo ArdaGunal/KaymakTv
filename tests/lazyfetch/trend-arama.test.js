@@ -75,6 +75,9 @@ const ARAMA = [{ type: 'show', score: 900, show: { title: 'Dark', ids: { trakt: 
   const b1 = await getir('endpoint=/search/show&query=Bos&extended=full');
   const b2 = await getir('endpoint=/search/show&query=Bos&extended=full');
   T.ok('🔴 M535: BOS arama sonucu saklanmaz (iki istek de no-store, Trakt a yeniden sorulur)', b1.lf === 'no-store' && b2.lf === 'no-store', `${b1.lf}/${b2.lf}`);
+  const bt1 = await getir('endpoint=/movies/trending&extended=full&page=3&limit=5');
+  const bt2 = await getir('endpoint=/movies/trending&extended=full&page=3&limit=5');
+  T.ok('🔴 M558 · D-7: BOS trend de saklanmaz (gecici bos yanit 6 sa «trend yok» olmaz)', bt1.lf === 'no-store' && bt2.lf === 'no-store', `${bt1.lf}/${bt2.lf}`);
 
   T.H('Diger yollar eski isleyiciye AYNEN duser');
   T.ok('/users/settings -> next()', (await getir('endpoint=/users/settings')).govde.eski === true);
@@ -98,6 +101,12 @@ const ARAMA = [{ type: 'show', score: 900, show: { title: 'Dark', ids: { trakt: 
   T.ok('Sonuc Trakt arama sekli + TAM kunye (ids.trakt, ids.tmdb, overview)',
     y.govde[0].type === 'show' && y.govde[0].show.ids.trakt === 1388 && y.govde[0].show.ids.tmdb === 1396 && y.govde[0].show.overview === 'Kimya ogretmeni');
   T.ok('Film aramasi dizi dondurmez', (await getir('endpoint=/search/movie&query=breaking&extended=full')).status === 503);
+  await archiveCatalogResponse({ provider: 'trakt', family: 'show_detail', path: '/shows/2000', query: { extended: 'full', translations: 'tr' },
+    data: { title: 'Şahsiyet', year: 2018, ids: { trakt: 2000, tmdb: 79000 } } });
+  const ks = await getir('endpoint=/search/show&query=%C5%9Fahsiyet&extended=full');
+  const bs = await getir('endpoint=/search/show&query=%C5%9EAHS%C4%B0YET&extended=full');
+  T.ok('🔴 M558 · D-11: «şahsiyet» ve «ŞAHSİYET» arşivde «Şahsiyet»i BULUR (Türkçe katlama)',
+    ks.lf === 'archive-search' && ks.govde[0].show.ids.trakt === 2000 && bs.lf === 'archive-search' && bs.govde[0].show.ids.trakt === 2000, `${ks.lf}/${bs.lf}`);
   const yuzde = await getir('endpoint=/search/show&query=%25&extended=full');
   T.ok('LIKE joker karakteri kalip olmaz («%» her seyi getirmez)', yuzde.status === 503);
   const tr2 = await getir('endpoint=/movies/trending&extended=full');

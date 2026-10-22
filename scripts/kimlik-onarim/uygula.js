@@ -24,6 +24,7 @@ function sayim(db) {
     cokluTraktBolum: g(`SELECT COUNT(*) n FROM (SELECT kaymak_id FROM external_ids WHERE source='trakt:episode' AND retired_at IS NULL GROUP BY kaymak_id HAVING COUNT(*)>1)`),
     cokluTraktDizi: g(`SELECT COUNT(*) n FROM (SELECT kaymak_id FROM external_ids WHERE source='trakt:show' AND retired_at IS NULL GROUP BY kaymak_id HAVING COUNT(*)>1)`),
     cokluTraktSezon: g(`SELECT COUNT(*) n FROM (SELECT kaymak_id FROM external_ids WHERE source='trakt:season' AND retired_at IS NULL GROUP BY kaymak_id HAVING COUNT(*)>1)`),
+    cokluTmdbBolum: g(`SELECT COUNT(*) n FROM (SELECT kaymak_id FROM external_ids WHERE source='tmdb:episode' AND retired_at IS NULL GROUP BY kaymak_id HAVING COUNT(*)>1)`),
   };
 }
 
@@ -43,6 +44,9 @@ function birEylem(db, e, simdi, traktYanitlari) {
         .run(...alan.map((a) => e.alanlar[a]), simdi, e.kaymak_id, ...alan.map((a) => e.once[a]));
       break;
     }
+    case 'varlikDokun':
+      r = db.prepare('UPDATE entities SET updated_at = ? WHERE kaymak_id = ?').run(simdi, e.kaymak_id);
+      break;
     case 'kimlikTasi':
       r = db.prepare(`UPDATE external_ids SET kaymak_id = ?, last_seen_at = ? WHERE source = ? AND source_id = ? AND kaymak_id = ? AND retired_at IS NULL`)
         .run(e.hedef, simdi, e.source, e.source_id, e.kaymak_id);
@@ -93,6 +97,7 @@ function denetle(db, once, plan) {
     if (sonra[k] !== once[k] + fark[k]) hatalar.push(`${k}: ${once[k]} + ${fark[k]} beklenirdi, ${sonra[k]} oldu`);
   }
   if (sonra.cokluTraktBolum !== plan.beklenen.cokluTraktBolum) hatalar.push(`çoklu-aktif trakt:episode ${plan.beklenen.cokluTraktBolum} beklenirdi, ${sonra.cokluTraktBolum}`);
+  if (plan.beklenen.cokluTmdbBolum != null && sonra.cokluTmdbBolum !== plan.beklenen.cokluTmdbBolum) hatalar.push(`çoklu-aktif tmdb:episode ${plan.beklenen.cokluTmdbBolum} beklenirdi, ${sonra.cokluTmdbBolum}`);
   if (sonra.cokluTraktSezon !== plan.beklenen.cokluTraktSezon) hatalar.push(`çoklu-aktif trakt:season ${plan.beklenen.cokluTraktSezon} beklenirdi, ${sonra.cokluTraktSezon}`);
   if (sonra.cokluTraktDizi !== plan.beklenen.cokluTraktDizi) hatalar.push(`çoklu-aktif trakt:show ${plan.beklenen.cokluTraktDizi} beklenirdi, ${sonra.cokluTraktDizi}`);
   const fk = db.prepare('PRAGMA foreign_key_check').all();

@@ -23,7 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { backupTo, getArchiveStatus, isArchiveEnabled } = require('./db');
+const { backupToAsync, getArchiveStatus, isArchiveEnabled } = require('./db');
 const { logSync } = require('./store');
 
 // Kaç kopya tutulur. 7 = bir haftalık geri dönüş. Arşiv ölçüldü: 40 MB
@@ -103,7 +103,9 @@ async function runBackup({ keep = VARSAYILAN_KOPYA, dir = null } = {}) {
   const hedef = path.join(hedefDizin, `katalog-${damga}.db`);
 
   const basladi = Date.now();
-  const sonuc = backupTo(hedef);
+  // 🆕 Paket D (M558 · O-1b/O-2): ayrı İŞ PARÇACIĞI + ayrı salt-okur bağlantı (`yedekIsci.js`). Ana
+  // bağlantının açık işlemi yedeği düşürmez (R8), olay döngüsü 5–8 sn donmaz; kopya `quick_check`'li.
+  const sonuc = await backupToAsync(hedef);
   if (!sonuc.ok) {
     console.error(`[Arsiv yedek] BASARISIZ: ${sonuc.reason}`);
     logSync({ event: 'error', detail: `yedek: ${sonuc.reason}` });
@@ -160,6 +162,7 @@ function kopyalariDondur(dizin, keep) {
 
 let zamanlayici = null;
 let sonYedekGunu = null;
+let calisiyor = false;
 
 /**
  * Gece yedek zamanlayıcısını kurar. `server.js` açılışta bir kez çağırır.
@@ -199,15 +202,21 @@ function startBackupSchedule(config) {
   }
   if (zamanlayici) return zamanlayici;
 
+  // 🆕 Paket D (M558 · D-5c): gün YALNIZ BAŞARILI yedekle kapanır. Eskiden `sonYedekGunu` yedekten ÖNCE
+  // yazılıyordu: düşen yedek o gün bir daha denenmiyordu. Artık pencere içindeki bir sonraki kontrol
+  // yeniden dener; `calisiyor` aynı anda iki yedeği engeller.
   const kontrolEt = () => {
     const simdi = new Date();
     const saat = simdi.getHours();
     const gun = simdi.toDateString();
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
-    if (sonYedekGunu === gun) return;
+    if (calisiyor || sonYedekGunu === gun) return;
     if (bugunYedekAlindiMi(simdi)) { sonYedekGunu = gun; return; }
-    sonYedekGunu = gun;
-    runBackup(config).catch(() => { /* runBackup zaten yutuyor */ });
+    calisiyor = true;
+    runBackup(config)
+      .then((r) => { if (r && r.ok) sonYedekGunu = gun; })
+      .catch(() => { /* runBackup zaten yutuyor */ })
+      .finally(() => { calisiyor = false; });
   };
 
   zamanlayici = setInterval(kontrolEt, KONTROL_ARALIGI_MS);
@@ -241,6 +250,7 @@ function startBackupSchedule(config) {
 function stopBackupSchedule() {
   if (zamanlayici) { clearInterval(zamanlayici); zamanlayici = null; }
   sonYedekGunu = null;
+  calisiyor = false;
 }
 
 module.exports = {

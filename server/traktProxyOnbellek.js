@@ -91,7 +91,9 @@ async function onbellekliTraktGet(req, res, next) {
   try {
     const sonuc = await resolveRequest({
       provider: 'trakt', path: endpoint, query: sorgu,
-      fetcher: aramaTuru ? bosAramayiSaklama(createTraktCatalogFetcher(clientId)) : createTraktCatalogFetcher(clientId),
+      // 🆕 M558 · D-7: boş liste TREND'de de saklanmaz (eskiden yalnız aramada) — Trakt'ın geçici boş trend
+      // yanıtı 6 sa «trend yok» diye servis ediliyordu.
+      fetcher: bosAramayiSaklama(createTraktCatalogFetcher(clientId)),
     });
     if (sonuc.status === 'not-found') return res.status(404).json({ error: 'Resource not found' });
     res.setHeader('x-lazyfetch', sonuc.status);

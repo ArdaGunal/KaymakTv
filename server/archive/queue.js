@@ -53,6 +53,11 @@ const { archiveCatalogResponse } = require('./writer');
 // yazım Pi'de en kötü 5,6 sn sürüyor, yani 200 iş ≈ 18 dakikalık birikim.
 const MAX_KUYRUK = 200;
 
+// 🆕 Paket E (M558 · O-10): taşma artık GÖRÜNÜR — dakikada en çok bir uyarı + `sync_log` satırı (gürültü
+// sınırlı; sayının tamamı `getStats().dusurulen` ve `/api/health`'te).
+const TASMA_UYARI_ARALIGI_MS = 60 * 1000;
+let sonTasmaUyarisi = 0;
+
 /**
  * @param {Object} [opts]
  * @param {(is: Object, sonuc: Object) => void} [opts.sonrasi] 🆕 §C30 —
@@ -152,6 +157,12 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
             bekleyenler.delete(dusen);
             bekleyicileriCoz(dusen);
             istatistik.dusurulen += 1;
+            const simdi = Date.now();
+            if (simdi - sonTasmaUyarisi > TASMA_UYARI_ARALIGI_MS) {
+              sonTasmaUyarisi = simdi;
+              console.warn(`[Arsiv kuyruk] TASTI (${maxQueue}) — en eski yazim dusuruldu (toplam dusen ${istatistik.dusurulen}).`);
+              logSync({ event: 'error', detail: `kuyruk_tasmasi: tavan ${maxQueue}, toplam dusen ${istatistik.dusurulen}` });
+            }
           }
           bekleyenler.set(anahtar, is);
           sira.push(anahtar);

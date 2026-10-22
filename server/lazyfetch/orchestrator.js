@@ -196,7 +196,10 @@ async function resolveRequest({ provider, path, query = {}, fetcher, maxEnvelope
     // BAŞARISIZLIK MERDİVENİ — sıra bilinçli, gerekçesi `04_KARARLAR.md` §A5
     // ------------------------------------------------------------------
     // 1) GRACE FALLBACK: elimizde eski bir cache zarfı varsa onu dön.
-    if (envelope) {
+    // 🆕 M558 · D-1: NEGATİF zarf («sağlayıcı bir kez 404 dedi») grace değildir — geçici bir 404'ün
+    // ardından sağlayıcı 5xx verirse kullanıcı 404 görüyor, arşiv HİÇ sorulmuyordu. Negatifte önce
+    // arşive bakılır; arşivde yoksa negatif sonuç (not-found) eskisi gibi döner.
+    if (envelope && !envelope.isNegative) {
       console.error(`[LazyFetch] Sağlayıcı başarısız, grace fallback dönülüyor (${relativePath}): ${error.message}`);
       return envelopeToResult(envelope, 'grace-fallback');
     }
@@ -226,6 +229,8 @@ async function resolveRequest({ provider, path, query = {}, fetcher, maxEnvelope
     if (arsiv.ok) {
       return { status: 'archive-fallback', data: arsiv.data };
     }
+    // D-1: arşivde de yoksa elimizdeki negatif zarf (son bilinen «yok») dönülür.
+    if (envelope) return envelopeToResult(envelope, 'grace-fallback');
 
     // 3) Sağlayıcı da cache de arşiv de yok — hata OLDUĞU GİBİ yukarı.
     //    Geri düşüş yolları teşhisi BOZMAMALI: operatör "Trakt 504 verdi"

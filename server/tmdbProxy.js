@@ -34,7 +34,9 @@ router.get('/', tmdbLimiter, async (req, res) => {
     }
 
     let endpoint = req.query.endpoint;
-    if (!endpoint) {
+    // 🆕 M558 · D-9: TİP kontrolü — `?endpoint=a&endpoint=b` dizi olarak gelir; `startsWith` TypeError →
+    // 500 ve iç hata mesajı dışarı sızıyordu. Diğer köprüler gibi yalnız dize kabul edilir.
+    if (!endpoint || typeof endpoint !== 'string') {
       return res.status(400).json({ error: 'Endpoint is required' });
     }
 

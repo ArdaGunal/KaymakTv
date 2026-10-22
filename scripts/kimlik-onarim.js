@@ -26,6 +26,7 @@ const { DatabaseSync } = require('node:sqlite');
 const { sorgular, defterOlustur } = require('./kimlik-onarim/defter');
 const { planG1, planG2, planG3, planG5 } = require('./kimlik-onarim/plan');
 const { planG1s } = require('./kimlik-onarim/sezon');
+const { planG6 } = require('./kimlik-onarim/tmdb');
 const { uygula, sayim } = require('./kimlik-onarim/uygula');
 const { rapor } = require('./kimlik-onarim/rapor');
 
@@ -104,13 +105,18 @@ function planla(db, dbYolu, yanitlar, { g1sYok = false } = {}) {
   // G1s ÖNCE: G1'in hedef sezonları ancak sezon birleşmeleri ayrılınca bulunur (sezon.js başlığı).
   const g1s = g1sYok ? [] : planG1s(db, q, d);
   const gruplar = { g1s, g1: planG1(db, q, d), g2: planG2(db, q, d, trakt), g3: planG3(db, q, d, trakt), g5: planG5(db, q, d) };
+  gruplar.g6 = planG6(db, q, d); // M557 · O-6 — G1'den SONRA: G1'in taşıdığı tmdb kimliklerine dokunmaz
   const g1sCozulen = g1s.filter((k) => k.durum === 'ayrilir').length;
   const g1Cozulen = gruplar.g1.filter((k) => k.durum === 'temiz_ayrilir' || k.durum === 'hedef_dolu').length;
   const g2Cozulen = gruplar.g2.filter((k) => k.tasinan.some((x) => x.startsWith('trakt:show='))).length;
   const plan = {
     surum: 1, uretildi: new Date().toISOString(), db: dbYolu,
     eylemler: d.eylemler, trakt: kullanilan, gruplar, uyarilar: d.uyarilar,
-    beklenen: { cokluTraktBolum: once.cokluTraktBolum - g1Cozulen, cokluTraktDizi: once.cokluTraktDizi - g2Cozulen, cokluTraktSezon: once.cokluTraktSezon - g1sCozulen },
+    beklenen: {
+      cokluTraktBolum: once.cokluTraktBolum - g1Cozulen, cokluTraktDizi: once.cokluTraktDizi - g2Cozulen, cokluTraktSezon: once.cokluTraktSezon - g1sCozulen,
+      // G6 yalnız kendi çözdüklerini düşer; G1'in ayırdığı kayıtlardaki tmdb çiftleri G1 ile zaten gider (o yüzden yalnız G1 yoksa kesin)
+      cokluTmdbBolum: g1Cozulen ? null : once.cokluTmdbBolum - gruplar.g6.filter((k) => k.durum === 'ayrilir').length,
+    },
     secenek: { g1sYok },
   };
   plan.parmakIzi = crypto.createHash('sha256').update(JSON.stringify({ e: plan.eylemler, t: plan.trakt, b: plan.beklenen })).digest('hex').slice(0, 16);

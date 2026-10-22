@@ -40,7 +40,7 @@
 // kimseyi yanıltmaz; ama SIFIR olması yanıltırdı — o yüzden yazım yolu
 // mümkün olduğunca basit tutuldu (tek `INSERT ... ON CONFLICT`).
 
-const { getDb } = require('./db');
+const { getDb, islemDisiYaz } = require('./db');
 
 /**
  * İki geri düşüş arasında bu kadar SESSİZLİK olursa, ikincisi YENİ BİR
@@ -92,21 +92,24 @@ function bumpFallback(family, now = Date.now()) {
     const yeniKesinti = !oncekiSon || (now - oncekiSon) > SESSIZLIK_ESIGI_MS;
 
     const simdi = String(now);
-    const artir = db.prepare(
-      `INSERT INTO meta (key, value) VALUES (?, '1')
-       ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`
-    );
-    artir.run(ANAHTAR_TOPLAM);
-    if (family) artir.run(AILE_ONEKI + String(family).slice(0, 40));
+    const onceki = db.prepare('SELECT value FROM meta WHERE key = ?').get(ANAHTAR_TOPLAM);
+    // 🆕 Paket D (M558 · R7): yazımlar TEK YAZIM KAPISINDAN (açık bir işleme sızıp onunla geri
+    // alınmasın). Okuma senkron kalır: çağıran `toplam`/`yeniKesinti`'yi hemen kullanıyor.
+    islemDisiYaz((h) => {
+      const artir = h.prepare(
+        `INSERT INTO meta (key, value) VALUES (?, '1')
+         ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`
+      );
+      artir.run(ANAHTAR_TOPLAM);
+      if (family) artir.run(AILE_ONEKI + String(family).slice(0, 40));
+      // İlk olay: yalnızca YOKSA yazılır — "ne zaman başladı" bilgisi
+      // ezilirse kesintinin süresini bir daha hesaplayamayız.
+      h.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").run(ANAHTAR_ILK, simdi);
+      h.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+        .run(ANAHTAR_SON, simdi);
+    }).catch(() => { /* sayaç, isteği bozamaz */ });
 
-    // İlk olay: yalnızca YOKSA yazılır — "ne zaman başladı" bilgisi
-    // ezilirse kesintinin süresini bir daha hesaplayamayız.
-    db.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").run(ANAHTAR_ILK, simdi);
-    db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-      .run(ANAHTAR_SON, simdi);
-
-    const t = db.prepare('SELECT value FROM meta WHERE key = ?').get(ANAHTAR_TOPLAM);
-    return { ok: true, toplam: parseInt(t && t.value, 10) || 0, yeniKesinti };
+    return { ok: true, toplam: (parseInt(onceki && onceki.value, 10) || 0) + 1, yeniKesinti };
   } catch (_) {
     return { ok: false, toplam: 0, yeniKesinti: false };
   }

@@ -35,7 +35,7 @@
 // paralel arka plan yenilemesi çalıştırıyor, yani devre kesicinin sayacına
 // backfill'den BAĞIMSIZ hatalar da düşebilir. Pay bilinçli olarak geniş.
 
-const { getDb } = require('./db');
+const { getDb, islemDisiYaz } = require('./db');
 const { findByExternal } = require('./identity');
 const { hedefAnahtari, hedefleriUret } = require('./backfillSource');
 
@@ -106,7 +106,8 @@ function defterYaz(h, { hata = null, basarili = false, simdi = Date.now() } = {}
   try {
     const mevcut = defterOku(anahtar);
     const deneme = basarili ? (mevcut ? mevcut.deneme : 0) : (mevcut ? mevcut.deneme : 0) + 1;
-    db.prepare(
+    // 🆕 Paket D (M558 · R7): tek yazım kapısından — açık bir işleme sızıp onunla geri alınmasın.
+    islemDisiYaz((baglanti) => baglanti.prepare(
       `INSERT INTO backfill_state
          (hedef, provider, endpoint, source_id, lang, deneme, son_hata, son_deneme_at, sonraki_deneme_at, basarili_at)
        VALUES (?, 'trakt', ?, ?, ?, ?, ?, ?, ?, ?)
@@ -122,7 +123,7 @@ function defterYaz(h, { hata = null, basarili = false, simdi = Date.now() } = {}
       simdi,
       basarili ? null : simdi + geriCekilme(deneme),
       basarili ? simdi : null
-    );
+    )).catch(() => { /* defter yazamamak backfill'i durdurmaz */ });
     return true;
   } catch (_) {
     return false;

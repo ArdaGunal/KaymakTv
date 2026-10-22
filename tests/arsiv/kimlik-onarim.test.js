@@ -48,6 +48,12 @@ const ep = (season, number, trakt, tmdb, tvdb, title) => ({ season, number, titl
   V('episode_f', 'episode', 'season_a1', 1, 9, 'Film özel'); K('trakt:episode=5009', 'episode_f'); K('trakt:movie=900', 'episode_f');
   yuk.run('episode_f', 'trakt', 'movie_detail', 'tr', gz({ title: 'Film', year: 2017, ids: { trakt: 900 } }), t, t);
 
+  // G6 (O-6): bölümde iki aktif tmdb:episode — yalnız biri Trakt'ın güncel yükünde
+  V('show_b', 'show', null, null, null, 'Dizi B'); K('trakt:show=400', 'show_b');
+  V('season_b1', 'season', 'show_b', 1, null, 'Season 1'); K('trakt:season=4001', 'season_b1');
+  V('episode_b11', 'episode', 'season_b1', 1, 1, 'B1'); K('trakt:episode=8001', 'episode_b11'); K('tmdb:episode=9001', 'episode_b11'); K('tmdb:episode=9999', 'episode_b11');
+  yuk.run('show_b', 'trakt', 'show_seasons', '-', gz([{ number: 1, ids: { trakt: 4001 }, episodes: [ep(1, 1, 8001, 9001, null, 'B1')] }]), t, t);
+
   const yanitlar = {
     '/shows/300?extended=full&translations=tr': { govde: { title: 'Hill', year: 2018, ids: { trakt: 300, tvdb: 999 } }, fetched_at: 2_000 },
     '/shows/300/seasons?extended=full,episodes': { govde: [], fetched_at: 2_000 },
@@ -79,6 +85,13 @@ const ep = (season, number, trakt, tmdb, tvdb, title) => ({ season, number, titl
   T.ok('G3 (404): sezon kimliğiyle bulunan sayısal kayda birleşti', h.prepare('SELECT parent_id FROM entities WHERE kaymak_id=?').get('season_k1').parent_id === 'show_n' && kimde('trakt:slug=eski-slug') === 'show_n');
   T.ok('G5: film kimliği + yükü yeni film kaydında', h.prepare('SELECT type FROM entities WHERE kaymak_id=?').get(kimde('trakt:movie=900')).type === 'movie'
     && !!h.prepare("SELECT 1 FROM payloads WHERE kaymak_id=? AND endpoint='movie_detail'").get(kimde('trakt:movie=900')));
+
+  T.ok('G6: yükte olmayan eski tmdb EMEKLİ, doğrusu kaldı, kayıt dokunuldu (ayna yeniden gönderir)',
+    kimde('tmdb:episode=9001') === 'episode_b11' && kimde('tmdb:episode=9999') === null
+      && h.prepare("SELECT retired_at FROM external_ids WHERE source='tmdb:episode' AND source_id='9999'").get().retired_at != null
+      && h.prepare("SELECT updated_at FROM entities WHERE kaymak_id='episode_b11'").get().updated_at > t);
+  T.ok("G6: G1 kaydındaki tmdb çifti G1'e bırakıldı", plan.gruplar.g6.find((k) => k.kid === 'episode_a11').durum === 'g1_kapsaminda');
+  T.ok('Sonra çoklu-aktif tmdb:episode 0', sonra.cokluTmdbBolum === 0, String(sonra.cokluTmdbBolum));
 
   T.H('🔴 VERİ KAYBI YOK');
   const kimlikSonra = tumKimlik();

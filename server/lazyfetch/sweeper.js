@@ -5,6 +5,8 @@
 // (01_MIMARI.md "cache ≠ arşiv") — bu dosya o tanımı uygulayan yer.
 //
 // 🔴🔴 EN KRİTİK KURAL (03_FAZLAR.md L6): **YALNIZCA `cache/` ALT AĞACI.**
+// (🆕 M558 · D-2 istisnası: `tmp/`'de 1 SAATTEN ESKİ yetim dosyalar silinir — `tmpYetimleriniTemizle`.
+//  Hiçbir atomik yazım bir saat sürmez; `open` ile `rename` arasında ölen süreçlerin artığıdır.)
 // `tmp/` ve `quarantine/` ASLA silinmez:
 //   • `quarantine/` bozuk kayıtların KANIT deposudur (diskStore.js) — silmek
 //     teşhis imkânını yok eder.
@@ -135,7 +137,30 @@ async function safeDelete(cacheDir, filePath, errors) {
   }
 }
 
-/** `tmp/` ve `quarantine/` yalnızca SAYILIR — asla silinmez (dosya başlığı). */
+/**
+ * 🆕 M558 · D-2: `tmp/`'deki 1 saatten ESKİ yetimleri siler. Taze dosyaya dokunmaz (yazılıyor olabilir).
+ * Yol `tmp/` kökünün DOĞRUDAN altında olmalı (alt dizin/sembolik bağ izlenmez). Throw etmez.
+ * @returns {Promise<{silinen: number, kalan: number}>}
+ */
+async function tmpYetimleriniTemizle({ yasMs = 60 * 60 * 1000, simdi = Date.now() } = {}) {
+  const dir = getLazyFetchDir('tmp');
+  const sonuc = { silinen: 0, kalan: 0 };
+  if (!dir) return sonuc;
+  let entries = [];
+  try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return sonuc; }
+  for (const e of entries) {
+    if (!e.isFile()) continue;
+    const yol = path.join(dir, e.name);
+    try {
+      const st = await fsp.lstat(yol);
+      if (simdi - st.mtimeMs > yasMs) { await fsp.unlink(yol); sonuc.silinen += 1; } else sonuc.kalan += 1;
+    } catch { /* bu arada rename edilmiş olabilir — sorun değil */ }
+  }
+  if (sonuc.silinen) console.log(`[LazyFetch] tmp/: ${sonuc.silinen} yetim dosya silindi (1 saatten eski).`);
+  return sonuc;
+}
+
+/** `quarantine/` (ve `tmp/`'nin tazesi) yalnızca SAYILIR — asla silinmez (dosya başlığı). */
 async function countOnly(dirName) {
   const dir = getLazyFetchDir(dirName);
   if (!dir) return 0;
@@ -227,6 +252,7 @@ async function runSweep(config = {}) {
     deletedByQuota,
     freedBytes,
     families: families.size,
+    tmpYetimSilinen: (await tmpYetimleriniTemizle()).silinen,
     orphanTmpFiles: await countOnly('tmp'),
     quarantineFiles: await countOnly('quarantine'),
     errors,
@@ -312,7 +338,7 @@ function startSweeperSchedule(config) {
   }
   if (timer) return timer; // çift çağrı zararsız olsun
 
-  timer = setInterval(() => {
+  const kontrolEt = () => {
     const now = new Date();
     const hour = now.getHours();
     const dayKey = now.toDateString();
@@ -322,11 +348,21 @@ function startSweeperSchedule(config) {
     lastSweepDay = dayKey;
 
     sweepAndReport(config);
-  }, CHECK_INTERVAL_MS);
+  };
+  timer = setInterval(kontrolEt, CHECK_INTERVAL_MS);
 
   // `unref()` — bu timer Node'un kapanmasını ENGELLEMEZ. Olmasaydı
   // `Ctrl+C` sonrası süreç bir saate kadar takılı kalabilirdi.
   if (typeof timer.unref === 'function') timer.unref();
+
+  // 🆕 M558 · D-5a — AÇILIŞ KONTROLÜ (yedek/ayna/backfill'deki Madde 296 dersi): `setInterval` ilk
+  // kontrolü bir SAAT sonra yapar; 05:xx'te yeniden başlatmada o günün süpürmesi atlanıyordu. Açılışta
+  // ayrıca `tmp/` yetimleri temizlenir (D-2).
+  const acilis = setTimeout(() => {
+    tmpYetimleriniTemizle().catch(() => {});
+    kontrolEt();
+  }, 150 * 1000);
+  if (typeof acilis.unref === 'function') acilis.unref();
 
   console.log(
     `[LazyFetch] Süpürücü kuruldu — her gün ${SWEEP_WINDOW_START_HOUR}:00-${SWEEP_WINDOW_END_HOUR}:00 arası bir tur.`
@@ -358,6 +394,7 @@ module.exports = {
   SWEEP_WINDOW_START_HOUR,
   SWEEP_WINDOW_END_HOUR,
   // Yalnızca test için dışa veriliyor.
+  tmpYetimleriniTemizle,
   scanCache,
   getDiskUsage,
 };

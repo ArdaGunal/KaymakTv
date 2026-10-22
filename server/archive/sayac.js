@@ -42,7 +42,7 @@
 // Alarm yine de doğrudur: o da bilinmesi gereken bir olaydır. Mesaj bu
 // yüzden "bozuldu" demiyor, NE OLDUĞUNU söylüyor.
 
-const { isArchiveEnabled, getDb } = require('./db');
+const { isArchiveEnabled, getDb, islemDisiYaz } = require('./db');
 const { logSync } = require('./store');
 
 // Gece haritasındaki BEŞİNCİ iş. Sıra:
@@ -153,11 +153,15 @@ function sayimYap() {
     });
 
     // ── TABANI GÜNCELLE ─────────────────────────────────────────────────
-    const yaz = db.prepare(
-      'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
-    );
-    for (const t of IZLENEN) yaz.run(META_ONEKI + t, String(simdiki[t]));
-    yaz.run(META_ONEKI + 'at', String(Date.now()));
+    // 🆕 Paket D (M558 · R7): tek yazım kapısından.
+    const at = String(Date.now());
+    islemDisiYaz((h) => {
+      const yaz = h.prepare(
+        'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+      );
+      for (const t of IZLENEN) yaz.run(META_ONEKI + t, String(simdiki[t]));
+      yaz.run(META_ONEKI + 'at', at);
+    }).catch((e) => console.error(`[Arsiv sayac] taban yazilamadi: ${e.message}`));
 
     return { ok: true, ilk: !onceki, dusus, simdiki, onceki, emekli };
   } catch (error) {

@@ -36,6 +36,9 @@ const GUN = 24 * 3600 * 1000;
   const eski2 = dosyaYaz(T.kok, 'cache/trakt/show_seasons/bb/4444.json.gz', 250);
   // Bu UCU de KASTEN 300 gunluk: yas elemesine takilmalari GEREKIRDI.
   const tmpDosya = dosyaYaz(T.kok, 'tmp/yarim-yazim.tmp', 300);
+  // 🆕 M558 · D-2: TAZE tmp dosyası (yazılıyor olabilir) — süpürmeden SAĞ çıkmalı.
+  const tmpTaze = path.join(T.kok, 'tmp', 'su-an-yaziliyor.tmp');
+  fs.writeFileSync(tmpTaze, 'x');
   const karantina = dosyaYaz(T.kok, 'quarantine/1700000000__bozuk.json.gz', 300);
   // 🔴 ARSIV (A1): ayni SSD kokunde ama BASKA bir sistem (01_MIMARI.md
   // "cache != arsiv"). Supurucu buraya dokunursa GERI DONULEMEZ veri kaybi
@@ -48,9 +51,11 @@ const GUN = 24 * 3600 * 1000;
 
   T.ok('200 gunden eski cache kayitlari silindi', r.deletedByAge === 2 && !fs.existsSync(eski1) && !fs.existsSync(eski2));
   T.ok('Taze cache kayitlari KORUNDU', fs.existsSync(taze1) && fs.existsSync(taze2));
-  T.ok('tmp/ dosyasi 300 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(tmpDosya));
+  // M558 · D-2: kural değişti — 1 saatten ESKİ tmp yetimi silinir, tazesi korunur.
+  T.ok('🆕 D-2: 300 gunluk tmp/ YETIMI silindi', !fs.existsSync(tmpDosya) && r.tmpYetimSilinen === 1, String(r.tmpYetimSilinen));
+  T.ok('🔴 D-2: TAZE tmp/ dosyasi (yaziliyor olabilir) KORUNDU', fs.existsSync(tmpTaze));
   T.ok('quarantine/ dosyasi 300 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(karantina));
-  T.ok('tmp/ ve quarantine/ yalnizca SAYILDI', r.orphanTmpFiles === 1 && r.quarantineFiles === 1);
+  T.ok('quarantine/ yalnizca SAYILDI, tmp/ sayimi temizlikten SONRA', r.orphanTmpFiles === 1 && r.quarantineFiles === 1, JSON.stringify({ t: r.orphanTmpFiles, q: r.quarantineFiles }));
   T.ok('🔴 ARSIV veritabani 300 GUNLUK olmasina ragmen SILINMEDI', fs.existsSync(arsivDb) && fs.existsSync(arsivWal));
   T.ok('Arsiv supurme sayimina bile GIRMIYOR (kapsam disi)', r.scanned === 4);
   T.ok('Aile ayrimi provider/family duzeyinde', r.families === 2, r.families + ' aile');
