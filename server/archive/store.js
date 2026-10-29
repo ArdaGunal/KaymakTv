@@ -152,6 +152,7 @@ const BILINEN_OLAYLAR = new Set([
   'upsert', 'conflict', 'error', 'backfill', 'vacuum',
   'mirror', // §C16 — CHECK bunu sekiz gun boyunca yutmustu
   'sayac',  // §C22 — gecelik satir sayimi (sayac.js)
+  'tutarlilik', // Parça A (2026-10-29) — özet > sezon listesi tazelemesi (tutarlilik.js)
 ]);
 
 // Aynı arızayı her yazımda bağırmamak için — journald'ı boğmadan bir kez

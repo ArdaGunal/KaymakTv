@@ -290,6 +290,41 @@ function yayindaMi(family, data, now = Date.now()) {
   return false;
 }
 
+// ==========================================================================
+// 🆕 PARÇA C — AKILLI SÜRE (`show_seasons`, 2026-10-29)
+// ==========================================================================
+// 🔬 ÖLÇÜLDÜ: «Çekiç ve Gül»ün sezon listesi son bölümü 90 günden eski diye
+// 30 gün taze sayıldı; 4. sezon bu sürede yayınlandı ve kimse göremedi. Haftalık
+// dizilerde de 7 gün, yeni bölümü bir haftaya kadar geciktirebiliyor.
+//   1. Listede GELECEK tarihli bölüm varsa → en yakını + `YAYIN_PAYI_MS`
+//      BAYATLAMA SINIRI olur (sağlayıcının 12 sa tabanının da ÜSTÜNDE — tavan).
+//   2. Yoksa arşivdeki dizi durumu: `ended`/`canceled` → 30 g; yayında → 7 g.
+//   3. Durum bilinmiyorsa eski kural (`yayindaMi`, son bölüm ≤ 90 gün).
+// ⚠️ Zarf süresi ±%10 rastgele kayar (`envelope.js` `applyJitter`) → sınır
+// `JITTER_UST`e bölünür; en geç bayatlama tam sınıra denk gelir.
+const YAYIN_PAYI_MS = 6 * SAAT_MS;
+const JITTER_UST = 1.1;
+const BITMIS_DURUMLAR = new Set(['ended', 'canceled']);
+const YAYINDAKI_DURUMLAR = new Set(['returning series', 'in production', 'planned']);
+
+/** SAF — `{ tazeMs, sinirMs }`; `sinirMs` null değilse süre ona kırpılır. */
+function sezonPolitikasi(data, durum = null, now = Date.now()) {
+  let enYakin = Infinity;
+  for (const sezon of Array.isArray(data) ? data : []) {
+    for (const bolum of (sezon && sezon.episodes) || []) {
+      const t = bolum && bolum.first_aired ? Date.parse(bolum.first_aired) : NaN;
+      if (Number.isFinite(t) && t > now && t < enYakin) enYakin = t;
+    }
+  }
+  if (Number.isFinite(enYakin)) {
+    return { tazeMs: YAYINDA_TAZE_MS, sinirMs: Math.floor((enYakin + YAYIN_PAYI_MS - now) / JITTER_UST) };
+  }
+  const d = String(durum || '').toLowerCase();
+  if (BITMIS_DURUMLAR.has(d)) return { tazeMs: KATALOG_TAZE_MS, sinirMs: null };
+  if (YAYINDAKI_DURUMLAR.has(d)) return { tazeMs: YAYINDA_TAZE_MS, sinirMs: null };
+  return { tazeMs: yayindaMi('show_seasons', data, now) ? YAYINDA_TAZE_MS : KATALOG_TAZE_MS, sinirMs: null };
+}
+
 /**
  * TTL ve grace süresini çözer.
  *
@@ -300,8 +335,10 @@ function yayindaMi(family, data, now = Date.now()) {
  * @param {Object} [ctx]
  * @param {string} [ctx.family] Beyaz listedeki aile adı
  * @param {*}      [ctx.data]   Sağlayıcı yanıtı (yayında mı tespiti için)
+ * @param {string} [ctx.durum]  🆕 Parça C — arşivdeki dizi durumu (yalnız `show_seasons`)
+ * @param {number} [ctx.now]
  */
-function resolveTtl(providerMaxAgeSeconds, { family = null, data = null } = {}) {
+function resolveTtl(providerMaxAgeSeconds, { family = null, data = null, durum = null, now = Date.now() } = {}) {
   const saglayici =
     typeof providerMaxAgeSeconds === 'number' && providerMaxAgeSeconds > 0
       ? providerMaxAgeSeconds * 1000
@@ -325,11 +362,14 @@ function resolveTtl(providerMaxAgeSeconds, { family = null, data = null } = {}) 
     return { ttlMs, graceMs: Math.min(ttlMs * DEFAULT_GRACE_MULTIPLIER, GRACE_CEILING_MS) };
   }
 
-  const politikaTaze = yayindaMi(family, data) ? YAYINDA_TAZE_MS : KATALOG_TAZE_MS;
+  const sezon = family === 'show_seasons' ? sezonPolitikasi(data, durum, now) : null;
+  const politikaTaze = sezon ? sezon.tazeMs : (yayindaMi(family, data, now) ? YAYINDA_TAZE_MS : KATALOG_TAZE_MS);
 
   // 🔴 SAĞLAYICI TABAN, POLİTİKA TABAN — hangisi UZUNSA o. Sağlayıcı bizden
   // uzun bir süre söylerse ona uyarız (o zaman bizden daha emin demektir).
-  const ttlMs = Math.min(Math.max(saglayici, politikaTaze, TTL_FLOOR_MS), TTL_CEILING_MS);
+  let ttlMs = Math.min(Math.max(saglayici, politikaTaze, TTL_FLOOR_MS), TTL_CEILING_MS);
+  // 🆕 Parça C: yaklaşan bölümün yayın sınırı TAVANDIR — sağlayıcı tabanını da keser.
+  if (sezon && sezon.sinirMs !== null) ttlMs = Math.min(ttlMs, Math.max(sezon.sinirMs, TTL_FLOOR_MS));
 
   // Bayat pencere: toplam servis edilebilir süreye tamamlar.
   const graceMs = Math.max(0, Math.min(KATALOG_TOPLAM_MS - ttlMs, GRACE_CEILING_MS));
@@ -344,6 +384,9 @@ module.exports = {
   NEGATIVE_GRACE_MS,
   // Yalnızca test/teşhis için dışa veriliyor.
   yayindaMi,
+  sezonPolitikasi,
+  YAYIN_PAYI_MS,
+  JITTER_UST,
   KATALOG_TAZE_MS,
   KATALOG_TOPLAM_MS,
   YAYINDA_TAZE_MS,

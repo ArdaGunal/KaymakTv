@@ -16,9 +16,10 @@
 
 const { isArchiveEnabled, getDb } = require('./db');
 const { logSync } = require('./store');
-const {
-  fetchTakipEdilenler, hedefListesi, fetchImportHedefleri, tasiBekleyenleri,
-} = require('./backfillSource');
+const { fetchTakipEdilenler, hedefListesi, hedefAnahtari } = require('./backfillSource');
+// 2026-10-29: aktarım turu 400 satır sınırı yüzünden kendi dosyasına taşındı (davranış aynı).
+const { aktarimTuru } = require('./backfillAktarim');
+const { celiskiHedefleri } = require('./tutarlilik');
 const { eksikleriBul, bayatArsivHedefleri } = require('./backfill');
 const { tamamla } = require('./backfillTamamla');
 const { getLazyFetchStatus } = require('../lazyfetch/paths');
@@ -63,6 +64,14 @@ const KONTROL_ARALIGI_MS = 60 * 60 * 1000;
  */
 const GECELIK_TAVAN = 200;
 
+/**
+ * Arşivin kendi bayat dizilerinden gecede en fazla kaç tanesi (§C20).
+ * 🆕 Parça E (2026-10-29): 30 → 60. Ölçüldü: 306 devam eden dizide 10 günden
+ * bayat 48 birikmişti (en eskisi 12 gün) — 30/gece ve 3/7 gece 522 ile kaçan tur
+ * kuyruğu eritemiyordu. +30 hedef ≈ +2-3 dk, `GECELIK_TAVAN` içinde.
+ */
+const BAYAT_TAVAN = 60;
+
 let zamanlayici = null;
 let sonKosuGunu = null;
 
@@ -89,119 +98,6 @@ function bugunKosulduMu(simdi = new Date()) {
   }
 }
 
-// ==========================================================================
-// 📥 AKTARIM TURU — GECE KUYRUĞUNUN ÜÇÜNCÜ VE SON ÖNCELİĞİ (T5.3)
-// ==========================================================================
-// Kullanıcının mühürlü kuralı (2026-09-11): *"öncelik tıklananlar, en son ise
-// listede kalanlar iner… o gün çok şey inmemişse inerler… veriyi
-// filtrelemiyoruz."*
-//
-//   1. TIKLANANLAR   → zaten ANLIK yolda (LazyFetch A2 kancası); gece
-//                      kuyruğuna HİÇ düşmez.
-//   2. AKIŞ HEDEFLERİ → bugünkü talep (`feed_activities`), ÖNCE işlenir.
-//   3. AKTARIM ARTIKLARI → bu tur. KALAN bütçeyle, EN SON.
-//
-// 🔴 BÜTÇE PAYLAŞILIYOR, EKLENMİYOR. `GECELIK_TAVAN` gecenin TAMAMI için;
-// aktarım turu akış turundan ARTANI alır. Ayrı bir tavan vermek, "öncelik
-// akışta" kuralını sayılarla çürütür ve SSD'yi iki kat yorardı (2026-09-02
-// `EIO`, M285 — bu sayılar GEVŞETİLMEZ).
-//
-// ══════════════════════════════════════════════════════════════════════════
-// 🔴 TAŞIMA İKİ KEZ ÇAĞRILIYOR — ama ASIL İŞİ YAPAN "ÖNCE" OLANI
-// ══════════════════════════════════════════════════════════════════════════
-// ÖLÇÜLDÜ (2026-09-12, M353 — ilk gerçek tur Pi'de koştu):
-//
-//   02:00-03:59  BACKFILL → indirilen yapım **Pi arşivine** (SQLite) yazılır
-//   07:00-08:59  AYNA     → arşiv **Supabase'e** itilir (`mirror.js`)
-//
-// `046` bekleyen satırı **Supabase'in** `catalog_external_ids`'ine bakarak
-// çözüyor. Yani bu gece indirilen yapım, ayna 07:00'de koşana kadar orada
-// YOK — turdan SONRAKİ çağrı kendi gecesinin indirdiklerini **hiçbir zaman
-// göremez**. O satırlar ERTESİ gecenin "ÖNCE" çağrısında erir (~19 saat).
-//
-// ⚠️ Bu bilinçli olarak KABUL EDİLDİ (kullanıcı, 2026-09-12): veri kaybı yok,
-// politika bozulmuyor, sıra yalnızca gecikiyor. Aynayı bu pencereye sokmak
-// 02:00-04:00'e DÖRDÜNCÜ bir SSD işi eklerdi ve pencere haritasının gerekçesi
-// (M285 `EIO`) yeniden tartışılmalıydı. ⛔ "Sonraki çağrı işe yaramıyor,
-// silelim" DEME: ayna bir gün bu pencereye taşınırsa tek işe yarayan o olur,
-// ve bugün de ücreti tek bir RPC.
-//
-// `tasinan: 0` HER İKİSİNDE DE HATA DEĞİLDİR.
-
-/**
- * Aktarım artıklarını işler. 🔴 ASLA THROW ETMEZ.
- *
- * @param {number} butce Akış turundan ARTAN hedef sayısı
- * @returns {Promise<Object>} log için özet
- */
-async function aktarimTuru(butce, dil, fetcher) {
-  const ozet = { calisti: false, oncekiTasima: null, sonrakiTasima: null, hedef: 0 };
-
-  // ── 1) Turdan ÖNCE: çözülmüş bekleyenleri erit ──
-  const once = await tasiBekleyenleri();
-  ozet.oncekiTasima = once;
-  if (!once.ok) {
-    // Yapılandırma eksikse (sır/URL yok) bu bir HATA DEĞİL, bir DURUM —
-    // aktarım hattı henüz kurulmamış olabilir. Loglanır, tur sessizce biter.
-    logSync({ event: 'backfill', provider: 'trakt', detail: `aktarim: tasima atlandi (${once.reason})` });
-    return ozet;
-  }
-
-  // Bekleyen hiç kalmadıysa hedef sormaya gerek yok — çıkış ölçütü bu.
-  if (once.kalan === 0) {
-    logSync({ event: 'backfill', provider: 'trakt', detail: `aktarim: bekleyen YOK (bu turda ${once.tasinan} eridi)` });
-    return ozet;
-  }
-
-  if (butce <= 0) {
-    logSync({
-      event: 'backfill', provider: 'trakt',
-      detail: `aktarim: butce yok, ${once.kalan} satir yarina kaldi (bu turda ${once.tasinan} eridi)`,
-    });
-    return ozet;
-  }
-
-  // ── 2) Hedefleri al ──
-  // 🔑 Bütçe HEDEF sayısı, YAPIM sayısı değil: dizi 2 hedef (`show_detail` +
-  // `show_seasons`), film 1. En kötü durumda hepsi dizi olabilir, o yüzden
-  // yapım tavanı bütçenin YARISI istenir — `tamamla`'nın `limit`i zaten son
-  // sözü söylüyor, bu yalnızca boşuna büyük liste çekmemek için.
-  const liste = await fetchImportHedefleri({ limit: Math.max(1, Math.floor(butce / 2)) });
-  if (!liste.ok) {
-    logSync({ event: 'backfill', provider: 'trakt', detail: `aktarim: hedef listesi alinamadi (${liste.reason})` });
-    return ozet;
-  }
-
-  const hedefler = hedefListesi(liste.items, dil);
-  ozet.hedef = hedefler.length;
-  const { kapsanan, beklemede, eksik } = eksikleriBul(hedefler);
-
-  if (eksik.length) {
-    ozet.calisti = true;
-    ozet.sonuc = await tamamla({ hedefler: eksik, fetcher, limit: butce });
-  }
-
-  // ── 3) Turdan SONRA ──
-  // ⚠️ Bu çağrı BU GECE inenleri eritemez (yukarıdaki ayna sırası); araya
-  // giren başka bir yol satır çözmüşse yakalar. Ücreti tek RPC.
-  const sonra = await tasiBekleyenleri();
-  ozet.sonrakiTasima = sonra;
-
-  const s = ozet.sonuc;
-  logSync({
-    event: 'backfill', provider: 'trakt',
-    detail: `aktarim: yapim ${liste.items.length}, hedef ${hedefler.length} `
-      + `(kapsanan ${kapsanan.length}, beklemede ${beklemede.length}, eksik ${eksik.length}), `
-      + `butce ${butce}`
-      + (s ? `, denenen ${s.denenen}, yazilan ${s.yazilan}, bulunamadi ${s.bulunamadi}, basarisiz ${s.basarisiz}` : ', denenen 0')
-      + (s && s.durduranSebep ? `, DURDU: ${s.durduranSebep}` : '')
-      + ` | tasima once ${once.tasinan}/${once.kalan}`
-      + (sonra.ok ? `, sonra ${sonra.tasinan}/${sonra.kalan}` : `, sonra HATA (${sonra.reason})`),
-  });
-
-  return ozet;
-}
-
 /**
  * Bir gecelik turu çalıştırır.
  *
@@ -209,7 +105,11 @@ async function aktarimTuru(butce, dil, fetcher) {
  * `unhandledRejection` ile sunucuyu düşürebilirdi. `queue.js`'in
  * "kuyruk hiçbir koşulda çökmemeli" güvencesiyle aynı sözleşme.
  */
-async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
+async function runBackfill({
+  limit = GECELIK_TAVAN, dil = 'tr',
+  // Yalnız test enjeksiyonu — canlıda varsayılanlar.
+  kaynakOku = fetchTakipEdilenler, fetcher: verilenFetcher = null, tamamlaFn = tamamla, aktarimFn = aktarimTuru,
+} = {}) {
   try {
     if (!isArchiveEnabled()) return { ok: false, reason: 'arsiv_kapali' };
     if (!getLazyFetchStatus().enabled) return { ok: false, reason: 'lazyfetch_kapali' };
@@ -217,20 +117,27 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
     const clientId = process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
     if (!clientId) return { ok: false, reason: 'trakt_client_id_yok' };
 
-    const kaynak = await fetchTakipEdilenler({
+    const kaynak = await kaynakOku({
       url: process.env.EXPO_PUBLIC_SUPABASE_URL,
       anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     });
+    // 🆕 Parça E (2026-10-29): kaynak düşerse tur İPTAL OLMAZ. Eskiden burada
+    // `return` vardı ve Supabase'e hiç ihtiyacı olmayan arşiv tazelemesi de
+    // atlanıyordu — ölçüldü: 10-24, 10-25, 10-28 «kaynak okunamadi: http 522».
+    // Supabase'e muhtaç iki adım (akış, aktarım) atlanır; arşivinkiler sürer.
     if (!kaynak.ok) {
-      logSync({ event: 'backfill', provider: 'trakt', detail: `kaynak okunamadi: ${kaynak.reason}` });
-      return { ok: false, reason: kaynak.reason };
+      logSync({ event: 'backfill', provider: 'trakt', detail: `kaynak okunamadi: ${kaynak.reason} — yalniz arsiv tazelemesi` });
     }
 
-    const fetcher = createTraktCatalogFetcher(clientId);
+    const fetcher = verilenFetcher || createTraktCatalogFetcher(clientId);
     const basladi = Date.now();
 
+    // ── ÖNCELİK 1 · ÇELİŞKİLİ DİZİLER (Parça E, `tutarlilik.js`) ──
+    // Özet sezon listesinden fazla bölüm biliyor → yeni bölüm/sezon kesin var.
+    const celiskiler = celiskiHedefleri(dil);
+
     // ── ÖNCELİK 2 · AKIŞ HEDEFLERİ (bugünkü talep) ──
-    const hedefler = hedefListesi(kaynak.items, dil);
+    const hedefler = [...celiskiler, ...(kaynak.ok ? hedefListesi(kaynak.items, dil) : [])];
 
     // ── ÖNCELİK 3 · ARŞİVİN BAYAT DİZİLERİ (§C20, 2026-09-15) ──────────
     // 🔬 ÖLÇÜLDÜ: akış kaynağı yalnızca **38** dizi getiriyor
@@ -245,13 +152,23 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
     // bekleyen satırları — çalmamalı. Tazeleme hedeflerini `eksikleriBul`
     // içinde sona koyarken verdiğimiz kararın aynısı.
     //
-    // ⚠️ SABİTLERE DOKUNULMADI: tavan 30, yani 171 dizi ~6 gecede tam tur,
-    // sonra kararlı durumda ~17/gece (171 ÷ 10 günlük eşik).
-    // `GECELIK_TAVAN=200` ve 2,5 sn aralık aynen duruyor.
-    const bayatlar = bayatArsivHedefleri(dil, { tavan: 30 });
+    // ⚠️ `GECELIK_TAVAN=200` ve 2,5 sn aralık aynen duruyor; tavan `BAYAT_TAVAN`.
+    const bayatlar = bayatArsivHedefleri(dil, { tavan: BAYAT_TAVAN });
     if (bayatlar.length) {
       hedefler.push(...bayatlar);
     }
+
+    // Aynı hedef birden fazla kaynaktan gelebilir (çelişkili dizi aynı zamanda
+    // bayat da olabilir) — İLK geçen, yani yüksek öncelikli kopya kalır.
+    const gorulen = new Set();
+    const tekil = hedefler.filter((h) => {
+      const a = hedefAnahtari(h);
+      if (gorulen.has(a)) return false;
+      gorulen.add(a);
+      return true;
+    });
+    hedefler.length = 0;
+    hedefler.push(...tekil);
 
     const { kapsanan, beklemede, eksik } = eksikleriBul(hedefler);
     const kapsamYuzde = hedefler.length ? ((kapsanan.length / hedefler.length) * 100).toFixed(1) : '0.0';
@@ -264,7 +181,7 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
     // aktarım artıkları HİÇ işlenmezdi — yani 875 satır tam da her şeyin
     // yolunda göründüğü gecelerde beklemeye devam ederdi.
     const sonuc = eksik.length
-      ? await tamamla({ hedefler: eksik, fetcher, limit })
+      ? await tamamlaFn({ hedefler: eksik, fetcher, limit })
       : { denenen: 0, yazilan: 0, bulunamadi: 0, basarisiz: 0, onbellekten: 0, agdanCekilen: 0, zorlaCekilen: 0, yedektenDonen: 0, atlanan: 0, ardisikHata: 0, durduranSebep: null };
 
     logSync({
@@ -278,8 +195,8 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
           + `onbellekten ${sonuc.onbellekten}, zorla ${sonuc.zorlaCekilen ?? 0}, kalan ${sonuc.atlanan}`
           + (sonuc.yedektenDonen ? `, yedekten ${sonuc.yedektenDonen}` : '')
           + (sonuc.durduranSebep ? `, DURDU: ${sonuc.durduranSebep}` : '')
-          + ` | kapsam oncesi %${kapsamYuzde}`
-        : `akis: eksik YOK, kapsam %${kapsamYuzde} (${kapsanan.length}/${hedefler.length}), beklemede ${beklemede.length}`,
+          + ` | kapsam oncesi %${kapsamYuzde}, celiski ${celiskiler.length}`
+        : `akis: eksik YOK, kapsam %${kapsamYuzde} (${kapsanan.length}/${hedefler.length}), beklemede ${beklemede.length}, celiski ${celiskiler.length}`,
     });
 
     // Ardışık hata freni devreye girdiyse bu operatörün GÖRMESİ gereken bir
@@ -294,14 +211,16 @@ async function runBackfill({ limit = GECELIK_TAVAN, dil = 'tr' } = {}) {
     // BAŞINA sayılıyor; ikinci turu açmak sayacı sıfırdan başlatır ve aynı
     // gece toplam 6 hataya izin verir — yani tam olarak korunmak istenen
     // durumu üretirdi.
-    const aktarim = sonuc.durduranSebep === 'ardisik_hata'
-      ? { calisti: false, atlandi: 'akis_freni' }
-      : await aktarimTuru(Math.max(limit - sonuc.denenen, 0), dil, fetcher);
+    // Parça E: aktarım da Supabase'e muhtaç — kaynak düştüyse denenmez.
+    let aktarim;
+    if (sonuc.durduranSebep === 'ardisik_hata') aktarim = { calisti: false, atlandi: 'akis_freni' };
+    else if (!kaynak.ok) aktarim = { calisti: false, atlandi: 'kaynak_okunamadi' };
+    else aktarim = await aktarimFn(Math.max(limit - sonuc.denenen, 0), dil, fetcher);
 
     const sn = ((Date.now() - basladi) / 1000).toFixed(0);
     logSync({ event: 'backfill', provider: 'trakt', detail: `tur bitti (${sn} sn)` });
 
-    return { ok: true, ...sonuc, kapsamYuzde, aktarim };
+    return { ok: true, ...sonuc, kapsamYuzde, aktarim, celiski: celiskiler.length, ...(kaynak.ok ? {} : { kaynakHatasi: kaynak.reason }) };
   } catch (error) {
     // Buraya düşmek bir GÜVENCE: zamanlayıcı sunucuyu düşüremez.
     try {
@@ -376,5 +295,6 @@ module.exports = {
   PENCERE_BASI,
   PENCERE_SONU,
   GECELIK_TAVAN,
+  BAYAT_TAVAN,
   KONTROL_ARALIGI_MS,
 };

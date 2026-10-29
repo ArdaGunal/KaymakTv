@@ -45,6 +45,7 @@ const TAKIMLAR = [
   { ad: 'aktarim', grup: 'arsiv', dosya: 'arsiv/aktarim.test.js', aciklama: 'A3/1: cache -> arsiv aktarimi (sifir ag istegi)' },
   { ad: 'yedek', grup: 'arsiv', dosya: 'arsiv/yedek.test.js', aciklama: 'A2.5: gece yedegi, ayni-disk reddi, kopya dondurme' },
   { ad: 'tamamlama', grup: 'arsiv', dosya: 'arsiv/tamamlama.test.js', aciklama: 'A3/2: eksik tespiti, defter, ardisik hata freni' },
+  { ad: 'tutarlilik', grup: 'arsiv', dosya: 'arsiv/tutarlilik.test.js', aciklama: 'Parca A+C+E: ozet > sezon listesi kilidi (3 koruma), akilli sure (yayin + 6 sa), gece 522 bagimsizligi, sira celiski -> akis -> en eski' },
   { ad: 'geridusus', grup: 'arsiv', dosya: 'arsiv/geri-dusus.test.js', aciklama: 'A4: saglayici cokunce arsive gerileme (karar A5)' },
   { ad: 'aktarim-tmdb', grup: 'arsiv', dosya: 'arsiv/aktarim-tmdb.test.js', aciklama: 'M534: arsiv-aktar --yalniz-tmdb (dil/esleme/tazelik kapilari, Trakt a dokunmaz)' },
   { ad: 'tmdb-arsiv', grup: 'arsiv', dosya: 'arsiv/tmdb-arsiv.test.js', aciklama: 'K4/M532: TMDB kunyesi arsive (yalniz Trakt eslemeli yapima), geri dusus, anlik aktarim yok' },

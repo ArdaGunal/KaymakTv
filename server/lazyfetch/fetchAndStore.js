@@ -10,6 +10,23 @@
 // Dolayısıyla "sağlayıcıya ne zaman gidilir?" sorusunun cevabı TEK dosyada.
 
 const { resolveTtl, NEGATIVE_TTL_MS, NEGATIVE_GRACE_MS } = require('./routeRegistry');
+
+/** `/shows/:id/seasons` → arşivdeki `entities.status` (id sayı ya da slug). Asla throw etmez. */
+function arsivDiziDurumu(yol) {
+  try {
+    const m = /^\/shows\/([^/]+)\/seasons$/.exec(yol || '');
+    if (!m) return null;
+    const db = require('../archive/db').getDb();
+    if (!db) return null;
+    const r = db.prepare(
+      `SELECT e.status FROM external_ids x JOIN entities e ON e.kaymak_id = x.kaymak_id
+        WHERE x.source IN ('trakt:show', 'trakt:slug') AND x.source_id = ? AND x.retired_at IS NULL LIMIT 1`
+    ).get(m[1]);
+    return r ? r.status : null;
+  } catch (_) {
+    return null;
+  }
+}
 const { normalizeQuery } = require('./key');
 const { createEnvelope } = require('./envelope');
 const { writeCacheEntry } = require('./diskStore');
@@ -48,7 +65,10 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
     // 🆕 L8: TTL artık aileyi ve yanıtın KENDİSİNİ de görüyor — yayını
     // süren bir dizinin sezon listesi 30 gün değil 7 gün taze kalsın diye
     // (routeRegistry.js "KATALOG ÖMRÜ POLİTİKASI").
-    const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds, { family, data: result.data });
+    // 🆕 Parça C (2026-10-29): sezon listesinde gelecek bölüm yoksa süre arşivdeki
+    // dizi durumuna göre (bitti 30 g / yayında 7 g). Okunamazsa eski kural.
+    const durum = family === 'show_seasons' ? arsivDiziDurumu(path) : null;
+    const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds, { family, data: result.data, durum });
     const envelope = createEnvelope({
       provider, family, payload: result.data, ttlMs, graceMs,
       // 🆕 A3: zarf kendini tanımlasın — `cache/`'ten arşive aktarım bunu
@@ -130,4 +150,4 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
   }
 }
 
-module.exports = { fetchAndStore };
+module.exports = { fetchAndStore, arsivDiziDurumu };

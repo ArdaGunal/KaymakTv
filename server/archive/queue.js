@@ -223,7 +223,12 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
 // 🆕 §C30 — her başarılı yazım anlık aktarımı tetikler. `require` GEÇ:
 // `anlikAktarim` → `mirror` → ... zinciri kuyruğun yüklenmesini beklemesin.
 const archiveQueue = createArchiveQueue({
-  sonrasi: (_is, sonuc) => require('./anlikAktarim').yazimSonrasi(sonuc),
+  // İki bağımsız kanca: biri düşerse öteki yine çalışır.
+  sonrasi: (is, sonuc) => {
+    try { require('./anlikAktarim').yazimSonrasi(sonuc); } catch (_) { /* aktarım yazımı bozamaz */ }
+    // 🆕 Parça A (2026-10-29): özet yazıldı → sezon listesi geride mi? (`tutarlilik.js`)
+    try { require('./tutarlilik').yazimSonrasiKontrol(is, sonuc); } catch (_) { /* kilit yazımı bozamaz */ }
+  },
 });
 
 module.exports = {

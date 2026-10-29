@@ -107,6 +107,9 @@ async function tamamla({
         // LazyFetch'in önbelleği aynen kullanılır — "önbellekte tazeyse ağa
         // çıkma" kazancı korunur.
         ...(h.tazelikBakimi ? { maxEnvelopeAgeMs: TAZELIK_MS } : {}),
+        // 🆕 Parça A/E (2026-10-29): özet > sezon listesi çelişkisi — önbellek
+        // «taze» olsa da (Çekiç ve Gül: 11-17'ye kadar) 6 saatten eskiyse ağa git.
+        ...(h.tutarlilikBakimi ? { maxEnvelopeAgeMs: require('./tutarlilik').BEKLEME_MS } : {}),
       });
     } catch (error) {
       ardisikHata++;
