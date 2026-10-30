@@ -70,12 +70,21 @@ const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
  * kullanılır — Trakt round-trip'i yapmak anlamsız olurdu, kullanıcının zaten
  * Trakt hesabı yok.
  */
-export interface GoogleBagliHesap { username: string; kaymakNo: number | null }
+// GIRIS-KILIT-01: `traktSlug`/`traktUuid` = kartın beklediği Trakt hesabı (dönüşte karşılaştırılır,
+// `services/auth/traktHesapKilidi.ts`). Eski Worker göndermez → null → denetim yok (bugünkü davranış).
+export interface GoogleBagliHesap { username: string; kaymakNo: number | null; traktSlug: string | null; traktUuid: string | null }
+
+const dolu = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
 /** Worker'ın `hesap` alanını süzer — beklenmeyen şekil ekrana sızmasın. */
 export const bagliHesap = (h: any): GoogleBagliHesap | null =>
   h && typeof h.username === 'string' && h.username.trim()
-    ? { username: h.username.trim(), kaymakNo: Number.isInteger(h.kaymakNo) ? h.kaymakNo : null }
+    ? {
+        username: h.username.trim(),
+        kaymakNo: Number.isInteger(h.kaymakNo) ? h.kaymakNo : null,
+        traktSlug: dolu(h.traktSlug),
+        traktUuid: dolu(h.traktUuid),
+      }
     : null;
 
 export const checkGoogleAccount = async (googleIdToken: string, nonce: string): Promise<GoogleAuthCheckResult> => {

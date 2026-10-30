@@ -41,7 +41,7 @@ T.ok('Native dugme onay yokken pasif', /disabled=\{!etkin\}/.test(dugme));
 T.ok('Kullanicinin kendi iptali hata sayilmaz', /if \(!sonuc\.cancelled\)/.test(dugme));
 T.ok('Faz 3: ONCE check, sonra (yalniz bagli degilse) create_new', kanca.indexOf('checkGoogleAccount(idToken') > -1 && kanca.indexOf('checkGoogleAccount(idToken') < kanca.indexOf('createGoogleOnlyAccount(idToken'));
 T.ok('Faz 3: trakt_ile_gir hata kodu da yonlendirmeye duser', /error\?\.code === 'trakt_ile_gir'/.test(kanca));
-T.ok('Faz 3: Trakt ile devam kutusu giris ekraninda + handleTraktLogin', ekran.includes('<TraktIleGirKutusu') && /onTraktIleDevam=\{handleTraktLogin\}/.test(ekran));
+T.ok('Faz 3: Trakt ile devam kutusu giris ekraninda + kart yolu (GIRIS-KILIT-01)', ekran.includes('<TraktIleGirKutusu') && /onTraktIleDevam=\{handleKartlaTraktGiris\}/.test(ekran));
 // 🔴 M536: eskiden kutu ana Trakt dugmesinin ALTINA ciziliyordu → ekranda iki «Trakt ile Giris Yap».
 T.ok('🔴 M536: kutu acikken ana Trakt dugmesi ve misafir baglantilari GIZLI (tek birincil dugme)',
   /\{!kutuAcik && \(\s*<TraktGirisDugmesi/.test(ekran) && /\{!kutuAcik && <>\s*<>\s*<OrDivider/.test(ekran) && !dugme.includes('<TraktIleGirKutusu'));

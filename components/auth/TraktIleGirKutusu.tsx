@@ -31,6 +31,10 @@ export default function TraktIleGirKutusu({ hesap, onTraktIleDevam, onBaskaHesap
           <View style={styles.profilMetin}>
             <Text style={styles.ad} numberOfLines={1}>{ad}</Text>
             {hesap!.kaymakNo != null && <Text style={styles.no}>#{hesap!.kaymakNo}</Text>}
+            {/* GIRIS-KILIT-01: beklenen Trakt hesabı — trakt.tv'de başka hesap açıksa kişi önceden fark etsin. */}
+            {hesap!.traktSlug && (
+              <Text style={styles.no} numberOfLines={1}>{t('settings:kartTraktHesabi', { slug: hesap!.traktSlug })}</Text>
+            )}
           </View>
         </View>
       )}

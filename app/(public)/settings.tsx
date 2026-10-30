@@ -7,6 +7,7 @@ import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
 import { exchangeAuthCode } from '../../services/traktApi';
 import { oauthStateKaydet, oauthStateTuket } from '../../services/oauthState';
+import { traktHesapKilidiDenetle, beklenenTraktHesabiKaydet, beklenenTraktHesabiSil } from '../../services/auth/traktHesapKilidi';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
@@ -131,7 +132,18 @@ export default function Login() {
     }
   }, []);
 
+  // GIRIS-KILIT-01: düz «Trakt ile giriş» eski bir kart beklentisini siler; kart düğmesi beklenen
+  // Trakt hesabını saklar ve dönüşte `handleTokenExchange` onu karşılaştırır.
   const handleTraktLogin = async () => {
+    await beklenenTraktHesabiSil();
+    await traktGirisiniBaslat();
+  };
+  const handleKartlaTraktGiris = async () => {
+    await beklenenTraktHesabiKaydet(google.bagliHesap);
+    await traktGirisiniBaslat();
+  };
+
+  const traktGirisiniBaslat = async () => {
     // S7: dönüşte karşılaştırmak için kütüphanenin ürettiği rastgele `state`.
     await oauthStateKaydet(request?.state);
     if (Platform.OS === 'web' && request?.url) {
@@ -173,6 +185,24 @@ export default function Login() {
       // hiçbir iz bırakmadan yutuluyor, kullanıcı sebebini göremeden misafir
       // olarak kalıyordu. Artık her başarısızlık aşağıdaki catch'e düşer.
       const tokenData = await exchangeAuthCode(code, redirectUri);
+
+      // GIRIS-KILIT-01: kart «@X» dediyse gelen Trakt hesabı X'in mi? Değilse token KAYDEDİLMEZ,
+      // oturum açılmaz (canlı T1, 2026-10-31: kart @ArdaGnl → trakt.tv'deki Trakt_test → @Arda_Gunal).
+      // Trakt'a sorulamazsa hata fırlar → aşağıdaki catch, yine oturum açmadan.
+      const kilit = await traktHesapKilidiDenetle(tokenData.access_token);
+      if (kilit.durum === 'uyusmazlik') {
+        const beklenenTrakt = kilit.beklenen.traktSlug ?? `@${kilit.beklenen.username}`;
+        notify(
+          t('settings:traktUyusmazlikBaslik'),
+          t('settings:traktUyusmazlikMetin', {
+            ad: `@${kilit.beklenen.username}`,
+            beklenen: beklenenTrakt,
+            gelen: kilit.gelen.slug ?? '?',
+          })
+        );
+        return;
+      }
+
       if (await traktBaglamaTamamla(tokenData)) return;
 
       // F8 — bekleyen bir Google bağlama akışı varsa tamamlar (yoksa no-op).
@@ -238,7 +268,7 @@ export default function Login() {
       <View style={styles.formContainer}>
           <>
             {kutuAcik && (
-              <TraktIleGirKutusu hesap={google.bagliHesap} onTraktIleDevam={handleTraktLogin} onBaskaHesap={google.sifirla} />
+              <TraktIleGirKutusu hesap={google.bagliHesap} onTraktIleDevam={handleKartlaTraktGiris} onBaskaHesap={google.sifirla} />
             )}
             {!kutuAcik && <>
               <>
