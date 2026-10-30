@@ -27,6 +27,7 @@ import ClearCacheRow from '../../components/settings/ClearCacheRow';
 import Snackbar from '../../components/Snackbar';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
+import { dilBilgisi } from '../../locales/diller';
 
 // Sürüm numarasına ard arda dokununca gizli Geliştirici Paneli açılır
 // (Android'in "Yapı Numarası"na dokunma esprisiyle aynı mantık). 5. dokunuşta
@@ -101,7 +102,8 @@ export default function SettingsScreen() {
   // (`/settings`) işaret ettiği için giriş akışı da TEK ekranda yaşamalı;
 
 
-  const languageLabel = currentLanguage === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English'; // ceviri-ok: dil adları kendi dilinde yazılır
+  const dilSatiri = dilBilgisi(currentLanguage);
+  const languageLabel = `${dilSatiri.bayrak} ${dilSatiri.ad}`; // dil adı kendi dilinde (dil kaydı)
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

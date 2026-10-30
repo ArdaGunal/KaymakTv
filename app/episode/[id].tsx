@@ -21,6 +21,7 @@ import { getProgressBarColor } from '../../utils/progressBarColor';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
 import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug, generateEpisodeSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
+import { yerelEtiket } from '../../locales/diller';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useEpisodeActions } from '../../hooks/useEpisodeActions';
 import { useShowDetail } from '../../hooks/useShowDetail';
@@ -45,7 +46,7 @@ export default function EpisodeDetailScreen() {
   // Yazma islemleri artik `useEpisodeActions` icinde (bkz. o dosyanin basligi);
   // burada yalnizca OKUMA dilimleri kaliyor.
   const { userRatingsEpisodes, showProgressMap, hiddenShowIds } = useLibrary();
-  const { t } = useTranslation('media');
+  const { t, i18n } = useTranslation('media');
   // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
   const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), urlShowTmdbId, String(season), String(episode));
   // Paylaşım linkinde URL parametresi yok → kanca dizi özetinden çözer (madde 6).
@@ -164,9 +165,9 @@ export default function EpisodeDetailScreen() {
 
   const title = episodeData?.title || t('episodeNum', { number: episode });
   const overview = episodeData?.overview || t('noOverviewYet');
-  const firstAired = episodeData?.first_aired ? new Date(episodeData.first_aired).toLocaleDateString('tr-TR') : t('noDate');
+  const firstAired = episodeData?.first_aired ? new Date(episodeData.first_aired).toLocaleDateString(yerelEtiket(i18n.language)) : t('noDate');
   const rating = formatRating(episodeData?.rating);
-  const votes = episodeData?.votes ? episodeData.votes.toLocaleString('tr-TR') : '0';
+  const votes = episodeData?.votes ? episodeData.votes.toLocaleString(yerelEtiket(i18n.language)) : '0';
 
   // ── Her iki duzenin PAYLASTIGI parcalar ───────────────────────────────
   const commentsSection = (

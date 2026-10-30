@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Platform } 
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { yerelEtiket } from '../locales/diller';
 import { generateEpisodeSlug } from '../utils/slugHelper';
 import EpisodeCheckButton from './EpisodeCheckButton';
 import { useLibraryActions } from '../context/LibraryContext';
@@ -53,7 +54,7 @@ export default function SeasonAccordion({
   iskeletSezonlar,
   showMedia,
 }: SeasonAccordionProps) {
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const router = useRouter();
   // Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" seçimi — 3 seçenekli
   // olduğundan (Vazgeç dahil) tek bir window.confirm'e sığmaz, bu yüzden native bir
@@ -213,7 +214,7 @@ export default function SeasonAccordion({
                  >
                    <Text style={styles.episodeNumber}>{t('episodeNum', { number: ep.number })}</Text>
                    <Text style={[styles.episodeName, isActive && styles.episodeNameActive]} numberOfLines={1}>{ep.title}</Text>
-                   {ep.first_aired && <Text style={styles.episodeDate}>{new Date(ep.first_aired).toLocaleDateString('tr-TR')}</Text>}
+                   {ep.first_aired && <Text style={styles.episodeDate}>{new Date(ep.first_aired).toLocaleDateString(yerelEtiket(i18n.language))}</Text>}
                  </TouchableOpacity>
                  <View>
                    {isWatchedLocal ? (

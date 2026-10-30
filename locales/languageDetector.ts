@@ -1,10 +1,12 @@
 import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LanguageDetectorAsyncModule } from 'i18next';
+import { DESTEKLENEN_DILLER, VARSAYILAN_DIL } from './diller';
 
 export const LANGUAGE_KEY = 'app_language';
-export const SUPPORTED_LANGUAGES = ['en', 'tr'];
-export const FALLBACK_LANGUAGE = 'en';
+// Liste dil kaydından gelir (`locales/diller.json`) — burada elle yazılmaz.
+export const SUPPORTED_LANGUAGES: readonly string[] = DESTEKLENEN_DILLER;
+export const FALLBACK_LANGUAGE = VARSAYILAN_DIL;
 
 export const languageDetector: LanguageDetectorAsyncModule = {
   type: 'languageDetector',

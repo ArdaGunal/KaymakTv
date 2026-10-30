@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateGroup, isFutureDate, getEpisodeKey } from '../utils/dateHelper';
+import { yerelEtiket } from '../locales/diller';
 
 const EMPTY_DASHBOARD_DATA = {
   upNextShows: [] as any[],
@@ -81,7 +82,7 @@ export const useDashboardData = (
         }
       }
 
-      let episodeTitle = item.episode?.title || `${t('lastWatched')} ${new Date(item.last_watched_at).toLocaleDateString(i18nLanguage === 'tr' ? 'tr-TR' : 'en-US')}`;
+      let episodeTitle = item.episode?.title || `${t('lastWatched')} ${new Date(item.last_watched_at).toLocaleDateString(yerelEtiket(i18nLanguage))}`;
 
       let hasNextEpisode = false;
       let isCalculating = false;

@@ -9,6 +9,7 @@ import { LandingCSS } from '../../components/public/index.web.styles';
 import { useNavScrollStyle, useScrollRevealObserver } from '../../components/public/index.web.hooks';
 import { useLandingPosterWall } from '../../hooks/useLandingPosterWall';
 import { Clapperboard, Calendar, Search, BarChart2, Star, List, Users, LogIn, Globe, Compass, Lock } from '../../components/icons';
+import { dilBilgisi } from '../../locales/diller';
 
 const POSTER_TILE_COUNT = 21;
 
@@ -121,7 +122,7 @@ export default function WebLandingPage() {
           <div className="nav-actions">
             <button className="lang-btn" onClick={() => setLangModalVisible(true)}>
               <Globe size={14} color="#7aa2f7" strokeWidth={2.2} />
-              {currentLanguage === 'tr' ? 'TR' : 'EN'}
+              {dilBilgisi(currentLanguage).kisa}
             </button>
             
             <button onClick={handleLogin} className="btn-primary">

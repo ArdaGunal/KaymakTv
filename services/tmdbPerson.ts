@@ -1,5 +1,6 @@
 import i18n from '../locales/index';
 import { fetchFromTmdb } from './tmdbApi';
+import { yerelEtiket, VARSAYILAN_DIL } from '../locales/diller';
 
 /**
  * 2.6.5 madde 9 · Oyuncu bilgisi — TMDB `/person/{id}` (proxy üzerinden, anahtar
@@ -25,15 +26,16 @@ const sekillendir = (d: any): TmdbPerson => ({
 
 /** Biyografi uygulama dilinde; TMDB'de o dilde yoksa İngilizcesi. Hata fırlatır. */
 export async function getTmdbPerson(personId: number): Promise<TmdbPerson> {
-  const dil = i18n.language === 'tr' ? 'tr-TR' : 'en-US';
+  const dil = yerelEtiket(i18n.language);
+  const yedekDil = yerelEtiket(VARSAYILAN_DIL);
   const anahtar = `${personId}_${dil}`;
   const kayitli = onbellek.get(anahtar);
   if (kayitli) return kayitli;
 
   let kisi = sekillendir((await fetchFromTmdb(`/person/${personId}`, { language: dil })).data);
-  if (!kisi.biography && dil !== 'en-US') {
+  if (!kisi.biography && dil !== yedekDil) {
     try {
-      const en = sekillendir((await fetchFromTmdb(`/person/${personId}`, { language: 'en-US' })).data);
+      const en = sekillendir((await fetchFromTmdb(`/person/${personId}`, { language: yedekDil })).data);
       if (en.biography) kisi = { ...kisi, biography: en.biography };
     } catch {
       // İngilizce yedek dekoratif — düşerse boş biyografi metni gösterilir.

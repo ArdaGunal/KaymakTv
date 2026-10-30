@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SUPPORTED_LANGUAGES } from '../../locales/languageDetector';
+import { DILLER } from '../../locales/diller';
 
 interface LanguagePickerModalProps {
   visible: boolean;
@@ -13,14 +13,8 @@ interface LanguagePickerModalProps {
   onClose: () => void;
 }
 
-// Yeni bir dil eklendiğinde (locales/languageDetector.ts'teki
-// SUPPORTED_LANGUAGES + locales/resources.ts'e dosya eklenmesi yeterli) burada
-// bir meta girişi eklemek isteğe bağlıdır — eksikse kod + 🌐 ile otomatik
-// düşer, liste yine de doğru çalışır.
-const LANGUAGE_META: Record<string, { label: string; flag: string; iso2?: string }> = {
-  tr: { label: 'Türkçe', flag: '🇹🇷', iso2: 'TR' }, // ceviri-ok: dil adı kendi dilinde
-  en: { label: 'English', flag: '🇬🇧', iso2: 'GB' },
-};
+// Diller, adları ve bayrakları dil kaydından (`locales/diller.json`) gelir —
+// yeni dil eklemek için bu dosyaya dokunmak gerekmez.
 
 // Web'de emoji bayrakları macOS/Windows kombinasyonlarında render edilemiyor.
 // Flagcdn.com, CDN tabanlı ücretsiz ve her tarayıcıda çalışan SVG bayrakları sağlıyor.
@@ -81,8 +75,8 @@ export default function LanguagePickerModal({
             </TouchableOpacity>
           </View>
 
-          {SUPPORTED_LANGUAGES.map((code) => {
-            const meta = LANGUAGE_META[code] ?? { label: code.toUpperCase(), flag: '🌐' };
+          {DILLER.map((dil) => {
+            const code = dil.kod;
             const isSelected = currentLanguage === code;
             return (
               <TouchableOpacity
@@ -94,8 +88,8 @@ export default function LanguagePickerModal({
                 }}
                 activeOpacity={0.7}
               >
-                <FlagImage iso2={meta.iso2} emoji={meta.flag} />
-                <Text style={styles.label}>{meta.label}</Text>
+                <FlagImage iso2={dil.bayrakUlke} emoji={dil.bayrak} />
+                <Text style={styles.label}>{dil.ad}</Text>
                 {isSelected && <Check size={18} color="#3b82f6" strokeWidth={2.5} />}
               </TouchableOpacity>
             );

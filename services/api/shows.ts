@@ -2,6 +2,7 @@ import axios from 'axios';
 import { getTraktClient, applyTranslation } from './traktClient';
 import { fetchCatalogOrFallback } from './traktCatalogClient';
 import i18n from '../../locales/index';
+import { dilKodu } from '../../locales/diller';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
 // Sayfa başına önbellek: Keşfet ekranı her mount'ta (kalıcı bir store'a
@@ -40,7 +41,7 @@ export const getTrendingShows = async (page = 1, limit = 7, force = false) => {
 };
 
 export const getShowSummary = async (showId: number) => {
-  const lang = i18n.language === 'tr' ? 'tr' : 'en';
+  const lang = dilKodu(i18n.language);
   try {
     // 🆕 L7+: geçitten geçer, geçit çalışmazsa eski yola düşer
     // (`fetchCatalogOrFallback` sözleşmesi). `translations` query'nin
@@ -98,7 +99,7 @@ export const getRelatedShows = async (showId: number) => {
 };
 
 export const getEpisodeDetail = async (showId: number, season: number, episode: number) => {
-  const lang = i18n.language === 'tr' ? 'tr' : 'en';
+  const lang = dilKodu(i18n.language);
   try {
     const ham = await fetchCatalogOrFallback(
       'L7/getEpisodeDetail',

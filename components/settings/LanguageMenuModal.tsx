@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { SUPPORTED_LANGUAGES } from '../../locales/languageDetector';
+import { DILLER } from '../../locales/diller';
 
 interface LanguageMenuModalProps {
   visible: boolean;
@@ -14,14 +14,10 @@ interface LanguageMenuModalProps {
  * (o bir bottom-sheet); bilinçli olarak birleştirilmediler çünkü ikisi farklı
  * bağlamlarda farklı bir yerleşim bekliyor.
  *
- * Diller `SUPPORTED_LANGUAGES`'ten okunur — eskiden 'tr' ve 'en' bu ekranda
- * ELLE kodlanmıştı, yani üçüncü bir dil eklendiğinde burada sessizce eksik
- * kalırdı.
+ * Diller ve çevrilmiş adlarının anahtarları dil kaydından (`locales/diller.json`)
+ * okunur — eskiden 'tr' ve 'en' bu ekranda ELLE kodlanmıştı, yani üçüncü bir
+ * dil eklendiğinde burada sessizce eksik kalırdı.
  */
-const LANGUAGE_LABEL_KEYS: Record<string, string> = {
-  tr: 'turkish',
-  en: 'english',
-};
 
 export default function LanguageMenuModal({ visible, onClose }: LanguageMenuModalProps) {
   const { t, i18n } = useTranslation('settings');
@@ -35,9 +31,10 @@ export default function LanguageMenuModal({ visible, onClose }: LanguageMenuModa
             <View style={styles.menu}>
               <Text style={styles.title}>{t('language')}</Text>
 
-              {SUPPORTED_LANGUAGES.map((code) => {
+              {DILLER.map((dil) => {
+                const code = dil.kod;
                 const isActive = i18n.language === code;
-                const labelKey = LANGUAGE_LABEL_KEYS[code];
+                const labelKey = dil.ceviriAnahtari;
                 return (
                   <TouchableOpacity
                     key={code}

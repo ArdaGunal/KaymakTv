@@ -1,0 +1,27 @@
+{
+  "varsayilan": "en",
+  "diller": [
+    {
+      "kod": "en",
+      "ad": "English",
+      "ceviriAnahtari": "english",
+      "kisa": "EN",
+      "bayrak": "🇬🇧",
+      "bayrakUlke": "GB",
+      "etiket": "en-US",
+      "alfabe": "Latn",
+      "yabanciBaslik": "uluslararasi"
+    },
+    {
+      "kod": "tr",
+      "ad": "Türkçe",
+      "ceviriAnahtari": "turkish",
+      "kisa": "TR",
+      "bayrak": "🇹🇷",
+      "bayrakUlke": "TR",
+      "etiket": "tr-TR",
+      "alfabe": "Latn",
+      "yabanciBaslik": "uluslararasi"
+    }
+  ]
+}

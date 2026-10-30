@@ -1,3 +1,5 @@
+import { yerelEtiket } from '../../../locales/diller';
+
 /**
  * C5 · Akışın zaman ayracı etiketi (kullanıcı kararı: «ince bir ayırıcı çizgi ve
  * küçük bir tarih etiketi — çok daha sade»).
@@ -21,7 +23,7 @@ export function dayLabel(iso: string, language: string | undefined, t: GunEtiket
   const fark = Math.round((gunBasi(now) - gunBasi(d)) / 86_400_000);
   if (fark <= 0) return t('dayToday');
   if (fark === 1) return t('dayYesterday');
-  const locale = language === 'en' ? 'en-US' : 'tr-TR';
+  const locale = yerelEtiket(language);
   if (fark < 7) return d.toLocaleDateString(locale, { weekday: 'long' });
   return d.toLocaleDateString(locale, {
     day: 'numeric',

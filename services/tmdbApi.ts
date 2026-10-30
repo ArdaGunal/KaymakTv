@@ -1,5 +1,6 @@
 import axios from 'axios';
 import i18n from '../locales/index';
+import { yerelEtiket } from '../locales/diller';
 import { cacheManager } from '../utils/cacheManager';
 import { CACHE_TTL } from '../utils/cacheTTL';
 import { traktAfisYedegi } from './afisYedek';
@@ -119,7 +120,7 @@ export const getShowPoster = async (tmdbId: number): Promise<string | null> => {
 
   try {
     const response = await fetchFromTmdb(`/tv/${tmdbId}`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US' 
+      language: yerelEtiket(i18n.language) 
     });
 
     const posterPath = response.data.poster_path;
@@ -145,7 +146,7 @@ export const getMoviePoster = async (tmdbId: number): Promise<string | null> => 
 
   try {
     const response = await fetchFromTmdb(`/movie/${tmdbId}`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
 
     const posterPath = response.data.poster_path;
@@ -202,7 +203,7 @@ export const getShowTrailer = async (tmdbId: number): Promise<string | null> => 
 
   try {
     const response = await fetchFromTmdb(`/tv/${tmdbId}/videos`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
 
     const videos = response.data.results;
@@ -237,7 +238,7 @@ export const getEpisodeStill = async (tmdbId: number, season: number, episode: n
 
   try {
     const response = await fetchFromTmdb(`/tv/${tmdbId}/season/${season}/episode/${episode}`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
 
     const stillPath = response.data.still_path;
@@ -265,7 +266,7 @@ export const getMovieBackdrop = async (tmdbId: number): Promise<string | null> =
 
   try {
     const response = await fetchFromTmdb(`/movie/${tmdbId}`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
 
     const backdropPath = response.data.backdrop_path;
@@ -293,7 +294,7 @@ export const getMovieTrailer = async (tmdbId: number): Promise<string | null> =>
 
   try {
     const response = await fetchFromTmdb(`/movie/${tmdbId}/videos`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
 
     const videos = response.data.results;
@@ -329,7 +330,7 @@ export const getTmdbCast = async (tmdbId: number, type: 'tv' | 'movie'): Promise
   
   try {
     const response = await fetchFromTmdb(`/${type}/${tmdbId}/credits`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
     
     // Convert TMDB format to the expected Trakt-like format for MediaCast
@@ -362,7 +363,7 @@ export const getEpisodeTmdbCast = async (tmdbId: number, season: number, episode
   
   try {
     const response = await fetchFromTmdb(`/tv/${tmdbId}/season/${season}/episode/${episode}/credits`, {
-      language: i18n.language === 'tr' ? 'tr-TR' : 'en-US'
+      language: yerelEtiket(i18n.language)
     });
     
     // Convert TMDB format to the expected Trakt-like format for MediaCast

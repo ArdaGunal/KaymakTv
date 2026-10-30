@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector } from '../context/LibraryContext';
 import { gosterilecekIstatistik, yerelIstatistik } from '../utils/yerelIstatistik';
+import { yerelEtiket } from '../locales/diller';
 
 export type StatsTab = 'shows' | 'movies';
 
@@ -212,7 +213,7 @@ export function useProfileStatistics(activeTab: StatsTab) {
   }, [entries, t]);
 
   const monthly = useMemo<MonthlyBar[]>(() => {
-    const locale = i18n.language === 'en' ? 'en-US' : 'tr-TR';
+    const locale = yerelEtiket(i18n.language);
     const now = new Date();
 
     // Son 6 ay iskeleti önce kurulur: veri olmayan aylar da 0 değeriyle

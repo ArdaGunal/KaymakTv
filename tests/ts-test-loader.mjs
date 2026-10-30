@@ -21,6 +21,8 @@ export function tsLoader(root, mocks = {}, globals = {}) {
         if (name in mocks) return mocks[name];
         if (!name.startsWith('.')) throw new Error(`Mock eksik: ${name}`);
         let target = path.resolve(path.dirname(full), name);
+        // JSON içe aktarımı (ör. `locales/diller.json`): Metro gibi `default` altında.
+        if (target.endsWith('.json')) return { default: JSON.parse(fs.readFileSync(target, 'utf8')) };
         if (!path.extname(target)) target += '.ts';
         return load(target);
       },

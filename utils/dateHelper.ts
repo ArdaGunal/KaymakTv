@@ -4,6 +4,7 @@
  */
 
 import i18n from '../locales';
+import { yerelEtiket } from '../locales/diller';
 
 /**
  * Verilen tarihi "BUGÜN - 5 KASIM ÇARŞAMBA", "YARIN - ..." 
@@ -14,7 +15,7 @@ export const getDateGroup = (dateObj: Date, t?: any): string => {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   
-  const locale = i18n?.language === 'en' ? 'en-US' : 'tr-TR';
+  const locale = yerelEtiket(i18n?.language);
   
   const fullDateStr = dateObj.toLocaleDateString(locale, { 
     day: 'numeric', 
@@ -89,6 +90,6 @@ export const cikisTarihiBicimle = (ham?: string | null): string => {
     ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
     : new Date(ham);
   if (Number.isNaN(d.getTime())) return '';
-  const locale = i18n?.language === 'en' ? 'en-US' : 'tr-TR';
+  const locale = yerelEtiket(i18n?.language);
   return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 };

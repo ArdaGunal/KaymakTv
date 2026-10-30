@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
+import { yerelEtiket } from '../../locales/diller';
 import { ChevronLeft, ChevronRight, Share2, Star, Check } from '../icons';
 import ProgressBar from '../ProgressBar';
 import { formatRating } from '../../utils/formatRating';
@@ -64,7 +65,7 @@ export default function EpisodeHeroWeb({
   onOpenRating,
   onToggleWatched,
 }: EpisodeHeroWebProps) {
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const hasMyRating = myRating !== undefined && myRating !== null;
 
   return (
@@ -110,7 +111,7 @@ export default function EpisodeHeroWeb({
           <Star size={15} color="#facc15" fill="#facc15" />
           <Text style={[s.pillText, s.pillRatingText]}>{rating}</Text>
           {votes > 0 && (
-            <Text style={local.votes}>({votes.toLocaleString('tr-TR')})</Text>
+            <Text style={local.votes}>({votes.toLocaleString(yerelEtiket(i18n.language))})</Text>
           )}
         </View>
 

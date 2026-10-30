@@ -5,6 +5,7 @@ import { getTraktClient, applyTranslation } from './traktClient';
 // `traktCatalogClient.ts` `fetchCatalogOrFallback` başlığında.
 import { fetchCatalogOrFallback } from './traktCatalogClient';
 import i18n from '../../locales/index';
+import { dilKodu } from '../../locales/diller';
 import { CACHE_TTL } from '../../utils/cacheTTL';
 
 // bkz. services/api/shows.ts — getTrendingShows'taki aynı önbellek VE
@@ -33,7 +34,7 @@ export const getTrendingMovies = async (page = 1, limit = 7, force = false) => {
 };
 
 export const getMovieSummary = async (movieId: number | string) => {
-  const lang = i18n.language === 'tr' ? 'tr' : 'en';
+  const lang = dilKodu(i18n.language);
   try {
     const ham = await fetchCatalogOrFallback(
       'L7/getMovieSummary',

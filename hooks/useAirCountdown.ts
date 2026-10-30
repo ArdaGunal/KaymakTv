@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { yerelEtiket } from '../locales/diller';
 import {
   useGlobalCountdownStore,
   subscribeToGlobalCountdown,
@@ -19,7 +20,7 @@ interface CountdownResult {
  * yalnızca abone olup o paylaşılan "şu an" değerinden kendi metnini hesaplıyor.
  */
 export const useAirCountdown = (targetDateMs?: number): CountdownResult => {
-  const { t } = useTranslation('media');
+  const { t, i18n } = useTranslation('media');
   const now = useGlobalCountdownStore((s) => s.now);
 
   useEffect(() => {
@@ -28,11 +29,11 @@ export const useAirCountdown = (targetDateMs?: number): CountdownResult => {
     return () => unsubscribeFromGlobalCountdown();
   }, [targetDateMs]);
 
-  return useMemo(() => calculateTime(targetDateMs, now, t), [targetDateMs, now, t]);
+  return useMemo(() => calculateTime(targetDateMs, now, t, i18n.language), [targetDateMs, now, t, i18n.language]);
 };
 
 // Saf hesaplama fonksiyonu (hook dışında, performansı korur)
-const calculateTime = (targetDateMs: number | undefined, now: number, t: any): CountdownResult => {
+const calculateTime = (targetDateMs: number | undefined, now: number, t: any, dil?: string): CountdownResult => {
   if (!targetDateMs) {
     return { text: '', isAired: false };
   }
@@ -49,7 +50,7 @@ const calculateTime = (targetDateMs: number | undefined, now: number, t: any): C
   if (diffHours < 24) {
     // 24 saatten az kaldıysa saat bazlı göster (Örn: "5 SAAT SONRA (20:00)")
     const targetDateObj = new Date(targetDateMs);
-    const timeString = targetDateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const timeString = targetDateObj.toLocaleTimeString(yerelEtiket(dil), { hour: '2-digit', minute: '2-digit' });
     const roundedHours = Math.floor(diffHours);
 
     if (roundedHours <= 0) {

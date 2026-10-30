@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { Globe, LogIn } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
+import { dilBilgisi } from '../../locales/diller';
 
 export default function LandingPage() {
   const { accessToken, isGuest, loginAsGuest } = useAuth();
@@ -62,7 +63,7 @@ export default function LandingPage() {
           >
             <Globe size={14} color="#7aa2f7" />
             <Text style={styles.langButtonText}>
-              {currentLanguage === 'tr' ? 'TR' : 'EN'}
+              {dilBilgisi(currentLanguage).kisa}
             </Text>
           </TouchableOpacity>
 

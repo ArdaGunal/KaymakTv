@@ -107,6 +107,7 @@ const TAKIMLAR = [
   { ad: 'benim-profilim', grup: 'arayuz', dosya: 'arayuz/benim-profilim.test.mjs', aciklama: 'M544: kendi profilim tek store (disk aninda, tek ucus) + supabase-js okuma siniri' },
   { ad: 'akis-disk', grup: 'arayuz', dosya: 'arayuz/akis-disk.test.mjs', aciklama: 'M472/B-2: akis son kopyadan aninda acilir, hesap anahtarli' },
   { ad: 'akis-dil', grup: 'arayuz', dosya: 'arayuz/akis-dil.test.mjs', aciklama: 'A-3/C0: akis sistem metinleri ceviride, tekil/cogul zaman' },
+  { ad: 'dil-kaydi', grup: 'arayuz', dosya: 'arayuz/dil-kaydi.test.mjs', aciklama: 'BASLIK Adim 0: dil kaydi tek kaynak, bilinmeyen dil varsayilana (Turkceye degil), sahte Almanca, iki secenekli dal yok' },
   { ad: 'akis-dokunma', grup: 'arayuz', dosya: 'arayuz/akis-dokunma.test.mjs', aciklama: 'C1: kart dokunma haritasi (detay / maraton -> dizi)' },
   { ad: 'akis-detay', grup: 'arayuz', dosya: 'arayuz/akis-detay.test.mjs', aciklama: 'C2: yayin/sistem ayrimi, tam tarih, bolum kodu, detay baglantilari' },
   { ad: 'akis-yayin', grup: 'arayuz', dosya: 'arayuz/akis-yayin.test.mjs', aciklama: 'M476: gonderi iyimser karti yerlesir, kendi gonderin rozet yok, yorum sayaci kesin, gelecek damga' },
