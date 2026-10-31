@@ -127,7 +127,7 @@ export default function WebLandingPage() {
             
             <button onClick={handleLogin} className="btn-primary">
               <LogIn size={15} color="#ffffff" strokeWidth={2.2} />
-              {t('connectTraktButton', 'Trakt ile Giriş Yap')}
+              {t('login', 'Giriş Yap')}
             </button>
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function WebLandingPage() {
             <div className="hero-ctas">
               <button onClick={handleLogin} className="btn-primary">
                 <LogIn size={16} color="#ffffff" strokeWidth={2.2} />
-                {t('connectTraktButton', 'Trakt ile Giriş Yap')}
+                {t('login', 'Giriş Yap')}
               </button>
               <button onClick={handleGuest} className="btn-secondary">
                 <Compass size={16} color="#7aa2f7" strokeWidth={2} />
@@ -208,7 +208,7 @@ export default function WebLandingPage() {
             <div className="cta-actions">
               <button onClick={handleLogin} className="btn-primary">
                 <LogIn size={16} color="#ffffff" strokeWidth={2.2} />
-                {t('connectTraktButton', 'Trakt ile Giriş Yap')}
+                {t('login', 'Giriş Yap')}
               </button>
               <button onClick={handleGuest} className="btn-secondary">
                 <Compass size={16} color="#7aa2f7" strokeWidth={2} />

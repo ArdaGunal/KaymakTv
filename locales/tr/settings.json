@@ -238,6 +238,8 @@
   "rehberAdim1": "Aşağıdaki mavi düğmeye bas.",
   "rehberAdim2": "Trakt giriş ekranında <1>{{trakt}}</1> hesabıyla gir. Trakt'a Google ile giriyorsan, Google'da o hesabın e-postasını seç.",
   "rehberAdim3": "Bu kadar. KaymakTV kendiliğinden açılacak.",
+  "sorunMuYasiyorsun": "Sorun mu yaşıyorsun?",
+  "sorunGoogleKendiliginden": "Trakt'ta Google'a basınca yanlış hesap kendiliğinden mi açılıyor? Trakt giriş ekranında Google'a basma; <1>e-posta kutusuna</1> e-postanı yaz ve gelen bağlantıyla giriş yap.",
   "traktIleDevamKutuAdsiz": "Bu Google hesabı Trakt ile açılmış bir profile bağlı. İzleme geçmişinin eksiksiz yüklenmesi için Trakt ile devam et.",
   "baskaHesaplaDene": "Başka bir hesapla dene",
   "zatenHesapBaslik": "Daha önce açtığın bir hesabın mı var?",

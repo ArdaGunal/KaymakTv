@@ -127,7 +127,8 @@ T.ok('Madde 231: Google sarmalayicisi kosulsuz, gizleme yalniz display:none', /<
 const kutu = fs.readFileSync(path.join(root, 'components/auth/TraktIleGirKutusu.tsx'), 'utf8');
 T.ok('Kart Google e-postasini + Trakt adini + ne yapacagini gosterir', /settings:kartTraktHesabi/.test(kutu) && /settings:uyusmazlikGoogleSatiri/.test(kutu) && /settings:traktIleDevamKutuTraktli/.test(kutu));
 const uyari = fs.readFileSync(path.join(root, 'components/auth/TraktHesapUyusmazligiEkrani.tsx'), 'utf8');
-T.ok('Uyari ekrani: tek birincil dugme + ikincil baglanti, «@X ile devam» YOK', (uyari.match(/onPress=/g) || []).length === 2 && /onTekrarDene/.test(uyari) && /onBaskaYol/.test(uyari) && !/ileDevamEt|devamEt\b/.test(uyari));
+T.ok('Uyari ekrani: tek birincil dugme + ikincil baglanti + sorun baglantisi, «@X ile devam» YOK', (uyari.match(/onPress=/g) || []).length === 3 && /onTekrarDene/.test(uyari) && /onBaskaYol/.test(uyari) && !/ileDevamEt|devamEt\b/.test(uyari));
+T.ok('«Sorun mu yasiyorsun?» kapali baslar, basinca acilir; sorunlar tek listede', /const \[acik, setAcik\] = useState\(false\);/.test(uyari) && /onPress=\{\(\) => setAcik\(!acik\)\}/.test(uyari) && /\{acik && \(/.test(uyari) && /const SORUNLAR = \['sorunGoogleKendiliginden'\] as const;/.test(uyari));
 T.ok('Ikinci denemede rehber', /const rehber = beklenen\.deneme >= 1;/.test(uyari) && /rehberAdim1/.test(uyari) && /rehberAdim3/.test(uyari));
 
 T.H('Zorunlu giris adresi (saf)');
@@ -136,7 +137,7 @@ T.ok('Zaten prompt varsa iki kez eklenmez', K.zorunluGirisAdresi('https://t/a?pr
 T.ok('Soru isareti yoksa ? ile eklenir', K.zorunluGirisAdresi('https://t/a') === 'https://t/a?prompt=login');
 
 T.H('Ceviri (TR + EN)');
-const anahtarlar = ['traktIleDevamKutuTraktli', 'uyusmazlikBaslik', 'uyusmazlikAlt', 'uyusmazlikIstenen', 'uyusmazlikSecilen', 'uyusmazlikGoogleSatiri', 'uyusmazlikTekrarDene', 'uyusmazlikIpucu', 'uyusmazlikBaskaYol', 'rehberBaslik', 'rehberAdim1', 'rehberAdim2', 'rehberAdim3', 'kartTraktHesabi'];
+const anahtarlar = ['sorunMuYasiyorsun', 'sorunGoogleKendiliginden', 'traktIleDevamKutuTraktli', 'uyusmazlikBaslik', 'uyusmazlikAlt', 'uyusmazlikIstenen', 'uyusmazlikSecilen', 'uyusmazlikGoogleSatiri', 'uyusmazlikTekrarDene', 'uyusmazlikIpucu', 'uyusmazlikBaskaYol', 'rehberBaslik', 'rehberAdim1', 'rehberAdim2', 'rehberAdim3', 'kartTraktHesabi'];
 for (const dil of ['tr', 'en']) {
   const j = JSON.parse(fs.readFileSync(path.join(root, `locales/${dil}/settings.json`), 'utf8'));
   T.ok(`${dil}: ${anahtarlar.length} anahtar dolu, degiskenler tam, eski diyalog metni silindi`,

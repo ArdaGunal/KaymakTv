@@ -238,6 +238,8 @@
   "rehberAdim1": "Tap the blue button below.",
   "rehberAdim2": "On the Trakt sign-in screen, sign in as <1>{{trakt}}</1>. If you sign in to Trakt with Google, pick that account's email in Google.",
   "rehberAdim3": "That's it. KaymakTV will open by itself.",
+  "sorunMuYasiyorsun": "Having trouble?",
+  "sorunGoogleKendiliginden": "Does tapping Google on Trakt open the wrong account by itself? Don't tap Google on the Trakt sign-in screen; type your email into the <1>email box</1> and sign in with the link you receive.",
   "traktIleDevamKutuAdsiz": "This Google account belongs to a profile created with Trakt. Continue with Trakt so your full watch history loads.",
   "baskaHesaplaDene": "Try a different account",
   "zatenHesapBaslik": "Already have an account?",

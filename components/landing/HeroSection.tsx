@@ -72,7 +72,7 @@ export default function HeroSection() {
             onPress={() => router.push('/(public)/settings')}
           >
             <LogIn color="#ffffff" size={17} strokeWidth={2.2} />
-            <Text style={styles.primaryButtonText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
+            <Text style={styles.primaryButtonText}>{t('login', 'Giriş Yap')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

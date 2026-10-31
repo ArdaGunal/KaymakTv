@@ -55,7 +55,7 @@ export default function CallToAction() {
             onPress={() => router.push('/(public)/settings')}
           >
             <LogIn color="#ffffff" size={16} strokeWidth={2.2} />
-            <Text style={styles.primaryText}>{t('connectTraktButton', 'Trakt ile Giriş Yap')}</Text>
+            <Text style={styles.primaryText}>{t('login', 'Giriş Yap')}</Text>
             <ArrowRight color="rgba(255,255,255,0.7)" size={15} />
           </TouchableOpacity>
 

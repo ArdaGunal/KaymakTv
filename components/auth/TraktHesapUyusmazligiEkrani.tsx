@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation, Trans } from 'react-i18next';
 import Avatar from '../Avatar';
@@ -75,6 +75,41 @@ export default function TraktHesapUyusmazligiEkrani({ beklenen, gelen, onTekrarD
       <TouchableOpacity onPress={onBaskaYol} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button">
         <Text style={styles.ikincil}>{t('settings:uyusmazlikBaskaYol')}</Text>
       </TouchableOpacity>
+      <SorunKutusu />
+    </View>
+  );
+}
+
+/**
+ * Kullanıcı (2026-10-31): «Sorun mu yaşıyorsun?» — basınca hafif bir kutu açılır; ekran kalabalıklaşmaz,
+ * ileride yeni sorun/çözüm buraya eklenir (yalnız `SORUNLAR`'a bir anahtar). Bugün tek madde: Trakt'taki
+ * Google düğmesi tarayıcının Google oturumuyla yanlış hesabı KENDİLİĞİNDEN seçiyor (canlı tur M565) —
+ * o çerez başka sitenin, uygulamadan silinemez; e-posta kutusuyla giriş onu tamamen atlar.
+ */
+const SORUNLAR = ['sorunGoogleKendiliginden'] as const;
+
+function SorunKutusu() {
+  const { t } = useTranslation(['settings']);
+  const [acik, setAcik] = useState(false);
+  return (
+    <View style={styles.sorunAlani}>
+      <TouchableOpacity
+        onPress={() => setAcik(!acik)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: acik }}
+      >
+        <Text style={styles.sorunBaglanti}>{t('settings:sorunMuYasiyorsun')}</Text>
+      </TouchableOpacity>
+      {acik && (
+        <View style={styles.sorunKutu}>
+          {SORUNLAR.map((anahtar) => (
+            <Text key={anahtar} style={styles.sorunMetin}>
+              <Trans i18nKey={`settings:${anahtar}`} components={{ 1: <Text style={styles.kalin} /> }} />
+            </Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -137,4 +172,8 @@ const styles = StyleSheet.create({
   birincilMetin: { color: '#ffffff', fontSize: 17, fontWeight: '800' },
   ipucu: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, textAlign: 'center' },
   ikincil: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
+  sorunAlani: { alignSelf: 'stretch', alignItems: 'center', gap: 10, marginTop: 4 },
+  sorunBaglanti: { color: '#64748b', fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
+  sorunKutu: { alignSelf: 'stretch', padding: 12, borderRadius: 10, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', gap: 8 },
+  sorunMetin: { color: '#cbd5e1', fontSize: 14, lineHeight: 21 },
 });
