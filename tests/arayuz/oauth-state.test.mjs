@@ -32,7 +32,7 @@ T.ok('Yanlis state de saklananı siler', !(await oauthStateTuket('baska12345')) 
 
 T.H('Ekran kaynagi');
 const ekran = fs.readFileSync(path.join(root, 'app/(public)/settings.tsx'), 'utf8');
-T.ok('Giris oncesi state saklaniyor', /await oauthStateKaydet\(request\?\.state\)/.test(ekran) && ekran.indexOf('oauthStateKaydet(request?.state)') < ekran.indexOf('window.location.href = request.url'));
+T.ok('Giris oncesi state saklaniyor', /await oauthStateKaydet\(request\?\.state\)/.test(ekran) && ekran.indexOf('oauthStateKaydet(request?.state)') < ekran.indexOf('window.location.href = adres'));
 T.ok('Derin baglanti dali dogrulamadan gecer', /else if \(routerCode\) \{\s+dogrulanmisKod\(routerCode, routerState\)/.test(ekran));
 T.ok('Web URL dali dogrulamadan gecer', /dogrulanmisKod\(code, urlParams\.get\('state'\)\)/.test(ekran));
 T.ok('Dogrulamasiz handleTokenExchange cagrisi yalniz kutuphane yolunda + dogrulanmisKod icinde',

@@ -27,11 +27,18 @@ export interface BeklenenTraktHesabi {
   kaymakNo: number | null;
   traktSlug: string | null;
   traktUuid: string | null;
+  /** GIRIS-KILIT-02: yalnız gösterim — en çok 15 dk cihazda, dönüşte okunur okunmaz silinir. */
+  googleEmail: string | null;
+  /** Uyuşmazlık ekranından «tekrar dene» sayısı; 1+ → ekran adım adım rehberi de gösterir. */
+  deneme: number;
 }
 
 export interface GelenTraktKimligi {
   slug: string | null;
   uuid: string | null;
+  /** Gösterim: Trakt'taki görünen ad ve profil resmi (`/users/settings`, Trakt belgesi). */
+  ad: string | null;
+  avatar: string | null;
 }
 
 export type KilitSonucu =
@@ -49,6 +56,16 @@ export function traktHesabiUyusuyor(beklenen: BeklenenTraktHesabi, gelen: GelenT
   if (beklenen.traktUuid && gelen.uuid) return beklenen.traktUuid === gelen.uuid;
   if (beklenen.traktSlug && gelen.slug) return beklenen.traktSlug.toLowerCase() === gelen.slug.toLowerCase();
   return false;
+}
+
+/**
+ * SAF — Trakt yetki adresine `prompt=login` ekler: Trakt açık oturumu SORMADAN kullanmasın, giriş
+ * ekranını açsın (Trakt belgesi: «Force the user to sign in and authorize your app»; canlı: parametresiz
+ * akış açık hesabı sessizce döndürdü, parametreyle giriş formu açıldı — 2026-10-31).
+ */
+export function zorunluGirisAdresi(adres: string): string {
+  if (/[?&]prompt=/.test(adres)) return adres;
+  return `${adres}${adres.includes('?') ? '&' : '?'}prompt=login`;
 }
 
 /** Kart düğmesinde çağrılır. Trakt kimliği yoksa (eski Worker) beklenti yazılmaz → bugünkü davranış. */
@@ -88,7 +105,14 @@ export async function beklenenTraktHesabiTuket(): Promise<BeklenenTraktHesabi | 
     if (typeof k?.kaydedildi !== 'number' || Date.now() - k.kaydedildi > OMUR_MS) return null;
     const traktSlug = metin(k.traktSlug), traktUuid = metin(k.traktUuid), username = metin(k.username);
     if (!username || (!traktSlug && !traktUuid)) return null;
-    return { username, kaymakNo: Number.isInteger(k.kaymakNo) ? k.kaymakNo : null, traktSlug, traktUuid };
+    return {
+      username,
+      kaymakNo: Number.isInteger(k.kaymakNo) ? k.kaymakNo : null,
+      traktSlug,
+      traktUuid,
+      googleEmail: metin(k.googleEmail),
+      deneme: Number.isInteger(k.deneme) && k.deneme > 0 ? k.deneme : 0,
+    };
   } catch {
     return null;
   }
@@ -101,8 +125,15 @@ export async function traktKimligiSor(accessToken: string): Promise<GelenTraktKi
     headers: { Authorization: `Bearer ${accessToken}` },
     timeout: 15000,
   });
-  const ids = yanit.data?.user?.ids ?? {};
-  const kimlik = { slug: metin(ids.slug), uuid: metin(ids.uuid) };
+  const kullanici = yanit.data?.user ?? {};
+  const ids = kullanici.ids ?? {};
+  const avatar = metin(kullanici.images?.avatar?.full);
+  const kimlik = {
+    slug: metin(ids.slug),
+    uuid: metin(ids.uuid),
+    ad: metin(kullanici.name),
+    avatar: avatar && /^https:\/\//.test(avatar) ? avatar : null,
+  };
   if (!kimlik.slug && !kimlik.uuid) throw new Error('trakt_kimlik_yok');
   return kimlik;
 }

@@ -72,7 +72,14 @@ const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
  */
 // GIRIS-KILIT-01: `traktSlug`/`traktUuid` = kartın beklediği Trakt hesabı (dönüşte karşılaştırılır,
 // `services/auth/traktHesapKilidi.ts`). Eski Worker göndermez → null → denetim yok (bugünkü davranış).
-export interface GoogleBagliHesap { username: string; kaymakNo: number | null; traktSlug: string | null; traktUuid: string | null }
+// GIRIS-KILIT-02: `googleEmail` = kişinin az önce seçtiği Gmail (yalnız gösterim; sunucuda saklanmaz).
+export interface GoogleBagliHesap {
+  username: string;
+  kaymakNo: number | null;
+  traktSlug: string | null;
+  traktUuid: string | null;
+  googleEmail: string | null;
+}
 
 const dolu = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -84,6 +91,7 @@ export const bagliHesap = (h: any): GoogleBagliHesap | null =>
         kaymakNo: Number.isInteger(h.kaymakNo) ? h.kaymakNo : null,
         traktSlug: dolu(h.traktSlug),
         traktUuid: dolu(h.traktUuid),
+        googleEmail: dolu(h.googleEmail),
       }
     : null;
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import type { GoogleBagliHesap } from '../../services/api/googleAuth';
 import Avatar from '../Avatar';
 
@@ -31,6 +31,10 @@ export default function TraktIleGirKutusu({ hesap, onTraktIleDevam, onBaskaHesap
           <View style={styles.profilMetin}>
             <Text style={styles.ad} numberOfLines={1}>{ad}</Text>
             {hesap!.kaymakNo != null && <Text style={styles.no}>#{hesap!.kaymakNo}</Text>}
+            {/* GIRIS-KILIT-02: az önce seçilen Gmail — yanlış Google hesabı seçildiyse kişi burada fark etsin. */}
+            {hesap!.googleEmail && (
+              <Text style={styles.no} numberOfLines={1}>{t('settings:uyusmazlikGoogleSatiri', { email: hesap!.googleEmail })}</Text>
+            )}
             {/* GIRIS-KILIT-01: beklenen Trakt hesabı — trakt.tv'de başka hesap açıksa kişi önceden fark etsin. */}
             {hesap!.traktSlug && (
               <Text style={styles.no} numberOfLines={1}>{t('settings:kartTraktHesabi', { slug: hesap!.traktSlug })}</Text>
@@ -39,7 +43,10 @@ export default function TraktIleGirKutusu({ hesap, onTraktIleDevam, onBaskaHesap
         </View>
       )}
       <Text style={styles.metin}>
-        {ad ? t('settings:traktIleDevamKutuAdli', { ad }) : t('settings:traktIleDevamKutuAdsiz')}
+        {/* GIRIS-KILIT-02: Trakt adı biliniyorsa NE yapacağını söyle — Trakt giriş ekranı açılacak. */}
+        {hesap?.traktSlug ? (
+          <Trans i18nKey="settings:traktIleDevamKutuTraktli" values={{ trakt: hesap.traktSlug }} components={{ 1: <Text style={styles.kalin} /> }} />
+        ) : ad ? t('settings:traktIleDevamKutuAdli', { ad }) : t('settings:traktIleDevamKutuAdsiz')}
       </Text>
       <TouchableOpacity style={styles.birincil} onPress={onTraktIleDevam} activeOpacity={0.85} accessibilityRole="button">
         <Text style={styles.birincilMetin}>{t('settings:traktIleDevam')}</Text>
@@ -61,6 +68,7 @@ const styles = StyleSheet.create({
   ad: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
   no: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
   metin: { color: '#cbd5e1', fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  kalin: { fontWeight: '800', color: '#ffffff' },
   birincil: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 10, backgroundColor: '#2563eb' },
   birincilMetin: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   ikincil: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },

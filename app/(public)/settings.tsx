@@ -7,13 +7,18 @@ import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
 import { exchangeAuthCode } from '../../services/traktApi';
 import { oauthStateKaydet, oauthStateTuket } from '../../services/oauthState';
-import { traktHesapKilidiDenetle, beklenenTraktHesabiKaydet, beklenenTraktHesabiSil } from '../../services/auth/traktHesapKilidi';
+import {
+  traktHesapKilidiDenetle, beklenenTraktHesabiKaydet, beklenenTraktHesabiSil, zorunluGirisAdresi,
+  type BeklenenTraktHesabi, type GelenTraktKimligi,
+} from '../../services/auth/traktHesapKilidi';
+import { logWarning } from '../../utils/errorLog';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
 import TraktGirisDugmesi from '../../components/auth/TraktGirisDugmesi';
 import TraktIleGirKutusu from '../../components/auth/TraktIleGirKutusu';
+import TraktHesapUyusmazligiEkrani from '../../components/auth/TraktHesapUyusmazligiEkrani';
 import { useGoogleHesapGiris } from '../../hooks/useGoogleHesapGiris';
 
 // M502 Faz 0 + D10 — yalnız --google-test APK'sında açık (bkz. utils/googleGirisBayragi.ts).
@@ -46,7 +51,10 @@ export default function Login() {
   // GIRIS-TASARIM-01 (M536): Google giriş durumu BU EKRANDA tutulur — «Trakt ile devam et»
   // kutusu açılınca diğer bütün giriş seçenekleri gizlenir (kullanıcı: tek birincil düğme kalsın).
   const google = useGoogleHesapGiris();
-  const kutuAcik = GOOGLE_GIRIS_ACIK && google.durum === 'trakt_ile_gir';
+  // GIRIS-KILIT-02: kartın hesabıyla Trakt'tan dönen farklıysa tam sayfa sakin ekran (diğer seçenekler gizli).
+  const [uyusmazlik, setUyusmazlik] = useState<{ beklenen: BeklenenTraktHesabi; gelen: GelenTraktKimligi } | null>(null);
+  const uyariAcik = uyusmazlik !== null;
+  const kutuAcik = (GOOGLE_GIRIS_ACIK && google.durum === 'trakt_ile_gir') || uyariAcik;
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
@@ -134,24 +142,39 @@ export default function Login() {
 
   // GIRIS-KILIT-01: düz «Trakt ile giriş» eski bir kart beklentisini siler; kart düğmesi beklenen
   // Trakt hesabını saklar ve dönüşte `handleTokenExchange` onu karşılaştırır.
+  // GIRIS-KILIT-02: kart ve «tekrar dene» Trakt'ı giriş ekranını açmaya ZORLAR (`prompt=login`) —
+  // açık trakt.tv oturumu sessizce kullanılmasın, kişi hesabını kendisi seçsin.
   const handleTraktLogin = async () => {
     await beklenenTraktHesabiSil();
-    await traktGirisiniBaslat();
+    await traktGirisiniBaslat(false);
   };
   const handleKartlaTraktGiris = async () => {
-    await beklenenTraktHesabiKaydet(google.bagliHesap);
-    await traktGirisiniBaslat();
+    if (google.bagliHesap) await beklenenTraktHesabiKaydet({ ...google.bagliHesap, deneme: 0 });
+    else await beklenenTraktHesabiSil();
+    await traktGirisiniBaslat(true);
+  };
+  const handleTekrarDene = async () => {
+    if (!uyusmazlik) return;
+    await beklenenTraktHesabiKaydet({ ...uyusmazlik.beklenen, deneme: uyusmazlik.beklenen.deneme + 1 });
+    setUyusmazlik(null);
+    await traktGirisiniBaslat(true);
+  };
+  const handleBaskaYol = () => {
+    setUyusmazlik(null);
+    google.sifirla();
   };
 
-  const traktGirisiniBaslat = async () => {
+  const traktGirisiniBaslat = async (zorunluGiris: boolean) => {
     // S7: dönüşte karşılaştırmak için kütüphanenin ürettiği rastgele `state`.
     await oauthStateKaydet(request?.state);
-    if (Platform.OS === 'web' && request?.url) {
+    // Aynı `state`'li adres; yalnız sonuna `prompt=login` eklenir (S7 doğrulaması değişmez).
+    const adres = request?.url ? (zorunluGiris ? zorunluGirisAdresi(request.url) : request.url) : null;
+    if (Platform.OS === 'web' && adres) {
       // Pop-up açmak yerine sekmenin tamamını Trakt'a yönlendir (COOP bypass)
-      window.location.href = request.url;
+      window.location.href = adres;
     } else {
       // Mobilde normal çalışmaya devam et
-      promptAsync();
+      promptAsync(adres && zorunluGiris ? { url: adres } : undefined);
     }
   };
 
@@ -191,15 +214,9 @@ export default function Login() {
       // Trakt'a sorulamazsa hata fırlar → aşağıdaki catch, yine oturum açmadan.
       const kilit = await traktHesapKilidiDenetle(tokenData.access_token);
       if (kilit.durum === 'uyusmazlik') {
-        const beklenenTrakt = kilit.beklenen.traktSlug ?? `@${kilit.beklenen.username}`;
-        notify(
-          t('settings:traktUyusmazlikBaslik'),
-          t('settings:traktUyusmazlikMetin', {
-            ad: `@${kilit.beklenen.username}`,
-            beklenen: beklenenTrakt,
-            gelen: kilit.gelen.slug ?? '?',
-          })
-        );
+        // Kimlik yazılmaz (yalnız sıklığı görmek için): kaçıncı deneme.
+        logWarning('girisKilidi.uyusmazlik', new Error('trakt_hesap_uyusmazligi'), { deneme: String(kilit.beklenen.deneme) });
+        setUyusmazlik({ beklenen: kilit.beklenen, gelen: kilit.gelen });
         return;
       }
 
@@ -260,14 +277,22 @@ export default function Login() {
         <View style={[styles.contentWrapper, isDesktop && styles.desktopCard]}>
         {/* M536: başlık her genişlikte ORTALI — eskiden yalnız masaüstünde ortalanıyordu, dar ekranda başlık sola,
             gövde ortaya yaslı kalıyordu (kullanıcı: «dar ekranda da başlık ve alt başlık ortalansın»). */}
-        <View style={[styles.headerContainer, isDesktop && { marginBottom: 40 }]}>
+        {!uyariAcik && <View style={[styles.headerContainer, isDesktop && { marginBottom: 40 }]}>
           <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
           <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
-        </View>
+        </View>}
 
       <View style={styles.formContainer}>
           <>
-            {kutuAcik && (
+            {uyusmazlik && (
+              <TraktHesapUyusmazligiEkrani
+                beklenen={uyusmazlik.beklenen}
+                gelen={uyusmazlik.gelen}
+                onTekrarDene={handleTekrarDene}
+                onBaskaYol={handleBaskaYol}
+              />
+            )}
+            {kutuAcik && !uyariAcik && (
               <TraktIleGirKutusu hesap={google.bagliHesap} onTraktIleDevam={handleKartlaTraktGiris} onBaskaHesap={google.sifirla} />
             )}
             {!kutuAcik && <>
@@ -321,7 +346,7 @@ export default function Login() {
                 basınca İKİNCİ, boş hesap açılıyordu (veri bölünmesi). Kimlik planı
                 Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır.
                 D10 (2026-10-13): Faz 4–5 testleri için yalnız test APK'sında açık. */}
-            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} giris={google} />}
+            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} giris={google} gizli={uyariAcik} />}
 
             {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür (kutu açıkken değil — tek seçenek kalsın). */}
             {!kutuAcik && <>

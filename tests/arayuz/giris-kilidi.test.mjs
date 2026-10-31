@@ -57,6 +57,15 @@ T.ok('15 dk\'dan eski beklenti yok sayilir', (await K.beklenenTraktHesabiTuket()
 depo.set(anahtar, '{bozuk');
 T.ok('Bozuk kayit yok sayilir (cokmez)', (await K.beklenenTraktHesabiTuket()) === null);
 
+T.H('GIRIS-KILIT-02 · e-posta + deneme sayisi yonlendirmeden sag cikar');
+depo.clear();
+await K.beklenenTraktHesabiKaydet({ ...ARDAGNL, googleEmail: 'ardagunalfb2001@gmail.com', deneme: 1 });
+const k2 = await K.beklenenTraktHesabiTuket();
+T.ok('Google e-postasi ve deneme sayisi geri okunur', k2?.googleEmail === 'ardagunalfb2001@gmail.com' && k2?.deneme === 1);
+T.ok('E-posta okununca cihazdan SILINIR (tek kullanimlik)', depo.size === 0);
+await K.beklenenTraktHesabiKaydet({ ...ARDAGNL, deneme: -3 });
+T.ok('Bozuk deneme sayisi 0 sayilir', (await K.beklenenTraktHesabiTuket())?.deneme === 0);
+
 T.H('Denetim (token kaydedilmeden once)');
 depo.clear(); istekler = [];
 T.ok('Beklenti yok -> serbest, Trakt\'a HIC sorulmaz', (await K.traktHesapKilidiDenetle('tok')).durum === 'serbest' && istekler.length === 0);
@@ -69,6 +78,13 @@ T.ok('Trakt\'a Pi koprusunden /users/settings, YENI token basligi ile', /\/api\/
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
 traktCevabi = ayarlar('ardagnl', UUID_GERCEK);
 T.ok('Dogru hesap -> uyusuyor', (await K.traktHesapKilidiDenetle('tok')).durum === 'uyusuyor');
+await K.beklenenTraktHesabiKaydet(ARDAGNL);
+traktCevabi = { user: { name: 'Arda Test', ids: { slug: 'ardagunalfb2001-test1-870ac6', uuid: UUID_TEST }, images: { avatar: { full: 'https://secure.gravatar.com/avatar/x' } } } };
+const s3 = await K.traktHesapKilidiDenetle('tok');
+T.ok('Trakt gorunen adi + profil resmi ekrana tasinir', s3.gelen.ad === 'Arda Test' && s3.gelen.avatar === 'https://secure.gravatar.com/avatar/x');
+await K.beklenenTraktHesabiKaydet(ARDAGNL);
+traktCevabi = { user: { ids: { slug: 'x', uuid: UUID_TEST }, images: { avatar: { full: 'javascript:alert(1)' } } } };
+T.ok('https olmayan resim adresi kullanilmaz', (await K.traktHesapKilidiDenetle('tok')).gelen.avatar === null);
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
 traktCevabi = new Error('Network Error');
 let firladi = false;
@@ -97,18 +113,36 @@ T.ok('Kilit token degisiminden SONRA, baglama/Google baglama/saveTokens\'tan ONC
   && i('traktHesapKilidiDenetle(') < i('completeGoogleLinkIfPending(')
   && i('traktHesapKilidiDenetle(') < i('saveTokens('));
 const uyusmazlikDali = govde.slice(i("kilit.durum === 'uyusmazlik'"), i('traktBaglamaTamamla(tokenData)'));
-T.ok('Uyusmazlikta uyari + return; token KAYDEDILMEZ', /notify\(/.test(uyusmazlikDali) && /return;/.test(uyusmazlikDali) && !/saveTokens|router\.replace/.test(uyusmazlikDali));
-T.ok('Kart dugmesi beklentiyi saklayan yolu kullanir', /onTraktIleDevam=\{handleKartlaTraktGiris\}/.test(ekran)
-  && /handleKartlaTraktGiris = async \(\) => \{\s+await beklenenTraktHesabiKaydet\(google\.bagliHesap\);\s+await traktGirisiniBaslat\(\);/.test(ekran));
-T.ok('Duz Trakt dugmesi beklentiyi SILER', /handleTraktLogin = async \(\) => \{\s+await beklenenTraktHesabiSil\(\);\s+await traktGirisiniBaslat\(\);/.test(ekran)
+T.ok('Uyusmazlikta tam sayfa ekran + return; token KAYDEDILMEZ', /setUyusmazlik\(\{ beklenen: kilit\.beklenen, gelen: kilit\.gelen \}\)/.test(uyusmazlikDali) && /return;/.test(uyusmazlikDali) && !/saveTokens|router\.replace|notify\(/.test(uyusmazlikDali));
+T.ok('Uyusmazlik gunlugu kimlik tasimaz (yalniz deneme sayisi)', /logWarning\('girisKilidi\.uyusmazlik', new Error\('trakt_hesap_uyusmazligi'\), \{ deneme: String\(kilit\.beklenen\.deneme\) \}\)/.test(uyusmazlikDali));
+T.ok('Kart dugmesi beklentiyi saklar ve Trakt girisini ZORLAR', /onTraktIleDevam=\{handleKartlaTraktGiris\}/.test(ekran)
+  && /handleKartlaTraktGiris = async \(\) => \{\s+if \(google\.bagliHesap\) await beklenenTraktHesabiKaydet\(\{ \.\.\.google\.bagliHesap, deneme: 0 \}\);\s+else await beklenenTraktHesabiSil\(\);\s+await traktGirisiniBaslat\(true\);/.test(ekran));
+T.ok('Duz Trakt dugmesi beklentiyi SILER, zorlamaz', /handleTraktLogin = async \(\) => \{\s+await beklenenTraktHesabiSil\(\);\s+await traktGirisiniBaslat\(false\);/.test(ekran)
   && /<TraktGirisDugmesi[^>]*onPress=\{handleTraktLogin\}/.test(ekran));
+T.ok('Tekrar dene: deneme +1, zorunlu giris', /handleTekrarDene = async \(\) => \{\s+if \(!uyusmazlik\) return;\s+await beklenenTraktHesabiKaydet\(\{ \.\.\.uyusmazlik\.beklenen, deneme: uyusmazlik\.beklenen\.deneme \+ 1 \}\);[\s\S]{0,80}traktGirisiniBaslat\(true\)/.test(ekran));
+T.ok('Web ve APK ayni zorunlu adresi kullanir', /window\.location\.href = adres;/.test(ekran) && /promptAsync\(adres && zorunluGiris \? \{ url: adres \} : undefined\)/.test(ekran) && /zorunluGirisAdresi\(request\.url\)/.test(ekran));
+T.ok('Ekran acikken diger secenekler ve Google dugmesi gizli (Google SOKULMEZ)', /const kutuAcik = \(GOOGLE_GIRIS_ACIK && google\.durum === 'trakt_ile_gir'\) \|\| uyariAcik;/.test(ekran) && /giris=\{google\} gizli=\{uyariAcik\}/.test(ekran));
+const gdugme = fs.readFileSync(path.join(root, 'components/auth/GoogleGirisDugmesi.tsx'), 'utf8');
+T.ok('Madde 231: Google sarmalayicisi kosulsuz, gizleme yalniz display:none', /<View style=\{props\.gizli \? styles\.tamGizli : undefined\}>/.test(gdugme) && /tamGizli: \{ display: 'none' \}/.test(gdugme));
 const kutu = fs.readFileSync(path.join(root, 'components/auth/TraktIleGirKutusu.tsx'), 'utf8');
-T.ok('Kart beklenen Trakt hesabini gosterir', /settings:kartTraktHesabi/.test(kutu) && /hesap!\.traktSlug/.test(kutu));
+T.ok('Kart Google e-postasini + Trakt adini + ne yapacagini gosterir', /settings:kartTraktHesabi/.test(kutu) && /settings:uyusmazlikGoogleSatiri/.test(kutu) && /settings:traktIleDevamKutuTraktli/.test(kutu));
+const uyari = fs.readFileSync(path.join(root, 'components/auth/TraktHesapUyusmazligiEkrani.tsx'), 'utf8');
+T.ok('Uyari ekrani: tek birincil dugme + ikincil baglanti, «@X ile devam» YOK', (uyari.match(/onPress=/g) || []).length === 2 && /onTekrarDene/.test(uyari) && /onBaskaYol/.test(uyari) && !/ileDevamEt|devamEt\b/.test(uyari));
+T.ok('Ikinci denemede rehber', /const rehber = beklenen\.deneme >= 1;/.test(uyari) && /rehberAdim1/.test(uyari) && /rehberAdim3/.test(uyari));
+
+T.H('Zorunlu giris adresi (saf)');
+T.ok('prompt=login eklenir, state korunur', K.zorunluGirisAdresi('https://trakt.tv/oauth/authorize?client_id=x&state=Ab3dEf9hIj') === 'https://trakt.tv/oauth/authorize?client_id=x&state=Ab3dEf9hIj&prompt=login');
+T.ok('Zaten prompt varsa iki kez eklenmez', K.zorunluGirisAdresi('https://t/a?prompt=login') === 'https://t/a?prompt=login');
+T.ok('Soru isareti yoksa ? ile eklenir', K.zorunluGirisAdresi('https://t/a') === 'https://t/a?prompt=login');
 
 T.H('Ceviri (TR + EN)');
+const anahtarlar = ['traktIleDevamKutuTraktli', 'uyusmazlikBaslik', 'uyusmazlikAlt', 'uyusmazlikIstenen', 'uyusmazlikSecilen', 'uyusmazlikGoogleSatiri', 'uyusmazlikTekrarDene', 'uyusmazlikIpucu', 'uyusmazlikBaskaYol', 'rehberBaslik', 'rehberAdim1', 'rehberAdim2', 'rehberAdim3', 'kartTraktHesabi'];
 for (const dil of ['tr', 'en']) {
   const j = JSON.parse(fs.readFileSync(path.join(root, `locales/${dil}/settings.json`), 'utf8'));
-  T.ok(`${dil}: uyari basligi + metni + kart satiri, degiskenler tam`,
-    !!j.traktUyusmazlikBaslik && ['{{ad}}', '{{beklenen}}', '{{gelen}}'].every((d) => j.traktUyusmazlikMetin?.includes(d)) && j.kartTraktHesabi?.includes('{{slug}}'));
+  T.ok(`${dil}: ${anahtarlar.length} anahtar dolu, degiskenler tam, eski diyalog metni silindi`,
+    anahtarlar.every((k) => typeof j[k] === 'string' && j[k].trim())
+    && ['traktIleDevamKutuTraktli', 'uyusmazlikIpucu', 'rehberAdim2'].every((k) => j[k].includes('<1>{{trakt}}</1>'))
+    && j.uyusmazlikGoogleSatiri.includes('{{email}}') && j.kartTraktHesabi.includes('{{slug}}')
+    && !('traktUyusmazlikBaslik' in j) && !('traktUyusmazlikMetin' in j));
 }
 T.bitir();

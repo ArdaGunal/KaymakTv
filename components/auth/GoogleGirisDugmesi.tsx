@@ -16,6 +16,8 @@ interface Props {
    * (`TraktIleGirKutusu.tsx`); eskiden ana Trakt düğmesinin altına ikinci bir Trakt düğmesi çıkıyordu.
    */
   giris: ReturnType<typeof useGoogleHesapGiris>;
+  /** GIRIS-KILIT-02: «Farklı Trakt hesabı» ekranı açıkken görünmez — ama SÖKÜLMEZ (Madde 231). */
+  gizli?: boolean;
 }
 
 /**
@@ -23,7 +25,13 @@ interface Props {
  * kalktı). Yalnız GÖRÜNÜM; mantık `useGoogleHesapGiris`'te.
  */
 export default function GoogleGirisDugmesi(props: Props) {
-  return Platform.OS === 'web' ? <GoogleGirisWeb {...props} /> : <GoogleGirisNative {...props} />;
+  // Sarmalayıcı HER ZAMAN var: koşullu sarmak ağacı değiştirir → React içeriği yeniden kurar → web'de
+  // GIS düğmesi bir daha çizilmez (Madde 231). Gizlemek yalnız `display: none`.
+  return (
+    <View style={props.gizli ? styles.tamGizli : undefined}>
+      {Platform.OS === 'web' ? <GoogleGirisWeb {...props} /> : <GoogleGirisNative {...props} />}
+    </View>
+  );
 }
 
 function GoogleGirisWeb({ etkin, giris }: Props) {
@@ -103,6 +111,7 @@ const styles = StyleSheet.create({
   gisOuter: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   gisContainer: { minHeight: 44 },
   gizli: { opacity: 0, height: 0 },
+  tamGizli: { display: 'none' },
   pasif: { opacity: 0.45 },
   // M536: Trakt düğmesiyle AYNI ölçü (settings.tsx `GIRIS_DUGME_YUKSEKLIK_NATIVE`).
   nativeButton: { width: '100%', height: 48 },
