@@ -11,9 +11,9 @@ import { useAuth } from '../context/AuthContext';
 export function useOturumGecisi() {
   const { removeKeys, saveTokens } = useAuth();
   return useCallback(
-    async (access: string, refresh: string) => {
+    async (access: string, kaymakOturum: string, userId?: string) => {
       await removeKeys();
-      await saveTokens(access, refresh);
+      await saveTokens(access, kaymakOturum, userId);
     },
     [removeKeys, saveTokens]
   );

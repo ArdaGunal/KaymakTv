@@ -5,7 +5,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
 import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
-import { exchangeAuthCode } from '../../services/traktApi';
+import { koduDegis, kasaBiletiniBirak, KasaHatasi } from '../../services/api/traktKasa';
+import { girisOturumuAc } from '../../services/auth/traktOturumu';
 import { oauthStateKaydet, oauthStateTuket } from '../../services/oauthState';
 import {
   traktHesapKilidiDenetle, beklenenTraktHesabiKaydet, beklenenTraktHesabiSil, zorunluGirisAdresi,
@@ -202,31 +203,28 @@ export default function Login() {
 
     setIsGenerating(true);
     try {
-      // `exchangeAuthCode` artık yanıtı DOĞRULUYOR: access_token yoksa veya
-      // proxy eksik olduğu için HTML döndüyse istisna fırlatır. Eskiden burada
-      // `if (tokenData?.access_token)` vardı ve `else`'i YOKTU — token'sız yanıt
-      // hiçbir iz bırakmadan yutuluyor, kullanıcı sebebini göremeden misafir
-      // olarak kalıyordu. Artık her başarısızlık aşağıdaki catch'e düşer.
-      const tokenData = await exchangeAuthCode(code, redirectUri);
+      // Trakt kasası: kod Worker'da değişir; yenileme anahtarı cihaza gelmez, yalnız mühürlü bilet.
+      // Her başarısızlık aşağıdaki catch'e düşer (yanıt `traktKasa.gonder`'de doğrulanır).
+      const giris = await koduDegis(code, redirectUri);
 
       // GIRIS-KILIT-01: kart «@X» dediyse gelen Trakt hesabı X'in mi? Değilse token KAYDEDİLMEZ,
       // oturum açılmaz (canlı T1, 2026-10-31: kart @ArdaGnl → trakt.tv'deki Trakt_test → @Arda_Gunal).
-      // Trakt'a sorulamazsa hata fırlar → aşağıdaki catch, yine oturum açmadan.
-      const kilit = await traktHesapKilidiDenetle(tokenData.access_token);
+      const kilit = await traktHesapKilidiDenetle(giris.kimlik);
       if (kilit.durum === 'uyusmazlik') {
+        void kasaBiletiniBirak(giris.kasaBileti);
         // Kimlik yazılmaz (yalnız sıklığı görmek için): kaçıncı deneme.
         logWarning('girisKilidi.uyusmazlik', new Error('trakt_hesap_uyusmazligi'), { deneme: String(kilit.beklenen.deneme) });
         setUyusmazlik({ beklenen: kilit.beklenen, gelen: kilit.gelen });
         return;
       }
 
-      if (await traktBaglamaTamamla(tokenData)) return;
+      if (await traktBaglamaTamamla(giris)) return;
 
       // F8 — bekleyen bir Google bağlama akışı varsa tamamlar (yoksa no-op).
       // ⚠️ Bağlama BAŞARISIZ olsa bile normal Trakt girişi ENGELLENMEZ —
       // kullanıcı Trakt kimliğini az önce kanıtladı, ondan esirgemek kötü olur.
       try {
-        await completeGoogleLinkIfPending(tokenData.access_token);
+        await completeGoogleLinkIfPending(giris.erisim);
       } catch (linkError: any) {
         console.error('[Google Sign-In] Hesap bağlama hatası:', linkError);
         notify(
@@ -235,7 +233,8 @@ export default function Login() {
         );
       }
 
-      await saveTokens(tokenData.access_token, tokenData.refresh_token);
+      const oturum = await girisOturumuAc(giris.erisim, giris.kasaBileti);
+      await saveTokens(giris.erisim, oturum.kaymakOturum, oturum.userId);
       router.replace('/(protected)/(tabs)/explore');
     } catch (error: any) {
       console.error('Token Exchange Hatası:', error);
@@ -243,14 +242,8 @@ export default function Login() {
       // deneyebilsin diye kilidi aç.
       exchangedCodeRef.current = null;
 
-      const raw = String(error?.message ?? ''); // ceviri-ok: yalnız sınıflandırma (AUTH_* önekleri), ekrana t() gider
-      if (raw.startsWith('AUTH_PROXY_MISSING')) {
-        notify(t('common:error'), t('settings:loginProxyMissing'));
-      } else if (raw.startsWith('AUTH_NO_TOKEN') || raw.startsWith('AUTH_BAD_RESPONSE')) {
-        notify(t('common:error'), t('settings:loginTokenError'));
-      } else {
-        notify(t('common:error'), t('communicationError'));
-      }
+      const kodGecersiz = error instanceof KasaHatasi && error.kod === 'kod_gecersiz';
+      notify(t('common:error'), kodGecersiz ? t('settings:loginTokenError') : t('communicationError'));
     } finally {
       setIsGenerating(false);
     }

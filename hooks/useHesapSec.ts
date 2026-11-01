@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import * as SecureStore from '../utils/secureStorage';
 import { notify } from '../utils/confirmDialog';
 import { girisYontemiHataMetni } from '../utils/girisYontemiHataMetni';
 import { hesapSec, GirisYontemiHatasi } from '../services/api/girisYontemi';
@@ -10,6 +9,7 @@ import { useHesapSecStore, hesapSecDurumuTemizle } from '../store/hesapSecStore'
 import { useOturumGecisi } from './useOturumGecisi';
 import { useBekleyenIsOnayi } from './useBekleyenIsOnayi';
 import { kurulumKimliginiYenile } from '../services/api/telemetry';
+import { hesapSecSonrasiOturum } from '../services/auth/traktOturumu';
 
 export type HesapSecimi = 'mevcut' | 'diger';
 
@@ -51,18 +51,14 @@ export function useHesapSec() {
       await kurulumKimliginiYenile();
       const yeni = durum.yeniTrakt;
       hesapSecDurumuTemizle();
-      if (r.oturum === 'trakt_ile_gir' || (r.oturum === 'yeni_trakt' && !yeni)) {
+      const gecilecek = await hesapSecSonrasiOturum(r, yeni, accessToken);
+      if (gecilecek === 'giris') {
         await removeKeys();
         notify(t('settings:hesapSecTamamBaslik'), t('settings:hesapSecTraktIleGir'));
         router.replace('/(public)/settings');
         return;
       }
-      if (r.oturum === 'yeni_trakt' && yeni) {
-        await gecis(yeni.access, yeni.refresh);
-      } else if (!r.kalanBenMiyim) {
-        const refresh = (await SecureStore.getItemAsync('traktRefreshToken')) ?? '';
-        await gecis(accessToken, refresh);
-      }
+      if (gecilecek !== 'ayni') await gecis(gecilecek.access, gecilecek.oturum.kaymakOturum, gecilecek.oturum.userId);
       notify(t('settings:hesapSecTamamBaslik'), t('settings:hesapSecTamamMetin'));
       router.replace('/(protected)/(tabs)/profile');
     } catch (e) {

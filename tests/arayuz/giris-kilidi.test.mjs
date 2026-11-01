@@ -13,23 +13,13 @@ const AsyncStorage = {
   setItem: async (k, v) => { depo.set(k, v); },
   removeItem: async (k) => { depo.delete(k); },
 };
-let traktCevabi = null;
-let istekler = [];
-const axios = {
-  get: async (url, opt) => {
-    istekler.push({ url, opt });
-    if (traktCevabi instanceof Error) throw traktCevabi;
-    return { data: traktCevabi };
-  },
-};
+const axios = { get: async () => ({ data: {} }) };
 const K = tsLoader(root, {
   '@react-native-async-storage/async-storage': { __esModule: true, default: AsyncStorage },
-  axios: { __esModule: true, default: axios },
 })('services/auth/traktHesapKilidi.ts');
 
 const UUID_GERCEK = 'a'.repeat(40), UUID_TEST = 'b'.repeat(40);
 const ARDAGNL = { username: 'ArdaGnl', kaymakNo: 10241355, traktSlug: 'ardagnl', traktUuid: UUID_GERCEK };
-const ayarlar = (slug, uuid) => ({ user: { username: slug, ids: { slug, uuid } } });
 
 T.H('Saf karar');
 T.ok('uuid ayni -> uyusuyor', K.traktHesabiUyusuyor(ARDAGNL, { slug: 'ardagnl', uuid: UUID_GERCEK }));
@@ -66,35 +56,21 @@ T.ok('E-posta okununca cihazdan SILINIR (tek kullanimlik)', depo.size === 0);
 await K.beklenenTraktHesabiKaydet({ ...ARDAGNL, deneme: -3 });
 T.ok('Bozuk deneme sayisi 0 sayilir', (await K.beklenenTraktHesabiTuket())?.deneme === 0);
 
-T.H('Denetim (token kaydedilmeden once)');
-depo.clear(); istekler = [];
-T.ok('Beklenti yok -> serbest, Trakt\'a HIC sorulmaz', (await K.traktHesapKilidiDenetle('tok')).durum === 'serbest' && istekler.length === 0);
+T.H('Denetim (oturum acilmadan once; kimlik /auth/trakt/degis cevabindan)');
+depo.clear();
+T.ok('Beklenti yok -> serbest', (await K.traktHesapKilidiDenetle({ slug: 'x', uuid: UUID_TEST })).durum === 'serbest');
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
-traktCevabi = ayarlar('ardagunalfb2001-test1-870ac6', UUID_TEST);
-const sonuc = await K.traktHesapKilidiDenetle('yeni-token');
+const sonuc = await K.traktHesapKilidiDenetle({ slug: 'ardagunalfb2001-test1-870ac6', uuid: UUID_TEST, ad: null, avatar: null });
 T.ok('🔴 T1 senaryosu -> uyusmazlik + beklenen/gelen', sonuc.durum === 'uyusmazlik' && sonuc.beklenen.username === 'ArdaGnl' && sonuc.gelen.slug === 'ardagunalfb2001-test1-870ac6');
-const [ist] = istekler;
-T.ok('Trakt\'a Pi koprusunden /users/settings, YENI token basligi ile', /\/api\/trakt-proxy$/.test(ist.url) && ist.opt.params.endpoint === '/users/settings' && ist.opt.headers.Authorization === 'Bearer yeni-token');
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
-traktCevabi = ayarlar('ardagnl', UUID_GERCEK);
-T.ok('Dogru hesap -> uyusuyor', (await K.traktHesapKilidiDenetle('tok')).durum === 'uyusuyor');
+T.ok('Dogru hesap -> uyusuyor', (await K.traktHesapKilidiDenetle({ slug: 'ardagnl', uuid: UUID_GERCEK })).durum === 'uyusuyor');
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
-traktCevabi = { user: { name: 'Arda Test', ids: { slug: 'ardagunalfb2001-test1-870ac6', uuid: UUID_TEST }, images: { avatar: { full: 'https://secure.gravatar.com/avatar/x' } } } };
-const s3 = await K.traktHesapKilidiDenetle('tok');
+const s3 = await K.traktHesapKilidiDenetle({ slug: 'ardagunalfb2001-test1-870ac6', uuid: UUID_TEST, ad: 'Arda Test', avatar: 'https://secure.gravatar.com/avatar/x' });
 T.ok('Trakt gorunen adi + profil resmi ekrana tasinir', s3.gelen.ad === 'Arda Test' && s3.gelen.avatar === 'https://secure.gravatar.com/avatar/x');
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
-traktCevabi = { user: { ids: { slug: 'x', uuid: UUID_TEST }, images: { avatar: { full: 'javascript:alert(1)' } } } };
-T.ok('https olmayan resim adresi kullanilmaz', (await K.traktHesapKilidiDenetle('tok')).gelen.avatar === null);
+T.ok('https olmayan resim adresi kullanilmaz', (await K.traktHesapKilidiDenetle({ slug: 'x', uuid: UUID_TEST, avatar: 'javascript:alert(1)' })).gelen.avatar === null);
 await K.beklenenTraktHesabiKaydet(ARDAGNL);
-traktCevabi = new Error('Network Error');
-let firladi = false;
-try { await K.traktHesapKilidiDenetle('tok'); } catch { firladi = true; }
-T.ok('Trakt\'a ulasilamazsa HATA firlar (cagiran oturum acmaz)', firladi);
-await K.beklenenTraktHesabiKaydet(ARDAGNL);
-traktCevabi = { user: {} };
-firladi = false;
-try { await K.traktHesapKilidiDenetle('tok'); } catch { firladi = true; }
-T.ok('Trakt kimlik vermezse HATA firlar', firladi);
+T.ok('Kimlik bos gelirse uyusmaz sayilir (oturum acilmaz)', (await K.traktHesapKilidiDenetle({})).durum === 'uyusmazlik');
 
 T.H('Worker cevabi suzgeci');
 const G = tsLoader(root, { axios: { __esModule: true, default: axios } })('services/api/googleAuth.ts');
@@ -108,11 +84,12 @@ const ekran = fs.readFileSync(path.join(root, 'app/(public)/settings.tsx'), 'utf
 const govde = ekran.slice(ekran.indexOf('const handleTokenExchange'));
 const i = (s) => govde.indexOf(s);
 T.ok('Kilit token degisiminden SONRA, baglama/Google baglama/saveTokens\'tan ONCE',
-  i('exchangeAuthCode(code') > -1 && i('traktHesapKilidiDenetle(tokenData.access_token)') > i('exchangeAuthCode(code')
-  && i('traktHesapKilidiDenetle(') < i('traktBaglamaTamamla(tokenData)')
+  i('koduDegis(code') > -1 && i('traktHesapKilidiDenetle(giris.kimlik)') > i('koduDegis(code')
+  && i('traktHesapKilidiDenetle(') < i('traktBaglamaTamamla(giris)')
   && i('traktHesapKilidiDenetle(') < i('completeGoogleLinkIfPending(')
   && i('traktHesapKilidiDenetle(') < i('saveTokens('));
-const uyusmazlikDali = govde.slice(i("kilit.durum === 'uyusmazlik'"), i('traktBaglamaTamamla(tokenData)'));
+const uyusmazlikDali = govde.slice(i("kilit.durum === 'uyusmazlik'"), i('traktBaglamaTamamla(giris)'));
+T.ok('Uyusmazlikta yanlis hesabin yetkisi kaldirilir', /kasaBiletiniBirak\(giris\.kasaBileti\)/.test(uyusmazlikDali));
 T.ok('Uyusmazlikta tam sayfa ekran + return; token KAYDEDILMEZ', /setUyusmazlik\(\{ beklenen: kilit\.beklenen, gelen: kilit\.gelen \}\)/.test(uyusmazlikDali) && /return;/.test(uyusmazlikDali) && !/saveTokens|router\.replace|notify\(/.test(uyusmazlikDali));
 T.ok('Uyusmazlik gunlugu kimlik tasimaz (yalniz deneme sayisi)', /logWarning\('girisKilidi\.uyusmazlik', new Error\('trakt_hesap_uyusmazligi'\), \{ deneme: String\(kilit\.beklenen\.deneme\) \}\)/.test(uyusmazlikDali));
 T.ok('Kart dugmesi beklentiyi saklar ve Trakt girisini ZORLAR', /onTraktIleDevam=\{handleKartlaTraktGiris\}/.test(ekran)
