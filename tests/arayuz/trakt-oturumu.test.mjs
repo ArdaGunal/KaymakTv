@@ -112,7 +112,8 @@ hazirla(); cevaplar = [hataYanit(404, 'kasa_yok')];
 T.ok('Kasa yoksa → giris (silme bitti, kisi bir kez Trakt\'a girer)', (await O.hesapSecSonrasiOturum({ oturum: 'ayni', kalanBenMiyim: false }, undefined, 'e')) === 'giris');
 
 T.H('Kaynak denetimi');
-const oku = (f) => fs.readFileSync(path.join(root, f), 'utf8');
+// git Windows'ta dosyayı CRLF yazabilir; denetimler satır sonuna bağlı kalmasın.
+const oku = (f) => fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
 const dosyalar = ['services/api/traktClient.ts', 'features/feed/services/feedPublish.ts', 'hooks/useHesapSec.ts', 'hooks/useTraktBaglamaTamamla.ts', 'app/(public)/settings.tsx'];
 T.ok('🔴 Yenileme anahtarinin Pi yolu istemcide KALMADI', !fs.existsSync(path.join(root, 'services/api/auth.ts')) && dosyalar.every((f) => !/refreshTraktToken|exchangeAuthCode|\/api\/trakt['"`]/.test(oku(f))));
 T.ok('🔴 Cihaza yenileme anahtari YAZILMAZ', !/setItemAsync\('traktRefreshToken'/.test(oku('context/AuthContext.tsx')) && dosyalar.every((f) => !/setItemAsync\('traktRefreshToken'/.test(oku(f))));
