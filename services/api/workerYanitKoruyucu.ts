@@ -19,8 +19,7 @@ let kuruldu = false;
 
 /** SAF — bu yanıt «hesabın oturum belgesi artık geçersiz» mi? */
 export function hesapGecersizYanitiMi(url: string | undefined, status: number | undefined, kod: unknown, oturum: string | null): boolean {
-  // `/auth/trakt/*`: gövdedeki YENİ Trakt erişimi reddedildi; cihazdaki oturum belgesiyle ilgisi yok.
-  return !!KAYMAK_WORKER_URL && !!url && url.startsWith(KAYMAK_WORKER_URL) && !url.includes('/auth/trakt/')
+  return !!KAYMAK_WORKER_URL && !!url && url.startsWith(KAYMAK_WORKER_URL)
     && status === 401 && kod === 'invalid_token' && isKaymakSessionToken(oturum);
 }
 

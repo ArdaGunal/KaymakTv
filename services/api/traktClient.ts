@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from '../../utils/secureStorage';
-import { eskiAnahtariTasi, traktOturumunuYenile } from '../auth/traktOturumu';
+import { refreshTraktToken } from './auth';
 import { logError, logWarning } from '../../utils/errorLog';
 import { getCircuitBreaker, normalizeEndpointKey } from '../../utils/circuitBreaker';
 import { calculateBackoffDelay, wait } from '../../utils/exponentialBackoff';
@@ -46,7 +46,21 @@ const KAYMAK_SESSION_PREFIX = 'kaymak_session_v1.';
 export const isKaymakSessionToken = (token: string | null | undefined): boolean =>
   typeof token === 'string' && token.startsWith(KAYMAK_SESSION_PREFIX);
 
-// Kasa koptuysa ya da oturum bittiyse (ör. kullanıcı Trakt'tan uygulamayı iptal etti)
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Refresh token da geçersiz/yoksa (ör. kullanıcı Trakt'tan uygulamayı iptal etti)
 // SecureStore'daki token'lar silinir ama bunu hiçbir yerdeki React state
 // (AuthContext.accessToken) bilmez — UI "giriş yapılmış" sanıp her istekte
 // tekrar 401 almaya devam eder. AuthContext bu event'e abone olup kullanıcıyı
@@ -104,62 +118,80 @@ const notifyTokenRefreshed = (token: string) => {
 let cachedInstance: any = null;
 let cachedAccessToken: string | null = null;
 
-/** Yeni erişim anahtarı: sonraki istek yeni başlıkla kurulan istemciyi alır, dinleyiciler haberdar olur. */
-const erisimiUygula = (erisim: string) => {
-  cachedInstance = null;
-  cachedAccessToken = null;
-  notifyTokenRefreshed(erisim);
-};
-
-let yenilemeUcusu: Promise<string> | null = null;
-
-const yenileVeUygula = async (): Promise<string> => {
-  // Y23: Google-only kullanıcının Trakt oturumu yok; yalnızca bu TEK istek başarısız sayılır.
-  const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
-  if (authProvider === 'google') {
-    console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
-    throw new Error('Google-only oturumda Trakt yenilemesi yok.');
-  }
-  const sonuc = await traktOturumunuYenile();
-  if (sonuc.tur === 'tamam') {
-    erisimiUygula(sonuc.erisim);
-    return sonuc.erisim;
-  }
-  if (sonuc.tur === 'gecici') {
-    // İnternet / Worker / Trakt sorunu: oturum KAPANMAZ, yalnız bu istek başarısız olur.
-    logWarning('traktClient.yenileme.gecici', 'Yenileme ertelendi, oturum korunuyor');
-    throw new Error('Trakt oturumu şu an yenilenemedi.');
-  }
-  const err = new Error('Trakt oturumu sona erdi.');
-  await SecureStore.deleteItemAsync('traktAccessToken');
-  await SecureStore.deleteItemAsync('traktRefreshToken');
-  await SecureStore.deleteItemAsync('kaymakOturum');
-  logError('traktClient.oturumBitti', err);
-  notifySessionExpired();
-  throw err;
-};
-
 /**
- * Erişim anahtarını kasadan yeniler (401 interceptor'ı, Worker'a giden yazma yolları, aktarım).
- * TEK UÇUŞ: aynı anda gelen çağrılar aynı sonucu bekler (bkz. docs/HISTORY.md Madde 133).
- * Sekmeler ve cihazlar arası tek Trakt isteğini Worker'daki kilit sağlar (plan §4.5).
+ * `getTraktClient()`'ın axios interceptor'ındaki 401→refresh mantığının
+ * DIŞARIDAN ÇAĞRILABİLİR hali (bkz. docs/HISTORY.md Madde 133).
+ *
+ * NEDEN GEREKLİ: Web'de `/users/settings` gibi bazı yazma istekleri CORS
+ * yüzünden Trakt'a DOĞRUDAN değil, `/api/trakt-proxy` üzerinden gidiyor
+ * (services/api/users.ts). Bu istekler `getTraktClient()`'ın axios
+ * instance'ını hiç KULLANMADIĞI için, o instance'a bağlı interceptor'ın
+ * 401-yenileme mekanizmasından da hiç geçmiyorlardı — token süresi dolmuşsa
+ * (ör. bir GET zaten sessizce yenilemişti ama kullanıcı formu doldururken
+ * araya zaman girdi) istek sessizce/açıklamasız `401` ile başarısız oluyordu.
+ *
+ * Interceptor'daki `isRefreshing`/`failedQueue`/`cachedAccessToken` ile AYNI
+ * modül-seviyesi durumu paylaşır — bağımsız, YARIŞAN ikinci bir yenileme akışı
+ * OLUŞTURMAZ (Trakt refresh token'ları muhtemelen tek kullanımlık; iki ayrı
+ * akış aynı anda aynı refresh_token'ı kullanmaya çalışırsa biri başarısız olurdu).
  */
-export const refreshAccessToken = (): Promise<string> => {
-  if (!yenilemeUcusu) {
-    yenilemeUcusu = yenileVeUygula().finally(() => {
-      yenilemeUcusu = null;
+export const refreshAccessToken = async (): Promise<string> => {
+  if (isRefreshing) {
+    return new Promise<string>((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
     });
   }
-  return yenilemeUcusu;
-};
 
-/** Açılışta bir kez: eski cihazdaki yenileme anahtarı kasaya taşınır. Başarısızlık oturumu KAPATMAZ. */
-export const eskiCihazGecisi = async (): Promise<void> => {
+  isRefreshing = true;
   try {
-    const sonuc = await eskiAnahtariTasi();
-    if (sonuc?.tur === 'tamam') erisimiUygula(sonuc.erisim);
-  } catch (e) {
-    console.warn('[traktClient] Eski cihaz geçişi ertelendi:', e);
+    const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
+    if (!refreshToken) {
+      const err = new Error('Refresh token yok — oturum sona ermiş.');
+
+      // Y23: Google-only kullanıcı için (hiç Trakt hesabı yok, bkz.
+      // AuthContext.saveTokens'ın yazdığı 'traktAuthProvider') refresh
+      // token'ın hiç olmaması BEKLENEN bir durumdur — oturumun sona erdiği
+      // anlamına gelmez. Yalnızca bu TEK istek başarısız sayılır; token'lar
+      // (zaten yok) silinmez, tüm oturum kapatılmaz.
+      const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
+      if (authProvider === 'google') {
+        processQueue(err, null);
+        console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
+        throw err;
+      }
+
+      await SecureStore.deleteItemAsync('traktAccessToken');
+      await SecureStore.deleteItemAsync('traktRefreshToken');
+      processQueue(err, null);
+      logError('traktClient.refreshAccessToken.noRefreshToken', err);
+      notifySessionExpired();
+      throw err;
+    }
+
+    try {
+      const data = await refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob');
+      const newAccessToken = data.access_token;
+      const newRefreshToken = data.refresh_token;
+
+      await SecureStore.setItemAsync('traktAccessToken', newAccessToken);
+      await SecureStore.setItemAsync('traktRefreshToken', newRefreshToken);
+      cachedAccessToken = newAccessToken;
+      notifyTokenRefreshed(newAccessToken);
+      processQueue(null, newAccessToken);
+      return newAccessToken;
+    } catch (refreshError) {
+      // Refresh token VARDI ama Trakt onu reddetti (süresi dolmuş/iptal
+      // edilmiş) — interceptor'daki `refreshFailed` dalıyla AYNI davranış:
+      // oturum kesin olarak ölü sayılır, token'lar temizlenir.
+      await SecureStore.deleteItemAsync('traktAccessToken');
+      await SecureStore.deleteItemAsync('traktRefreshToken');
+      processQueue(refreshError, null);
+      logError('traktClient.refreshAccessToken.refreshFailed', refreshError);
+      notifySessionExpired();
+      throw refreshError;
+    }
+  } finally {
+    isRefreshing = false;
   }
 };
 
@@ -279,8 +311,10 @@ export const getTraktClient = async () => {
         // kesici açısından "endpoint erişilebilir" demektir (satır ~245
         // civarındaki 429/5xx DIŞI durumlar için uygulanan kuralla BİREBİR
         // aynı mantık) — 401 kimlik doğrulama sorunudur, endpoint sağlığıyla
-        // ilgisizdir. Bu çağrı, aşağıdaki 401 bloğunun BÜTÜN çıkış noktalarını
-        // kapsayacak şekilde bilinçli olarak bloğun EN BAŞINA konuldu. AKSİ HALDE: devre `HALF_OPEN` durumunda
+        // ilgisizdir. Bu çağrı, aşağıdaki 401 bloğunun DÖRT ayrı çıkış
+        // noktasının (kuyruğa alma, refresh-token-yok, refresh başarılı/
+        // başarısız) HEPSİNİ tek seferde kapsayacak şekilde bilinçli olarak
+        // bloğun EN BAŞINA konuldu. AKSİ HALDE: devre `HALF_OPEN` durumunda
         // (30sn'lik `OPEN` süresi dolup "tek deneme" moduna geçmişken) iken
         // o tek yoklama isteği tam bu anda 401 alırsa (token süresi dolmuşsa
         // — ki refresh akışıyla aynı anda oldukça olası bir senaryo),
@@ -291,51 +325,117 @@ export const getTraktClient = async () => {
         // yeniden başlatılana kadar KALICI OLARAK engellenirdi.
         if (breakerKey) getCircuitBreaker(breakerKey).onSuccess();
 
+        // Bu istek nesnesini (queue'ya girse bile) "tekrar denendi" işaretle.
+        // ESKİ DAVRANIŞ: yalnızca refresh'i BAŞLATAN istek işaretleniyordu; kuyruğa
+        // giren istekler işaretlenmediğinden, yeni token'la tekrar denenip YİNE
+        // 401 alırlarsa (örn. token hemen sonra da geçersizse) her biri bağımsız
+        // yeni bir refresh döngüsü tetikleyip birbirini kilitleyebiliyordu.
         originalRequest._retry = true;
 
-        // 🔴 KİMLİKSİZ İSTEK (misafir) — bu hata sınıfının DÖRDÜNCÜ hâli,
-        // 2026-08-30'da native'de yakalandı. Ortada hiç `accessToken` yoksa
-        // istek zaten `Authorization` başlığı OLMADAN gitmiştir; Trakt'ın
-        // kişisel bir uca (`/users/me` gibi) döndürdüğü 401 "OTURUM SONA
-        // ERDİ" DEĞİL, "bu uç kimlik ister" demektir. Oysa eski kod
-        // misafiri gerçekten çıkışa alıyordu: `notifySessionExpired()` →
-        // `AuthContext` `isGuest`'i false yapıyor → `(protected)/_layout.tsx`
-        // `<Redirect href="/" />` → kullanıcı dizi incelerken KARŞILAMA
-        // (vitrin) EKRANINA fırlıyordu.
-        //
-        // ⚠️ NEDEN BURADA, çağrı yerinde DEĞİL: aynı hata daha önce ÜÇ kez
-        // tek tek çağrı yerlerinde yamandı (`useMyTraktProfile.ts` başlığı
-        // bu tarihçeyi anlatıyor: misafir koruması + `useFeedPrivacy` +
-        // Y23/Google-only). Her yeni "ben kimim" çağrısı hatayı geri
-        // getiriyor — nitekim `getMySupabaseUserId → getMyTraktSlug`
-        // zinciri dizi/film detay sayfasında tam olarak bunu yaptı.
-        // Koruma artık TEK ve DOĞRU yerde: 401'i yorumlayan katmanda.
-        //
-        // Web'de bu hata GÖRÜNMÜYORDU: tarayıcı `api.trakt.tv/users/me`
-        // preflight'ını CORS'a takıyor, `error.response` hiç oluşmuyor ve
-        // bu blok çalışmıyor. Native'de CORS yok — 401 gerçekten geliyor.
-        const currentAccessToken = await SecureStore.getItemAsync('traktAccessToken');
-        if (!currentAccessToken) {
-          console.log('[traktClient] Kimliksiz (misafir) istek 401 aldı — oturum kapatılmadı.');
-          return Promise.reject(error);
+        // Zaten yenileniyorsa, bu isteği sıraya al — yeni token gelince ilgili
+        // Authorization başlığına yazılıp istek tekrar denenir.
+        if (isRefreshing) {
+          return new Promise(function(resolve, reject) {
+            failedQueue.push({ resolve, reject });
+          }).then(token => {
+            originalRequest.headers['Authorization'] = 'Bearer ' + token;
+            return instance(originalRequest);
+          }).catch(err => {
+            return Promise.reject(err);
+          });
         }
 
-        // Y23: Google-only kullanıcının Trakt oturumu yok — oturum kapatılmaz, bu istek başarısız sayılır.
-        const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
-        if (authProvider === 'google') {
-          console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
+        isRefreshing = true;
+
+        const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
+
+        if (!refreshToken) {
+          // Refresh token yok: kuyrukta bekleyen başka istek varsa (bu 401'le
+          // eşzamanlı gelmiş olabilir) onu da reddet — aksi halde isRefreshing
+          // hiç sıfırlanmadan/işlenmeden sonsuza dek "true" kalır ve sıradaki
+          // TÜM 401'ler bir daha asla çözülmeyen bir kuyruğa yığılır (sessiz kilitlenme).
+          isRefreshing = false;
+          processQueue(error, null);
+
+          // 🔴 KİMLİKSİZ İSTEK (misafir) — bu hata sınıfının DÖRDÜNCÜ hâli,
+          // 2026-08-30'da native'de yakalandı. Ortada hiç `accessToken` yoksa
+          // istek zaten `Authorization` başlığı OLMADAN gitmiştir; Trakt'ın
+          // kişisel bir uca (`/users/me` gibi) döndürdüğü 401 "OTURUM SONA
+          // ERDİ" DEĞİL, "bu uç kimlik ister" demektir. Oysa aşağıdaki kod
+          // misafiri gerçekten çıkışa alıyordu: `notifySessionExpired()` →
+          // `AuthContext` `isGuest`'i false yapıyor → `(protected)/_layout.tsx`
+          // `<Redirect href="/" />` → kullanıcı dizi incelerken KARŞILAMA
+          // (vitrin) EKRANINA fırlıyordu.
+          //
+          // ⚠️ NEDEN BURADA, çağrı yerinde DEĞİL: aynı hata daha önce ÜÇ kez
+          // tek tek çağrı yerlerinde yamandı (`useMyTraktProfile.ts` başlığı
+          // bu tarihçeyi anlatıyor: misafir koruması + `useFeedPrivacy` +
+          // Y23/Google-only). Her yeni "ben kimim" çağrısı hatayı geri
+          // getiriyor — nitekim `getMySupabaseUserId → getMyTraktSlug`
+          // zinciri dizi/film detay sayfasında tam olarak bunu yaptı.
+          // Koruma artık TEK ve DOĞRU yerde: 401'i yorumlayan katmanda.
+          //
+          // Web'de bu hata GÖRÜNMÜYORDU: tarayıcı `api.trakt.tv/users/me`
+          // preflight'ını CORS'a takıyor, `error.response` hiç oluşmuyor ve
+          // bu blok çalışmıyor. Native'de CORS yok — 401 gerçekten geliyor.
+          const currentAccessToken = await SecureStore.getItemAsync('traktAccessToken');
+          if (!currentAccessToken) {
+            console.log('[traktClient] Kimliksiz (misafir) istek 401 aldı — oturum kapatılmadı.');
+            return Promise.reject(error);
+          }
+
+          // Y23: Google-only kullanıcı için (hiç Trakt hesabı yok) refresh
+          // token'ın hiç olmaması BEKLENEN bir durumdur — oturumun sona
+          // erdiği anlamına gelmez. Yalnızca bu TEK istek/özellik başarısız
+          // sayılır; token'lar (zaten yok) silinmez, tüm oturum kapatılmaz.
+          const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
+          if (authProvider === 'google') {
+            console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
+            return Promise.reject(error);
+          }
+
+          await SecureStore.deleteItemAsync('traktAccessToken');
+          await SecureStore.deleteItemAsync('traktRefreshToken');
+          logError('traktClient.401.noRefreshToken', error, { endpoint: breakerKey || 'unknown' });
+          notifySessionExpired();
           return Promise.reject(error);
         }
 
         try {
-          const yeniErisim = await refreshAccessToken();
-          originalRequest.headers['Authorization'] = `Bearer ${yeniErisim}`;
+          console.log('Trakt API 401 hatası. Refresh Token ile yeni token alınıyor...');
+          // Client Secret burada değil, server.js'teki /api/trakt proxy'sinde kullanılır.
+          const data = await refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob');
+          const newAccessToken = data.access_token;
+          const newRefreshToken = data.refresh_token;
+
+          await SecureStore.setItemAsync('traktAccessToken', newAccessToken);
+          await SecureStore.setItemAsync('traktRefreshToken', newRefreshToken);
+
+          instance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+          // cachedAccessToken güncellenmezse getTraktClient() bir sonraki çağrıda
+          // SecureStore'daki (yeni) token'la eşleşmediğini sanıp gereksiz yere
+          // yeni bir axios instance + yeni bir response interceptor daha kurar —
+          // her token yenilemesinde bir tane daha üst üste yığılır.
+          cachedAccessToken = newAccessToken;
+          notifyTokenRefreshed(newAccessToken);
+
+          processQueue(null, newAccessToken);
+          console.log('Token başarıyla yenilendi ve eski istekler tekrar ediliyor.');
           return instance(originalRequest);
-        } catch (yenilemeHatasi) {
-          return Promise.reject(yenilemeHatasi);
+        } catch (refreshError) {
+          console.error('Refresh Token yenilenemedi, oturum kapatılıyor:', refreshError);
+          processQueue(refreshError, null);
+          await SecureStore.deleteItemAsync('traktAccessToken');
+          await SecureStore.deleteItemAsync('traktRefreshToken');
+          logError('traktClient.401.refreshFailed', refreshError, { endpoint: breakerKey || 'unknown' });
+          notifySessionExpired();
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
         }
       }
-
+      
       // 429 Too Many Requests (Rate Limit) Koruması — üstel geri çekilme (jitter'lı)
       // + devre kesici. ESKİ DAVRANIŞ: sabit 2.5s bekleyip SINIRSIZ tekrar
       // deniyordu — endpoint kalıcı olarak 429 dönüyorsa istemci sonsuza kadar

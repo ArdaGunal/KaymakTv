@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 /**
  * GIRIS-KILIT-01 · «Hesabını bulduk → Trakt ile devam et» kartının hesabı Trakt dönüşünde denetlenir.
@@ -9,13 +10,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * Sunucu eşlemesi (Google `google_sub`, Trakt `trakt_uuid`) doğruydu; açık yalnız bu akıştaydı.
  *
  * Akış: kart düğmesi → beklenen Trakt kimliği AsyncStorage'a (web tam sayfa yönlendirmede de kalır)
- * → dönüşte Worker kodu değişir ve hesabın kimliğini de döner (`/auth/trakt/degis`) → eşleşmezse OTURUM
- * AÇILMAZ, token kaydedilmez, yanlış hesabın yetkisi kaldırılır. Düz «Trakt ile giriş»
+ * → dönüşte token alınır → Trakt'a «bu token kimin» (`/users/settings`, Pi köprüsü: web CORS; beyaz
+ * listede, önbelleğe alınmaz) → eşleşmezse OTURUM AÇILMAZ, token kaydedilmez. Düz «Trakt ile giriş»
  * beklentiyi siler: kilit yalnız kart yolundadır. Saldırı önlemi değil — kişinin kendi hesapları
  * arasındaki karışıklığa karşı.
  */
 const ANAHTAR = '@kaymak_trakt_beklenen_hesap_v1';
 const OMUR_MS = 15 * 60 * 1000;
+
+const TRAKT_PROXY_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/trakt-proxy`
+  : '/api/trakt-proxy';
 
 export interface BeklenenTraktHesabi {
   username: string;
@@ -113,21 +118,33 @@ export async function beklenenTraktHesabiTuket(): Promise<BeklenenTraktHesabi | 
   }
 }
 
-/** SAF — sunucudan gelen kimliği gösterime hazırlar (resim yalnız https). */
-export function gelenKimligiTemizle(ham: { slug?: unknown; uuid?: unknown; ad?: unknown; avatar?: unknown }): GelenTraktKimligi {
-  const avatar = metin(ham?.avatar);
-  return {
-    slug: metin(ham?.slug),
-    uuid: metin(ham?.uuid),
-    ad: metin(ham?.ad),
+/** Yeni token'ın Trakt kimliği. Hata FIRLATIR — çağıran oturum açmaz (güvenli taraf). */
+export async function traktKimligiSor(accessToken: string): Promise<GelenTraktKimligi> {
+  const yanit = await axios.get(TRAKT_PROXY_URL, {
+    params: { endpoint: '/users/settings' },
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeout: 15000,
+  });
+  const kullanici = yanit.data?.user ?? {};
+  const ids = kullanici.ids ?? {};
+  const avatar = metin(kullanici.images?.avatar?.full);
+  const kimlik = {
+    slug: metin(ids.slug),
+    uuid: metin(ids.uuid),
+    ad: metin(kullanici.name),
     avatar: avatar && /^https:\/\//.test(avatar) ? avatar : null,
   };
+  if (!kimlik.slug && !kimlik.uuid) throw new Error('trakt_kimlik_yok');
+  return kimlik;
 }
 
-/** Oturum açılmadan ÖNCE çağrılır. Beklenti yoksa 'serbest'. Karşılaştırılacak kimlik yoksa uyuşmaz (güvenli taraf). */
-export async function traktHesapKilidiDenetle(kimlik: Parameters<typeof gelenKimligiTemizle>[0]): Promise<KilitSonucu> {
+/**
+ * Token kaydedilmeden ÖNCE çağrılır. Beklenti yoksa 'serbest' (Trakt'a hiç sorulmaz). Trakt'a
+ * ulaşılamazsa hata fırlar — çağıranın catch'i oturum açmadan hata gösterir.
+ */
+export async function traktHesapKilidiDenetle(accessToken: string): Promise<KilitSonucu> {
   const beklenen = await beklenenTraktHesabiTuket();
   if (!beklenen) return { durum: 'serbest' };
-  const gelen = gelenKimligiTemizle(kimlik);
+  const gelen = await traktKimligiSor(accessToken);
   return traktHesabiUyusuyor(beklenen, gelen) ? { durum: 'uyusuyor' } : { durum: 'uyusmazlik', beklenen, gelen };
 }

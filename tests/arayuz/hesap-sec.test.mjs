@@ -28,12 +28,12 @@ T.H('Giris ekrani');
 const giris = oku('app/(public)/settings.tsx');
 const takas = giris.slice(giris.indexOf('const handleTokenExchange'));
 T.ok('Niyet kontrolu saveTokens\'TAN ONCE (yoksa ayri hesap acilirdi — bolunme yolu 2)',
-  takas.indexOf('if (await traktBaglamaTamamla(giris)) return;') > -1 &&
-  takas.indexOf('if (await traktBaglamaTamamla(giris)) return;') < takas.indexOf('await saveTokens('));
+  takas.indexOf('if (await traktBaglamaTamamla(tokenData)) return;') > -1 &&
+  takas.indexOf('if (await traktBaglamaTamamla(tokenData)) return;') < takas.indexOf('await saveTokens('));
 const tamamla = oku('hooks/useTraktBaglamaTamamla.ts');
 T.ok('Yalniz niyet + Google-only oturumda devreye girer', /if \(!niyet \|\| !accessToken \|\| isGuest \|\| authProvider !== 'google'\) return false;/.test(tamamla));
 T.ok('Hatada Google oturumu KALIR (gecis yalniz basarida)', tamamla.indexOf('await gecis(') < tamamla.indexOf('catch (e)') && !/catch \(e\)[\s\S]*gecis\(/.test(tamamla));
-T.ok('Cakismada yeni Trakt token\'lari yalniz bellekte (store)', /yeniTrakt: \{ access: giris\.erisim, kasaBileti: giris\.kasaBileti \}/.test(tamamla));
+T.ok('Cakismada yeni Trakt token\'lari yalniz bellekte (store)', /yeniTrakt: \{ access: tokenData\.access_token, refresh: tokenData\.refresh_token \}/.test(tamamla));
 const store = oku('store/hesapSecStore.ts');
 T.ok('Hesap Sec deposu diske YAZMAZ', !/AsyncStorage|SecureStore|persist/.test(store.replace(/\/\*\*[\s\S]*?\*\//g, '')));
 
@@ -52,8 +52,8 @@ T.ok('2. ayri uyari ekrani (adim uyari) + «Diger hesabindaki butun bilgiler sil
 T.ok('🔴 Kaydirmadan Sil dugmesi PASIF; kanca da kaydirilmadan cagirmaz', /disabled=\{!h\.kaydirildi \|\| h\.calisiyor\}/.test(ekran) && /if \(!durum \|\| !secim \|\| !accessToken \|\| !kaydirildi \|\| calisiyor\) return;/.test(kanca));
 const kaydir = oku('components/KaydirarakOnay.tsx');
 T.ok('Kaydirma esigi %88; yarida birakilirsa geri doner', /const ESIK = 0\.88;/.test(kaydir) && /Animated\.spring\(x, \{ toValue: 0/.test(kaydir) && (kaydir.match(/onTamam\(\)/g) || []).length === 1);
-T.ok('Oturum gecisi: once tam cikis (D8), sonra yeni belge', /await removeKeys\(\);\s*await saveTokens\(access, kaymakOturum, userId\);/.test(oku('hooks/useOturumGecisi.ts')));
-T.ok('trakt_ile_gir → cikis + giris ekrani', /r\.oturum === 'trakt_ile_gir'/.test(oku('services/auth/traktOturumu.ts')) && /gecilecek === 'giris'[\s\S]*?await removeKeys\(\);[\s\S]*?router\.replace\('\/\(public\)\/settings'\)/.test(kanca));
+T.ok('Oturum gecisi: once tam cikis (D8), sonra yeni belge', /await removeKeys\(\);\s*await saveTokens\(access, refresh\);/.test(oku('hooks/useOturumGecisi.ts')));
+T.ok('trakt_ile_gir → cikis + giris ekrani', /r\.oturum === 'trakt_ile_gir'[\s\S]*?await removeKeys\(\);[\s\S]*?router\.replace\('\/\(public\)\/settings'\)/.test(kanca));
 
 T.H('Ceviri (TR + EN)');
 const anahtarlar = ['girisYontemleriBaslik', 'traktBagla', 'googleBagla', 'hesapSecBaslik', 'hesapSecAciklama', 'hesapSecUyariBaslik', 'hesapSecUyariMetin', 'kaydirOnayMetin', 'hesapSecSilDevam', 'baglamaModuNotu', 'hesapSecSureDoldu'];

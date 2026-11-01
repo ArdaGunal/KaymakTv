@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as SecureStore from '../utils/secureStorage';
-import { eskiCihazGecisi, onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
+import { onSessionExpired, onTokenRefreshed } from '../services/api/traktClient';
 import { useFollowStore } from '../store/followStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { resetFetchState } from '../services/library/fetchers';
@@ -19,7 +19,7 @@ import {
   invalidateVisibleUserIds,
   invalidateIdentityScopedFeedCaches,
 } from '../features/feed/services/feedApi';
-import { invalidateMySupabaseUserId, invalidateBlockedUserIds, setMySupabaseUserId } from '../features/feed/services/userBlocks';
+import { invalidateMySupabaseUserId, invalidateBlockedUserIds } from '../features/feed/services/userBlocks';
 import { recordPerfMark } from '../utils/perfLog';
 import { getMyProfile } from '../features/feed/services/profile';
 import { supabase } from '../features/feed/services/supabaseClient';
@@ -51,7 +51,7 @@ type AuthContextType = {
   // (create_new/updateProfile yanıtı) alınıp burada yerelde tutuluyor.
   myUsername: string | null;
   myAvatarUrl: string | null;
-  saveTokens: (access: string, kaymakOturum: string, userId?: string) => Promise<void>;
+  saveTokens: (access: string, refresh: string) => Promise<void>;
   saveGoogleSession: (sessionToken: string, profile?: { username?: string; avatarUrl?: string | null }) => Promise<void>;
   updateMyProfile: (patch: { username?: string; avatarUrl?: string | null }) => Promise<void>;
   loginAsGuest: () => Promise<void>;
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, [accessToken, isGuest]);
 
-  // traktClient.ts, Trakt oturumu kesin bittiğinde
+  // traktClient.ts'teki 401 interceptor'ı, refresh token da geçersiz/yoksa
   // SecureStore'daki token'ları sessizce siler — ama bu React state'ini
   // (accessToken) hiç güncellemez. Bu abonelik olmadan: SecureStore boş ama
   // accessToken state'i hâlâ eski (dolu) değerde kalır, (protected)/_layout.tsx
@@ -176,8 +176,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (usernameRaw) setMyUsername(usernameRaw);
         if (avatarUrlRaw) setMyAvatarUrl(avatarUrlRaw);
         if (providerRaw === 'google' && (!usernameRaw || !avatarUrlRaw)) yerelProfiliTamamla(token);
-        // Trakt kasası: eski cihazdaki yenileme anahtarı bir kez kasaya taşınır (plan §4.7).
-        if (providerRaw !== 'google') void eskiCihazGecisi();
       }
       if (guestStatus === 'true') {
         setIsGuest(true);
@@ -190,13 +188,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Trakt kasası: yenileme anahtarı cihaza YAZILMAZ; sahibi Worker (plan İlke 1).
-  const saveTokens = async (access: string, kaymakOturum: string, userId?: string) => {
+  const saveTokens = async (access: string, refresh: string) => {
     try {
       await SecureStore.setItemAsync('traktAccessToken', access);
-      await SecureStore.setItemAsync('kaymakOturum', kaymakOturum);
-      await SecureStore.deleteItemAsync('traktRefreshToken');
-      if (userId) await setMySupabaseUserId(userId);
+      await SecureStore.setItemAsync('traktRefreshToken', refresh);
       await SecureStore.deleteItemAsync('traktGuestMode');
       // Y23: gerçek Trakt token'ları her yazıldığında (ilk giriş VEYA
       // Google-only bir hesabın sonradan Trakt'a bağlanması — bkz.
@@ -229,7 +224,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await SecureStore.setItemAsync('traktAccessToken', sessionToken);
       await SecureStore.deleteItemAsync('traktRefreshToken');
-      await SecureStore.deleteItemAsync('kaymakOturum');
       await SecureStore.setItemAsync('traktAuthProvider', 'google');
       await SecureStore.deleteItemAsync('traktGuestMode');
       setAccessToken(sessionToken);
@@ -325,7 +319,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       await SecureStore.deleteItemAsync('traktAccessToken');
       await SecureStore.deleteItemAsync('traktRefreshToken');
-      await SecureStore.deleteItemAsync('kaymakOturum');
       await SecureStore.deleteItemAsync('traktGuestMode');
       // Y23: bir sonraki oturuma sızmasın — diğer kimlik anahtarlarıyla aynı gerekçe.
       await SecureStore.deleteItemAsync('traktAuthProvider');

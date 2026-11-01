@@ -122,7 +122,7 @@ export const checkGoogleAccount = async (googleIdToken: string, nonce: string): 
  * bir Trakt token'ı) bu Google hesabını bağlar. `sessionToken` dönüşü de var
  * ama yukarıdaki notla aynı sebeple kullanılmıyor — çağıran taraf bu
  * fonksiyonun DÖNÜŞÜNÜ değil, kendi elindeki gerçek Trakt token'larını
- * (`/auth/trakt/oturum`'dan gelen) `saveTokens`'a veriyor.
+ * (`exchangeAuthCode`'dan gelen) `saveTokens`'a veriyor.
  */
 /**
  * Y23 kapandıktan SONRA eklendi (create_new). Kullanıcı Trakt hesabı hiç

@@ -117,6 +117,7 @@
   "languageSubtitle": "Select app language",
   "legalSection": "Legal",
   "loginCanceled": "Login process was canceled.",
+  "loginProxyMissing": "Could not reach the login server. The API server (node server.js) may be down — check that the machine is running.",
   "loginTokenError": "Trakt did not return a valid session token. Please try again.",
   "loginTrakt": "Log In with Trakt",
   "logoutError": "An error occurred while logging out.",
