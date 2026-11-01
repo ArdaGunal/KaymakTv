@@ -161,8 +161,9 @@ app.use('/api/tmdb', require('./server/tmdbProxy'));
 // zıt güvenlik sözleşmeleri; gerekçe: server/traktCatalog.js başlığı.
 app.use('/api/trakt-catalog', require('./server/traktCatalog'));
 
-// §C30 — Worker'ın eksikte çekme kapısı (sırlı + kendi sınırlayıcısı).
+// Worker'ın sırlı iç kapıları: §C30 eksikte çekme · Trakt köprüsü (1015 — TRAKT_KASA_PLANI §6.2).
 app.use('/api/katalog-cek', require('./server/katalogCek'));
+app.use('/api/trakt-kopru', require('./server/traktKopru'));
 
 // K8 (M531) — LazyFetch + arşiv sağlık ucu (salt okuma, sırsız; gerekçe dosya başlığında).
 app.use('/api/health', require('./server/saglik'));
