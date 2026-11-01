@@ -18,6 +18,8 @@ export type GoogleAuthCheckResult =
       userId?: string;
       /** M536 — yalnız Trakt'lı hesapta: kutuda gösterilecek kendi profil bilgisi. */
       hesap?: GoogleBagliHesap | null;
+      /** Trakt kasası Faz 4: kasa sağlamsa tek dokunuş; kart açılmaz. */
+      kasaGirisi?: { erisim: string; kaymakOturum: string } | null;
     }
   | { status: 'unlinked' };
 
@@ -38,12 +40,12 @@ export type GoogleCreateNewResult = {
   userId?: string;
 };
 
-const postAuthGoogle = async (body: Record<string, unknown>): Promise<any> => {
+const postAuthGoogle = async (body: Record<string, unknown>, timeout = 15000): Promise<any> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   try {
     const response = await axios.post(`${KAYMAK_WORKER_URL}/auth/google`, body, {
       headers: { 'Content-Type': 'application/json' },
-      timeout: 15000,
+      timeout,
     });
     return response.data;
   } catch (error: any) {
@@ -95,8 +97,17 @@ export const bagliHesap = (h: any): GoogleBagliHesap | null =>
       }
     : null;
 
-export const checkGoogleAccount = async (googleIdToken: string, nonce: string): Promise<GoogleAuthCheckResult> => {
-  const data = await postAuthGoogle({ action: 'check', googleIdToken, nonce });
+/** SAF — kasa girişini süzer; eksikse `null` (kart açılır, güvenli taraf). */
+export const kasaGirisiSuz = (k: any): { erisim: string; kaymakOturum: string } | null =>
+  typeof k?.erisim === 'string' && k.erisim && typeof k?.kaymakOturum === 'string' && k.kaymakOturum
+    ? { erisim: k.erisim, kaymakOturum: k.kaymakOturum }
+    : null;
+
+// `kasaIste`: yalnız giriş ekranı (Trakt kasası Faz 4). Kasa yenilemesi köprüyle ~20 sn sürebilir → daha uzun süre.
+export const checkGoogleAccount = async (googleIdToken: string, nonce: string, kasaIste = false): Promise<GoogleAuthCheckResult> => {
+  const data = kasaIste
+    ? await postAuthGoogle({ action: 'check', googleIdToken, nonce, kasaDestegi: 1 }, 30000)
+    : await postAuthGoogle({ action: 'check', googleIdToken, nonce });
   if (!data?.success) {
     throw new Error(data?.message || 'Google hesabı doğrulanamadı.');
   }
@@ -113,6 +124,7 @@ export const checkGoogleAccount = async (googleIdToken: string, nonce: string): 
         // GIRIS-TASARIM-01 (M536): «Trakt ile devam et» kutusu kişinin kendi profilini gösterir.
         // Eski Worker göndermez → kutu adsız metne düşer.
         hesap: bagliHesap(data.hesap),
+        kasaGirisi: kasaGirisiSuz(data.kasaGirisi),
       }
     : { status: 'unlinked' };
 };

@@ -13,6 +13,7 @@ export type GoogleGirisDurumu = 'bos' | 'calisiyor' | 'trakt_ile_gir';
  * Google ile giriş — giriş ekranındaki düğmenin mantığı.
  *
  * Kimlik birliği Faz 3 (M509, `docs/design/KIMLIK_BIRLIGI_PLANI.md`): ÖNCE `check`.
+ *   • Trakt'lı hesabın kasası sağlam → tek dokunuş, Trakt sorulmaz (Trakt kasası Faz 4).
  *   • Google-only hesap → doğrudan oturum.
  *   • Trakt'lı hesaba bağlı → OTURUM YOK, `trakt_ile_gir` (D2: «Trakt hesabınız var onunla giriş
  *     yapın… trakt ile gir butonu çıksın»). Worker da bu satıra Google oturumu vermiyor.
@@ -21,7 +22,7 @@ export type GoogleGirisDurumu = 'bos' | 'calisiyor' | 'trakt_ile_gir';
  * boş hesap açılıyordu (M502'de kapatıldı).
  */
 export function useGoogleHesapGiris() {
-  const { saveGoogleSession } = useAuth();
+  const { saveGoogleSession, saveTokens } = useAuth();
   const router = useRouter();
   const { t } = useTranslation('common');
   const [durum, setDurum] = useState<GoogleGirisDurumu>('bos');
@@ -40,8 +41,13 @@ export function useGoogleHesapGiris() {
     try {
       // Native nonce ÜRETEMİYOR (`useGoogleNativeSignIn.ts`); Worker o durumda yalnız imza + süre
       // doğrular. Aynı belge `check` + `create_new` için kullanılabilir (sunucuda tek kullanım yok).
-      const kontrol = await checkGoogleAccount(idToken, nonce ?? '');
+      const kontrol = await checkGoogleAccount(idToken, nonce ?? '', true);
       const adim = googleGirisAdimi(kontrol);
+      if (adim === 'kasa' && kontrol.status === 'linked' && kontrol.kasaGirisi) {
+        await saveTokens(kontrol.kasaGirisi.erisim, kontrol.kasaGirisi.kaymakOturum, kontrol.userId);
+        router.replace('/(protected)/(tabs)/explore');
+        return;
+      }
       if (adim === 'trakt_ile_gir') {
         setBagliHesap(kontrol.status === 'linked' ? kontrol.hesap ?? null : null);
         // M525 (e): oturum açılmadı → yerel Google oturumu da kapansın; «Vazgeç» + tekrar Google

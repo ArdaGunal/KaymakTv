@@ -55,6 +55,11 @@ T.ok('Bagli degil -> yeni (soru yok)', googleGirisAdimi({ status: 'unlinked' }) 
 T.ok('Google-only (belge var) -> oturum', googleGirisAdimi({ status: 'linked', traktLinked: false, sessionToken: 'x' }) === 'oturum');
 T.ok("Trakt'li -> trakt_ile_gir", googleGirisAdimi({ status: 'linked', traktLinked: true }) === 'trakt_ile_gir');
 T.ok('Belge yoksa guvenli taraf -> trakt_ile_gir', googleGirisAdimi({ status: 'linked', traktLinked: false }) === 'trakt_ile_gir');
+T.ok('Faz 4: kasa girisi varsa -> kasa (kart yok)', googleGirisAdimi({ status: 'linked', traktLinked: true, kasaGirisi: { erisim: 'e', kaymakOturum: 'o' } }) === 'kasa');
+T.ok('Faz 4: kasa girisi null -> kart', googleGirisAdimi({ status: 'linked', traktLinked: true, kasaGirisi: null }) === 'trakt_ile_gir');
+const { kasaGirisiSuz } = (await import('../ts-test-loader.mjs')).tsLoader(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'), { axios: { __esModule: true, default: {} } })('services/api/googleAuth.ts');
+T.ok('Faz 4: eksik kasa cevabi suzulur (kart acilir)', kasaGirisiSuz({ erisim: 'e' }) === null && kasaGirisiSuz(null) === null && kasaGirisiSuz({ erisim: 'e', kaymakOturum: 'o', fazla: 1 }).kaymakOturum === 'o');
+T.ok('Faz 4: kanca kasa girisini saveTokens ile acar, yalniz giris ekrani kasa ister', /checkGoogleAccount\(idToken, nonce \?\? '', true\)/.test(kanca) && /saveTokens\(kontrol\.kasaGirisi\.erisim, kontrol\.kasaGirisi\.kaymakOturum, kontrol\.userId\)/.test(kanca) && !/checkGoogleAccount\([^)]*true\)/.test(oku('hooks/useGoogleTraktLink.ts')));
 
 T.H('Ceviri');
 const tr = JSON.parse(oku('locales/tr/common.json')), en = JSON.parse(oku('locales/en/common.json'));
