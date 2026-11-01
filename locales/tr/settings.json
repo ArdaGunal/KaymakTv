@@ -117,7 +117,6 @@
   "languageSubtitle": "Uygulama dilini seçin",
   "legalSection": "Yasal",
   "loginCanceled": "Giriş işlemi iptal edildi.",
-  "loginProxyMissing": "Giriş sunucusuna ulaşılamadı. API sunucusu (node server.js) çalışmıyor olabilir — makinenin açık olduğunu kontrol edin.",
   "loginTokenError": "Trakt geçerli bir oturum anahtarı döndürmedi. Lütfen tekrar deneyin.",
   "loginTrakt": "Trakt ile Giriş Yap",
   "logoutError": "Çıkış yapılırken hata oluştu.",

@@ -31,7 +31,7 @@ O.hesapGecersizBildir(); O.hesapGecersizBildir(); O.hesapGecersizBildir();
 T.ok('Ust uste gelen 401\'ler TEK cikisa iner (cikisin kendi istekleri dongu kurmaz)', cikis === 1);
 kapat();
 const koru = oku('services/api/workerYanitKoruyucu.ts');
-T.ok('Kosul: Worker adresi + 401 + invalid_token + KaymakTV oturum belgesi', /url\.startsWith\(KAYMAK_WORKER_URL\)\s*&& status === 401 && kod === 'invalid_token' && isKaymakSessionToken\(oturum\)/.test(koru));
+T.ok('Kosul: Worker adresi + 401 + invalid_token + KaymakTV oturum belgesi', /url\.startsWith\(KAYMAK_WORKER_URL\) && !url\.includes\('\/auth\/trakt\/'\)\s*&& status === 401 && kod === 'invalid_token' && isKaymakSessionToken\(oturum\)/.test(koru));
 T.ok('Koruyucu istegin hatasini degistirmez', /return Promise\.reject\(hata\);/.test(koru));
 const auth = oku('context/AuthContext.tsx');
 T.ok('AuthContext kuruyor ve dinliyor → removeKeys (D8)', /workerYanitKoruyucusunuKur\(\);/.test(auth) && /onHesapGecersiz\(\(\) => \{[\s\S]*?removeKeysRef\.current\(\)/.test(auth) && /removeKeysRef\.current = removeKeys;/.test(auth));

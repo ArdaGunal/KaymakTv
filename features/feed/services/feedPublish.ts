@@ -1,9 +1,8 @@
 import axios from 'axios';
 import { useAktiviteSurumu } from '../store/aktiviteSurumu';
 import * as SecureStore from '../../../utils/secureStorage';
-import { refreshTraktToken } from '../../../services/api/auth';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
-import { isKaymakSessionToken } from '../../../services/api/traktClient';
+import { isKaymakSessionToken, refreshAccessToken } from '../../../services/api/traktClient';
 import { getUserProfile } from '../../../services/api/social';
 import { getMySupabaseUserId } from './userBlocks';
 import { useFeedStore } from '../store/feedStore';
@@ -217,10 +216,8 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
   // zinciri Trakt'tan 401 alır ve yayına `invalid_token` (HTTP 401) döner.
   //
   // NASIL: (1) Depo ÖNCE yeniden okunur — bu arada başka bir Trakt isteği
-  // interceptor'da refresh tetiklediyse yeni token hazırdır; elle yenilemeye
-  // gerek kalmaz (aynı refresh_token'la yarış, Trakt rotasyonunda ikinci
-  // kullanımda düşer). (2) Değişmediyse mevcut `refreshTraktToken` ile BİR kez
-  // yenilenir, depoya yazılır ve istek YENİ token'la TEK kez tekrarlanır.
+  // interceptor'da yenileme tetiklediyse yeni token hazırdır. (2) Değişmediyse
+  // ortak `refreshAccessToken` ile yenilenir ve istek YENİ token'la TEK kez tekrarlanır.
   // Google-only oturum (`kaymak_session_v1.*`) client tarafında yenilenemez
   // (token yalnızca girişte mint edilir) — o dal bilinçli olarak dışarıda.
   const postPublish = (accessToken: string) =>
@@ -247,17 +244,8 @@ export async function publishActivities(activities: PublishableActivity[]): Prom
         return postPublish(latest);
       }
 
-      // (2) Elle tek seferlik refresh — interceptor'ın izlediği yolun aynısı.
-      // NOT: traktClient'ın iç `cachedAccessToken`'ına dokunulamaz (export yok);
-      // depo değeri değiştiği için sonraki `getTraktClient()` zaten taze değerle
-      // kendi instance'ını kurar — tek maliyet bir kez örnek yenilemesi.
-      const refreshToken = await SecureStore.getItemAsync('traktRefreshToken');
-      if (!refreshToken) throw error;
-
-      const data = await refreshTraktToken(refreshToken, 'urn:ietf:wg:oauth:2.0:oob');
-      await SecureStore.setItemAsync('traktAccessToken', data.access_token);
-      await SecureStore.setItemAsync('traktRefreshToken', data.refresh_token);
-      return postPublish(data.access_token);
+      // (2) Interceptor'ın izlediği yolun aynısı.
+      return postPublish(await refreshAccessToken());
     }
   };
 
