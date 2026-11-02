@@ -46,8 +46,9 @@ export function kasaOturumuAc(erisim: string, kasaBileti: string): Promise<KasaO
   return gonder('/auth/trakt/oturum', { traktAccessToken: erisim, kasaBileti });
 }
 
-export function kasadanErisimIste(kaymakOturum: string): Promise<KasaOturumu> {
-  return gonder('/auth/trakt/token', { kaymakOturum });
+/** `zorla`: Trakt kasanın verdiği erişimi reddetti; Worker kalan süreye bakmadan yeniler. */
+export function kasadanErisimIste(kaymakOturum: string, zorla = false): Promise<KasaOturumu> {
+  return gonder('/auth/trakt/token', { kaymakOturum, ...(zorla ? { zorla: true } : {}) });
 }
 
 /** Eski cihazın yenileme anahtarını kasaya devreder. Anahtarsız: yalnız kasadan oturum (Hesap Seç sonrası). */
@@ -64,6 +65,7 @@ export async function kasaBiletiniBirak(kasaBileti: string): Promise<void> {
       timeout: ZAMAN_ASIMI_MS,
     });
   } catch (e) {
-    console.warn('[traktKasa] Yanlış hesabın yetkisi kaldırılamadı:', e);
+    // Hata nesnesi YAZILMAZ: istek gövdesinde kasa bileti var (plan §10).
+    console.warn('[traktKasa] Yanlış hesabın yetkisi kaldırılamadı:', (e as any)?.response?.status ?? 'ag');
   }
 }

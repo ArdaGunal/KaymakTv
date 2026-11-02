@@ -1,5 +1,6 @@
 import * as SecureStore from '../../utils/secureStorage';
 import { kasadanErisimIste, kasaOturumuAc, kasayaTasi, KasaHatasi, type KasaOturumu } from '../api/traktKasa';
+import { oturumKusagi } from './oturumDenetimi';
 
 /**
  * Trakt oturumunun TEK karar yeri (`docs/design/TRAKT_KASA_PLANI.md` §4.7). Yenileme anahtarının
@@ -9,6 +10,9 @@ import { kasadanErisimIste, kasaOturumuAc, kasayaTasi, KasaHatasi, type KasaOtur
  * 🔴 Yalnız sunucunun açıkça «bitti» dediği kodlar oturumu kapatır. İnternet kopması, Worker ya da
  * Trakt hatası kullanıcıyı ÇIKIŞA ATMAZ (eskiden her yenileme hatası atıyordu): `gecici` döner,
  * yalnız o istek başarısız olur.
+ *
+ * 🔴 Denetim B4: istek yoldayken çıkış yapıldıysa (`oturumKusagi`) geç gelen cevap diske YAZILMAZ;
+ * yazılsaydı çıkış sessizce geri alınırdı.
  */
 export type YenilemeSonucu = { tur: 'tamam'; erisim: string } | { tur: 'bitti' } | { tur: 'gecici' };
 export type TasimaSonucu = YenilemeSonucu | { tur: 'gecersiz' };
@@ -27,6 +31,7 @@ const kodu = (e: unknown) => (e instanceof KasaHatasi ? e.kod : 'bilinmeyen');
 
 /** Eski cihaz: yenileme anahtarını kasaya devret. `gecersiz` = anahtar ölü, silindi (oturum kapatmak çağıranın işi). */
 export async function eskiAnahtariTasi(): Promise<TasimaSonucu | null> {
+  const kusak = oturumKusagi();
   const [erisim, yenileme] = await Promise.all([
     SecureStore.getItemAsync('traktAccessToken'),
     SecureStore.getItemAsync('traktRefreshToken'),
@@ -35,10 +40,12 @@ export async function eskiAnahtariTasi(): Promise<TasimaSonucu | null> {
   if (!erisim) return { tur: 'bitti' };
   try {
     const o = await kasayaTasi(erisim, yenileme);
+    if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     await yaz(o);
     await SecureStore.deleteItemAsync('traktRefreshToken');
     return { tur: 'tamam', erisim: o.erisim };
   } catch (e) {
+    if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     if (kodu(e) !== 'tasi_gecersiz') {
       console.warn('[traktOturumu] Taşıma ertelendi:', kodu(e));
       return { tur: 'gecici' };
@@ -48,18 +55,39 @@ export async function eskiAnahtariTasi(): Promise<TasimaSonucu | null> {
   }
 }
 
-/** 401 sonrası: geçerli erişim anahtarı al. Asla fırlatmaz. */
-export async function traktOturumunuYenile(): Promise<YenilemeSonucu> {
+/** Yan sekme anahtarı harcadı ama cevabı henüz gelmedi: yazacağı oturum kısa süre beklenir (denetim B3). */
+async function yanSekmeOturumu(): Promise<string | null> {
+  for (const aralik of GIRIS_DENEME_ARALIKLARI_MS) {
+    await bekle(aralik);
+    const oturum = await SecureStore.getItemAsync('kaymakOturum');
+    if (oturum) return oturum;
+  }
+  return null;
+}
+
+/**
+ * 401 sonrası: geçerli erişim anahtarı al. Asla fırlatmaz. `reddedilen` = Trakt'ın az önce reddettiği erişim.
+ * 🔴 Denetim B1: kasa aynı anahtarı geri verdiyse o anahtar ölüdür (ör. izin kaldırıldı) ama kasa süresine
+ * bakıp bilemez → `zorla` ile yenilettirilir. Kesin retse kasa o an silinir, kişi kartı görür.
+ * Farklı anahtar geldiyse (bu cihazınki yalnız eskimiş) zorlanmaz: yenileme boşa harcanmaz.
+ */
+export async function traktOturumunuYenile(reddedilen?: string | null): Promise<YenilemeSonucu> {
+  const kusak = oturumKusagi();
   try {
+    const onceki = reddedilen ?? (await SecureStore.getItemAsync('traktAccessToken'));
     const tasima = await eskiAnahtariTasi();
     if (tasima && tasima.tur !== 'gecersiz') return tasima;
     // `gecersiz`: başka sekme az önce taşımış olabilir → aşağıda onun yazdığı oturum okunur.
-    const oturum = await SecureStore.getItemAsync('kaymakOturum');
+    const oturum = (await SecureStore.getItemAsync('kaymakOturum')) ?? (tasima ? await yanSekmeOturumu() : null);
+    if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     if (!oturum) return { tur: 'bitti' };
-    const o = await kasadanErisimIste(oturum);
+    let o = await kasadanErisimIste(oturum);
+    if (o.erisim === onceki) o = await kasadanErisimIste(o.kaymakOturum, true);
+    if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     await yaz(o);
     return { tur: 'tamam', erisim: o.erisim };
   } catch (e) {
+    if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     const kod = kodu(e);
     console.warn('[traktOturumu] Yenileme başarısız:', kod);
     return OTURUMU_BITIREN_KODLAR.has(kod) ? { tur: 'bitti' } : { tur: 'gecici' };

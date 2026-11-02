@@ -112,15 +112,19 @@ const erisimiUygula = (erisim: string) => {
 };
 
 let yenilemeUcusu: Promise<string> | null = null;
+let gecisUcusu: Promise<void> | null = null;
 
-const yenileVeUygula = async (): Promise<string> => {
+const yenileVeUygula = async (reddedilen?: string | null): Promise<string> => {
   // Y23: Google-only kullanıcının Trakt oturumu yok; yalnızca bu TEK istek başarısız sayılır.
   const authProvider = await SecureStore.getItemAsync('traktAuthProvider');
   if (authProvider === 'google') {
     console.log('[traktClient] Google-only oturum: Trakt isteği atlandı, çıkış tetiklenmedi.');
     throw new Error('Google-only oturumda Trakt yenilemesi yok.');
   }
-  const sonuc = await traktOturumunuYenile();
+  const onceki = reddedilen ?? (await SecureStore.getItemAsync('traktAccessToken'));
+  // Denetim B3: açılış taşıması sürerken aynı yenileme anahtarıyla ikinci istek gitmez (biri reddedilip kişiyi çıkışa atardı).
+  if (gecisUcusu) await gecisUcusu;
+  const sonuc = await traktOturumunuYenile(onceki);
   if (sonuc.tur === 'tamam') {
     erisimiUygula(sonuc.erisim);
     return sonuc.erisim;
@@ -143,10 +147,11 @@ const yenileVeUygula = async (): Promise<string> => {
  * Erişim anahtarını kasadan yeniler (401 interceptor'ı, Worker'a giden yazma yolları, aktarım).
  * TEK UÇUŞ: aynı anda gelen çağrılar aynı sonucu bekler (bkz. docs/HISTORY.md Madde 133).
  * Sekmeler ve cihazlar arası tek Trakt isteğini Worker'daki kilit sağlar (plan §4.5).
+ * `reddedilen`: isteğin gerçekten gönderdiği anahtar; yoksa o an diskte olan sayılır.
  */
-export const refreshAccessToken = (): Promise<string> => {
+export const refreshAccessToken = (reddedilen?: string | null): Promise<string> => {
   if (!yenilemeUcusu) {
-    yenilemeUcusu = yenileVeUygula().finally(() => {
+    yenilemeUcusu = yenileVeUygula(reddedilen).finally(() => {
       yenilemeUcusu = null;
     });
   }
@@ -154,13 +159,18 @@ export const refreshAccessToken = (): Promise<string> => {
 };
 
 /** Açılışta bir kez: eski cihazdaki yenileme anahtarı kasaya taşınır. Başarısızlık oturumu KAPATMAZ. */
-export const eskiCihazGecisi = async (): Promise<void> => {
-  try {
-    const sonuc = await eskiAnahtariTasi();
-    if (sonuc?.tur === 'tamam') erisimiUygula(sonuc.erisim);
-  } catch (e) {
-    console.warn('[traktClient] Eski cihaz geçişi ertelendi:', e);
+export const eskiCihazGecisi = (): Promise<void> => {
+  if (!gecisUcusu) {
+    gecisUcusu = eskiAnahtariTasi()
+      .then((sonuc) => {
+        if (sonuc?.tur === 'tamam') erisimiUygula(sonuc.erisim);
+      })
+      .catch((e) => console.warn('[traktClient] Eski cihaz geçişi ertelendi:', e))
+      .finally(() => {
+        gecisUcusu = null;
+      });
   }
+  return gecisUcusu;
 };
 
 export const getTraktClient = async () => {
@@ -328,7 +338,7 @@ export const getTraktClient = async () => {
         }
 
         try {
-          const yeniErisim = await refreshAccessToken();
+          const yeniErisim = await refreshAccessToken(String(originalRequest.headers?.['Authorization'] ?? '').replace(/^Bearer /, '') || null);
           originalRequest.headers['Authorization'] = `Bearer ${yeniErisim}`;
           return instance(originalRequest);
         } catch (yenilemeHatasi) {

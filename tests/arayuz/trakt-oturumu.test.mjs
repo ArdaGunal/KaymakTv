@@ -111,6 +111,84 @@ T.ok('ayni + kalan baskasi → kasadan: KASANIN erisimi kullanilir, yenileme ana
 hazirla(); cevaplar = [hataYanit(404, 'kasa_yok')];
 T.ok('Kasa yoksa → giris (silme bitti, kisi bir kez Trakt\'a girer)', (await O.hesapSecSonrasiOturum({ oturum: 'ayni', kalanBenMiyim: false }, undefined, 'e')) === 'giris');
 
+T.H('Denetim B1: kasa ayni reddedilen anahtari verirse zorla yenilet');
+hazirla({ traktAccessToken: 'e-olu', kaymakOturum: 'o' });
+cevaplar = [oturumCevabi('e-olu', 'o-2'), hataYanit(410, 'kasa_koptu')];
+s = await O.traktOturumunuYenile('e-olu');
+T.ok('Ayni anahtar → ikinci istek zorla:true; kasa koptu → bitti (kisi karti gorur)', s.tur === 'bitti' && istekler[1]?.govde.zorla === true && istekler[1]?.govde.kaymakOturum === 'o-2');
+hazirla({ traktAccessToken: 'e-olu', kaymakOturum: 'o' });
+cevaplar = [oturumCevabi('e-olu', 'o-2'), oturumCevabi('e-taze', 'o-3')];
+s = await O.traktOturumunuYenile('e-olu');
+T.ok('Anahtar saglamsa yeni erisim yazilir', s.erisim === 'e-taze' && depo.get('traktAccessToken') === 'e-taze' && depo.get('kaymakOturum') === 'o-3');
+hazirla({ traktAccessToken: 'e-eski', kaymakOturum: 'o' });
+cevaplar = [oturumCevabi('e-kasa')];
+s = await O.traktOturumunuYenile('e-eski');
+T.ok('Yalniz bu cihazin anahtari eskiyse zorlanmaz (yenileme bosa harcanmaz)', s.erisim === 'e-kasa' && istekler.length === 1 && !('zorla' in istekler[0].govde));
+hazirla({ traktAccessToken: 'e-yeni', kaymakOturum: 'o' });
+cevaplar = [oturumCevabi('e-yeni')];
+s = await O.traktOturumunuYenile('e-parallel-eski');
+T.ok('Paralel eski istegin 401\'i guncel anahtari zorlatmaz', s.erisim === 'e-yeni' && istekler.length === 1);
+
+T.H('Denetim B3: yan sekme tasirken kisi cikisa atilmaz');
+hazirla({ traktAccessToken: 'e', traktRefreshToken: 'y-olu' });
+cevaplar = [hataYanit(409, 'tasi_gecersiz'), oturumCevabi('e-kardes')];
+setTimeout(() => depo.set('kaymakOturum', 'o-kardes'), 300);
+s = await O.traktOturumunuYenile();
+T.ok('Anahtar reddedildi, oturum sonradan geldi → bekler, kasadan alir', s.erisim === 'e-kardes');
+
+T.H('Denetim B4: yoldayken cikis yapildiysa gec gelen cevap yazilmaz');
+let kusak = 0;
+const OK = tsLoader(root, {
+  '../../utils/secureStorage': SecureStore,
+  '../api/traktKasa': kasaMod,
+  './oturumDenetimi': { oturumKusagi: () => kusak },
+})('services/auth/traktOturumu.ts');
+const yoldaCikis = async (d, yanit, yap) => {
+  hazirla(d);
+  const eskiPost = axios.post;
+  axios.post = async () => {
+    kusak++; // removeKeys
+    depo.clear();
+    if (yanit instanceof Error) throw yanit;
+    return { data: yanit };
+  };
+  const sonuc = await yap();
+  axios.post = eskiPost;
+  return sonuc;
+};
+let ck = await yoldaCikis({ traktAccessToken: 'e', kaymakOturum: 'o' }, oturumCevabi('e-gec', 'o-gec'), () => OK.traktOturumunuYenile());
+T.ok('Yenileme: cevap diske yazilmaz, gecici', ck.tur === 'gecici' && depo.size === 0);
+ck = await yoldaCikis({ traktAccessToken: 'e', traktRefreshToken: 'y' }, oturumCevabi('e-gec', 'o-gec'), () => OK.eskiAnahtariTasi());
+T.ok('Tasima: cevap diske yazilmaz, gecici', ck.tur === 'gecici' && depo.size === 0);
+ck = await yoldaCikis({ traktAccessToken: 'e', kaymakOturum: 'o' }, hataYanit(410, 'kasa_koptu'), () => OK.traktOturumunuYenile());
+T.ok('Eski oturumun «bitti»si yeni oturumu kapatmaz', ck.tur === 'gecici');
+
+T.H('Faz 6: diger cihazlardan cik (servis)');
+let cikisGovde = null;
+let cikisCevap = null;
+const oy = tsLoader(root, {
+  axios: { __esModule: true, default: { post: async (url, g) => { cikisGovde = { url, g }; if (cikisCevap instanceof Error) throw cikisCevap; return { data: cikisCevap }; } } },
+  '../../utils/secureStorage': SecureStore,
+  './traktClient': { isKaymakSessionToken: (x) => String(x).startsWith('kaymak_session_v1.'), eskiCihazGecisi: async () => {} },
+})('services/api/oturumYonetimi.ts');
+hazirla({ traktAccessToken: 'e', kaymakOturum: 'o-trakt' });
+cikisCevap = { success: true, kaymakOturum: 'o-yeni', erisim: 'e-yeni', traktli: true };
+let cs = await oy.digerCihazlardanCik();
+T.ok('Trakt\'li cihaz kaymakOturum gonderir, yeni belge + erisim alir', cikisGovde.g.kaymakOturum === 'o-trakt' && cikisGovde.url.endsWith('/account/diger-cihazlardan-cik') && cs.erisim === 'e-yeni' && !('traktAccessToken' in cikisGovde.g));
+hazirla({ traktAccessToken: 'kaymak_session_v1.g' });
+cikisCevap = { success: true, kaymakOturum: 'kaymak_session_v1.yeni', erisim: null, traktli: false };
+cs = await oy.digerCihazlardanCik();
+T.ok('Google-only cihaz yuvasindaki belgeyi gonderir', cikisGovde.g.kaymakOturum === 'kaymak_session_v1.g' && cs.erisim === null && cs.traktli === false);
+hazirla({ traktAccessToken: 'e' });
+let cf = null;
+try { await oy.digerCihazlardanCik(); } catch (e) { cf = e; }
+T.ok('Belge yoksa istek gitmez, kod tasinir', cf?.kod === 'oturum_yok');
+hazirla({ traktAccessToken: 'e', kaymakOturum: 'o' });
+cikisCevap = hataYanit(503, 'tekrar_dene');
+cf = null;
+try { await oy.digerCihazlardanCik(); } catch (e) { cf = e; }
+T.ok('Sunucu kodu tasinir (arayuz t() metni gosterir)', cf?.kod === 'tekrar_dene');
+
 T.H('Kaynak denetimi');
 // git Windows'ta dosyayı CRLF yazabilir; denetimler satır sonuna bağlı kalmasın.
 const oku = (f) => fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');

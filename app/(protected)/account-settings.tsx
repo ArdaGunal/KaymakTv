@@ -22,6 +22,7 @@ import { confirmAsync, notify } from '../../utils/confirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../hooks/useSettings';
 import { useProfilePrivacy } from '../../hooks/useProfilePrivacy';
+import { useDigerCihazlardanCik } from '../../hooks/useDigerCihazlardanCik';
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -32,6 +33,7 @@ export default function AccountSettingsScreen() {
   const router = useRouter();
   const { handleLogout, handleDeleteAccount, isLoggingOut, isDeletingAccount } = useSettings();
   const profilePrivacy = useProfilePrivacy();
+  const digerCihazlar = useDigerCihazlardanCik();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
@@ -141,6 +143,16 @@ export default function AccountSettingsScreen() {
 
           {!isGuest && (
             <>
+              <SettingsSectionDivider />
+
+              <SettingsRow
+                icon={<LogOut size={20} color="#60a5fa" />}
+                label={t('settings:digerCihazlarBaslik')}
+                tintColor="#60a5fa"
+                onPress={digerCihazlar.calistir}
+                disabled={digerCihazlar.calisiyor}
+              />
+
               <SettingsSectionDivider />
 
               <SettingsRow
