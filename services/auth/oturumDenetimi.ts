@@ -27,6 +27,14 @@ export const oturumKusagi = (): number => kusak;
 /** Senkron — `removeKeys`in ilk satırı; ondan sonra çözülen eski istekler hiçbir şey yazmaz. */
 export function oturumKusaginiIlerlet(): void { kusak++; }
 
+/**
+ * Faz 6: «diğer cihazlardan çık» sürerken bu cihazın belgesi de değişiyor. Worker sürümü artırdı ama yeni
+ * belge henüz diske yazılmadıysa, yoldaki istekler 401 alır: bu «hesap silindi» DEĞİLDİR, çıkış yapılmaz.
+ */
+let belgeDegisimi = false;
+export const belgeDegisiyor = (): boolean => belgeDegisimi;
+export function belgeDegisimiAyarla(deger: boolean): void { belgeDegisimi = deger; }
+
 type Dinleyici = () => void;
 let dinleyiciler: Dinleyici[] = [];
 let isleniyor = false;

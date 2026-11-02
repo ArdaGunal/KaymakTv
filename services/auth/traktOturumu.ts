@@ -1,6 +1,6 @@
 import * as SecureStore from '../../utils/secureStorage';
 import { kasadanErisimIste, kasaOturumuAc, kasayaTasi, KasaHatasi, type KasaOturumu } from '../api/traktKasa';
-import { oturumKusagi } from './oturumDenetimi';
+import { belgeDegisiyor, oturumKusagi } from './oturumDenetimi';
 
 /**
  * Trakt oturumunun TEK karar yeri (`docs/design/TRAKT_KASA_PLANI.md` §4.7). Yenileme anahtarının
@@ -73,6 +73,7 @@ async function yanSekmeOturumu(): Promise<string | null> {
  */
 export async function traktOturumunuYenile(reddedilen?: string | null): Promise<YenilemeSonucu> {
   const kusak = oturumKusagi();
+  let kullanilan: string | null = null;
   try {
     const onceki = reddedilen ?? (await SecureStore.getItemAsync('traktAccessToken'));
     const tasima = await eskiAnahtariTasi();
@@ -81,6 +82,7 @@ export async function traktOturumunuYenile(reddedilen?: string | null): Promise<
     const oturum = (await SecureStore.getItemAsync('kaymakOturum')) ?? (tasima ? await yanSekmeOturumu() : null);
     if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     if (!oturum) return { tur: 'bitti' };
+    kullanilan = oturum;
     let o = await kasadanErisimIste(oturum);
     if (o.erisim === onceki) o = await kasadanErisimIste(o.kaymakOturum, true);
     if (kusak !== oturumKusagi()) return { tur: 'gecici' };
@@ -89,6 +91,8 @@ export async function traktOturumunuYenile(reddedilen?: string | null): Promise<
   } catch (e) {
     if (kusak !== oturumKusagi()) return { tur: 'gecici' };
     const kod = kodu(e);
+    // Faz 6: reddedilen, bu cihazın az önce yenilenen ESKİ belgesi; güncel oturum sağlam, çıkış yok.
+    if (kod === 'invalid_token' && (belgeDegisiyor() || (await SecureStore.getItemAsync('kaymakOturum')) !== kullanilan)) return { tur: 'gecici' };
     console.warn('[traktOturumu] Yenileme başarısız:', kod);
     return OTURUMU_BITIREN_KODLAR.has(kod) ? { tur: 'bitti' } : { tur: 'gecici' };
   }

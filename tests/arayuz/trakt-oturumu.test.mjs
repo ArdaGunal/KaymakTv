@@ -163,6 +163,42 @@ T.ok('Tasima: cevap diske yazilmaz, gecici', ck.tur === 'gecici' && depo.size ==
 ck = await yoldaCikis({ traktAccessToken: 'e', kaymakOturum: 'o' }, hataYanit(410, 'kasa_koptu'), () => OK.traktOturumunuYenile());
 T.ok('Eski oturumun «bitti»si yeni oturumu kapatmaz', ck.tur === 'gecici');
 
+T.H('R1: Google-only cihaz kendi eski belgesinin 401\'iyle cikisa dusmez');
+let bildirim = 0;
+let koruyucuDegisim = false;
+let kancaHata = null;
+const kk = tsLoader(root, {
+  axios: { __esModule: true, default: { interceptors: { response: { use: (_, h) => { kancaHata = h; } } } } },
+  '../../utils/secureStorage': SecureStore,
+  './traktClient': { isKaymakSessionToken: (t) => String(t).startsWith('kaymak_session_v1.') },
+  '../auth/oturumDenetimi': { hesapGecersizBildir: () => { bildirim++; }, belgeDegisiyor: () => koruyucuDegisim },
+})('services/api/workerYanitKoruyucu.ts');
+kk.workerYanitKoruyucusunuKur();
+const yanit401 = (gonderilen) => Object.assign(new Error('401'), { config: { url: `${W}/feed/sync`, data: JSON.stringify({ traktAccessToken: gonderilen }) }, response: { status: 401, data: { code: 'invalid_token' } } });
+const dene = async (hata) => { bildirim = 0; try { await kancaHata(hata); } catch { /* koruyucu hatayi degistirmez */ } return bildirim; };
+hazirla({ traktAccessToken: 'kaymak_session_v1.yeni' });
+T.ok('Eski belgeyle giden istegin 401\'i: cikis YOK', (await dene(yanit401('kaymak_session_v1.eski'))) === 0);
+T.ok('Guncel belge reddedildiyse: cikis VAR (hesap silindi korumasi suruyor)', (await dene(yanit401('kaymak_session_v1.yeni'))) === 1);
+hazirla({ traktAccessToken: 'kaymak_session_v1.eski' });
+koruyucuDegisim = true;
+T.ok('Belge degisimi surerken (yeni belge henuz diskte degil): cikis YOK', (await dene(yanit401('kaymak_session_v1.eski'))) === 0);
+koruyucuDegisim = false;
+T.ok('Degisim bitince ayni istek cikisi tetikler', (await dene(yanit401('kaymak_session_v1.eski'))) === 1);
+T.ok('Govde okunamiyorsa eski davranis: cikis VAR', (await dene(Object.assign(new Error('401'), { config: { url: `${W}/feed/sync`, data: '{bozuk' }, response: { status: 401, data: { code: 'invalid_token' } } }))) === 1);
+
+T.H('R2: Trakt\'li cihazin yoldaki eski belgesi cikisa atmaz');
+hazirla({ traktAccessToken: 'e', kaymakOturum: 'o-eski' });
+{
+  const eskiPost = axios.post;
+  axios.post = async () => { depo.set('kaymakOturum', 'o-yeni'); throw hataYanit(401, 'invalid_token'); };
+  const r2 = await O.traktOturumunuYenile();
+  axios.post = eskiPost;
+  T.ok('Reddedilen belge diskteki degil → gecici, cikis yok', r2.tur === 'gecici' && depo.get('kaymakOturum') === 'o-yeni');
+}
+hazirla({ traktAccessToken: 'e', kaymakOturum: 'o' });
+cevaplar = [hataYanit(401, 'invalid_token')];
+T.ok('Reddedilen belge guncelse → bitti (baska cihazdan cikildi)', (await O.traktOturumunuYenile()).tur === 'bitti');
+
 T.H('Faz 6: diger cihazlardan cik (servis)');
 let cikisGovde = null;
 let cikisCevap = null;

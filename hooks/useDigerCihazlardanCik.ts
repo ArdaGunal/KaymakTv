@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { confirmAsync, notify } from '../utils/confirmDialog';
 import { logError } from '../utils/errorLog';
 import { digerCihazlardanCik } from '../services/api/oturumYonetimi';
+import { belgeDegisimiAyarla } from '../services/auth/oturumDenetimi';
 
 /**
  * Trakt kasası Faz 6 · Ayarlar satırı: onay → Worker → bu cihazın oturumunu yeni belgeye geçir.
@@ -26,6 +27,7 @@ export function useDigerCihazlardanCik() {
     );
     if (!onay) return;
     setCalisiyor(true);
+    belgeDegisimiAyarla(true);
     try {
       const r = await digerCihazlardanCik();
       if (r.traktli && !r.erisim) {
@@ -41,6 +43,7 @@ export function useDigerCihazlardanCik() {
       logError('digerCihazlardanCik', e as Error);
       notify(t('common:error'), t('settings:digerCihazlarHata'));
     } finally {
+      belgeDegisimiAyarla(false);
       setCalisiyor(false);
     }
   }, [calisiyor, t, removeKeys, saveTokens, saveGoogleSession, router]);
