@@ -126,6 +126,7 @@ const TAKIMLAR = [
   { ad: 'giris-kilidi', grup: 'arayuz', dosya: 'arayuz/giris-kilidi.test.mjs', aciklama: 'GIRIS-KILIT-01: kartin hesabi Trakt donusunde denetlenir, uyusmazlikta oturum acilmaz' },
   { ad: 'trakt-oturumu', grup: 'arayuz', dosya: 'arayuz/trakt-oturumu.test.mjs', aciklama: 'Trakt kasasi Faz 3: tek yenileme yolu, gecici hata cikisa atmaz, eski cihaz tasimasi' },
   { ad: 'trakt-kopru', grup: 'arayuz', dosya: 'sunucu/trakt-kopru.test.js', aciklama: 'Worker Trakt oturum cagrilari Pi koprusunden: sir, dar girdi, zarf, log temizligi' },
+  { ad: 'supabase-isitma', grup: 'arayuz', dosya: 'sunucu/supabase-isitma.test.js', aciklama: 'HIZ-02: 4 dk kucuk okuma, iki yol, sir ayrimi, sayac, log temizligi' },
   { ad: 'kaymak-no', grup: 'arayuz', dosya: 'arayuz/kaymak-no.test.mjs', aciklama: 'Kimlik Faz 2 (066): KaymakNo #48291735 gorunumu, profil + arama baglantisi' },
   { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492: isim ekrani (her yeni hesap, Atla yok, K2 kalkti) + istatistik bolum bazli sure' },
   { ad: 'onay-kutusu', grup: 'arayuz', dosya: 'arayuz/onay-kutusu.test.mjs', aciklama: 'GORSEL-01: onay/bilgi kutulari koyu ConfirmHost, dogrudan Alert.alert yasak, kuyruk' },

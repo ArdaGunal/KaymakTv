@@ -150,6 +150,7 @@ startMirrorSchedule();
 // Gece haritasindaki BESINCI is: 09-11, hepsinden SONRA — gecenin tum
 // yazmalari bittikten sonraki sayi anlamli olan.
 startSayacSchedule();
+require('./server/supabaseIsitma').startSupabaseIsitma(); // HIZ-02: soğuk Supabase bağlantısı
 
 // ==========================================
 // TMDB PROXY ENDPOINT — server/tmdbProxy.js'e taşındı (Madde 251, 400 satır
