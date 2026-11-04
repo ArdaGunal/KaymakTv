@@ -11,6 +11,10 @@ import { geciciseBirKezDaha } from '../../utils/geciciseTekrarla';
 
 import { isKaymakSessionToken } from './traktClient';
 
+// HIZ-02 (M574): Worker'ın en kötü süresinden büyük (kimlik okuması 8 sn + RPC 12 sn). 15 sn'de vazgeçen istemci,
+// Worker hâlâ çalışırken ikinci isteği yolluyordu. Takılmada Worker çoğunlukla 2–7 sn'de döner.
+const KUTUPHANE_SINIRI_MS = 22_000;
+
 /**
  * KÜTÜPHANE API'si — Worker'ın `/library/*` uçlarının istemci tarafı.
  * Faz T · T1. Hedef tablolar `supabase/schema/037_user_data.sql`.
@@ -428,7 +432,7 @@ export const fetchTakvim = async (
     const res = await geciciseBirKezDaha(() => axios.post(
       `${KAYMAK_WORKER_URL}/library/takvim`,
       { traktAccessToken: token, gun },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
+      { headers: { 'Content-Type': 'application/json' }, timeout: KUTUPHANE_SINIRI_MS },
     ));
     return {
       diziler: Array.isArray(res.data?.diziler) ? res.data.diziler : [],
@@ -446,13 +450,12 @@ export const syncLibrary = async (): Promise<KutuphaneYaniti> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const token = await SecureStore.getItemAsync('traktAccessToken');
 
-  // HIZ-01 (M542): canlıda ilk istek 21,5 sn bekleyip 502 alıyordu, ikincisi 1,2 sn. Sınır 30 → 15 sn
-  // (Worker artık takılan Supabase bağlantısını 6–8 sn'de kesip yeniden deniyor) + geçici hatada
+  // HIZ-01 (M542): canlıda ilk istek 21,5 sn bekleyip 502 alıyordu, ikincisi 1,2 sn. Geçici hatada
   // bir kez daha. Sarı uyarı / Trakt emniyet turu yalnız İKİNCİ deneme de düşerse (çağıran).
   const res = await geciciseBirKezDaha(() => axios.post(
     `${KAYMAK_WORKER_URL}/library/sync`,
     { traktAccessToken: token },
-    { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
+    { headers: { 'Content-Type': 'application/json' }, timeout: KUTUPHANE_SINIRI_MS },
   ));
   const d = res.data || {};
   const dizi = (x: any) => (Array.isArray(x) ? x : []);

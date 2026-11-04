@@ -24,7 +24,9 @@ export function geciciHataNedeni(hata: unknown, derinlik = 0): string | null {
   if (typeof e.code === 'string' && GECICI_AXIOS_KODLARI.includes(e.code)) return e.code;
   const mesaj = typeof e.message === 'string' ? e.message : '';
   if (e.name === 'CanceledError' || /^canceled$/i.test(mesaj)) return 'canceled';
-  if (/^Network Error$/i.test(mesaj) || /^Network request failed$/i.test(mesaj)) return 'network';
+  // M574: supabase-js hatası düz nesnedir: `{ message: 'AbortError: Aborted', hint: 'Request was aborted…', code: '' }`.
+  if (e.name === 'AbortError' || e.code === 'ABORT_ERR' || /^AbortError\b/.test(mesaj) || /^Request was aborted\b/.test(String(e.hint ?? ''))) return 'abort';
+  if (/^Network Error$/i.test(mesaj) || /^(TypeError: )?Network request failed$/i.test(mesaj)) return 'network';
   if (/^timeout of \d+ms exceeded$/i.test(mesaj)) return 'timeout';
   return geciciHataNedeni(e.neden ?? e.cause, derinlik + 1);
 }

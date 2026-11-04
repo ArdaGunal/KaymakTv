@@ -27,7 +27,9 @@ const HATA_BEKLEMESI_MS = 60_000;
 // HIZ-01 (M542): istek ESKİDEN SINIRSIZDI — supabase-js HER istekte (akış, sürüm kontrolü…) bu
 // belgeyi beklediği için takılan tek bağlantı tüm Supabase okumalarını ~20 sn kilitliyordu.
 // Sınır + geçici hatada (zaman aşımı / ağ / 502-524) bir kez daha; ikisi de düşerse eskisi gibi anon.
-const ISTEK_SINIRI_MS = 8000;
+// HIZ-02 (M574): Worker'ın kimlik okuması en çok 8 sn sürer; Worker'ın cevabını görecek kadar beklenir,
+// yoksa onunla yarışıp boşuna ikinci istek atılırdı.
+const ISTEK_SINIRI_MS = 10_000;
 const GECICI_DURUMLAR = [502, 503, 504, 522, 524];
 
 class GeciciBelgeHatasi extends Error {}

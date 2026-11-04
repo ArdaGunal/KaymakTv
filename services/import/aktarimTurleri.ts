@@ -56,4 +56,6 @@ export interface AktarimMotoru {
   baslat(): Promise<MotorFazi>;
   durdur(): void;
   durum(): MotorDurumu;
+  /** Son `/import/durum` cevabı (fark turu kararı damgayı buradan okur, ikinci istek atılmaz). */
+  sonOzet(): AktarimOzeti | null;
 }

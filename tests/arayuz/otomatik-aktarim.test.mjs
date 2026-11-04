@@ -220,8 +220,11 @@ T.H('Motor — kaldigi yerden devam');
 {
   const hepsi = Object.fromEntries(AILELER.map((a) => [a, { sayfa: 1, bitti: true, damga: 'x' }]));
   const d = dunya({ baslangic: hepsi });
-  const f = await aktarimMotoruKur(d.bag, C).baslat();
+  const m = aktarimMotoruKur(d.bag, C);
+  T.ok('M574: motor once ozetsiz', m.sonOzet() === null);
+  const f = await m.baslat();
   T.ok('zaten tamam -> faz tamam, SIFIR adim, tazeleme yok', f === 'tamam' && d.k.adim.length === 0 && d.k.tazele === 0);
+  T.ok('M574: motor son ozeti verir, fark turu karari ikinci istek atmaz', m.sonOzet()?.ilkTamam === true);
 }
 
 T.H('Motor — ag kesintisi');

@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../context/AuthContext';
-import { farkTuruZamani } from '../services/api/traktImportCekirdek';
+import { farkTuruZamani, sunucuFarkDamgasi } from '../services/api/traktImportCekirdek';
 import { aktarimMotoru, aktarimYereliniTemizle } from '../services/import/aktarimBaglanti';
 import { useAktarimStore } from '../store/aktarimStore';
 import { logError } from '../utils/errorLog';
@@ -73,7 +73,10 @@ export function useOtomatikAktarim() {
       if (faz !== 'tamam') return;
 
       const ham = await AsyncStorage.getItem(SON_FARK_ANAHTARI);
-      const son = ham === null ? null : Number(ham);
+      const yerel = ham === null ? null : Number(ham);
+      // Çıkış yerel damgayı siler; sunucu damgası az önce aktarılmış hesapta turu boşuna koşturmaz (M574).
+      const sunucu = sunucuFarkDamgasi(m.sonOzet()?.aileler);
+      const son = sunucu !== null && (yerel === null || sunucu > yerel) ? sunucu : yerel;
       if (!farkTuruZamani(son) || iptal) return;
       await farkRef.current();
       // Damga tur BİTİNCE: yarıda kalan tur "koştu" sayılsaydı eksik veri

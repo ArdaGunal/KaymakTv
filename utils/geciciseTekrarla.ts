@@ -12,7 +12,7 @@ import { geciciHataNedeni } from './geciciHata';
  * 🔴 YALNIZ SALT-OKUR istekler için — ilk deneme sunucuda işlenmiş olabilir; yazan bir isteği
  * tekrarlamak çift kayıt üretebilir. «Geçici» ölçütü `geciciHataNedeni`nin DAR listesi
  * (ağ hatası, zaman aşımı, 502/503/504/522/524); 4xx/500 gerçek hatadır, tekrarlanmaz.
- * `canceled` (çağıranın kendi iptali) de tekrarlanmaz.
+ * `canceled` ve `abort` (çağıranın kendi iptali) de tekrarlanmaz.
  */
 export async function geciciseBirKezDaha<T>(
   is: () => Promise<T>,
@@ -22,7 +22,7 @@ export async function geciciseBirKezDaha<T>(
     return await is();
   } catch (hata) {
     const neden = geciciHataNedeni(hata);
-    if (!neden || neden === 'canceled' || neden === 'ERR_CANCELED') throw hata;
+    if (!neden || neden === 'canceled' || neden === 'ERR_CANCELED' || neden === 'abort') throw hata;
     console.warn(`[geciciseBirKezDaha] geçici hata (${neden}), bir kez daha deneniyor`);
     if (bekleMs > 0) await new Promise((coz) => setTimeout(coz, bekleMs));
     return is();

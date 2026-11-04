@@ -215,6 +215,27 @@ export function farkTuruZamani(sonKosuMs: number | null, simdi = Date.now()): bo
   return simdi - sonKosuMs >= FARK_ARALIGI_MS;
 }
 
+/**
+ * SAF — son tam turun SUNUCUDAKİ damgası: fark ailelerinin en eski `guncellendiAt`'i (tur yarıda kaldıysa
+ * bir kısmı eski kalır, «koştu» sayılmaz). Biri eksik ya da bozuksa `null`.
+ *
+ * NEDEN (HIZ-02 · M574): çıkış D8 gereği yerel damgayı siliyor; az önce aktarılmış hesap girişte ~100 isteklik
+ * turu boşuna yeniden koşuyordu (2026-11-03 günlüğü, 17 sn'de 130 istek). Damga sunucuda zaten var, başka
+ * cihazın turunu da görür.
+ */
+export function sunucuFarkDamgasi(
+  aileler: Partial<Record<ImportAilesi, { guncellendiAt: string | null }>> | null | undefined,
+): number | null {
+  let enEski = Infinity;
+  for (const aile of FARK_AILELERI) {
+    const iso = aileler?.[aile]?.guncellendiAt;
+    const ms = iso ? Date.parse(iso) : NaN;
+    if (!Number.isFinite(ms)) return null;
+    enEski = Math.min(enEski, ms);
+  }
+  return Number.isFinite(enEski) ? enEski : null;
+}
+
 // ==========================================================================
 // 🧹 K3 KAPANIŞ TURU — fark + Trakt'tan SİLİNENLERİN temizliği
 // ==========================================================================

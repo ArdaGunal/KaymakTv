@@ -7,12 +7,14 @@
 //
 // Cikti ASCII (tests/yardimci.js kurali).
 
+import fs from 'node:fs';
 import yardimci from '../yardimci.js';
 import {
   AKTARIM_SIRASI,
   FARK_AILELERI,
   FARK_ARALIGI_MS,
   farkTuruZamani,
+  sunucuFarkDamgasi,
   KAPANIS_AILELERI,
   supurmeOzeti,
   ARDISIK_HATA_TAVANI,
@@ -144,6 +146,21 @@ T.ok(
 );
 T.ok('bozuk damga KOSAR (sessizce kilitlenmez)', farkTuruZamani(Number.NaN) === true);
 T.ok('alti saatlik aralik', FARK_ARALIGI_MS === 6 * 60 * 60 * 1000);
+
+// M574 — sunucu damgası: çıkış yerel damgayı siliyor, az önce aktarılmış hesap turu boşuna koşmasın.
+const damgali = (iso) => Object.fromEntries(FARK_AILELERI.map((a) => [a, { guncellendiAt: iso }]));
+const eski = '2026-11-04T01:00:00.000Z';
+const yeni = '2026-11-04T01:05:00.000Z';
+T.ok('tum aileler damgali: EN ESKISI (turun yarida kalani kostu sayilmaz)',
+  sunucuFarkDamgasi({ ...damgali(yeni), [FARK_AILELERI[3]]: { guncellendiAt: eski } }) === Date.parse(eski));
+T.ok('🔴 gecmis damgasi hesaba katilmaz (fark turunda degil, hep eski)',
+  sunucuFarkDamgasi({ ...damgali(yeni), gecmis: { guncellendiAt: '2020-01-01T00:00:00.000Z' } }) === Date.parse(yeni));
+T.ok('bir aile eksikse null (tur kosar)', sunucuFarkDamgasi({ ...damgali(yeni), [FARK_AILELERI[0]]: undefined }) === null);
+T.ok('damgasi bos aile: null', sunucuFarkDamgasi({ ...damgali(yeni), [FARK_AILELERI[0]]: { guncellendiAt: null } }) === null);
+T.ok('bozuk damga: null, sessizce kilitlemez', sunucuFarkDamgasi(damgali('bozuk')) === null);
+T.ok('ozet yoksa null', sunucuFarkDamgasi(undefined) === null && sunucuFarkDamgasi(null) === null);
+const kanca = fs.readFileSync(new URL('../../hooks/useOtomatikAktarim.ts', import.meta.url), 'utf8');
+T.ok('kanca sunucu damgasini motorun son ozetinden okur (ikinci istek yok)', kanca.includes('sunucuFarkDamgasi(m.sonOzet()?.aileler)') && !kanca.includes('traktImportOzeti'));
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('K3 kapanis turu — fark + Traktan silinenlerin supurulmesi');

@@ -55,8 +55,9 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
   let calisan: Promise<MotorFazi> | null = null;
   let durum: MotorDurumu = BOS;
   let iptalCoz: () => void = () => {};
+  let sonOzet: AktarimOzeti | null = null;
 
-  const kur = (): AktarimMotoru => ({ baslat, durdur, durum: () => durum });
+  const kur = (): AktarimMotoru => ({ baslat, durdur, durum: () => durum, sonOzet: () => sonOzet });
 
   function durdur(): void {
     nesil += 1;
@@ -98,6 +99,7 @@ export function aktarimMotoruKur(bag: MotorBagimliliklari, c: Cekirdek): Aktarim
       bag.yayinla(durum);
     };
     const tohumla = (oz: AktarimOzeti) => {
+      sonOzet = oz;
       for (const [aile, a] of Object.entries(oz.aileler)) sayaclar[aile] = c.ozettenSayac(a);
     };
 

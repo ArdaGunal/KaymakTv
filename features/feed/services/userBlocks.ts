@@ -39,9 +39,12 @@ const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 const MY_USER_ID_STORAGE_KEY = 'myIdentity.supabaseUserId';
 
 let myUserIdCache: { id: string | null; fetchedAt: number } | null = null;
+// HIZ-02 (M574): yeni girişte akış, kuyruklar ve Realtime aynı kimliği aynı anda çözüyor. Yoldaki çözüm paylaşılır.
+let yoldakiKimlik: Promise<string | null> | null = null;
 
 export function invalidateMySupabaseUserId(): void {
   myUserIdCache = null;
+  yoldakiKimlik = null;
   // Disk kopyası da gitmeli: `AuthContext` bunu ÇIKIŞTA çağırıyor ve kalan
   // bir id, bir sonraki hesabın oturumunda önceki kullanıcının kimliği olarak
   // okunurdu (K2'de bulunan önbellek sınıfının aynısı, kalıcı hâli).
@@ -90,7 +93,15 @@ export async function getMySupabaseUserId(): Promise<string | null> {
   if (myUserIdCache && Date.now() - myUserIdCache.fetchedAt < CACHE_TTL.SHORT) {
     return myUserIdCache.id;
   }
+  if (yoldakiKimlik) return yoldakiKimlik;
+  const bu: Promise<string | null> = kimligiCoz().finally(() => {
+    if (yoldakiKimlik === bu) yoldakiKimlik = null;
+  });
+  yoldakiKimlik = bu;
+  return bu;
+}
 
+async function kimligiCoz(): Promise<string | null> {
   // 1) Disk — sağlayıcıdan bağımsız, ağ gerektirmez.
   try {
     const stored = await AsyncStorage.getItem(MY_USER_ID_STORAGE_KEY);
@@ -162,22 +173,35 @@ export async function getMySupabaseUserId(): Promise<string | null> {
 // engelledi" birleşimi, ikisi de görünürlükte aynı sonucu (karşılıklı
 // görünmezlik) doğurur.
 let blockedIdsCache: { ids: Set<string>; fetchedAt: number } | null = null;
+// HIZ-02 (M574): girişte aynı küme aynı anda iki kez isteniyordu (4 okuma). Yoldaki okuma paylaşılır.
+let yoldakiEngelOkumasi: Promise<Set<string>> | null = null;
 
 export function invalidateBlockedUserIds(): void {
   blockedIdsCache = null;
+  yoldakiEngelOkumasi = null;
 }
 
 export async function getBlockedUserIds(force = false): Promise<Set<string>> {
-  if (!force && blockedIdsCache && Date.now() - blockedIdsCache.fetchedAt < CACHE_TTL.SHORT) {
-    return blockedIdsCache.ids;
+  if (!force) {
+    if (blockedIdsCache && Date.now() - blockedIdsCache.fetchedAt < CACHE_TTL.SHORT) return blockedIdsCache.ids;
+    if (yoldakiEngelOkumasi) return yoldakiEngelOkumasi;
   }
+  const bu: Promise<Set<string>> = engelleriOku()
+    .then((ids) => {
+      // Yolda iken geçersiz kılındıysa (engelleme, çıkış) bu sonuç eskidir: önbelleğe yazılmaz.
+      if (yoldakiEngelOkumasi === bu) blockedIdsCache = { ids, fetchedAt: Date.now() };
+      return ids;
+    })
+    .finally(() => {
+      if (yoldakiEngelOkumasi === bu) yoldakiEngelOkumasi = null;
+    });
+  yoldakiEngelOkumasi = bu;
+  return bu;
+}
 
+async function engelleriOku(): Promise<Set<string>> {
   const myId = await getMySupabaseUserId();
-  if (!myId) {
-    const empty = new Set<string>();
-    blockedIdsCache = { ids: empty, fetchedAt: Date.now() };
-    return empty;
-  }
+  if (!myId) return new Set<string>();
 
   const [blockedByMeRes, blockingMeRes] = await Promise.all([
     supabase.from('user_blocks').select('blocked_id').eq('blocker_id', myId),
@@ -186,12 +210,10 @@ export async function getBlockedUserIds(force = false): Promise<Set<string>> {
   if (blockedByMeRes.error) throw blockedByMeRes.error;
   if (blockingMeRes.error) throw blockingMeRes.error;
 
-  const ids = new Set<string>([
+  return new Set<string>([
     ...((blockedByMeRes.data ?? []) as { blocked_id: string }[]).map((r) => r.blocked_id),
     ...((blockingMeRes.data ?? []) as { blocker_id: string }[]).map((r) => r.blocker_id),
   ]);
-  blockedIdsCache = { ids, fetchedAt: Date.now() };
-  return ids;
 }
 
 /** Ben BU kişiyi engellemiş miyim (yönlü) — menüde "Engelle" mi "Engeli

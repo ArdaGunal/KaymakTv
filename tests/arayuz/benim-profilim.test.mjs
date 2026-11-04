@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { tsLoader } from '../ts-test-loader.mjs';
 import yardimci from '../yardimci.js';
 
-// HIZ-01 Paket 2 (M544) — kendi profilim tek paylaşılan store'da (Faz 2 önbellek + Faz 3 tekil istek)
-// ve supabase-js okumalarına sınır + tek tekrar.
+// HIZ-01 Paket 2 (M544) — kendi profilim tek paylaşılan store'da (Faz 2 önbellek + Faz 3 tekil istek).
+// supabase-js okuma kapısı: `supabase-yedekli-okuma.test.mjs`.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
-const T = yardimci.baslat('BENIM PROFILIM + SUPABASE OKUMA SINIRI (M544)', { kokOneki: 'benim-profilim-' });
+const T = yardimci.baslat('BENIM PROFILIM (M544)', { kokOneki: 'benim-profilim-' });
 
 // ── Sahte bağımlılıklar ─────────────────────────────────────────────────
 const disk = new Map();
@@ -93,38 +93,5 @@ st().sifirla();
 sifirlaSayac();
 await st().tazele(baglam({ authProvider: 'google' }));
 T.ok('Google-only: Trakt /users/me YOK, profil sunucudan', sayac.trakt === 0 && st().veri.profile.username === 'arda_sunucu' && st().veri.kaymakNo === 48291735);
-
-// ── supabase-js okuma sınırı ────────────────────────────────────────────
-const { sinirliFetchKur } = tsLoader(root, {}, { AbortController })('features/feed/services/supabaseSinirliFetch.ts');
-const sus = console.warn;
-console.warn = () => {};
-const yanit = (status) => ({ status, ok: status < 400 });
-let n = 0;
-const asiliSonraHizli = (input, init) => {
-  n++;
-  if (n === 1) return new Promise((_, red) => init.signal.addEventListener('abort', () => red(new Error('aborted'))));
-  return Promise.resolve(yanit(200));
-};
-let r = await sinirliFetchKur(asiliSonraHizli, 30)('https://x/rest/v1/feed_activities', { method: 'GET' });
-T.ok('Asili okuma sinirda kesilir, taze deneme doner', r.status === 200 && n === 2);
-
-n = 0;
-r = await sinirliFetchKur(async () => { n++; return yanit(n === 1 ? 522 : 200); }, 30)('https://x/rest/v1/app_settings');
-T.ok('522 okumada bir kez daha (method yoksa GET sayilir)', r.status === 200 && n === 2);
-
-n = 0;
-let sinyal;
-r = await sinirliFetchKur(async (i, init) => { n++; sinyal = init?.signal; return yanit(502); }, 30)('https://x/rest/v1/comments', { method: 'POST', body: '{}' });
-T.ok('POST (yazma) dokunulmaz: tek deneme, sinyal eklenmez', r.status === 502 && n === 1 && sinyal === undefined);
-
-n = 0;
-const cagiran = new AbortController();
-let atildi = false;
-const s = sinirliFetchKur((i, init) => { n++; return new Promise((_, red) => init.signal.addEventListener('abort', () => red(new Error('aborted')))); }, 5000);
-const p = s('https://x/rest/v1/feed_activities', { method: 'GET', signal: cagiran.signal }).catch(() => { atildi = true; });
-cagiran.abort();
-await p;
-T.ok('Cagiranin kendi iptali tekrarlanmaz', atildi && n === 1);
-console.warn = sus;
 
 T.bitir();
