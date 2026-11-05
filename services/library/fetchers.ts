@@ -10,7 +10,6 @@ import {
   getWatchlistShows,
   getShowProgress,
   getWatchlistMovies,
-  getUserRatings,
   getShowSeasons,
   getLikedShows,
   getLikedMovies,
@@ -599,21 +598,15 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         requestQueue.enqueue(() => getCustomLists(), 'LOW').catch((e) => { console.error('getCustomLists failed', e.message); return null; }),
         requestQueue.enqueue(() => getLikedShows(), 'LOW').catch((e) => { console.error('getLikedShows failed', e.message); return null; }),
         requestQueue.enqueue(() => getLikedMovies(), 'LOW').catch((e) => { console.error('getLikedMovies failed', e.message); return null; }),
-        requestQueue.enqueue(() => getUserRatings('shows'), 'LOW').catch((e) => { console.error('getUserRatings shows failed', e.message); return null; }),
-        requestQueue.enqueue(() => getUserRatings('movies'), 'LOW').catch((e) => { console.error('getUserRatings movies failed', e.message); return null; }),
-        requestQueue.enqueue(() => getUserRatings('episodes'), 'LOW').catch((e) => { console.error('getUserRatings episodes failed', e.message); return null; })
         // NOT: `getHiddenShows`/`getHiddenMovies` BİLİNÇLİ OLARAK bu turdan
         // ÇIKARILDI — artık `syncHiddenLists` ile, bu ağır `Promise.all`'un
         // ve `LOW` önceliğin arkasında beklemeden, çok daha erken çekiliyorlar
         // (sebebi için o fonksiyonun başındaki nota bakınız).
-      ]).then(([moviesData, listsData, fShowsData, fMoviesData, rShowsData, rMoviesData, rEpisodesData]) => {
+      ]).then(([moviesData, listsData, fShowsData, fMoviesData]) => {
         if (moviesData !== null) setWatchedMovies(moviesData);
         if (listsData !== null) setCustomLists(listsData);
         if (fShowsData !== null) setFavShows(fShowsData);
         if (fMoviesData !== null) setFavMovies(fMoviesData);
-        if (rShowsData !== null) setUserRatingsShows(rShowsData);
-        if (rMoviesData !== null) setUserRatingsMovies(rMoviesData);
-        if (rEpisodesData !== null) setUserRatingsEpisodes(rEpisodesData);
 
         const multiSetDataInitial: [string, string][] = [];
         const setIfValidInitial = (key: string, data: any, prevData: any) => {
@@ -627,11 +620,7 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
         setIfValidInitial(CACHE_KEYS.favShows, fShowsData, useLibraryStore.getState().favShows);
         setIfValidInitial(CACHE_KEYS.favMovies, fMoviesData, useLibraryStore.getState().favMovies);
         setIfValidInitial(CACHE_KEYS.watchlistShows, wlistShows, useLibraryStore.getState().watchlistShows);
-        setIfValidInitial(CACHE_KEYS.calendarShows, calShows, useLibraryStore.getState().calendarShows);
-        setIfValidInitial(CACHE_KEYS.userRatingsShows, rShowsData, useLibraryStore.getState().userRatingsShows);
-        setIfValidInitial(CACHE_KEYS.userRatingsMovies, rMoviesData, useLibraryStore.getState().userRatingsMovies);
-        setIfValidInitial(CACHE_KEYS.userRatingsEpisodes, rEpisodesData, useLibraryStore.getState().userRatingsEpisodes);
-        // hiddenShowIds/hiddenMovieIds burada YAZILMAZ — kendi kalıcılığını
+        setIfValidInitial(CACHE_KEYS.calendarShows, calShows, useLibraryStore.getState().calendarShows);        // hiddenShowIds/hiddenMovieIds burada YAZILMAZ — kendi kalıcılığını
         // `syncHiddenLists` yapıyor. Buradan da yazmak, o hızlı yolun az önce
         // kaydettiği TAZE listeyi, bu geç biten turun elindeki daha ESKİ
         // store anlık görüntüsüyle geri ezme riski taşırdı.

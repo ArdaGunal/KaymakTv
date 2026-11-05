@@ -85,6 +85,7 @@ const TAKIMLAR = [
   { ad: 'watched-outbox', grup: 'arayuz', dosya: 'arayuz/watched-outbox.test.mjs', aciklama: 'M439: kalici ACK, kill/replay, hesap izolasyonu, Trakt dedup' },
   { ad: 'watched-visibility', grup: 'arayuz', dosya: 'arayuz/watched-visibility.test.mjs', aciklama: 'M441: gecici kart kaybi, kanonik next, 429 boyunca gorunurluk' },
   { ad: 'hidden-outbox', grup: 'arayuz', dosya: 'arayuz/hidden-outbox.test.mjs', aciklama: 'M447: Birak/Geri Al disk ACK, kill/replay, ters niyet, hesap izolasyonu' },
+  { ad: 'yazim-kapisi', grup: 'arayuz', dosya: 'arayuz/yazim-kapisi.test.mjs', aciklama: 'M575: Trakt yazimi yalniz cift yazim kapisindan, puan yalniz bizde' },
   { ad: 'surum-kapisi', grup: 'arayuz', dosya: 'arayuz/surum-kapisi.test.mjs', aciklama: 'M458: surum kapisi agi beklemez, onbellekten anlik karar' },
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },

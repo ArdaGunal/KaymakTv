@@ -122,26 +122,44 @@ T.ok('Eski cache hide ekler, eski server unhide geri alamaz', state.hiddenMovieI
 projection.setHiddenProjection([]); state.setHiddenMovieIds([]);
 T.ok('Stop sonrasi eski hesap yamasinin izleri yok', !state.hiddenMovieIds.length);
 
-T.H('Gercek transport: Google-only Worker, Trakt CORS koprusu ve yakalanmis token');
+T.H('Gercek transport: once Worker, Trakt yalniz Trakt oturumunda, anlik goruntu bizden (M575)');
 const calls = [];
+const izler = [];
 let response = { data: { success: true, gizliDiziler: [], gizliFilmler: [1044265] }, headers: {} };
-const axios = { post: async (...args) => { calls.push(['POST', ...args]); return response; },
-  get: async (...args) => { calls.push(['GET', ...args]); return response; } };
-const transport = tsLoader(root, { axios: { default: axios } })('services/library/hiddenOutbox/transport.ts');
+let proxyHata = null;
+const axios = { post: async (...args) => {
+  calls.push(['POST', ...args]);
+  if (proxyHata && args[0] === '/api/trakt-proxy') throw proxyHata;
+  return response;
+}, get: async (...args) => { calls.push(['GET', ...args]); return response; } };
+const transport = tsLoader(root, { axios: { default: axios },
+  '../../utils/errorLog': { logError: (yer) => izler.push(yer) } })('services/library/hiddenOutbox/transport.ts');
 await transport.sendHidden({ ...draft(), id: 'x', owner: 'A', trakt: false }, A);
 await transport.readHiddenSnapshot(A, [{ trakt: false }]);
 T.ok('Google token yalniz Worker a, watched/history yok', calls.every((c) => c[1].startsWith('https://worker.invalid/library/'))
   && calls[0][2].traktAccessToken === A.token && calls[0][2].op === 'ekle' && !calls.some((c) => /watched|history/.test(c[1])));
 calls.length = 0;
 const trakt = { ...A, trakt: true };
-response = { data: {}, headers: {} };
 await transport.sendHidden({ ...draft(false, 'show', 33733), id: 'x', owner: 'A', trakt: true }, trakt);
-T.ok('Trakt remove dogru section ve token header da', calls[0][1] === '/api/trakt-proxy'
-  && calls[0][3].params.endpoint === '/users/hidden/progress_watched/remove' && calls[0][3].headers.Authorization === 'Bearer A-secret');
+T.ok('Trakt oturumu: ONCE Worker sil, SONRA Trakt remove', calls.length === 2
+  && calls[0][1] === 'https://worker.invalid/library/hidden' && calls[0][2].op === 'sil'
+  && calls[1][1] === '/api/trakt-proxy' && calls[1][3].params.endpoint === '/users/hidden/progress_watched/remove'
+  && calls[1][3].headers.Authorization === 'Bearer A-secret');
+calls.length = 0;
+proxyHata = new Error('trakt kapali');
+await transport.sendHidden({ ...draft(), id: 'y', owner: 'A', trakt: true }, trakt);
+T.ok('Trakt duserse is basarili, iz kalir', calls.length === 2 && izler.includes('kutuphane.ciftYaz.trakt'));
+proxyHata = null;
+calls.length = 0;
+response = { data: { success: false }, headers: {} };
+await assert.rejects(transport.sendHidden({ ...draft(), id: 'z', owner: 'A', trakt: true }, trakt));
+T.ok('Worker duserse hata doner, Trakt a gidilmez (gunluk korunur)', calls.length === 1);
+response = { data: { success: true, gizliDiziler: [7], gizliFilmler: [8] }, headers: {} };
+calls.length = 0;
+const goruntu = await transport.readHiddenSnapshot(trakt, [{ trakt: true }]);
+T.ok('Trakt oturumunda da anlik goruntu BIZDEN', calls.length === 1 && calls[0][1].endsWith('/library/sync')
+  && goruntu.show[0] === 7 && goruntu.movie[0] === 8);
 await assert.rejects(transport.sendHidden({ ...draft(), trakt: true }, A));
-response = { data: Array.from({ length: 100 }, () => ({ show: { ids: { trakt: 33733 } } })), headers: {} };
-await assert.rejects(transport.readHiddenSnapshot(trakt, [{ trakt: true }]));
-T.ok('Sayfa basligi olmayan 100 satir kismi basari sayilmaz', true);
 
 T.H('Gercek runtime: 429 beklemesi, eski token iptali ve disk hatasi bandi');
 let now = 100000, identity = 'A', online = false, count = 0;

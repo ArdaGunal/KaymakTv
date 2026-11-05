@@ -2,9 +2,6 @@ import { useCallback, useState } from 'react';
 import { notify } from '../utils/confirmDialog';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
-// 🔴 HAM `addRating`/`removeRating` KALDIRILDI (2026-09-09). Bölüm puanı da
-// mutasyon katmanından geçiyor; yönlendirme kararı orada yaşıyor. Ham çağrı
-// kalsaydı Kaymak kullanıcısı bölüm puanlayamazdı (cihazda 401 alındı).
 
 interface UseShowDetailHandlersProps {
   traktIdNum: number;
@@ -31,11 +28,7 @@ export function useShowDetailHandlers({
     removeLocalRating,
     unwatchEpisode,
     rewatchEpisode,
-    // Dizi puanı artık ham `addRating` yerine mutasyon katmanından geçiyor:
-    // Trakt'a yazar VE aynı damgayla Akış'a yayınlar (bkz. mutations/ratings.ts).
-    // BÖLÜM puanı da 2026-09-09'da mutasyon katmanına alındı (Faz T):
-    // akışa yayın hâlâ yok ama YAZMANIN NEREYE gittiği artık orada karar
-    // veriliyor — Kaymak kullanıcısı için şart.
+    // Puan yalnız bizde durur, Trakt'a gitmez (bkz. mutations/ratings.ts).
     rateMedia,
     unrateMedia,
     rateEpisodeMedia,

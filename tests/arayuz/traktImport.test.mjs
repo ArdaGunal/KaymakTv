@@ -127,11 +127,12 @@ T.ok('toplam AKTARIM_SIRASI ile ayni', aileIlerlemesi(0).toplam === AKTARIM_SIRA
 // ─────────────────────────────────────────────────────────────────────────
 T.H('Fark turu (D15) — Trakt ta sonradan yapilan ekleme');
 
-T.ok('on bir aile fark turuna acik', FARK_AILELERI.length === 11, String(FARK_AILELERI.length));
+T.ok('yedi aile fark turuna acik', FARK_AILELERI.length === 7, String(FARK_AILELERI.length));
+T.ok('🔴 puan fark turunda YOK (M575: silinen puan Trakt tan geri gelmez)', !FARK_AILELERI.some((a) => a.startsWith('puan_')));
 T.ok('🔴 gecmis fark turunda YOK (7.349 satir, K3 e birakildi)', !FARK_AILELERI.includes('gecmis'));
 T.ok(
-  'gecmis disindaki TUM aileler dahil (yeni aile eklenince unutulmasin)',
-  FARK_AILELERI.length === AKTARIM_SIRASI.length - 1
+  'gecmis ve puan disindaki TUM aileler dahil (yeni aile eklenince unutulmasin)',
+  FARK_AILELERI.length === AKTARIM_SIRASI.filter((a) => a !== 'gecmis' && !a.startsWith('puan_')).length
     && FARK_AILELERI.every((a) => AKTARIM_SIRASI.includes(a)),
 );
 
@@ -165,7 +166,9 @@ T.ok('kanca sunucu damgasini motorun son ozetinden okur (ikinci istek yok)', kan
 // ─────────────────────────────────────────────────────────────────────────
 T.H('K3 kapanis turu — fark + Traktan silinenlerin supurulmesi');
 
-T.ok('🔑 kapanis turu ON IKI ailenin HEPSINI gezer', KAPANIS_AILELERI.length === 12);
+T.ok('🔑 kapanis turu puan DISINDAKI sekiz aileyi gezer (M575)', KAPANIS_AILELERI.length === 8
+  && !KAPANIS_AILELERI.some((a) => a.startsWith('puan_')));
+T.ok('aile ilerlemesi turun kendi toplamini gosterir', aileIlerlemesi(2, 8).toplam === 8 && aileIlerlemesi(9, 8).biten === 8);
 T.ok(
   '🔴 gecmis DAHIL — fark turunda disaridaydi, kapanista start_at ile dar pencere',
   KAPANIS_AILELERI.includes('gecmis'),

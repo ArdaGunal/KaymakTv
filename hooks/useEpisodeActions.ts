@@ -2,10 +2,6 @@ import { useState, useCallback } from 'react';
 import { Share } from 'react-native';
 import { chooseAsync, notify } from '../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
-// 🔴 HAM `addRating`/`removeRating` ARTIK ÇAĞRILMIYOR (2026-09-09).
-// Bölüm puanı da mutasyon katmanından geçiyor; yönlendirme kararı (Trakt mı
-// bizim API mi) orada yaşıyor. Ham çağrı kalsaydı Kaymak kullanıcısı bölüm
-// puanlayamazdı — cihazda görülen 401'in sebebi buydu.
 import { useLibrary } from '../context/LibraryContext';
 import { atlananPlan, planToplami, planTekBolumMu, SezonListesi } from '../utils/atlananBolumler';
 import { sezonEvreniKur } from '../utils/sezonEvreni';

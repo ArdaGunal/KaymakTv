@@ -12,6 +12,7 @@ import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { useShowTmdbGorselleri } from '../../hooks/useShowTmdbGorselleri';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
+import { eylemHatasiGoster } from '../../utils/eylemHatasi';
 import MediaHero from '../../components/MediaHero';
 import { useAppBack } from '../../hooks/useAppBack';
 import MediaCast from '../../components/MediaCast';
@@ -219,10 +220,10 @@ export default function ShowDetailScreen() {
         isHidden={!!isHidden}
         onRate={handleRate}
         onRemoveRating={handleRemoveRating}
-        onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData)}
-        onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData)}
-        onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden)}
-        onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'show')}
+        onToggleWatchlist={() => eylemHatasiGoster(toggleWatchlistStatus(traktIdNum, 'show', isWatchlisted, showData))}
+        onToggleFavorite={() => eylemHatasiGoster(toggleFavoriteStatus(traktIdNum, 'show', isFavorited, showData))}
+        onHideFromProgress={() => eylemHatasiGoster(toggleHiddenFromProgress(traktIdNum, 'show', !!isHidden))}
+        onDeleteFromHistory={() => eylemHatasiGoster(deleteMediaFromHistory(traktIdNum, 'show'))}
       />
     </SectionErrorBoundary>
   );

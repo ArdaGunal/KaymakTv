@@ -7,7 +7,9 @@ import { formatEpisodeCode, retractLocalActivity } from '../../../features/feed/
 import { recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
 import { flushWatchedOutbox } from '../outbox/runtime';
-import { kaymakYoluMu, ciftYaz, nesliArtir, ilerlemeNesli, mevcutIlerleme, kaymakIlerlemeTazele, tazelemeyiPlanla, geriAlVeyaTazele } from './progressState';
+import { ciftYaz } from '../ciftYaz';
+import { kaymakYoluMu } from './yazimKapisi';
+import { nesliArtir, ilerlemeNesli, mevcutIlerleme, kaymakIlerlemeTazele, tazelemeyiPlanla, geriAlVeyaTazele } from './progressState';
 
 export const unwatchEpisode = async (showId: number, season: number, episode: number) => {
   await flushWatchedOutbox();

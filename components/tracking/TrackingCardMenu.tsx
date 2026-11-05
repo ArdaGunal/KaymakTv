@@ -1,4 +1,5 @@
 import React, { memo, useRef, useState } from 'react';
+import { eylemHatasiGoster } from '../../utils/eylemHatasi';
 import {
   View,
   Text,
@@ -115,10 +116,10 @@ const TrackingCardMenu = memo(
 
     const handleToggleFavorite = () => {
       closeMenu();
-      toggleFavoriteStatus(id, mediaType, isFavorited, {
+      void eylemHatasiGoster(toggleFavoriteStatus(id, mediaType, isFavorited, {
         ids: { trakt: id, tmdb: tmdbId, slug },
         title,
-      }).catch((e: unknown) => console.error(e));
+      }));
     };
 
     const handleShare = async () => {

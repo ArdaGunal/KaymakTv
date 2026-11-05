@@ -51,15 +51,13 @@ import {
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { logError } from '../../../utils/errorLog';
 import { recordMutationResult } from '../../../utils/metrics';
+import { kaymakYoluMu, heryereYaz } from './yazimKapisi';
 import {
   DEFAULT_LIST_NAME,
   MAX_USER_LISTS,
   MAX_LIST_ITEMS,
   ListLimitError,
 } from '../../../utils/listHelpers';
-
-/** Bu kullanıcı Faz T yolunu mu kullanıyor? (bkz. `api/library.ts`) */
-const kaymakYoluMu = () => libraryApi.kaymakKullanicisiMi();
 
 /**
  * UI'ın `(id, type)` ikilisini Worker'ın beklediği Trakt konumuna çevirir.
@@ -96,7 +94,6 @@ const listeKapisi = async (ozellik: string) => {
 export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', isCurrentlyWatchlisted: boolean, mediaData: any) => {
   let previousWatchlistShows: any[] | null = null;
   let previousWatchlistMovies: any[] | null = null;
-  const kaymak = await kaymakYoluMu();
 
   if (type === 'show') {
     setWatchlistShows((prev: any) => {
@@ -119,18 +116,11 @@ export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', 
   }
 
   try {
-    if (kaymak) {
-      const konum = konumu(id, type);
-      if (isCurrentlyWatchlisted) {
-        await libraryApi.removeFromWatchlist(konum);
-      } else {
-        await libraryApi.addToWatchlist(konum);
-      }
-    } else if (isCurrentlyWatchlisted) {
-      await removeFromWatchlistTrakt(id, type);
-    } else {
-      await addToWatchlistTrakt(id, type);
-    }
+    const konum = konumu(id, type);
+    await heryereYaz(
+      () => (isCurrentlyWatchlisted ? libraryApi.removeFromWatchlist(konum) : libraryApi.addToWatchlist(konum)),
+      () => (isCurrentlyWatchlisted ? removeFromWatchlistTrakt(id, type) : addToWatchlistTrakt(id, type)),
+    );
     recordMutationResult('toggleWatchlistStatus', true);
   } catch (err) {
     console.error('Toggle watchlist hatası, rollback yapılıyor:', err);
@@ -150,7 +140,6 @@ export const toggleWatchlistStatus = async (id: number, type: 'show' | 'movie', 
 export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', isCurrentlyFavorited: boolean, mediaData: any) => {
   let previousFavShows: any[] | null = null;
   let previousFavMovies: any[] | null = null;
-  const kaymak = await kaymakYoluMu();
 
   if (type === 'show') {
     setFavShows((prev: any) => {
@@ -173,21 +162,13 @@ export const toggleFavoriteStatus = async (id: number, type: 'show' | 'movie', i
   }
 
   try {
-    if (kaymak) {
-      // ⚠️ Trakt'ta favori, gizli bir ÖZEL LİSTEDİR (`toggleLikedMedia` bir
-      // liste işlemidir). Bizde ayrı bir tablo: `user_favorites`. Bu yüzden
-      // burada liste API'sinin karşılığını aramıyoruz — `favorite` ailesi
-      // doğrudan karşılığıdır.
-      const konum = konumu(id, type);
-      if (isCurrentlyFavorited) {
-        await libraryApi.removeFromFavorites(konum);
-      } else {
-        await libraryApi.addToFavorites(konum);
-      }
-    } else {
-      // Trakt API'ye özel listeye ekleme/çıkarma isteğini gönder
-      await toggleLikedMedia(id, type, !isCurrentlyFavorited);
-    }
+    // ⚠️ Trakt'ta favori, gizli bir ÖZEL LİSTEDİR (`toggleLikedMedia`). Bizde
+    // ayrı tablo: `user_favorites`; karşılığı `favorite` ailesidir.
+    const konum = konumu(id, type);
+    await heryereYaz(
+      () => (isCurrentlyFavorited ? libraryApi.removeFromFavorites(konum) : libraryApi.addToFavorites(konum)),
+      () => toggleLikedMedia(id, type, !isCurrentlyFavorited),
+    );
     recordMutationResult('toggleFavoriteStatus', true);
   } catch (err) {
     console.error('Toggle favorite hatası, rollback yapılıyor:', err);
@@ -220,7 +201,6 @@ export const toggleHiddenFromProgress = async (id: number, type: 'show' | 'movie
 export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie') => {
   // Bekleyen eklemeyi silme sonrasında yeniden canlandırma.
   await flushWatchedOutbox();
-  const kaymak = await kaymakYoluMu();
 
   // 🔴 M421 (denetim C) — GERİ ALMA İÇİN FOTOĞRAF. Eski hâl iyimser siliyor,
   // yazma düşerse HİÇBİR ŞEY geri almıyordu; tek "telafi" `fetchFreshData(null)`
@@ -282,15 +262,14 @@ export const deleteMediaFromHistory = async (id: number, type: 'show' | 'movie')
   }
 
   try {
-    if (kaymak) {
-      // 🔴 DİZİ ile FİLM AYNI ÇAĞRI DEĞİL. `user_watched` satırları bölüm
-      // kimliğinde durduğu için dizi, Worker'ın alt ağaç yolundan gitmek
-      // zorunda (`unwatchShow` → `delete_watched_subtree`, migration 038).
-      // `unwatchMovie`'yi dizi için çağırmak 200 döner, sıfır satır siler.
-      await (type === 'show' ? libraryApi.unwatchShow(id) : libraryApi.unwatchMovie(id));
-    } else {
-      await removeFromHistoryTrakt(id, type);
-    }
+    // 🔴 DİZİ ile FİLM AYNI ÇAĞRI DEĞİL. `user_watched` satırları bölüm
+    // kimliğinde durduğu için dizi, Worker'ın alt ağaç yolundan gitmek
+    // zorunda (`unwatchShow` → `delete_watched_subtree`, migration 038).
+    // `unwatchMovie`'yi dizi için çağırmak 200 döner, sıfır satır siler.
+    await heryereYaz(
+      () => (type === 'show' ? libraryApi.unwatchShow(id) : libraryApi.unwatchMovie(id)),
+      () => removeFromHistoryTrakt(id, type),
+    );
     // 🔴 M421 (denetim I) — AKIŞTAKİ KAYIT DA GERİ ÇEKİLİR. Bölüm geri
     // almada bu vardı (`progress.ts`), film/dizi geçmişi silmede YOKTU:
     // kullanıcı "izlemedim" dese bile akışta "izledi" kartı kalıyordu.

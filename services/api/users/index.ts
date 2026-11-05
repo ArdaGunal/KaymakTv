@@ -5,7 +5,6 @@
 // hiç değişmeden bu dizine (`./users/index.ts`) çözümleniyor, tüketici
 // tarafında TEK SATIR değişmedi.
 export * from './history';
-export * from './ratings';
 export * from './watchlist';
 export * from './lists';
 export * from './calendar';

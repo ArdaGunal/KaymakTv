@@ -96,10 +96,9 @@ T.ok('Web ikizi artik await + catch + busyRef',
   /await toggleWatchlistStatus/.test(izgara) && /busyRef/.test(izgara) && /catch \(error\)/.test(izgara));
 const mut = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progress.ts'), 'utf8');
 const undo = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progressUndo.ts'), 'utf8');
-const ortak = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progressState.ts'), 'utf8');
 T.ok('Iki geri alma yolu nesil korumali, yeni ekleme disk gunlugunde korunur',
   (undo.match(/geriAlVeyaTazele\(showId, nesilBaslangic, previousState\)/g) || []).length === 2
   && /await saveIntent/.test(mut) && !/geriAlVeyaTazele\(/.test(mut));
-T.ok('ciftYaz kalici iz birakiyor', /logError\('mutations\.progress\.ciftYaz', error\)/.test(ortak));
+T.ok('ciftYaz kalici iz birakiyor', /logError\('kutuphane\.ciftYaz\.trakt', error\)/.test(fs.readFileSync(path.join(KOK, 'services', 'library', 'ciftYaz.ts'), 'utf8')));
 
 T.bitir();

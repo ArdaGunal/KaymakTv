@@ -105,50 +105,6 @@ export const reactivateShowTracking = (showId: number, mediaData?: any) => {
 // `seasons[].episodes[].completed` okuyor (`useShowDetail.ts:212`) —
 // işaretlenen bölüm "izlenmemiş" görünmeye devam ediyordu. İki farklı
 // alan, tek güncelleme.
-export const kaymakYoluMu = () => libraryApi.kaymakKullanicisiMi();
-
-/**
- * 🔄 ÇİFT YAZMA — T6 kararı (kullanıcı, 2026-09-13).
- *
- * Trakt'lı kullanıcı artık BİZDEN okuyor; bu yüzden işaretleme HER İKİ
- * yere birden gitmek zorunda. Yalnızca Trakt'a yazsaydık ekran bizden
- * okuduğu için işaretleme **fark turuna kadar (6 saat) görünmezdi**.
- *
- * 🔴 SIRA ÖNEMLİ — ÖNCE BİZE. Arayüzün gördüğü satır bizimki. Ters sırada
- * Trakt tutup bizimki düşerse kullanıcı hiçbir şey görmez, tekrar işaretler
- * ve YENİ damgayla Trakt'a gerçek bir yeniden-izleme satırı düşer (M318).
- *
- * 🔴 TRAKT DÜŞERSE BİZİMKİ GERİ ALINMAZ (yine M318): kalıcı yazılmış bir
- * işaretlemeyi ekrandan silmek kullanıcıyı hayalet üretmeye iter. Trakt
- * yazması "elden geldiğince"dir.
- *
- * ✅ ÇİFT SAYIM YOK: aynı `watchedAt` ikisine de gidiyor; fark turu izlemeyi
- * Trakt'tan geri getirdiğinde `user_id,kaymak_id,watched_at` çakışması
- * tutuyor ve aktarım "yok say" politikasıyla satırı ATLIYOR. Süpürme de
- * yalnızca `source=trakt` siliyor, bizimki `kaymak`.
- *
- * @param trakte Google-only kullanıcıda `null` — Trakt token'ı yok, 401 alırdı.
- */
-export const ciftYaz = async (
-  bize: () => Promise<unknown>,
-  trakte: (() => Promise<unknown>) | null,
-): Promise<void> => {
-  await bize();
-  if (!trakte) return;
-  try {
-    await trakte();
-  } catch (error) {
-    // Yutuluyor ama SESSİZ DEĞİL — M366/M370'in dersi: bir işi çökertmemek
-    // doğru, "yapıldı" göstermek yanlış. Bizim satırımız yazıldı ve okuma
-    // yolu artık biziz; Trakt bu işaretlemeyi kaçırdı.
-    console.warn("[ciftYaz] Trakt yazması düştü, bizimki KALICI:", (error as any)?.message || error);
-    // 🔴 M419 (bağımsız denetim): tek iz `console.warn`'du ve bu dosyanın
-    // kendi kuralı «tek kalıcı iz `logError`» diyor. Trakt'a hiç ulaşmayan
-    // işaretlemenin cihazda gözlemlenebilir bir izi kalmıyordu.
-    logError('mutations.progress.ciftYaz', error);
-  }
-};
-
 /** Mağazadaki mevcut ilerleme — tazeleme başarısız olursa geri düşülür. */
 export const mevcutIlerleme = (showId: number) =>
   (useLibraryStore.getState() as any)?.showProgressMap?.[showId] ?? null;

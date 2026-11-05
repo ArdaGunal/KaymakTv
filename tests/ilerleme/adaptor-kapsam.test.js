@@ -48,29 +48,20 @@ const MUAF = new Set([
 ]);
 
 console.log('\n═══ Mutasyon dosyaları adaptöre bağlı mı? ═══');
+const kapi = fs.readFileSync(path.join(MUT, 'yazimKapisi.ts'), 'utf8');
+bekle('yazimKapisi token tipine bakıyor', /kaymakKullanicisiMi\(\)/.test(kapi));
 for (const dosya of mutDosyalar) {
   if (MUAF.has(dosya)) continue;
   const src = fs.readFileSync(path.join(MUT, dosya), 'utf8');
-  const traktCagiriyor = /from '\.\.\/\.\.\/traktApi'/.test(src);
-  if (!traktCagiriyor) continue; // Trakt'a hiç gitmiyorsa adaptör gerekmez
-
-  bekle(
-    `${dosya}: token tipine bakıyor`,
-    /kaymakKullanicisiMi\(\)/.test(src)
-      || (dosya === 'progressUndo.ts'
-        && /kaymakYoluMu[\s\S]*from '.\/progressState'/.test(src)
-        && (src.match(/const kaymak = await kaymakYoluMu\(\)/g) || []).length === 2
-        && /kaymakYoluMu = \(\) => libraryApi.kaymakKullanicisiMi\(\)/.test(
-          fs.readFileSync(path.join(MUT, 'progressState.ts'), 'utf8'))),
-    'Trakt çağırıyor ama Kaymak kullanıcısını AYIRT ETMİYOR → 401',
-  );
+  if (!/from '\.\.\/\.\.\/traktApi'/.test(src)) continue; // Trakt'a hiç gitmiyorsa adaptör gerekmez
+  bekle(`${dosya}: yazım kapısını kullanıyor`, /from '\.\/yazimKapisi'/.test(src),
+    'Trakt çağırıyor ama kapıdan geçmiyor (tests/arayuz/yazim-kapisi)');
 }
 
 // ── 2) UI katmanı ham `traktApi` YAZMA fonksiyonu çağırıyor mu? ──────────
 // Yazma fiilleri: bunlar kullanıcı verisini değiştirir ve adaptörden
 // GEÇMEK ZORUNDA. Okuma fonksiyonları (getX) kapsam dışı.
 const YASAK = [
-  'addRating', 'removeRating',
   'addEpisodeToHistory', 'addSeasonToHistory', 'addMovieToHistory',
   'removeEpisodeFromHistoryTrakt', 'removeSeasonFromHistoryTrakt', 'removeFromHistoryTrakt',
   'addToWatchlistTrakt', 'removeFromWatchlistTrakt',
@@ -120,36 +111,10 @@ for (const fn of ['rateMedia', 'unrateMedia', 'rateEpisodeMedia', 'unrateEpisode
   bekle(`ratings.ts: ${fn} var`, new RegExp('export const ' + fn + '\\b').test(ratings));
 }
 
-// ── 4) Gölge yazım (dual write) — puanlar, 2026-09-09 ────────────────────
-// 🔴 KURAL: Trakt'lı kullanıcının puanı HEM Trakt'a HEM bize gider, ama
-// gölge yazma ANA yazmayı ASLA bozamaz. Kullanıcının eylemi Trakt'ta
-// başarılıysa başarılıdır; bizim kopyamız `katalogda_yok` (409) yüzünden
-// düşebilir ve bu BEKLENEN bir durumdur.
-console.log('\n═══ Gölge yazım (puanlar) ═══');
-bekle('golgeYaz yardımcısı var', ratings.includes('const golgeYaz = async'));
-bekle(
-  'gölge hata YUTUYOR ama iz bırakıyor',
-  ratings.includes('logError(`mutations.ratings.golge.'),
-  'gölge throw ederse kullanıcının Trakt puanı geri alınır — ana yazma bozulur',
-);
-bekle(
-  'dizi/film puanı gölgeleniyor',
-  ratings.includes('golgeYaz(`rate.${type}`'),
-);
-bekle(
-  '🔴 SİLME de gölgeleniyor (dizi/film + bölüm)',
-  ratings.includes('golgeYaz(`unrate.${type}`') && ratings.includes("golgeYaz('unrate.episode'"),
-  'yalnızca yazma gölgelenirse kaldırılan puan bizde KALIR ve T5 içe aktarımında dirilir',
-);
-bekle(
-  'bölüm puanı gölgeleniyor',
-  ratings.includes("golgeYaz('rate.episode'"),
-);
-bekle(
-  '⚠️ İZLEME geçmişi gölgelenMİYOR (istisna yalnızca puanlar)',
-  !fs.readFileSync(path.join(MUT, 'progress.ts'), 'utf8').includes('golgeYaz'),
-  'kullanıcı istisnayı açıkça puanlarla sınırladı — devir §4.7 duruyor',
-);
+// ── 4) Puan yalnız bizde (kullanıcı kararı, 2026-11-05, M575) ────────────
+console.log("\n═══ Puan Trakt'a gitmiyor ═══");
+bekle('ratings.ts Trakt içe aktarmıyor', !/traktApi/.test(koduAyikla(ratings)));
+bekle('Trakt puan dosyası yok', !fs.existsSync(path.join(KOK, 'services', 'api', 'users', 'ratings.ts')));
 
 // ── 5) SOSYAL GRAF — denetimin ESKİ KÖR NOKTASI (2026-09-10, M337) ───────
 // 🔴 BU BÖLÜM BİR HATANIN ÜRÜNÜ, TIPKI DOSYANIN GERİ KALANI GİBİ.

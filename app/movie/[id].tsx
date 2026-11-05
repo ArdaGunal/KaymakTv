@@ -13,6 +13,7 @@ import { useMediaReviews } from '../../hooks/useMediaReviews';
 
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
+import { eylemHatasiGoster } from '../../utils/eylemHatasi';
 import MediaHero from '../../components/MediaHero';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useDetailLayout } from '../../hooks/useDetailLayout';
@@ -170,6 +171,7 @@ export default function MovieDetailScreen() {
       }
     } catch (e) {
       console.error(e);
+      notify(t('common:error'), t('common:actionFailedMessage'));
     } finally {
       setActionLoading(false);
     }
@@ -222,12 +224,12 @@ export default function MovieDetailScreen() {
         isFavorited={isFavorited}
         onRate={handleRate}
         onRemoveRating={handleRemoveRating}
-        onToggleWatchlist={() => toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData)}
-        onToggleFavorite={() => toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData)}
-        onDeleteFromHistory={() => deleteMediaFromHistory(traktIdNum, 'movie')}
+        onToggleWatchlist={() => eylemHatasiGoster(toggleWatchlistStatus(traktIdNum, 'movie', isWatchlisted, movieData))}
+        onToggleFavorite={() => eylemHatasiGoster(toggleFavoriteStatus(traktIdNum, 'movie', isFavorited, movieData))}
+        onDeleteFromHistory={() => eylemHatasiGoster(deleteMediaFromHistory(traktIdNum, 'movie'))}
         onRewatch={handleRewatch}
         isHidden={isHidden}
-        onHideFromProgress={() => toggleHiddenFromProgress(traktIdNum, 'movie', isHidden)}
+        onHideFromProgress={() => eylemHatasiGoster(toggleHiddenFromProgress(traktIdNum, 'movie', isHidden))}
       />
     </SectionErrorBoundary>
   );

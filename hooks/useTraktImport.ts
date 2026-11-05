@@ -57,6 +57,7 @@ export function useTraktImport() {
   /** Hangi ailedeyiz (UI "3/12" gösterebilsin). */
   const [aile, setAile] = useState<ImportAilesi | null>(null);
   const [bitenAile, setBitenAile] = useState(0);
+  const [toplamAile, setToplamAile] = useState<number>(AKTARIM_SIRASI.length);
   /** Atlanan aileler — sonunda kullanıcıya İSİMLE söylenir, sessizce yutulmaz. */
   const [atlanan, setAtlanan] = useState<ImportAilesi[]>([]);
   /** 🧹 K3 kapanış turunda Trakt'tan silindiği için bizden de silinen satır sayısı. */
@@ -112,6 +113,7 @@ export function useTraktImport() {
       setHata(null);
       setAtlanan([]);
       setBitenAile(0);
+      setToplamAile(aileler.length);
       setDurum('suruyor');
     }
 
@@ -243,7 +245,7 @@ export function useTraktImport() {
     /** Şu an işlenen aile (UI "geçmiş aktarılıyor…" diyebilsin). */
     aile,
     /** `{ biten, toplam }` — aile içi yüzdeyle KARIŞTIRILMAZ, aileler farklı boyutta. */
-    aileler: aileIlerlemesi(bitenAile),
+    aileler: aileIlerlemesi(bitenAile, toplamAile),
     /** Kalıcı hata yüzünden atlanan aileler; boş değilse aktarım EKSİK. */
     atlanan,
     yuzde: ilerlemeYuzdesi(son),

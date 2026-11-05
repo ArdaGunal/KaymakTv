@@ -170,8 +170,10 @@ export const tumunuDurdurur = (tur: ImportHataTuru): boolean =>
  * Aile içi yüzde `ilerlemeYuzdesi` ile ayrı hesaplanıyor; ikisini tek sayıya
  * karıştırmak yanıltıcı olurdu (aileler çok farklı boyutta).
  */
-export function aileIlerlemesi(bitenAileSayisi: number): { biten: number; toplam: number } {
-  const toplam = AKTARIM_SIRASI.length;
+export function aileIlerlemesi(
+  bitenAileSayisi: number,
+  toplam: number = AKTARIM_SIRASI.length,
+): { biten: number; toplam: number } {
   return { biten: Math.max(0, Math.min(bitenAileSayisi, toplam)), toplam };
 }
 
@@ -189,8 +191,12 @@ export function aileIlerlemesi(bitenAileSayisi: number): { biten: number; toplam
 // ve Trakt'tan SİLİNENLER birlikte **K3 kapanış turunda** ele alınacak
 // (kullanıcı kararı, 2026-09-12: *"T6 geçişinin hemen öncesine Final
 // Kapanış/Fark Turu olarak bırakalım"*). Bu tur hiçbir satır SİLMEZ.
+//
+// ⛔ `puan_*` YOK (kullanıcı kararı, 2026-11-05): puan yalnız bizde durur, yalnız ilk
+// aktarımda içeri alınır. Fark turu silinen puanı Trakt'tan geri getirirdi.
+const puanAilesiDegil = (a: ImportAilesi) => !a.startsWith('puan_');
 export const FARK_AILELERI: readonly ImportAilesi[] = AKTARIM_SIRASI.filter(
-  (a) => a !== 'gecmis',
+  (a) => a !== 'gecmis' && puanAilesiDegil(a),
 );
 
 /** Sessiz fark turu en fazla bu sıklıkta koşar. */
@@ -247,7 +253,8 @@ export function sunucuFarkDamgasi(
 // 🔑 `gecmis` de dahil — fark turunda dışarıdaydı çünkü 30 sayfa yeniden
 // çekmek fark senkronu değildi; kapanış turunda `start_at` ile DAR pencere
 // çekiliyor ve her sayfanın kendi zaman dilimi süpürülüyor.
-export const KAPANIS_AILELERI: readonly ImportAilesi[] = AKTARIM_SIRASI;
+// ⛔ `puan_*` yok: bkz. FARK_AILELERI. Trakt'taki eski puan bizdeki puanı ezmez, silmez.
+export const KAPANIS_AILELERI: readonly ImportAilesi[] = AKTARIM_SIRASI.filter(puanAilesiDegil);
 
 /** Süpürme turunun tek aile için okunur özeti. */
 export interface SupurmeOzeti {
