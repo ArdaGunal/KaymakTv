@@ -23,6 +23,7 @@ import type { CopyHistory } from '../copy/history';
 import type { StatsSnapshot } from '../stats/snapshot';
 import { generateEpisodeSlug } from '../../../utils/slugHelper';
 import type { NotificationPrefs, ScheduledPlan } from '../types';
+import { gorunenBaslik } from '../../../utils/gorunenBaslik';
 
 /**
  * 🔴 SLUG ÜRETİMİNİN TEK YERİ. Planlayıcılar SAF olduğu için
@@ -173,11 +174,13 @@ export async function buildNotificationPlans(input: BuildPlansInput): Promise<Bu
   const movieMeta = bul('movieRelease');
   const resumeMeta = bul('continueWatching');
   const statsMeta = bul('monthlyStats');
+  // Bildirimde de ekrandaki ad (BASLIK).
+  const adCoz = (oge?: { title?: string | null }) => gorunenBaslik(oge, input.language);
 
   // ── Bölümler: bugün yayında + sezon prömiyeri ──────────────────────────
   if (episodeMeta || premiereMeta) {
     const watchedKeys = buildWatchedEpisodeKeys(input.watchedShows);
-    const upcoming = mapCalendarToUpcoming(input.calendarShows, watchedKeys, input.hiddenShowIds);
+    const upcoming = mapCalendarToUpcoming(input.calendarShows, watchedKeys, input.hiddenShowIds, adCoz);
 
     for (const [meta, planner] of [
       [episodeMeta, planEpisodeToday] as const,
@@ -209,6 +212,7 @@ export async function buildNotificationPlans(input: BuildPlansInput): Promise<Bu
       input.watchedShows,
       input.showProgressMap,
       input.hiddenShowIds,
+      adCoz,
     );
     const copy = makeCopyRenderer(resumeMeta);
     plans.push(
@@ -236,6 +240,7 @@ export async function buildNotificationPlans(input: BuildPlansInput): Promise<Bu
       input.calendarMovies,
       buildWatchedMovieIds(input.watchedMovies),
       input.hiddenMovieIds,
+      adCoz,
     );
     const copy = makeCopyRenderer(movieMeta);
     plans.push(

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share } from 'react-native';
 import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useAuth } from '../../context/AuthContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
@@ -39,7 +40,7 @@ export default function OptionsModal({
   onDeleteFromHistory,
   onRewatch,
 }: OptionsModalProps) {
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
   const handleBack = useAppBack();
 
@@ -49,7 +50,7 @@ export default function OptionsModal({
       const url = `https://kaymaktv.com/${type}/${slug}`;
         
       await Share.share({
-        message: `${data.title} ${type === 'show' ? t('shareShowMsg') : t('shareMovieMsg')}\n${url}`,
+        message: `${gorunenBaslik(data, i18n.language)} ${type === 'show' ? t('shareShowMsg') : t('shareMovieMsg')}\n${url}`,
       });
       onClose();
     } catch (error) {

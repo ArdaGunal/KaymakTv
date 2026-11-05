@@ -158,8 +158,12 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
       const yer = tipler.map(() => '?').join(',');
       const satirlar = db.prepare(
         `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year, updated_at
-           FROM entities WHERE type IN (${yer}) AND updated_at > ? ORDER BY updated_at`
-      ).all(...tipler, imlec).map((e) => ({ ...varlikSatiri(e, h), _u: e.updated_at }));
+           FROM entities WHERE type IN (${yer}) AND (updated_at > ? OR kaymak_id IN (
+             -- BASLIK: TMDB yazımı varlığa dokunmuyor ve anlık aktarımı tetiklemiyor (tmdbArsiv.js);
+             -- çeviri sözlüğü Supabase'e bu turda gider. Yalnız dizi/film satırı eşleşir.
+             SELECT kaymak_id FROM payloads WHERE provider = 'tmdb' AND updated_at > ?))
+          ORDER BY updated_at`
+      ).all(...tipler, imlec, imlec).map((e) => ({ ...varlikSatiri(e, h), _u: e.updated_at }));
 
       if (satirlar.length === 0) continue;
       toplam += satirlar.length;

@@ -8,13 +8,16 @@ import { useRemoteInbox } from '../../features/notifications/hooks/useRemoteInbo
 // 🔄 Otomatik Trakt aktarımı (§C33): eksikse sessizce tamamlar, tamamsa 6
 // saatte bir fark turu (§D15). Trakt hesabı değilse HİÇBİR ŞEY yapmaz.
 import { useOtomatikAktarim } from '../../hooks/useOtomatikAktarim';
+import { useKutuphaneHazir } from '../../hooks/useKutuphaneHazir';
 import SyncStatusBanner from '../../components/SyncStatusBanner';
 // M492 · ad onaylanmadıysa (yeni hesap / kural dışı eski ad) isim ekranına yönlendirir.
 import { useAdOnayKapisi } from '../../hooks/useAdOnayKapisi';
 
 export default function ProtectedLayout() {
   const { accessToken, isGuest } = useAuth();
-  useFeedSyncTrigger(accessToken, isGuest);
+  // HIZ-02 B3: önce görünen veri (kütüphane), sonra akış ve aktarım.
+  const kutuphaneHazir = useKutuphaneHazir();
+  useFeedSyncTrigger(accessToken, isGuest, kutuphaneHazir);
   // Bildirim sistemi (docs/design/notifications.md). Misafir kontrolü
   // hook'un İÇİNDE — Madde 268 gereği çağrı yerine kontrol eklenmiyor.
   useNotificationSetup(accessToken, isGuest);
@@ -23,7 +26,7 @@ export default function ProtectedLayout() {
   // hali acilistaki tepsi supurmesi ve tiklama yaniti kapsiyor
   // (features/notifications/inbox/remoteInbox.ts basligi).
   useRemoteInbox();
-  useOtomatikAktarim();
+  useOtomatikAktarim(kutuphaneHazir);
   useAdOnayKapisi();
 
   if (!accessToken && !isGuest) {

@@ -21,6 +21,7 @@ import { useTrackingShows } from '../../../hooks/useTrackingShows';
 import { groupByDateGroup } from '../../../utils/groupByDateGroup';
 import AktarimBandi from '../../../components/library/AktarimBandi';
 import { useAktarimGorunumu } from '../../../hooks/useAktarimGorunumu';
+import { buyukBaslik } from '../../../utils/gorunenBaslik';
 
 export default function DizilerScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -88,7 +89,7 @@ export default function DizilerScreenWeb() {
       const data = await getTrendingShows();
       const formattedData = data.map((item: any, index: number) => ({
         id: item.show.ids.trakt,
-        showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+        showName: buyukBaslik(item.show, i18n.language, t('unnamedShow')),
         season: 1,
         episode: 1,
         title: `${item.show.year || ''} - ${item.watchers} ${t('watching')}`,

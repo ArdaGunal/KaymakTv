@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getTraktClient, applyTranslation } from './traktClient';
+import { getTraktClient } from './traktClient';
 // 🆕 L7+ — film katalog uçları da Pi'nin önbellekli geçidinden geçiyor.
 // Desen ve geri düşüş sözleşmesi shows.ts ile BİREBİR aynı; gerekçeler
 // `traktCatalogClient.ts` `fetchCatalogOrFallback` başlığında.
@@ -43,7 +43,7 @@ export const getMovieSummary = async (movieId: number | string) => {
       async () => (await (await getTraktClient()).get(`/movies/${movieId}?extended=full&translations=${lang}`)).data,
       { movieId: String(movieId) }
     );
-    return applyTranslation(ham, lang);
+    return ham;
   } catch (error) {
     console.error(`Trakt API Hatasi (getMovieSummary - ${movieId}):`, error);
     throw error;

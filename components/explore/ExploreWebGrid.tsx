@@ -21,6 +21,7 @@ import PosterGridSkeleton from '../skeletons/PosterGridSkeleton';
 import { formatRating } from '../../utils/formatRating';
 import { getMediaFollowStatus } from '../../utils/followStatus';
 import { useAuth } from '../../context/AuthContext';
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
   }));
   const { toggleWatchlistStatus } = useLibraryActions();
   const { isGuest } = useAuth();
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shadowAnim = useRef(new Animated.Value(0)).current;
@@ -127,7 +128,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
           <MediaPoster
             tmdbId={tmdbId}
             type={type}
-            title={media?.title}
+            title={gorunenBaslik(media, i18n.language)}
             style={styles.poster}
           />
 
@@ -156,7 +157,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
         {/* Title */}
         <View style={styles.cardMeta}>
           <Text style={styles.cardTitle} numberOfLines={1}>
-            {media?.title}
+            {gorunenBaslik(media, i18n.language)}
           </Text>
           <Text style={styles.cardYear}>{media?.year || ''}</Text>
         </View>
@@ -203,7 +204,7 @@ const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(func
   loadMoreFailed,
   onRetryLoadMore,
 }, ref) {
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const containerPadding = 32;
   const totalGapWidth = CARD_GAP * (COLUMN_COUNT - 1);
   const availableWidth = Math.min(screenWidth, 1280) - containerPadding * 2;

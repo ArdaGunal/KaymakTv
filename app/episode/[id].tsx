@@ -23,6 +23,7 @@ import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug, generateEpisode
 import { useTranslation } from 'react-i18next';
 import { yerelEtiket } from '../../locales/diller';
 import { useAppBack } from '../../hooks/useAppBack';
+import { resolveMediaMeta } from '../../services/library/mediaMeta';
 import { useEpisodeActions } from '../../hooks/useEpisodeActions';
 import { useShowDetail } from '../../hooks/useShowDetail';
 import ExpandableText from '../../components/ExpandableText';
@@ -40,7 +41,8 @@ export default function EpisodeDetailScreen() {
   
   const idStr = Array.isArray(id) ? id[0] : id;
   const { showTraktId: parsedShowId, showSlug, season, episode, epTraktId } = parseEpisodeSlug(idStr as string);
-  const showName = formatSlugToTitle(showSlug);
+  // BASLIK: kütüphanedeki yapımda ekrandaki ad; değilse bağlantıdan.
+  const showName = resolveMediaMeta(parsedShowId as number, 'show').title || formatSlugToTitle(showSlug);
   const showId = parsedShowId;
   const traktIdNum = parsedShowId;
   // Yazma islemleri artik `useEpisodeActions` icinde (bkz. o dosyanin basligi);

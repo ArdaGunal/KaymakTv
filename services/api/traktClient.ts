@@ -7,17 +7,6 @@ import { calculateBackoffDelay, wait } from '../../utils/exponentialBackoff';
 import { recordApiLatency } from '../../utils/metrics';
 import { recordPerfMark } from '../../utils/perfLog';
 
-export const applyTranslation = (item: any, lang: string) => {
-  if (item && item.translations && Array.isArray(item.translations)) {
-    const translation = item.translations.find((t: any) => t.language === lang);
-    if (translation) {
-      item.title = translation.title || item.title;
-      item.overview = translation.overview || item.overview;
-    }
-  }
-  return item;
-};
-
 const TRAKT_API_URL = 'https://api.trakt.tv';
 
 /**

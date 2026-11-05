@@ -284,6 +284,7 @@
   "tapForDetail": "Tap for details",
   "titlesCount": "{{count}} titles",
   "totalWatchTime": "Total Watch Time",
+  "originalTitleLabel": "Original title: {{ad}}",
   "trailer": "Trailer",
   "traktAccount": "Trakt Account",
   "traktCommunityTitle": "Trakt Community",

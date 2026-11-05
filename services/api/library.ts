@@ -355,6 +355,9 @@ export type KutuphaneYaniti = {
     /** 🔑 Tür etiketleri (§C18). "Favori tür" istatistiği bunu okuyor.
      *  `047` uygulanana kadar `null` gelir — istemci sessizce atlar. */
     genres: string[] | null;
+    language?: string | null;
+    original_title?: string | null;
+    titles?: Record<string, string> | null;
     ilerleme: KutuphaneIlerlemesi;
   }>;
   filmler: Array<{
@@ -366,6 +369,9 @@ export type KutuphaneYaniti = {
     runtime: number | null;
     /** Tür etiketleri (§C18). */
     genres: string[] | null;
+    language?: string | null;
+    original_title?: string | null;
+    titles?: Record<string, string> | null;
     last_watched_at: string | null;
     plays: number;
   }>;

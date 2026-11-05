@@ -12,9 +12,10 @@ import { getProgressBarColor } from '../utils/progressBarColor';
 import { getMediaFollowStatus } from '../utils/followStatus';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
 
 const ShowCard = memo(({ data }: { data: any }) => {
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const router = useRouter();
   // Katı seçici: tam context aboneliği listedeki HER kartı her store
   // değişiminde yeniden çiziyordu — keşfet kaydırmasındaki takılmanın kaynağı.
@@ -105,14 +106,14 @@ const ShowCard = memo(({ data }: { data: any }) => {
         <MediaPoster 
           tmdbId={media?.ids?.tmdb} 
           type={data.movie ? 'movie' : 'show'} 
-          title={media?.title} 
+          title={gorunenBaslik(media, i18n.language)} 
           style={styles.posterImage} 
         />
       </View>
       
       <View style={styles.contentContainer}>
         <View style={styles.titleHeader}>
-          <Text style={styles.titleText} numberOfLines={1}>{media?.title}</Text>
+          <Text style={styles.titleText} numberOfLines={1}>{gorunenBaslik(media, i18n.language)}</Text>
           {/* Hızlı ekle/çıkar butonu. İzleme geçmişi olan yapımlarda BASILAMAZ:
               buradaki tek anlamlı "takibi bırak" karşılığı "Bırak"tır ve o,
               bir liste kartındaki küçük bir + butonundan yapılacak kadar

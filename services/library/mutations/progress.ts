@@ -11,6 +11,8 @@ import { recordMutationResult } from '../../../utils/metrics';
 import { nowStamp } from '../../../features/feed/services/feedPublish';
 import { resolveMediaMeta } from '../mediaMeta';
 import { nesliArtir, reactivateShowTracking, unhideMovieIfNeeded, mevcutIlerleme, cancelProgressRefresh } from './progressState';
+import { gorunenBaslik } from '../../../utils/gorunenBaslik';
+import i18n from '../../../locales/index';
 export { unwatchEpisode, unwatchSeason } from './progressUndo';
 
 export type IsaretlemePlani = { sezon: number; bolumler: number[] };
@@ -27,6 +29,9 @@ function mediaFor(id: number, type: 'show' | 'movie', data?: any) {
     ids: { trakt: id, tmdb: media?.ids?.tmdb ?? meta.tmdbId },
     title: media?.title || meta.title, year: media?.year, runtime: media?.runtime,
     images: media?.images,
+    language: media?.language, original_title: media?.original_title, titles: media?.titles,
+    // Akış kartına giden ad yazanın ekranındaki addır (BACKLOG D-BASLIK a).
+    gorunenAd: gorunenBaslik(media, i18n.language) || meta.title,
   };
 }
 function compactSkeleton(seasons?: any[] | null) {

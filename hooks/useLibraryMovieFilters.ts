@@ -13,6 +13,7 @@ import {
   type MediaStatusIndex,
   type UseLibraryFiltersResult,
 } from './libraryFilterCore';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Kütüphane "Filmler" ekranının lokal süzme hook'u — dizi tarafındaki
@@ -36,6 +37,8 @@ function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKe
     hiddenMovieIds: s.hiddenMovieIds,
   }));
 
+  const { i18n } = useTranslation();
+
   return useMemo(() => {
     if (!enabled) return EMPTY_INDEX;
 
@@ -43,7 +46,7 @@ function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKe
       watchedMovies: watchedMovies || [],
       watchlistMovies: watchlistMovies || [],
       hiddenMovieIds,
-      labels: STATIC_LABELS,
+      labels: { ...STATIC_LABELS, dil: i18n.language },
     });
 
     const statusOf = new Map<number, MovieCategoryKey>();
@@ -72,7 +75,7 @@ function useMovieStatusIndex(enabled: boolean): MediaStatusIndex<MovieCategoryKe
     }
 
     return { statusOf, extraPool };
-  }, [enabled, watchedMovies, watchlistMovies, hiddenMovieIds]);
+  }, [enabled, watchedMovies, watchlistMovies, hiddenMovieIds, i18n.language]);
 }
 
 export type UseLibraryMovieFiltersResult = UseLibraryFiltersResult<MovieCategoryKey>;

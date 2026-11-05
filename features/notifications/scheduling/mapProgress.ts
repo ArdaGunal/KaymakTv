@@ -42,6 +42,7 @@ export function pickResumeCandidate(
   watchedShows: readonly unknown[],
   showProgressMap: Record<string, unknown>,
   hiddenShowIds: readonly number[],
+  adCoz: (oge?: { title?: string | null }) => string | null | undefined = (oge) => oge?.title,
 ): ResumeCandidate | null {
   const hidden = new Set(hiddenShowIds);
   let best: ResumeCandidate | null = null;
@@ -53,7 +54,7 @@ export function pickResumeCandidate(
     };
 
     const showTraktId = item?.show?.ids?.trakt;
-    const showTitle = item?.show?.title;
+    const showTitle = adCoz(item?.show);
     if (typeof showTraktId !== 'number' || typeof showTitle !== 'string') continue;
     if (hidden.has(showTraktId)) continue;
 

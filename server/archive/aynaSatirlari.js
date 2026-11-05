@@ -21,6 +21,8 @@
 // yerine geçen kolon).
 
 const zlib = require('node:zlib');
+const { diller: DILLER } = require('../../locales/diller.json');
+const { adTemizle, ceviriAdi } = require('../../locales/baslikElemesi.js');
 
 /** Aynalanan kaynaklar — `036`'daki CHECK ile AYNI olmak ZORUNDA. */
 const AYNALANAN_KAYNAKLAR = [
@@ -83,10 +85,39 @@ function kapsamEki(kimlikler) {
     : { sql: '', p: [] };
 }
 
+// ── Başlıklar (BASLIK · karar kaydı `docs/testler/2.6.8.md` §0) ──────────────
+
+function baslikKaydi(harita, kaymakId) {
+  let b = harita.get(kaymakId);
+  if (!b) { b = { adlar: {} }; harita.set(kaymakId, b); }
+  return b;
+}
+
+const SEZON_BASLIK = { original_language: null, original_title: null, titles: null };
+
+/**
+ * Dizi/film satırının üç başlık alanı; sezon/bölümde üçü de `null` (§0 madde 8). `titles` TAM sözlük:
+ * yalnız dil kaydındaki diller + elemeden geçenler, çeviri yoksa `{}` (§0 madde 6, 9).
+ * Özgün dil Trakt `language` (TMDB'den daha geniş: 38'e 29 dizi), özgün ad önce TMDB (Dark Legacy → Kötü Kan).
+ */
+function baslikAlanlari(e, h) {
+  if (e.type !== 'show' && e.type !== 'movie') return SEZON_BASLIK;
+  const b = h.baslik.get(e.kaymak_id) || { adlar: {} };
+  const ozgunDil = b.traktDil || b.tmdbDil || null;
+  const ozgunAd = adTemizle(b.tmdbOzgun) || adTemizle(b.traktOzgun);
+  const titles = {};
+  for (const d of DILLER) {
+    const ad = ceviriAdi({ ad: b.adlar[d.kod], ozgunAd, ozgunDil, hedefDil: d.kod, hedefAlfabe: d.alfabe });
+    if (ad) titles[d.kod] = ad;
+  }
+  return { original_language: ozgunDil, original_title: ozgunAd, titles };
+}
+
 // ── Zenginleştirme haritaları ────────────────────────────────────────────
 
 /**
- * `{runtime, tmdb, genres, firstAired}` — dördü de `kaymak_id → değer`.
+ * `{runtime, tmdb, genres, firstAired}` — dördü de `kaymak_id → değer`. `baslik`: `kaymak_id → ham ad`
+ * bilgileri (BASLIK); eleme satır kurulurken yapılır (`baslikAlanlari`).
  *
  * 🆕 Paket D (M558 · O-2): mantık TEK yerde, bir ÜRETİCİDE (`haritaAdimlari`); her yük işlendikten sonra
  * `yield` eder. Senkron `haritalariKur` onu sonuna kadar koşturur (anlık aktarım — küçük kapsam);
@@ -98,7 +129,7 @@ function kapsamEki(kimlikler) {
  * @param {{kokler: string[], altAgac: string[]} | null} kapsam
  */
 function* haritaAdimlari(db, kapsam, h) {
-  const { runtime, genres, firstAired, tmdb } = h;
+  const { runtime, genres, firstAired, tmdb, baslik } = h;
   const kok = kapsamEki(kapsam && kapsam.kokler);
   const alt = kapsamEki(kapsam && kapsam.altAgac);
   // 📏 ÖLÇÜLDÜ (Pi, 2026-09-19): `source = ? AND kaymak_id IN (json_each)`
@@ -109,7 +140,8 @@ function* haritaAdimlari(db, kapsam, h) {
 
   // Dizi/film KÖKÜ: runtime · genres · first_aired (film: released)
   for (const r of db.prepare(
-    "SELECT kaymak_id, body FROM payloads WHERE endpoint IN ('show_detail','movie_detail')" + kok.sql
+    // 🔴 provider ŞART: TMDB'nin film ailesinin adı da `movie_detail`, Trakt değerinin üstüne yazardı.
+    "SELECT kaymak_id, body FROM payloads WHERE provider = 'trakt' AND endpoint IN ('show_detail','movie_detail')" + kok.sql
   ).all(...kok.p)) {
     const j = ac(r.body);
     const k = Array.isArray(j) ? j[0] : j;
@@ -119,6 +151,23 @@ function* haritaAdimlari(db, kapsam, h) {
       if (g) genres.set(r.kaymak_id, g);
       const d = gecerliTarih(k.first_aired || k.released);
       if (d) firstAired.set(r.kaymak_id, d);
+      const b = baslikKaydi(baslik, r.kaymak_id);
+      b.traktDil = k.language ?? b.traktDil;
+      b.traktOzgun = k.original_title ?? b.traktOzgun;
+    }
+    yield;
+  }
+
+  // BASLIK: TMDB yükleri. Arşiv yük silmez; sözlük her gönderimde bunlardan yeniden kurulur (§0 madde 9).
+  for (const r of db.prepare(
+    "SELECT kaymak_id, lang, body FROM payloads WHERE provider = 'tmdb' AND endpoint IN ('tv_detail','movie_detail')" + kok.sql
+  ).all(...kok.p)) {
+    const j = ac(r.body);
+    if (j) {
+      const b = baslikKaydi(baslik, r.kaymak_id);
+      b.tmdbDil = j.original_language ?? b.tmdbDil;
+      b.tmdbOzgun = j.original_name ?? j.original_title ?? b.tmdbOzgun;
+      b.adlar[r.lang] = j.name ?? j.title;
     }
     yield;
   }
@@ -166,7 +215,7 @@ function* haritaAdimlari(db, kapsam, h) {
   }
 }
 
-const bosHarita = () => ({ runtime: new Map(), tmdb: new Map(), genres: new Map(), firstAired: new Map() });
+const bosHarita = () => ({ runtime: new Map(), tmdb: new Map(), genres: new Map(), firstAired: new Map(), baslik: new Map() });
 
 /** Senkron — küçük kapsam (anlık aktarım) ya da testler. */
 function haritalariKur(db, kapsam = null) {
@@ -205,6 +254,7 @@ function varlikSatiri(e, h) {
     genres: h.genres.get(e.kaymak_id) ?? null,
     // ⚠️ NULL = "bilinmiyor", "yayınlanmadı" DEĞİL (bkz. 039).
     first_aired: h.firstAired.get(e.kaymak_id) ?? null,
+    ...baslikAlanlari(e, h),
   };
 }
 
@@ -254,6 +304,18 @@ function altAgacFazlari(db, kokler) {
 }
 
 /**
+ * BASLIK ilk dolumu: YALNIZ dizi/film kök satırları, tek bölüm satırı bile yok (§0 madde 8).
+ * @returns {Object[]} `/catalog/sync` entities satırları
+ */
+async function kokSatirlari(db) {
+  const h = await haritalariKurAsync(db);
+  return db.prepare(
+    `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year
+       FROM entities WHERE type IN ('show','movie') ORDER BY updated_at`
+  ).all().map((e) => varlikSatiri(e, h));
+}
+
+/**
  * Herhangi bir varlığın KÖKÜ (dizi/film). Bölüm → sezon → dizi.
  * Bulunamazsa null (ör. yarım hiyerarşi).
  */
@@ -276,6 +338,7 @@ module.exports = {
   varlikSatiri,
   disKimlikSatiri,
   altAgacFazlari,
+  kokSatirlari,
   altAgacKimlikleri,
   kokBul,
   gecerliTarih,

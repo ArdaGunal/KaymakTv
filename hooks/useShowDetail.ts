@@ -162,7 +162,7 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         const slimCast = cast;
         
         const slimRelated = related.map((r: any) => ({
-          title: r.title,
+          title: r.title, language: r.language, original_title: r.original_title,
           ids: { trakt: r.ids?.trakt, tmdb: r.ids?.tmdb, slug: r.ids?.slug }
         }));
 

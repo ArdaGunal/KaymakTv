@@ -46,7 +46,8 @@ const sonCagri = () => cagrilar[cagrilar.length - 1];
   T.ok('Trakt katalog: bosta 10 sn + toplam sinyal', sonCagri().cfg.timeout === 10_000 && sonCagri().cfg.signal instanceof AbortSignal);
 
   const sunucuKaynagi = fs.readFileSync(path.join(PROJE_KOKU, 'server.js'), 'utf8');
-  T.ok('server.js: 3 Trakt koprusu sure sinirli (GET, POST, oauth)', (sunucuKaynagi.match(/kopruSecenekleri\(\)/g) || []).length === 3);
+  const yolKaynagi = fs.readFileSync(path.join(PROJE_KOKU, 'server', 'traktProxyYollari.js'), 'utf8');
+  T.ok('traktProxyYollari: 3 Trakt koprusu sure sinirli (GET, POST, oauth)', (yolKaynagi.match(/kopruSecenekleri\(\)/g) || []).length === 3);
   T.ok('server.js: https.Agent bosta soket zaman asimi', /new https\.Agent\(\{[^}]*timeout: 60_000/.test(sunucuKaynagi));
   const aynaKaynagi = fs.readFileSync(path.join(AR, 'mirror.js'), 'utf8');
   const backfillKaynagi = fs.readFileSync(path.join(AR, 'backfillSource.js'), 'utf8');

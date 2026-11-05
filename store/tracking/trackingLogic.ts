@@ -1,3 +1,4 @@
+import { buyukBaslik } from '../../utils/gorunenBaslik';
 /**
  * Dizi Takip (Tracking) modülünün TEK GERÇEK KAYNAĞI (single source of truth).
  *
@@ -90,6 +91,8 @@ export interface ShowCategories {
 }
 
 export interface TrackingLabels {
+  /** Uygulama dili: kart adı buna göre çözülür. */
+  dil: string;
   unnamedShow: string;
   /** Başlanmamış diziler için satır başlığı. */
   notStarted: string;
@@ -113,7 +116,7 @@ export interface CategorizeOptions {
 
 export const DEFAULT_PAUSE_THRESHOLD_DAYS = 45;
 
-const toTitle = (raw: string | undefined, fallback: string) => (raw || fallback).toUpperCase();
+
 
 const hasAired = (firstAired: string | null | undefined, now: number): boolean => {
   if (!firstAired) return true; // Tarih yoksa izlenebilir varsay (temkinli).
@@ -203,7 +206,7 @@ export function categorizeShows({
     // bu yüzden aşağıdaki kural 2'nin erken `continue`'undan ÖNCE hesaplanır.
     const base = {
       id,
-      showName: toTitle(show?.title, labels.unnamedShow),
+      showName: buyukBaslik(show, labels.dil, labels.unnamedShow),
       image: null as null,
       tmdbId: show?.ids?.tmdb,
       slug: show?.ids?.slug,

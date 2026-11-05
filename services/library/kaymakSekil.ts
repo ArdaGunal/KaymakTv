@@ -18,6 +18,7 @@ import type { KutuphaneYaniti } from '../api/library';
 const yapimNesnesi = (k: {
   traktId: number; title: string | null; year: number | null;
   tmdbId: number | null; runtime?: number | null; genres?: string[] | null;
+  language?: string | null; original_title?: string | null; titles?: Record<string, string> | null;
 }) => ({
   // 🔴 `ids.trakt` ZORUNLU — mağazanın TÜM anahtarlaması bunun üzerinde
   // (`trackingLogic.ts:146`). `ids.tmdb` posterin tek dayanağı.
@@ -37,6 +38,10 @@ const yapimNesnesi = (k: {
   // ⚠️ Boş dizi DEĞİL `undefined`: `entry.media?.genres` kontrolü ikisini de
   // atlıyor ama `undefined` "bilinmiyor" demek, `[]` "türü yok" demek olurdu.
   genres: k.genres && k.genres.length > 0 ? k.genres : undefined,
+  // BASLIK: ekrandaki adın kaynağı (`utils/gorunenBaslik.ts`). Trakt yolu `extended=full` ile aynı adları taşır.
+  language: k.language ?? undefined,
+  original_title: k.original_title ?? undefined,
+  titles: k.titles ?? undefined,
 });
 
 /**

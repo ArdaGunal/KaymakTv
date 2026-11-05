@@ -143,7 +143,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         }
 
         const slimRelated = related.map((r: any) => ({
-          title: r.title,
+          title: r.title, language: r.language, original_title: r.original_title,
           ids: { trakt: r.ids?.trakt, tmdb: r.ids?.tmdb, slug: r.ids?.slug }
         }));
 
@@ -178,7 +178,9 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
         id: item.ids?.trakt,
         rawTraktId: item.ids?.trakt,
         tmdbId: item.ids?.tmdb,
-        title: item.title
+        title: item.title,
+        language: item.language,
+        original_title: item.original_title,
       }));
 
       if (alive()) {

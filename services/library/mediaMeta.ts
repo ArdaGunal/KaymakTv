@@ -1,4 +1,6 @@
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
+import i18n from '../../locales/index';
 
 /**
  * Bir dizi/filmin görsel meta verisi (başlık + tmdb id), kullanıcının kendi
@@ -33,7 +35,7 @@ export function resolveMediaMeta(traktId: number, type: 'show' | 'movie'): Media
   for (const pool of pools) {
     const entry = pool.find((item: any) => item?.[key]?.ids?.trakt === traktId);
     if (entry?.[key]?.title) {
-      return { title: entry[key].title, tmdbId: entry[key]?.ids?.tmdb };
+      return { title: gorunenBaslik(entry[key], i18n.language), tmdbId: entry[key]?.ids?.tmdb };
     }
   }
   return { title: '' };

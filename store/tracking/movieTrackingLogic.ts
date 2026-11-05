@@ -1,3 +1,4 @@
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
 /**
  * Film Takip (Movie Tracking) modülünün TEK GERÇEK KAYNAĞI.
  *
@@ -54,6 +55,8 @@ export type MovieCategoryKey = keyof MovieCategories;
 export const MOVIE_CATEGORY_KEYS: readonly MovieCategoryKey[] = ['watched', 'watchlist', 'hidden'] as const;
 
 export interface MovieTrackingLabels {
+  /** Uygulama dili: kart adı buna göre çözülür. */
+  dil: string;
   unnamedMovie: string;
 }
 
@@ -65,9 +68,9 @@ export interface CategorizeMoviesOptions {
   hiddenMovieIds?: number[] | Set<number>;
 }
 
-const toCard = (movie: any, id: number, fallbackTitle: string): MovieTrackCard => ({
+const toCard = (movie: any, id: number, labels: MovieTrackingLabels): MovieTrackCard => ({
   id,
-  title: movie?.title || fallbackTitle,
+  title: gorunenBaslik(movie, labels.dil) || labels.unnamedMovie,
   year: movie?.year,
   tmdbId: movie?.ids?.tmdb,
   slug: movie?.ids?.slug,
@@ -104,7 +107,7 @@ export function categorizeMovies({
     seen.add(id);
 
     const card: MovieTrackCard = {
-      ...toCard(item.movie, id, labels.unnamedMovie),
+      ...toCard(item.movie, id, labels),
       lastWatchedAt: item.last_watched_at,
     };
 
@@ -118,7 +121,7 @@ export function categorizeMovies({
     seen.add(id);
 
     const card: MovieTrackCard = {
-      ...toCard(item.movie, id, labels.unnamedMovie),
+      ...toCard(item.movie, id, labels),
       listedAt: item.listed_at,
     };
 

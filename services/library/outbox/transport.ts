@@ -88,7 +88,7 @@ export async function publishWatched(job: WatchedJob, s: OutboxSession) {
   if (!job.media?.title || (job.mediaType === 'show' && !bolum)) return;
   const activity = {
     activityType: job.mediaType === 'movie' ? 'watched_movie' : 'watched_episode',
-    showId: job.mediaId, mediaType: job.mediaType, showTitle: job.media.title,
+    showId: job.mediaId, mediaType: job.mediaType, showTitle: job.media.gorunenAd || job.media.title,
     tmdbId: job.media.ids?.tmdb, activityAt: job.watchedAt,
     ...(bolum ? { episodeNumber: formatEpisodeCode(bolum.season, bolum.episode) } : {}),
   };

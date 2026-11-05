@@ -120,6 +120,8 @@ export function usePublicProfileIdentity(username: string | null) {
     kaymakProfil,
     profile,
     followersCount: kaymakProfil?.followersCount ?? 0,
+    /** Sayının ölçüldüğü andaki ilişki; ekran `gosterilenTakipci` ile düğmeyle eşitler. */
+    takipIliskisi: kaymakProfil?.iliski ?? null,
     followingCount: kaymakProfil?.followingCount ?? 0,
     isPrivate: kaymakProfil?.profile.isPrivate ?? false,
     /**

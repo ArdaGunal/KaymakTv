@@ -89,6 +89,7 @@ export const webHeroStyles = StyleSheet.create({
     letterSpacing: -0.7,
     marginBottom: 8,
   },
+  ikincilBaslik: { fontSize: 14, color: '#a3a3a3', marginBottom: 4 },
   meta: {
     color: '#cbd5e1',
     fontSize: 15,

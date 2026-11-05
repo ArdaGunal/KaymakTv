@@ -106,6 +106,11 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 4,
   },
+  ikincilBaslik: {
+    fontSize: 14,
+    color: '#a3a3a3',
+    marginBottom: 4,
+  },
   meta: {
     fontSize: 13,
     color: '#a3a3a3',

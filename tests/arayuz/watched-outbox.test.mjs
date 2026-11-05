@@ -158,6 +158,7 @@ const progress = tsLoader(root, {
   },
   '../../../utils/metrics': { recordMutationResult: () => {} },
   '../../../features/feed/services/feedPublish': { nowStamp: () => at },
+  '../../../locales/index': { default: { language: 'tr' } },
   '../mediaMeta': { resolveMediaMeta: () => ({ title: 'Test', tmdbId: 1 }) },
   './progressState': { nesliArtir: () => {}, reactivateShowTracking: () => {}, unhideMovieIfNeeded: () => {},
     mevcutIlerleme: (id) => state.showProgressMap[id], cancelProgressRefresh: () => {} },

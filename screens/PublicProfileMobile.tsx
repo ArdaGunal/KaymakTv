@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Rss, WifiOff } from '../components/icons';
 import { useTranslation } from 'react-i18next';
+import { gosterilenTakipci } from '../utils/gosterilenTakipci';
 
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileHeaderSkeleton from '../components/profile/ProfileHeaderSkeleton';
@@ -26,6 +27,7 @@ import { isMarathonActivity } from '../features/feed/types';
 import MediaPoster from '../components/MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { useKendiProfilineYonlendir } from '../hooks/useKendiProfilineYonlendir';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
 
 // Başkasının aktivitesi asla silinemez — bu ekran bilinçli olarak
 // usePublicProfileActivity (salt okuma) kullanıyor, useUserActivity (silme
@@ -42,7 +44,7 @@ export default function PublicProfileMobile() {
   const router = useRouter();
   const handleBack = useAppBack();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['feed', 'media', 'common']);
+  const { t, i18n } = useTranslation(['feed', 'media', 'common']);
 
   const { width } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<'activity' | 'shows' | 'movies'>('activity');
@@ -56,7 +58,8 @@ export default function PublicProfileMobile() {
   const {
     kaymakProfil,
     profile,
-    followersCount,
+    followersCount: olculenTakipci,
+    takipIliskisi,
     followingCount,
     traktSlug,
     bioBizden,
@@ -71,6 +74,7 @@ export default function PublicProfileMobile() {
     kaymakProfil?.profile.userId ?? null,
     kaymakProfil?.profile.username ?? null,
   );
+  const followersCount = gosterilenTakipci(olculenTakipci, takipIliskisi, connectionState, isLoadingConnection);
   // 🪪 Aktivite ve engelleme `users.id` ile (M339 · `BACKLOG` §F6) — Google-only
   // kullanıcıda da çalışır. ⚠️ Diziler/Filmler sekmesi hâlâ TRAKT kütüphanesi:
   // yalnızca GERÇEK `traktSlug` ile okunur, Google-only'de boş kalır
@@ -106,7 +110,7 @@ export default function PublicProfileMobile() {
     const type = activeTab === 'shows' ? 'show' : 'movie';
     const media = item[type];
     const tmdbId = media?.ids?.tmdb;
-    const title = media?.title;
+    const title = gorunenBaslik(media, i18n.language);
 
     return (
       <TouchableOpacity 

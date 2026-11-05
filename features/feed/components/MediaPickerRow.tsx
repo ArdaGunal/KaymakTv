@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import MediaPoster from '../../../components/MediaPoster';
 import { FeedMediaType } from '../types';
+import { gorunenBaslik } from '../../../utils/gorunenBaslik';
+import { useTranslation } from 'react-i18next';
 
 export interface PickedMedia {
   showId: number;
@@ -25,13 +27,14 @@ interface MediaPickerRowProps {
  * kullanan onlarca yeri riske atardı.
  */
 export default function MediaPickerRow({ data, onPress }: MediaPickerRowProps) {
+  const { i18n } = useTranslation();
   const media = data?.show || data?.movie;
   if (!data || !media?.ids?.trakt) return null;
 
   const type: FeedMediaType = data.movie ? 'movie' : 'show';
   const traktId = media.ids.trakt;
   const tmdbId = media.ids.tmdb || undefined;
-  const title = media.title || '';
+  const title = gorunenBaslik(media, i18n.language);
   const year = media.year;
 
   const handlePress = () => {

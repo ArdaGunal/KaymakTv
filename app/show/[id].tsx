@@ -27,6 +27,8 @@ import SeasonsListMobile from '../../components/detail/SeasonsListMobile';
 import { diziSayfaSirasi } from '../../utils/diziSayfaSirasi';
 import { sezonEvreniKur } from '../../utils/sezonEvreni';
 import ShowDetailOverlays from '../../components/detail/ShowDetailOverlays';
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
+import { useTmdbBasliklari } from '../../hooks/useTmdbBasliklari';
 
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -38,7 +40,7 @@ export default function ShowDetailScreen() {
   // Masaustu web'de duzen cift sutuna gecer; native'de HER ZAMAN false.
   const layout = useDetailLayout();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
-  const { t } = useTranslation('media');
+  const { t, i18n } = useTranslation('media');
 
   const idStr = Array.isArray(id) ? id[0] : id;
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
@@ -71,7 +73,7 @@ export default function ShowDetailScreen() {
   // (inceleme yayını sonrası tazeleme) kaldırılmıştı ve bir süre boşta kaldı;
   // hata ekranının "Tekrar Dene"si eklenince yeniden bağlandı.
   const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
-  const showData = mediaData.summary;
+  const showData = useTmdbBasliklari(mediaData.summary, 'tv');
   // 2.6.5 madde 6: paylaşım linkinde `?tmdbId=` yok → afiş/arka plan hiç istenmiyordu.
   const etkinTmdbId = (tmdbId as string | undefined) || (showData?.ids?.tmdb ? String(showData.ids.tmdb) : undefined);
   const castData = mediaData.cast;
@@ -86,7 +88,7 @@ export default function ShowDetailScreen() {
   const reviewsState = useMediaReviews({
     mediaId: traktIdNum,
     mediaType: 'show',
-    mediaTitle: showData?.title ?? '',
+    mediaTitle: gorunenBaslik(showData, i18n.language),
     tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined,
   });
 
@@ -126,7 +128,7 @@ export default function ShowDetailScreen() {
     traktIdNum,
     id,
     t,
-    medya: { title: showData?.title, tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined },
+    medya: { title: gorunenBaslik(showData, i18n.language), tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined },
   });
 
   // 🆕 M421/M425 — ORTAK TÜREV (utils/sezonEvreni.ts): "öncekileri de işaretle"
@@ -185,7 +187,8 @@ export default function ShowDetailScreen() {
     setExpandedSeasons((prev: any) => ({ ...prev, [seasonNum]: !prev[seasonNum] }));
   };
 
-  if (isLoading) {
+  // Sayısal kimliksiz bağlantıda kanca ağa hiç çıkmaz; iskelet sonsuza dek kalırdı (C34).
+  if (isLoading && traktIdNum) {
     return <DetailHeroSkeleton />;
   }
 
@@ -305,7 +308,7 @@ export default function ShowDetailScreen() {
                 seasons={computedSeasons || []}
                 showTraktId={traktIdNum}
                 showSlug={showData?.ids?.slug}
-                showTitle={showData?.title}
+                showTitle={gorunenBaslik(showData, i18n.language)}
                 showTmdbId={etkinTmdbId}
                 expandedSeasons={expandedSeasons}
                 onToggleSeason={toggleSeason}
@@ -356,7 +359,7 @@ export default function ShowDetailScreen() {
                   seasons={computedSeasons}
                   showTraktId={traktIdNum}
                   showSlug={showData?.ids?.slug}
-                  showTitle={showData?.title}
+                  showTitle={gorunenBaslik(showData, i18n.language)}
                   showTmdbId={etkinTmdbId}
                   expandedSeasons={expandedSeasons}
                   onToggleSeason={toggleSeason}

@@ -52,6 +52,7 @@ export function mapCalendarToUpcoming(
   calendarShows: readonly unknown[],
   watchedKeys: ReadonlySet<string>,
   hiddenShowIds: readonly number[] = [],
+  adCoz: (oge?: { title?: string | null }) => string | null | undefined = (oge) => oge?.title,
 ): UpcomingEpisode[] {
   // 🔴 BIRAKILAN DİZİ BİLDİRİM ÜRETMEZ (2026-08-31'de düzeltildi).
   // `hiddenShowIds`, Trakt'ın "İlerlemeyi Gizle" listesidir ve bu uygulamada
@@ -71,7 +72,7 @@ export function mapCalendarToUpcoming(
     const episodeTraktId = entry?.episode?.ids?.trakt;
     const showTraktId = entry?.show?.ids?.trakt;
     if (typeof showTraktId === 'number' && hidden.has(showTraktId)) continue;
-    const showTitle = entry?.show?.title;
+    const showTitle = adCoz(entry?.show);
     const seasonNumber = entry?.episode?.season;
     const episodeNumber = entry?.episode?.number;
     const firstAiredUtc = entry?.first_aired;
@@ -150,6 +151,7 @@ export function mapCalendarToUpcomingMovies(
   calendarMovies: readonly unknown[],
   watchedIds: ReadonlySet<number>,
   hiddenMovieIds: readonly number[] = [],
+  adCoz: (oge?: { title?: string | null }) => string | null | undefined = (oge) => oge?.title,
 ): UpcomingMovie[] {
   // Dizilerdeki gerekçenin aynısı: bırakılan film bildirim üretmez.
   const hidden = new Set(hiddenMovieIds);
@@ -164,7 +166,7 @@ export function mapCalendarToUpcomingMovies(
 
     const movieTraktId = entry?.movie?.ids?.trakt;
     if (typeof movieTraktId === 'number' && hidden.has(movieTraktId)) continue;
-    const title = entry?.movie?.title;
+    const title = adCoz(entry?.movie);
     // Trakt film takviminde alan `released`; bölüm takvimiyle aynı kodu
     // paylaşan bir yanıt gelirse diye `first_aired` de kabul ediliyor.
     const released = entry?.released ?? entry?.first_aired;

@@ -9,6 +9,8 @@ import {
   type MediaStatusIndex,
   type UseLibraryFiltersResult,
 } from './libraryFilterCore';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Kütüphane "Diziler" ekranının lokal süzme hook'u.
@@ -39,7 +41,7 @@ export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', '
 // burada sadece kategori üyeliği okunduğundan sabit boş değerler yeterli. Çeviri
 // fonksiyonunu bağımlılığa almamak, dil değişiminde bu ağır memo'nun boşuna
 // yeniden hesaplanmasını da önler.
-const STATIC_LABELS = { unnamedShow: '', notStarted: '', caughtUp: '' };
+const STATIC_LABELS = { dil: '', unnamedShow: '', notStarted: '', caughtUp: '' };
 
 const EMPTY_INDEX = emptyStatusIndex<ShowStatusKey>();
 
@@ -54,6 +56,8 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
     showProgressMap: s.showProgressMap,
     hiddenShowIds: s.hiddenShowIds,
   }));
+
+  const { i18n } = useTranslation();
 
   return useMemo(() => {
     if (!enabled) return EMPTY_INDEX;
@@ -88,11 +92,11 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
       if (id == null || watchedIds.has(id) || seen.has(id)) continue;
       seen.add(id);
       // Anahtar öneki kütüphane öğeleriyle ÇAKIŞMAMALI ('show-…' onların).
-      extraPool.push({ key: `wlist-${id}`, id, title: show?.title, tmdbId: show?.ids?.tmdb });
+      extraPool.push({ key: `wlist-${id}`, id, title: gorunenBaslik(show, i18n.language), tmdbId: show?.ids?.tmdb });
     }
 
     return { statusOf, extraPool };
-  }, [enabled, watchedShows, watchlistShows, showProgressMap, hiddenShowIds]);
+  }, [enabled, watchedShows, watchlistShows, showProgressMap, hiddenShowIds, i18n.language]);
 }
 
 export type UseLibraryShowFiltersResult = UseLibraryFiltersResult<ShowStatusKey>;

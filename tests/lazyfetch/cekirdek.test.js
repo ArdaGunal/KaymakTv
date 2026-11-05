@@ -182,6 +182,10 @@ const { NotFoundError } = require(path.join(LF, 'errors'));
   const kHit = key.buildCacheKey({ provider: 'tmdb', family: 'tv_detail', path: '/tv/999100' });
   const zHit = env.createEnvelope({ provider: 'tmdb', family: 'tv_detail', payload: { v: 'ONBELLEK' }, ttlMs: 3600e3, graceMs: 3600e3 });
   await disk.writeCacheEntry(kHit.relativePath, zHit);
+  // C32: kova saniyede dolar; yuklu makinede bosaltma ile kontrol arasinda jeton geliyordu. Saat sabit.
+  const gercekNow = Date.now;
+  const sabitNow = gercekNow();
+  Date.now = () => sabitNow;
   while (tb.tryConsume('tmdb')) { /* kovayi bosalt */ }
   let hitCagri = 0;
   const rHit = await orch.resolveRequest({
@@ -194,6 +198,7 @@ const { NotFoundError } = require(path.join(LF, 'errors'));
   try {
     await orch.resolveRequest({ provider: 'tmdb', path: '/tv/999101', fetcher: async () => ({ data: { v: 'AG' } }) });
   } catch (e) { missHata = e; }
+  Date.now = gercekNow;
   T.ok('K3: kova BOSKEN MISS RateLimited alir (jeton yalniz aga cikista)', missHata && missHata.name === 'RateLimitedError',
     missHata ? missHata.name : 'hata yok');
   await new Promise((r) => setTimeout(r, 1500)); // sonraki takim kovayi dolu bulsun

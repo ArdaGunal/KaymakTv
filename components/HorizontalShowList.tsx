@@ -15,6 +15,7 @@ import {
   SECTION_PADDING_H,
   SECTION_SPACING,
 } from './profile/profileMetrics';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
 
 interface HorizontalShowListProps {
   title: string;
@@ -59,7 +60,7 @@ const HorizontalShowList = memo(({
   type = 'show',
 }: HorizontalShowListProps) => {
   const router = useRouter();
-  const { t } = useTranslation('media');
+  const { t, i18n } = useTranslation('media');
   const { showProgressMap, hiddenShowIds } = useLibrarySelector(ilerlemeSecici);
 
   const handleCardPress = useCallback((item: any) => {
@@ -109,7 +110,7 @@ const HorizontalShowList = memo(({
           <MediaPoster
             tmdbId={item.tmdbId || item.show?.ids?.tmdb || item.movie?.ids?.tmdb}
             type={type as 'show' | 'movie'}
-            title={item.title || item.show?.title || item.movie?.title}
+            title={gorunenBaslik(item.show || item.movie || item, i18n.language)}
             style={styles.poster}
           />
         )}

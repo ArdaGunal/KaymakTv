@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateGroup, isFutureDate, getEpisodeKey } from '../utils/dateHelper';
 import { yerelEtiket } from '../locales/diller';
+import { buyukBaslik } from '../utils/gorunenBaslik';
 
 const EMPTY_DASHBOARD_DATA = {
   upNextShows: [] as any[],
@@ -115,7 +116,7 @@ export const useDashboardData = (
         if (isFuture && !isInactive) {
           farFutureTemp.push({
             traktId,
-            showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+            showName: buyukBaslik(item.show, i18nLanguage, t('unnamedShow')),
             season: progress.next_episode.season,
             episode: progress.next_episode.number,
             title: progress.next_episode.title,
@@ -136,7 +137,7 @@ export const useDashboardData = (
 
       const formattedObj = {
         id: traktId,
-        showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+        showName: buyukBaslik(item.show, i18nLanguage, t('unnamedShow')),
         season,
         episode: episodeNumber,
         title: episodeTitle,
@@ -185,7 +186,7 @@ export const useDashboardData = (
             if (nextAired) {
               farFutureTemp.push({
                 traktId,
-                showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+                showName: buyukBaslik(item.show, i18nLanguage, t('unnamedShow')),
                 season: progress.next_episode.season,
                 episode: progress.next_episode.number,
                 title: progress.next_episode.title,
@@ -207,7 +208,7 @@ export const useDashboardData = (
           if (isFuture) {
             farFutureTemp.push({
               traktId,
-              showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+              showName: buyukBaslik(item.show, i18nLanguage, t('unnamedShow')),
               season: 1,
               episode: 1,
               title: t('showPremiere'),
@@ -228,7 +229,7 @@ export const useDashboardData = (
 
       const formattedObj = {
         id: traktId,
-        showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+        showName: buyukBaslik(item.show, i18nLanguage, t('unnamedShow')),
         season,
         episode: episodeNumber,
         title: episodeTitle,
@@ -273,7 +274,7 @@ export const useDashboardData = (
       upcomingTemp.push({
         id: uniqueId,
         rawTraktId: traktId,
-        showName: (item.show?.title || t('unnamedShow')).toUpperCase(),
+        showName: buyukBaslik(item.show, i18nLanguage, t('unnamedShow')),
         season: item.episode.season,
         episode: item.episode.number,
         title: item.episode.title || `${item.episode.season}. ${t('season')} ${item.episode.number}. ${t('episode')}`,
@@ -299,7 +300,7 @@ export const useDashboardData = (
       }
 
       const tmdbId = showMeta?.ids?.tmdb;
-      const showName = (showMeta?.title || t('unnamedShow')).toUpperCase();
+      const showName = buyukBaslik(showMeta, i18nLanguage, t('unnamedShow'));
 
       seasonData.data.forEach((currentSeason: any) => {
           if (currentSeason && currentSeason.episodes) {

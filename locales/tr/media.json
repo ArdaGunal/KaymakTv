@@ -284,6 +284,7 @@
   "tapForDetail": "Detay için dokun",
   "titlesCount": "{{count}} içerik",
   "totalWatchTime": "Toplam İzleme Süresi",
+  "originalTitleLabel": "Özgün ad: {{ad}}",
   "trailer": "Fragman",
   "traktAccount": "Trakt Hesabı",
   "traktCommunityTitle": "Trakt Topluluğu",

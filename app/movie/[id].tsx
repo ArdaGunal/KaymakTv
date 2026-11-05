@@ -27,6 +27,8 @@ import SectionErrorBoundary from '../../components/SectionErrorBoundary';
 import Snackbar from '../../components/Snackbar';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
+import { useTmdbBasliklari } from '../../hooks/useTmdbBasliklari';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -38,7 +40,7 @@ export default function MovieDetailScreen() {
   // kullanmazsa hero ortalanmamis/kenara yapisik kalirdi.
   const layout = useDetailLayout();
   const { id, tmdbId } = useLocalSearchParams(); // id is traktId
-    const { t } = useTranslation('media');
+    const { t, i18n } = useTranslation('media');
   
   
   const [actionLoading, setActionLoading] = useState(false);
@@ -77,7 +79,7 @@ export default function MovieDetailScreen() {
 
   // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
   const { mediaData, images, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
-  const movieData = mediaData.summary;
+  const movieData = useTmdbBasliklari(mediaData.summary, 'movie');
   const castData = mediaData.cast;
   const relatedMovies = mediaData.related;
   const commentsData = mediaData.comments;
@@ -88,7 +90,7 @@ export default function MovieDetailScreen() {
   const reviewsState = useMediaReviews({
     mediaId: traktIdNum,
     mediaType: 'movie',
-    mediaTitle: movieData?.title ?? '',
+    mediaTitle: gorunenBaslik(movieData, i18n.language),
     tmdbId: Number(movieData?.ids?.tmdb ?? tmdbId) || undefined,
   });
 
@@ -122,7 +124,7 @@ export default function MovieDetailScreen() {
       setLocalRating(traktIdNum, 'movie', rating);
       // M477: kütüphanede olmayan film de akışa yayınlansın (başlık/tmdb ipucu).
       await rateMedia(traktIdNum, 'movie', rating, {
-        title: movieData?.title,
+        title: gorunenBaslik(movieData, i18n.language),
         tmdbId: Number(movieData?.ids?.tmdb ?? tmdbId) || undefined,
       });
     } catch (e) {
@@ -192,7 +194,8 @@ export default function MovieDetailScreen() {
 
   const isReleased = movieData?.released ? new Date(movieData.released) <= new Date() : true;
 
-  if (isLoading) {
+  // Sayısal kimliksiz bağlantıda kanca ağa hiç çıkmaz; iskelet sonsuza dek kalırdı (C34).
+  if (isLoading && traktIdNum) {
     return <DetailHeroSkeleton />;
   }
 

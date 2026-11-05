@@ -9,6 +9,8 @@ import { formatRuntime } from '../../utils/formatters';
 import { formatRating } from '../../utils/formatRating';
 import { MediaFollowStatus } from '../../utils/followStatus';
 import { webHeroStyles as s } from './mediaHeroWeb.styles';
+import { gorunenBaslik } from '../../utils/gorunenBaslik';
+import IkincilBaslik from './IkincilBaslik';
 
 interface MediaHeroWebViewProps {
   type: 'show' | 'movie';
@@ -64,7 +66,7 @@ export default function MediaHeroWebView({
   ozelListeler,
   onToggleFollow,
 }: MediaHeroWebViewProps) {
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const hasUserRating = userRating !== undefined && userRating !== null;
 
   return (
@@ -95,7 +97,8 @@ export default function MediaHeroWebView({
         />
 
         <View style={s.headText}>
-          <Text style={s.title} numberOfLines={2}>{data?.title}</Text>
+          <Text style={s.title} numberOfLines={2}>{gorunenBaslik(data, i18n.language)}</Text>
+          <IkincilBaslik yapim={data} style={s.ikincilBaslik} />
 
           <Text style={s.meta}>
             {data?.year}

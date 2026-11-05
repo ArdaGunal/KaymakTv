@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAppBack } from '../../../hooks/useAppBack';
 import { ChevronLeft, Rss, Check, Clock, UserPlus, Lock, WifiOff } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
+import { gosterilenTakipci } from '../../../utils/gosterilenTakipci';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -29,6 +30,7 @@ import { generateMediaSlug } from '../../../utils/slugHelper';
 import { styles } from '../../../features/publicProfile/publicProfile.web.styles';
 import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
 import { useKendiProfilineYonlendir } from '../../../hooks/useKendiProfilineYonlendir';
+import { gorunenBaslik } from '../../../utils/gorunenBaslik';
 
 // Dar ekran (mobil genişlikte web tarayıcı): ProfileMobile ile aynı desen
 // (bkz. profile.web.tsx'in `!isDesktop` dalı) — screens/PublicProfileMobile.tsx
@@ -40,7 +42,7 @@ export default function PublicProfileScreenWeb() {
   const router = useRouter();
   const handleBack = useAppBack();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['feed', 'media', 'common']);
+  const { t, i18n } = useTranslation(['feed', 'media', 'common']);
 
   // 🪪 KİMLİK BİZDEN, ZENGİNLEŞTİRME TRAKT'TAN — gerekçe `usePublicProfileIdentity`
   // başlığında (M338). 🔴 `useFollowState`'e `kaymakProfil.userId` DIŞINDA
@@ -50,7 +52,8 @@ export default function PublicProfileScreenWeb() {
   const {
     kaymakProfil,
     profile,
-    followersCount,
+    followersCount: olculenTakipci,
+    takipIliskisi,
     followingCount,
     isPrivate,
     traktSlug,
@@ -66,6 +69,7 @@ export default function PublicProfileScreenWeb() {
     kaymakProfil?.profile.userId ?? null,
     kaymakProfil?.profile.username ?? null,
   );
+  const followersCount = gosterilenTakipci(olculenTakipci, takipIliskisi, connectionState, isLoadingConnection);
   // 🪪 Aktivite ve engelleme `users.id` ile (M339 · `BACKLOG` §F6) — Google-only
   // kullanıcıda da çalışır. ⚠️ Diziler/Filmler sekmesi hâlâ TRAKT kütüphanesi:
   // yalnızca GERÇEK `traktSlug` ile okunur, Google-only'de boş kalır
@@ -286,7 +290,7 @@ export default function PublicProfileScreenWeb() {
                     const type = activeTab === 'shows' ? 'show' : 'movie';
                     const media = item[type];
                     const tmdbId = media?.ids?.tmdb;
-                    const title = media?.title;
+                    const title = gorunenBaslik(media, i18n.language);
 
                     return (
                       <TouchableOpacity 

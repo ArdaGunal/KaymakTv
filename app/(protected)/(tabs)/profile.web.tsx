@@ -29,13 +29,14 @@ import ProfileTabs, { ProfileTabKey } from '../../../components/profile/ProfileT
 import ProfileActivityTab from '../../../components/profile/ProfileActivityTab';
 import { NotificationBadge } from '../../../features/notifications/components/NotificationBadge';
 import { DESKTOP_CARD_WIDTH, DESKTOP_CARD_HEIGHT, DESKTOP_CARD_GAP } from '../../../components/profile/profileMetrics';
+import { gorunenBaslik } from '../../../utils/gorunenBaslik';
 
-const mapMedia = (items: any[], type: 'show' | 'movie') =>
+const mapMedia = (items: any[], type: 'show' | 'movie', dil: string) =>
   items.map((item: any) => ({
     id: type === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
     rawTraktId: type === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
-    title: type === 'show' ? item.show?.title : item.movie?.title,
-    showName: type === 'show' ? item.show?.title : undefined,
+    title: gorunenBaslik(type === 'show' ? item.show : item.movie, dil),
+    showName: type === 'show' ? gorunenBaslik(item.show, dil) : undefined,
     tmdbId: type === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
   }));
 
@@ -144,7 +145,7 @@ export default function ProfileScreenWeb() {
   const { isDesktop } = useResponsive();
   const { accessToken, isGuest } = useAuth();
   const router = useRouter();
-  const { t } = useTranslation('media');
+  const { t, i18n } = useTranslation('media');
   const insets = useSafeAreaInsets();
 
   // Katı seçici: yalnızca profil dilimleri.
@@ -172,10 +173,10 @@ export default function ProfileScreenWeb() {
     }, [tazeleGerekirse])
   );
 
-  const shows = useMemo(() => mapMedia(sortRecent(watchedShows || []).slice(0, 100), 'show'), [watchedShows]);
-  const movies = useMemo(() => mapMedia(sortRecent(watchedMovies || []).slice(0, 100), 'movie'), [watchedMovies]);
-  const favShowsList = useMemo(() => mapMedia((favShows || []).slice(0, 100), 'show'), [favShows]);
-  const favMoviesList = useMemo(() => mapMedia((favMovies || []).slice(0, 100), 'movie'), [favMovies]);
+  const shows = useMemo(() => mapMedia(sortRecent(watchedShows || []).slice(0, 100), 'show', i18n.language), [watchedShows, i18n.language]);
+  const movies = useMemo(() => mapMedia(sortRecent(watchedMovies || []).slice(0, 100), 'movie', i18n.language), [watchedMovies, i18n.language]);
+  const favShowsList = useMemo(() => mapMedia((favShows || []).slice(0, 100), 'show', i18n.language), [favShows, i18n.language]);
+  const favMoviesList = useMemo(() => mapMedia((favMovies || []).slice(0, 100), 'movie', i18n.language), [favMovies, i18n.language]);
 
   const renderShowItem = useCallback(({ item }: { item: any }) => <EpisodeCard data={item} />, []);
   const renderMovieItem = useCallback(({ item }: { item: any }) => <MovieCard data={item} />, []);

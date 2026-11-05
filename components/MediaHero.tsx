@@ -22,6 +22,8 @@ import MediaHeroWebView from './hero/MediaHeroWebView';
 import { deriveFollowStatus, resolveFollowAction } from '../utils/followStatus';
 import { styles } from './MediaHero.styles';
 import ExpandableText from './ExpandableText';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
+import IkincilBaslik from './hero/IkincilBaslik';
 
 interface MediaHeroProps {
   type: 'show' | 'movie';
@@ -71,7 +73,7 @@ export default function MediaHero({
   onRewatch,
 }: MediaHeroProps) {
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
   const { ozelListeler } = useKaymakYetenekleri();
   const { showProgressMap } = useLibrary();
@@ -235,7 +237,8 @@ export default function MediaHero({
         )}
         
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={2}>{data.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>{gorunenBaslik(data, i18n.language)}</Text>
+          <IkincilBaslik yapim={data} style={styles.ikincilBaslik} />
           
           <Text style={styles.meta}>
             {data.year} 

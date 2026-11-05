@@ -8,6 +8,8 @@ import {
 } from '../services/traktApi';
 import { useLibrarySelector } from '../context/LibraryContext';
 import { filterUserLists } from '../utils/listHelpers';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
+import { useTranslation } from 'react-i18next';
 
 export type LibraryType = 'shows' | 'movies' | 'favShows' | 'favMovies' | 'lists';
 
@@ -46,11 +48,11 @@ function withUniqueKeys(items: Omit<LibraryItem, 'key'>[], prefix: string): Libr
   return result;
 }
 
-function mapMediaItems(items: any[], itemType: 'show' | 'movie'): LibraryItem[] {
+function mapMediaItems(items: any[], itemType: 'show' | 'movie', dil: string): LibraryItem[] {
   return withUniqueKeys(
     items.map((item: any) => ({
       id: itemType === 'show' ? item.show?.ids?.trakt : item.movie?.ids?.trakt,
-      title: itemType === 'show' ? item.show?.title : item.movie?.title,
+      title: gorunenBaslik(itemType === 'show' ? item.show : item.movie, dil),
       tmdbId: itemType === 'show' ? item.show?.ids?.tmdb : item.movie?.ids?.tmdb,
     })),
     itemType
@@ -104,6 +106,7 @@ const FALLBACK_FETCHERS: Record<LibraryType, () => Promise<any[]>> = {
  * store dolduğunda seçici abonelik sayesinde liste kendiliğinden güncellenir.
  */
 export function useLibraryTypeData(type: string | string[] | undefined, accessToken: string | null | undefined) {
+  const dil = useTranslation().i18n.language;
   const slices = useLibrarySelector(s => ({
     watchedShows: s.watchedShows,
     watchedMovies: s.watchedMovies,
@@ -118,14 +121,14 @@ export function useLibraryTypeData(type: string | string[] | undefined, accessTo
 
   const storeData = useMemo<LibraryItem[]>(() => {
     switch (type) {
-      case 'shows': return mapMediaItems(sortByWatchedAt(slices.watchedShows || []), 'show');
-      case 'movies': return mapMediaItems(sortByWatchedAt(slices.watchedMovies || []), 'movie');
-      case 'favShows': return mapMediaItems(slices.favShows || [], 'show');
-      case 'favMovies': return mapMediaItems(slices.favMovies || [], 'movie');
+      case 'shows': return mapMediaItems(sortByWatchedAt(slices.watchedShows || []), 'show', dil);
+      case 'movies': return mapMediaItems(sortByWatchedAt(slices.watchedMovies || []), 'movie', dil);
+      case 'favShows': return mapMediaItems(slices.favShows || [], 'show', dil);
+      case 'favMovies': return mapMediaItems(slices.favMovies || [], 'movie', dil);
       case 'lists': return mapListItems(slices.customLists || []);
       default: return [];
     }
-  }, [type, slices.watchedShows, slices.watchedMovies, slices.favShows, slices.favMovies, slices.customLists]);
+  }, [type, slices.watchedShows, slices.watchedMovies, slices.favShows, slices.favMovies, slices.customLists, dil]);
 
   useEffect(() => {
     // Store bu dilim için doluysa fallback'e hiç gerek yok.
@@ -140,16 +143,16 @@ export function useLibraryTypeData(type: string | string[] | undefined, accessTo
         // Fallback ağdan geldiği için favori (liked) listesini burada da ayıkla.
         if (type === 'lists') setFallbackData(mapListItems(filterUserLists(res)));
         else if (type === 'shows' || type === 'movies') {
-          setFallbackData(mapMediaItems(sortByWatchedAt(res), type === 'shows' ? 'show' : 'movie'));
+          setFallbackData(mapMediaItems(sortByWatchedAt(res), type === 'shows' ? 'show' : 'movie', dil));
         } else {
-          setFallbackData(mapMediaItems(res, type === 'favShows' ? 'show' : 'movie'));
+          setFallbackData(mapMediaItems(res, type === 'favShows' ? 'show' : 'movie', dil));
         }
       })
       .catch((error) => console.log('Kütüphane fallback veri hatası:', error))
       .finally(() => { if (!cancelled) setFallbackLoading(false); });
 
     return () => { cancelled = true; };
-  }, [type, accessToken, storeData.length, slices.isLoading]);
+  }, [type, accessToken, storeData.length, slices.isLoading, dil]);
 
   const data = storeData.length > 0 ? storeData : (fallbackData ?? []);
   const loading = data.length === 0 && (slices.isLoading || fallbackLoading);

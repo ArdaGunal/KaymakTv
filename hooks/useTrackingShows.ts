@@ -72,7 +72,7 @@ function useTrackingNow(): number {
  * kalma" hatası yapısal olarak imkânsızdır.
  */
 export function useTrackingShows(): UseTrackingShowsResult {
-  const { t } = useTranslation('media');
+  const { t, i18n } = useTranslation('media');
   const now = useTrackingNow();
   const pendingShowIds = useWatchedOutboxStore((s) => s.pendingShowIds);
 
@@ -96,13 +96,14 @@ export function useTrackingShows(): UseTrackingShowsResult {
         pendingShowIds,
         now,
         labels: {
+          dil: i18n.language,
           unnamedShow: t('unnamedShow', 'İsimsiz Dizi'),
           notStarted: t('notStarted', 'Henüz Başlanmadı'),
           caughtUp: t('caughtUp', 'Yeni bölüm bekleniyor'),
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, now, t]
+    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, now, t, i18n.language]
   );
 
   const totalCount = categories.upNext.length + categories.paused.length + categories.notStarted.length;

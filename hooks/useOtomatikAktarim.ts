@@ -34,7 +34,7 @@ import { useTraktImport } from './useTraktImport';
  */
 const SON_FARK_ANAHTARI = 'kaymak_trakt_fark_son_v1';
 
-export function useOtomatikAktarim() {
+export function useOtomatikAktarim(hazir: boolean) {
   const { authProvider, isGuest, accessToken, isLoading } = useAuth();
   const uygun = authProvider === 'trakt' && !isGuest && !!accessToken && !isLoading;
 
@@ -61,6 +61,7 @@ export function useOtomatikAktarim() {
       return;
     }
     oncekiUygunRef.current = true;
+    if (!hazir) return;
 
     let iptal = false;
     (async () => {
@@ -87,7 +88,7 @@ export function useOtomatikAktarim() {
     return () => {
       iptal = true;
     };
-  }, [uygun]);
+  }, [uygun, hazir]);
 
   // Ertelenmiş aktarım: kullanıcı uygulamaya her döndüğünde sessizce yeniden dene.
   useEffect(() => {

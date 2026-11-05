@@ -18,6 +18,7 @@ import { useWindowDimensions } from 'react-native';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import { isDefaultList, isLikedList } from '../../../utils/listHelpers';
 import { confirmAsync, notify } from '../../../utils/confirmDialog';
+import { gorunenBaslik } from '../../../utils/gorunenBaslik';
 
 interface ListItem {
   key: string;
@@ -30,7 +31,7 @@ interface ListItem {
 
 export default function ListDetailsScreen() {
   const { id, name } = useLocalSearchParams();
-  const { t } = useTranslation(['media', 'common']);
+  const { t, i18n } = useTranslation(['media', 'common']);
   const router = useRouter();
   const handleBack = useAppBack();
   const { deleteListById, toggleMediaInList } = useLibraryActions();
@@ -75,7 +76,7 @@ export default function ListDetailsScreen() {
           type,
           mediaId: media.ids.trakt,
           tmdbId: media.ids?.tmdb,
-          title: media.title,
+          title: gorunenBaslik(media, i18n.language),
           year: media.year,
         };
       })

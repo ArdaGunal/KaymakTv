@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getTraktClient, applyTranslation } from './traktClient';
+import { getTraktClient } from './traktClient';
 import { fetchCatalogOrFallback } from './traktCatalogClient';
 import i18n from '../../locales/index';
 import { dilKodu } from '../../locales/diller';
@@ -56,7 +56,7 @@ export const getShowSummary = async (showId: number) => {
     );
     // 🔴 Çeviri İKİ yola da uygulanır — geçit ham Trakt yanıtını döner,
     // eski yol da artık ham dönüyor. Dönüşüm tek yerde.
-    return applyTranslation(ham, lang);
+    return ham;
   } catch (error) {
     console.error(`Trakt API Hatasi (getShowSummary - ${showId}):`, error);
     throw error;
@@ -111,7 +111,7 @@ export const getEpisodeDetail = async (showId: number, season: number, episode: 
         )).data,
       { showId: String(showId), bolum: `S${season}E${episode}` }
     );
-    return applyTranslation(ham, lang);
+    return ham;
   } catch (error) {
     console.error(`Trakt API Hatasi (getEpisodeDetail - ${showId} S${season}E${episode}):`, error);
     throw error;

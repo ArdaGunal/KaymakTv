@@ -64,5 +64,5 @@ const puanMut = oku('services/library/mutations/ratings.ts');
 T.ok('Kutuphanede olmayan yapim puaninda da akisa yayin (baslik ipucu, M477)', /kutuphane\.title \|\| ipucu\?\.title/.test(puanMut)
   && /rateMedia\(traktIdNum, 'show', rating, medya\)/.test(oku('hooks/useShowDetailHandlers.ts'))
   && /rateMedia\(traktIdNum, 'movie', rating, \{/.test(oku('app/movie/[id].tsx'))
-  && /medya: \{ title: showData\?\.title/.test(oku('app/show/[id].tsx')));
+  && /medya: \{ title: gorunenBaslik\(showData, i18n\.language\)/.test(oku('app/show/[id].tsx')));
 T.bitir();

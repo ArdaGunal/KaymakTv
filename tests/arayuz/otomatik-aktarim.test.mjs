@@ -410,7 +410,7 @@ T.H('Kaynak denetimi — baglantilar geri sizmasin');
 const var_ = (...y) => fs.existsSync(path.join(KOK, ...y));
 
 const layout = oku('app', '(protected)', '_layout.tsx');
-T.ok('_layout otomatik motoru baglar', layout.includes('useOtomatikAktarim()'));
+T.ok('_layout otomatik motoru baglar', layout.includes('useOtomatikAktarim(kutuphaneHazir)'));
 T.ok('eski onayli fark turu hook u kalkti', !layout.includes('useOtomatikFarkTuru') && !var_('hooks', 'useOtomatikFarkTuru.ts'));
 
 const ekranlar = [

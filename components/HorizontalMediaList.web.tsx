@@ -4,6 +4,8 @@ import { ChevronRight } from './icons';
 import { useRouter } from 'expo-router';
 import MediaPoster from './MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
+import { useTranslation } from 'react-i18next';
 
 interface HorizontalMediaListProps {
   title: string;
@@ -14,6 +16,7 @@ interface HorizontalMediaListProps {
 }
 
 export default function HorizontalMediaListWeb({ title, titleIcon, data, onShowAll, type = 'show' }: HorizontalMediaListProps) {
+  const { i18n } = useTranslation();
   const router = useRouter();
 
   if (!data || data.length === 0) {
@@ -55,7 +58,7 @@ export default function HorizontalMediaListWeb({ title, titleIcon, data, onShowA
               <MediaPoster 
                 tmdbId={tmdbId} 
                 type={type} 
-                title={item.title || item.show?.title || item.movie?.title} 
+                title={gorunenBaslik(item.show || item.movie || item, i18n.language)} 
                 style={styles.poster} 
               />
             </div>
