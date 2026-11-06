@@ -21,12 +21,13 @@ export const getDateGroup = (dateObj: Date, t?: any): string => {
     day: 'numeric', 
     month: 'long', 
     weekday: 'long' 
-  }).toUpperCase();
+  }).toLocaleUpperCase(locale);
 
+  // Anahtarlar `common`'da; çağıranın `t`'si `media` ad alanında olduğu için ekranda «today» yazıyordu.
   if (dateObj.toDateString() === today.toDateString()) {
-    return (t ? t('today') : 'BUGÜN') + ' - ' + fullDateStr;
+    return (t ? t('common:today') : 'BUGÜN') + ' - ' + fullDateStr;
   } else if (dateObj.toDateString() === tomorrow.toDateString()) {
-    return (t ? t('tomorrow') : 'YARIN') + ' - ' + fullDateStr;
+    return (t ? t('common:tomorrow') : 'YARIN') + ' - ' + fullDateStr;
   }
   
   // Eğer t fonksiyonu verilmişse ve günden fazlaysa yanına sayacı ekle

@@ -48,7 +48,7 @@ const sifirla = () => { yazilan.length = 0; setterlar.length = 0; gunluk.length 
 const load = tsLoader(root, {
   ...ortak,
   '@react-native-async-storage/async-storage': { default: { multiSet: async () => {} } },
-  '../../store/useLibraryStore': { useLibraryStore: { getState: () => ({}) } },
+  '../../store/useLibraryStore': { useLibraryStore: { getState: () => ({ setIlkTurBitti: () => {} }) } },
   '../api/library': library,
   './emniyetAgi': { sezonsuzlariTamamla: async () => {} },
   '../traktApi': {},

@@ -32,6 +32,12 @@ const bekleme = aktarim.indexOf('if (!hazir) return;');
 T.ok('Cikis temizligi beklemeyi gecer, baslatma beklemeden sonra', cikis > 0 && bekleme > cikis && aktarim.indexOf('m.baslat()') > bekleme);
 const kanca = oku('hooks/useKutuphaneHazir.ts');
 T.ok('Kutuphane takilirsa ust sinir var', /EN_COK_BEKLEME_MS = 10_000/.test(kanca) && /!yukleniyor \|\| sureDoldu/.test(kanca));
+T.ok('Hazir sinyali onbellek degil kutuphane turu (gece bulgusu)', /s\.ilkTurBitti/.test(kanca) && !/s\.isLoading/.test(kanca));
+const cekici = oku('services/library/fetchers.ts');
+const turSatiri = cekici.indexOf('turBitti = await turIsi;');
+const sinyal = cekici.indexOf('setIlkTurBitti(true)');
+T.ok('Sinyal kutuphane turunun finally blogunda', turSatiri > 0 && sinyal > turSatiri && sinyal < cekici.indexOf('if (turBitti) return;'));
+T.ok('Cikista sinyal sifirlanir', /clearAll[\s\S]*ilkTurBitti: false/.test(oku('store/useLibraryStore.ts')));
 
 T.H('Hatali baglanti iskelette kalmaz');
 for (const f of ['app/show/[id].tsx', 'app/movie/[id].tsx']) {

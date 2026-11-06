@@ -36,6 +36,14 @@ T.H('Buyuk harf');
 T.ok('Turkce: CEKIC degil, noktali I', buyukBaslik(cekic, 'tr') === 'ÇEKİÇ VE GÜL', buyukBaslik(cekic, 'tr'));
 T.ok('Ingilizce: Ingilizce kural', buyukBaslik({ title: 'Kill Bill' }, 'en') === 'KILL BILL');
 T.ok('Ad yoksa yedek', buyukBaslik({ title: '' }, 'tr', 'isimsiz') === 'İSİMSİZ');
+T.ok('Turkce arayuzde Ingilizce ad Ingilizce kuralla (gece emulator bulgusu)', buyukBaslik({ title: 'Carrie', language: 'en' }, 'tr') === 'CARRIE', buyukBaslik({ title: 'Carrie', language: 'en' }, 'tr'));
+T.ok('Dili bilinmeyen eski kayit da uluslararasi kural', buyukBaslik({ title: 'Mr. Queen' }, 'tr') === 'MR. QUEEN');
+T.ok('Ingilizce arayuzde Turkce dizi uluslararasi adla', buyukBaslik(cekic, 'en') === 'THE HAMMER AND THE ROSE');
+const { getDateGroup } = tsLoader(root, { '../locales': { default: { language: 'tr' } } })('utils/dateHelper.ts');
+const bugun = getDateGroup(new Date(), (k) => ({ 'common:today': 'BUGÜN' })[k] || k);
+T.ok('Tarih basligi: bugun cevirisi common ad alanindan', bugun.startsWith('BUGÜN - '), bugun);
+const ekim = getDateGroup(new Date(2027, 9, 11), (k) => k);
+T.ok('Tarih basligi Turkce buyuk harf (EKİM, PAZARTESİ)', /EKİM/.test(ekim) && /PAZARTESİ/.test(ekim), ekim);
 
 T.H('Detay ikincil satiri');
 T.ok('Yerli yapimda yok', ikincilBaslik(cekic, 'tr') === null);

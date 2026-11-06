@@ -25,6 +25,10 @@ export interface LibraryState extends
      *  olmaması (boş ama başarılı yanıt) bunu tetiklemez. Ekranlar bunu
      *  "boş" ile "yüklenemedi" durumunu ayırt etmek için kullanır. */
     hasSyncError: boolean;
+    /** Bu oturumda ilk kütüphane turu (ağ ya da taze önbellek kararı) bitti mi? `isLoading` önbellek
+     *  yüklenince kapanır, bu ise ağ turunu bekler (HIZ-02 B3: görünen veri önce). */
+    ilkTurBitti: boolean;
+    setIlkTurBitti: (val: boolean) => void;
     setIsLoading: (val: boolean) => void;
     setIsMoviesLoading: (val: boolean) => void;
     setHasSyncError: (val: boolean) => void;
@@ -44,6 +48,8 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
   isLoading: true,
   isMoviesLoading: true,
   hasSyncError: false,
+  ilkTurBitti: false,
+  setIlkTurBitti: (val) => a[0]({ ilkTurBitti: val }),
   setIsLoading: (val) => a[0]({ isLoading: val }),
   setIsMoviesLoading: (val) => a[0]({ isMoviesLoading: val }),
   setHasSyncError: (val) => a[0]({ hasSyncError: val }),
@@ -69,5 +75,6 @@ export const useLibraryStore = create<LibraryState>((...a) => ({
     isLoading: true,
     isMoviesLoading: true,
     hasSyncError: false,
+    ilkTurBitti: false,
   }),
 }));

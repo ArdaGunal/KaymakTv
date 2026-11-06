@@ -385,6 +385,8 @@ export const fetchFreshData = async (accessToken: string | null, force = false) 
     // 🔴 `finally` ŞART: tur hata fırlatırsa referans asılı kalır ve
     // sonraki HER çağrı ölü bir sözü beklerdi.
     suregelenTur = null;
+    // B3: kütüphane turu (ağ ya da taze önbellek) bitti; akış ve aktarım şimdi başlayabilir.
+    useLibraryStore.getState().setIlkTurBitti(true);
   }
   if (turBitti) return;
 

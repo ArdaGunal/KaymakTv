@@ -6,7 +6,7 @@
 // Veri ham kalır (`title` hep Trakt'ın adı); ad, gösterirken çözülür, dil değişince ekran doğru kalır.
 // SAF — React Native bağımlılığı yok.
 
-import { dilBilgisi, dilKodu, yerelEtiket } from '../locales/diller';
+import { dilBilgisi, dilKodu, yerelEtiket, VARSAYILAN_DIL } from '../locales/diller';
 import { ayniAlfabe, baslikEsit } from '../locales/baslikElemesi.js';
 
 export type BaslikliYapim = {
@@ -25,9 +25,16 @@ export function gorunenBaslik(oge: BaslikliYapim | null | undefined, dil: string
   return (dilBilgisi(kod).yabanciBaslik === 'ceviri' && ceviri) || ad;
 }
 
-/** Karttaki büyük harfli ad: dile duyarlı («ÇEKIÇ» değil «ÇEKİÇ»). */
+/**
+ * Karttaki büyük harfli ad. Kural ADIN diline göre: Türkçe ad Türkçe kuralla («ÇEKİÇ»), uluslararası ad
+ * varsayılan dille («CARRIE», «CARRİE» değil — gece emülatör testi 2026-11-06). Yedek metin uygulama dilinde.
+ */
 export function buyukBaslik(oge: BaslikliYapim | null | undefined, dil: string | null | undefined, yedek = ''): string {
-  return (gorunenBaslik(oge, dil) || yedek).toLocaleUpperCase(yerelEtiket(dil));
+  const ad = gorunenBaslik(oge, dil);
+  if (!ad) return yedek.toLocaleUpperCase(yerelEtiket(dil));
+  const kod = dilKodu(dil);
+  const kendiDilinde = oge?.language === kod || (ad !== oge?.title && ad === oge?.titles?.[kod]);
+  return ad.toLocaleUpperCase(yerelEtiket(kendiDilinde ? kod : VARSAYILAN_DIL));
 }
 
 /**
