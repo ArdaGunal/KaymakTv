@@ -2,6 +2,9 @@ export const generateSlug = (text: string): string => {
   if (!text) return 'unknown';
   return text
     .toString()
+    // Türkçe ı/İ ayrışmaz; ayırmazsak harf silinir (Issız → issz). Diğerleri NFD ile düşer (ç → c).
+    .replace(/ı/g, 'i')
+    .replace(/İ/g, 'I')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()

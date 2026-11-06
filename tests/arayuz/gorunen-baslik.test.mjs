@@ -77,6 +77,11 @@ const filmKart = categorizeMovies({
 });
 T.ok('Film karti: Turkce ad', filmKart.watchlist[0]?.title === 'Kış Uykusu');
 
+T.H('Adres (slug)');
+const { generateSlug, generateMediaSlug, parseMediaSlug } = tsLoader(root)('utils/slugHelper.ts');
+T.ok('Turkce harfler cevrilir, silinmez', generateSlug('Issız Adam') === 'issiz-adam' && generateSlug('Çekiç ve Gül') === 'cekic-ve-gul' && generateSlug('KÖTÜ KAN: İlk Şafak') === 'kotu-kan-ilk-safak', generateSlug('Issız Adam'));
+T.ok('Adres yine numaradan cozulur', parseMediaSlug(generateMediaSlug(58, undefined, 'Avrupa Yakası')).traktId === 58 && generateMediaSlug(58, undefined, 'Avrupa Yakası') === '58-avrupa-yakasi');
+
 T.H('Bildirim');
 const { mapCalendarToUpcoming } = tsLoader(root)('features/notifications/scheduling/mapCalendar.ts');
 const takvim = [{ first_aired: '2026-11-05T20:00:00.000Z', episode: { season: 1, number: 1, ids: { trakt: 9 } }, show: { ...cekic, ids: { trakt: 1 } } }];
