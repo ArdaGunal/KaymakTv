@@ -125,6 +125,7 @@ const TAKIMLAR = [
   { ad: 'modal-geri', grup: 'arayuz', dosya: 'arayuz/modal-geri.test.mjs', aciklama: 'C7: her Modal Android geri tusuna yanit verir (onRequestClose)' },
   { ad: 'akis-realtime', grup: 'arayuz', dosya: 'arayuz/akis-realtime.test.mjs', aciklama: 'A-4: Realtime INSERT patlamasi tek sorguda tamamlanir (toplayici)' },
   { ad: 'aktif-siralama', grup: 'arayuz', dosya: 'arayuz/aktif-siralama.test.mjs', aciklama: '2.6.8 SIRA-01: Aktif\'te once hazir olanlar, sonra son hareket (izleme / yayin)' },
+  { ad: 'sezon-isaretle', grup: 'arayuz', dosya: 'arayuz/sezon-isaretle.test.mjs', aciklama: '2.6.8 SEZON-01/02: sezon dugmesi onceki sezonlar / yalniz bu sezon, isaretleme onayi kirmizi degil' },
   { ad: 'orta-menu', grup: 'arayuz', dosya: 'arayuz/orta-menu.test.mjs', aciklama: '2.6.8 MENU-01: secim/eylem menuleri ortada (OrtaPencere), alttan kayan yalniz izinli icerik sayfalari' },
   { ad: 'kutlama', grup: 'arayuz', dosya: 'arayuz/kutlama-paneli.test.mjs', aciklama: '2.6.8 KUTLAMA-01/02: duyurulmus bolum varken panel yok, tek sade panel, TR+EN' },
   { ad: 'ara-verilenler', grup: 'arayuz', dosya: 'arayuz/ara-verilenler.test.mjs', aciklama: '2.6.5 madde 7: yeni cikan bolumu olan dizi Ara Verilenler\'e dusmez' },

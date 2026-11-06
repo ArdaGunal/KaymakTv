@@ -34,7 +34,9 @@ export default function BlockUserButton({ targetUserId }: BlockUserButtonProps) 
             'Bu kullanıcının aktivitelerini ve yorumlarını bir daha görmeyeceksin. Bu işlem Trakt hesabındaki takip durumunu ETKİLEMEZ.'
           ),
       didIBlockThem ? t('unblock', 'Engeli Kaldır') : t('block', 'Engelle'),
-      t('cancel', 'Vazgeç')
+      t('cancel', 'Vazgeç'),
+      // Kırmızı yalnız engellemede; engeli kaldırmak yıkıcı değil (2.6.8 SEZON-02).
+      { destructive: !didIBlockThem }
     );
     if (!confirmed) return;
     try {

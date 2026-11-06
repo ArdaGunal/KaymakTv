@@ -89,7 +89,9 @@ export default function BlockedUsersScreen() {
       t('unblockConfirmTitle', 'Engeli Kaldır?'),
       t('unblockConfirmMessage', 'Bu kullanıcının aktivitelerini tekrar görmeye başlayacaksın.'),
       t('unblock', 'Engeli Kaldır'),
-      t('cancel', 'Vazgeç')
+      t('cancel', 'Vazgeç'),
+      // Engeli kaldırmak yıkıcı değil — kırmızı yalnız silme/engellemede (2.6.8 SEZON-02).
+      { destructive: false }
     );
     if (!confirmed) return;
 

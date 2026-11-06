@@ -75,7 +75,7 @@ T.ok('useEpisodeActions ortak karari kullaniyor', /atlananPlan\(showProgressMap\
 const akordiyon = fs.readFileSync(path.join(KOK, 'components', 'SeasonAccordion.tsx'), 'utf8');
 T.ok('SeasonAccordion YAYINLANMIS bolum listesini geciriyor',
   /sezonBolumleri=\{yayinlanmisNumaralar\}/.test(akordiyon)
-  && /isEpisodeAired\(ep, season\.aired_episodes \|\| 0\)/.test(akordiyon));
+  && /bolumYayinlandiMi\(ep, season\.aired_episodes \|\| 0\)/.test(akordiyon)); // 2.6.8: yardimci utils/atlananBolumler'e tasindi
 T.ok('Dugme sezon evrenini hesaba geciriyor', /const evren: SezonListesi\[\] \| null = tumSezonlar/.test(dugme));
 T.ok('Elle yazilmis 1..N-1 dongusu iki dosyada da YOK',
   !/for \(let i = 1; i < (episode|eNum); i\+\+\)/.test(dugme + kanca));

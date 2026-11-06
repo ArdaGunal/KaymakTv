@@ -133,3 +133,32 @@ export const planToplami = (plan: IsaretlemePlani[]): number =>
 export const planTekBolumMu = (plan: IsaretlemePlani[], sezonNo: number, bolumNo: number): boolean =>
   plan.length === 1 && plan[0].sezon === sezonNo
   && plan[0].bolumler.length === 1 && plan[0].bolumler[0] === bolumNo;
+
+// ==========================================================================
+// SEZON DÜĞMESİ (2.6.8 SEZON-01)
+// ==========================================================================
+// Kullanıcı (2026-11-06): *«sezonu işaretle butonu var ya. önceki sezonları
+// işaretle, ve bu sezonu işaretle seçenekleri olsun.»* Kural M421 ile aynı:
+// özel sezon (0) ve yayınlanmamış bölüm plana girmez.
+
+/** Bölüm yayınlandı mı? Tarih varsa tarih, yoksa sezonun yayınlanmış bölüm sayısı. */
+export const bolumYayinlandiMi = (
+  bolum: { first_aired?: string | null; number?: number },
+  sezondaYayinlanan: number,
+  simdi: number = Date.now(),
+): boolean => (bolum?.first_aired
+  ? new Date(bolum.first_aired).getTime() <= simdi
+  : typeof bolum?.number === 'number' && bolum.number <= sezondaYayinlanan);
+
+/**
+ * SAF — bu sezondan ÖNCEKİ (1..sezonNo-1) sezonların izlenmemiş, yayınlanmış
+ * bölümleri. Özel sezon (0) için ve önceki sezon yoksa boş liste.
+ */
+export const oncekiSezonPlani = (
+  ilerleme: IlerlemeBenzeri,
+  sezonNo: number,
+  sezonListeleri?: SezonListesi[] | null,
+): IsaretlemePlani[] => (sezonNo > 1
+  // bolumNo = 0 → seçilen sezondan hiçbir bölüm girmez; yalnız öncekiler kalır.
+  ? atlananPlan(ilerleme, sezonNo, 0, sezonListeleri).filter((p) => p.sezon < sezonNo)
+  : []);

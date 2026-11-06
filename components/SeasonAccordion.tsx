@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
@@ -7,13 +7,8 @@ import { yerelEtiket } from '../locales/diller';
 import { generateEpisodeSlug } from '../utils/slugHelper';
 import EpisodeCheckButton from './EpisodeCheckButton';
 import OrtaPencere from './modals/OrtaPencere';
-import { useLibraryActions } from '../context/LibraryContext';
-import { useAuth } from '../context/AuthContext';
-import { confirmAsync, notify } from '../utils/confirmDialog';
-
-// Bir bölümün yayınlanıp yayınlanmadığını belirler (satırlardaki rozetle aynı mantık).
-const isEpisodeAired = (ep: any, airedEpisodesCount: number) =>
-  ep.first_aired ? new Date(ep.first_aired) <= new Date() : ep.number <= airedEpisodesCount;
+import { useSezonIsaretleme } from '../hooks/useSezonIsaretleme';
+import { bolumYayinlandiMi } from '../utils/atlananBolumler';
 
 interface SeasonAccordionProps {
   season: any;
@@ -57,14 +52,6 @@ export default function SeasonAccordion({
 }: SeasonAccordionProps) {
   const { t, i18n } = useTranslation(['media', 'common']);
   const router = useRouter();
-  // Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" seçimi — 3 seçenekli
-  // olduğundan (Vazgeç dahil) tek bir window.confirm'e sığmaz, bu yüzden native bir
-  // pencere kullanılıyor — ekranın ortasında (`OrtaPencere`, EpisodeOptionsModal ile aynı).
-  const [seasonMenuVisible, setSeasonMenuVisible] = useState(false);
-  // Abonesiz aksiyon hook'u — store değişimleri bu bileşeni yeniden render etmez.
-  const { markSeasonAsWatched, markEpisodesUpToAsWatched, unwatchSeason, rewatchSeason } = useLibraryActions();
-  const { isGuest } = useAuth();
-
   // "completed > 0" yalnızca TEK bölüm izlenmişken bile sezonu "izlendi" (yeşil
   // tik) gösteriyordu — bu hem yanıltıcıydı hem de o durumda tek seçenek olarak
   // "tüm sezonu geri al"ı sunuyordu. Artık yeşil tik (ve geri al/tekrar izle
@@ -79,7 +66,7 @@ export default function SeasonAccordion({
   // yeni eklenen dizide o kayıt ilk işaretlemeden 2-3 sn SONRA geliyor.
   const yayinlanmisNumaralar = useMemo(
     () => (season.episodes || [])
-      .filter((ep: any) => isEpisodeAired(ep, season.aired_episodes || 0))
+      .filter((ep: any) => bolumYayinlandiMi(ep, season.aired_episodes || 0))
       .map((ep: any) => ep.number)
       .filter((n: any) => typeof n === 'number'),
     [season.episodes, season.aired_episodes],
@@ -89,88 +76,10 @@ export default function SeasonAccordion({
     ? t('specials', 'Özel Bölümler')
     : t('seasonNum', { number: season.number });
 
-  // 🔴 M421 (denetim F) — DÖNEN SİMGE YOK: iyimser durum zaten doğru, simge
-  // onu ağ turu bitene kadar gizliyordu (M413/M416/M417/M420 ile aynı ders).
-  // Çift basış görünmez kilitle engelleniyor.
-  const seasonBusyRef = useRef(false);
-  const runSeasonAction = async (action: () => Promise<any>) => {
-    if (seasonBusyRef.current) return;
-    seasonBusyRef.current = true;
-    try {
-      await action();
-    } catch (e) {
-      console.error(e);
-      notify(t('common:error'), t('seasonMarkError', 'Sezon işaretlenirken bir hata oluştu.'));
-    } finally {
-      seasonBusyRef.current = false;
-    }
-  };
-
-  const handleRewatchFromMenu = () => {
-    setSeasonMenuVisible(false);
-    runSeasonAction(() => rewatchSeason(showTraktId, season.number));
-  };
-
-  const handleUnwatchFromMenu = async () => {
-    setSeasonMenuVisible(false);
-    const confirmed = await confirmAsync(
-      t('unwatchSeasonTitle'),
-      t('unwatchSeasonMsg', { season: seasonLabel }),
-      t('common:delete', 'Geri Al'),
-      t('common:cancel', 'Vazgeç')
-    );
-    if (!confirmed) return;
-    runSeasonAction(() => unwatchSeason(showTraktId, season.number));
-  };
-
-  // Yanlışlıkla basmaya çok müsait bir buton: her iki yön de (işaretle / geri al)
-  // artık onay istiyor ve yayınlanmamış bölümler asla işaretlenmiyor.
-  const handleMarkSeason = async () => {
-    if (seasonBusyRef.current) return;
-
-    if (isGuest) {
-      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-
-    // Sezon tamamen izlenmişse: tekrar izle (Trakt'a yeni bir "play" ekler) ya
-    // da geçmişi tamamen sil (yıkıcı). Her iki seçenek de kendi onayını alır —
-    // menü kendisi (Vazgeç dahil 3 seçenek) aşağıdaki bottom-sheet'te.
-    if (isSeasonWatched) {
-      setSeasonMenuVisible(true);
-      return;
-    }
-
-    // İşaretleme: sadece yayınlanmış bölümler hesaba katılır
-    const episodes: any[] = season.episodes || [];
-    const airedCount = season.aired_episodes || 0;
-    const airedEps = episodes.filter((ep) => isEpisodeAired(ep, airedCount));
-    const unairedCount = episodes.length - airedEps.length;
-
-    if (airedEps.length === 0) {
-      notify(t('seasonNotAiredTitle'), t('seasonNotAiredMsg', { season: seasonLabel }));
-      return;
-    }
-
-    const message = unairedCount > 0
-      ? t('markSeasonPartialMsg', { count: airedEps.length, unaired: unairedCount })
-      : t('markSeasonMsg', { season: seasonLabel, count: airedEps.length });
-
-    const confirmed = await confirmAsync(
-      t('markSeasonTitle'),
-      message,
-      t('markAsWatched'),
-      t('common:cancel', 'Vazgeç')
-    );
-    if (!confirmed) return;
-
-    runSeasonAction(() =>
-      unairedCount > 0
-        // Yayınlanmamış bölüm varsa tüm sezon yerine sadece yayınlanmışlar gönderilir
-        ? markEpisodesUpToAsWatched(showTraktId, season.number, airedEps.map((ep) => ep.number), showMedia, iskeletSezonlar)
-        : markSeasonAsWatched(showTraktId, season.number, showMedia, iskeletSezonlar)
-    );
-  };
+  // Düğme, menü ve onayların mantığı hook'ta (2.6.8 SEZON-01).
+  const sezon = useSezonIsaretleme({
+    season, showTraktId, seasonLabel, isSeasonWatched, tumSezonlar, showMedia, iskeletSezonlar,
+  });
 
   return (
     <View style={styles.seasonContainer}>
@@ -184,7 +93,7 @@ export default function SeasonAccordion({
         </Text>
         <View style={styles.seasonHeaderRight}>
            <TouchableOpacity
-              onPress={handleMarkSeason}
+              onPress={sezon.sezonDugmesi}
               style={[styles.markSeasonBtn, isSeasonWatched && styles.markSeasonBtnWatched]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
            >
@@ -198,7 +107,7 @@ export default function SeasonAccordion({
         <View style={styles.episodesList}>
           {season.episodes.map((ep: any) => {
              const isWatchedLocal = ep.isWatchedLocal;
-             const isAired = isEpisodeAired(ep, season.aired_episodes || 0);
+             const isAired = bolumYayinlandiMi(ep, season.aired_episodes || 0);
              const isActive = activeEpisodeNumber != null && ep.number === activeEpisodeNumber;
 
              return (
@@ -260,18 +169,27 @@ export default function SeasonAccordion({
       {/* Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" menüsü —
           window.confirm en fazla 2 seçenek sunabildiği için kendi penceremiz;
           ekranın ortasında (MENU-01, `OrtaPencere`), web ve mobilde aynı. */}
-      <OrtaPencere visible={seasonMenuVisible} onClose={() => setSeasonMenuVisible(false)}>
+      <OrtaPencere visible={sezon.menuGorunur} onClose={sezon.menuyuKapat}>
         <View style={styles.menuHeader}>
           <Text style={styles.menuTitle}>{t('seasonOptionsTitle')}</Text>
           <Text style={styles.menuSubtitle}>{t('seasonOptionsMsg', { season: seasonLabel })}</Text>
         </View>
 
-        <TouchableOpacity style={styles.menuButton} onPress={handleRewatchFromMenu}>
+        <TouchableOpacity style={styles.menuButton} onPress={sezon.tekrarIzle}>
           <RotateCcw size={20} color="#3b82f6" />
           <Text style={[styles.menuButtonText, { color: '#3b82f6' }]}>{t('rewatch')}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.menuButton, { borderBottomWidth: 0 }]} onPress={handleUnwatchFromMenu}>
+        {sezon.menuOncekiSayisi > 0 && (
+          <TouchableOpacity style={styles.menuButton} onPress={sezon.oncekileriIsaretle}>
+            <CheckCheck size={20} color="#10b981" />
+            <Text style={[styles.menuButtonText, { color: '#10b981' }]}>
+              {t('markPrevSeasons', { count: sezon.menuOncekiSayisi })}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={[styles.menuButton, { borderBottomWidth: 0 }]} onPress={sezon.sezonuGeriAl}>
           <Trash2 size={20} color="#ef4444" />
           <Text style={[styles.menuButtonText, { color: '#ef4444' }]}>{t('unwatchSeasonTitle')}</Text>
         </TouchableOpacity>

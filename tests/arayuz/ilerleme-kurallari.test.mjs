@@ -131,7 +131,12 @@ T.ok('Dugme iskeleti IKI mutasyona da geciriyor',
   /planiIsaretle\(traktId, plan, showMedia, iskeletSezonlar\)/.test(dugme)
   && /markEpisodeAsWatched\(traktId, season, episode, showMedia, iskeletSezonlar\)/.test(dugme));
 const akordiyon = oku('components', 'SeasonAccordion.tsx');
-T.ok('Sezon isaretleme de iskeleti geciriyor', /showMedia, iskeletSezonlar\)/.test(akordiyon));
+// 2.6.8 SEZON-01: sezon isaretleme mantigi hooks/useSezonIsaretleme.ts'e tasindi.
+const sezonKancasi = oku('hooks', 'useSezonIsaretleme.ts');
+T.ok('Sezon isaretleme de iskeleti geciriyor',
+  /useSezonIsaretleme\(\{[\s\S]*?iskeletSezonlar[\s\S]*?\}\)/.test(akordiyon)
+  && /markSeasonAsWatched\(showTraktId, season\.number, showMedia, iskeletSezonlar\)/.test(sezonKancasi)
+  && /planiIsaretle\(showTraktId, plan, showMedia, iskeletSezonlar\)/.test(sezonKancasi));
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('🔴 WEB yolu da ayni verileri aliyor (M425)');
