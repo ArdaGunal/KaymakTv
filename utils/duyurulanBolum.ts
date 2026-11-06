@@ -19,25 +19,35 @@ interface Kaynaklar {
   calendarSeasonsMap?: Record<string, any> | null;
 }
 
-const gelecekte = (raw: unknown, now: number) => {
+const gelecekAn = (raw: unknown, now: number): number | null => {
   const t = raw ? new Date(raw as string).getTime() : NaN;
-  return Number.isFinite(t) && t > now;
+  return Number.isFinite(t) && t > now ? t : null;
 };
 
-export function duyurulmusBolumVarMi(
+/**
+ * Dizinin duyurulmuş (gelecek tarihli) EN YAKIN bölümünün yayın anı (ms) ya da `null`.
+ * BITIS-01: «Yeni bölüm X gün sonra» bu tarihten yazılır.
+ */
+export function duyurulanBolumAni(
   showId: number,
   { progress, calendarShows, calendarSeasonsMap }: Kaynaklar,
   now: number = Date.now(),
-): boolean {
-  // Trakt biçimi (emniyet turu): sıradaki bölüm tarihiyle gelir.
-  if (gelecekte(progress?.next_episode?.first_aired, now)) return true;
+): number | null {
+  const adaylar: Array<number | null> = [gelecekAn(progress?.next_episode?.first_aired, now)];
   // Kaymak biçimi: her bölüm `first_aired` taşır; özel sezon (0) sayılmaz.
   for (const sezon of progress?.seasons || []) {
     if (!sezon || sezon.number === 0) continue;
-    if ((sezon.episodes || []).some((b: any) => !b?.completed && gelecekte(b?.first_aired, now))) return true;
+    for (const b of sezon.episodes || []) if (!b?.completed) adaylar.push(gelecekAn(b?.first_aired, now));
   }
-  if ((calendarShows || []).some((k: any) => k?.show?.ids?.trakt === showId && gelecekte(k?.first_aired, now))) return true;
+  for (const k of calendarShows || []) if (k?.show?.ids?.trakt === showId) adaylar.push(gelecekAn(k?.first_aired, now));
   const sezonlar = calendarSeasonsMap?.[showId]?.data;
-  return Array.isArray(sezonlar)
-    && sezonlar.some((s: any) => (s?.episodes || []).some((b: any) => gelecekte(b?.first_aired, now)));
+  if (Array.isArray(sezonlar)) {
+    for (const s of sezonlar) for (const b of s?.episodes || []) adaylar.push(gelecekAn(b?.first_aired, now));
+  }
+  const gecerli = adaylar.filter((a): a is number => a !== null);
+  return gecerli.length ? Math.min(...gecerli) : null;
+}
+
+export function duyurulmusBolumVarMi(showId: number, kaynaklar: Kaynaklar, now: number = Date.now()): boolean {
+  return duyurulanBolumAni(showId, kaynaklar, now) !== null;
 }

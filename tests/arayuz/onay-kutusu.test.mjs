@@ -35,7 +35,7 @@ const layout = oku('app/_layout.tsx');
 T.ok('ConfirmHost kokte, VersionGate DISINDA bagli', /<\/VersionGate>\s*<ConfirmHost \/>/.test(layout));
 const modal = oku('components/ConfirmModal.tsx');
 T.ok('Geri tusu ve disari dokunma onDismiss (eylem dugmesi degil)', /onRequestClose=\{onDismiss\}/.test(modal) && /<TouchableWithoutFeedback onPress=\{onDismiss\}>/.test(modal));
-T.ok('cancelLabel yoksa tek dugme (notify)', /\{cancelLabel \? \(/.test(modal));
+T.ok('cancelLabel yoksa tek dugme (notify)', /const ikincilDugme = cancelLabel \? \(/.test(modal));
 const dugme = oku('components/EpisodeCheckButton.tsx');
 const kanca = oku('hooks/useEpisodeActions.ts');
 T.ok('Atlanan bolum sorusu chooseAsync; vazgecme hicbir sey isaretlemez (dugme)',

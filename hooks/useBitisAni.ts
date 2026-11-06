@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useLibraryActions } from '../context/LibraryContext';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useBitisAniStore, type BitisTuru } from '../store/bitisAniStore';
-import { diziBitisOzeti, filmBitisOzeti, sureParcalari } from '../utils/bitisOzeti';
+import { diziBitisOzeti, filmBitisOzeti, kalanGun, sureParcalari } from '../utils/bitisOzeti';
 import { notify } from '../utils/confirmDialog';
 
 /**
@@ -26,6 +26,8 @@ export function useBitisAni(tur: BitisTuru, id: number, ad: string, film?: any) 
   const filmSuresi = useLibraryStore((s) => (tur === 'movie'
     ? s.watchedMovies.find((w: any) => w?.movie?.ids?.trakt === id)?.movie?.runtime ?? null
     : null));
+  // Dizi bitmedi: yayınlananlar bitti, duyurulmuş bölüm var (EpisodeCheckButton yazar).
+  const sonraki = useBitisAniStore((s) => s.kayitlar[`${tur}:${id}`]?.sonraki ?? null);
   const puan: number | null = useLibraryStore((s) => (tur === 'show'
     ? s.userRatingsShows?.find((r: any) => r?.show?.ids?.trakt === id)?.rating
     : s.userRatingsMovies?.find((r: any) => r?.movie?.ids?.trakt === id)?.rating) ?? null);
@@ -67,9 +69,21 @@ export function useBitisAni(tur: BitisTuru, id: number, ad: string, film?: any) 
     }
   };
 
+  if (sonraki) {
+    // Kullanıcı (2026-11-07): «yeni bölüm x gün sonra yazsak çok daha iyi durur».
+    const gun = kalanGun(sonraki);
+    return {
+      baslik: gun === 0 ? t('bitisYeniBolumBugun') : gun === 1 ? t('bitisYeniBolumYarin') : t('bitisYeniBolumGun', { count: gun }),
+      ozetMetni: t('bitisGuncel'),
+      puanGoster: false,
+      puan, puanAcik, puanlaAc, puanKapat, puanVer,
+    };
+  }
+
   return {
     baslik: t(tur === 'show' ? 'bitisDizi' : 'bitisFilm'),
     ozetMetni,
+    puanGoster: true,
     puan,
     puanAcik,
     puanlaAc,

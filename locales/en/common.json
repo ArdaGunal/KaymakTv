@@ -233,5 +233,6 @@
   "kisaLinkYok": "No profile found with this number.",
   "kisaLinkGorulemez": "This profile can't be viewed.",
   "kisaLinkHata": "Couldn't open the profile. Please try again shortly.",
-  "kisaLinkAnaSayfa": "Back to Feed"
+  "kisaLinkAnaSayfa": "Back to Feed",
+  "vazgec": "Cancel"
 }

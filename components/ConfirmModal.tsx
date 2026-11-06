@@ -30,6 +30,8 @@ interface ConfirmModalProps {
   cancelLabel?: string;
   /** Onay düğmesi kırmızı çizilir (silme gibi geri alınamaz işlemler). */
   destructive?: boolean;
+  /** Seçim kutusu: üçüncü «Vazgeç» düğmesi (`onDismiss`); düğmeler alt alta dizilir. */
+  dismissLabel?: string;
   /** Başlığın üstünde gösterilecek ikon — çağıran verir (ikon bütçesi). */
   icon?: React.ReactNode;
   onConfirm: () => void;
@@ -46,6 +48,7 @@ export default function ConfirmModal({
   confirmLabel,
   cancelLabel,
   destructive = false,
+  dismissLabel,
   icon,
   onConfirm,
   onCancel,
@@ -59,6 +62,29 @@ export default function ConfirmModal({
   // Erken `return null` mount'u yapısal olarak keser — `visible` prop'u yine
   // veriliyor ki native tarafta animasyon/geri-tuşu davranışı bozulmasın.
   if (!visible) return null;
+
+  // Üç düğmede (seçim kutusu) alt alta, birincil eylem en üstte; ikide yan yana.
+  const altAlta = !!dismissLabel;
+  const onayDugmesi = (
+    <TouchableOpacity
+      style={[styles.button, altAlta && styles.buttonStacked, destructive ? styles.destructiveButton : styles.confirmButton]}
+      onPress={onConfirm}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+    >
+      <Text style={styles.confirmText}>{confirmLabel}</Text>
+    </TouchableOpacity>
+  );
+  const ikincilDugme = cancelLabel ? (
+    <TouchableOpacity
+      style={[styles.button, altAlta && styles.buttonStacked, styles.cancelButton]}
+      onPress={onCancel}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+    >
+      <Text style={styles.cancelText}>{cancelLabel}</Text>
+    </TouchableOpacity>
+  ) : null;
 
   return (
     <Modal
@@ -80,27 +106,20 @@ export default function ConfirmModal({
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.message}>{message}</Text>
 
-              <View style={styles.actions}>
-                {cancelLabel ? (
-                  <TouchableOpacity
-                    style={[styles.button, styles.cancelButton]}
-                    onPress={onCancel}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.cancelText}>{cancelLabel}</Text>
+              {altAlta ? (
+                <View style={styles.actionsStacked}>
+                  {onayDugmesi}
+                  {ikincilDugme}
+                  <TouchableOpacity style={styles.dismissButton} onPress={onDismiss} activeOpacity={0.7} accessibilityRole="button">
+                    <Text style={styles.dismissText}>{dismissLabel}</Text>
                   </TouchableOpacity>
-                ) : null}
-
-                <TouchableOpacity
-                  style={[styles.button, destructive ? styles.destructiveButton : styles.confirmButton]}
-                  onPress={onConfirm}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.confirmText}>{confirmLabel}</Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              ) : (
+                <View style={styles.actions}>
+                  {ikincilDugme}
+                  {onayDugmesi}
+                </View>
+              )}
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -153,20 +172,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  actionsStacked: {
+    gap: 10,
+  },
   button: {
     flex: 1,
     paddingVertical: 12,
+    // Uzun etiket («Öncekileri de İşaretle») iki satıra inince kenara yapışmasın.
+    paddingHorizontal: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonStacked: {
+    flex: 0,
+    paddingVertical: 13,
+  },
+  dismissButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dismissText: { color: '#94a3b8', fontSize: 14, fontWeight: '600', textAlign: 'center' },
   cancelButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
-  cancelText: { color: '#cbd5e1', fontSize: 14, fontWeight: '700' },
+  cancelText: { color: '#cbd5e1', fontSize: 14, fontWeight: '700', textAlign: 'center' },
   confirmButton: { backgroundColor: '#2563eb' },
   destructiveButton: { backgroundColor: '#dc2626' },
-  confirmText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
+  confirmText: { color: '#ffffff', fontSize: 14, fontWeight: '800', textAlign: 'center' },
 });

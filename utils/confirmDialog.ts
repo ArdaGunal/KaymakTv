@@ -53,8 +53,9 @@ export const confirmAsync = async (
 
 /**
  * İki EYLEM arasında seçim (ör. «Öncekileri de İşaretle» / «Yalnızca Bu Bölüm»).
- * `confirmAsync`'ten farkı: ikincil düğme vazgeçme değil bir eylemdir; dışarı dokunma
- * ve geri tuşu `null` döner → çağıran HİÇBİR ŞEY yapmaz.
+ * `confirmAsync`'ten farkı: ikincil düğme vazgeçme değil bir eylemdir; dışarı dokunma,
+ * geri tuşu ve üçüncü «Vazgeç» düğmesi `null` döner → çağıran HİÇBİR ŞEY yapmaz.
+ * Kullanıcı (2026-11-07): «vazgeç butonu da koy orada» — düğmeler alt alta.
  */
 export const chooseAsync = async (
   title: string,
@@ -82,6 +83,7 @@ export const chooseAsync = async (
     confirmLabel: primaryLabel,
     cancelLabel: secondaryLabel,
     destructive: false,
+    vazgec: true,
   });
   return r === 'confirm' ? 'primary' : r === 'cancel' ? 'secondary' : null;
 };

@@ -7,7 +7,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { atlananPlan, planToplami, planTekBolumMu, SezonListesi, IsaretlemePlani } from '../utils/atlananBolumler';
-import { duyurulmusBolumVarMi } from '../utils/duyurulanBolum';
+import { duyurulanBolumAni } from '../utils/duyurulanBolum';
 import { useBitisAniStore } from '../store/bitisAniStore';
 
 interface EpisodeCheckButtonProps {
@@ -98,11 +98,16 @@ export default function EpisodeCheckButton({
         // bölümü gösterir, bkz. `utils/duyurulanBolum.ts`).
         // 2.6.8 BITIS-01: pencere yok — kart listede yerinde mavi «bitti» olur
         // (`store/bitisAniStore.ts`); eskiden ekran ekran geri çağrı + panel vardı.
-        const { calendarShows, calendarSeasonsMap } = useLibraryStore.getState();
-        if (newProgress && !newProgress.next_episode && !newProgress.catalogIncomplete
-          && !duyurulmusBolumVarMi(traktId, { progress: newProgress, calendarShows, calendarSeasonsMap })) {
-          setIsFinishedLocal(true);
-          useBitisAniStore.getState().bitir('show', traktId);
+        // Duyurulmuş bölüm varsa aynı an «Yeni bölüm X gün sonra» der (kilit yok).
+        if (newProgress && !newProgress.next_episode && !newProgress.catalogIncomplete) {
+          const { calendarShows, calendarSeasonsMap } = useLibraryStore.getState();
+          const sonraki = duyurulanBolumAni(traktId, { progress: newProgress, calendarShows, calendarSeasonsMap });
+          if (sonraki === null) {
+            setIsFinishedLocal(true);
+            useBitisAniStore.getState().bitir('show', traktId);
+          } else {
+            useBitisAniStore.getState().bitir('show', traktId, { sonraki });
+          }
         }
       })
       .catch((error) => {

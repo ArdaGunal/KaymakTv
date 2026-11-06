@@ -51,6 +51,11 @@ export function filmBitisOzeti(film: any): BitisOzeti {
   return { bolum: null, dakika: dk > 0 ? Math.round(dk) : null, gun: null };
 }
 
+/** Yayına kaç takvim günü var (bugün 0, yarın 1). */
+export function kalanGun(yayinMs: number, simdi: number = Date.now()): number {
+  return Math.max(0, Math.round((gunBasi(yayinMs) - gunBasi(simdi)) / GUN_MS));
+}
+
 /** Süre parçaları: 45 → {sa:0, dk:45}; 555 → {sa:9, dk:15}; 10 saatten sonra dakika atılır. */
 export function sureParcalari(dakika: number): { sa: number; dk: number } {
   const sa = Math.floor(dakika / 60);

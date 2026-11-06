@@ -33,7 +33,10 @@ interface Props {
   yerlesim?: 'satir' | 'afis';
 }
 
-/** Kart yerinde «bitti» görünümü: başlık, kısa özet, «Puanla». Yalnız çizer. */
+/**
+ * Kart yerinde «bitti» görünümü: başlık, kısa özet, «Puanla». Yalnız çizer.
+ * Duyurulmuş bölümü olan dizide aynı an «Yeni bölüm X gün sonra» der (puan yok).
+ */
 export default function BitisIcerigi({ tur, id, ad, film, yerlesim = 'satir' }: Props) {
   const { t } = useTranslation('common');
   const b = useBitisAni(tur, id, ad, film);
@@ -48,10 +51,12 @@ export default function BitisIcerigi({ tur, id, ad, film, yerlesim = 'satir' }: 
         <Text style={styles.baslik} numberOfLines={1}>{b.baslik}</Text>
       </View>
       {!!b.ozetMetni && <Text style={styles.ozet} numberOfLines={2}>{b.ozetMetni}</Text>}
-      <TouchableOpacity style={styles.puanDugmesi} onPress={b.puanlaAc} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Star size={13} color={BITIS_RENK.metin} fill={b.puan ? BITIS_RENK.metin : 'transparent'} />
-        <Text style={styles.puanMetni}>{b.puan ? `${formatRating(b.puan)}/5` : t('rate')}</Text>
-      </TouchableOpacity>
+      {b.puanGoster && (
+        <TouchableOpacity style={styles.puanDugmesi} onPress={b.puanlaAc} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Star size={13} color={BITIS_RENK.metin} fill={b.puan ? BITIS_RENK.metin : 'transparent'} />
+          <Text style={styles.puanMetni}>{b.puan ? `${formatRating(b.puan)}/5` : t('rate')}</Text>
+        </TouchableOpacity>
+      )}
       <RatingModal
         visible={b.puanAcik}
         onClose={b.puanKapat}

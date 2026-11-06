@@ -25,6 +25,8 @@ export interface DialogRequest {
   /** Yoksa tek düğmeli bilgi kutusu. */
   cancelLabel?: string;
   destructive: boolean;
+  /** Seçim kutusu (`chooseAsync`): üçüncü «Vazgeç» düğmesi → `dismiss`. */
+  vazgec?: boolean;
   resolve: (r: DialogResult) => void;
 }
 

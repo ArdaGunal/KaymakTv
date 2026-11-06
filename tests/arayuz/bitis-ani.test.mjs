@@ -162,9 +162,11 @@ T.ok('birak (yazim hatasi): aninda, animasyonsuz, zamanlayici temiz', !s().kayit
 
 T.H('BITIS-01 baglanti: pencere yok, tek yol');
 const dugme = oku('components/EpisodeCheckButton.tsx');
-T.ok('bitis karari duyurulmus bolumu soruyor', /!duyurulmusBolumVarMi\(traktId, \{ progress: newProgress, calendarShows, calendarSeasonsMap \}\)/.test(dugme));
-T.ok('kilit ve bitis ani AYNI kararin icinde',
-  /duyurulmusBolumVarMi[\s\S]{0,200}setIsFinishedLocal\(true\)[\s\S]{0,80}useBitisAniStore\.getState\(\)\.bitir\('show', traktId\)/.test(dugme));
+T.ok('bitis karari duyurulmus bolumu soruyor', /const sonraki = duyurulanBolumAni\(traktId, \{ progress: newProgress, calendarShows, calendarSeasonsMap \}\)/.test(dugme));
+T.ok('duyurulmus bolum YOKSA kilit + «bitti»',
+  /if \(sonraki === null\) \{\s*setIsFinishedLocal\(true\);\s*useBitisAniStore\.getState\(\)\.bitir\('show', traktId\);/.test(dugme));
+T.ok('duyurulmus bolum VARSA kilit YOK, «Yeni bolum» ani (sonraki tarihiyle)',
+  /\} else \{\s*useBitisAniStore\.getState\(\)\.bitir\('show', traktId, \{ sonraki \}\);/.test(dugme));
 const filmKanca = oku('hooks/useFilmIzle.ts');
 T.ok('film: bitis ani yazimdan ONCE, yazim gecikmesiz, hata -> birak + uyari',
   /bitir\('movie', id\);[\s\S]*await markMovieAsWatched/.test(filmKanca) && !/setTimeout/.test(filmKanca) && /birak\('movie', id\);\s*notify\(/.test(filmKanca));
@@ -195,6 +197,35 @@ T.ok('konfeti paketi bagimliliklardan cikti', !/react-native-confetti-cannon/.te
 // film kaydinda (/library/sync, yazimdan ~3 sn sonra). Ozet ikisine de bakar.
 T.ok('film suresi izlenen film kaydindan da okunur', /s\.watchedMovies\.find\([\s\S]{0,80}movie\?\.runtime/.test(oku('hooks/useBitisAni.ts'))
   && /filmBitisOzeti\(\{ runtime: filmSuresi \?\? film\?\.runtime \}\)/.test(oku('hooks/useBitisAni.ts')));
+
+T.H('BITIS-01b (2026-11-07): kisa an + «Yeni bolum X gun sonra»');
+const { duyurulanBolumAni } = tsLoader(KOK)('utils/duyurulanBolum.ts');
+const { kalanGun } = tsLoader(KOK)('utils/bitisOzeti.ts');
+T.ok('en yakin duyurulmus bolum: ilerleme + takvim icinden en erken', duyurulanBolumAni(7, {
+  progress: haftalik, calendarShows: [{ show: { ids: { trakt: 7 } }, first_aired: sonra(3) }] }, now) === Date.parse(sonra(3)));
+T.ok('duyurulmus yoksa null', duyurulanBolumAni(7, { progress: bitmis }, now) === null);
+const ogleAn = (g) => new Date(2026, 10, 7 + g, 12).getTime();
+T.ok('kalan gun: bugun 0, yarin 1, 6 gun; gecmis 0', kalanGun(ogleAn(0) + 3600000, ogleAn(0)) === 0 && kalanGun(ogleAn(1), ogleAn(0)) === 1
+  && kalanGun(ogleAn(6), ogleAn(0)) === 6 && kalanGun(ogleAn(-2), ogleAn(0)) === 0);
+T.ok('an kisa: 2 sn (kullanici «1 2 sn kalsa yeter»)', depo.BITIS_TUTMA_MS === 2000 && depo.PUAN_SONRASI_MS <= 1500);
+s().bitir('show', 9, { sonraki: 12345 });
+T.ok('depo «sonraki» tarihini tasir', s().kayitlar['show:9'].sonraki === 12345);
+s().birak('show', 9);
+const kanca = oku('hooks/useBitisAni.ts');
+T.ok('kanca: sonraki varsa baslik «Yeni bolum», Puanla gizli',
+  /if \(sonraki\) \{[\s\S]{0,400}bitisYeniBolumGun[\s\S]{0,200}puanGoster: false/.test(kanca) && /\{b\.puanGoster && \(/.test(oku('components/tracking/BitisIcerigi.tsx')));
+const trM = JSON.parse(oku('locales/tr/media.json'));
+const enM = JSON.parse(oku('locales/en/media.json'));
+T.ok('«Yeni bolum» metinleri TR + EN', /\{\{count\}\}/.test(trM.bitisYeniBolumGun) && /\{\{count\}\}/.test(enM.bitisYeniBolumGun_other)
+  && ['bitisYeniBolumYarin', 'bitisYeniBolumBugun', 'bitisGuncel'].every((x) => trM[x] && enM[x]));
+
+T.H('Secim kutusu (2026-11-07): Vazgec + alt alta, etiket kenara yapismaz');
+const kutu = oku('components/ConfirmModal.tsx');
+T.ok('chooseAsync uc dugmeli (vazgec: true), Vazgec -> null', /vazgec: true/.test(oku('utils/confirmDialog.ts'))
+  && /dismissLabel=\{bas\.vazgec \? t\('vazgec', 'Vazgeç'\) : undefined\}/.test(oku('components/ConfirmHost.tsx')));
+T.ok('uc dugmede alt alta: birincil, ikincil, Vazgec (onDismiss)', /altAlta \? \([\s\S]{0,120}\{onayDugmesi\}\s*\{ikincilDugme\}[\s\S]{0,120}onPress=\{onDismiss\}/.test(kutu));
+T.ok('dugmelerde yatay dolgu + ortali metin', /paddingHorizontal: 12/.test(kutu) && (kutu.match(/textAlign: 'center'/g) || []).length >= 3);
+T.ok('«Vazgec» TR + EN (common)', JSON.parse(oku('locales/tr/common.json')).vazgec === 'Vazgeç' && !!JSON.parse(oku('locales/en/common.json')).vazgec);
 
 T.H('BITIS-01 renk: sakin mavi, yesil degil, neon degil');
 const icerik = oku('components/tracking/BitisIcerigi.tsx');

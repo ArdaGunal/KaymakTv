@@ -349,5 +349,10 @@
   "bitisGun_other": "in {{count}} days",
   "bitisSaat": "{{sa}}h",
   "bitisSaatDakika": "{{sa}}h {{dk}}m",
-  "bitisDakika": "{{dk}}m"
+  "bitisDakika": "{{dk}}m",
+  "bitisYeniBolumGun_one": "New episode in {{count}} day",
+  "bitisYeniBolumGun_other": "New episode in {{count}} days",
+  "bitisYeniBolumYarin": "New episode tomorrow",
+  "bitisYeniBolumBugun": "New episode today",
+  "bitisGuncel": "You're all caught up"
 }

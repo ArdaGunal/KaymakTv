@@ -25,6 +25,7 @@ export default function ConfirmHost() {
       confirmLabel={bas.confirmLabel || t('ok', 'Tamam')}
       cancelLabel={bas.cancelLabel}
       destructive={bas.destructive}
+      dismissLabel={bas.vazgec ? t('vazgec', 'Vazgeç') : undefined}
       onConfirm={() => settle(bas.id, 'confirm')}
       onCancel={() => settle(bas.id, 'cancel')}
       onDismiss={() => settle(bas.id, 'dismiss')}

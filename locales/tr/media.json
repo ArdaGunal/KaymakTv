@@ -347,5 +347,9 @@
   "bitisGun": "{{count}} günde",
   "bitisSaat": "{{sa}} sa",
   "bitisSaatDakika": "{{sa}} sa {{dk}} dk",
-  "bitisDakika": "{{dk}} dk"
+  "bitisDakika": "{{dk}} dk",
+  "bitisYeniBolumGun": "Yeni bölüm {{count}} gün sonra",
+  "bitisYeniBolumYarin": "Yeni bölüm yarın",
+  "bitisYeniBolumBugun": "Yeni bölüm bugün",
+  "bitisGuncel": "Yayınlanan tüm bölümleri izledin"
 }

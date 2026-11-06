@@ -20,12 +20,14 @@ export interface BitisKaydi {
   /** Film: iyimser yazımla listeden düşen ham izleme listesi kaydı ve sırası. */
   ham?: any;
   sira?: number;
+  /** Dizi bitmedi, yayınlananlar bitti: duyurulmuş en yakın bölümün yayın anı (ms). */
+  sonraki?: number;
 }
 
-/** Okumaya ve «Puanla»ya yetecek, beklemeyi hissettirmeyecek kadar. */
-export const BITIS_TUTMA_MS = 8000;
+/** Kullanıcı (2026-11-07): «1 2 sn kalsa yeter, çok uzun kalmasın» — «bitti» okunur, kart geçer. */
+export const BITIS_TUTMA_MS = 2000;
 /** Puan verildikten / pencere kapandıktan sonra kartın kalma süresi. */
-export const PUAN_SONRASI_MS = 1500;
+export const PUAN_SONRASI_MS = 1200;
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -44,7 +46,7 @@ const zamanlayicilar = new Map<string, ReturnType<typeof setTimeout>>();
 
 interface BitisAniDurumu {
   kayitlar: Record<string, BitisKaydi>;
-  bitir: (tur: BitisTuru, id: number) => void;
+  bitir: (tur: BitisTuru, id: number, ek?: { sonraki?: number }) => void;
   duraklat: (tur: BitisTuru, id: number) => void;
   devam: (tur: BitisTuru, id: number, ms?: number) => void;
   birak: (tur: BitisTuru, id: number) => void;
@@ -66,9 +68,9 @@ export const useBitisAniStore = create<BitisAniDurumu>((set, get) => {
 
   return {
     kayitlar: {},
-    bitir: (tur, id) => {
+    bitir: (tur, id, ek) => {
       const k = anahtar(tur, id);
-      const kayit: BitisKaydi = { bitis: Date.now() + BITIS_TUTMA_MS };
+      const kayit: BitisKaydi = { bitis: Date.now() + BITIS_TUTMA_MS, ...(ek?.sonraki ? { sonraki: ek.sonraki } : {}) };
       // Film: iyimser yazım kaydı izleme listesinden HEMEN siler; kart yerinde
       // kalsın diye kaydı ve sırasını yazımdan ÖNCE saklarız.
       if (tur === 'movie') {
