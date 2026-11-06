@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -24,15 +24,14 @@ import {
   ExternalLink,
 } from '../../components/icons';
 import { useRouter } from 'expo-router';
-import { APK_DOWNLOAD_URL, GITHUB_RELEASES_URL } from '../../utils/constants';
-import { fetchBetaReleaseNotes } from '../../services/github';
+import { GITHUB_RELEASES_URL } from '../../utils/constants';
+import { useBetaSurumu } from '../../hooks/useBetaSurumu';
 import { styles } from '../../components/public/download.web.styles';
 
-// APK bilgileri — Sürüm notları GitHub API'den dinamik çekilir. Sürüm
-// numarası BİLİNÇLİ OLARAK burada tutulmuyor (kullanıcı GitHub Release
-// notlarını zaten elle güncelliyor, koddaki sabiti de ayrıca güncellemeyi
-// unutup bayat bir sürüm göstermek istemiyor — bkz. 2026-08-16 kararı).
-const APK_SIZE = '~87 MB';
+// APK bilgileri — sürüm notları, indirilecek dosya ve boyutu GitHub «beta»
+// sürümünden dinamik gelir (`useBetaSurumu`). Koda sabit dosya adı / boyut /
+// sürüm YAZILMAZ: elle güncellemesi unutulup bayat kalıyordu (2026-08-16 kararı)
+// ve sabit `kaymaktv-latest.apk` adı, sürüm numaralı yüklemede 404 verdi (2026-11-07).
 
 const DESKTOP_BREAKPOINT = 868;
 
@@ -45,28 +44,12 @@ export default function DownloadScreen() {
   // Masaüstünde kurulum rehberi varsayılan olarak açık tutulur
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
-  // GitHub'dan dinamik sürüm notları
-  const [releaseNotes, setReleaseNotes] = useState<string>('');
-  const [isLoadingNotes, setIsLoadingNotes] = useState(true);
-  const [notesError, setNotesError] = useState(false);
-
-  // GitHub Releases API'sinden beta sürüm notlarını çek
-  useEffect(() => {
-    fetchBetaReleaseNotes()
-      .then((body) => {
-        setReleaseNotes(body);
-        setNotesError(false);
-      })
-      .catch((err) => {
-        console.error('Sürüm notları çekilemedi:', err);
-        setNotesError(true);
-        setReleaseNotes('');
-      })
-      .finally(() => setIsLoadingNotes(false));
-  }, []);
+  // GitHub «beta» sürümü: notlar + indirilecek APK (tek istek).
+  const { notlar: releaseNotes, yukleniyor: isLoadingNotes, hata: notesError, indirmeAdresi, boyutMetni } = useBetaSurumu();
+  const apkBoyutu = boyutMetni ?? '—';
 
   const handleDownload = () => {
-    Linking.openURL(APK_DOWNLOAD_URL).catch((e) => console.error('APK linki açılamadı:', e));
+    Linking.openURL(indirmeAdresi).catch((e) => console.error('APK linki açılamadı:', e));
   };
 
   const handleOpenGithubRelease = () => {
@@ -177,7 +160,7 @@ export default function DownloadScreen() {
                     {t('dlDownloadButton', 'KaymakTV APK İndir')}
                   </Text>
                   <Text style={styles.downloadButtonSubtext}>
-                    Android 8.0+ ({APK_SIZE})
+                    Android 8.0+{boyutMetni ? ` (${boyutMetni})` : ''}
                   </Text>
                 </View>
               </LinearGradient>
@@ -189,7 +172,7 @@ export default function DownloadScreen() {
                 <FileCheck size={15} color="#60a5fa" />
                 <View>
                   <Text style={styles.metaLabel}>{t('dlFileSize', 'Dosya Boyutu')}</Text>
-                  <Text style={styles.metaValue}>{APK_SIZE}</Text>
+                  <Text style={styles.metaValue}>{apkBoyutu}</Text>
                 </View>
               </View>
 

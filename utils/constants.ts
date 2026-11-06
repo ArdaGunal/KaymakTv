@@ -8,9 +8,8 @@ export const STORE_URL = 'https://kaymaktv.com';
 // eklendi — bir daha "temizlik" gerekçesiyle silinmemeli.
 // Barındırma: GitHub Releases, sabit "beta" tag'i (Supabase Storage'ın 50MB
 // ücretsiz plan sınırına takıldığı için TERK EDİLDİ — bkz. docs/HISTORY.md).
-// Yeni bir beta APK'sı yayınlandığında bu dosya, GitHub'daki "beta" release'e
-// AYNI dosya adıyla (`kaymaktv-latest.apk`) tekrar yüklenip eskisinin
-// üzerine yazılmalı — link URL'si SABİT kalır, kod tarafında değişiklik
-// gerekmez.
-export const APK_DOWNLOAD_URL = 'https://github.com/ArdaGunal/KaymakTv/releases/download/beta/kaymaktv-latest.apk';
+// Yeni APK GitHub'daki "beta" release'e SÜRÜM NUMARALI adla yüklenir
+// (`KaymakTV-2.6.8.apk`); indirme sayfası dosyayı oradan kendisi bulur
+// (`services/github.ts` → `betaApkSec`). Sabit `kaymaktv-latest.apk` adresi
+// 2026-11-07'de 404 verdiği için KALDIRILDI — kodda dosya adı tutulmaz.
 export const GITHUB_RELEASES_URL = 'https://github.com/ArdaGunal/KaymakTv/releases/tag/beta';

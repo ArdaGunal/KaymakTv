@@ -127,6 +127,7 @@ const TAKIMLAR = [
   { ad: 'aktif-siralama', grup: 'arayuz', dosya: 'arayuz/aktif-siralama.test.mjs', aciklama: '2.6.8 SIRA-01: Aktif\'te once hazir olanlar, sonra son hareket (izleme / yayin)' },
   { ad: 'sezon-isaretle', grup: 'arayuz', dosya: 'arayuz/sezon-isaretle.test.mjs', aciklama: '2.6.8 SEZON-01/02: sezon dugmesi onceki sezonlar / yalniz bu sezon, isaretleme onayi kirmizi degil' },
   { ad: 'orta-menu', grup: 'arayuz', dosya: 'arayuz/orta-menu.test.mjs', aciklama: '2.6.8 MENU-01: secim/eylem menuleri ortada (OrtaPencere), alttan kayan yalniz izinli icerik sayfalari' },
+  { ad: 'apk-indir', grup: 'arayuz', dosya: 'arayuz/apk-indirme.test.mjs', aciklama: 'APK-INDIR-01: indirme sayfasi APK dosyasini GitHub beta surumunden bulur (surum numarali ad), yoksa surum sayfasi' },
   { ad: 'bitis', grup: 'arayuz', dosya: 'arayuz/bitis-ani.test.mjs', aciklama: '2.6.8 KUTLAMA-01 + BITIS-01: duyurulmus bolum varken bitis yok; kart yerinde mavi «bitti», pencere/konfeti yok' },
   { ad: 'ara-verilenler', grup: 'arayuz', dosya: 'arayuz/ara-verilenler.test.mjs', aciklama: '2.6.5 madde 7: yeni cikan bolumu olan dizi Ara Verilenler\'e dusmez' },
   { ad: 'app-links', grup: 'arayuz', dosya: 'arayuz/app-links.test.mjs', aciklama: '2.6.5 madde 6: assetlinks.json + intentFilters paylasim yollarini kapsar' },
