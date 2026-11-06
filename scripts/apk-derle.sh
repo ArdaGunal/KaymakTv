@@ -10,6 +10,13 @@
 #   bash scripts/apk-derle.sh --ag     → test APK'sı (EXPO_PUBLIC_AG_IZLE=1)
 #   bash scripts/apk-derle.sh --google-test → test APK'sı, Google giriş düğmesi AÇIK
 #                                        (EXPO_PUBLIC_GOOGLE_GIRIS_TEST=1, kimlik planı D10)
+#
+# 🔴 AD KURALI (2026-11-07, M583): yayın APK'sı `apk/KaymakTV-<versionName>.apk`
+# adıyla çıkar ve GitHub «beta» sürümüne AYNI adla yüklenir. kaymaktv.com/download
+# dosyayı oradan kendisi bulur (`services/github.ts` → `betaApkSec`: en son `.apk`,
+# adında `TEST` geçen ATLANIR). Test paketlerinin eki (`-AG-TEST`, `-GOOGLE-TEST`)
+# bu yüzden `TEST` içermek ZORUNDA. Sabit `kaymaktv-latest.apk` adı 404 verdi —
+# kullanılmaz. `tests/arayuz/apk-indirme.test.mjs` bu iki dosyayı birlikte denetler.
 set -euo pipefail
 KOK="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$KOK/android"
@@ -41,3 +48,8 @@ cp "$APK" "$HEDEF"
 echo "$TUR · $SURUM (vc $KOD) · $(du -h "$APK" | cut -f1) · $HEDEF"
 echo "SHA-256: $(sha256sum "$HEDEF" | cut -d' ' -f1)"
 echo "Dogrula: kur + ac → adb logcat -d -s ReactNativeJS | grep -c '\[AG\]'  (yayinda 0 olmali)"
+if [ -z "$EK" ]; then
+  echo "Yayin: GitHub 'beta' surumune AYNI adla yukle → $(basename "$HEDEF")  (kaymaktv.com/download en son yukleneni bulur)"
+else
+  echo "TEST paketi: GitHub'a YUKLENMEZ (indirme sayfasi adinda TEST gecen paketi zaten secmez)"
+fi

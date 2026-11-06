@@ -33,6 +33,21 @@ s = betaApkSec([varlik('notlar.txt', '2026-11-21T00:00:00Z'), varlik('kaymaktv-l
 T.ok('APK olmayan dosya atlanir; eski sabit ad da calisir', s?.ad === 'kaymaktv-latest.apk');
 T.ok('APK yoksa / bos girdi -> null (dugme surum sayfasina gider)', betaApkSec([varlik('a.zip', 'x')]) === null && betaApkSec(null) === null && betaApkSec(undefined) === null);
 
+s = betaApkSec([varlik('KaymakTV-2.6.9-GOOGLE-TEST.apk', '2026-11-21T00:00:00Z'), varlik('KaymakTV-2.6.8.apk', '2026-11-06T00:00:00Z')]);
+T.ok('Google test paketi de secilmez (adinda TEST)', s?.ad === 'KaymakTV-2.6.8.apk');
+
+T.H('AD KURALI (M583): betik ile indirme sayfasi ayni kurali konusur');
+const betik = oku('scripts/apk-derle.sh');
+T.ok('betik adi derlenen paketin surumunden yazar: apk/KaymakTV-<versionName><EK>.apk',
+  /HEDEF="\$KOK\/apk\/KaymakTV-\$SURUM\$EK\.apk"/.test(betik) && /SURUM=\$\(grep -o '"versionName": [^\n]*output-metadata\.json/.test(betik));
+const ekler = [...betik.matchAll(/EK="([^"]*)"/g)].map((m) => m[1]).filter(Boolean);
+T.ok(`test ekleri TEST iceriyor (${ekler.join(', ')})`, ekler.length >= 2 && ekler.every((e) => /TEST/.test(e)));
+const ornek = (ek) => varlik(`KaymakTV-2.6.9${ek}.apk`, '2026-11-21T00:00:00Z');
+T.ok('betigin her test paketini sayfa reddeder, yayin paketini secer',
+  ekler.every((e) => betaApkSec([ornek(e)]) === null) && betaApkSec([ornek('')])?.ad === 'KaymakTV-2.6.9.apk');
+T.ok('yayin derlemesi sonunda GitHub\'a hangi adla yuklenecegini soyler', /Yayin: GitHub 'beta' surumune AYNI adla yukle/.test(betik) && /TEST paketi: GitHub'a YUKLENMEZ/.test(betik));
+T.ok('kural AGENTS.md\'de (git\'te, herkes icin)', /KaymakTV-<sürüm>\.apk/.test(oku('AGENTS.md')) && /apk-derle\.sh/.test(oku('AGENTS.md')));
+
 T.H('Sayfa: sabit dosya adi yok, 404 yerine surum sayfasi');
 const kodDosyalari = ['utils/constants.ts', 'app/(public)/download.web.tsx', 'hooks/useBetaSurumu.ts', 'services/github.ts'];
 T.ok('kodda sabit `kaymaktv-latest.apk` adresi yok', kodDosyalari.every((d) => !/releases\/download\/beta\/kaymaktv-latest\.apk/.test(oku(d))));

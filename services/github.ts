@@ -21,12 +21,13 @@ export interface BetaSurumu {
  * 🔴 2026-11-07: indirme düğmesi sabit `kaymaktv-latest.apk` adresine gidiyordu;
  * APK sürüm numaralı adla (`KaymakTV-2.6.8.apk`) yüklenince sayfa 404 verdi.
  * Kullanıcı kararı: sürüm numaralı ad mantıklı → dosya adı sabit DEĞİL, yanıttan
- * okunur. Birden çok APK varsa en son yükleneni; ağ günlüklü test paketi
- * (`-AG-TEST`) asla seçilmez.
+ * okunur. Birden çok APK varsa en son yükleneni; test paketleri (`scripts/apk-derle.sh`
+ * `--ag` → `-AG-TEST`, `--google-test` → `-GOOGLE-TEST`: adında BÜYÜK harfle `TEST`;
+ * büyük-küçük harf duyarlı, yoksa «kaymaktv-latest» de eşleşirdi) asla seçilmez.
  */
 export function betaApkSec(assets: any[] | null | undefined): BetaApk | null {
   const apklar = (assets || []).filter((a) => typeof a?.name === 'string'
-    && /\.apk$/i.test(a.name) && !/-AG-TEST/i.test(a.name) && typeof a?.browser_download_url === 'string');
+    && /\.apk$/i.test(a.name) && !/TEST/.test(a.name) && typeof a?.browser_download_url === 'string');
   if (!apklar.length) return null;
   const zaman = (a: any) => Date.parse(a?.updated_at || a?.created_at || '') || 0;
   const secilen = [...apklar].sort((a, b) => zaman(b) - zaman(a))[0];
