@@ -82,7 +82,7 @@ T.ok('Elle yazilmis 1..N-1 dongusu iki dosyada da YOK',
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('M419 kaynak denetimleri');
-T.ok('Null/eksik ilerleme "dizi bitti" SAYILMIYOR', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\)/.test(dugme));
+T.ok('Null/eksik ilerleme "dizi bitti" SAYILMIYOR', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\b/.test(dugme));
 T.ok('Diyalog dalinda kilit acik kaliyor',
   /performCheckIn = async \(planlanan[^)]*\) => \{\s+setIsCheckLoading\(true\);/.test(kanca));
 const kesfet = fs.readFileSync(path.join(KOK, 'hooks', 'useExplore.ts'), 'utf8');

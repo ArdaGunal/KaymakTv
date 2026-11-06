@@ -264,7 +264,7 @@
   "shareShowMsg": "Check out this show:",
   "shortly": "SHORTLY ({{time}})",
   "show": "Show",
-  "showFinished": "you finished the show!",
+  "showFinishedLine": "You finished {{name}}.",
   "showNotFound": "Show info not found.",
   "showPremiere": "Show Premiere",
   "shows": "Shows",

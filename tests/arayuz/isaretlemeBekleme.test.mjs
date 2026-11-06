@@ -18,7 +18,7 @@ T.ok('Yesil ve 550ms yalniz mutasyon ACK dalinda', /\.then\(\(newProgress\)[\s\S
 T.ok('Cift dokunus senkron kilitli', /if \(busyRef.current\) return;\s*busyRef.current = true/.test(checkIn));
 T.ok('Gec yanit yeni dokunusu bozmuyor', /if \(requestIdRef.current !== myRequestId\) return/.test(checkIn));
 T.ok('Disk hatasi gorunur, kilit geri acilir', /\.catch\(\(error\)[\s\S]*notify\([\s\S]*serbestBirak\(\)/.test(checkIn));
-T.ok('Null/eksik ilerleme konfeti/bitis SAYILMAZ', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\)/.test(checkIn));
+T.ok('Null/eksik ilerleme konfeti/bitis SAYILMAZ', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\b/.test(checkIn));
 
 // Gercek React komponentinin event zinciri; state/ref/native yalniz port mock.
 let resolveMark, rejectMark;

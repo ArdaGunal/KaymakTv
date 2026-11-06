@@ -4,7 +4,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } 
 import EpisodeCard from '../../../components/EpisodeCard';
 import ShowTrackCardWeb from '../../../components/tracking/ShowTrackCardWeb';
 import SkeletonLoader from '../../../components/SkeletonLoader';
-import InlineRater from '../../../components/InlineRater';
+import CelebrationOverlay from '../../../components/index/CelebrationOverlay';
 import { getTrendingShows } from '../../../services/traktApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
@@ -266,24 +266,11 @@ export default function DizilerScreenWeb() {
         )}
 
         {showConfetti && finishedShow && (
-          <View style={styles.confettiOverlay}>
-            <View style={styles.congratsContainer}>
-              <Text style={styles.congratsTitle}>{t('congrats')}</Text>
-              <Text style={styles.congratsText}>{finishedShow.name} {t('showFinished')}</Text>
-              <View style={{ marginTop: 24, padding: 16, backgroundColor: '#262626', borderRadius: 8, alignItems: 'center' }}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>{t('howWasShow')}</Text>
-                <InlineRater
-                  onRate={async (val) => {
-                    await rateMedia(finishedShow.id, 'show', val, { title: finishedShow.name });
-                    setTimeout(() => setShowConfetti(false), 800);
-                  }}
-                />
-              </View>
-              <TouchableOpacity style={{ marginTop: 16, padding: 8 }} onPress={() => setShowConfetti(false)}>
-                <Text style={{ color: '#a3a3a3' }}>{t('close')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <CelebrationOverlay
+            finishedShow={finishedShow}
+            onRate={(val) => rateMedia(finishedShow.id, 'show', val, { title: finishedShow.name })}
+            onClose={() => setShowConfetti(false)}
+          />
         )}
       </ScrollView>
     </View>
@@ -327,8 +314,4 @@ const styles = StyleSheet.create({
   categoryTitle: { color: '#f8fafc', fontSize: 24, fontWeight: 'bold', marginBottom: 16, letterSpacing: 0.5 },
   skeletonRow: { flexDirection: 'row', gap: 16, marginBottom: 32, flexWrap: 'wrap' },
   emptyText: { color: '#64748b', paddingVertical: 40, fontStyle: 'italic', fontSize: 16 },
-  confettiOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 999 },
-  congratsContainer: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 32, borderRadius: 16, alignItems: 'center' },
-  congratsTitle: { fontSize: 32, fontWeight: 'bold', color: '#3B82F6', marginBottom: 12 },
-  congratsText: { fontSize: 18, color: '#ffffff', textAlign: 'center' },
 });

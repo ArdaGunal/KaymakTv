@@ -81,18 +81,6 @@ export function kullaniciAdiSorunu(ham: string): KullaniciAdiSorunu | null {
   return null;
 }
 
-// Worker `src/lib/profileDisplayName.js` ile AYNI sınır (§C24 · `053`).
-export const AD_EN_COK = 50;
-
-/**
- * Görünen adın sunucu normalizasyonunun GÖSTERGE kopyası: TEK satır, iç boşluk
- * tekilleşir, uzunluk KOD NOKTASI. Görünmez karakter temizliği yalnızca sunucuda.
- */
-export function adOnizle(ham: string): { deger: string; uzunluk: number } {
-  const deger = ham.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim();
-  return { deger, uzunluk: Array.from(deger).length };
-}
-
 /**
  * Sunucu normalizasyonunun GÖSTERGE kopyası: boş satırlar atılır, iç boşluk
  * tekilleşir, uzunluk KOD NOKTASI sayılır (emoji 1). ⚠️ Görünmez karakter

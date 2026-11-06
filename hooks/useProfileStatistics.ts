@@ -39,7 +39,7 @@ export interface RatingBar {
   /**
    * UYGULAMA GENELİNDEKİ 5 YILDIZLIK ÖLÇEKTE puan (0.5 artışlarla: 0.5, 1, 1.5 … 5).
    * Trakt API puanları 1-10 tam sayı olarak saklar; uygulamanın HER YERİ
-   * (`formatRating`, `StarSlider`, `MediaHero`, `InlineRater`…) bunu ikiye
+   * (`formatRating`, `StarSlider`, `MediaHero`…) bunu ikiye
    * bölüp "X/5" olarak gösterir. Bu grafik de aynı ölçeği kullanmalı — aksi
    * halde kullanıcı burada "7.9" görürken puan verirken hep 1-5 arası bir
    * yıldız seçtiğini sanır, iki ekran farklı ölçek konuşur.
@@ -282,7 +282,9 @@ export function useProfileStatistics(activeTab: StatsTab) {
     ratings,
     /** Aktif sekmede analiz edilebilecek herhangi bir içerik var mı? */
     hasContent: entries.length > 0,
-    hasStats: !!userStats,
+    // 2.6.8 ISTAT-02: eskiden `!!userStats` — o alan T6.2'den beri hiç tazelenmeyen eski
+    // Trakt önbelleği; Google'lı ve yeni hesapta özet kutuları hiç çizilmiyordu.
+    hasStats: !!gosterilen,
   };
 }
 

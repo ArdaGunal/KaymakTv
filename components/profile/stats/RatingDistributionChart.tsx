@@ -15,7 +15,7 @@ const MIN_BAR_HEIGHT = 3;
 /**
  * Kullanıcının verdiği puanların dağılımı — UYGULAMA GENELİNDEKİ 5 YILDIZLIK
  * ölçekte (0.5 artışlarla). Trakt puanları dahili olarak 1-10 tam sayı olarak
- * saklanır; `formatRating` her yerde (StarSlider, MediaHero, InlineRater…)
+ * saklanır; `formatRating` her yerde (StarSlider, MediaHero…)
  * bunu ikiye bölüp "X/5" gösterir. Burada da AYNI dönüşüm kullanılıyor —
  * aksi halde kullanıcı puan verirken 1-5 yıldız seçip burada "7.9" gibi 10'luk
  * bir ortalama görür, iki ekran farklı ölçek konuşurdu.

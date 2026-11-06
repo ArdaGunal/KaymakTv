@@ -74,7 +74,8 @@ const TAKIMLAR = [
   // kaynak denetimleri (bildirimler/ ile ayni `.mjs` + TS soyma yolu).
   { ad: 'avatar', grup: 'arayuz', dosya: 'arayuz/avatar.test.mjs', aciklama: 'T4: bas harf, deterministik renk, kopya avatar denetimi' },
   { ad: 'import', grup: 'arayuz', dosya: 'arayuz/traktImport.test.mjs', aciklama: 'T5.4: hata siniflandirmasi, geri cekilme, ilerleme yuzdesi' },
-  { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17: yerel izleme istatistigi, ilerleme yuzdesi, cubuk rengi' },
+  { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17 + 2.6.8 ISTAT-01/02: yerel istatistik, ag ice aktarimi yok, ozet kutulari' },
+  { ad: 'gorunen-ad', grup: 'arayuz', dosya: 'arayuz/gorunen-ad.test.mjs', aciklama: '2.6.8 AD-01: Turkce/emoji/sembol serbest, gorunmez + bosluk + dolgu temizligi' },
   { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M439: disk ACK oncesi yesil yok, cift dokunus kilidi' },
   { ad: 'arama', grup: 'arayuz', dosya: 'arayuz/arama.test.mjs', aciklama: 'M415: Kesfet aramasi 1 harften baslar' },
   { ad: 'film', grup: 'arayuz', dosya: 'arayuz/film-izleme.test.mjs', aciklama: 'M417: listede olmayan film isaretlenince ekranda gorunur' },
@@ -123,6 +124,8 @@ const TAKIMLAR = [
   { ad: 'ceviri', grup: 'arayuz', dosya: 'arayuz/ceviri.test.mjs', aciklama: 'DIL-01/03: her sistem t() anahtari TR+EN dosyalarinda var, TR/EN anahtar esitligi' },
   { ad: 'modal-geri', grup: 'arayuz', dosya: 'arayuz/modal-geri.test.mjs', aciklama: 'C7: her Modal Android geri tusuna yanit verir (onRequestClose)' },
   { ad: 'akis-realtime', grup: 'arayuz', dosya: 'arayuz/akis-realtime.test.mjs', aciklama: 'A-4: Realtime INSERT patlamasi tek sorguda tamamlanir (toplayici)' },
+  { ad: 'aktif-siralama', grup: 'arayuz', dosya: 'arayuz/aktif-siralama.test.mjs', aciklama: '2.6.8 SIRA-01: Aktif\'te once hazir olanlar, sonra son hareket (izleme / yayin)' },
+  { ad: 'kutlama', grup: 'arayuz', dosya: 'arayuz/kutlama-paneli.test.mjs', aciklama: '2.6.8 KUTLAMA-01/02: duyurulmus bolum varken panel yok, tek sade panel, TR+EN' },
   { ad: 'ara-verilenler', grup: 'arayuz', dosya: 'arayuz/ara-verilenler.test.mjs', aciklama: '2.6.5 madde 7: yeni cikan bolumu olan dizi Ara Verilenler\'e dusmez' },
   { ad: 'app-links', grup: 'arayuz', dosya: 'arayuz/app-links.test.mjs', aciklama: '2.6.5 madde 6: assetlinks.json + intentFilters paylasim yollarini kapsar' },
   { ad: 'oyuncu-penceresi', grup: 'arayuz', dosya: 'arayuz/oyuncu-penceresi.test.mjs', aciklama: '2.6.5 madde 9: oyuncu bilgisi uygulama ici pencere (TMDB, atif, geri tusu)' },

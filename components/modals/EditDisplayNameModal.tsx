@@ -14,7 +14,7 @@ import { X } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
-import { AD_EN_COK, adOnizle } from '../../features/feed/services/profile';
+import { AD_EN_COK, adOnizle } from '../../utils/gorunenAd';
 import Snackbar from '../Snackbar';
 import { profileSheetStyles as styles } from './profileSheetStyles';
 
@@ -36,8 +36,8 @@ interface EditDisplayNameModalProps {
  * hiç değiştirilemiyor — K2), görünen adın ikisi de yok.
  *
  * 🔴 Kurallar SUNUCUDA (`kaymaktv-feedback-worker/src/lib/profileDisplayName.js`).
- * Sayaç yalnızca gösterge — yanılsa bile Worker 400 döner ve mesajı aşağıda
- * görünür (sessiz başarısızlık yok, AI_RULES §2).
+ * İstemci aynı temizliği ve fazlasını yapıp TEMİZ değeri gönderir (`utils/gorunenAd.ts`,
+ * 2.6.8 AD-01). Yanılsa bile Worker 400 döner ve hata aşağıda görünür (AI_RULES §2).
  */
 export default function EditDisplayNameModal({ visible, onClose, currentName, onSaved }: EditDisplayNameModalProps) {
   const { t } = useTranslation(['settings', 'common']);

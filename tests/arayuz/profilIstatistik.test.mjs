@@ -10,6 +10,9 @@
 //
 // Cikti ASCII (tests/yardimci.js kurali).
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import yardimci from '../yardimci.js';
 import { yerelIstatistik, gosterilecekIstatistik } from '../../utils/yerelIstatistik.ts';
 import { getProgressBarColor, PROGRESS_BAR_COLOR } from '../../utils/progressBarColor.ts';
@@ -202,5 +205,26 @@ T.ok('Tam saat -> dakika eklenmez', formatWatchDuration(180, E) === '3 Saat');
 T.ok('Gun varken dakika gurultu yapmaz (2 birim kurali)', formatWatchDuration(1 * 1440 + 4 * 60 + 7, E) === '1 Gun, 4 Saat');
 T.ok('minute etiketi verilmezse eski davranis', formatWatchDuration(199, { month: 'Ay', day: 'Gun', hour: 'Saat' }) === '3 Saat');
 T.ok('Sifir -> 0 Saat (degismedi)', formatWatchDuration(0, E) === '0 Saat');
+
+// ── 2.6.8 ISTAT-01 / ISTAT-02 ────────────────────────────────────────────
+// Detayli Analiz yalniz kutuphane deposunu okur (depo `/library/sync`'ten dolar);
+// ekran dosyalari ag ya da Trakt modulu ice aktarmamali. Ozet kutulari da hic
+// tazelenmeyen eski Trakt onbellegine (`userStats`) bagli olmamali.
+T.H('Detayli Analiz: kaynak denetimi (2.6.8 ISTAT-01/02)');
+const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const istatDosyalari = [
+  'hooks/useProfileStatistics.ts', 'utils/yerelIstatistik.ts',
+  'screens/ProfileStatisticsMobile.tsx', 'screens/ProfileStatisticsWeb.tsx',
+  'components/profile/ProfileStatsMobile.tsx', 'components/profile/ProfileStats.web.tsx',
+  ...fs.readdirSync(path.join(KOK, 'components/profile/stats')).map((a) => `components/profile/stats/${a}`),
+];
+const agIceAktarimi = istatDosyalari.filter((d) =>
+  [...fs.readFileSync(path.join(KOK, d), 'utf8').matchAll(/from\s+'([^']+)'/g)]
+    .some(([, yol]) => /trakt|services\/|axios|supabase/i.test(yol)));
+T.ok(`istatistik dosyalari ag/Trakt modulu ice aktarmaz (${istatDosyalari.length} dosya)`, agIceAktarimi.length === 0);
+for (const d of agIceAktarimi) T.ok(`ag ice aktarimi: ${d}`, false);
+const hook = fs.readFileSync(path.join(KOK, 'hooks/useProfileStatistics.ts'), 'utf8');
+T.ok('ozet kutulari gosterilen istatistige bagli (eski userStats onbellegine degil)',
+  /hasStats:\s*!!gosterilen\b/.test(hook) && !/hasStats:\s*!!userStats/.test(hook));
 
 T.bitir();

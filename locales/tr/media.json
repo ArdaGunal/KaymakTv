@@ -264,7 +264,7 @@
   "shareShowMsg": "Bu diziye göz at:",
   "shortly": "BİRAZDAN ({{time}})",
   "show": "Dizi",
-  "showFinished": "dizisini bitirdin!",
+  "showFinishedLine": "{{name}} dizisini bitirdin.",
   "showNotFound": "Dizi bilgisi bulunamadı.",
   "showPremiere": "Dizi Prömiyeri",
   "shows": "Diziler",

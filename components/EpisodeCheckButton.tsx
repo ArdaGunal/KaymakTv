@@ -7,6 +7,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { atlananPlan, planToplami, planTekBolumMu, SezonListesi, IsaretlemePlani } from '../utils/atlananBolumler';
+import { duyurulmusBolumVarMi } from '../utils/duyurulanBolum';
 
 interface EpisodeCheckButtonProps {
   traktId: number;
@@ -95,7 +96,12 @@ export default function EpisodeCheckButton({
         // İLK işaretlemesinde o değer yok. Null'ı "sıradaki bölüm yok" diye
         // okumak, tek bölüm işaretleyen kullanıcıya KONFETİ + "diziyi puanla"
         // göstermek ve düğmeyi kalıcı kilitlemek demekti.
-        if (newProgress && !newProgress.next_episode && !newProgress.catalogIncomplete) {
+        // 2.6.8 KUTLAMA-01: duyurulmuş (Yaklaşanlar'daki) bir sonraki bölüm varsa dizi
+        // bitmemiştir — ne panel çıkar ne düğme kilitlenir (`next_episode` yalnız
+        // yayınlanmış bölümü gösterir, bkz. `utils/duyurulanBolum.ts`).
+        const { calendarShows, calendarSeasonsMap } = useLibraryStore.getState();
+        if (newProgress && !newProgress.next_episode && !newProgress.catalogIncomplete
+          && !duyurulmusBolumVarMi(traktId, { progress: newProgress, calendarShows, calendarSeasonsMap })) {
           setIsFinishedLocal(true);
           if (onShowFinished && showName) {
             onShowFinished(showName, traktId);

@@ -139,6 +139,34 @@ const nextAiredAt = (progress: any, next: any): number | null => {
 };
 
 /**
+ * 2.6.8 SIRA-01 — dizinin SON HAREKETİ (ms): son izleme ile yayın tarihi gelmiş
+ * en yeni normal bölümden (özel sezon 0 sayılmaz) hangisi yeniyse. Kaymak
+ * ilerlemesi her bölümü `first_aired` ile taşır (Worker `lib/ilerleme.js`);
+ * Trakt biçiminde (emniyet turu) yalnız `next_episode.first_aired` vardır.
+ * Hiç tarih yoksa 0 → listenin sonuna düşer.
+ * 🔴 `now` YALNIZ yayın tarihlerini süzer. Son izleme gerçekleşmiş bir olaydır;
+ * `now` periyodik tazelenen bir state (`useTrackingShows`) olduğu için az önceki
+ * izleme ondan yeni görünebilir — süzülseydi dizi listenin dibine düşerdi
+ * (emülatörde görüldü 2026-11-06: Carrie işaretlenince Ted Lasso'nun altında kaldı).
+ */
+export const sonHareketAni = (lastWatchedAt: string | undefined, progress: any, now: number): number => {
+  const ms = (raw: unknown) => {
+    const t = raw ? new Date(raw as string).getTime() : NaN;
+    return Number.isFinite(t) ? t : 0;
+  };
+  const yayin = (raw: unknown) => {
+    const t = ms(raw);
+    return t <= now ? t : 0;
+  };
+  let enYeni = Math.max(ms(lastWatchedAt), yayin(progress?.next_episode?.first_aired));
+  for (const sezon of progress?.seasons || []) {
+    if (!sezon || sezon.number === 0) continue;
+    for (const bolum of sezon.episodes || []) enYeni = Math.max(enYeni, yayin(bolum?.first_aired));
+  }
+  return enYeni;
+};
+
+/**
  * Ham dilimleri, ekranın doğrudan gösterebileceği kategorilere ayırır.
  * Her dizi trakt id'siyle tekilleştirilir; watched + watchlist havuzları
  * birleştirilip her kimlik yalnızca BİR kez işlenir.
@@ -174,6 +202,8 @@ export function categorizeShows({
   }
 
   const upNext: TrackingCard[] = [];
+  /** Aktif kartların son hareketi (SIRA-01) — yalnız sıralama için, karta yazılmaz. */
+  const hareket = new Map<number, number>();
   const paused: TrackingCard[] = [];
   const notStarted: TrackingCard[] = [];
   const caughtUp: TrackingCard[] = [];
@@ -312,14 +342,20 @@ export function categorizeShows({
     };
 
     if (isPaused) paused.push(card);
-    else upNext.push(card);
+    else {
+      upNext.push(card);
+      hareket.set(id, sonHareketAni(entry.lastWatchedAt, progress, now));
+    }
   }
 
-  // Aktif olanları "izlenmeye hazır" olanları öne alıp stabil bir sıralama
-  // veriyoruz. Ara verilenleri ise en yakın zamanda bırakılan en üstte olacak
-  // şekilde (en yeni last_watched_at önce) sıralıyoruz — kullanıcı en çok
-  // "az önce ara verdiğim" diziyi görmek ister.
-  upNext.sort((a, b) => Number(b.readyToWatch) - Number(a.readyToWatch));
+  // 2.6.8 SIRA-01 (kullanıcı kararı 2026-11-06): Aktif İzlenenler'de önce izlemeye
+  // hazır olanlar, sonra en son hareket üstte (son izleme ya da son yayınlanan
+  // bölüm, hangisi yeniyse — `sonHareketAni`). Eşitlikte giriş sırası korunur.
+  // Ara verilenler en yakın zamanda bırakılan en üstte (en yeni last_watched_at
+  // önce) — kullanıcı en çok "az önce ara verdiğim" diziyi görmek ister.
+  upNext.sort((a, b) =>
+    Number(b.readyToWatch) - Number(a.readyToWatch)
+    || (hareket.get(b.id) ?? 0) - (hareket.get(a.id) ?? 0));
   paused.sort((a, b) => {
     const at = a.lastWatchedAt ? new Date(a.lastWatchedAt).getTime() : 0;
     const bt = b.lastWatchedAt ? new Date(b.lastWatchedAt).getTime() : 0;

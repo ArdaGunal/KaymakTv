@@ -197,14 +197,8 @@ export default function DizilerScreen() {
       {showConfetti && finishedShow && (
         <CelebrationOverlay
           finishedShow={finishedShow}
-          onRate={async (val) => {
-            await rateMedia(finishedShow.id, 'show', val);
-          }}
+          onRate={(val) => rateMedia(finishedShow.id, 'show', val, { title: finishedShow.name })}
           onClose={() => setShowConfetti(false)}
-          howWasShowLabel={t('howWasShow')}
-          congratsLabel={t('congrats')}
-          showFinishedLabel={t('showFinished')}
-          closeLabel={t('close')}
         />
       )}
     </View>
