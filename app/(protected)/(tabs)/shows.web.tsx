@@ -4,7 +4,6 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } 
 import EpisodeCard from '../../../components/EpisodeCard';
 import ShowTrackCardWeb from '../../../components/tracking/ShowTrackCardWeb';
 import SkeletonLoader from '../../../components/SkeletonLoader';
-import CelebrationOverlay from '../../../components/index/CelebrationOverlay';
 import { getTrendingShows } from '../../../services/traktApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
@@ -36,10 +35,8 @@ export default function DizilerScreenWeb() {
 
   const [trendingFallback, setTrendingFallback] = useState<any[]>([]);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [finishedShow, setFinishedShow] = useState<{ name: string; id: number } | null>(null);
 
-  const { accessToken, isGuest, authProvider } = useAuth();
+  const { accessToken, isGuest } = useAuth();
 
   const { kutuphane } = useKaymakYetenekleri();
   const [refreshing, setRefreshing] = useState(false);
@@ -60,9 +57,7 @@ export default function DizilerScreenWeb() {
     calendarSeasonsMap: s.calendarSeasonsMap,
     hiddenShowIds: s.hiddenShowIds,
   }));
-  // `rateMedia`: Trakt'a yazar VE aynı damgayla Akış'a yayınlar (bkz.
-  // services/library/mutations/ratings.ts).
-  const { refreshLibrary, rateMedia } = useLibraryActions();
+  const { refreshLibrary } = useLibraryActions();
 
   // "Yaklaşan" sekmesi görünür değilken bu ağır hesap tamamen atlanır (bkz.
   // useDashboardData'nın `enabled` parametresi).
@@ -117,22 +112,17 @@ export default function DizilerScreenWeb() {
     setRefreshing(false);
   }, [accessToken, refreshLibrary]);
 
-  const handleShowFinished = useCallback((showName: string, showId: number) => {
-    setFinishedShow({ name: showName, id: showId });
-    setShowConfetti(true);
-  }, []);
-
   // Takip kartı (poster) — Netflix tarzı; carousel içinde yan yana sıkı dizilir.
   const renderTrackItem = useCallback(
     ({ item }: { item: any }) => (
-      <ShowTrackCardWeb data={item} onShowFinished={handleShowFinished} onToggleDropped={dropShow} />
+      <ShowTrackCardWeb data={item} onToggleDropped={dropShow} />
     ),
-    [handleShowFinished, dropShow]
+    [dropShow]
   );
   // Trend/yaklaşan için eski yatay EpisodeCard hâlâ kullanılır.
   const renderEpisodeItem = useCallback(
-    ({ item }: { item: any }) => <EpisodeCard data={item} onShowFinished={handleShowFinished} />,
-    [handleShowFinished]
+    ({ item }: { item: any }) => <EpisodeCard data={item} />,
+    []
   );
 
   // Mobildeki gibi tam teşekküllü arama+filtre ekranına gider. Kategori
@@ -263,14 +253,6 @@ export default function DizilerScreenWeb() {
 
             {isEmpty && <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noShowsInCategory')}</Text>}
           </>
-        )}
-
-        {showConfetti && finishedShow && (
-          <CelebrationOverlay
-            finishedShow={finishedShow}
-            onRate={(val) => rateMedia(finishedShow.id, 'show', val, { title: finishedShow.name })}
-            onClose={() => setShowConfetti(false)}
-          />
         )}
       </ScrollView>
     </View>

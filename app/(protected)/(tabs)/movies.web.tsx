@@ -29,10 +29,8 @@ export default function MoviesScreenWeb() {
   // §C33: aktarım sürerken "boş" YALANI gösterilmez (mobil ikizle aynı kural).
   const aktarim = useAktarimGorunumu();
 
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [finishedMovieName, setFinishedMovieName] = useState('');
 
-  const { accessToken, isGuest, authProvider } = useAuth();
+  const { accessToken, isGuest } = useAuth();
 
   const { kutuphane } = useKaymakYetenekleri();
   const [refreshing, setRefreshing] = useState(false);
@@ -70,21 +68,14 @@ export default function MoviesScreenWeb() {
     setRefreshing(false);
   }, [accessToken, refreshLibrary]);
 
-  const handleMovieFinished = useCallback((movieName: string) => {
-    setFinishedMovieName(movieName);
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 3500);
-  }, []);
-
   const renderMovieItem = useCallback(
     ({ item }: { item: any }) => (
       <MovieCard
         data={item}
-        onMovieFinished={handleMovieFinished}
         onToggleDropped={() => toggleHiddenFromProgress(item.id, 'movie', false)}
       />
     ),
-    [handleMovieFinished, toggleHiddenFromProgress]
+    [toggleHiddenFromProgress]
   );
 
   // Filmler sekmesindeki her carousel mobildeki gibi tam teşekküllü arama+filtre
@@ -209,15 +200,6 @@ export default function MoviesScreenWeb() {
             )}
           </>
         )}
-
-        {showConfetti && (
-          <View style={styles.confettiOverlay} pointerEvents="none">
-            <View style={styles.congratsContainer}>
-              <Text style={styles.congratsTitle}>{t('congrats')}</Text>
-              <Text style={styles.congratsText}>{finishedMovieName} {t('movieFinished')}</Text>
-            </View>
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -280,8 +262,4 @@ const styles = StyleSheet.create({
   },
 
   emptyText: { color: '#64748b', paddingVertical: 40, fontStyle: 'italic', fontSize: 16 },
-  confettiOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 999 },
-  congratsContainer: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 32, borderRadius: 16, alignItems: 'center' },
-  congratsTitle: { fontSize: 32, fontWeight: 'bold', color: '#3B82F6', marginBottom: 12 },
-  congratsText: { fontSize: 18, color: '#ffffff', textAlign: 'center' },
 });

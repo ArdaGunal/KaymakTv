@@ -12,33 +12,19 @@ import EpisodeCardMobile from './EpisodeCardMobile';
 import EpisodeCheckButton from './EpisodeCheckButton';
 import TrackingCardMenu from './tracking/TrackingCardMenu';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
-import { getProgressBarColor } from '../utils/progressBarColor';
+import { getProgressBarColor, ilerlemeYuzdesi } from '../utils/progressBarColor';
 import { getMediaTagLabel } from '../utils/mediaTagLabel';
 
 interface EpisodeCardProps {
   data: any;
-  onShowFinished?: (showName: string, showId: number) => void;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
-}
-
-// Progress percentage is computed here, ready-to-use for ProgressBar
-function getProgressPct(data: any): number | null {
-  if (
-    data?.completedCount !== null &&
-    data?.completedCount !== undefined &&
-    data?.totalCount &&
-    data.totalCount > 0
-  ) {
-    return Math.min(100, (data.completedCount / data.totalCount) * 100);
-  }
-  return null;
 }
 
 const CARD_WIDTH = 180;
 const CARD_HEIGHT = 270;
 
-const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCardProps) => {
+const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
   const { isDesktop } = useResponsive();
   const router = useRouter();
   const { t } = useTranslation(['media', 'common']);
@@ -67,7 +53,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
   if (!data) return null;
 
   if (!isDesktop) {
-    return <EpisodeCardMobile data={data} onShowFinished={onShowFinished} onToggleDropped={onToggleDropped} />;
+    return <EpisodeCardMobile data={data} onToggleDropped={onToggleDropped} />;
   }
 
   const handleCardPress = () => {
@@ -95,7 +81,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
   };
 
   const isFuture = data.rawDate !== undefined && !airStatus.isAired;
-  const progressPct = getProgressPct(data);
+  const progressPct = ilerlemeYuzdesi(data);
   // Bkz. EpisodeCardMobile: gizlenmiş yapımlar bu kartın listelerine hiç girmez.
   const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'));
 
@@ -214,8 +200,6 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
                       traktId={data.rawTraktId || data.id}
                       season={data.season}
                       episode={data.episode}
-                      showName={data.showName}
-                      onShowFinished={onShowFinished}
                     />
                   </View>
                 )}

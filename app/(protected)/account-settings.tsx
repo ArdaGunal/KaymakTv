@@ -7,7 +7,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { useRouter } from 'expo-router';
 
 import { useAppBack } from '../../hooks/useAppBack';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
@@ -29,8 +28,7 @@ const DESKTOP_BREAKPOINT = 768;
 export default function AccountSettingsScreen() {
   const { t } = useTranslation(['settings', 'common']);
   const navigateBack = useAppBack();
-  const { accessToken, isGuest, authProvider } = useAuth();
-  const router = useRouter();
+  const { accessToken, isGuest } = useAuth();
   const { handleLogout, handleDeleteAccount, isLoggingOut, isDeletingAccount } = useSettings();
   const profilePrivacy = useProfilePrivacy();
   const digerCihazlar = useDigerCihazlardanCik();

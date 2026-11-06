@@ -7,13 +7,12 @@ import { useTranslation } from 'react-i18next';
 interface EpisodeCardActionsProps {
   data: any;
   onSuccessStateChange: (val: boolean, info?: { season: number; episode: number }) => void;
-  onShowFinished?: (showName: string, showId: number) => void;
 }
 
 // Kartın sağ paneli: geri sayım / spinner / işaretleme butonu.
 // useAirCountdown timer'ı BURADA yaşar — her tick'te yalnızca bu küçük panel
 // yeniden render olur; poster, başlık ve etiketleri taşıyan kart gövdesi etkilenmez.
-const EpisodeCardActions = memo(({ data, onSuccessStateChange, onShowFinished }: EpisodeCardActionsProps) => {
+const EpisodeCardActions = memo(({ data, onSuccessStateChange }: EpisodeCardActionsProps) => {
   const { t } = useTranslation('media');
   const airStatus = useAirCountdown(data?.rawDate);
 
@@ -44,8 +43,6 @@ const EpisodeCardActions = memo(({ data, onSuccessStateChange, onShowFinished }:
           traktId={data.rawTraktId || data.id}
           season={data.season}
           episode={data.episode}
-          showName={data.showName}
-          onShowFinished={onShowFinished}
           onSuccessStateChange={onSuccessStateChange}
         />
       )}

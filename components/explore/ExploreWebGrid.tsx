@@ -204,7 +204,7 @@ const ExploreWebGrid = React.forwardRef<FlatList<any>, ExploreWebGridProps>(func
   loadMoreFailed,
   onRetryLoadMore,
 }, ref) {
-  const { t, i18n } = useTranslation(['media', 'common']);
+  const { t } = useTranslation(['media', 'common']);
   const containerPadding = 32;
   const totalGapWidth = CARD_GAP * (COLUMN_COUNT - 1);
   const availableWidth = Math.min(screenWidth, 1280) - containerPadding * 2;

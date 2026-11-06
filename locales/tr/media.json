@@ -33,7 +33,6 @@
   "completionMovies": "İzleme listesindeki {{started}} filmin {{finished}} tanesi izlendi",
   "completionRate": "Tamamlanma Oranı",
   "completionShows": "Başlanan {{started}} dizinin {{finished}} tanesi bitti",
-  "congrats": "Tebrikler!",
   "containsSpoiler": "Spoiler İçerir",
   "create": "Oluştur",
   "createNewList": "Yeni Liste Oluştur",
@@ -185,7 +184,6 @@
   "monthlyFrequency": "Aylık İzleme Frekansı",
   "monthlyNoData": "Bu dönemde izleme kaydı yok",
   "movie": "Film",
-  "movieFinished": "filmini bitirdin!",
   "movieMarkError": "Film işaretlenirken bir sorun oluştu.",
   "movieNotFound": "Film bilgisi bulunamadı.",
   "movies": "Filmler",
@@ -267,7 +265,6 @@
   "shareShowMsg": "Bu diziye göz at:",
   "shortly": "BİRAZDAN ({{time}})",
   "show": "Dizi",
-  "showFinishedLine": "{{name}} dizisini bitirdin.",
   "showNotFound": "Dizi bilgisi bulunamadı.",
   "showPremiere": "Dizi Prömiyeri",
   "shows": "Diziler",
@@ -343,5 +340,12 @@
   "personBioEmpty": "Bu oyuncu için biyografi bulunmuyor.",
   "personLoadError": "Oyuncu bilgisi yüklenemedi.",
   "personRetry": "Tekrar Dene",
-  "tmdbAttribution": "Oyuncu bilgileri TMDB'den alınır. Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış veya sertifikalandırılmamıştır."
+  "tmdbAttribution": "Oyuncu bilgileri TMDB'den alınır. Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış veya sertifikalandırılmamıştır.",
+  "bitisDizi": "Diziyi bitirdin",
+  "bitisFilm": "Filmi izledin",
+  "bitisBolum": "{{count}} bölüm",
+  "bitisGun": "{{count}} günde",
+  "bitisSaat": "{{sa}} sa",
+  "bitisSaatDakika": "{{sa}} sa {{dk}} dk",
+  "bitisDakika": "{{dk}} dk"
 }

@@ -94,7 +94,6 @@ interface TrackingAccordionListProps {
   collapsed: CollapsedMap;
   onToggle: (key: TrackingCategoryKey) => void;
   labels: Record<TrackingCategoryKey, string>;
-  onShowFinished: (showName: string, showId: number) => void;
   onToggleDropped: (id: number) => void;
   refreshing: boolean;
   onRefresh: () => void;
@@ -167,7 +166,6 @@ function TrackingAccordionList({
   collapsed,
   onToggle,
   labels,
-  onShowFinished,
   onToggleDropped,
   refreshing,
   onRefresh,
@@ -206,9 +204,9 @@ function TrackingAccordionList({
 
   const renderItem = useCallback(
     ({ item }: { item: TrackingCard }) => (
-      <EpisodeCard data={item} onShowFinished={onShowFinished} onToggleDropped={onToggleDropped} />
+      <EpisodeCard data={item} onToggleDropped={onToggleDropped} />
     ),
-    [onShowFinished, onToggleDropped]
+    [onToggleDropped]
   );
 
   const renderSectionHeader = useCallback(

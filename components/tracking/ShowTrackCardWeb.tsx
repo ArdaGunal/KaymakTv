@@ -7,13 +7,13 @@ import MediaPoster from '../MediaPoster';
 import ProgressBar from '../ProgressBar';
 import EpisodeCheckButton from '../EpisodeCheckButton';
 import TrackingCardMenu from './TrackingCardMenu';
+import BitisIcerigi, { BITIS_RENK } from './BitisIcerigi';
 import { generateMediaSlug } from '../../utils/slugHelper';
-import { getProgressBarColor } from '../../utils/progressBarColor';
+import { getProgressBarColor, ilerlemeYuzdesi } from '../../utils/progressBarColor';
 import type { TrackingCard } from '../../store/tracking/trackingLogic';
 
 interface ShowTrackCardWebProps {
   data: TrackingCard;
-  onShowFinished?: (showName: string, showId: number) => void;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
@@ -22,7 +22,7 @@ interface ShowTrackCardWebProps {
 // tarafındaki MovieCard.web ile aynı görsel dil: 180×270 afiş, hover'da karartma
 // + oynat ikonu + başlık + işaretleme butonu. Yalnızca shows.web.tsx tarafından,
 // WebCarousel içinde kullanılır — bu yüzden platform uzantısı yerine açık isim.
-const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTrackCardWebProps) => {
+const ShowTrackCardWeb = memo(({ data, onToggleDropped }: ShowTrackCardWebProps) => {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -42,10 +42,7 @@ const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTr
       ? `S${String(data.season).padStart(2, '0')} · E${String(data.episode).padStart(2, '0')}`
       : null;
 
-  const progressPct =
-    data.completedCount !== null && data.completedCount !== undefined && data.totalCount
-      ? Math.min(100, (data.completedCount / data.totalCount) * 100)
-      : null;
+  const progressPct = ilerlemeYuzdesi(data);
 
   // Bu kart yalnızca takip panosunun görünür kategorilerinden beslenir
   // (Aktif/Ara Verilen/Başlanmadı) — "Bırak" ile gizlenmiş yapımlar oraya HİÇ
@@ -57,6 +54,21 @@ const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTr
     const slug = generateMediaSlug(data.id, data.slug, data.showName);
     router.push(`/show/${slug}?tmdbId=${data.tmdbId || ''}`);
   };
+
+  // BITIS-01: dizi az önce bitti — afişin altında mavi «bitti» paneli (hover
+  // beklemeden görünür), birkaç saniye sonra kart listeden kayar.
+  if (data.bitti) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.card, styles.cardBitti]}>
+          <MediaPoster tmdbId={data.tmdbId} type="show" title={data.showName} style={styles.posterImage} />
+          <View style={styles.bitisPaneli}>
+            <BitisIcerigi tur="show" id={data.id} ad={data.showName} yerlesim="afis" />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -118,8 +130,6 @@ const ShowTrackCardWeb = memo(({ data, onShowFinished, onToggleDropped }: ShowTr
                       traktId={data.id}
                       season={data.season}
                       episode={data.episode}
-                      showName={data.showName}
-                      onShowFinished={onShowFinished}
                     />
                   </View>
                 )}
@@ -154,6 +164,17 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   posterImage: { width: '100%', height: '100%' },
+  cardBitti: { borderWidth: 1, borderColor: BITIS_RENK.kenar, ...({ cursor: 'default' } as any) },
+  bitisPaneli: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 12,
+    backgroundColor: 'rgba(21, 36, 58, 0.94)',
+    borderTopWidth: 1,
+    borderTopColor: BITIS_RENK.kenar,
+  },
   menuOverlay: {
     position: 'absolute',
     top: 8,

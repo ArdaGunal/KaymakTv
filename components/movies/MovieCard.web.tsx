@@ -9,19 +9,19 @@ import MediaPoster from '../MediaPoster';
 import { useResponsive } from '../../hooks/useResponsive';
 import MovieCardMobile from './MovieCardMobile';
 import TrackingCardMenu from '../tracking/TrackingCardMenu';
-import { useLibraryActions } from '../../context/LibraryContext';
+import BitisIcerigi, { BITIS_RENK } from '../tracking/BitisIcerigi';
+import { useFilmIzle } from '../../hooks/useFilmIzle';
 import { Check } from '../icons';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 
 interface MovieCardProps {
   data: any;
-  onMovieFinished?: (title: string) => void;
   /** Verilirse afişin üzerinde 3-nokta menüsü (Bırak/Listeye Ekle/Favorile/Paylaş) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
 
-const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardProps) => {
+const MovieCard = memo(({ data, onToggleDropped }: MovieCardProps) => {
   // KRİTİK: Tüm hook'lar koşullu return'lerden ÖNCE çağrılmalı (Rules of Hooks).
   // Eskiden `if (!isDesktop) return <MovieCardMobile/>` hook'ların üstündeydi;
   // pencere 768px eşiğini geçince hook sayısı değişiyor ve ekran çöküyordu.
@@ -29,12 +29,10 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardPro
   const router = useRouter();
   const { t } = useTranslation(['media', 'common']);
   const airStatus = useAirCountdown(data?.rawDate);
-  // Abonesiz aksiyon hook'u: store değişimleri carousel kartlarını yeniden çizmez.
-  const { markMovieAsWatched } = useLibraryActions();
+  // Mobil kartla ORTAK «izledim» akışı (BITIS-01).
+  const izle = useFilmIzle(data);
 
   const [isHovered, setIsHovered] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -51,7 +49,6 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardPro
     return (
       <MovieCardMobile
         data={data}
-        onMovieFinished={onMovieFinished}
         onToggleDropped={onToggleDropped}
       />
     );
@@ -64,30 +61,20 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardPro
     }
   };
 
-  const handleCheckIn = () => {
-    if (isLoading || isSuccess) return;
-
-    // Mobil karttaki akışla aynı: önce başarı görünür, store güncellemesi
-    // (kartı listeden kaldıran optimistic update) SONRA yapılır.
-    setIsSuccess(true);
-    setIsLoading(true);
-
-    setTimeout(async () => {
-      try {
-        // 🔴 M421 (denetim E) — FİLM NESNESİ DE GEÇİYOR: iyimser "izlendi"
-        // girdisi film izleme listesinde DEĞİLSE ancak bununla kurulabiliyor
-        // (takvim/öneri kartından işaretlenen film eskiden ekranda değişmiyordu).
-        await markMovieAsWatched(data.id, data.raw || data.movie || null);
-        if (onMovieFinished) {
-          onMovieFinished(data.title);
-        }
-      } catch (error) {
-        setIsSuccess(false);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 1200);
-  };
+  // BITIS-01: film az önce izlendi — afişin altında mavi «bitti» paneli,
+  // birkaç saniye sonra kart listeden kayar.
+  if (data.bitti) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.card, styles.cardBitti]}>
+          <MediaPoster tmdbId={data.tmdbId} type="movie" title={data.title} style={styles.posterImage} />
+          <View style={styles.bitisPaneli}>
+            <BitisIcerigi tur="movie" id={data.id} ad={data.title} film={data.raw} yerlesim="afis" />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   const isFuture = data.rawDate !== undefined && !airStatus.isAired;
 
@@ -154,12 +141,8 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardPro
               </View>
               {data.id && (
                 <View style={styles.hoverContentRight}>
-                  <Pressable 
-                    style={[styles.checkButton, isSuccess && styles.checkButtonSuccess]}
-                    onPress={handleCheckIn}
-                    disabled={isLoading || isSuccess}
-                  >
-                    <Check size={20} color={isSuccess ? "#fff" : "#9ca3af"} strokeWidth={3} />
+                  <Pressable style={styles.checkButton} onPress={izle}>
+                    <Check size={20} color="#9ca3af" strokeWidth={3} />
                   </Pressable>
                 </View>
               )}
@@ -198,6 +181,17 @@ const styles = StyleSheet.create({
   posterImage: {
     width: '100%',
     height: '100%',
+  },
+  cardBitti: { borderWidth: 1, borderColor: BITIS_RENK.kenar, cursor: 'default' } as any,
+  bitisPaneli: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 12,
+    backgroundColor: 'rgba(21, 36, 58, 0.94)',
+    borderTopWidth: 1,
+    borderTopColor: BITIS_RENK.kenar,
   },
   countdownBadge: {
     position: 'absolute',
@@ -274,10 +268,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     ...( { cursor: 'pointer', transition: 'all 0.2s ease' } as any)
-  },
-  checkButtonSuccess: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
   },
   movieTitle: {
     color: '#fff',

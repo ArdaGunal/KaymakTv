@@ -17,3 +17,14 @@ export function getProgressBarColor(isDropped: boolean, isFinished: boolean): st
   if (isFinished) return PROGRESS_BAR_COLOR.finished;
   return PROGRESS_BAR_COLOR.active;
 }
+
+/**
+ * Takip kartının ilerleme yüzdesi (0–100) ya da bilinmiyorsa `null`. Eskiden
+ * üç kartta (EpisodeCardMobile, EpisodeCard.web, ShowTrackCardWeb) kopyaydı.
+ */
+export function ilerlemeYuzdesi(kart: { completedCount?: number | null; totalCount?: number | null } | null | undefined): number | null {
+  const tamam = kart?.completedCount;
+  const toplam = kart?.totalCount;
+  if (tamam === null || tamam === undefined || !toplam || toplam <= 0) return null;
+  return Math.min(100, (tamam / toplam) * 100);
+}

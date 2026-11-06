@@ -8,12 +8,12 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { atlananPlan, planToplami, planTekBolumMu, SezonListesi, IsaretlemePlani } from '../utils/atlananBolumler';
 import { duyurulmusBolumVarMi } from '../utils/duyurulanBolum';
+import { useBitisAniStore } from '../store/bitisAniStore';
 
 interface EpisodeCheckButtonProps {
   traktId: number;
   season: number;
   episode: number;
-  showName?: string;
   /** 🆕 M420 — sezonda VAR OLAN (ve yayınlanmış) bölüm numaraları. Verilirse
    *  "öncekileri de işaretle" sorusu ilerleme kaydının yüklenmesini BEKLEMEZ. */
   sezonBolumleri?: number[];
@@ -25,7 +25,6 @@ interface EpisodeCheckButtonProps {
   /** 🆕 M422 — ham sezon verisi: ilerleme kaydı yokken iyimser iskelet
    *  (aksi hâlde çok bölümlü planda ekran sunucu turunu bekliyordu). */
   iskeletSezonlar?: any[];
-  onShowFinished?: (showName: string, showId: number) => void;
   // info: basılma ANINDAKİ bölüm bilgisi. Store güncellenince data sıradaki
   // bölüme kaydığı için, "hangi bölüm izlendi" mesajı bu snapshot'tan yazılır.
   onSuccessStateChange?: (isSuccess: boolean, info?: { season: number; episode: number }) => void;
@@ -40,12 +39,10 @@ export default function EpisodeCheckButton({
   traktId,
   season,
   episode,
-  showName,
   sezonBolumleri,
   tumSezonlar,
   iskeletSezonlar,
   showMedia,
-  onShowFinished,
   onSuccessStateChange,
 }: EpisodeCheckButtonProps) {
   const [isSuccess, setIsSuccess] = useState(false);
@@ -94,18 +91,18 @@ export default function EpisodeCheckButton({
         // 🔴 M418: `newProgress` NULL olabilir — `kaymakIlerlemeTazele`
         // sunucu düşerse/boş dönerse mağazadaki değeri döndürüyor ve dizinin
         // İLK işaretlemesinde o değer yok. Null'ı "sıradaki bölüm yok" diye
-        // okumak, tek bölüm işaretleyen kullanıcıya KONFETİ + "diziyi puanla"
-        // göstermek ve düğmeyi kalıcı kilitlemek demekti.
+        // okumak, tek bölüm işaretleyen kullanıcıya "dizi bitti" göstermek ve
+        // düğmeyi kalıcı kilitlemek demekti.
         // 2.6.8 KUTLAMA-01: duyurulmuş (Yaklaşanlar'daki) bir sonraki bölüm varsa dizi
-        // bitmemiştir — ne panel çıkar ne düğme kilitlenir (`next_episode` yalnız
-        // yayınlanmış bölümü gösterir, bkz. `utils/duyurulanBolum.ts`).
+        // bitmemiştir — ne bitiş anı ne kilit (`next_episode` yalnız yayınlanmış
+        // bölümü gösterir, bkz. `utils/duyurulanBolum.ts`).
+        // 2.6.8 BITIS-01: pencere yok — kart listede yerinde mavi «bitti» olur
+        // (`store/bitisAniStore.ts`); eskiden ekran ekran geri çağrı + panel vardı.
         const { calendarShows, calendarSeasonsMap } = useLibraryStore.getState();
         if (newProgress && !newProgress.next_episode && !newProgress.catalogIncomplete
           && !duyurulmusBolumVarMi(traktId, { progress: newProgress, calendarShows, calendarSeasonsMap })) {
           setIsFinishedLocal(true);
-          if (onShowFinished && showName) {
-            onShowFinished(showName, traktId);
-          }
+          useBitisAniStore.getState().bitir('show', traktId);
         }
       })
       .catch((error) => {

@@ -6,31 +6,18 @@ import MediaPoster from './MediaPoster';
 import ProgressBar from './ProgressBar';
 import EpisodeCardActions from './EpisodeCardActions';
 import TrackingCardMenu from './tracking/TrackingCardMenu';
+import BitisIcerigi, { BITIS_RENK } from './tracking/BitisIcerigi';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
-import { getProgressBarColor } from '../utils/progressBarColor';
+import { getProgressBarColor, ilerlemeYuzdesi } from '../utils/progressBarColor';
 
 interface EpisodeCardProps {
   data: any;
-  onShowFinished?: (showName: string, showId: number) => void;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
 
-// Progress percentage — pure calculation, no side effects
-function getProgressPct(data: any): number | null {
-  if (
-    data?.completedCount !== null &&
-    data?.completedCount !== undefined &&
-    data?.totalCount &&
-    data.totalCount > 0
-  ) {
-    return Math.min(100, (data.completedCount / data.totalCount) * 100);
-  }
-  return null;
-}
-
-const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCardProps) => {
+const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
   // Başarı ekranında gösterilecek bölüm kodu — basılma anında yakalanır,
   // çünkü store güncellenince `data` çoktan sıradaki bölüme kaymış olur.
@@ -39,6 +26,9 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const router = useRouter();
   const { t } = useTranslation('media');
+  // BITIS-01: bitiş anında «izlendi» geçişi geri sarılmaz (içerik göz kırpmasın).
+  const bittiRef = useRef(false);
+  bittiRef.current = !!data?.bitti;
 
   // Akış: içerik kısa bir fade-out ile kaybolur → "SxxEyy izlendi" fade-in →
   // (buton ~0.5 sn bekletir, ağ isteği artık bunu bloklamıyor) → tekrar
@@ -57,6 +47,10 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
         setSuccessInfo({ code });
         Animated.timing(contentOpacity, { toValue: 1, duration: 140, useNativeDriver: Platform.OS !== 'web' }).start();
       });
+    } else if (bittiRef.current) {
+      overlayOpacity.setValue(0);
+      contentOpacity.setValue(1);
+      setSuccessInfo(null);
     } else {
       Animated.parallel([
         Animated.timing(contentOpacity, { toValue: 0, duration: 100, useNativeDriver: Platform.OS !== 'web' }),
@@ -88,7 +82,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
     router.push(`/episode/${slug}${data?.tmdbId ? `?showTmdbId=${data.tmdbId}` : ''}`);
   };
 
-  const progressPct = getProgressPct(data);
+  const progressPct = ilerlemeYuzdesi(data);
   // "Bırak" ile gizlenmiş yapımlar bu kartın beslendiği hiçbir listede
   // (takip panosu kategorileri / yaklaşanlar) görünmez — bu yüzden burada
   // "bırakıldı" rengi diye bir durum yoktur.
@@ -98,17 +92,23 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
     ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`
     : null;
 
+  // BITIS-01: dizi az önce bitti — kart yerinde mavi «bitti» görünümünde
+  // (yeşil «bölüm izlendi» anına ait kalır), birkaç saniye sonra listeden kayar.
+  const bitti = !!data.bitti;
+
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, bitti && styles.cardBitti]}
       activeOpacity={0.8}
       onPress={handleCardPress}
     >
       {/* Başarı arka planı: yeşile ani sıçramak yerine yumuşakça belirir/söner */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.successOverlay, { opacity: overlayOpacity }]}
-      />
+      {!bitti && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.successOverlay, { opacity: overlayOpacity }]}
+        />
+      )}
 
       {/* Poster */}
       <View style={styles.posterContainer}>
@@ -120,7 +120,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
         />
 
         {/* Progress bar pinned to bottom of poster */}
-        {progressPct !== null && !isSuccess && (
+        {progressPct !== null && !isSuccess && !bitti && (
           <ProgressBar
             percentage={progressPct}
             height={3}
@@ -130,7 +130,7 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
           />
         )}
 
-        {onToggleDropped && (
+        {onToggleDropped && !bitti && (
           <TrackingCardMenu
             style={styles.menuOverlay}
             id={data.id}
@@ -162,7 +162,9 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
           <ChevronRight size={10} color="#94a3b8" style={{ marginLeft: 2 }} />
         </TouchableOpacity>
 
-        {successInfo ? (
+        {bitti ? (
+          <BitisIcerigi tur="show" id={data.id} ad={data.showName} />
+        ) : successInfo ? (
           <>
             {/* Başarı görünümü: hangi bölümün izlendiği net yazar */}
             <View style={styles.successRow}>
@@ -234,11 +236,12 @@ const EpisodeCard = memo(({ data, onShowFinished, onToggleDropped }: EpisodeCard
       </Animated.View>
 
       {/* Right: Check Button or Countdown — timer bu izole bileşenin içinde yaşar */}
-      <EpisodeCardActions
-        data={data}
-        onSuccessStateChange={handleSuccessChange}
-        onShowFinished={onShowFinished}
-      />
+      {!bitti && (
+        <EpisodeCardActions
+          data={data}
+          onSuccessStateChange={handleSuccessChange}
+        />
+      )}
     </TouchableOpacity>
   );
 });
@@ -255,6 +258,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
     minHeight: 120,
+  },
+  cardBitti: {
+    backgroundColor: BITIS_RENK.zemin,
+    borderColor: BITIS_RENK.kenar,
   },
   successOverlay: {
     ...StyleSheet.absoluteFillObject,

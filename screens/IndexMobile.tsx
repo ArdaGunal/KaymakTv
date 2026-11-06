@@ -15,7 +15,6 @@ import { groupByDateGroup } from '../utils/groupByDateGroup';
 import SegmentedTabControl from '../components/index/SegmentedTabControl';
 import UpcomingSectionList from '../components/index/UpcomingSectionList';
 import TrackingAccordionList from '../components/tracking/TrackingAccordionList';
-import CelebrationOverlay from '../components/index/CelebrationOverlay';
 import AktarimBandi from '../components/library/AktarimBandi';
 import { useAktarimGorunumu } from '../hooks/useAktarimGorunumu';
 
@@ -27,11 +26,9 @@ export default function DizilerScreen() {
   // §C33: aktarım sürerken "boş" / "senkron başarısız" YALANI gösterilmez.
   const aktarim = useAktarimGorunumu();
 
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [finishedShow, setFinishedShow] = useState<{ name: string; id: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { accessToken, isGuest, authProvider } = useAuth();
+  const { accessToken, isGuest } = useAuth();
 
 
   const { kutuphane } = useKaymakYetenekleri();
@@ -55,10 +52,7 @@ export default function DizilerScreen() {
     hiddenShowIds: s.hiddenShowIds,
     hasSyncError: s.hasSyncError,
   }));
-  // `rateMedia`: Trakt'a yazar VE aynı damgayla Akış'a yayınlar — dizi
-  // bitirme kutlamasında verilen puan da anında akışa düşsün diye
-  // (bkz. services/library/mutations/ratings.ts).
-  const { refreshLibrary, rateMedia } = useLibraryActions();
+  const { refreshLibrary } = useLibraryActions();
 
   // "Yaklaşan" sekmesi görünür değilken bu ağır hesap tamamen atlanır (bkz.
   // useDashboardData'nın `enabled` parametresi) — kullanıcı "İzleme"
@@ -96,11 +90,6 @@ export default function DizilerScreen() {
     await refreshLibrary();
     setRefreshing(false);
   }, [accessToken, refreshLibrary]);
-
-  const handleShowFinished = useCallback((showName: string, showId: number) => {
-    setFinishedShow({ name: showName, id: showId });
-    setShowConfetti(true);
-  }, []);
 
   if (isGuest) {
     return (
@@ -171,7 +160,6 @@ export default function DizilerScreen() {
       ) : renderedTab === 'yaklasan' ? (
         <UpcomingSectionList
           sections={groupedUpcomingShows}
-          onShowFinished={handleShowFinished}
           refreshing={refreshing}
           onRefresh={onRefresh}
           insets={insets}
@@ -185,20 +173,11 @@ export default function DizilerScreen() {
           collapsed={collapsed}
           onToggle={toggle}
           labels={accordionLabels}
-          onShowFinished={handleShowFinished}
           onToggleDropped={dropShow}
           refreshing={refreshing}
           onRefresh={onRefresh}
           insets={insets}
           emptyLabel={aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noShowsInCategory')}
-        />
-      )}
-
-      {showConfetti && finishedShow && (
-        <CelebrationOverlay
-          finishedShow={finishedShow}
-          onRate={(val) => rateMedia(finishedShow.id, 'show', val, { title: finishedShow.name })}
-          onClose={() => setShowConfetti(false)}
         />
       )}
     </View>

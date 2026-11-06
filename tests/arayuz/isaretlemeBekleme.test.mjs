@@ -18,7 +18,7 @@ T.ok('Yesil ve 550ms yalniz mutasyon ACK dalinda', /\.then\(\(newProgress\)[\s\S
 T.ok('Cift dokunus senkron kilitli', /if \(busyRef.current\) return;\s*busyRef.current = true/.test(checkIn));
 T.ok('Gec yanit yeni dokunusu bozmuyor', /if \(requestIdRef.current !== myRequestId\) return/.test(checkIn));
 T.ok('Disk hatasi gorunur, kilit geri acilir', /\.catch\(\(error\)[\s\S]*notify\([\s\S]*serbestBirak\(\)/.test(checkIn));
-T.ok('Null/eksik ilerleme konfeti/bitis SAYILMAZ', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\b/.test(checkIn));
+T.ok('Null/eksik ilerleme bitis ani SAYILMAZ', /if \(newProgress && !newProgress\.next_episode && !newProgress\.catalogIncomplete\b/.test(checkIn));
 
 // Gercek React komponentinin event zinciri; state/ref/native yalniz port mock.
 let resolveMark, rejectMark;
@@ -37,9 +37,11 @@ const component = tsLoader(root, {
   '../context/LibraryContext': { useLibraryActions: () => ({ markEpisodeAsWatched: mark, planiIsaretle: mark }) },
   '../store/useLibraryStore': { useLibraryStore: { getState: () => ({ showProgressMap: {} }) } },
   '../context/AuthContext': { useAuth: () => ({ isGuest: false }) },
+  // BITIS-01: bitis ani artik geri cagri degil depo (kart yerinde mavi «bitti»).
+  '../store/bitisAniStore': { useBitisAniStore: { getState: () => ({ bitir: (tur, id) => { if (tur === 'show' && id === 33733) finishes++; } }) } },
   'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
 }, { setTimeout: (fn) => { timers.push(fn); return 1; }, console: { error: () => {} } })('components/EpisodeCheckButton.tsx');
-component.default({ traktId: 33733, season: 1, episode: 1, showName: 'Test', onShowFinished: () => { finishes++; } });
+component.default({ traktId: 33733, season: 1, episode: 1 });
 result.onPress(); result.onPress();
 T.ok('Gercek event: disk sozu asiliyken iki dokunus TEK mutasyon', calls === 1 && states[0] === false && timers.length === 0);
 resolveMark({ next_episode: { season: 1, number: 2 } });
@@ -51,9 +53,9 @@ await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 T.ok('Gercek event: disk hatasi yesil DEGIL ve gorunur uyari', states[0] === false && refs[0].current === false && alerts.length === 1);
 result.onPress(); resolveMark({ next_episode: null, catalogIncomplete: true });
 await Promise.resolve(); await Promise.resolve();
-T.ok('Gercek event: eksik katalog null-next konfeti VE kalici kilit yapmaz', finishes === 0 && states[1] === false);
+T.ok('Gercek event: eksik katalog null-next bitis ani VE kalici kilit yapmaz', finishes === 0 && states[1] === false);
 timers.shift()();
 result.onPress(); resolveMark({ next_episode: null, completed: 1, aired: 1 });
 await Promise.resolve(); await Promise.resolve();
-T.ok('Gercek event: tam katalogda gercek final konfeti korunur', finishes === 1 && states[1] === true);
+T.ok('Gercek event: tam katalogda gercek final bitis anini baslatir', finishes === 1 && states[1] === true);
 T.bitir();

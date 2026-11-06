@@ -150,7 +150,6 @@ export default function SeasonAccordion({
                         traktId={showTraktId}
                         season={season.number}
                         episode={ep.number}
-                        showName={showTitle}
                         // 🆕 M420 — yalnızca YAYINLANMIŞ bölümler: yayınlanmamışı
                         // işaretlemek sunucuda "gelecek tarih" diye reddedilir.
                         sezonBolumleri={yayinlanmisNumaralar}

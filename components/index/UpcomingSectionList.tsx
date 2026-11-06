@@ -5,19 +5,18 @@ import EpisodeCard from '../EpisodeCard';
 
 interface UpcomingSectionListProps {
   sections: { title: string; data: any[] }[];
-  onShowFinished: (showName: string, showId: number) => void;
   refreshing: boolean;
   onRefresh: () => void;
   insets: EdgeInsets;
   emptyLabel: string;
 }
 
-export default function UpcomingSectionList({ sections, onShowFinished, refreshing, onRefresh, insets, emptyLabel }: UpcomingSectionListProps) {
+export default function UpcomingSectionList({ sections, refreshing, onRefresh, insets, emptyLabel }: UpcomingSectionListProps) {
   return (
     <SectionList
       sections={sections}
       keyExtractor={(item) => item.id.toString()}
-      renderItem={({ item }) => <EpisodeCard data={item} onShowFinished={onShowFinished} />}
+      renderItem={({ item }) => <EpisodeCard data={item} />}
       renderSectionHeader={({ section: { title } }) => (
         <Text style={styles.calendarDateHeader}>{title}</Text>
       )}

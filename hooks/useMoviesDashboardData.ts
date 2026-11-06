@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateGroup, isFutureDate, cikisTarihiBicimle } from '../utils/dateHelper';
 import { buyukBaslik } from '../utils/gorunenBaslik';
+import { tutulanlariGeriKoy } from '../utils/bitisOzeti';
+import { useBitisAniStore, bitenKimlikler, tutulanFilmler } from '../store/bitisAniStore';
 
 // Bugüne göre kalan gün sayısı (gece yarısı bazlı)
 const daysUntil = (dateObj: Date): number => {
@@ -23,15 +25,19 @@ export const useMoviesDashboardData = (
   hiddenMovieIds: number[] = []
 ) => {
   const { t } = useTranslation('media');
+  // BITIS-01: az önce izlenen film birkaç saniye yerinde mavi «bitti» kartıyla kalır.
+  const bitisKayitlari = useBitisAniStore((s) => s.kayitlar);
 
   return useMemo(() => {
     const hiddenSet = new Set(hiddenMovieIds);
+    const bitenler = bitenKimlikler(bitisKayitlari, 'movie');
+    const izlemeListesi = tutulanlariGeriKoy(watchlistMovies, tutulanFilmler(bitisKayitlari), (o: any) => o?.movie?.ids?.trakt);
 
     // 1. Watchlist (İzleme Listesi) — gelecek tarihliler takvime taşınır
     const watchlistTemp: any[] = [];
     const farFutureTemp: any[] = [];
 
-    for (const item of watchlistMovies) {
+    for (const item of izlemeListesi) {
       const traktId = item?.movie?.ids?.trakt;
       if (!traktId) continue;
       // Trakt'ta "Bırak" ile gizlenmiş filmler, dizilerdeki hiddenShowIds ile
@@ -55,6 +61,7 @@ export const useMoviesDashboardData = (
         releaseDate: cikisTarihiBicimle(releaseDateStr),
         image: null,
         tags: ['WATCHLIST'],
+        ...(bitenler.has(traktId) ? { bitti: true } : {}),
       };
 
       if (isAired) {
@@ -117,5 +124,5 @@ export const useMoviesDashboardData = (
       watchlistMoviesList: watchlistTemp,
       upcomingMovies: upcomingTemp,
     };
-  }, [watchlistMovies, calendarMovies, i18nLanguage, hiddenMovieIds]);
+  }, [watchlistMovies, calendarMovies, i18nLanguage, hiddenMovieIds, bitisKayitlari]);
 };

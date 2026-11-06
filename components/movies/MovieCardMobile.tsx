@@ -1,45 +1,21 @@
-import React, { useState, memo, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { notify } from '../../utils/confirmDialog';
+import React, { memo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Check } from '../icons';
-import { useLibraryActions } from '../../context/LibraryContext';
 import { useRouter } from 'expo-router';
 import { useAirCountdown } from '../../hooks/useAirCountdown';
+import { useFilmIzle } from '../../hooks/useFilmIzle';
 import { useTranslation } from 'react-i18next';
 import MediaPoster from '../MediaPoster';
 import TrackingCardMenu from '../tracking/TrackingCardMenu';
+import BitisIcerigi, { BITIS_RENK } from '../tracking/BitisIcerigi';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { getMediaTagLabel } from '../../utils/mediaTagLabel';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-// Başarı mesajının okunabilir kaldığı süre; sonrasında kart listeden
-// yumuşakça çıkar. Dizi kartlarındaki akışla aynı tempo.
-const SUCCESS_HOLD_MS = 1400;
-
-// Kartın listeden çıkışını yumuşatan animasyon (yalnızca opacity — Android'de stabil).
-const REMOVAL_ANIMATION = {
-  duration: 260,
-  create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-  update: { type: LayoutAnimation.Types.easeInEaseOut },
-  delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-};
-
 // Sağ panel: geri sayım / işaretleme butonu. useAirCountdown timer'ı BURADA yaşar —
 // her tick'te yalnızca bu panel yeniden çizilir, kart gövdesi (poster/başlık) etkilenmez.
-//
-// NOT: Burada eskiden bir `isLoading` prop'u ve ona bağlı bir `ActivityIndicator`
-// dalı vardı. Üst bileşendeki state'in setter'ı hiç çağrılmadığı için değer
-// kalıcı olarak `false`'tu — yani spinner ASLA render edilmiyordu. Zaten
-// gösterilse de görünmezdi: "izledim" akışında geri bildirimi, isteği
-// beklemeden başlayan başarı çapraz geçişi (crossfade) üstleniyor ve butonun
-// üstünü kaplıyor. Çift-dokunuş koruması da state'e değil `busyRef`'e bağlı
-// (state güncellemesi asenkron olduğundan hızlı iki dokunuşu kaçırırdı).
-const MovieCardActions = memo(({ data, isSuccess, onCheckIn }: {
+// Çift dokunuş koruması `useFilmIzle`'deki ref'te.
+const MovieCardActions = memo(({ data, onCheckIn }: {
   data: any;
-  isSuccess: boolean;
   onCheckIn: () => void;
 }) => {
   const { t } = useTranslation(['media', 'common']);
@@ -62,9 +38,8 @@ const MovieCardActions = memo(({ data, isSuccess, onCheckIn }: {
         </View>
       ) : (
         <TouchableOpacity
-          style={[styles.checkButton, isSuccess && styles.checkButtonSuccess]}
+          style={styles.checkButton}
           onPress={onCheckIn}
-          disabled={isSuccess}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Check size={20} color="#ffffff" strokeWidth={3} />
@@ -76,78 +51,21 @@ const MovieCardActions = memo(({ data, isSuccess, onCheckIn }: {
 
 interface MovieCardMobileProps {
   data: any;
-  onMovieFinished?: (title: string) => void;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırak/Listeye Ekle/Favorile/Paylaş) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
 
-const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMobileProps) => {
+const MovieCard = memo(({ data, onToggleDropped }: MovieCardMobileProps) => {
   const { t } = useTranslation(['media', 'common']);
   const router = useRouter();
-  const [isSuccess, setIsSuccess] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(1)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const isMountedRef = useRef(true);
-  // Çift dokunuş koruması: isSuccess state'i fade bitene dek gecikmeli
-  // set edildiği için anlık koruma bu ref ile sağlanır.
-  const busyRef = useRef(false);
-  // Store aboneliği yok — sadece aksiyon referansı alınır.
-  const { markMovieAsWatched } = useLibraryActions();
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-  }, []);
-
-  // ESKİ SORUN: markMovieAsWatched optimistic olarak filmi ANINDA watchlist'ten
-  // çıkarıyordu → kart daha başarı mesajı görünmeden listeden "pat" diye siliniyor,
-  // konfeti de 1 sn sonra durduk yere beliriyordu.
-  // YENİ AKIŞ: önce kartta yumuşak "Geçmişinize eklendi" gösterilir (~1.4 sn),
-  // store güncellemesi SONRA yapılır ve kart listeden animasyonla çıkar.
-  const handleCheckIn = () => {
-    if (busyRef.current || isSuccess) return;
-    busyRef.current = true;
-
-    Animated.parallel([
-      Animated.timing(contentOpacity, { toValue: 0, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(overlayOpacity, { toValue: 1, duration: 350, useNativeDriver: Platform.OS !== 'web' }),
-    ]).start(() => {
-      // İçerik ancak görünmezken değişir — metin "pat" diye atlamaz.
-      if (isMountedRef.current) setIsSuccess(true);
-      Animated.timing(contentOpacity, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
-    });
-
-    setTimeout(async () => {
-      try {
-        // Kartın listeden çıkışı (store güncellemesi) yumuşak olsun.
-        LayoutAnimation.configureNext(REMOVAL_ANIMATION);
-        // 🔴 M421 (denetim E) — FİLM NESNESİ DE GEÇİYOR: iyimser "izlendi"
-        // girdisi film izleme listesinde DEĞİLSE ancak bununla kurulabiliyor
-        // (takvim/öneri kartından işaretlenen film eskiden ekranda değişmiyordu).
-        await markMovieAsWatched(data.id, data.raw || data.movie || null);
-        if (onMovieFinished) {
-          onMovieFinished(data.title);
-        }
-      } catch (error) {
-        notify(t('common:error'), t('movieMarkError'));
-        busyRef.current = false;
-        if (isMountedRef.current) {
-          // Hata: başarı görünümünü yumuşakça geri al.
-          Animated.parallel([
-            Animated.timing(contentOpacity, { toValue: 0, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
-            Animated.timing(overlayOpacity, { toValue: 0, duration: 350, useNativeDriver: Platform.OS !== 'web' }),
-          ]).start(() => {
-            setIsSuccess(false);
-            Animated.timing(contentOpacity, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
-          });
-        }
-      }
-    }, SUCCESS_HOLD_MS);
-  };
+  const izle = useFilmIzle(data);
+  // BITIS-01: film az önce izlendi — kart yerinde mavi «bitti» görünümünde,
+  // birkaç saniye sonra listeden yumuşakça çıkar (bkz. store/bitisAniStore.ts).
+  const bitti = !!data.bitti;
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, bitti && styles.cardBitti]}
       activeOpacity={0.8}
       onPress={() => {
         if (data?.id) {
@@ -156,12 +74,6 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMob
         }
       }}
     >
-      {/* Başarı arka planı: ani yeşil yerine yumuşak geçiş */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.successOverlay, { opacity: overlayOpacity }]}
-      />
-
       {/* Poster */}
       <View style={styles.posterContainer}>
         <MediaPoster
@@ -171,7 +83,7 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMob
           style={styles.posterImage}
         />
 
-        {onToggleDropped && (
+        {onToggleDropped && !bitti && (
           <TrackingCardMenu
             style={styles.menuOverlay}
             id={data.id}
@@ -184,26 +96,14 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMob
         )}
       </View>
 
-      {/* Content — crossfade: normal içerik ↔ başarı mesajı */}
-      <Animated.View style={[styles.contentContainer, { opacity: contentOpacity }]}>
-        {isSuccess ? (
-          <>
-            <Text style={styles.movieTitleText} numberOfLines={2}>
-              {data.title}
-            </Text>
-            <View style={styles.successRow}>
-              <View style={styles.successCheckBadge}>
-                <Check size={12} color="#10b981" strokeWidth={3.5} />
-              </View>
-              <Text style={styles.successText}>{t('addedToHistory')}</Text>
-            </View>
-          </>
+      <View style={styles.contentContainer}>
+        <Text style={styles.movieTitleText} numberOfLines={2}>
+          {data.title}
+        </Text>
+        {bitti ? (
+          <BitisIcerigi tur="movie" id={data.id} ad={data.title} film={data.raw} />
         ) : (
           <>
-            <Text style={styles.movieTitleText} numberOfLines={2}>
-              {data.title}
-            </Text>
-
             <Text style={styles.yearText}>
               {data.releaseDate || data.year || ''}
             </Text>
@@ -219,13 +119,9 @@ const MovieCard = memo(({ data, onMovieFinished, onToggleDropped }: MovieCardMob
             )}
           </>
         )}
-      </Animated.View>
+      </View>
 
-      <MovieCardActions
-        data={data}
-        isSuccess={isSuccess}
-        onCheckIn={handleCheckIn}
-      />
+      {!bitti && <MovieCardActions data={data} onCheckIn={izle} />}
     </TouchableOpacity>
   );
 });
@@ -244,31 +140,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     height: 144,
   },
-  successOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#064e3b',
-  },
-  successRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  successCheckBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successText: {
-    color: '#6ee7b7',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+  cardBitti: {
+    backgroundColor: BITIS_RENK.zemin,
+    borderColor: BITIS_RENK.kenar,
   },
   posterContainer: {
     width: 96,
@@ -338,10 +212,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkButtonSuccess: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
   },
   countdownContainer: {
     alignItems: 'center',

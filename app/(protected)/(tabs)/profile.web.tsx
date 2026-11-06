@@ -160,7 +160,7 @@ export default function ProfileScreenWeb() {
 
   const { lists, isLoading: isListsLoading } = useProfileLists(customLists, isLibraryLoading);
   const { ozelListeler } = useKaymakYetenekleri();
-  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, refetch: refetchProfile, tazeleGerekirse } = useMyTraktProfile();
+  const { profile, followersCount, followingCount, isLoading: isProfileLoading, kaymakNo, tazeleGerekirse } = useMyTraktProfile();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>('summary');
 
   // Profili Düzenle ekranından dönüldüğünde güncel veriyi çeker — mobil

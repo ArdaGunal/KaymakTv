@@ -38,7 +38,6 @@ interface TrackingAccordionListWebProps {
   collapsed: CollapsedMap;
   onToggle: (key: TrackingCategoryKey) => void;
   labels: Record<TrackingCategoryKey, string>;
-  onShowFinished: (showName: string, showId: number) => void;
   onToggleDropped: (id: number) => void;
   refreshing: boolean;
   onRefresh: () => void;
@@ -97,12 +96,10 @@ const SectionHeader = memo(function SectionHeader({
 const SectionBlockView = memo(function SectionBlockView({
   block,
   onToggle,
-  onShowFinished,
   onToggleDropped,
 }: {
   block: SectionBlock;
   onToggle: (key: TrackingCategoryKey) => void;
-  onShowFinished: (showName: string, showId: number) => void;
   onToggleDropped: (id: number) => void;
 }) {
   return (
@@ -118,7 +115,7 @@ const SectionBlockView = memo(function SectionBlockView({
         <View style={styles.grid}>
           {block.items.map((card) => (
             <View key={`${block.key}-${card.id}`} style={styles.gridCell}>
-              <EpisodeCard data={card} onShowFinished={onShowFinished} onToggleDropped={onToggleDropped} />
+              <EpisodeCard data={card} onToggleDropped={onToggleDropped} />
             </View>
           ))}
         </View>
@@ -132,7 +129,6 @@ function TrackingAccordionListWeb({
   collapsed,
   onToggle,
   labels,
-  onShowFinished,
   onToggleDropped,
   refreshing,
   onRefresh,
@@ -151,9 +147,9 @@ function TrackingAccordionListWeb({
 
   const renderItem = useCallback(
     ({ item }: { item: SectionBlock }) => (
-      <SectionBlockView block={item} onToggle={onToggle} onShowFinished={onShowFinished} onToggleDropped={onToggleDropped} />
+      <SectionBlockView block={item} onToggle={onToggle} onToggleDropped={onToggleDropped} />
     ),
-    [onToggle, onShowFinished, onToggleDropped]
+    [onToggle, onToggleDropped]
   );
 
   const keyExtractor = useCallback((item: SectionBlock) => item.key, []);

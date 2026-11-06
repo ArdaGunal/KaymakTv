@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { categorizeShows, ShowCategories } from '../store/tracking/trackingLogic';
 import { useWatchedOutboxStore } from '../store/watchedOutboxStore';
+import { useBitisAniStore, bitenKimlikler } from '../store/bitisAniStore';
 
 export interface UseTrackingShowsResult {
   categories: ShowCategories;
@@ -75,6 +76,9 @@ export function useTrackingShows(): UseTrackingShowsResult {
   const { t, i18n } = useTranslation('media');
   const now = useTrackingNow();
   const pendingShowIds = useWatchedOutboxStore((s) => s.pendingShowIds);
+  // BITIS-01: az önce biten diziler kart yerinde «bitti» görünümüyle kalsın.
+  const bitisKayitlari = useBitisAniStore((s) => s.kayitlar);
+  const bitenIds = useMemo(() => bitenKimlikler(bitisKayitlari, 'show'), [bitisKayitlari]);
 
   const { watchedShows, watchlistShows, showProgressMap, hiddenShowIds, isLibraryLoading } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
@@ -94,6 +98,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         showProgressMap: showProgressMap || {},
         hiddenShowIds,
         pendingShowIds,
+        bitenIds,
         now,
         labels: {
           dil: i18n.language,
@@ -103,7 +108,7 @@ export function useTrackingShows(): UseTrackingShowsResult {
         },
       }),
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, now, t, i18n.language]
+    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, bitenIds, now, t, i18n.language]
   );
 
   const totalCount = categories.upNext.length + categories.paused.length + categories.notStarted.length;

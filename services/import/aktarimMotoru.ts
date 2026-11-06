@@ -25,7 +25,6 @@ import type { AileSayaci, AktarimOzeti, TazelemeOlayi } from './aktarimCekirdek'
 type Cekirdek = typeof CekirdekModulu;
 
 import type {
-  AdimYaniti,
   AktarimMotoru,
   MotorBagimliliklari,
   MotorDurumu,

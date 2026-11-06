@@ -65,6 +65,8 @@ export interface TrackingCard {
   readyToWatch: boolean;
   /** Bilinen son izleme tarihi (ISO) — yalnızca sıralama/gösterim amaçlı, kategorizasyon `now` anında hesaplanır. */
   lastWatchedAt?: string;
+  /** 2.6.8 BITIS-01: dizi az önce bitti — kart birkaç saniye yerinde mavi «bitti» görünümünde kalır. */
+  bitti?: boolean;
 }
 
 export interface ShowCategories {
@@ -109,6 +111,8 @@ export interface CategorizeOptions {
   hiddenShowIds?: number[] | Set<number>;
   /** Yazma + tam sunucu teyidi bekleyen diziler. Eksik katalogla kartı gizleme. */
   pendingShowIds?: number[] | Set<number>;
+  /** 2.6.8 BITIS-01: bitiş anındaki diziler (bkz. `store/bitisAniStore.ts`). */
+  bitenIds?: Set<number>;
   now?: number;
   /** Son izlemenin üzerinden kaç gün geçince "Ara Verilenler"e düşeceği. */
   pauseThresholdDays?: number;
@@ -178,6 +182,7 @@ export function categorizeShows({
   labels,
   hiddenShowIds = [],
   pendingShowIds = [],
+  bitenIds,
   now = Date.now(),
   pauseThresholdDays = DEFAULT_PAUSE_THRESHOLD_DAYS,
 }: CategorizeOptions): ShowCategories {
@@ -263,6 +268,15 @@ export function categorizeShows({
         tags: ['GİZLİ'],
         readyToWatch: hasStarted && nextReady,
       });
+      continue;
+    }
+
+    // 1b. BITIS-01 — az önce biten dizi Güncel'e hemen DÜŞMEZ: birkaç saniye
+    // Aktif'te yerinde kalır, kart mavi «bitti» görünümünü çizer. Geri alınırsa
+    // (sıradaki bölüm yeniden hazır) normal kurala döner.
+    if (bitenIds?.has(id) && !!progress && completed > 0 && !nextReady) {
+      upNext.push({ ...base, isCalculating: false, season, episode, title, tags: [], readyToWatch: true, bitti: true });
+      hareket.set(id, sonHareketAni(entry.lastWatchedAt, progress, now));
       continue;
     }
 

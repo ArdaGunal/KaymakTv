@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, RefreshControl, Dimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, RefreshControl, Platform } from 'react-native';
 
-import ConfettiCannon from 'react-native-confetti-cannon';
 import MovieCard from '../components/movies/MovieCard';
 import LoginPaywall from '../components/LoginPaywall';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -17,7 +16,6 @@ import SegmentedTabControl from '../components/index/SegmentedTabControl';
 import AktarimBandi from '../components/library/AktarimBandi';
 import { useAktarimGorunumu } from '../hooks/useAktarimGorunumu';
 
-const { width } = Dimensions.get('window');
 
 export default function MoviesScreen() {
   const insets = useSafeAreaInsets();
@@ -27,10 +25,8 @@ export default function MoviesScreen() {
   // §C33: aktarım sürerken "boş" / "senkron başarısız" YALANI gösterilmez.
   const aktarim = useAktarimGorunumu();
 
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [finishedMovieName, setFinishedMovieName] = useState('');
 
-  const { accessToken, isGuest, authProvider } = useAuth();
+  const { accessToken, isGuest } = useAuth();
 
 
   const { kutuphane } = useKaymakYetenekleri();
@@ -78,12 +74,6 @@ export default function MoviesScreen() {
   const showUpcomingSyncError =
     renderedTab === 'yaklasan' && groupedUpcomingMovies.length === 0 && hasSyncError && !aktarim.aktarimSuruyor;
 
-  const handleMovieFinished = useCallback((movieName: string) => {
-    setFinishedMovieName(movieName);
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 3500);
-  }, []);
-
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
     // Sekme geçiş animasyonu takılmasın diye ağır liste render'ı bir tık ertelenir.
@@ -94,11 +84,10 @@ export default function MoviesScreen() {
     ({ item }: { item: any }) => (
       <MovieCard
         data={item}
-        onMovieFinished={handleMovieFinished}
         onToggleDropped={() => toggleHiddenFromProgress(item.id, 'movie', false)}
       />
     ),
-    [handleMovieFinished, toggleHiddenFromProgress]
+    [toggleHiddenFromProgress]
   );
 
   if (isGuest) {
@@ -198,18 +187,6 @@ export default function MoviesScreen() {
           }
         />
       )}
-
-      {showConfetti && (
-        <View style={styles.confettiOverlay} pointerEvents="none">
-          {Platform.OS !== 'web' && (
-            <ConfettiCannon count={200} origin={{ x: width / 2, y: -20 }} fallSpeed={3000} fadeOut={true} />
-          )}
-          <View style={styles.congratsContainer}>
-            <Text style={styles.congratsTitle}>{t('congrats')}</Text>
-            <Text style={styles.congratsText}>{finishedMovieName} {t('movieFinished')}</Text>
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -221,8 +198,4 @@ const styles = StyleSheet.create({
   scrollContent: { paddingTop: 12 },
   emptyText: { color: '#64748b', textAlign: 'center', paddingVertical: 40, fontStyle: 'italic' },
   calendarDateHeader: { color: '#a3a3a3', fontSize: 13, fontWeight: 'bold', letterSpacing: 1, marginTop: 16, marginBottom: 12, marginLeft: 4 },
-  confettiOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 999 },
-  congratsContainer: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 24, borderRadius: 16, alignItems: 'center' },
-  congratsTitle: { fontSize: 28, fontWeight: 'bold', color: '#3B82F6', marginBottom: 8 },
-  congratsText: { fontSize: 16, color: '#ffffff', textAlign: 'center' },
 });
