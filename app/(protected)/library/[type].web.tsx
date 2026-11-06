@@ -213,7 +213,6 @@ export default function LibraryScreenWeb() {
 
       {supportsFilters ? (
         <LibraryFilterModal
-          wide
           visible={filterOpen}
           options={filterOptions}
           selected={activeStatuses}

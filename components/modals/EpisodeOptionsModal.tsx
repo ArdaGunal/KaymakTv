@@ -1,7 +1,8 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { notify } from '../../utils/confirmDialog';
-import { Star, CheckCheck } from '../icons';
+import { Star, CheckCheck, Trash2 } from '../icons';
+import OrtaPencere from './OrtaPencere';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
@@ -42,80 +43,48 @@ export default function EpisodeOptionsModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>S{episode?.season} E{episode?.episode}: {episode?.title}</Text>
-                <Text style={styles.modalSubtitle}>{t('episodeOptions')}</Text>
-              </View>
-              
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={handleRatePress}
-              >
-                <Star size={20} color="#f59e0b" fill="#f59e0b" />
-                <Text style={[styles.modalButtonText, {color: '#f59e0b'}]}>{t('rateOrEdit')}</Text>
-              </TouchableOpacity>
+    <OrtaPencere visible={visible} onClose={onClose}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>S{episode?.season} E{episode?.episode}: {episode?.title}</Text>
+        <Text style={styles.modalSubtitle}>{t('episodeOptions')}</Text>
+      </View>
 
-              <TouchableOpacity 
-                style={styles.modalButton} 
-                onPress={onRewatch}
-                disabled={!!loadingOption}
-              >
-                {loadingOption === 'rewatch' ? (
-                  <ActivityIndicator size="small" color="#3b82f6" />
-                ) : (
-                  <>
-                    <CheckCheck size={20} color="#10b981" />
-                    <Text style={[styles.modalButtonText, {color: '#10b981'}]}>{t('rewatch')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+      <TouchableOpacity style={styles.modalButton} onPress={handleRatePress}>
+        <Star size={20} color="#f59e0b" fill="#f59e0b" />
+        <Text style={[styles.modalButtonText, { color: '#f59e0b' }]}>{t('rateOrEdit')}</Text>
+      </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.modalButton, {borderBottomWidth: 0}]} 
-                onPress={onUnwatch}
-                disabled={!!loadingOption}
-              >
-                {loadingOption === 'remove' ? (
-                  <ActivityIndicator size="small" color="#ef4444" />
-                ) : (
-                  <>
-                    <Text style={[styles.modalButtonText, {color: '#ef4444', marginLeft: 0}]}>{t('unwatch')}</Text>
-                    <Text style={{color: '#737373', fontSize: 11, marginTop: 4}}>{t('allRecordsDeleted')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+      <TouchableOpacity style={styles.modalButton} onPress={onRewatch} disabled={!!loadingOption}>
+        {loadingOption === 'rewatch' ? (
+          <ActivityIndicator size="small" color="#3b82f6" />
+        ) : (
+          <>
+            <CheckCheck size={20} color="#10b981" />
+            <Text style={[styles.modalButtonText, { color: '#10b981' }]}>{t('rewatch')}</Text>
+          </>
+        )}
+      </TouchableOpacity>
 
+      {/* 2.6.8 MENU-01: başlık ve açıklama eskiden yan yana yapışıyordu
+          («İzlemeyi KaldırTüm izleme kayıtları silinecek») — artık alt alta. */}
+      <TouchableOpacity style={[styles.modalButton, styles.lastButton]} onPress={onUnwatch} disabled={!!loadingOption}>
+        {loadingOption === 'remove' ? (
+          <ActivityIndicator size="small" color="#ef4444" />
+        ) : (
+          <>
+            <Trash2 size={20} color="#ef4444" />
+            <View style={styles.destructiveTextWrap}>
+              <Text style={[styles.modalButtonText, styles.destructiveText]}>{t('unwatch')}</Text>
+              <Text style={styles.destructiveSubtext}>{t('allRecordsDeleted')}</Text>
             </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+          </>
+        )}
+      </TouchableOpacity>
+    </OrtaPencere>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
   modalHeader: {
     marginBottom: 20,
   },
@@ -139,6 +108,21 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 12,
+  },
+  lastButton: {
+    borderBottomWidth: 0,
+  },
+  destructiveTextWrap: {
+    flex: 1,
+  },
+  destructiveText: {
+    color: '#ef4444',
+  },
+  destructiveSubtext: {
+    color: '#737373',
+    fontSize: 11,
+    marginTop: 2,
     marginLeft: 12,
   },
 });

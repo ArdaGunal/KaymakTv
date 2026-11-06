@@ -1,8 +1,9 @@
 import { Check, X } from '../icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import OrtaPencere from '../modals/OrtaPencere';
 
 import { DILLER } from '../../locales/diller';
 
@@ -42,106 +43,45 @@ export default function LanguagePickerModal({
   onClose,
 }: LanguagePickerModalProps) {
   const { t } = useTranslation('settings');
-  const insets = useSafeAreaInsets();
-  const isWeb = Platform.OS === 'web';
 
+  // 2.6.8 MENU-01: telefonda da ekranın ortasında (eskiden yalnız web'de).
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType={isWeb ? 'fade' : 'slide'}
-      onRequestClose={onClose}
-      statusBarTranslucent={Platform.OS === 'android'}
-    >
-      <View style={[styles.overlay, isWeb && styles.overlayWeb]}>
-        <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={onClose} />
-
-        {/* Web: Merkezi dialog kutusu | Mobil: Alt çekmece (bottom sheet) */}
-        <View style={[
-          styles.sheet,
-          isWeb ? styles.sheetWeb : { paddingBottom: Math.max(insets.bottom, 20) }
-        ]}>
-          {/* Mobil'e özgü kaydırma çubukçuğu */}
-          {!isWeb && <View style={styles.grabber} />}
-
-          <View style={styles.header}>
-            <Text style={styles.title}>{t('languagePickerTitle', 'Dil Seç')}</Text>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <X size={20} color="#94a3b8" />
-            </TouchableOpacity>
-          </View>
-
-          {DILLER.map((dil) => {
-            const code = dil.kod;
-            const isSelected = currentLanguage === code;
-            return (
-              <TouchableOpacity
-                key={code}
-                style={[styles.row, isSelected && styles.rowSelected]}
-                onPress={() => {
-                  onSelect(code);
-                  onClose();
-                }}
-                activeOpacity={0.7}
-              >
-                <FlagImage iso2={dil.bayrakUlke} emoji={dil.bayrak} />
-                <Text style={styles.label}>{dil.ad}</Text>
-                {isSelected && <Check size={18} color="#3b82f6" strokeWidth={2.5} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+    <OrtaPencere visible={visible} onClose={onClose} maxWidth={360}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{t('languagePickerTitle', 'Dil Seç')}</Text>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.closeBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <X size={20} color="#94a3b8" />
+        </TouchableOpacity>
       </View>
-    </Modal>
+
+      {DILLER.map((dil) => {
+        const code = dil.kod;
+        const isSelected = currentLanguage === code;
+        return (
+          <TouchableOpacity
+            key={code}
+            style={[styles.row, isSelected && styles.rowSelected]}
+            onPress={() => {
+              onSelect(code);
+              onClose();
+            }}
+            activeOpacity={0.7}
+          >
+            <FlagImage iso2={dil.bayrakUlke} emoji={dil.bayrak} />
+            <Text style={styles.label}>{dil.ad}</Text>
+            {isSelected && <Check size={18} color="#3b82f6" strokeWidth={2.5} />}
+          </TouchableOpacity>
+        );
+      })}
+    </OrtaPencere>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'flex-end',
-  },
-  // Web'de ortada küçük bir dialog kutusu gibi görünür
-  overlayWeb: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backdropTouch: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sheet: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    padding: 20,
-  },
-  // Web'de tam dialog kutusu
-  sheetWeb: {
-    width: 360,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    padding: 24,
-    // Bottom sheet radius'unu override et
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    ...({ boxShadow: '0 24px 64px rgba(0,0,0,0.6)' } as any),
-  },
-  grabber: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

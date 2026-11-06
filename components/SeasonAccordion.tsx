@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { yerelEtiket } from '../locales/diller';
 import { generateEpisodeSlug } from '../utils/slugHelper';
 import EpisodeCheckButton from './EpisodeCheckButton';
+import OrtaPencere from './modals/OrtaPencere';
 import { useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
 import { confirmAsync, notify } from '../utils/confirmDialog';
@@ -58,7 +59,7 @@ export default function SeasonAccordion({
   const router = useRouter();
   // Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" seçimi — 3 seçenekli
   // olduğundan (Vazgeç dahil) tek bir window.confirm'e sığmaz, bu yüzden native bir
-  // bottom-sheet modal kullanılıyor (EpisodeOptionsModal.tsx ile aynı desen).
+  // pencere kullanılıyor — ekranın ortasında (`OrtaPencere`, EpisodeOptionsModal ile aynı).
   const [seasonMenuVisible, setSeasonMenuVisible] = useState(false);
   // Abonesiz aksiyon hook'u — store değişimleri bu bileşeni yeniden render etmez.
   const { markSeasonAsWatched, markEpisodesUpToAsWatched, unwatchSeason, rewatchSeason } = useLibraryActions();
@@ -257,34 +258,24 @@ export default function SeasonAccordion({
       )}
 
       {/* Sezon tamamen izlenmişken "Tekrar İzle / Bırakılmışı Sil" menüsü —
-          Vazgeç dahil 3 seçenek olduğu için (window.confirm en fazla 2 seçenek
-          sunabilir) native bir bottom-sheet kullanılıyor, hem web hem mobilde
-          aynı şekilde çalışır. */}
-      <Modal
-        visible={seasonMenuVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSeasonMenuVisible(false)}
-      >
-        <Pressable style={styles.menuOverlay} onPress={() => setSeasonMenuVisible(false)}>
-          <Pressable style={styles.menuContent} onPress={() => {}}>
-            <View style={styles.menuHeader}>
-              <Text style={styles.menuTitle}>{t('seasonOptionsTitle')}</Text>
-              <Text style={styles.menuSubtitle}>{t('seasonOptionsMsg', { season: seasonLabel })}</Text>
-            </View>
+          window.confirm en fazla 2 seçenek sunabildiği için kendi penceremiz;
+          ekranın ortasında (MENU-01, `OrtaPencere`), web ve mobilde aynı. */}
+      <OrtaPencere visible={seasonMenuVisible} onClose={() => setSeasonMenuVisible(false)}>
+        <View style={styles.menuHeader}>
+          <Text style={styles.menuTitle}>{t('seasonOptionsTitle')}</Text>
+          <Text style={styles.menuSubtitle}>{t('seasonOptionsMsg', { season: seasonLabel })}</Text>
+        </View>
 
-            <TouchableOpacity style={styles.menuButton} onPress={handleRewatchFromMenu}>
-              <RotateCcw size={20} color="#3b82f6" />
-              <Text style={[styles.menuButtonText, { color: '#3b82f6' }]}>{t('rewatch')}</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={styles.menuButton} onPress={handleRewatchFromMenu}>
+          <RotateCcw size={20} color="#3b82f6" />
+          <Text style={[styles.menuButtonText, { color: '#3b82f6' }]}>{t('rewatch')}</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.menuButton, { borderBottomWidth: 0 }]} onPress={handleUnwatchFromMenu}>
-              <Trash2 size={20} color="#ef4444" />
-              <Text style={[styles.menuButtonText, { color: '#ef4444' }]}>{t('unwatchSeasonTitle')}</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        <TouchableOpacity style={[styles.menuButton, { borderBottomWidth: 0 }]} onPress={handleUnwatchFromMenu}>
+          <Trash2 size={20} color="#ef4444" />
+          <Text style={[styles.menuButtonText, { color: '#ef4444' }]}>{t('unwatchSeasonTitle')}</Text>
+        </TouchableOpacity>
+      </OrtaPencere>
     </View>
   );
 }
@@ -401,18 +392,6 @@ const styles = StyleSheet.create({
   },
   markSeasonBtnWatched: {
     backgroundColor: '#10b981',
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  menuContent: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
   },
   menuHeader: {
     marginBottom: 20,

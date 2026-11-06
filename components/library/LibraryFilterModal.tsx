@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Check, X } from '../icons';
 import { useTranslation } from 'react-i18next';
+import OrtaPencere from '../modals/OrtaPencere';
 
 export interface FilterOption<TKey extends string> {
   key: TKey;
@@ -18,8 +18,6 @@ interface LibraryFilterModalProps<TKey extends string> {
   title: string;
   onApply: (next: TKey[]) => void;
   onClose: () => void;
-  /** true → ekranın ortasında modal (web/masaüstü); false → alttan açılan sheet (mobil). */
-  wide?: boolean;
 }
 
 /**
@@ -39,10 +37,8 @@ export default function LibraryFilterModal<TKey extends string>({
   title,
   onApply,
   onClose,
-  wide = false,
 }: LibraryFilterModalProps<TKey>) {
   const { t } = useTranslation('navigation');
-  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<TKey[]>(selected);
 
   // Menü her açılışta uygulanmış durumla senkronlanır: kullanıcı önceki
@@ -50,16 +46,6 @@ export default function LibraryFilterModal<TKey extends string>({
   useEffect(() => {
     if (visible) setDraft(selected);
   }, [visible, selected]);
-
-  // Web'de Escape ile kapatma — masaüstü modal beklentisi.
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !visible) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [visible, onClose]);
 
   const toggle = useCallback((key: TKey) => {
     setDraft((current) =>
@@ -72,115 +58,59 @@ export default function LibraryFilterModal<TKey extends string>({
     onClose();
   }, [draft, onApply, onClose]);
 
-  // Alttan açılan sheet'te "Temizle / Göster" butonları, Android'in gezinme
-  // çubuğunun (ve iOS'un home göstergesinin) ALTINDA kalıyordu — modal
-  // `statusBarTranslucent` ile sistem çubuklarının altına uzandığı için sabit
-  // `paddingBottom` yetmiyor. Güvenli alan kadar ek boşluk bırakılıyor; inset
-  // 0 dönen cihazlarda da parmağa rahat bir pay kalsın diye taban 16px.
-  const sheetPaddingBottom = Math.max(insets.bottom, 16) + 16;
-
+  // 2.6.8 MENU-01: telefonda da ekranın ortasında (`OrtaPencere`); eskiden yalnız
+  // geniş ekranda ortadaydı, telefonda alttan açılıyordu.
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType={wide ? 'fade' : 'slide'}
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
-      <Pressable style={[styles.overlay, wide && styles.overlayWide]} onPress={onClose}>
-        {/* Panelin kendisine dokunmak menüyü kapatmamalı. */}
-        <Pressable
-          style={[styles.panel, wide ? styles.panelWide : { paddingBottom: sheetPaddingBottom }]}
-          onPress={() => {}}
+    <OrtaPencere visible={visible} onClose={onClose} maxWidth={420}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{title}</Text>
+        <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <X size={20} color="#94a3b8" />
+        </TouchableOpacity>
+      </View>
+
+      {options.map((option) => {
+        const isChecked = draft.includes(option.key);
+        return (
+          <TouchableOpacity
+            key={option.key}
+            style={styles.optionRow}
+            onPress={() => toggle(option.key)}
+            activeOpacity={0.7}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: isChecked }}
+          >
+            <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+              {isChecked ? <Check size={14} color="#0b1120" strokeWidth={3} /> : null}
+            </View>
+            <Text style={[styles.optionText, isChecked && styles.optionTextChecked]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.clearButton}
+          onPress={() => setDraft([])}
+          disabled={draft.length === 0}
+          activeOpacity={0.7}
         >
-          {!wide ? <View style={styles.grabber} /> : null}
+          <Text style={[styles.clearText, draft.length === 0 && styles.clearTextDisabled]}>
+            {t('clearFilters', 'Temizle')}
+          </Text>
+        </TouchableOpacity>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <X size={20} color="#94a3b8" />
-            </TouchableOpacity>
-          </View>
-
-          {options.map((option) => {
-            const isChecked = draft.includes(option.key);
-            return (
-              <TouchableOpacity
-                key={option.key}
-                style={styles.optionRow}
-                onPress={() => toggle(option.key)}
-                activeOpacity={0.7}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: isChecked }}
-              >
-                <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                  {isChecked ? <Check size={14} color="#0b1120" strokeWidth={3} /> : null}
-                </View>
-                <Text style={[styles.optionText, isChecked && styles.optionTextChecked]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => setDraft([])}
-              disabled={draft.length === 0}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.clearText, draft.length === 0 && styles.clearTextDisabled]}>
-                {t('clearFilters', 'Temizle')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.applyButton} onPress={handleApply} activeOpacity={0.85}>
-              <Text style={styles.applyText}>{t('applyFilters', 'Göster')}</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        <TouchableOpacity style={styles.applyButton} onPress={handleApply} activeOpacity={0.85}>
+          <Text style={styles.applyText}>{t('applyFilters', 'Göster')}</Text>
+        </TouchableOpacity>
+      </View>
+    </OrtaPencere>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  overlayWide: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(2,6,23,0.72)',
-  },
-  panel: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderTopWidth: 1,
-    borderColor: '#1f2937',
-  },
-  panelWide: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#334155',
-    marginBottom: 14,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

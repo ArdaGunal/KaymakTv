@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Share } from 'react-native';
 import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { gorunenBaslik } from '../../utils/gorunenBaslik';
@@ -7,6 +7,7 @@ import { useAppBack } from '../../hooks/useAppBack';
 import { useAuth } from '../../context/AuthContext';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { confirmAsync, notify } from '../../utils/confirmDialog';
+import OrtaPencere from './OrtaPencere';
 
 interface OptionsModalProps {
   visible: boolean;
@@ -113,77 +114,61 @@ export default function OptionsModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.modalContent}>
+    <OrtaPencere visible={visible} onClose={onClose}>
 
-          {/* İzleme Listesi artık burada DEĞİL — tek, görünür yerden (MediaHero
-              rozet satırındaki Bookmark butonu) yönetiliyor. Aynı eylemi iki
-              yerde göstermek karışıklık yaratırdı (bkz. docs/HISTORY.md). */}
+      {/* İzleme Listesi artık burada DEĞİL — tek, görünür yerden (MediaHero
+          rozet satırındaki Bookmark butonu) yönetiliyor. Aynı eylemi iki
+          yerde göstermek karışıklık yaratırdı (bkz. docs/HISTORY.md). */}
 
-          {/* "İzlemeyi Bırak" — hem diziler hem filmler için Trakt'ın gizleme uç
-              noktasına bağlıdır (bkz. isHidden/onHideFromProgress), takip
-              panosundaki 3-nokta menüsüyle (`TrackingCardMenu`) BİREBİR AYNI
-              eylem/mekanizma/ikon — yalnızca buradan iki yöne de (bırak/devam
-              et) çalışabilir, panodaki menü tek yönlüdür (bkz. o dosyadaki not).
-              `PauseCircle` uygulama genelinde bu eylemin TEK ikonudur;
-              "devam et" yönünde onun doğal karşıtı `PlayCircle` kullanılır. */}
-          {onHideFromProgress && (
-            <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
-              {isHidden ? <PlayCircle color="#38bdf8" size={24} /> : <PauseCircle color="#fff" size={24} />}
-              <Text style={[styles.optionText, isHidden && { color: '#38bdf8' }]}>
-                {isHidden ? t('unhideProgress') : t('hideProgress')}
-              </Text>
-            </TouchableOpacity>
-          )}
+      {/* "İzlemeyi Bırak" — hem diziler hem filmler için Trakt'ın gizleme uç
+          noktasına bağlıdır (bkz. isHidden/onHideFromProgress), takip
+          panosundaki 3-nokta menüsüyle (`TrackingCardMenu`) BİREBİR AYNI
+          eylem/mekanizma/ikon — yalnızca buradan iki yöne de (bırak/devam
+          et) çalışabilir, panodaki menü tek yönlüdür (bkz. o dosyadaki not).
+          `PauseCircle` uygulama genelinde bu eylemin TEK ikonudur;
+          "devam et" yönünde onun doğal karşıtı `PlayCircle` kullanılır. */}
+      {onHideFromProgress && (
+        <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
+          {isHidden ? <PlayCircle color="#38bdf8" size={24} /> : <PauseCircle color="#fff" size={24} />}
+          <Text style={[styles.optionText, isHidden && { color: '#38bdf8' }]}>
+            {isHidden ? t('unhideProgress') : t('hideProgress')}
+          </Text>
+        </TouchableOpacity>
+      )}
 
-          <TouchableOpacity style={styles.optionRow} onPress={handleShare}>
-            <Share2 color="#fff" size={24} />
-            <Text style={styles.optionText}>{t('share')}</Text>
-          </TouchableOpacity>
+      <TouchableOpacity style={styles.optionRow} onPress={handleShare}>
+        <Share2 color="#fff" size={24} />
+        <Text style={styles.optionText}>{t('share')}</Text>
+      </TouchableOpacity>
 
-          {type === 'movie' && isWatched && onRewatch && (
-            <TouchableOpacity style={styles.optionRow} onPress={() => {
-              if (isGuest) {
-                notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-                onClose();
-                return;
-              }
-              onRewatch();
-              onClose();
-            }}>
-              <CheckCheck color="#10b981" size={24} />
-              <Text style={[styles.optionText, {color: '#10b981'}]}>{t('rewatch')}</Text>
-            </TouchableOpacity>
-          )}
+      {type === 'movie' && isWatched && onRewatch && (
+        <TouchableOpacity style={styles.optionRow} onPress={() => {
+          if (isGuest) {
+            notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+            onClose();
+            return;
+          }
+          onRewatch();
+          onClose();
+        }}>
+          <CheckCheck color="#10b981" size={24} />
+          <Text style={[styles.optionText, {color: '#10b981'}]}>{t('rewatch')}</Text>
+        </TouchableOpacity>
+      )}
 
-          <TouchableOpacity style={[styles.optionRow, styles.destructiveRow]} onPress={handleDeleteHistory}>
-            <Trash2 color="#ef4444" size={24} />
-            <View style={styles.destructiveTextWrap}>
-              <Text style={styles.destructiveText}>{t('removeHistory')}</Text>
-              <Text style={styles.destructiveSubtext}>{t('removeHistorySub')}</Text>
-            </View>
-          </TouchableOpacity>
-
+      <TouchableOpacity style={[styles.optionRow, styles.destructiveRow]} onPress={handleDeleteHistory}>
+        <Trash2 color="#ef4444" size={24} />
+        <View style={styles.destructiveTextWrap}>
+          <Text style={styles.destructiveText}>{t('removeHistory')}</Text>
+          <Text style={styles.destructiveSubtext}>{t('removeHistorySub')}</Text>
         </View>
-      </Pressable>
-    </Modal>
+      </TouchableOpacity>
+
+    </OrtaPencere>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'rgba(23, 32, 51, 0.95)',
-    padding: 24,
-    paddingBottom: 40,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
