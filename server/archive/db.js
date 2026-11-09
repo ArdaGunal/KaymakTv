@@ -68,11 +68,11 @@ let durum = null; // { enabled, db, dbPath } | { enabled: false, reason }
  * yedeklenen bir volume'e) taşınabilmeli — cache'in yeriyle zincirlenmiş
  * olmamalı. `cache/` yedeklenmez, `archive/` yedeklenir.
  */
-function arsivKokunuCoz() {
-  if (process.env.ARCHIVE_ROOT && process.env.ARCHIVE_ROOT.trim()) {
-    return process.env.ARCHIVE_ROOT.trim();
+function arsivKokunuCoz(ortam = process.env) {
+  if (ortam.ARCHIVE_ROOT && ortam.ARCHIVE_ROOT.trim()) {
+    return ortam.ARCHIVE_ROOT.trim();
   }
-  const lf = process.env.LAZYFETCH_ROOT;
+  const lf = ortam.LAZYFETCH_ROOT;
   if (lf && lf.trim()) return path.join(lf.trim(), 'archive');
   return null;
 }
@@ -603,6 +603,8 @@ function closeArchive() {
 }
 
 module.exports = {
+  // Bakım betikleri (`scripts/kimlik-onarim.js`) arşivi sunucuyla AYNI kuralla bulsun diye (taşıma D4).
+  arsivKokunuCoz,
   initArchive,
   isArchiveEnabled,
   getArchiveStatus,

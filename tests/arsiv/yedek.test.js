@@ -51,6 +51,48 @@ const depo = require(path.join(AR, 'store'));
     db.getDb().prepare("SELECT count(*) c FROM sync_log WHERE event='error' AND detail LIKE '%yedek%'").get().c >= 1);
 
   // ==================================================================
+  T.H('D3 (tasima): ARCHIVE_BACKUP_AYNI_AYGIT=1 -> izinli + UYARILI');
+  // ==================================================================
+  // Tek diskli GNL-SERVER: yedek diski takilana kadar red her geceyi dusururdu (karar 5-A).
+  const eskiIzin = process.env.ARCHIVE_BACKUP_AYNI_AYGIT;
+  const sessiz = console.error;
+  console.error = () => {};
+  const yanlislar = [];
+  for (const deger of ['true', 'yes', 'evet', '2', ' ', '01']) {
+    process.env.ARCHIVE_BACKUP_AYNI_AYGIT = deger;
+    const r = await yedek.runBackup({ dir: ayniDisk });
+    if (!(r.ok === false && r.reason === 'ayni_aygit')) yanlislar.push(deger);
+  }
+  console.error = sessiz;
+  T.ok("🔴 Yalniz TAM '1' izin verir (true/yes/evet/2/bosluk/01 reddedilir)", yanlislar.length === 0, yanlislar.join(','));
+  T.ok("ayniAygitIzinli: '1' ve ' 1 ' -> true, yok -> false",
+    yedek.ayniAygitIzinli({ ARCHIVE_BACKUP_AYNI_AYGIT: '1' }) && yedek.ayniAygitIzinli({ ARCHIVE_BACKUP_AYNI_AYGIT: ' 1 ' })
+    && !yedek.ayniAygitIzinli({}) && !yedek.ayniAygitIzinli({ ARCHIVE_BACKUP_AYNI_AYGIT: 'true' }));
+
+  process.env.ARCHIVE_BACKUP_AYNI_AYGIT = '1';
+  const uyarilar = [];
+  const eskiUyari = console.warn;
+  console.warn = (...a) => { uyarilar.push(a.join(' ')); };
+  const izinli = await yedek.runBackup({ dir: ayniDisk });
+  console.warn = eskiUyari;
+  T.ok('Izinliyken ayni aygitta yedek ALINDI', izinli && izinli.ok === true && fs.existsSync(izinli.path), izinli && (izinli.reason || ''));
+  if (izinli && izinli.ok) {
+    const k = new (require('node:sqlite').DatabaseSync)(izinli.path, { readOnly: true });
+    const qc = Object.values(k.prepare('PRAGMA quick_check').get())[0];
+    const adet = k.prepare('SELECT count(*) c FROM entities').get().c;
+    k.close();
+    T.ok('Izinli kopya saglam (quick_check ok) ve veri TAM', qc === 'ok' && adet === db.getDb().prepare('SELECT count(*) c FROM entities').get().c, qc);
+  }
+  T.ok('🔴 Her turda console.warn uyarisi (sessiz degil)', uyarilar.some((u) => u.includes('AYNI AYGIT')), String(uyarilar.length));
+  T.ok('🔴 sync_log a izinli-ayni-aygit uyarisi yazildi',
+    db.getDb().prepare("SELECT count(*) c FROM sync_log WHERE detail LIKE '%AYNI AYGIT (izinli%'").get().c === 1);
+  if (eskiIzin === undefined) delete process.env.ARCHIVE_BACKUP_AYNI_AYGIT; else process.env.ARCHIVE_BACKUP_AYNI_AYGIT = eskiIzin;
+  console.error = () => {};
+  const tekrarRed = await yedek.runBackup({ dir: ayniDisk });
+  console.error = sessiz;
+  T.ok('Degisken kalkinca red KENDILIGINDEN geri gelir', tekrarRed.ok === false && tekrarRed.reason === 'ayni_aygit');
+
+  // ==================================================================
   T.H('Gecerli hedefe yedek');
   // ==================================================================
   // NOT: bu testte arsiv de hedef de ayni makinede; farkli AYGIT

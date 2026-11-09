@@ -11,12 +11,17 @@
 //    `--onay <parmak izi>`. Araç planı canlı veriden YENİDEN hesaplar; parmak izi tutmazsa
 //    (veri değişmiş) hiçbir şey yazmaz. Yazmadan önce `VACUUM INTO` yedeği alır ve doğrular.
 //
-// Kullanım (Pi; kök sistemd'deki LAZYFETCH_ROOT ile aynı olmalı — hafıza: pi-script-env-pinning):
+// Kullanım (sunucuda; kök systemd'deki LAZYFETCH_ROOT ile aynı olmalı — hafıza: pi-script-env-pinning):
 //   node scripts/kimlik-onarim.js --trakt                       # kuru + gereken Trakt yanıtlarını çek (~7 istek, S4)
 //   node scripts/kimlik-onarim.js --trakt-dosyasi <plan.json>   # kuru, ağsız (önceki yanıtlarla)
 //   node scripts/kimlik-onarim.js --uygula --plan <plan.json> --onay <parmak izi>
 // Seçenekler: --db <katalog.db> · --yedek-dizini <dizin> · --env <.env> · --plan-cikti <dosya>
 //             --g1s-yok (sezon birleşmelerini plana ALMA; 08'de olmayan grup — kullanıcı reddederse)
+//
+// 🔴 MAKİNEYE ÖZGÜ YOL YOK (GNL-SERVER taşıması · D4): veritabanı `--db` ya da sunucuyla AYNI kural
+// (`ARCHIVE_ROOT`, yoksa `LAZYFETCH_ROOT/archive` → `katalog.db`); yedek/plan dizini `--yedek-dizini`
+// ya da `KIMLIK_ONARIM_YEDEK`. Hiçbiri yoksa araç HİÇBİR DOSYA AÇMADAN durur — eskiden Pi'nin
+// SSD yolları gömülüydü ve başka makinede yanlış yere bakardı.
 
 const fs = require('fs');
 const path = require('path');
@@ -30,10 +35,15 @@ const { planG6 } = require('./kimlik-onarim/tmdb');
 const { uygula, sayim } = require('./kimlik-onarim/uygula');
 const { rapor } = require('./kimlik-onarim/rapor');
 
-const VARSAYILAN_DB = '/mnt/SSD1/KaymakTv/LazyFetch/archive/katalog.db';
-const VARSAYILAN_YEDEK = '/mnt/SSD1/KaymakTv/yedek-elle';
+const { arsivKokunuCoz } = require('../server/archive/db');
 
-function argumanlar(argv) {
+/** Varsayılan veritabanı — sunucunun kuralıyla (`db.js` `arsivKokunuCoz`); kök yoksa null. */
+function varsayilanDb(ortam = process.env) {
+  const kok = arsivKokunuCoz(ortam);
+  return kok ? path.join(kok, 'katalog.db') : null;
+}
+
+function argumanlar(argv, ortam = process.env) {
   const a = { kuru: true };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
@@ -51,14 +61,22 @@ function argumanlar(argv) {
     else if (k === '--plan-cikti') a.planCikti = deger();
     else throw new Error(`bilinmeyen seçenek: ${k}`);
   }
-  a.db = a.db || VARSAYILAN_DB;
-  a.yedekDizini = a.yedekDizini || VARSAYILAN_YEDEK;
+  a.db = a.db || varsayilanDb(ortam);
+  a.yedekDizini = a.yedekDizini || String(ortam.KIMLIK_ONARIM_YEDEK || '').trim() || null;
   return a;
+}
+
+/** Eksik yol varsa hata metni (dosya açılmadan önce); yoksa null. */
+function eksikYol(a) {
+  if (!a.db) return 'veritabanı yolu yok: --db <katalog.db> ver ya da ARCHIVE_ROOT / LAZYFETCH_ROOT ayarla';
+  if (a.kuru && !a.planCikti && !a.yedekDizini) return 'plan dosyası için dizin yok: --plan-cikti <dosya>, --yedek-dizini <dizin> ya da KIMLIK_ONARIM_YEDEK ver';
+  if (!a.kuru && !a.yedekDizini) return 'yazımdan önceki yedek için dizin yok: --yedek-dizini <dizin> ya da KIMLIK_ONARIM_YEDEK ver';
+  return null;
 }
 
 /** Trakt istemci kimliği — `.env`'den okunur, ASLA yazdırılmaz. */
 function traktAnahtari(envYolu) {
-  const adaylar = [envYolu, '/home/GNL/KaymakTv/.env', path.join(__dirname, '..', '.env')].filter(Boolean);
+  const adaylar = [envYolu, path.join(__dirname, '..', '.env')].filter(Boolean);
   for (const y of adaylar) {
     if (!fs.existsSync(y)) continue;
     for (const s of fs.readFileSync(y, 'utf8').split(/\r?\n/)) {
@@ -153,6 +171,8 @@ function yedekAl(db, dizin, etiket) {
 
 async function main() {
   const a = argumanlar(process.argv.slice(2));
+  const eksik = eksikYol(a);
+  if (eksik) throw new Error(eksik);
   if (!fs.existsSync(a.db)) throw new Error(`veritabanı yok: ${a.db}`);
 
   if (a.kuru) {
@@ -200,6 +220,6 @@ async function main() {
   }
 }
 
-module.exports = { planla, yedekAl };
+module.exports = { planla, yedekAl, argumanlar, eksikYol, varsayilanDb };
 
 if (require.main === module) main().catch((e) => { console.error(`❌ ${e.message}`); process.exit(1); });

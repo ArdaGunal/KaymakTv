@@ -138,6 +138,12 @@ const TAKIMLAR = [
   { ad: 'trakt-oturumu', grup: 'arayuz', dosya: 'arayuz/trakt-oturumu.test.mjs', aciklama: 'Trakt kasasi Faz 3: tek yenileme yolu, gecici hata cikisa atmaz, eski cihaz tasimasi' },
   { ad: 'trakt-kopru', grup: 'arayuz', dosya: 'sunucu/trakt-kopru.test.js', aciklama: 'Worker Trakt oturum cagrilari Pi koprusunden: sir, dar girdi, zarf, log temizligi' },
   { ad: 'supabase-isitma', grup: 'arayuz', dosya: 'sunucu/supabase-isitma.test.js', aciklama: 'HIZ-02: 4 dk kucuk okuma, iki yol, sir ayrimi, sayac, log temizligi' },
+  // GNL-SERVER tasimasi (kaymakchat 001 D1-D8): varsayilanlar Pi'nin bugunku davranisi.
+  { ad: 'gece-isleri', grup: 'sunucu', dosya: 'sunucu/gece-isleri.test.js', aciklama: 'Tasima D1: GECE_ISLERI yalniz tam 0 kapatir, bes zamanlayici tek kapidan, saglik bayragi' },
+  { ad: 'dinleme', grup: 'sunucu', dosya: 'sunucu/dinleme.test.js', aciklama: 'Tasima D2: HOST yoksa tum arayuzler, HOST=127.0.0.1 gercek baglanma, CF-Connecting-IP korunur' },
+  { ad: 'web-yerel', grup: 'sunucu', dosya: 'sunucu/web-yerel.test.js', aciklama: 'Tasima D5: web-yerel.sh varsayilan GNL-SERVER/kaymaktv, KAYMAK_PI ile eski Pi duzeni, KURU kip' },
+  { ad: 'yayinla', grup: 'sunucu', dosya: 'sunucu/yayinla.test.js', aciklama: 'Tasima D7: yayin betigi (npm ci -> her zaman yeniden baslat, derleme duserse dist yerinde) + derleme-env' },
+  { ad: 'birim-dosyasi', grup: 'sunucu', dosya: 'sunucu/birim-dosyasi.test.js', aciklama: 'Tasima D6/D8: kaymaktv.service sunucu duzeni + kodda Pi yolu/adresi kalmadi' },
   { ad: 'kaymak-no', grup: 'arayuz', dosya: 'arayuz/kaymak-no.test.mjs', aciklama: 'Kimlik Faz 2 (066): KaymakNo #48291735 gorunumu, profil + arama baglantisi' },
   { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492: isim ekrani (her yeni hesap, Atla yok, K2 kalkti) + istatistik bolum bazli sure' },
   { ad: 'onay-kutusu', grup: 'arayuz', dosya: 'arayuz/onay-kutusu.test.mjs', aciklama: 'GORSEL-01: onay/bilgi kutulari koyu ConfirmHost, dogrudan Alert.alert yasak, kuyruk' },

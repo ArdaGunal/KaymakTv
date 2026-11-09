@@ -91,7 +91,6 @@ const { startMirrorSchedule } = require('./server/archive/mirrorSchedule');
 const { startSayacSchedule } = require('./server/archive/sayac');
 
 const app = express();
-const PORT = process.env.PORT || 4830;
 
 // ⚠️ ESKİDEN `cors()` idi — yani `Access-Control-Allow-Origin: *`. Artık
 // yalnızca kaymaktv.com (ve geliştirmede localhost/exp://) kaynaklı tarayıcı
@@ -130,25 +129,27 @@ if (missingEnvVars.length > 0) {
 // logunu görmek için ilk TMDB isteğini beklemek gerekirdi. Burada erken
 // çağırmak yalnızca operasyonel görünürlük için — davranışı değiştirmez.
 initLazyFetchPaths();
-startSweeperSchedule();
 // Erken çağrı yalnızca operasyonel görünürlük için: olmasaydı arşivin
 // durumu ilk yazım denemesine kadar log'a düşmezdi (`isArchiveEnabled`
 // zaten tembel başlatıyor). Davranışı değiştirmez.
 initArchive();
-startBackupSchedule();
-// 🔴 SIRA ÖNEMLİ DEĞİL (dördü de yalnızca zamanlayıcı kurar, iş yapmaz) ama
-// PENCERELER önemli ve çakışmıyor: backfill 02-04, süpürücü 04-06,
-// yedek 05-07, AYNA 07-09. Gerekçesi `backfillSchedule.js` ve
-// `mirrorSchedule.js` başlıklarında.
-startBackfillSchedule();
-// Ayna EN SONA konuldu: gecenin backfill'i 04:00'te biter, ayna 07:00'de
-// onu da alır — yani yeni veri AYNI SABAH aynalanmış olur. Öne alsaydık her
-// gece bir gün gecikirdi ve T0'ın "ayna gecikmesi < 24 saat" ölçütü sıkışırdı.
-startMirrorSchedule();
-
-// Gece haritasindaki BESINCI is: 09-11, hepsinden SONRA — gecenin tum
-// yazmalari bittikten sonraki sayi anlamli olan.
-startSayacSchedule();
+// 🔴 GECE ZAMANLAYICILARI tek kapıdan (`GECE_ISLERI`, taşıma D1): yalnız TAM `'0'` hiçbirini
+// kurmaz (taşıma provası — gerekçe `server/geceIsleri.js`); yoksa beşi de bugünkü sırayla kurulur.
+// SIRA ÖNEMLİ DEĞİL (hepsi yalnızca zamanlayıcı kurar, iş yapmaz) ama PENCERELER önemli ve
+// çakışmıyor: backfill 02-04, süpürücü 04-06, yedek 05-07, AYNA 07-09, sayaç 09-11. Gerekçesi
+// `backfillSchedule.js` ve `mirrorSchedule.js` başlıklarında.
+// Ayna backfill'den SONRA: gecenin backfill'i 04:00'te biter, ayna 07:00'de onu da alır — yeni
+// veri AYNI SABAH aynalanır (T0'ın "ayna gecikmesi < 24 saat" ölçütü). Sayaç hepsinden SONRA:
+// gecenin tüm yazmaları bittikten sonraki sayı anlamlı olan.
+require('./server/geceIsleri').geceIsleriniBaslat({
+  baslaticilar: [
+    ['supurucu', startSweeperSchedule],
+    ['yedek', startBackupSchedule],
+    ['backfill', startBackfillSchedule],
+    ['ayna', startMirrorSchedule],
+    ['sayac', startSayacSchedule],
+  ],
+});
 require('./server/supabaseIsitma').startSupabaseIsitma(); // HIZ-02: soğuk Supabase bağlantısı
 
 // ==========================================
@@ -236,10 +237,13 @@ app.use((req, res) => {
 // ==========================================
 // START SERVER
 // ==========================================
-const sunucu = app.listen(PORT, () => {
+// `HOST` yoksa tüm arayüzler (bugünkü davranış); GNL-SERVER'da `127.0.0.1` (taşıma D2, `server/dinleme.js`).
+const { dinlemeAyari, adresMetni } = require('./server/dinleme');
+const dinleme = dinlemeAyari();
+const sunucu = app.listen(dinleme.port, dinleme.host, () => {
   console.log(`==========================================`);
-  console.log(`🚀 Kaymak Server is running on port ${PORT}`);
-  console.log(`🌐 Local URL: http://localhost:${PORT}`);
+  console.log(`🚀 Kaymak Server is running on ${adresMetni(sunucu.address())}`);
+  console.log(`🌐 Local URL: http://${dinleme.host || 'localhost'}:${sunucu.address().port}`);
   logSecurityMode();
   console.log(`==========================================`);
 });
