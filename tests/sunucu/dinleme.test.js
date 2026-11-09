@@ -21,6 +21,9 @@ const { dinlemeAyari, adresMetni } = require(path.join(PROJE_KOKU, 'server', 'di
   T.ok('HOST bos/bosluk -> undefined', dinlemeAyari({ HOST: '' }).host === undefined && dinlemeAyari({ HOST: '   ' }).host === undefined);
   T.ok("HOST='127.0.0.1' -> aynen", dinlemeAyari({ HOST: ' 127.0.0.1 ' }).host === '127.0.0.1');
   T.ok("PORT='5000' -> 5000; PORT='0' -> 0 (rastgele)", dinlemeAyari({ PORT: '5000' }).port === 5000 && dinlemeAyari({ PORT: '0' }).port === 0);
+  T.ok("🔴 PORT='' / '  ' -> 4830 (bos .env satiri rastgele porta ACMAZ)", dinlemeAyari({ PORT: '' }).port === 4830 && dinlemeAyari({ PORT: '  ' }).port === 4830,
+    JSON.stringify([dinlemeAyari({ PORT: '' }).port, dinlemeAyari({ PORT: '  ' }).port]));
+  T.ok("PORT=' 5000 ' -> 5000", dinlemeAyari({ PORT: ' 5000 ' }).port === 5000);
   T.ok('PORT anlamsiz -> 4830', dinlemeAyari({ PORT: 'abc' }).port === 4830 && dinlemeAyari({ PORT: '-1' }).port === 4830);
   T.ok('adresMetni IPv4 / IPv6', adresMetni({ address: '127.0.0.1', family: 'IPv4', port: 4830 }) === '127.0.0.1:4830'
     && adresMetni({ address: '::', family: 'IPv6', port: 4830 }) === '[::]:4830');

@@ -2,8 +2,9 @@
 // scripts/sunucu/yayinla.sh + derleme-env.js (GNL-SERVER taşıması · D7)
 // ==========================================================================
 // 🔴 İDDİALAR: npm ci yalnız kilit/paket/yama değişince · npm ci çalıştıysa servis HER ZAMAN ve
-// derlemeden ÖNCE yeniden başlar (danışman 002 §3.3) · yalnız istemci değişince yeniden başlatma yok ·
-// derleme düşerse eski `dist` YERİNDE, betik hata verir · sağlık 200 değilse hata · KURU kip hiçbir
+// derlemeden ÖNCE yeniden başlar (danışman 002 §3.3) · sunucu kodu değişince de yeniden başlatma
+// derlemeden ÖNCE, derleme düşse bile (danışman 005 §2.2) · yalnız istemci değişince yeniden başlatma yok ·
+// derleme düşerse eski `dist` YERİNDE, sağlık yine sorulur, betik hata verir · sağlık 200 değilse hata · KURU kip hiçbir
 // şey değiştirmez · YAYIN_DERLEME_ENV derlemeyi sarmalayıcıdan geçirir · sarmalayıcı yalnız
 // EXPO_PUBLIC_* geçirir, değer yazdırmaz.
 // Ağ / servis YOK: git, npm, npx, sudo, curl, id, node SAHTE (geçici PATH); gerçek depo değişmez.
@@ -114,8 +115,8 @@ const temizle = (s) => fs.rmSync(s.kok, { recursive: true, force: true });
   T.H('Sunucu kodu degisti');
   const sv = kur();
   const rs = kos(sv, { degisen: 'server/saglik.js' });
-  T.ok('npm ci yok, servis TAM BIR KEZ ve derlemeden SONRA yeniden basladi', rs.kod === 0 && !rs.kayit.some((s) => /^npm ci/.test(s))
-    && rs.kayit.filter((s) => s === 'sudo -n systemctl restart kaymaktv').length === 1 && sira(rs.kayit, /^sudo/) > sira(rs.kayit, /^npx/), rs.kayit.join(' | '));
+  T.ok('npm ci yok, servis TAM BIR KEZ ve derlemeden ONCE yeniden basladi', rs.kod === 0 && !rs.kayit.some((s) => /^npm ci/.test(s))
+    && rs.kayit.filter((s) => s === 'sudo -n systemctl restart kaymaktv').length === 1 && sira(rs.kayit, /^sudo/) >= 0 && sira(rs.kayit, /^sudo/) < sira(rs.kayit, /^npx/), rs.kayit.join(' | '));
   temizle(sv);
 
   T.H('Kilit dosyasi degisti (npm ci)');
@@ -138,8 +139,19 @@ const temizle = (s) => fs.rmSync(s.kok, { recursive: true, force: true });
   const rd = kos(d, { degisen: 'server/x.js\napp/y.tsx', ortam: { SAHTE_NPX_KOD: '1' } });
   T.ok('Betik HATA verir', rd.kod !== 0 && /DERLEME DUSTU/.test(rd.cikti), String(rd.kod));
   T.ok('🔴 Eski dist YERINDE, yarim dist.yeni temizlendi', icerik(path.join(d.app, 'dist', 'index.html')) === 'ESKI' && !fs.existsSync(path.join(d.app, 'dist.yeni')));
-  T.ok('Npm ci yokken servis yeniden BASLATILMADI (eski kod + eski paket tutarli)', !rd.kayit.some((s) => /^sudo/.test(s)));
+  T.ok('🔴 Sunucu kodu degisti + derleme dustu: servis YINE yeniden basladi (diskte yeni kod, bellekte eski surec KALMAZ)',
+    rd.kayit.filter((s) => s === 'sudo -n systemctl restart kaymaktv').length === 1, rd.kayit.join(' | '));
+  T.ok('Saglik derleme dussa da soruldu, cikti iki durumu da soyluyor', rd.kayit.includes('curl') && /saglik 200 ama DERLEME DUSTU/.test(rd.cikti));
   temizle(d);
+  const di = kur();
+  const rdi = kos(di, { degisen: 'app/y.tsx', ortam: { SAHTE_NPX_KOD: '1' } });
+  T.ok('Yalniz istemci degisti + derleme dustu: yeniden baslatma YOK, eski dist yerinde, cikis != 0',
+    rdi.kod !== 0 && !rdi.kayit.some((s) => /^sudo/.test(s)) && icerik(path.join(di.app, 'dist', 'index.html')) === 'ESKI', rdi.kayit.join(' | '));
+  temizle(di);
+  const dk = kur();
+  const rdk = kos(dk, { degisen: 'server/x.js', ortam: { SAHTE_NPX_KOD: '1', YAYIN_KURU: '1' } });
+  T.ok('KURU: npx gercekte cagrilmaz -> derleme dusmez, cikis 0', rdk.kod === 0 && !rdk.kayit.some((s) => /^(npx|sudo)/.test(s)));
+  temizle(dk);
   const dl = kur();
   const rdl = kos(dl, { degisen: 'package-lock.json', ortam: { SAHTE_NPX_KOD: '1' } });
   T.ok('🔴 Kilit degisti + derleme dustu: npm ci sonrasi yeniden baslatma YINE yapildi', rdl.kod !== 0 && rdl.kayit.some((s) => /^sudo/.test(s)), rdl.kayit.join(' | '));

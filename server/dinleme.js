@@ -13,7 +13,10 @@
 
 /** `{ port, host }` — `host` undefined ise tüm arayüzler (bugünkü davranış). */
 function dinlemeAyari(ortam = process.env) {
-  const port = Number(ortam.PORT);
+  // 🔴 Boş/yalnız boşluk PORT -> 4830 (eski `process.env.PORT || 4830` gibi). `Number('') === 0`
+  // olduğu için bu kontrol olmadan `.env`'deki boş `PORT=` satırı RASTGELE porta açardı -> tünel düşer.
+  const portMetni = String(ortam.PORT ?? '').trim();
+  const port = portMetni === '' ? NaN : Number(portMetni);
   const host = String(ortam.HOST ?? '').trim();
   return {
     port: Number.isInteger(port) && port >= 0 ? port : 4830,

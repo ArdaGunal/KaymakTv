@@ -9,10 +9,12 @@
 #      node_modules yoksa). 🔴 npm ci node_modules'u TÜMDEN silip kurar; çalışan süreç sonradan
 #      tembel `require` yaparsa düşer → npm ci çalıştıysa servis HEMEN ve HER ZAMAN yeniden başlar
 #      (danışman 002 §3.3).
-#   3. Web paketi `dist.yeni`'ye derlenir; başarılıysa `dist` ile yer değiştirir. Derleme düşerse
-#      `dist`'e DOKUNULMAZ (eski paket yayında kalır) ve betik hata verir.
+#   3. server.js / server/ / package*.json değiştiyse (ya da --yeniden) servis yeniden başlar —
+#      🔴 DERLEMEDEN ÖNCE: derleme düşse de diskteki yeni sunucu kodu bellekteki eski süreçle yan yana
+#      kalmasın (danışman 005 §2.2). `dist` her istekte diskten okunur; yeniden başlatma derlemeyi beklemez.
+#   4. Web paketi `dist.yeni`'ye derlenir; başarılıysa `dist` ile yer değiştirir. Derleme düşerse
+#      `dist`'e DOKUNULMAZ (eski paket yayında kalır), sağlık yine denetlenir ve betik hata verir.
 #      YAYIN_DERLEME_ENV=<dosya>: EXPO_PUBLIC_* değerleri bu dosyadan (scripts/sunucu/derleme-env.js).
-#   4. server.js / server/ / package*.json değiştiyse (ya da --yeniden) servis yeniden başlar.
 #   5. http://127.0.0.1:<port>/api/health 200 beklenir (en çok YAYIN_SAGLIK_SN sn).
 #
 # Seçenekler: --yeniden (servisi her durumda yeniden başlat) · --npm (npm ci zorla) ·
@@ -44,7 +46,7 @@ main() {
       --yeniden) ZORLA_YENIDEN=1 ;;
       --npm) ZORLA_NPM=1 ;;
       --derle) ZORLA_DERLE=1 ;;
-      -h|--help) sed -n '2,27p' "${BASH_SOURCE[0]}"; return 0 ;;
+      -h|--help) sed -n '2,29p' "${BASH_SOURCE[0]}"; return 0 ;;
       *) echo "bilinmeyen secenek: $a (--yeniden | --npm | --derle)" >&2; return 2 ;;
     esac
   done
@@ -90,8 +92,13 @@ main() {
     calistir npm ci
     yeniden_baslat "npm ci node_modules'u yeniledi"
     YENIDEN_YAPILDI=1
+  elif [[ "$YENIDEN" == "1" ]]; then
+    # 🔴 Derlemeden ÖNCE (danışman 005 §2.2) — derleme düşünce `return` ile bu adım atlanmasın.
+    yeniden_baslat "sunucu kodu degisti"
+    YENIDEN_YAPILDI=1
   fi
 
+  local DERLEME_DUSTU=0
   if [[ "$DERLE" == "1" ]]; then
     echo "==> web paketi derleniyor -> dist.yeni${DERLEME_ENV:+ (EXPO_PUBLIC_* : $DERLEME_ENV)}"
     calistir rm -rf dist.yeni
@@ -104,17 +111,16 @@ main() {
     if [[ "$derle_kod" != "0" ]] || { [[ "$KURU" != "1" ]] && [[ ! -f dist.yeni/index.html ]]; }; then
       calistir rm -rf dist.yeni
       echo "!! DERLEME DUSTU (kod $derle_kod) — dist'e DOKUNULMADI, eski paket yayinda." >&2
-      return 1
+      DERLEME_DUSTU=1
+    else
+      if [[ -d dist ]]; then calistir mv dist dist.eski; fi
+      calistir mv dist.yeni dist
+      calistir rm -rf dist.eski
+      echo "==> dist yenilendi"
     fi
-    if [[ -d dist ]]; then calistir mv dist dist.eski; fi
-    calistir mv dist.yeni dist
-    calistir rm -rf dist.eski
-    echo "==> dist yenilendi"
   fi
 
-  if [[ "$YENIDEN" == "1" && "$YENIDEN_YAPILDI" == "0" ]]; then yeniden_baslat "sunucu kodu degisti"; fi
-
-  if [[ "$KURU" == "1" ]]; then echo "KURU saglik http://127.0.0.1:$PORT/api/health"; return 0; fi
+  if [[ "$KURU" == "1" ]]; then echo "KURU saglik http://127.0.0.1:$PORT/api/health"; return "$DERLEME_DUSTU"; fi
   echo "==> saglik bekleniyor: http://127.0.0.1:$PORT/api/health (en cok ${SAGLIK_SN} sn)"
   local kod="" bas=$SECONDS
   while (( SECONDS - bas < SAGLIK_SN )); do
@@ -124,6 +130,10 @@ main() {
   done
   if [[ "$kod" != "200" ]]; then
     echo "!! saglik ${kod:-yanitsiz} — journalctl -u $BIRIM -n 80 --no-pager" >&2
+    return 1
+  fi
+  if [[ "$DERLEME_DUSTU" == "1" ]]; then
+    echo "!! saglik 200 ama DERLEME DUSTU — sunucu yeni kodla calisiyor, web paketi ESKI. Duzeltip yeniden calistir (--derle)." >&2
     return 1
   fi
   echo "==> TAMAM: ${SONRA:0:7} · npm ci=$NPM · derleme=$DERLE · yeniden baslatma=$(( YENIDEN || YENIDEN_YAPILDI )) · saglik 200"
