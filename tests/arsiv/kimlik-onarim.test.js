@@ -111,6 +111,31 @@ const ep = (season, number, trakt, tmdb, tvdb, title) => ({ season, number, titl
   T.ok('Plana uymayan eylem fırlattı', firladi);
   T.ok('İlk eylem de geri alındı (varlık eklenmedi)', !h.prepare("SELECT 1 FROM entities WHERE kaymak_id='show_rollback'").get() && JSON.stringify(sayim(h)) === JSON.stringify(sayimOnce));
 
+  T.H('D4 (taşıma): makineye özgü yol yok');
+  const arac = require(path.join(__dirname, '..', '..', 'scripts', 'kimlik-onarim'));
+  const fs = require('fs');
+  const KOK = '/srv/projeler/kaymaktv/data/LazyFetch';
+  T.ok('Varsayılan DB LAZYFETCH_ROOT/archive/katalog.db (sunucunun kuralı)',
+    arac.argumanlar([], { LAZYFETCH_ROOT: KOK }).db === path.join(KOK, 'archive', 'katalog.db'));
+  T.ok('ARCHIVE_ROOT önceliği (db.js ile aynı)', arac.argumanlar([], { LAZYFETCH_ROOT: KOK, ARCHIVE_ROOT: '/baska/arsiv' }).db === path.join('/baska/arsiv', 'katalog.db'));
+  T.ok('--db her zaman öncelikli', arac.argumanlar(['--db', '/acik/k.db'], { LAZYFETCH_ROOT: KOK }).db === '/acik/k.db');
+  T.ok('Yedek dizini: --yedek-dizini > KIMLIK_ONARIM_YEDEK > yok',
+    arac.argumanlar(['--yedek-dizini', '/y1'], { KIMLIK_ONARIM_YEDEK: '/y2' }).yedekDizini === '/y1'
+    && arac.argumanlar([], { KIMLIK_ONARIM_YEDEK: ' /y2 ' }).yedekDizini === '/y2'
+    && arac.argumanlar([], {}).yedekDizini === null);
+  const bos = arac.argumanlar([], {});
+  T.ok('🔴 Kök yoksa DB yolu yok ve hata (gömülü Pi yoluna düşmez)', bos.db === null && /--db/.test(arac.eksikYol(bos)));
+  T.ok('Kuru koşu plan dizini yoksa hata; --plan-cikti yeter',
+    /plan dosyası/.test(arac.eksikYol(arac.argumanlar(['--db', '/x.db'], {})))
+    && arac.eksikYol(arac.argumanlar(['--db', '/x.db', '--plan-cikti', '/p.json'], {})) === null);
+  T.ok('Uygula yedek dizini yoksa hata (--plan-cikti yetmez)', /yedek/.test(arac.eksikYol(arac.argumanlar(['--uygula', '--db', '/x.db', '--plan-cikti', '/p.json'], {}))));
+  // Gerçek süreç: ortam tümden boş → hiçbir dosya açılmadan hata, çıkış 1.
+  const bosOrtam = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot };
+  const surec = require('child_process').spawnSync(process.execPath, [path.join(__dirname, '..', '..', 'scripts', 'kimlik-onarim.js')], { encoding: 'utf8', env: bosOrtam, cwd: T.kok });
+  T.ok('🔴 Ortamsız gerçek koşu: çıkış 1, «--db» hatası, dosya açmadı', surec.status === 1 && /--db/.test(surec.stderr) && !/veritabanı yok/.test(surec.stderr), (surec.stderr || '').trim().split('\n').pop().slice(0, 120));
+  const kaynak = fs.readFileSync(path.join(__dirname, '..', '..', 'scripts', 'kimlik-onarim.js'), 'utf8');
+  T.ok('Kaynakta /mnt/SSD1 ve /home/GNL yok', !/\/mnt\/SSD1|\/home\/GNL/.test(kaynak));
+
   db.closeArchive();
   T.bitir();
 })();

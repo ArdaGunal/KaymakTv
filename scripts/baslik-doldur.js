@@ -10,8 +10,8 @@
 // Arşive YAZMAZ, servisi yeniden başlatmayı gerektirmez.
 //
 // Kullanım (Pi — kök sistemd'deki LAZYFETCH_ROOT ile aynı olmalı):
-//   LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch node scripts/baslik-doldur.js
-//   LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch node scripts/baslik-doldur.js --uygula
+//   LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch node scripts/baslik-doldur.js
+//   LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch node scripts/baslik-doldur.js --uygula
 // Yerel kopyada:  node scripts/baslik-doldur.js --db <katalog.db>
 
 // Pi'de her DNS çözümü 5 sn bekliyor; `server.js`'teki ayarın aynısı.

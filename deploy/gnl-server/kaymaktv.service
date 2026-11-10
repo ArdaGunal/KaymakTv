@@ -1,0 +1,40 @@
+# KaymakTV — GNL-SERVER systemd birimi (taşıma D6)
+#
+# Kurulum: bu dosya /etc/systemd/system/kaymaktv.service'e KOPYALANIR (symlink değil — sunucu
+# README kural 2), sonra `sudo systemctl daemon-reload`. Değişince yeniden kopyala; depodaki ile
+# sha256 aynı olmalı. Pi'nin şablonu ayrı: docs/runbook/kaymak.service.example (Pi kapanana kadar).
+#
+# Yollar sunucu düzeni (/srv/projeler/kaymaktv/{app,config,data}):
+#   app/      kod (git) · app/.env → ../config/.env symlink (dotenv ve expo export proje kökünü okur)
+#   config/   .env (600) · data/LazyFetch  önbellek + archive/katalog.db
+[Unit]
+Description=KaymakTV sunucusu (Express + LazyFetch)
+After=network-online.target
+Wants=network-online.target
+# .env yoksa hiç başlama (yarım yapılandırmayla Worker'sız/anahtarsız açılmasın).
+ConditionPathExists=/srv/projeler/kaymaktv/config/.env
+
+[Service]
+Type=simple
+User=gnl
+Group=gnl
+WorkingDirectory=/srv/projeler/kaymaktv/app
+Environment=NODE_ENV=production
+# LAZYFETCH_ROOT burada VE .env'de aynı yazılır: elle çalışan betikler .env'den okur, servis
+# buradan — ikisi ayrışırsa betik başka arşive bakar (hafıza: pi-script-env-pinning).
+Environment=LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch
+# Yalnız loopback: dışarıya tek yol Cloudflare tüneli (http://127.0.0.1:4830). server/dinleme.js
+Environment=HOST=127.0.0.1
+Environment=PORT=4830
+# 🔴 MUTLAK YOL — `/usr/bin/env node` YAZMA (Madde 266: systemd başka node buldu, arşiv sessizce
+# kapandı). /usr/local/bin/kaymak-node → /opt/node/v22.23.2/bin/node (karar 8-A).
+ExecStart=/usr/local/bin/kaymak-node server.js
+Restart=always
+RestartSec=3
+# Düzgün kapanış arşiv kuyruğunu en çok 8 sn boşaltır (server.js duzgunKapan); 20 sn pay.
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

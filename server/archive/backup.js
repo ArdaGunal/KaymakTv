@@ -17,6 +17,14 @@
 // gürültülü bir uyarı basılır — sessizce işe yaramaz bir yedek üretmek,
 // yedek olmamasından daha tehlikelidir (sahte güven).
 //
+// ⚠️ TEK İSTİSNA — `ARCHIVE_BACKUP_AYNI_AYGIT=1` (GNL-SERVER taşıması · D3, karar 5-A):
+// yeni sunucuda yedek diski (eski Pi SSD'si) taşımanın SONUNDA takılacak; o güne kadar tek NVMe
+// var ve red her gece yedeği tümden düşürürdü. Aynı diskteki kopya disk kaybına karşı korumaz ama
+// bozuk yazım / yanlış silme / şema hatasına karşı geri dönüş verir — hiç yedek olmamasından iyi.
+// Yalnız TAM `'1'` izin verir; izinliyken her tur `console.warn` + `sync_log` uyarısı yazar ve
+// `/api/health` `arsiv.yedekAyniAygit: true` gösterir (sahte güven olmasın). Yedek diski
+// bağlanınca değişken silinir; red kendiliğinden geri gelir.
+//
 // 🔴 `cp` DEĞİL, `VACUUM INTO`. WAL modunda veri kısmen `-wal` dosyasında;
 // yalnızca `.db` kopyalamak EKSİK, üçünü birden kopyalamak kopyalama
 // sırasında yazım olursa BOZUK yedek üretir (`db.js` `backupTo`).
@@ -58,6 +66,11 @@ function yedekDizini() {
  * ayrı `statfs` verebilir, ama `st_dev` fiziksel aygıtı gösterir — bizim
  * sorumuz tam olarak bu.
  */
+/** Aynı diske yedek AÇIKÇA izinli mi? Yalnız `ARCHIVE_BACKUP_AYNI_AYGIT === '1'` (D3). */
+function ayniAygitIzinli(ortam = process.env) {
+  return String(ortam.ARCHIVE_BACKUP_AYNI_AYGIT ?? '').trim() === '1';
+}
+
 function ayniAygitMi(a, b) {
   try {
     return fs.statSync(a).dev === fs.statSync(b).dev;
@@ -92,7 +105,12 @@ async function runBackup({ keep = VARSAYILAN_KOPYA, dir = null } = {}) {
   }
 
   // 🔴 AYNI DİSKE YEDEKLEME KONTROLÜ — sessizce geçilmez.
-  if (arsivDizini && ayniAygitMi(arsivDizini, hedefDizin)) {
+  const ayniAygit = !!arsivDizini && ayniAygitMi(arsivDizini, hedefDizin);
+  if (ayniAygit && ayniAygitIzinli()) {
+    const mesaj = `AYNI AYGIT (izinli, ARCHIVE_BACKUP_AYNI_AYGIT=1) — yedek ${hedefDizin} altina aliniyor ama disk kaybina karsi KORUMAZ. Yedek diski baglaninca degiskeni kaldir.`;
+    console.warn(`[Arsiv yedek] ⚠️ ${mesaj}`);
+    logSync({ event: 'vacuum', detail: `yedek: ${mesaj}` });
+  } else if (ayniAygit) {
     const mesaj = `Yedek hedefi arsivle AYNI aygitta (${hedefDizin}). Disk kaybina karsi HICBIR koruma saglamaz — yedek ALINMADI. ARCHIVE_BACKUP_DIR'i baska bir aygita ayarla.`;
     console.error(`[Arsiv yedek] 🔴 ${mesaj}`);
     logSync({ event: 'error', detail: `yedek: ${mesaj}` });
@@ -243,7 +261,7 @@ function startBackupSchedule(config) {
   // Süreç kapanmasını engellemesin (sweeper.js'teki aynı gerekçe).
   if (typeof zamanlayici.unref === 'function') zamanlayici.unref();
 
-  console.log(`[Arsiv yedek] Kuruldu — her gun ${PENCERE_BASI}:00-${PENCERE_SONU}:00, ${yedekDizini()}`);
+  console.log(`[Arsiv yedek] Kuruldu — her gun ${PENCERE_BASI}:00-${PENCERE_SONU}:00, ${yedekDizini()}${ayniAygitIzinli() ? ' (AYNI AYGIT izinli — ARCHIVE_BACKUP_AYNI_AYGIT=1)' : ''}`);
   return zamanlayici;
 }
 
@@ -254,6 +272,7 @@ function stopBackupSchedule() {
 }
 
 module.exports = {
+  ayniAygitIzinli,
   runBackup,
   startBackupSchedule,
   stopBackupSchedule,

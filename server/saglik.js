@@ -30,6 +30,8 @@ const { archiveQueue } = require('./archive/queue');
 const { kapiDurumu } = require('./archive/kanonik');
 const { anlikAktarim } = require('./archive/anlikAktarim');
 const { bugunkuAyna } = require('./archive/mirrorSchedule');
+const { ayniAygitIzinli } = require('./archive/backup');
+const { geceIsleriAcikMi } = require('./geceIsleri');
 
 const SAGLAYICILAR = ['tmdb', 'trakt'];
 
@@ -102,6 +104,8 @@ async function saglikRaporu() {
     ok: !!lf.enabled && !!arsiv.enabled,
     at: new Date().toISOString(),
     calismaSuresiSn: Math.round(process.uptime()),
+    // Taşıma D1: beş gece zamanlayıcısı kurulu mu (`GECE_ISLERI=0` → false; prova sunucusu).
+    geceIsleri: geceIsleriAcikMi(),
     lazyfetch: {
       etkin: !!lf.enabled,
       diskDolulukYuzde: lf.enabled ? await diskYuzdesi(lf.root) : null,
@@ -117,6 +121,8 @@ async function saglikRaporu() {
       kuyruk: archiveQueue.getStats(),
       anlikAktarim: anlikAktarim.getStats(),
       sonAyna: sonAynaDurumu(db),
+      // Taşıma D3: yedek arşivle AYNI diske izinli mi (tek diskli sunucu, geçici) — gözden kaçmasın.
+      yedekAyniAygit: ayniAygitIzinli(),
       kanonikKapi: kapiDurumu(),
       geriDusus: geriDusus
         ? {

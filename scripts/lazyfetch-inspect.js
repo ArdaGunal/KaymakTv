@@ -10,7 +10,7 @@
 // güvenle kullanılır.
 //
 // Kullanım (Pi'de, proje kökünde):
-//   LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch node scripts/lazyfetch-inspect.js
+//   LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch node scripts/lazyfetch-inspect.js
 //   ... node scripts/lazyfetch-inspect.js --list episode_detail
 //   ... node scripts/lazyfetch-inspect.js --find "Breaking Bad"
 //   ... node scripts/lazyfetch-inspect.js --check /tv/1396
@@ -545,7 +545,7 @@ async function main() {
   if (!durum.enabled) {
     console.error(`\n❌ LazyFetch devre dışı: ${getLazyFetchStatus().reason}`);
     console.error('   LAZYFETCH_ROOT tanımlayıp tekrar dene:');
-    console.error('   LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch node scripts/lazyfetch-inspect.js\n');
+    console.error('   LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch node scripts/lazyfetch-inspect.js\n');
     process.exit(1);
   }
   const cacheDir = getLazyFetchDir('cache');

@@ -15,7 +15,7 @@
 // `--uygula` gerekir.
 //
 // Kullanım (Pi'de, proje kökünde):
-//   LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch node scripts/arsiv-aktar.js
+//   LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch node scripts/arsiv-aktar.js
 //   LAZYFETCH_ROOT=... node scripts/arsiv-aktar.js --uygula
 //
 // ⚠️ Sunucu çalışırken koşturulabilir (WAL) ama arşiv yazma kilidini kısa
@@ -108,7 +108,7 @@ function queryCoz(str) {
   const lfDurum = getLazyFetchStatus();
   if (!lfDurum.enabled) {
     console.error(`\n❌ LazyFetch devre dışı: ${lfDurum.reason}`);
-    console.error('   LAZYFETCH_ROOT=/mnt/SSD1/KaymakTv/LazyFetch node scripts/arsiv-aktar.js\n');
+    console.error('   LAZYFETCH_ROOT=/srv/projeler/kaymaktv/data/LazyFetch node scripts/arsiv-aktar.js\n');
     process.exit(1);
   }
 
