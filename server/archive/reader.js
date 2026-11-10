@@ -42,7 +42,7 @@ const { readTmdbDetail } = require('./tmdbArsiv');
 /**
  * 🔴 ACİL KAPATMA. Arşiv geri düşüşü beklenmedik bir davranış üretirse
  * (yanlış veri, yavaşlık) build beklemeden kapatılabilmeli:
- *   Pi'de `.env` → `ARSIV_GERI_DUSUS=0` + `systemctl restart kaymak`
+ *   sunucuda `config/.env` → `ARSIV_GERI_DUSUS=0` + `systemctl restart kaymaktv`
  * Kapatıldığında davranış A4 ÖNCESİNE döner: sağlayıcı çökerse hata yukarı
  * gider (grace fallback yine çalışır). Yani kapatmak kimseyi kırmaz.
  */

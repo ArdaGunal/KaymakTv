@@ -77,7 +77,7 @@ async function turKos(hedefler, sayac, okuFn = oku) {
   }));
 }
 
-/** SAF — Özet satırı. Adım 2 ölçümü `journalctl -u kaymak | grep isitma` ile buradan okunur. */
+/** SAF — Özet satırı. Adım 2 ölçümü `journalctl -u kaymaktv | grep isitma` ile buradan okunur. */
 function ozetMetni(sayac) {
   return Object.entries(sayac).map(([ad, s]) => `${ad} tur=${s.tur} yavas=${s.yavas} hata=${s.hata}`).join(' · ');
 }

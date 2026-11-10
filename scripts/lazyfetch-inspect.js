@@ -406,7 +406,7 @@ function arsivDurumu() {
       for (const a of sayac.aileler) say(`        ${a.aile.padEnd(18)} ${String(a.adet).padStart(5)}`);
       if (taze) {
         say('      🔴 SON 24 SAATTE OLMUŞ — Trakt tarafında bir sorun var mı?');
-        say('         journalctl -u kaymak -n 200 | grep "ARŞİV geri düşüşü"');
+        say('         journalctl -u kaymaktv -n 200 | grep "ARŞİV geri düşüşü"');
       }
     } else {
       say('   🟢 Arşivden servis (geri düşüş): hiç olmadı — sağlayıcı hep yetişti.');

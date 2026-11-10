@@ -31,7 +31,7 @@
 // Hepsi 3.51.3'te fazlasıyla mevcut.
 //
 // ⚠️ Node 22'de bu modül "experimental" damgalı ve her açılışta stderr'e
-// bir `ExperimentalWarning` yazar — `journalctl -u kaymak` çıktısında
+// bir `ExperimentalWarning` yazar — `journalctl -u kaymaktv` çıktısında
 // görünür. Hata DEĞİL. Susturmak için `--no-warnings` gerekir ama o TÜM
 // Node uyarılarını susturur; bilinçli olarak susturmuyoruz.
 //

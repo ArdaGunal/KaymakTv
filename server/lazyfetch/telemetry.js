@@ -156,7 +156,7 @@ function formatFallbackAlarm({ family, toplam, path, yasGun, hata }) {
     '',
     'Ne yapmalı: Trakt tarafında kesinti var mı bak. Sürüyorsa yapacak bir',
     'şey yok — sistem zaten doğru davranıyor.',
-    '  journalctl -u kaymak -n 200 | grep "ARŞİV geri düşüşü"',
+    '  journalctl -u kaymaktv -n 200 | grep "ARŞİV geri düşüşü"',
     '  npm run arsiv     # sayaçların tamamı',
   ].filter((satir) => satir !== null).join('\n');
 }
