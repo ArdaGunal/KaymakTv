@@ -296,6 +296,7 @@ const styles = StyleSheet.create({
   activeTabPillWeb: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 7,
     backgroundColor: ACCENT_BG,
     borderColor: ACCENT_BORDER,
     borderWidth: 1,

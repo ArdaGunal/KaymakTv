@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import { ChevronDown, PlayCircle, Bookmark, PauseCircle } from '../icons';
@@ -52,12 +53,14 @@ const SectionHeader = memo(function SectionHeader({
   count,
   collapsed,
   onToggle,
+  compact,
 }: {
   sectionKey: TrackingCategoryKey;
   title: string;
   count: number;
   collapsed: boolean;
   onToggle: (key: TrackingCategoryKey) => void;
+  compact: boolean;
 }) {
   const rotateAnim = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
 
@@ -75,18 +78,18 @@ const SectionHeader = memo(function SectionHeader({
   const Icon = meta.Icon;
 
   return (
-    <TouchableOpacity style={styles.categoryHeader} activeOpacity={0.75} onPress={() => onToggle(sectionKey)}>
-      <View style={styles.categoryHeaderLeft}>
-        <View style={[styles.categoryIconBox, { backgroundColor: meta.bg }]}>
-          <Icon size={18} color={meta.tint} />
+    <TouchableOpacity style={[styles.categoryHeader, compact && styles.categoryHeaderMobile]} activeOpacity={0.75} onPress={() => onToggle(sectionKey)}>
+      <View style={[styles.categoryHeaderLeft, compact && styles.categoryHeaderLeftMobile]}>
+        <View style={[styles.categoryIconBox, compact && styles.categoryIconBoxMobile, { backgroundColor: meta.bg }]}>
+          <Icon size={compact ? 16 : 18} color={meta.tint} />
         </View>
-        <Text style={styles.categoryTitle}>{title}</Text>
-        <View style={styles.badgeContainer}>
-          <Text style={styles.badgeText}>{count}</Text>
+        <Text style={[styles.categoryTitle, compact && styles.categoryTitleMobile]}>{title}</Text>
+        <View style={[styles.badgeContainer, compact && styles.badgeContainerMobile]}>
+          <Text style={[styles.badgeText, compact && styles.badgeTextMobile]}>{count}</Text>
         </View>
       </View>
       <Animated.View style={{ transform: [{ rotate }] }}>
-        <ChevronDown size={22} color={MOBILE_PALETTE.mutedDeep} />
+        <ChevronDown size={compact ? 20 : 22} color={MOBILE_PALETTE.mutedDeep} />
       </Animated.View>
     </TouchableOpacity>
   );
@@ -98,24 +101,27 @@ const SectionBlockView = memo(function SectionBlockView({
   block,
   onToggle,
   onToggleDropped,
+  compact,
 }: {
   block: SectionBlock;
   onToggle: (key: TrackingCategoryKey) => void;
   onToggleDropped: (id: number) => void;
+  compact: boolean;
 }) {
   return (
-    <View style={styles.sectionBlock}>
+    <View style={[styles.sectionBlock, compact && styles.sectionBlockMobile]}>
       <SectionHeader
         sectionKey={block.key}
         title={block.title}
         count={block.items.length}
         collapsed={block.collapsed}
         onToggle={onToggle}
+        compact={compact}
       />
       {!block.collapsed && (
-        <View style={styles.grid}>
+        <View style={[styles.grid, compact && styles.gridMobile]}>
           {block.items.map((card) => (
-            <View key={`${block.key}-${card.id}`} style={styles.gridCell}>
+            <View key={`${block.key}-${card.id}`} style={[styles.gridCell, compact && styles.gridCellMobile]}>
               <EpisodeCard data={card} onToggleDropped={onToggleDropped} />
             </View>
           ))}
@@ -136,6 +142,9 @@ function TrackingAccordionListWeb({
   insets,
   emptyLabel,
 }: TrackingAccordionListWebProps) {
+  const { width } = useWindowDimensions();
+  const compact = width < 768;
+
   const blocks = useMemo<SectionBlock[]>(() => {
     const out: SectionBlock[] = [];
     for (const key of SECTION_ORDER) {
@@ -148,9 +157,9 @@ function TrackingAccordionListWeb({
 
   const renderItem = useCallback(
     ({ item }: { item: SectionBlock }) => (
-      <SectionBlockView block={item} onToggle={onToggle} onToggleDropped={onToggleDropped} />
+      <SectionBlockView block={item} onToggle={onToggle} onToggleDropped={onToggleDropped} compact={compact} />
     ),
-    [onToggle, onToggleDropped]
+    [compact, onToggle, onToggleDropped]
   );
 
   const keyExtractor = useCallback((item: SectionBlock) => item.key, []);
@@ -161,7 +170,7 @@ function TrackingAccordionListWeb({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       style={styles.list}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
+      contentContainerStyle={[styles.content, compact && styles.contentMobile, { paddingBottom: insets.bottom + 100 }]}
       showsVerticalScrollIndicator={false}
       windowSize={5}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={MOBILE_PALETTE.steel} />}
@@ -182,16 +191,19 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   sectionBlock: { marginBottom: 20 },
+  sectionBlockMobile: { marginBottom: 0 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 14,
   },
+  gridMobile: { gap: 0 },
   gridCell: {
     flexGrow: 1,
     flexBasis: CARD_MIN_WIDTH,
     maxWidth: 520,
   },
+  gridCellMobile: { flexGrow: 1, flexBasis: '100%', maxWidth: '100%' },
   categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -205,7 +217,9 @@ const styles = StyleSheet.create({
     borderColor: MOBILE_PALETTE.border,
     ...(Platform.OS === 'web' && { cursor: 'pointer' } as any),
   },
+  categoryHeaderMobile: { paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   categoryHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  categoryHeaderLeftMobile: { flex: 1 },
   categoryIconBox: {
     width: 34,
     height: 34,
@@ -214,7 +228,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  categoryIconBoxMobile: { width: 30, height: 30, borderRadius: 9, marginRight: 10 },
   categoryTitle: { color: MOBILE_PALETTE.text, fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
+  categoryTitleMobile: { fontSize: 15 },
   badgeContainer: {
     backgroundColor: MOBILE_PALETTE.raised,
     paddingHorizontal: 9,
@@ -225,6 +241,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badgeContainerMobile: { paddingHorizontal: 8, marginLeft: 10, minWidth: 26 },
   badgeText: { color: MOBILE_PALETTE.body, fontSize: 13, fontWeight: '700' },
+  badgeTextMobile: { color: MOBILE_PALETTE.muted, fontSize: 12 },
   emptyText: { color: MOBILE_PALETTE.mutedDeep, textAlign: 'center', paddingVertical: 24, fontStyle: 'italic' },
+  contentMobile: { paddingHorizontal: 12, maxWidth: '100%' },
 });
