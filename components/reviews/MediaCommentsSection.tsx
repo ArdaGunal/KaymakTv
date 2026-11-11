@@ -160,7 +160,7 @@ export default function MediaCommentsSection({
         activeOpacity={0.8}
         accessibilityRole="button"
       >
-        <PenLine size={16} color={inputAppearance ? (canSubmit ? MOBILE_PALETTE.steel : MOBILE_PALETTE.mutedDeep) : (canSubmit ? '#fb923c' : nativeColor('mutedDeep', '#475569'))} />
+        <PenLine size={16} color={canSubmit ? MOBILE_PALETTE.steel : MOBILE_PALETTE.mutedDeep} />
         <Text style={[styles.writeBtnText, inputAppearance && styles.writeInputText, !canSubmit && styles.writeBtnTextDisabled]}>
           {myReview ? t('editReview', 'İncelemeni Düzenle') : t('writeReview', 'İnceleme Yaz')}
         </Text>
@@ -318,9 +318,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(251,146,60,0.1)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
-    borderColor: 'rgba(251,146,60,0.3)',
+    borderColor: MOBILE_PALETTE.border,
     borderRadius: 10,
     paddingVertical: 12,
     marginBottom: 4,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
   },
   writeBtnText: {
-    color: '#fb923c',
+    color: MOBILE_PALETTE.steel,
     fontSize: 13,
     fontWeight: '700',
   },

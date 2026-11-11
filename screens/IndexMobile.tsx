@@ -95,7 +95,7 @@ export default function DizilerScreen() {
   if (isGuest) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan dizilerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+        <LoginPaywall message={t('loginToSeeShowsCalendar', 'Yaklaşan dizilerinizi ve kendi bölüm takviminizi oluşturmak için aramıza katılın!')} />
       </View>
     );
   }

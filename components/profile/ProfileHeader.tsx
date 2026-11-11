@@ -126,11 +126,13 @@ export default function ProfileHeader({
       {/* Alt Blok: İsim ve Kullanıcı Adı */}
       <View style={styles.identityBlock}>
         <Text style={styles.name} numberOfLines={1}>
-          {profile.name || profile.username}
+          {profile.name || profile.username || t('profileTitle', 'Profil')}
         </Text>
-        <Text style={styles.handle} numberOfLines={1}>
-          @{profile.username}
-        </Text>
+        {!!profile.username && (
+          <Text style={styles.handle} numberOfLines={1}>
+            @{profile.username}
+          </Text>
+        )}
         <KaymakNoEtiketi no={kaymakNo} />
         {!!profile.about && (
           <Text style={styles.bio} numberOfLines={3}>

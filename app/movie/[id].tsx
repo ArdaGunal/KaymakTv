@@ -269,7 +269,7 @@ export default function MovieDetailScreen() {
 
   const commentsSection = (
     <MediaCommentsSection
-      writeActionVariant={Platform.OS === 'web' ? 'default' : 'input'}
+      writeActionVariant={Platform.OS === 'web' && layout.isDesktopWeb ? 'default' : 'input'}
       reviewsState={reviewsState}
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
@@ -348,16 +348,13 @@ export default function MovieDetailScreen() {
         {hero}
 
         <View style={styles.contentArea}>
-          {Platform.OS !== 'web' && castSection}
+          {castSection}
 
           {/* ── KaymakTV İncelemeleri ──────────────────────────────────
               bkz. app/show/[id].tsx'teki aynı blok ve docs/design/REVIEWS_PLAN.md §4.2. */}
           <View style={styles.section}>{commentsSection}</View>
 
-
-          {Platform.OS === 'web' && castSection}
-
-          {Platform.OS !== 'web' && <MediaTrailer trailerId={trailerId} />}
+          <MediaTrailer trailerId={trailerId} noPadding />
 
           {relatedSection}
         </View>

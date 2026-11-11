@@ -1,4 +1,4 @@
-import { nativeColor } from '../../../constants/mobilePalette';
+import { MOBILE_PALETTE, nativeColor } from '../../../constants/mobilePalette';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { ArrowUp, RefreshCw, CloudOff } from '../../../components/icons';
@@ -145,7 +145,7 @@ export default function FeedScreen() {
             (bkz. selectIsFollowingListStale). */}
         {isFollowingListStale && (
           <View style={styles.staleNotice}>
-            <CloudOff size={13} color="#f59e0b" />
+            <CloudOff size={13} color={nativeColor('steel', '#8CA5B5')} />
             <Text style={styles.staleNoticeText}>
               {t('feed:followListStale', 'Takip listesi güncellenemedi — son bilinen hâli gösteriliyor.')}
             </Text>
@@ -236,23 +236,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: nativeColor('background', '#0B1120'),
   },
-  // Takip listesi bayat uyarısı (F6) — hata değil, bilgi. Bu yüzden kırmızı
-  // değil amber ve kutunun kendisi düşük kontrastlı: akışı gölgelemeden
-  // görünsün.
+  // Takip listesi bayat uyarısı (F6) — hata değil, bilgi. Nötr çelik tonu
+  // palet dışı amber vurguyu önler ve akışı gölgelemeden görünür.
   staleNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(245,158,11,0.08)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.2)',
+    borderColor: MOBILE_PALETTE.navBorder,
     borderRadius: 8,
     paddingVertical: 7,
     paddingHorizontal: 10,
     marginBottom: 10,
   },
   staleNoticeText: {
-    color: '#fbbf24',
+    color: MOBILE_PALETTE.muted,
     fontSize: 11,
     flex: 1,
   },

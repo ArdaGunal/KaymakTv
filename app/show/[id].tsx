@@ -243,7 +243,7 @@ export default function ShowDetailScreen() {
   // listenin altinda akiyor (bkz. MediaCommentsSection basligi).
   const commentsSection = (
     <MediaCommentsSection
-      writeActionVariant={Platform.OS === 'web' ? 'default' : 'input'}
+      writeActionVariant={Platform.OS === 'web' && layout.isDesktopWeb ? 'default' : 'input'}
       reviewsState={reviewsState}
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
@@ -349,11 +349,11 @@ export default function ShowDetailScreen() {
               sınırlarında. Eskiden tek bir render istisnası kök
               ErrorBoundary'ye çıkıp TÜM SAYFAYI düşürüyordu — S13'ün
               gerekçesi buydu ama pratikte yalnızca bir yerde uygulanmıştı. */}
-          {/* DIZI-SAYFA-01 (M587): sıra utils/diziSayfaSirasi.ts'te — native'de
-              oyuncular, sezonlar, incelemeler, fragman, benzerler; web'de eski sıra.
+          {/* DIZI-SAYFA-01 (M587): sıra utils/diziSayfaSirasi.ts'te — mobil web ve native'de
+              oyuncular, sezonlar, incelemeler, fragman, benzerler; masaüstü kendi düzeninde.
               KaymakTV İncelemeleri: kendi sosyal evrenimiz, "Trakt Topluluğu"
               bölümünden BİLİNÇLİ olarak ayrı (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
-          {diziSayfaSirasi(Platform.OS).map((bolum) => (
+          {diziSayfaSirasi(layout.isDesktopWeb ? 'web' : 'native').map((bolum) => (
             <React.Fragment key={bolum}>
               {bolum === 'oyuncular' && castSection}
               {bolum === 'fragman' && <MediaTrailer trailerId={trailerId} noPadding />}

@@ -5,8 +5,8 @@
  * sezonlar altta, bölümleri yorumun üstüne taşımak daha mantıklı gibi (apk için. web de zaten
  * şu anki daha mantıklı. bu sadece apk da olcak)»*.
  *
- * M587: kullanıcının son sırası native'de oyuncular → sezonlar → incelemeler →
- * fragman → benzerler. Web — dar (telefon tarayıcısı) ya da masaüstü — eski sırada kalır.
+ * M587: kullanıcı sırası mobilde oyuncular → sezonlar → incelemeler → fragman →
+ * benzerler. Masaüstü web kendi iki sütunlu düzenini kullanır.
  */
 export type DiziSayfaBolumu = 'oyuncular' | 'yorumlar' | 'sezonlar' | 'fragman' | 'benzerler';
 

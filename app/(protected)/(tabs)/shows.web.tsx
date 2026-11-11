@@ -157,7 +157,7 @@ export default function DizilerScreenWeb() {
     return (
       <View style={styles.pageBackground}>
         <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
-          <LoginPaywall message={t('loginToSeeCalendar', 'Yaklaşan dizilerinizi ve kendi izleme takviminizi oluşturmak için aramıza katılın!')} />
+          <LoginPaywall message={t('media:loginToSeeShowsCalendar', 'Yaklaşan dizilerinizi ve kendi bölüm takviminizi oluşturmak için aramıza katılın!')} />
         </View>
       </View>
     );
