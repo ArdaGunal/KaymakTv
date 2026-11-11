@@ -31,8 +31,8 @@ export default function HeroSection() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -59,7 +59,6 @@ export default function HeroSection() {
           {t('heroTitle1')}
           {'\n'}
           <Text style={styles.highlight}>{t('heroTitle2')}</Text>
-          {t('heroTitle3')}
         </Text>
 
         <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
@@ -92,8 +91,8 @@ export default function HeroSection() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === 'web' ? 160 : 72,
-    paddingBottom: Platform.OS === 'web' ? 96 : 60,
+    paddingTop: Platform.OS === 'web' ? 120 : 40,
+    paddingBottom: Platform.OS === 'web' ? 72 : 36,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -140,7 +139,7 @@ const styles = StyleSheet.create({
   },
   highlight: {
     color: nativeColor('steel', '#5c8cf5'),
-    fontStyle: 'italic',
+    fontStyle: 'normal',
   },
   subtitle: {
     fontSize: 15,

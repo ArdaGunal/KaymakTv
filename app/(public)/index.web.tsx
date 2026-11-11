@@ -6,9 +6,10 @@ import { useSettings } from '../../hooks/useSettings';
 import LanguagePickerModal from '../../components/settings/LanguagePickerModal';
 import Head from 'expo-router/head';
 import { LandingCSS } from '../../components/public/index.web.styles';
-import { useNavScrollStyle, useScrollRevealObserver } from '../../components/public/index.web.hooks';
+import { useNavScrollStyle } from '../../components/public/index.web.hooks';
 import { useLandingPosterWall } from '../../hooks/useLandingPosterWall';
-import { Clapperboard, Calendar, Search, BarChart2, Star, List, Users, LogIn, Globe, Compass, Lock } from '../../components/icons';
+import { Clapperboard, Calendar, Search, List, LogIn, Globe, Compass } from '../../components/icons';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 import { dilBilgisi } from '../../locales/diller';
 
 const POSTER_TILE_COUNT = 21;
@@ -21,7 +22,6 @@ export default function WebLandingPage() {
   const [langModalVisible, setLangModalVisible] = useState(false);
 
   const navStyle = useNavScrollStyle();
-  useScrollRevealObserver();
   const posters = useLandingPosterWall();
   const posterTiles = posters.length > 0
     ? Array.from({ length: POSTER_TILE_COUNT }, (_, i) => posters[i % posters.length])
@@ -49,54 +49,9 @@ export default function WebLandingPage() {
   };
 
   const features = [
-    {
-      titleKey: 'viewingDiary',
-      descKey: 'viewingDiaryDesc',
-      Icon: Calendar,
-      color: '#5c8cf5',
-      accent: 'rgba(92, 140, 245, 0.10)',
-      borderAccent: 'rgba(92, 140, 245, 0.14)',
-    },
-    {
-      titleKey: 'fastSearchTitle',
-      descKey: 'fastSearchDesc',
-      Icon: Search,
-      color: '#38bdf8',
-      accent: 'rgba(56, 189, 248, 0.08)',
-      borderAccent: 'rgba(56, 189, 248, 0.12)',
-    },
-    {
-      titleKey: 'statsPanel',
-      descKey: 'statsPanelDesc',
-      Icon: BarChart2,
-      color: '#fbbf24',
-      accent: 'rgba(251,191,36,0.10)',
-      borderAccent: 'rgba(251,191,36,0.14)',
-    },
-    {
-      titleKey: 'ratingReview',
-      descKey: 'ratingReviewDesc',
-      Icon: Star,
-      color: '#f87171',
-      accent: 'rgba(248,113,113,0.10)',
-      borderAccent: 'rgba(248,113,113,0.14)',
-    },
-    {
-      titleKey: 'personalLists',
-      descKey: 'personalListsDesc',
-      Icon: List,
-      color: '#34d399',
-      accent: 'rgba(52,211,153,0.10)',
-      borderAccent: 'rgba(52,211,153,0.14)',
-    },
-    {
-      titleKey: 'socialFollow',
-      descKey: 'socialFollowDesc',
-      Icon: Users,
-      color: '#c084fc',
-      accent: 'rgba(192,132,252,0.10)',
-      borderAccent: 'rgba(192,132,252,0.14)',
-    },
+    { titleKey: 'viewingDiary', descKey: 'viewingDiaryDesc', Icon: Calendar },
+    { titleKey: 'personalLists', descKey: 'personalListsDesc', Icon: List },
+    { titleKey: 'fastSearchTitle', descKey: 'fastSearchDesc', Icon: Search },
   ];
 
   return (
@@ -111,22 +66,22 @@ export default function WebLandingPage() {
 
       <nav className="nav" style={navStyle}>
         <div className="kaymak-container">
-          <a onClick={() => window.scrollTo(0, 0)} className="logo">
+          <button type="button" onClick={() => window.scrollTo(0, 0)} className="logo">
             <span className="dot"></span>KaymakTV
-          </a>
-          
+          </button>
+
           <div className="nav-center">
-            <a onClick={handleGuest}>{t('navExplore', 'Keşfet')}</a>
+            <button type="button" onClick={handleGuest}>{t('navExplore', 'Keşfet')}</button>
           </div>
 
           <div className="nav-actions">
             <button className="lang-btn" onClick={() => setLangModalVisible(true)}>
-              <Globe size={14} color="#7aa2f7" strokeWidth={2.2} />
+              <Globe size={14} color={MOBILE_PALETTE.steel} strokeWidth={2.2} />
               {dilBilgisi(currentLanguage).kisa}
             </button>
-            
+
             <button onClick={handleLogin} className="btn-primary">
-              <LogIn size={15} color="#ffffff" strokeWidth={2.2} />
+              <LogIn size={15} color={MOBILE_PALETTE.text} strokeWidth={2.2} />
               {t('login', 'Giriş Yap')}
             </button>
           </div>
@@ -139,41 +94,41 @@ export default function WebLandingPage() {
             <>
               <div className="hero-poster-wall">
                 {posterTiles.map((src, idx) => (
-                  <img key={idx} src={src} alt="" />
+                  <img key={idx} src={src} alt="" decoding="async" />
                 ))}
               </div>
               <div className="hero-poster-fade"></div>
             </>
           )}
           <div className="hero-glow"></div>
-          <div className="kaymak-container reveal">
+          <div className="kaymak-container">
             <div className="eyebrow-badge">
-              <Clapperboard size={14} color="#7aa2f7" strokeWidth={2} />
+              <Clapperboard size={14} color={MOBILE_PALETTE.steel} strokeWidth={2} />
               {t('diaryEyebrow', 'SİNEMA & DİZİ GÜNLÜĞÜN').toUpperCase()}
             </div>
-            
+
             <h1>
-              {t('heroTitle1', 'İzlediklerinin ')}
-              <em>{t('heroTitle2', 'kaymağını ')}</em>
-              {t('heroTitle3', 'çıkar.')}
+              {t('heroTitle1')}<br />
+              <em>{t('heroTitle2')}</em>
+
             </h1>
-            
+
             <p>{t('heroSubtitle')}</p>
-            
+
             <div className="hero-ctas">
               <button onClick={handleLogin} className="btn-primary">
-                <LogIn size={16} color="#ffffff" strokeWidth={2.2} />
+                <LogIn size={16} color={MOBILE_PALETTE.text} strokeWidth={2.2} />
                 {t('login', 'Giriş Yap')}
               </button>
               <button onClick={handleGuest} className="btn-secondary">
-                <Compass size={16} color="#7aa2f7" strokeWidth={2} />
+                <Compass size={16} color={MOBILE_PALETTE.steel} strokeWidth={2} />
                 {t('exploreAsGuest', 'Misafir Olarak Devam Et')}
               </button>
             </div>
           </div>
         </section>
 
-        <section className="features kaymak-container reveal">
+        <section className="features kaymak-container">
           <div className="features-head">
             <span className="eyebrow">{t('features', 'NELER YAPABİLİRSİN').toUpperCase()}</span>
             <h2>{t('oneApp', 'Bir uygulama, bütün izleme hayatın.')}</h2>
@@ -182,10 +137,9 @@ export default function WebLandingPage() {
 
           <div className="bento-grid">
             {features.map((item, idx) => (
-              <div key={idx} className="bento-card" style={{ borderColor: item.borderAccent }}>
-                <div className="corner-glow" style={{ backgroundColor: item.color }}></div>
-                <div className="icon-wrap" style={{ backgroundColor: item.accent }}>
-                  <item.Icon size={20} color={item.color} strokeWidth={1.8} />
+              <div key={idx} className="bento-card">
+                <div className="icon-wrap" >
+                  <item.Icon size={20} color={MOBILE_PALETTE.steel} strokeWidth={1.8} />
                 </div>
                 <h3>{t(item.titleKey)}</h3>
                 <p>{t(item.descKey)}</p>
@@ -194,24 +148,24 @@ export default function WebLandingPage() {
           </div>
         </section>
 
-        <section className="cta-band kaymak-container reveal">
+        <section className="cta-band kaymak-container">
           <div className="cta-card">
             <div className="cta-card-head">
               <span className="eyebrow">{t('ctaEyebrow', 'HEMEN BAŞLA').toUpperCase()}</span>
               <h2>
-                {t('startToday1', 'Bugün başla,')}<br />
-                <em>{t('startToday2', 'ilk filmini kaydet.')}</em>
+                {t('startToday1')}
+
               </h2>
               <p>{t('ctaBandSubtitle', 'Kurulum yok, kredi kartı yok. Sadece izle ve kaydet.')}</p>
             </div>
             <div className="cta-divider"></div>
             <div className="cta-actions">
               <button onClick={handleLogin} className="btn-primary">
-                <LogIn size={16} color="#ffffff" strokeWidth={2.2} />
+                <LogIn size={16} color={MOBILE_PALETTE.text} strokeWidth={2.2} />
                 {t('login', 'Giriş Yap')}
               </button>
               <button onClick={handleGuest} className="btn-secondary">
-                <Compass size={16} color="#7aa2f7" strokeWidth={2} />
+                <Compass size={16} color={MOBILE_PALETTE.steel} strokeWidth={2} />
                 {t('exploreAsGuest', 'Misafir Olarak Devam Et')}
               </button>
             </div>
@@ -222,21 +176,18 @@ export default function WebLandingPage() {
 
       <footer>
         <div className="kaymak-container">
-          <a onClick={() => window.scrollTo(0, 0)} className="footer-logo">
+          <button type="button" onClick={() => window.scrollTo(0, 0)} className="footer-logo">
             <span className="dot"></span>KaymakTV
-          </a>
-          
+          </button>
+
           <div className="footer-links">
-            <a onClick={() => router.push('/(public)/gizlilik')}>{t('product', 'Gizlilik Politikası')}</a>
-            <a onClick={() => router.push('/(public)/kullanim-kosullari')}>{t('other', 'Kullanım Koşulları')}</a>
+            <button type="button" onClick={() => router.push('/(public)/gizlilik')}>{t('welcomePrivacy')}</button>
+            <button type="button" onClick={() => router.push('/(public)/kullanim-kosullari')}>{t('welcomeTerms')}</button>
           </div>
-          
+
           <div className="footer-bottom">
             <span className="copyright">{t('footerRights', '© 2026 KaymakTV. Tüm hakları saklıdır.')}</span>
-            <span className="data-secure">
-              <Lock size={12} color="#424654" strokeWidth={2.5} />
-              {t('dataLocal', 'Verileriniz cihazda tutulur.')}
-            </span>
+
           </div>
         </div>
       </footer>

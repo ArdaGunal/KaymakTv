@@ -36,8 +36,8 @@ export default function CallToAction() {
             <Text style={styles.eyebrowText}>{t('ctaEyebrow', 'HEMEN BAŞLA').toUpperCase()}</Text>
           </View>
           <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-            {t('startToday1', 'Bugün başla,')}{'\n'}
-            <Text style={styles.highlight}>{t('startToday2', 'ilk filmini kaydet.')}</Text>
+            {t('startToday1')}
+
           </Text>
           <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop]}>
             {t('ctaBandSubtitle', 'Kurulum yok, kredi kartı yok. Sadece izle ve kaydet.')}
@@ -132,10 +132,6 @@ const styles = StyleSheet.create({
   titleDesktop: {
     fontSize: 30,
     lineHeight: 40,
-  },
-  highlight: {
-    color: nativeColor('steel', '#5c8cf5'),
-    fontStyle: 'italic',
   },
   subtitle: {
     fontSize: 14,

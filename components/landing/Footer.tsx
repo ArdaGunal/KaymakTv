@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Lock } from '../icons';
+
 
 export default function Footer() {
   const { t } = useTranslation('common');
@@ -22,22 +22,18 @@ export default function Footer() {
       {/* Linkler */}
       <View style={styles.linkRow}>
         <TouchableOpacity onPress={() => router.push('/(public)/gizlilik')} activeOpacity={0.7}>
-          <Text style={styles.link}>{t('product', 'Gizlilik Politikası')}</Text>
+          <Text style={styles.link}>{t('welcomePrivacy')}</Text>
         </TouchableOpacity>
         <Text style={styles.linkDot}>·</Text>
         <TouchableOpacity onPress={() => router.push('/(public)/kullanim-kosullari')} activeOpacity={0.7}>
-          <Text style={styles.link}>{t('other', 'Kullanım Koşulları')}</Text>
+          <Text style={styles.link}>{t('welcomeTerms')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Telif */}
       <Text style={styles.copyright}>{t('footerRights')}</Text>
 
-      {/* Veri notu */}
-      <View style={styles.dataRow}>
-        <Lock size={12} color={nativeColor('mutedDeep', "#424654")} strokeWidth={2} />
-        <Text style={styles.dataText}>{t('dataLocal')}</Text>
-      </View>
+
     </View>
   );
 }
@@ -100,15 +96,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     letterSpacing: 0.1,
     textAlign: 'center',
-  },
-  dataRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  dataText: {
-    color: nativeColor('mutedDeep', '#424654'),
-    fontSize: 11,
-    letterSpacing: 0.1,
   },
 });
