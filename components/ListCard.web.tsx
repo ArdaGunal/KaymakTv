@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { List as ListIcon } from './icons';
 import { useRouter } from 'expo-router';
+import { MOBILE_PALETTE } from '../constants/mobilePalette';
 
 export default function ListCard({ data }: { data: any }) {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function ListCard({ data }: { data: any }) {
       <View style={styles.listCard}>
         <View style={styles.listImageContainer}>
           <View style={styles.listPlaceholder}>
-            <ListIcon color="#4b5563" size={32} />
+            <ListIcon color={MOBILE_PALETTE.mutedDeep} size={32} />
           </View>
           <View style={styles.listHoverOverlay} {...{ className: 'hover-overlay' }} />
         </View>
@@ -41,7 +42,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#1f2937',
+    backgroundColor: MOBILE_PALETTE.surface,
     marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     ...( { transition: 'background-color 0.3s ease' } as any)
   },
   listTitle: {
-    color: '#e5e7eb', 
+    color: MOBILE_PALETTE.text,
     fontSize: 14, 
     fontWeight: '500',
     textAlign: 'center',

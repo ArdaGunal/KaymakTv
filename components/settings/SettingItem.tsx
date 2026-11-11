@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import {
   View,
@@ -27,7 +28,7 @@ export interface SettingItemProps {
 
 export function SettingItem({
   icon,
-  iconColor = '#5c8cf5',
+  iconColor = nativeColor('steel', '#5c8cf5'),
   title,
   description,
   type = 'navigation',
@@ -80,19 +81,19 @@ export function SettingItem({
       {/* Sağ Blok: Aksiyon Türüne Göre İçerik */}
       <View style={styles.rightBlock}>
         {isLoading ? (
-          <ActivityIndicator size="small" color="#5c8cf5" />
+          <ActivityIndicator size="small" color={nativeColor('steel', "#5c8cf5")} />
         ) : type === 'switch' ? (
           <Switch
             value={switchValue}
             onValueChange={onSwitchChange}
             disabled={disabled}
-            trackColor={{ false: '#263044', true: '#3b82f6' }}
-            thumbColor="#ffffff"
+            trackColor={{ false: '#263044', true: nativeColor('primary', '#3b82f6') }}
+            thumbColor={nativeColor('text', "#ffffff")}
           />
         ) : (
           <View style={styles.valueRow}>
             {value ? <Text style={styles.valueText}>{value}</Text> : null}
-            {type === 'navigation' && <ChevronRight size={18} color="#64748b" strokeWidth={2} />}
+            {type === 'navigation' && <ChevronRight size={18} color={nativeColor('mutedDeep', "#64748b")} strokeWidth={2} />}
           </View>
         )}
       </View>
@@ -151,13 +152,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   description: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 12.5,
     lineHeight: 17,
   },
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   valueText: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 14,
     fontWeight: '500',
   },

@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -101,9 +102,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: 'rgba(59,130,246,0.12)',
+    backgroundColor: nativeTint('primary', 0.12, 'rgba(59,130,246,0.12)'),
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.28)',
+    borderColor: nativeTint('primary', 0.28, 'rgba(59,130,246,0.28)'),
     gap: 6,
   },
   bantUyari: {
@@ -123,21 +124,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   baslik: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 13,
     fontWeight: '600',
   },
   sayi: {
-    color: '#93c5fd',
+    color: nativeColor('steel', '#93c5fd'),
     fontWeight: '700',
   },
   alt: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     lineHeight: 16,
   },
   kapat: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
   },
   cubukArka: {
@@ -149,6 +150,6 @@ const styles = StyleSheet.create({
   cubukDolu: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
   },
 });

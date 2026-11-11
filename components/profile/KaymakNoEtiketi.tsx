@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, StyleSheet, View, Platform, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -66,7 +67,7 @@ ${link}` });
       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
     >
       <Text style={styles.metin}>{metin}</Text>
-      {kopyalandi ? <Check size={12} color="#4ade80" /> : <Copy size={12} color="#64748b" />}
+      {kopyalandi ? <Check size={12} color="#4ade80" /> : <Copy size={12} color={nativeColor('mutedDeep', "#64748b")} />}
       {kopyalandi && <Text style={styles.ok}>{t('kaymakNoKopyalandi')}</Text>}
     </TouchableOpacity>
     {!!link && (
@@ -77,7 +78,7 @@ ${link}` });
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         style={styles.paylas}
       >
-        {linkKopyalandi ? <Check size={12} color="#4ade80" /> : <Share2 size={12} color="#64748b" />}
+        {linkKopyalandi ? <Check size={12} color="#4ade80" /> : <Share2 size={12} color={nativeColor('mutedDeep', "#64748b")} />}
         {linkKopyalandi && <Text style={styles.ok}>{t('profilLinkKopyalandi')}</Text>}
       </TouchableOpacity>
     )}
@@ -89,6 +90,6 @@ const styles = StyleSheet.create({
   satir: { flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'flex-start', marginTop: 2 },
   kap: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   paylas: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metin: { color: '#64748b', fontSize: 12, fontWeight: '600', letterSpacing: 0.5 },
+  metin: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12, fontWeight: '600', letterSpacing: 0.5 },
   ok: { color: '#4ade80', fontSize: 11, fontWeight: '600' },
 });

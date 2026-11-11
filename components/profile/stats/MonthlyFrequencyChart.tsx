@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
@@ -10,8 +11,8 @@ interface MonthlyFrequencyChartProps {
   activeTab: StatsTab;
 }
 
-const ACTIVE_COLOR = '#3B82F6';
-const IDLE_COLOR = '#1e3a5f';
+const ACTIVE_COLOR = nativeColor('steel', '#3B82F6');
+const IDLE_COLOR = nativeColor('border', '#1e3a5f');
 const SECTIONS = 4;
 
 /**
@@ -33,7 +34,7 @@ const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) 
       value: bar.value,
       label: bar.label,
       frontColor: index === selectedIndex ? ACTIVE_COLOR : IDLE_COLOR,
-      gradientColor: index === selectedIndex ? '#60A5FA' : '#24507f',
+      gradientColor: index === selectedIndex ? nativeColor('steel', '#60A5FA') : nativeColor('raised', '#24507f'),
       onPress: () => setSelectedIndex(index),
     })),
     [data, selectedIndex]
@@ -122,12 +123,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 10.5,
     fontWeight: '500',
     marginTop: 2,
@@ -136,23 +137,23 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   selectedMonth: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 13,
     fontWeight: '800',
   },
   selectedValue: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 11,
     fontWeight: '600',
     marginTop: 1,
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12.5,
     paddingVertical: 12,
   },
   axisLabel: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 10,
     fontWeight: '600',
   },

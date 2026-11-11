@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -93,14 +94,14 @@ export default function ProfilOlusturScreen() {
             <View style={styles.avatarWrap}>
               <Image source={{ uri: myAvatarUrl! }} style={styles.avatar} contentFit="cover" cachePolicy="disk" />
               <TouchableOpacity style={styles.removeAvatarBtn} onPress={() => setAvatarRemoved(true)} hitSlop={8}>
-                <XIcon size={14} color="#e2e8f0" />
+                <XIcon size={14} color={nativeColor('text', "#e2e8f0")} />
                 <Text style={styles.removeAvatarText}>{t('settings:removePhoto', 'Fotoğrafı Kaldır')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.avatarWrap}>
               <View style={styles.avatarPlaceholder}>
-                <UserCircle2 size={48} color="#475569" />
+                <UserCircle2 size={48} color={nativeColor('mutedDeep', "#475569")} />
               </View>
             </View>
           )}
@@ -116,7 +117,7 @@ export default function ProfilOlusturScreen() {
             }}
             maxLength={KULLANICI_ADI_EN_COK}
             placeholder={t('settings:usernamePlaceholder', 'Kullanıcı adın')}
-            placeholderTextColor="#64748b"
+            placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -159,7 +160,7 @@ export default function ProfilOlusturScreen() {
             >
               <Text style={localStyles.zatenBaslik}>{t('settings:zatenHesapBaslik')}</Text>
               {yeniHesap.birakiliyor
-                ? <ActivityIndicator size="small" color="#60a5fa" />
+                ? <ActivityIndicator size="small" color={nativeColor('steel', "#60a5fa")} />
                 : <Text style={localStyles.zatenEylem}>{t('settings:zatenHesapEylem')}</Text>}
             </TouchableOpacity>
           )}
@@ -174,7 +175,7 @@ export default function ProfilOlusturScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#171717',
+    backgroundColor: nativeColor('surface', '#171717'),
   },
   flex: {
     flex: 1,
@@ -193,13 +194,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
   },
   subtitle: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -214,13 +215,13 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
   },
   avatarPlaceholder: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   removeAvatarText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
   },
   input: {
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   notice: {
     borderRadius: 8,
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   continueBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
@@ -283,7 +284,7 @@ const localStyles = StyleSheet.create({
     marginTop: 6,
   },
   kuralIpucu: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     lineHeight: 17,
     marginTop: 6,
@@ -294,19 +295,19 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#1e293b',
+    borderColor: nativeColor('border', '#334155'),
+    backgroundColor: nativeColor('raised', '#1e293b'),
     alignItems: 'center',
     gap: 6,
   },
   zatenKutuPasif: { opacity: 0.6 },
   zatenBaslik: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     textAlign: 'center',
   },
   zatenEylem: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',

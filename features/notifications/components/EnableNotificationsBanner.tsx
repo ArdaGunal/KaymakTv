@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../../constants/mobilePalette';
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -45,7 +46,7 @@ export function EnableNotificationsBanner() {
   return (
     <View style={styles.banner}>
       <View style={styles.iconSlot}>
-        <Bell size={16} color="#60a5fa" />
+        <Bell size={16} color={nativeColor('steel', "#60a5fa")} />
       </View>
 
       <TouchableOpacity style={styles.textWrap} onPress={handlePress} activeOpacity={0.75}>
@@ -63,7 +64,7 @@ export function EnableNotificationsBanner() {
         accessibilityLabel={t('banner.dismiss')}
         style={styles.close}
       >
-        <X size={16} color="#64748b" />
+        <X size={16} color={nativeColor('mutedDeep', "#64748b")} />
       </TouchableOpacity>
     </View>
   );
@@ -79,21 +80,21 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
     borderRadius: 14,
-    backgroundColor: 'rgba(59,130,246,0.08)',
+    backgroundColor: nativeTint('primary', 0.08, 'rgba(59,130,246,0.08)'),
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.22)',
+    borderColor: nativeTint('primary', 0.22, 'rgba(59,130,246,0.22)'),
   },
   iconSlot: {
     width: 30,
     height: 30,
     borderRadius: 9,
-    backgroundColor: 'rgba(59,130,246,0.14)',
+    backgroundColor: nativeTint('primary', 0.14, 'rgba(59,130,246,0.14)'),
     alignItems: 'center',
     justifyContent: 'center',
   },
   textWrap: { flex: 1, gap: 3 },
-  title: { color: '#e2e8f0', fontSize: 14, fontWeight: '700' },
-  body: { color: '#94a3b8', fontSize: 12, lineHeight: 17 },
-  cta: { color: '#60a5fa', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  title: { color: nativeColor('text', '#e2e8f0'), fontSize: 14, fontWeight: '700' },
+  body: { color: nativeColor('muted', '#94a3b8'), fontSize: 12, lineHeight: 17 },
+  cta: { color: nativeColor('steel', '#60a5fa'), fontSize: 12, fontWeight: '700', marginTop: 4 },
   close: { paddingTop: 2 },
 });

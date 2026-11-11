@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -45,12 +46,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   tabText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 14,
     fontWeight: '700',
   },
   tabTextActive: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
   },
   indicator: {
     marginTop: 10,
@@ -60,6 +61,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   indicatorActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('steel', '#3b82f6'),
   },
 });

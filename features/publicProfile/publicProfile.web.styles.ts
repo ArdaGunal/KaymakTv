@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 /**
  * `app/(protected)/user/[slug].web.tsx`'in stilleri.
@@ -29,7 +30,7 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   pageBackground: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
   },
   container: {
     flex: 1,
@@ -56,7 +57,7 @@ export const styles = StyleSheet.create({
     ...({ cursor: 'pointer' } as any),
   },
   backButtonText: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -64,10 +65,10 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 20,
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: MOBILE_PALETTE.border,
     padding: 24,
     marginBottom: 24,
   },
@@ -86,18 +87,18 @@ export const styles = StyleSheet.create({
     gap: 6,
   },
   name: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   handle: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 13,
     fontWeight: '500',
   },
   bio: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,
@@ -107,7 +108,7 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   reportBioText: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 11.5,
     fontWeight: '600',
   },
@@ -122,12 +123,12 @@ export const styles = StyleSheet.create({
     minWidth: 50,
   },
   statValue: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontSize: 16,
     fontWeight: '800',
   },
   statLabel: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 11,
     fontWeight: '600',
     marginTop: 1,
@@ -141,7 +142,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#3b82f6',
+    backgroundColor: MOBILE_PALETTE.primary,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -161,7 +162,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(250, 204, 21, 0.3)',
   },
   followBtnText: {
-    color: '#fff',
+    color: MOBILE_PALETTE.text,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -171,7 +172,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pendingBtnText: {
-    color: '#facc15',
+    color: MOBILE_PALETTE.rating,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -184,7 +185,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   errorText: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -195,13 +196,13 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: MOBILE_PALETTE.text,
     fontSize: 15,
     fontWeight: '700',
     marginTop: 6,
   },
   emptyText: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -212,19 +213,19 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 100,
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: MOBILE_PALETTE.border,
   },
   retryButtonText: {
-    color: '#38bdf8',
+    color: MOBILE_PALETTE.steel,
     fontSize: 13,
     fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#22304A',
+    borderBottomColor: MOBILE_PALETTE.border,
     marginBottom: 20,
     width: '100%',
   },
@@ -235,15 +236,15 @@ export const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#3b82f6',
+    borderBottomColor: MOBILE_PALETTE.steel,
   },
   tabText: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 15,
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -252,11 +253,11 @@ export const styles = StyleSheet.create({
     marginHorizontal: -6, // SPACING / 2 compensation
   },
   gridCard: {
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: MOBILE_PALETTE.border,
   },
   poster: {
     width: '100%',

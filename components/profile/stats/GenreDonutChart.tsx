@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
@@ -57,7 +58,7 @@ const GenreDonutChart = ({ data }: GenreDonutChartProps) => {
           donut
           radius={64}
           innerRadius={44}
-          innerCircleColor="#0f172a"
+          innerCircleColor={nativeColor('surface', "#0f172a")}
           onPress={(_item: unknown, index: number) => setSelectedIndex(index)}
           centerLabelComponent={() => (
             <View style={styles.centerLabel}>
@@ -122,17 +123,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     fontWeight: '700',
   },
   hint: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 10.5,
     fontWeight: '500',
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12.5,
     paddingVertical: 12,
   },
@@ -147,12 +148,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   centerValue: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 16,
     fontWeight: '800',
   },
   centerCaption: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 9,
     fontWeight: '600',
     maxWidth: 66,
@@ -182,28 +183,28 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     flex: 1,
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     fontWeight: '500',
   },
   legendLabelActive: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontWeight: '600',
   },
   legendValue: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     fontWeight: '700',
   },
   legendValueActive: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
   },
   footer: {
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.06)',
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     fontWeight: '500',
   },

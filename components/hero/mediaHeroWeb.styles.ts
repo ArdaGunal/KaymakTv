@@ -1,4 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 /**
  * Masaüstü web hero'sunun stilleri. Mobil hero (components/MediaHero.styles.ts)
@@ -15,11 +16,11 @@ export const webHeroStyles = StyleSheet.create({
   // Masaüstünde tüm hero içeriğini saran yarı saydam cam kapsayıcı.
   // Kullanıcının "oval yap, yazılar okunacak kadar transparan olsun" isteği.
   webHeroContainer: {
-    backgroundColor: 'rgba(15, 23, 42, 0.65)', // Sezonlar menüsüne uyumlu, yazılar için okunaklı transparan
+    backgroundColor: 'rgba(21, 34, 46, 0.92)', // TARDIS yüzeyinin hafif saydam karşılığı
     borderRadius: 18,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: MOBILE_PALETTE.border,
     // React Native Web, stil nesnesinde backdropFilter destekler
     ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as any : {}),
   },
@@ -53,7 +54,7 @@ export const webHeroStyles = StyleSheet.create({
     cursor: 'pointer',
   } as any,
   ghostButtonText: {
-    color: '#e2e8f0',
+    color: MOBILE_PALETTE.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -72,7 +73,7 @@ export const webHeroStyles = StyleSheet.create({
     width: 200,
     aspectRatio: 2 / 3,
     borderRadius: 14,
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.10)',
   },
@@ -82,22 +83,22 @@ export const webHeroStyles = StyleSheet.create({
     paddingTop: 4,
   },
   title: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 34,
     lineHeight: 40,
     fontWeight: '800',
     letterSpacing: -0.7,
     marginBottom: 8,
   },
-  ikincilBaslik: { fontSize: 14, color: '#a3a3a3', marginBottom: 4 },
+  ikincilBaslik: { fontSize: 14, color: MOBILE_PALETTE.muted, marginBottom: 4 },
   meta: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 4,
   },
   genres: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 14,
     marginBottom: 14,
   },
@@ -130,15 +131,15 @@ export const webHeroStyles = StyleSheet.create({
     fontWeight: '600',
   },
   pillRating: {
-    backgroundColor: 'rgba(250,204,21,0.10)',
-    borderColor: 'rgba(250,204,21,0.22)',
+    backgroundColor: MOBILE_PALETTE.ratingTint,
+    borderColor: MOBILE_PALETTE.ratingBorder,
   },
-  pillRatingText: { color: '#facc15', fontWeight: '700' },
+  pillRatingText: { color: MOBILE_PALETTE.rating, fontWeight: '700' },
   pillActive: {
-    backgroundColor: 'rgba(59,130,246,0.14)',
-    borderColor: 'rgba(59,130,246,0.38)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
+    borderColor: MOBILE_PALETTE.steel,
   },
-  pillActiveText: { color: '#60a5fa', fontWeight: '700' },
+  pillActiveText: { color: MOBILE_PALETTE.steel, fontWeight: '700' },
   pillFavActive: {
     backgroundColor: 'rgba(239,68,68,0.12)',
     borderColor: 'rgba(239,68,68,0.32)',
@@ -156,17 +157,17 @@ export const webHeroStyles = StyleSheet.create({
     minWidth: 168,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: '#3b82f6',
+    backgroundColor: MOBILE_PALETTE.primary,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: MOBILE_PALETTE.primary,
     cursor: 'pointer',
   } as any,
   followButtonActive: {
     backgroundColor: 'rgba(59,130,246,0.14)',
     borderColor: 'rgba(59,130,246,0.42)',
   },
-  followButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  followButtonTextActive: { color: '#60a5fa' },
+  followButtonText: { color: MOBILE_PALETTE.text, fontSize: 14, fontWeight: '700' },
+  followButtonTextActive: { color: MOBILE_PALETTE.text },
 
   // ── İlerleme ──────────────────────────────────────────────────────────
   progressRow: {
@@ -177,7 +178,7 @@ export const webHeroStyles = StyleSheet.create({
     maxWidth: 320,
   },
   progressBarWrapper: { flex: 1 },
-  progressText: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
+  progressText: { color: MOBILE_PALETTE.muted, fontSize: 12, fontWeight: '700' },
 
   // ── Özet / fragman ────────────────────────────────────────────────────
   // 🔴 Özet artık afişin ALTINDA değil, YANINDA (metin sütununun içinde):
@@ -185,7 +186,7 @@ export const webHeroStyles = StyleSheet.create({
   // kalıyordu ("üst ile alt arasında çok fazla boşluk"). Paragrafı oraya
   // taşımak hem boşluğu doldurdu hem sayfayı ~120px kısalttı.
   overview: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 15,
     lineHeight: 25,
     marginTop: 16,
@@ -194,7 +195,7 @@ export const webHeroStyles = StyleSheet.create({
     maxWidth: 720,
   },
   sectionTitle: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.3,
@@ -212,7 +213,7 @@ export const webHeroStyles = StyleSheet.create({
     aspectRatio: 16 / 9,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     cursor: 'pointer',
   } as any,
   trailerImage: { width: '100%', height: '100%' },

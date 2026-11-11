@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
+import { nativeColor } from '../../../constants/mobilePalette';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -37,11 +38,11 @@ export default function ExploreScreen() {
   const { accessToken, isGuest } = useAuth();
   const router = useRouter();
   const desktopGridRef = useRef<FlatList<any>>(null);
+  const mobileListRef = useRef<FlatList<any>>(null);
+  const scrollOffsetsRef = useRef({ show: 0, movie: 0 });
+  const currentScrollOffsetRef = useRef(0);
+  const pendingScrollRestoreRef = useRef<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-
-  const handleDesktopScroll = useCallback((offsetY: number) => {
-    setShowScrollTop(offsetY > SCROLL_TOP_THRESHOLD);
-  }, []);
 
   const scrollToTop = useCallback(() => {
     desktopGridRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -63,6 +64,36 @@ export default function ExploreScreen() {
     loadMoreFailed,
     retryLoadMore,
   } = useExplore();
+
+  const handleTabChange = useCallback((nextTab: 'show' | 'movie') => {
+    if (nextTab === activeTab) return;
+    scrollOffsetsRef.current[activeTab] = currentScrollOffsetRef.current;
+    pendingScrollRestoreRef.current = scrollOffsetsRef.current[nextTab];
+    currentScrollOffsetRef.current = pendingScrollRestoreRef.current;
+    setActiveTab(nextTab);
+  }, [activeTab, setActiveTab]);
+
+  useEffect(() => {
+    if (pendingScrollRestoreRef.current === null || loading) return;
+    const offset = pendingScrollRestoreRef.current;
+    pendingScrollRestoreRef.current = null;
+    requestAnimationFrame(() => {
+      if (isDesktop) desktopGridRef.current?.scrollToOffset({ offset, animated: false });
+      else mobileListRef.current?.scrollToOffset({ offset, animated: false });
+    });
+  }, [activeTab, currentData.length, isDesktop, loading]);
+
+  const handleDesktopScroll = useCallback((offsetY: number) => {
+    currentScrollOffsetRef.current = offsetY;
+    scrollOffsetsRef.current[activeTab] = offsetY;
+    setShowScrollTop(offsetY > SCROLL_TOP_THRESHOLD);
+  }, [activeTab]);
+
+  const handleMobileScroll = useCallback((event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    currentScrollOffsetRef.current = offsetY;
+    scrollOffsetsRef.current[activeTab] = offsetY;
+  }, [activeTab]);
 
   // Auth guard
   if (!accessToken && !isGuest) {
@@ -91,7 +122,7 @@ export default function ExploreScreen() {
         onChangeText={setSearchQuery}
         placeholder={t('exploreSearchPH')}
       />
-      <SearchTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <SearchTabs activeTab={activeTab} onTabChange={handleTabChange} />
     </View>
   );
 
@@ -132,7 +163,7 @@ export default function ExploreScreen() {
             onPress={scrollToTop}
             activeOpacity={0.75}
           >
-            <ArrowUp size={18} color="#e2e8f0" />
+            <ArrowUp size={18} color={nativeColor('text', "#e2e8f0")} />
           </TouchableOpacity>
         )}
       </View>
@@ -147,7 +178,7 @@ export default function ExploreScreen() {
       <View style={styles.desktopTopSectionWeb}>
         <SearchTabs
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           style={styles.searchTabsFullWeb}
         />
       </View>
@@ -161,7 +192,7 @@ export default function ExploreScreen() {
   );
 
   const refreshControl = (
-    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={nativeColor('text', "#ffffff")} />
   );
 
   // ── Desktop: poster grid ─────────────────────────────────────────────────
@@ -195,6 +226,7 @@ export default function ExploreScreen() {
     >
       {renderPinnedBar()}
       <FlatList
+        ref={mobileListRef}
         showsVerticalScrollIndicator={false}
         data={currentData}
         keyExtractor={(item, index) => {
@@ -206,6 +238,8 @@ export default function ExploreScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={renderHeader()}
         onScrollBeginDrag={() => Keyboard.dismiss()}
+        onScroll={handleMobileScroll}
+        scrollEventThrottle={16}
         onEndReached={fetchMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
@@ -246,11 +280,11 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -259,7 +293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 0,
     paddingBottom: 4,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
@@ -286,7 +320,7 @@ const styles = StyleSheet.create({
   desktopSearchBarWeb: {
     width: '100%',
     alignItems: 'center',
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
@@ -345,7 +379,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 16,
   },
   errorContainer: {
@@ -360,32 +394,32 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   emptyText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     textAlign: 'center',
     fontSize: 16,
     marginTop: 24,
   },
   settingsButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   settingsButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: 'bold',
     fontSize: 16,
   },
   retryButton: {
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2A364F',
+    borderColor: nativeColor('border', '#2A364F'),
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -399,19 +433,19 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   loadMoreFailedText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
   },
   loadMoreRetryBtn: {
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2A364F',
+    borderColor: nativeColor('border', '#2A364F'),
   },
   loadMoreRetryBtnText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '600',
     fontSize: 14,
   },

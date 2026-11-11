@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import { agIzleyiciKur } from '../utils/agIzleyici';
 agIzleyiciKur(); // yalnız EXPO_PUBLIC_AG_IZLE=1 test APK'sında; bkz. utils/agIzleyici.ts
 import '../locales/index'; // Initialize i18n
@@ -62,7 +63,7 @@ function RootLayoutNav() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#171717' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: nativeColor('surface', '#171717') } }}>
         <Stack.Screen name="(public)" />
         <Stack.Screen name="(protected)" />
       </Stack>
@@ -97,6 +98,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: nativeColor('surface', '#0f172a'),
   },
 });

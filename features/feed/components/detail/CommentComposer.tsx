@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React, { forwardRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -42,7 +43,7 @@ const CommentComposer = forwardRef<TextInput, Props>(function CommentComposer(
           value={value}
           onChangeText={onChange}
           placeholder={t('detailCommentPlaceholder', 'Yorumunu yaz…')}
-          placeholderTextColor="#64748b"
+          placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
           multiline
           autoFocus={autoFocus}
           maxLength={COMMENT_MAX_LENGTH + 50}
@@ -56,7 +57,7 @@ const CommentComposer = forwardRef<TextInput, Props>(function CommentComposer(
           accessibilityState={{ checked: spoiler }}
           accessibilityLabel={t('spoilerToggle', 'Spoiler içeriyor')}
         >
-          <EyeOff size={17} color={spoiler ? '#fbbf24' : '#64748b'} />
+          <EyeOff size={17} color={spoiler ? '#fbbf24' : nativeColor('mutedDeep', '#64748b')} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.send, !gonderilebilir && styles.sendOff]}
@@ -87,8 +88,8 @@ export default CommentComposer;
 const styles = StyleSheet.create({
   wrap: {
     borderTopWidth: 1,
-    borderTopColor: '#22304A',
-    backgroundColor: '#0e1628',
+    borderTopColor: nativeColor('border', '#22304A'),
+    backgroundColor: nativeColor('background', '#0e1628'),
     paddingHorizontal: 12,
     paddingTop: 10,
   },
@@ -97,22 +98,22 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 10,
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 14,
   },
   iconBtn: { width: 36, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 18 },
   iconBtnOn: { backgroundColor: 'rgba(251,191,36,0.12)' },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' },
+  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: nativeColor('primary', '#3b82f6'), alignItems: 'center', justifyContent: 'center' },
   sendOff: { opacity: 0.4 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 6 },
-  footerText: { color: '#64748b', fontSize: 11 },
+  footerText: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 11 },
   over: { color: '#f87171' },
   error: { color: '#f87171', fontSize: 12, marginBottom: 6, paddingHorizontal: 6 },
 });

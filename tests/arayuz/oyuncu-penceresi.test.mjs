@@ -37,7 +37,7 @@ T.ok('Android geri tusu kapatir (onRequestClose)', /onRequestClose=\{onClose\}/.
 T.ok('Web Escape kapatir', /event\.key === 'Escape'\) onClose\(\)/.test(sheet));
 T.ok('Kapatma dugmesi var', /<X size=/.test(sheet) && /onPress=\{onClose\}/.test(sheet));
 T.ok('TMDB atfi her zaman gorunur', sheet.includes("t('tmdbAttribution')"));
-T.ok('Masaustu web yan panel, mobil alttan pencere', sheet.includes('isDesktopWeb ? styles.panel : styles.sheet'));
+T.ok('Masaustu web yan panel, mobil kart', sheet.includes('isDesktopWeb ? styles.panel : styles.sheet'));
 T.ok('MediaCast pencereyi aciyor; TMDB kimligi olmayan kart dokunulamaz', cast.includes('<PersonSheet') && cast.includes('return actorTmdbId ? ('));
 
 T.H('Oy yer tutucusu kalkti (kullanici: «oy verme su anlik yapmayacagim»)');

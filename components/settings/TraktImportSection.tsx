@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -156,7 +157,7 @@ export default function TraktImportSection() {
       <View style={styles.govde}>
         <View style={styles.baslikSatiri}>
           <Text style={styles.baslik}>{t('settings:importTitle', 'Geçmişi Senkronize Et')}</Text>
-          {(suruyor || motorSuruyor) && <ActivityIndicator size="small" color="#60a5fa" />}
+          {(suruyor || motorSuruyor) && <ActivityIndicator size="small" color={nativeColor('steel', "#60a5fa")} />}
         </View>
 
         <Text style={[styles.aciklama, (durum === 'hata' || !!supurmeSorunu) && styles.durumHata, bitti && !supurmeSorunu && styles.durumBitti]}>
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   ikincilMetin: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     textDecorationLine: 'underline',
   },
@@ -261,18 +262,18 @@ const styles = StyleSheet.create({
   },
   baslik: {
     flex: 1,
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 14,
     fontWeight: '700',
   },
   soru: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 19,
   },
   aciklama: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12.5,
     lineHeight: 17,
   },
@@ -291,10 +292,10 @@ const styles = StyleSheet.create({
   cubukDolu: {
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
   },
   sayac: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
   },
   dugmeSatiri: {
@@ -308,7 +309,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     alignSelf: 'flex-start',
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 9,
@@ -323,6 +324,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dugmeMetinPasif: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
   },
 });

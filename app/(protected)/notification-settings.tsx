@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React from 'react';
 import {
   View,
@@ -33,15 +34,15 @@ const DESKTOP_BREAKPOINT = 768;
 
 /** Kategori başına ikon. Yeni kategori eklenince buraya bir satır düşer. */
 const CATEGORY_ICONS: Record<NotificationCategoryId, React.ReactNode> = {
-  episodeToday: <Tv size={18} color="#3b82f6" />,
-  seasonPremiere: <Sparkles size={18} color="#3b82f6" />,
-  movieRelease: <Film size={18} color="#3b82f6" />,
-  continueWatching: <PlayCircle size={18} color="#3b82f6" />,
+  episodeToday: <Tv size={18} color={nativeColor('steel', "#3b82f6")} />,
+  seasonPremiere: <Sparkles size={18} color={nativeColor('steel', "#3b82f6")} />,
+  movieRelease: <Film size={18} color={nativeColor('steel', "#3b82f6")} />,
+  continueWatching: <PlayCircle size={18} color={nativeColor('steel', "#3b82f6")} />,
   // 🆕 F3 sosyal (yorum/begeni). `MessageCircle` BILEREK secildi: lucide
   // diyetinden sonra (Madde 235, 1751 -> 93 ikon) yeni ikon eklemek
   // bundle'i buyutur; bu ikon `components/icons.ts` barrel'inda ZATEN var.
-  social: <MessageCircle size={18} color="#3b82f6" />,
-  monthlyStats: <BarChart2 size={18} color="#3b82f6" />,
+  social: <MessageCircle size={18} color={nativeColor('steel', "#3b82f6")} />,
+  monthlyStats: <BarChart2 size={18} color={nativeColor('steel', "#3b82f6")} />,
 };
 
 /**
@@ -75,7 +76,7 @@ export default function NotificationSettingsScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <SettingsHeader title={t('screenTitle')} isDesktop={isDesktop} onBack={navigateBack} />
         <View style={styles.loading}>
-          <ActivityIndicator size="small" color="#3b82f6" />
+          <ActivityIndicator size="small" color={nativeColor('steel', "#3b82f6")} />
         </View>
       </SafeAreaView>
     );
@@ -86,7 +87,7 @@ export default function NotificationSettingsScreen() {
       ? { icon: <Info size={18} color="#22c55e" />, tint: '#22c55e' }
       : permission === 'denied'
         ? { icon: <AlertTriangle size={18} color="#f59e0b" />, tint: '#f59e0b' }
-        : { icon: <Smartphone size={18} color="#94a3b8" />, tint: '#94a3b8' };
+        : { icon: <Smartphone size={18} color={nativeColor('muted', "#94a3b8")} />, tint: nativeColor('muted', '#94a3b8') };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -123,8 +124,8 @@ export default function NotificationSettingsScreen() {
 
         <SettingsSection title={t('sections.general')}>
           <SettingsSwitchRow
-            icon={<Bell size={18} color="#3b82f6" />}
-            tintColor="#3b82f6"
+            icon={<Bell size={18} color={nativeColor('steel', "#3b82f6")} />}
+            tintColor={nativeColor('steel', "#3b82f6")}
             label={t('master.label')}
             hint={t('master.hint')}
             value={prefs.masterEnabled}
@@ -138,7 +139,7 @@ export default function NotificationSettingsScreen() {
               {index > 0 && <SettingsSectionDivider />}
               <SettingsSwitchRow
                 icon={CATEGORY_ICONS[category.id]}
-                tintColor="#3b82f6"
+                tintColor={nativeColor('steel', "#3b82f6")}
                 label={t(`${category.i18nKey}.title`)}
                 hint={t(`${category.i18nKey}.description`)}
                 value={prefs.categories[category.id]}
@@ -153,7 +154,7 @@ export default function NotificationSettingsScreen() {
         </SettingsSection>
 
         <SettingsSection title={t('sections.timing')}>
-          <SettingsRow icon={<Clock size={18} color="#3b82f6" />} tintColor="#3b82f6" label={t('hour.label')} />
+          <SettingsRow icon={<Clock size={18} color={nativeColor('steel', "#3b82f6")} />} tintColor={nativeColor('steel', "#3b82f6")} label={t('hour.label')} />
           <View style={styles.hintBlock}>
             <Text style={styles.hintText}>{t('hour.hint')}</Text>
             <View style={styles.chipRow}>
@@ -188,7 +189,7 @@ export default function NotificationSettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0e131d',
+    backgroundColor: nativeColor('background', '#0e131d'),
   },
   loading: {
     flex: 1,
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   hintText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     lineHeight: 18,
   },
@@ -223,10 +224,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,
-    backgroundColor: 'rgba(59,130,246,0.14)',
+    backgroundColor: nativeTint('primary', 0.14, 'rgba(59,130,246,0.14)'),
   },
   linkButtonText: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 13,
     fontWeight: '700',
   },
@@ -244,18 +245,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
   },
   chipSelected: {
-    borderColor: '#3b82f6',
-    backgroundColor: 'rgba(59,130,246,0.18)',
+    borderColor: nativeColor('primary', '#3b82f6'),
+    backgroundColor: nativeTint('primary', 0.18, 'rgba(59,130,246,0.18)'),
   },
   chipDisabled: {
     opacity: 0.4,
   },
   chipText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     fontWeight: '600',
   },
   chipTextSelected: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
   },
 });

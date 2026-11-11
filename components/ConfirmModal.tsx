@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   content: {
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
@@ -157,13 +158,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 8,
   },
   message: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13.5,
     lineHeight: 20,
     marginBottom: 22,
@@ -192,14 +193,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
-  dismissText: { color: '#94a3b8', fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  dismissText: { color: nativeColor('muted', '#94a3b8'), fontSize: 14, fontWeight: '600', textAlign: 'center' },
   cancelButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
-  cancelText: { color: '#cbd5e1', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  confirmButton: { backgroundColor: '#2563eb' },
+  cancelText: { color: nativeColor('body', '#cbd5e1'), fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  confirmButton: { backgroundColor: nativeColor('primary', '#2563eb') },
   destructiveButton: { backgroundColor: '#dc2626' },
-  confirmText: { color: '#ffffff', fontSize: 14, fontWeight: '800', textAlign: 'center' },
+  confirmText: { color: nativeColor('text', '#ffffff'), fontSize: 14, fontWeight: '800', textAlign: 'center' },
 });

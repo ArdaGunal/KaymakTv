@@ -28,6 +28,7 @@ import { FeedItem, isMarathonActivity } from '../../../features/feed/types';
 import MediaPoster from '../../../components/MediaPoster';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import { styles } from '../../../features/publicProfile/publicProfile.web.styles';
+import { MOBILE_PALETTE } from '../../../constants/mobilePalette';
 import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
 import { useKendiProfilineYonlendir } from '../../../hooks/useKendiProfilineYonlendir';
 import { gorunenBaslik } from '../../../utils/gorunenBaslik';
@@ -246,7 +247,7 @@ export default function PublicProfileScreenWeb() {
                   // PublicProfileMobile.tsx'teki AYNI ayrım, docs/AI_RULES.md § Sessiz
                   // başarısızlık YASAKTIR).
                   <View style={styles.emptyState}>
-                    <WifiOff size={36} color="#334155" />
+                    <WifiOff size={36} color={MOBILE_PALETTE.mutedDeep} />
                     <Text style={styles.emptyTitle}>{t('feed:publicProfileActivityErrorTitle', 'Aktiviteler Yüklenemedi')}</Text>
                     <Text style={styles.emptyText}>
                       {t('feed:publicProfileActivityErrorText', 'Bağlantını kontrol edip tekrar dene.')}
@@ -257,7 +258,7 @@ export default function PublicProfileScreenWeb() {
                   </View>
                 ) : activityData.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Rss size={36} color="#334155" />
+                    <Rss size={36} color={MOBILE_PALETTE.mutedDeep} />
                     <Text style={styles.emptyTitle}>{t('feed:publicProfileEmptyTitle', 'Henüz aktivite yok')}</Text>
                     <Text style={styles.emptyText}>
                       {t('feed:publicProfileEmptyText', 'Bu kullanıcı henüz bir şey izlemedi veya puanlamadı.')}
@@ -276,10 +277,10 @@ export default function PublicProfileScreenWeb() {
             ) : (
               <View style={styles.gridContainer}>
                 {((activeTab === 'shows' && isLoadingShows) || (activeTab === 'movies' && isLoadingMovies)) ? (
-                  <ActivityIndicator size="large" color="#3b82f6" style={{ marginTop: 40, alignSelf: 'center', width: '100%' }} />
+                  <ActivityIndicator size="large" color={MOBILE_PALETTE.steel} style={{ marginTop: 40, alignSelf: 'center', width: '100%' }} />
                 ) : (activeTab === 'shows' && shows.length === 0) || (activeTab === 'movies' && movies.length === 0) ? (
                   <View style={styles.emptyState}>
-                    <Rss size={36} color="#334155" />
+                    <Rss size={36} color={MOBILE_PALETTE.mutedDeep} />
                     <Text style={styles.emptyTitle}>{t('feed:publicProfileEmptyTitle', 'Henüz içerik yok')}</Text>
                     <Text style={styles.emptyText}>
                       {t('feed:publicProfileEmptyText', 'Bu listede henüz içerik bulunmuyor.')}

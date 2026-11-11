@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Star, Check, Share2 } from '../icons';
 import ProgressBar from '../ProgressBar';
 import { formatRating } from '../../utils/formatRating';
 import { styles } from './episodeDetail.styles';
+import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 
 interface EpisodeHeroMobileProps {
   stillUrl?: string | null;
@@ -75,7 +76,7 @@ export default function EpisodeHeroMobile({
       )}
       
       <LinearGradient
-        colors={['rgba(0,0,0,0.8)', 'transparent', '#0a0a0a']}
+        colors={['rgba(0,0,0,0.8)', 'transparent', nativeColor('background', '#0a0a0a')]}
         style={styles.gradientOverlay}
       />
 
@@ -126,7 +127,7 @@ export default function EpisodeHeroMobile({
               varsa gösterilir: 0 oylu (yeni/niş) bölümlerde "(0)" basmak
               puanı gereksiz yere şüpheli gösterirdi. */}
           <View style={styles.ratingBadge}>
-            <Star size={14} color="#facc15" fill="#facc15" />
+            <Star size={14} color={MOBILE_PALETTE.rating} fill={MOBILE_PALETTE.rating} />
             <Text style={styles.ratingText}>
               {rating}
             </Text>
@@ -141,7 +142,7 @@ export default function EpisodeHeroMobile({
             onPress={openRating}
             activeOpacity={0.7}
           >
-            <Star size={14} color={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(myRating !== undefined && myRating !== null) ? "#3b82f6" : "transparent"} />
+            <Star size={14} color={(myRating !== undefined && myRating !== null) ? MOBILE_PALETTE.rating : nativeColor('muted', "#a3a3a3")} fill={(myRating !== undefined && myRating !== null) ? MOBILE_PALETTE.rating : "transparent"} />
             <Text style={[styles.userRatingText, (myRating !== undefined && myRating !== null) ? styles.userRatingTextActive : null]}>
               {(myRating !== undefined && myRating !== null) ? `${formatRating(myRating)}/5` : t('rate', { defaultValue: 'Puanla' })}
             </Text>
@@ -171,10 +172,10 @@ export default function EpisodeHeroMobile({
                 disabled={isCheckLoading}
               >
                 {isCheckLoading ? (
-                  <ActivityIndicator size="small" color={isWatchedLocal ? "#10b981" : "#a3a3a3"} />
+                  <ActivityIndicator size="small" color={isWatchedLocal ? "#10b981" : nativeColor('muted', "#a3a3a3")} />
                 ) : (
                   <>
-                    <Check size={14} color={isWatchedLocal ? "#10b981" : "#a3a3a3"} strokeWidth={3} />
+                    <Check size={14} color={isWatchedLocal ? "#10b981" : nativeColor('muted', "#a3a3a3")} strokeWidth={3} />
                     <Text style={[styles.userRatingText, isWatchedLocal ? { color: '#10b981' } : null]}>
                       {isWatchedLocal ? t('watched') : t('markAsWatched')}
                     </Text>

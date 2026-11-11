@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 import {
   View,
   Text,
@@ -76,7 +77,7 @@ export default function DownloadScreen() {
           style={styles.brandButton}
         >
           <View style={styles.logoBadge}>
-            <Tv size={18} color="#60a5fa" />
+            <Tv size={18} color={MOBILE_PALETTE.steel} />
           </View>
           <View>
             <Text style={styles.brandTitle}>KaymakTV</Text>
@@ -90,7 +91,7 @@ export default function DownloadScreen() {
             onPress={handleGoHome}
             style={styles.webAppLink}
           >
-            <Globe size={15} color="#60a5fa" />
+            <Globe size={15} color={MOBILE_PALETTE.steel} />
             <Text style={styles.webAppLinkText}>{t('dlGoWeb', 'Web Sürümüne Git')}</Text>
           </TouchableOpacity>
 
@@ -99,7 +100,7 @@ export default function DownloadScreen() {
             onPress={handleGoHome}
             style={styles.backLink}
           >
-            <ArrowLeft size={16} color="#94a3b8" />
+            <ArrowLeft size={16} color={MOBILE_PALETTE.muted} />
             <Text style={styles.backLinkText}>{t('dlHome', 'Ana Sayfa')}</Text>
           </TouchableOpacity>
         </View>
@@ -113,7 +114,7 @@ export default function DownloadScreen() {
           <View style={isDesktop ? styles.leftColumn : styles.singleColumn}>
             {/* Sade Kategori Rozeti */}
             <View style={styles.categoryBadge}>
-              <Smartphone size={13} color="#60a5fa" />
+              <Smartphone size={13} color={MOBILE_PALETTE.steel} />
               <Text style={styles.categoryBadgeText}>{t('dlBadge', 'Android APK İndirme')}</Text>
             </View>
 
@@ -121,12 +122,12 @@ export default function DownloadScreen() {
             <View style={[styles.appHeader, isDesktop && styles.appHeaderDesktop]}>
               <View style={[styles.appIconContainer, isDesktop && styles.appIconContainerDesktop]}>
                 <LinearGradient
-                  colors={['#1e293b', '#0f172a']}
+                  colors={[MOBILE_PALETTE.raised, MOBILE_PALETTE.background]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.appIconGradient}
                 >
-                  <Tv size={isDesktop ? 44 : 38} color="#60a5fa" />
+                  <Tv size={isDesktop ? 44 : 38} color={MOBILE_PALETTE.steel} />
                 </LinearGradient>
               </View>
 
@@ -147,13 +148,13 @@ export default function DownloadScreen() {
               style={[styles.downloadButtonWrapper, isDesktop && styles.downloadButtonWrapperDesktop]}
             >
               <LinearGradient
-                colors={['#2563eb', '#1d4ed8']}
+                colors={[MOBILE_PALETTE.primary, '#123D65']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.downloadButton, isDesktop && styles.downloadButtonDesktop]}
               >
                 <View style={[styles.buttonIconCircle, isDesktop && styles.buttonIconCircleDesktop]}>
-                  <Download size={isDesktop ? 24 : 20} color="#ffffff" />
+                  <Download size={isDesktop ? 24 : 20} color={MOBILE_PALETTE.text} />
                 </View>
                 <View style={styles.buttonTextContainer}>
                   <Text style={[styles.downloadButtonText, isDesktop && styles.downloadButtonTextDesktop]}>
@@ -169,7 +170,7 @@ export default function DownloadScreen() {
             {/* Bilgi Izgarası (Meta Data) */}
             <View style={styles.metaGrid}>
               <View style={styles.metaCard}>
-                <FileCheck size={15} color="#60a5fa" />
+                <FileCheck size={15} color={MOBILE_PALETTE.steel} />
                 <View>
                   <Text style={styles.metaLabel}>{t('dlFileSize', 'Dosya Boyutu')}</Text>
                   <Text style={styles.metaValue}>{apkBoyutu}</Text>
@@ -177,7 +178,7 @@ export default function DownloadScreen() {
               </View>
 
               <View style={styles.metaCard}>
-                <Cpu size={15} color="#60a5fa" />
+                <Cpu size={15} color={MOBILE_PALETTE.steel} />
                 <View>
                   <Text style={styles.metaLabel}>{t('dlRequirement', 'Gereksinim')}</Text>
                   <Text style={styles.metaValue}>Android 8.0+</Text>
@@ -190,12 +191,12 @@ export default function DownloadScreen() {
                 onPress={handleOpenGithubRelease}
                 style={[styles.metaCard, styles.clickableMetaCard]}
               >
-                <Globe size={15} color="#60a5fa" />
+                <Globe size={15} color={MOBILE_PALETTE.steel} />
                 <View style={styles.metaCardTextWrapper}>
                   <Text style={styles.metaLabel}>{t('dlChannel', 'Dağıtım Kanalı')}</Text>
                   <View style={styles.metaValueRow}>
                     <Text style={styles.metaValueLink}>GitHub Release</Text>
-                    <ExternalLink size={11} color="#60a5fa" />
+                    <ExternalLink size={11} color={MOBILE_PALETTE.steel} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -205,7 +206,7 @@ export default function DownloadScreen() {
             {isDesktop && (
               <View style={styles.desktopTrustBox}>
                 <View style={styles.trustBoxHeader}>
-                  <Info size={15} color="#60a5fa" />
+                  <Info size={15} color={MOBILE_PALETTE.steel} />
                   <Text style={styles.trustBoxTitle}>{t('dlInstallInfoTitle', 'Android Yükleme Bilgisi')}</Text>
                 </View>
                 <Text style={styles.trustBoxDesc}>
@@ -220,7 +221,7 @@ export default function DownloadScreen() {
             {/* Sürüm Notları (Changelog) — GitHub API'den dinamik */}
             <View style={styles.changelogCard}>
               <View style={styles.changelogHeader}>
-                <Sparkles size={16} color="#60a5fa" />
+                <Sparkles size={16} color={MOBILE_PALETTE.steel} />
                 <Text style={styles.changelogTitle}>
                   {t('dlReleaseNotes', 'Sürüm Notları')}
                 </Text>
@@ -237,7 +238,7 @@ export default function DownloadScreen() {
                     .filter((line) => line.trim().length > 0)
                     .map((line, index) => (
                       <View key={index} style={styles.changelogRow}>
-                        <CheckCircle2 size={15} color="#60a5fa" style={styles.checkIcon} />
+                        <CheckCircle2 size={15} color={MOBILE_PALETTE.steel} style={styles.checkIcon} />
                         <Text style={styles.changelogText}>{line.trim()}</Text>
                       </View>
                     ))}
@@ -253,14 +254,14 @@ export default function DownloadScreen() {
                 style={[styles.guideHeader, isDesktop && { cursor: 'default' as any }]}
               >
                 <View style={styles.guideTitleRow}>
-                  <Smartphone size={16} color="#94a3b8" />
+                  <Smartphone size={16} color={MOBILE_PALETTE.muted} />
                   <Text style={styles.guideTitle}>{t('dlGuideTitle', 'Nasıl Kurulur? (3 Kolay Adım)')}</Text>
                 </View>
                 {!isDesktop && (
                   isGuideOpen ? (
-                    <ChevronUp size={18} color="#94a3b8" />
+                    <ChevronUp size={18} color={MOBILE_PALETTE.muted} />
                   ) : (
-                    <ChevronDown size={18} color="#94a3b8" />
+                    <ChevronDown size={18} color={MOBILE_PALETTE.muted} />
                   )
                 )}
               </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,7 @@ interface Props {
  * kopya olsaydı (arama mantığı, klavye düzeni, yarış koruması) zamanla
  * ıraksardı — AI_RULES §2.5.
  */
-export default function UserSearchButton({ style, iconColor = '#94a3b8', iconSize = 18 }: Props) {
+export default function UserSearchButton({ style, iconColor = nativeColor('muted', '#94a3b8'), iconSize = 18 }: Props) {
   const { t } = useTranslation('feed');
   const { accessToken, isGuest } = useAuth();
   const [acik, setAcik] = useState(false);
@@ -61,8 +62,8 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
 });

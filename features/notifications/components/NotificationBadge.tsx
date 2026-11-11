@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bell } from '../../../components/icons';
@@ -44,7 +45,7 @@ export const NotificationBadge = () => {
       activeOpacity={0.7}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <Bell size={20} color="#cbd5e1" />
+      <Bell size={20} color={nativeColor('body', "#cbd5e1")} />
       {unreadCount > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{displayCount}</Text>
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#0B1120', // Background color for cutout effect
+    borderColor: nativeColor('background', '#0B1120'), // Background color for cutout effect
   },
   badgeText: {
     color: 'white',

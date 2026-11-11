@@ -22,6 +22,7 @@ import { formatRating } from '../../utils/formatRating';
 import { getMediaFollowStatus } from '../../utils/followStatus';
 import { useAuth } from '../../context/AuthContext';
 import { gorunenBaslik } from '../../utils/gorunenBaslik';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 // ─── Poster Grid Card ───────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ const GridCard = memo(({ data, cardWidth }: GridCardProps) => {
           {/* Rating chip */}
           {media?.rating ? (
             <View style={styles.ratingChip}>
-              <Star size={10} color="#facc15" fill="#facc15" />
+              <Star size={10} color={MOBILE_PALETTE.rating} fill={MOBILE_PALETTE.rating} />
               <Text style={styles.ratingChipText}>{formatRating(media.rating)}</Text>
             </View>
           ) : null}
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
   cardInner: {
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
       boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
   posterWrapper: {
     width: '100%',
     aspectRatio: 2 / 3,
-    backgroundColor: '#1e293b',
+    backgroundColor: MOBILE_PALETTE.raised,
     position: 'relative',
   },
   poster: {
@@ -292,10 +293,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: MOBILE_PALETTE.raised,
   },
   posterFallbackText: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 12,
     textAlign: 'center',
   },
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   ratingChipText: {
-    color: '#facc15',
+    color: MOBILE_PALETTE.rating,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -338,13 +339,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   cardTitle: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 2,
   },
   cardYear: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 11,
   },
   // Grid list
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   stateText: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 15,
   },
   errorText: {
@@ -385,15 +386,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   loadMoreRetryBtn: {
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2A364F',
+    borderColor: MOBILE_PALETTE.border,
   },
   loadMoreRetryBtnText: {
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     fontWeight: '600',
     fontSize: 14,
   },

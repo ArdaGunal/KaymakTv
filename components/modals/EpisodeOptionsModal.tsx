@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { notify } from '../../utils/confirmDialog';
 import { Star, CheckCheck, Trash2 } from '../icons';
 import OrtaPencere from './OrtaPencere';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 
 interface EpisodeOptionsModalProps {
   visible: boolean;
@@ -50,13 +51,13 @@ export default function EpisodeOptionsModal({
       </View>
 
       <TouchableOpacity style={styles.modalButton} onPress={handleRatePress}>
-        <Star size={20} color="#f59e0b" fill="#f59e0b" />
-        <Text style={[styles.modalButtonText, { color: '#f59e0b' }]}>{t('rateOrEdit')}</Text>
+        <Star size={20} color={Platform.OS === 'web' ? '#f59e0b' : MOBILE_PALETTE.rating} fill={Platform.OS === 'web' ? '#f59e0b' : MOBILE_PALETTE.rating} />
+        <Text style={[styles.modalButtonText, { color: Platform.OS === 'web' ? '#f59e0b' : MOBILE_PALETTE.rating }]}>{t('rateOrEdit')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.modalButton} onPress={onRewatch} disabled={!!loadingOption}>
         {loadingOption === 'rewatch' ? (
-          <ActivityIndicator size="small" color="#3b82f6" />
+          <ActivityIndicator size="small" color={nativeColor('steel', "#3b82f6")} />
         ) : (
           <>
             <CheckCheck size={20} color="#10b981" />
@@ -89,13 +90,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   modalSubtitle: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 14,
   },
   modalButton: {
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: nativeColor('raised', '#1E293B'),
   },
   modalButtonText: {
     fontSize: 16,

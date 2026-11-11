@@ -6,6 +6,7 @@ import MediaPoster from './MediaPoster';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { gorunenBaslik } from '../utils/gorunenBaslik';
 import { useTranslation } from 'react-i18next';
+import { MOBILE_PALETTE } from '../constants/mobilePalette';
 
 interface HorizontalMediaListProps {
   title: string;
@@ -32,7 +33,7 @@ export default function HorizontalMediaListWeb({ title, titleIcon, data, onShowA
         </View>
         {onShowAll && (
           <div style={{ cursor: 'pointer', padding: 4 }} onClick={onShowAll}>
-            <ChevronRight size={20} color="#a3a3a3" />
+            <ChevronRight size={20} color={MOBILE_PALETTE.muted} />
           </div>
         )}
       </View>
@@ -94,7 +95,7 @@ export default function HorizontalMediaListWeb({ title, titleIcon, data, onShowA
           height: 225px;
           border-radius: 8px;
           overflow: hidden;
-          background-color: #262626;
+          background-color: ${MOBILE_PALETTE.surface};
           cursor: pointer;
           transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   title: {
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     fontSize: 20,
     fontWeight: 'bold',
   },

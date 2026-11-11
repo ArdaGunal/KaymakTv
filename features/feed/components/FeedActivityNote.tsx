@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { EyeOff } from '../../../components/icons';
@@ -27,7 +28,7 @@ export default function FeedActivityNote({ note, spoiler, onPressText }: FeedAct
     // yanlışlıkla değil bilerek girsin diye ayrı bir adım.
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => setRevealed(true)} style={styles.spoilerWrap}>
-        <EyeOff size={12} color="#64748b" />
+        <EyeOff size={12} color={nativeColor('mutedDeep', "#64748b")} />
         <Text style={styles.spoilerText}>{t('spoilerReveal', 'Spoiler var — görmek için dokun')}</Text>
       </TouchableOpacity>
     );
@@ -75,13 +76,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingLeft: 10,
     borderLeftWidth: 3,
-    borderLeftColor: '#3b82f6',
+    borderLeftColor: nativeColor('steel', '#3b82f6'),
   },
   // Kartın en göz alıcı metni — büyük, dolgun renk, italik DEĞİL (italik
   // "ikincil/aside" hissi veriyordu, birincil içerik böyle görünmemeli).
   note: {
     flex: 1,
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 20,
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
   },
   readMoreText: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 12,
     fontWeight: '700',
   },
@@ -103,12 +104,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingVertical: 4,
     paddingHorizontal: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   spoilerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },

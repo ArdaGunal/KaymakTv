@@ -11,6 +11,7 @@ import SectionErrorBoundary from '../SectionErrorBoundary';
 import ReviewItem from './ReviewItem';
 import TraktCommentsBlock from './TraktCommentsBlock';
 import WriteReviewSheet from './WriteReviewSheet';
+import { MOBILE_PALETTE, nativeColor, nativeTint } from '../../constants/mobilePalette';
 
 /**
  * Dizi/film/bölüm detay sayfasının YORUMLAR bölümü — **tek akış, iki blok**.
@@ -44,6 +45,8 @@ import WriteReviewSheet from './WriteReviewSheet';
  */
 
 interface MediaCommentsSectionProps {
+  /** Dizi/film native detayında buton yerine yazı alanı görünümü. */
+  writeActionVariant?: 'default' | 'input';
   // ⚠️ Veri kaynağı (F12/Y6, Madde 244): `useMediaReviews` artık BURADA değil,
   // ekranda (`app/{show,movie,episode}/[id].tsx`) bir kez çağrılıp bu bileşene
   // VE `CommentSheet`'e AYNI referansla geçiliyor. Sebep: "Tümünü Gör" sheet'i
@@ -75,10 +78,12 @@ export default function MediaCommentsSection({
   onSeeAllTrakt,
   focusReviewId,
   onFocusTarget,
+  writeActionVariant = 'default',
 }: MediaCommentsSectionProps) {
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
   const [sheetVisible, setSheetVisible] = useState(false);
+  const inputAppearance = writeActionVariant === 'input';
   // C4 · Vurgu birkaç saniye sonra söner (kalıcı bir çerçeve dikkat dağıtırdı).
   const [vurguAcik, setVurguAcik] = useState(!!focusReviewId);
   const vurguRef = useRef<View>(null);
@@ -139,7 +144,7 @@ export default function MediaCommentsSection({
     if (isGuest) {
       return (
         <View style={styles.guestBox}>
-          <LogIn size={16} color="#475569" />
+          <LogIn size={16} color={nativeColor('mutedDeep', "#475569")} />
           <Text style={styles.guestText}>
             {t('loginToReview', 'İnceleme yazmak için giriş yap')}
           </Text>
@@ -149,13 +154,14 @@ export default function MediaCommentsSection({
 
     return (
       <TouchableOpacity
-        style={[styles.writeBtn, !canSubmit && styles.writeBtnDisabled]}
+        style={[styles.writeBtn, inputAppearance && styles.writeInput, !canSubmit && (inputAppearance ? styles.writeInputDisabled : styles.writeBtnDisabled)]}
         onPress={() => setSheetVisible(true)}
         disabled={!canSubmit}
         activeOpacity={0.8}
+        accessibilityRole="button"
       >
-        <PenLine size={15} color={canSubmit ? '#fb923c' : '#475569'} />
-        <Text style={[styles.writeBtnText, !canSubmit && styles.writeBtnTextDisabled]}>
+        <PenLine size={16} color={inputAppearance ? (canSubmit ? MOBILE_PALETTE.steel : MOBILE_PALETTE.mutedDeep) : (canSubmit ? '#fb923c' : nativeColor('mutedDeep', '#475569'))} />
+        <Text style={[styles.writeBtnText, inputAppearance && styles.writeInputText, !canSubmit && styles.writeBtnTextDisabled]}>
           {myReview ? t('editReview', 'İncelemeni Düzenle') : t('writeReview', 'İnceleme Yaz')}
         </Text>
       </TouchableOpacity>
@@ -280,8 +286,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   focusOn: {
-    borderColor: '#3b82f6',
-    backgroundColor: 'rgba(59,130,246,0.10)',
+    borderColor: nativeColor('primary', '#3b82f6'),
+    backgroundColor: nativeTint('primary', 0.10, 'rgba(59,130,246,0.10)'),
   },
   section: {
     marginBottom: 24,
@@ -298,10 +304,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   count: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     fontWeight: '700',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 10,
@@ -320,7 +326,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   writeBtnDisabled: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderColor: 'rgba(255,255,255,0.06)',
   },
   writeBtnText: {
@@ -328,11 +334,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  writeInput: {
+    justifyContent: 'flex-start',
+    minHeight: 52,
+    paddingHorizontal: 16,
+    backgroundColor: MOBILE_PALETTE.surface,
+    borderColor: MOBILE_PALETTE.border,
+    borderRadius: 14,
+  },
+  writeInputDisabled: { backgroundColor: MOBILE_PALETTE.surface, borderColor: MOBILE_PALETTE.border },
+  writeInputText: { color: MOBILE_PALETTE.muted, fontSize: 14, fontWeight: '500' },
   writeBtnTextDisabled: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
   },
   pendingNote: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     fontStyle: 'italic',
     marginTop: 6,
@@ -346,19 +362,19 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: nativeColor('raised', '#1e293b'),
   },
   loader: {
     marginVertical: 20,
   },
   emptyText: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 13,
     fontStyle: 'italic',
     marginTop: 14,
   },
   guestText: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontStyle: 'italic',
     fontSize: 14,
   },
@@ -368,13 +384,13 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   errorText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
   },
   retryBtn: {
     paddingHorizontal: 16,
     paddingVertical: 7,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 8,
   },
   retryText: {

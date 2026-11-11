@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -55,17 +56,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   panel: {
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderRadius: 12,
     padding: 20,
     width: '90%',
     maxWidth: 560,
     maxHeight: '80%',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 18,
     marginBottom: 16,
     fontWeight: 'bold',
@@ -78,25 +79,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heading: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     lineHeight: 22,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   body: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     lineHeight: 22,
   },
   closeButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   closeButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: 'bold',
     fontSize: 16,
   },

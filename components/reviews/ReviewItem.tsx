@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Avatar from '../Avatar';
@@ -64,7 +65,7 @@ export default function ReviewItem({ review, isOwn, onToggleLike, onEdit, onDele
             onPress={() => setRevealed(true)}
             style={styles.spoilerWrap}
           >
-            <EyeOff size={11} color="#64748b" />
+            <EyeOff size={11} color={nativeColor('mutedDeep', "#64748b")} />
             <Text style={styles.spoilerText}>
               {t('feed:spoilerReveal', 'Spoiler var — görmek için dokun')}
             </Text>
@@ -83,7 +84,7 @@ export default function ReviewItem({ review, isOwn, onToggleLike, onEdit, onDele
           >
             <Heart
               size={13}
-              color={review.isLikedByMe ? '#f87171' : '#64748b'}
+              color={review.isLikedByMe ? '#f87171' : nativeColor('mutedDeep', '#64748b')}
               fill={review.isLikedByMe ? '#f87171' : 'none'}
             />
             {review.likeCount > 0 && <Text style={styles.likeCount}>{review.likeCount}</Text>}
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   username: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: '700',
     fontSize: 13,
     flexShrink: 1,
@@ -155,11 +156,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   timestamp: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
   },
   text: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     lineHeight: 19,
   },
@@ -170,12 +171,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderRadius: 8,
     marginTop: 2,
   },
   spoilerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   likeCount: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },

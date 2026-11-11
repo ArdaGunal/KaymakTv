@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +35,7 @@ export default function HesapKarti({ hesap, etiket, secili, onSec }: Props) {
     >
       <View style={styles.ust}>
         <Text style={styles.etiket}>{etiket}</Text>
-        {secili && <CheckCircle2 size={18} color="#60a5fa" />}
+        {secili && <CheckCircle2 size={18} color={nativeColor('steel', "#60a5fa")} />}
       </View>
       <View style={styles.kimlik}>
         <Avatar url={hesap.avatarUrl ?? undefined} ad={hesap.username} size={44} />
@@ -72,19 +73,19 @@ function Sayi({ deger, ad }: { deger: string; ad: string }) {
 }
 
 const styles = StyleSheet.create({
-  kart: { borderRadius: 14, borderWidth: 1.5, borderColor: '#1e293b', backgroundColor: '#111827', padding: 14, gap: 12 },
-  kartSecili: { borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)' },
+  kart: { borderRadius: 14, borderWidth: 1.5, borderColor: nativeColor('raised', '#1e293b'), backgroundColor: nativeColor('surface', '#111827'), padding: 14, gap: 12 },
+  kartSecili: { borderColor: nativeColor('primary', '#3b82f6'), backgroundColor: nativeTint('primary', 0.08, 'rgba(59,130,246,0.08)') },
   ust: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  etiket: { color: '#94a3b8', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  etiket: { color: nativeColor('muted', '#94a3b8'), fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   kimlik: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   adlar: { flex: 1, gap: 2 },
   adSatiri: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  ad: { color: '#f8fafc', fontSize: 18, fontWeight: '800', flexShrink: 1 },
-  noRozet: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: 'rgba(59,130,246,0.18)', borderWidth: 1, borderColor: 'rgba(96,165,250,0.45)' },
+  ad: { color: nativeColor('text', '#f8fafc'), fontSize: 18, fontWeight: '800', flexShrink: 1 },
+  noRozet: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: nativeTint('primary', 0.18, 'rgba(59,130,246,0.18)'), borderWidth: 1, borderColor: nativeTint('steel', 0.45, 'rgba(96,165,250,0.45)') },
   noMetin: { color: '#bfdbfe', fontSize: 13, fontWeight: '700' },
-  alt: { color: '#94a3b8', fontSize: 12.5 },
+  alt: { color: nativeColor('muted', '#94a3b8'), fontSize: 12.5 },
   sayilar: { flexDirection: 'row', justifyContent: 'space-around' },
   sayi: { alignItems: 'center' },
-  sayiDeger: { color: '#e2e8f0', fontSize: 16, fontWeight: '700' },
-  sayiAd: { color: '#64748b', fontSize: 11.5 },
+  sayiDeger: { color: nativeColor('text', '#e2e8f0'), fontSize: 16, fontWeight: '700' },
+  sayiAd: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 11.5 },
 });

@@ -22,7 +22,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
         {/* Native hissiyat için Web'de yazıları seçmeyi ve resimlere basılı tutunca menü çıkmasını engelle */}
         <style dangerouslySetInnerHTML={{ __html: `
           body {
-            background-color: #0B1120;
+            background-color: #0C1D2B;
             -webkit-user-select: none;
             user-select: none;
             -webkit-touch-callout: none;

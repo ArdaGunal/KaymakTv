@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { WifiOff } from './icons';
@@ -21,7 +22,7 @@ export default function SyncErrorState({ onRetry }: SyncErrorStateProps) {
 
   return (
     <View style={styles.container}>
-      <WifiOff size={40} color="#334155" />
+      <WifiOff size={40} color={nativeColor('border', "#334155")} />
       <Text style={styles.title}>{t('syncErrorTitle', 'Yüklenemedi')}</Text>
       <Text style={styles.text}>
         {t('syncErrorText', 'Bağlantını kontrol edip tekrar dene.')}
@@ -43,13 +44,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 16,
     fontWeight: '700',
     marginTop: 8,
   },
   text: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -59,12 +60,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 100,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   retryButtonText: {
-    color: '#38bdf8',
+    color: nativeColor('steel', '#38bdf8'),
     fontSize: 13,
     fontWeight: '700',
   },

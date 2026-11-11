@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { usePathname, Link } from 'expo-router';
 import { Tv, Film, Compass, User, Settings, Rss } from './icons';
 import { useTranslation } from 'react-i18next';
+import { MOBILE_PALETTE } from '../constants/mobilePalette';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -30,7 +31,7 @@ export default function Sidebar() {
               <TouchableOpacity
                 style={StyleSheet.flatten([styles.menuItem, isActive && styles.menuItemActive])}
               >
-                <item.icon size={24} color={isActive ? '#3B82F6' : '#94A3B8'} />
+                <item.icon size={24} color={isActive ? MOBILE_PALETTE.steel : MOBILE_PALETTE.muted} />
                 <Text style={[styles.menuText, isActive && styles.menuTextActive]}>
                   {item.name}
                 </Text>
@@ -43,7 +44,7 @@ export default function Sidebar() {
       <View style={styles.footerContainer}>
         <Link href="/(protected)/account" asChild>
           <TouchableOpacity style={styles.menuItem}>
-            <Settings size={24} color="#94A3B8" />
+            <Settings size={24} color={MOBILE_PALETTE.muted} />
             <Text style={styles.menuText}>{t('settings', { defaultValue: 'Ayarlar' })}</Text>
           </TouchableOpacity>
         </Link>
@@ -55,9 +56,9 @@ export default function Sidebar() {
 const styles = StyleSheet.create({
   sidebar: {
     width: 250,
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
     borderRightWidth: 1,
-    borderRightColor: '#172033',
+    borderRightColor: MOBILE_PALETTE.border,
     height: '100%',
     paddingVertical: 24,
     display: 'flex',
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoText: {
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     fontSize: 24,
     fontWeight: 'bold',
     letterSpacing: 2,
@@ -86,21 +87,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   menuItemActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
   },
   menuText: {
-    color: '#94A3B8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 16,
   },
   menuTextActive: {
-    color: '#3B82F6',
+    color: MOBILE_PALETTE.steel,
   },
   footerContainer: {
     paddingHorizontal: 12,
     borderTopWidth: 1,
-    borderTopColor: '#172033',
+    borderTopColor: MOBILE_PALETTE.border,
     paddingTop: 16,
   },
 });

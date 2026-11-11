@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, Switch, ActivityIndicator } from 'react-native';
 
@@ -45,14 +46,14 @@ export default function SettingsSwitchRow({
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="small" color="#5c8cf5" />
+        <ActivityIndicator size="small" color={nativeColor('steel', "#5c8cf5")} />
       ) : (
         <Switch
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: '#263044', true: '#3b82f6' }}
-          thumbColor="#ffffff"
+          trackColor={{ false: '#263044', true: nativeColor('primary', '#3b82f6') }}
+          thumbColor={nativeColor('text', "#ffffff")}
         />
       )}
     </View>
@@ -85,13 +86,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   label: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   hint: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 12.5,
     lineHeight: 17,
   },

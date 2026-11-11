@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -98,7 +99,7 @@ export default function SystemActivityBody({ activity, actions, beforeNavigate }
                 openEpisode(activity, actions.openMedia);
               }}
             >
-              {isOpening ? <ActivityIndicator size="small" color="#cbd5e1" /> : <PlayCircle size={16} color="#cbd5e1" />}
+              {isOpening ? <ActivityIndicator size="small" color={nativeColor('body', "#cbd5e1")} /> : <PlayCircle size={16} color={nativeColor('body', "#cbd5e1")} />}
               <Text style={styles.btnText}>{t('detailGoEpisode', 'Bölüme git')}</Text>
             </TouchableOpacity>
           )}
@@ -111,10 +112,10 @@ export default function SystemActivityBody({ activity, actions, beforeNavigate }
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
   mediaRow: { flexDirection: 'row', gap: 14, alignItems: 'center' },
-  poster: { width: 64, height: 94, borderRadius: 8, backgroundColor: '#0B1120' },
+  poster: { width: 64, height: 94, borderRadius: 8, backgroundColor: nativeColor('background', '#0B1120') },
   mediaText: { flex: 1, gap: 8 },
-  sentence: { color: '#cbd5e1', fontSize: 16, lineHeight: 22 },
-  title: { color: '#f1f5f9', fontWeight: '700' },
+  sentence: { color: nativeColor('body', '#cbd5e1'), fontSize: 16, lineHeight: 22 },
+  title: { color: nativeColor('text', '#f1f5f9'), fontWeight: '700' },
   chip: { alignSelf: 'flex-start', backgroundColor: '#0c2a3d', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   chipText: { color: '#7dd3fc', fontSize: 12, fontWeight: '600' },
   buttons: { flexDirection: 'row', gap: 10 },
@@ -127,9 +128,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
-  btnText: { color: '#cbd5e1', fontSize: 14, fontWeight: '600' },
-  btnPrimary: { backgroundColor: '#1e3a5f', borderColor: '#1e3a5f' },
-  btnPrimaryText: { color: '#bae6fd', fontSize: 14, fontWeight: '700' },
+  btnText: { color: nativeColor('body', '#cbd5e1'), fontSize: 14, fontWeight: '600' },
+  btnPrimary: { backgroundColor: nativeColor('primary', '#1e3a5f'), borderColor: nativeColor('primary', '#1e3a5f') },
+  btnPrimaryText: { color: nativeColor('text', '#bae6fd'), fontSize: 14, fontWeight: '700' },
 });

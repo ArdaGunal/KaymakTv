@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -40,7 +41,7 @@ export default function ActivityDetailScreen() {
           style={styles.backBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <ChevronLeft size={22} color="#f1f5f9" />
+          <ChevronLeft size={22} color={nativeColor('text', "#f1f5f9")} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('activityPageTitle', 'Gönderi')}</Text>
         <View style={styles.headerSpacer} />
@@ -56,10 +57,10 @@ export default function ActivityDetailScreen() {
       ) : (
       <View style={styles.content}>
         {isLoading ? (
-          <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />
+          <ActivityIndicator size="large" color={nativeColor('steel', "#3b82f6")} style={styles.loader} />
         ) : (
           <View style={styles.emptyState}>
-            <SearchX size={40} color="#334155" />
+            <SearchX size={40} color={nativeColor('border', "#334155")} />
             <Text style={styles.emptyTitle}>{t('activityNotFoundTitle', 'Bu Gönderi Artık Yok')}</Text>
             <Text style={styles.emptyText}>{t('activityNotFoundText', 'Silinmiş olabilir ya da hiç var olmadı.')}</Text>
           </View>
@@ -84,7 +85,7 @@ function SystemActivityPage({ activity, patchLocal }: { activity: FeedActivity; 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   header: {
     flexDirection: 'row',
@@ -93,13 +94,13 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#22304A',
+    borderBottomColor: nativeColor('border', '#22304A'),
   },
   backBtn: {
     padding: 4,
   },
   headerTitle: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 16,
     fontWeight: '700',
   },
@@ -123,13 +124,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     fontWeight: '700',
     marginTop: 6,
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,

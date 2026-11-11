@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChevronRight } from '../icons';
@@ -67,7 +68,7 @@ export default function SettingsRow({
 
       <View style={styles.trailing}>
         {value ? <Text style={styles.value}>{value}</Text> : null}
-        {showChevron && <ChevronRight size={18} color="#64748b" strokeWidth={2} />}
+        {showChevron && <ChevronRight size={18} color={nativeColor('mutedDeep', "#64748b")} strokeWidth={2} />}
       </View>
     </TouchableOpacity>
   );
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   label: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: -0.2,
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     color: '#f87171',
   },
   description: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 12.5,
     lineHeight: 17,
   },
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   value: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 14,
     fontWeight: '500',
   },

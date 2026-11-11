@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useVersionGate } from '../hooks/useVersionGate';
@@ -25,5 +26,5 @@ export default function VersionGate({ children }: { children: React.ReactNode })
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, backgroundColor: '#0B1120' },
+  loading: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
 });

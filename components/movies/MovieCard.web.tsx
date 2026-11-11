@@ -14,6 +14,7 @@ import { useFilmIzle } from '../../hooks/useFilmIzle';
 import { Check } from '../icons';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { getMediaTagLabel } from '../../utils/mediaTagLabel';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 interface MovieCardProps {
   data: any;
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     height: 270,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: MOBILE_PALETTE.surface,
     cursor: 'pointer',
     position: 'relative',
     transition: 'box-shadow 0.3s ease',
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 12,
-    backgroundColor: 'rgba(21, 36, 58, 0.94)',
+    backgroundColor: 'rgba(21, 34, 46, 0.96)',
     borderTopWidth: 1,
     borderTopColor: BITIS_RENK.kenar,
   },
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tagText: {
-    color: '#fff',
+    color: MOBILE_PALETTE.text,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -276,7 +277,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   yearText: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.body,
     fontWeight: 'bold',
     fontSize: 12,
   },

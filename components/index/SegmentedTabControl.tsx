@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 interface SegmentedTabControlProps {
   activeTab: string;
@@ -30,12 +31,12 @@ export default function SegmentedTabControl({ activeTab, onTabChange, watchlistL
 }
 
 const styles = StyleSheet.create({
-  // Modern segmented control: koyu cam yüzey + ince kenarlık, aktif sekme dolu mavi hap
+  // Koyu yüzey + ince kenarlık, aktif sekme dolu mat mavi hap.
   segmentedControlContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: MOBILE_PALETTE.border,
     borderRadius: 24,
     marginHorizontal: 16,
     marginTop: 8,
@@ -49,8 +50,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   segmentedTabActive: {
-    backgroundColor: '#2563EB',
-    shadowColor: '#3B82F6',
+    backgroundColor: MOBILE_PALETTE.primary,
+    shadowColor: MOBILE_PALETTE.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
@@ -58,12 +59,12 @@ const styles = StyleSheet.create({
   },
   segmentedTabText: {
     fontWeight: '600',
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 13,
     letterSpacing: 0.5,
   },
   segmentedTabTextActive: {
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     fontWeight: 'bold',
   },
 });

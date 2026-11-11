@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
 import Avatar from '../../../components/Avatar';
@@ -140,7 +141,7 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
           <Text style={styles.timestamp}>{formatRelativeTime(activity.activityAt, t)}</Text>
           {/* Yayınlanıyor göstergesi: kart ekranda ama sunucu onayı henüz
               gelmedi. Onaylanınca kaybolur, hata olursa kart geri alınır. */}
-          {activity.isPending && <ActivityIndicator size="small" color="#475569" />}
+          {activity.isPending && <ActivityIndicator size="small" color={nativeColor('mutedDeep', "#475569")} />}
         </View>
 
         {/* Sosyal eylem satırı — sunucu onayı gelene kadar (isPending)
@@ -156,7 +157,7 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
             >
               <Heart
                 size={15}
-                color={activity.isLikedByMe ? '#f87171' : '#64748b'}
+                color={activity.isLikedByMe ? '#f87171' : nativeColor('mutedDeep', '#64748b')}
                 fill={activity.isLikedByMe ? '#f87171' : 'none'}
               />
               {activity.likeCount > 0 && <Text style={styles.socialCount}>{activity.likeCount}</Text>}
@@ -170,7 +171,7 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
                 activeOpacity={0.7}
                 hitSlop={6}
               >
-                <MessageCircle size={15} color="#64748b" />
+                <MessageCircle size={15} color={nativeColor('mutedDeep', "#64748b")} />
                 {activity.commentCount > 0 && <Text style={styles.socialCount}>{activity.commentCount}</Text>}
               </TouchableOpacity>
             )}
@@ -188,7 +189,7 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
                 activeOpacity={0.7}
                 hitSlop={6}
               >
-                <Repeat size={15} color="#64748b" />
+                <Repeat size={15} color={nativeColor('mutedDeep', "#64748b")} />
               </TouchableOpacity>
             )}
           </View>
@@ -238,10 +239,10 @@ const styles = StyleSheet.create({
     // 'center' değil 'flex-start': sosyal satır/not eklenince body boyu
     // değişken hale geldi — avatar/poster her zaman üstte hizalı kalsın.
     alignItems: 'flex-start',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     padding: 14,
     marginBottom: 12,
     gap: 12,
@@ -252,10 +253,10 @@ const styles = StyleSheet.create({
   },
   // C1 · Dokunulabilir kart geri bildirimi — web'de fare üstünde, her yerde basılıyken.
   cardHover: {
-    borderColor: '#2E4166',
+    borderColor: nativeColor('steel', '#2E4166'),
   },
   cardPressed: {
-    backgroundColor: '#1A2540',
+    backgroundColor: nativeColor('raised', '#1A2540'),
   },
   body: {
     flex: 1,
@@ -272,17 +273,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   username: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontWeight: '700',
     fontSize: 14,
   },
   label: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     lineHeight: 18,
   },
   showNameLink: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontWeight: '700',
   },
   metaRow: {
@@ -306,20 +307,20 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   contextChipText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '500',
     flexShrink: 1,
   },
   timestamp: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
   },
   poster: {
     width: 44,
     height: 62,
     borderRadius: 8,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   socialRow: {
     flexDirection: 'row',
@@ -333,7 +334,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   socialCount: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },

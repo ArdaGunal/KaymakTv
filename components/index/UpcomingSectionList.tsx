@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, SectionList, RefreshControl, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import EpisodeCard from '../EpisodeCard';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 interface UpcomingSectionListProps {
   sections: { title: string; data: any[] }[];
@@ -32,9 +33,9 @@ export default function UpcomingSectionList({ sections, refreshing, onRefresh, i
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor="#ffffff"
-          colors={['#ffffff']}
-          progressBackgroundColor="#262626"
+          tintColor={MOBILE_PALETTE.steel}
+          colors={[MOBILE_PALETTE.steel]}
+          progressBackgroundColor={MOBILE_PALETTE.surface}
         />
       }
     />
@@ -43,6 +44,6 @@ export default function UpcomingSectionList({ sections, refreshing, onRefresh, i
 
 const styles = StyleSheet.create({
   scrollContent: { paddingTop: 12 },
-  calendarDateHeader: { color: '#a3a3a3', fontSize: 13, fontWeight: 'bold', letterSpacing: 1, marginTop: 16, marginBottom: 12, marginLeft: 4 },
-  emptyText: { color: '#64748b', textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
+  calendarDateHeader: { color: MOBILE_PALETTE.muted, fontSize: 13, fontWeight: 'bold', letterSpacing: 1, marginTop: 16, marginBottom: 12, marginLeft: 4 },
+  emptyText: { color: MOBILE_PALETTE.mutedDeep, textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
 });

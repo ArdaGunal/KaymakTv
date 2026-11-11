@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import EpisodeCheckButton from './EpisodeCheckButton';
@@ -34,7 +35,7 @@ const EpisodeCardActions = memo(({ data, onSuccessStateChange }: EpisodeCardActi
           )}
         </View>
       ) : data.isCalculating ? (
-        <ActivityIndicator size="small" color="#a3a3a3" />
+        <ActivityIndicator size="small" color={nativeColor('muted', "#a3a3a3")} />
       ) : (
         // Puanlama burada bilinçli olarak yok: bu, hızlıca art arda bölüm
         // işaretlemek için tasarlanmış bir liste — puanlama dizi/bölüm detay
@@ -69,7 +70,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   countdownText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,

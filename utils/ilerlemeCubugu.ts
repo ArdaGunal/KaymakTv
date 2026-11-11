@@ -45,6 +45,7 @@ export interface CubukVerisi {
 export function cubukVerisi(
   ilerleme: IlerlemeGirdisi | null | undefined,
   birakildi: boolean,
+  aktifRenk?: string,
 ): CubukVerisi {
   const aired = ilerleme?.aired ?? 0;
   const completed = ilerleme?.completed ?? 0;
@@ -52,6 +53,6 @@ export function cubukVerisi(
   const bitti = varMi && completed >= aired;
   return {
     yuzde: varMi ? (completed / aired) * 100 : 0,
-    renk: getProgressBarColor(birakildi, bitti),
+    renk: getProgressBarColor(birakildi, bitti, aktifRenk),
   };
 }

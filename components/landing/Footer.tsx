@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
@@ -34,7 +35,7 @@ export default function Footer() {
 
       {/* Veri notu */}
       <View style={styles.dataRow}>
-        <Lock size={12} color="#424654" strokeWidth={2} />
+        <Lock size={12} color={nativeColor('mutedDeep', "#424654")} strokeWidth={2} />
         <Text style={styles.dataText}>{t('dataLocal')}</Text>
       </View>
     </View>
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     alignItems: 'center',
     width: '100%',
-    backgroundColor: '#090e18',
+    backgroundColor: nativeColor('background', '#090e18'),
   },
   divider: {
     width: '100%',
@@ -66,11 +67,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#5c8cf5',
+    backgroundColor: nativeColor('primary', '#5c8cf5'),
     opacity: 0.8,
   },
   brand: {
-    color: '#dee2f1',
+    color: nativeColor('text', '#dee2f1'),
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
@@ -84,17 +85,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   link: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 12.5,
     fontWeight: '600',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   linkDot: {
-    color: '#424654',
+    color: nativeColor('mutedDeep', '#424654'),
     fontSize: 12,
   },
   copyright: {
-    color: '#424654',
+    color: nativeColor('mutedDeep', '#424654'),
     fontSize: 11.5,
     marginBottom: 10,
     letterSpacing: 0.1,
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   dataText: {
-    color: '#424654',
+    color: nativeColor('mutedDeep', '#424654'),
     fontSize: 11,
     letterSpacing: 0.1,
   },

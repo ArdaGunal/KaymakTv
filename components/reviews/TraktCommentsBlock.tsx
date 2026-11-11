@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -100,10 +101,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
   },
   dividerLabel: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     fontWeight: '600',
   },
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   emptyText: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 13,
     fontStyle: 'italic',
     marginTop: 14,
@@ -119,12 +120,12 @@ const styles = StyleSheet.create({
   seeAllBtn: {
     marginTop: 8,
     paddingVertical: 11,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 8,
     alignItems: 'center',
   },
   seeAllText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     fontWeight: '700',
   },

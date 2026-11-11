@@ -15,11 +15,12 @@ import { ChevronDown, PlayCircle, Bookmark, PauseCircle } from '../icons';
 import EpisodeCard from '../EpisodeCard';
 import type { ShowCategories, TrackingCard } from '../../store/tracking/trackingLogic';
 import type { TrackingCategoryKey, CollapsedMap } from '../../store/tracking/useTrackingStore';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 const SECTION_META: Record<TrackingCategoryKey, { Icon: React.ComponentType<any>; tint: string; bg: string }> = {
-  upNext: { Icon: PlayCircle, tint: '#22d3ee', bg: 'rgba(34, 211, 238, 0.12)' },
-  paused: { Icon: PauseCircle, tint: '#fb7185', bg: 'rgba(251, 113, 133, 0.12)' },
-  notStarted: { Icon: Bookmark, tint: '#a5b4fc', bg: 'rgba(165, 180, 252, 0.12)' },
+  upNext: { Icon: PlayCircle, tint: MOBILE_PALETTE.steel, bg: MOBILE_PALETTE.steelTint },
+  paused: { Icon: PauseCircle, tint: MOBILE_PALETTE.steel, bg: MOBILE_PALETTE.steelTint },
+  notStarted: { Icon: Bookmark, tint: MOBILE_PALETTE.steel, bg: MOBILE_PALETTE.steelTint },
 };
 
 const SECTION_ORDER: TrackingCategoryKey[] = ['upNext', 'paused', 'notStarted'];
@@ -85,7 +86,7 @@ const SectionHeader = memo(function SectionHeader({
         </View>
       </View>
       <Animated.View style={{ transform: [{ rotate }] }}>
-        <ChevronDown size={22} color="#64748b" />
+        <ChevronDown size={22} color={MOBILE_PALETTE.mutedDeep} />
       </Animated.View>
     </TouchableOpacity>
   );
@@ -163,7 +164,7 @@ function TrackingAccordionListWeb({
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
       showsVerticalScrollIndicator={false}
       windowSize={5}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={MOBILE_PALETTE.steel} />}
       ListEmptyComponent={<Text style={styles.emptyText}>{emptyLabel}</Text>}
     />
   );
@@ -198,10 +199,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: MOBILE_PALETTE.border,
     ...(Platform.OS === 'web' && { cursor: 'pointer' } as any),
   },
   categoryHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
@@ -213,9 +214,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  categoryTitle: { color: '#f8fafc', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
+  categoryTitle: { color: MOBILE_PALETTE.text, fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
   badgeContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: MOBILE_PALETTE.raised,
     paddingHorizontal: 9,
     paddingVertical: 2,
     borderRadius: 10,
@@ -224,6 +225,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#cbd5e1', fontSize: 13, fontWeight: '700' },
-  emptyText: { color: '#64748b', textAlign: 'center', paddingVertical: 24, fontStyle: 'italic' },
+  badgeText: { color: MOBILE_PALETTE.body, fontSize: 13, fontWeight: '700' },
+  emptyText: { color: MOBILE_PALETTE.mutedDeep, textAlign: 'center', paddingVertical: 24, fontStyle: 'italic' },
 });

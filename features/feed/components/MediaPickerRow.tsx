@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import MediaPoster from '../../../components/MediaPoster';
@@ -65,19 +66,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 58,
     borderRadius: 6,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   info: {
     flex: 1,
     gap: 2,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     fontWeight: '600',
   },
   year: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
   },
 });

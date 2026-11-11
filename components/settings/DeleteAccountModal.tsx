@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   dialog: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 20,
     padding: 28,
     width: '100%',
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239,68,68,0.25)',
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   body: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     lineHeight: 22,
     textAlign: 'center',
@@ -154,12 +155,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   cancelText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: '600',
     fontSize: 15,
   },

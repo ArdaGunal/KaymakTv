@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Link2, X, ArrowRight } from '../icons';
@@ -63,7 +64,7 @@ export function GoogleSignInSection({
   const bridgeCard = awaitingTraktLink ? (
     <View style={styles.linkCard}>
         <View style={styles.linkIconBadge}>
-          <Link2 size={26} color="#38bdf8" />
+          <Link2 size={26} color={nativeColor('steel', "#38bdf8")} />
         </View>
         <Text style={styles.linkHeading}>{t('settings:googleLinkHeading', 'Bir Adım Kaldı')}</Text>
         <Text style={styles.linkText}>
@@ -97,19 +98,19 @@ export function GoogleSignInSection({
           disabled={isCreatingAccount || isGenerating}
         >
           {isCreatingAccount ? (
-            <ActivityIndicator size="small" color="#e2e8f0" />
+            <ActivityIndicator size="small" color={nativeColor('text', "#e2e8f0")} />
           ) : (
             <View style={styles.secondaryButtonContent}>
               <Text style={styles.secondaryButtonText}>
                 {t('settings:continueWithoutTrakt', "Trakt'sız Devam Et")}
               </Text>
-              <ArrowRight size={16} color="#e2e8f0" />
+              <ArrowRight size={16} color={nativeColor('text', "#e2e8f0")} />
             </View>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.cancelButton} activeOpacity={0.7} onPress={onCancelLink} disabled={isCreatingAccount}>
-          <X size={14} color="#94a3b8" />
+          <X size={14} color={nativeColor('muted', "#94a3b8")} />
           <Text style={styles.cancelText}>{t('common:cancel')}</Text>
         </TouchableOpacity>
       </View>
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   disabledHint: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     textAlign: 'center',
     paddingHorizontal: 8,
@@ -217,9 +218,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(56,189,248,0.06)',
+    backgroundColor: nativeTint('steel', 0.06, 'rgba(56,189,248,0.06)'),
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.25)',
+    borderColor: nativeTint('steel', 0.25, 'rgba(56,189,248,0.25)'),
     borderRadius: 20,
     padding: 24,
     marginTop: 4,
@@ -228,19 +229,19 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(56,189,248,0.15)',
+    backgroundColor: nativeTint('steel', 0.15, 'rgba(56,189,248,0.15)'),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
   linkHeading: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
   },
   linkText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13.5,
     lineHeight: 20,
     textAlign: 'center',
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   traktButton: {
     alignSelf: 'stretch',
     marginTop: 4,
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   traktButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '600',
     fontSize: 16,
   },
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   secondaryButtonText: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: '600',
     fontSize: 15,
   },
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cancelText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
   },
 });

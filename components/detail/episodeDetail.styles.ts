@@ -1,12 +1,14 @@
 import { StyleSheet } from 'react-native';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 // AI_RULES §1 (400 satir) — `app/episode/[id].tsx`'ten BIREBIR tasindi.
-// Saf stil tanimi, mantik yok. Mobil gorunumde tek bir piksel degismedi.
+// Saf stil tanimi, mantik yok. İlk ayrıştırmada piksel değişmedi;
+// puan rozetleri artık ortak mobil paleti kullanıyor.
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  container: { flex: 1, backgroundColor: MOBILE_PALETTE.background },
   headerContainer: { width: '100%', height: 350, position: 'relative' },
   stillImage: { width: '100%', height: '100%' },
-  stillPlaceholder: { width: '100%', height: '100%', backgroundColor: '#0B1120' },
+  stillPlaceholder: { width: '100%', height: '100%', backgroundColor: MOBILE_PALETTE.background },
   gradientOverlay: { ...StyleSheet.absoluteFillObject },
   // `top`/`left`/`right` BİLİNÇLİ OLARAK burada YOK — güvenli alana göre
   // render sırasında veriliyor (bkz. yukarıdaki insets notu).
@@ -33,15 +35,15 @@ export const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(250, 204, 21, 0.1)',
+    backgroundColor: MOBILE_PALETTE.ratingTint,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.2)',
+    borderColor: MOBILE_PALETTE.ratingBorder,
   },
   ratingText: {
-    color: '#facc15',
+    color: MOBILE_PALETTE.rating,
     fontWeight: 'bold',
     fontSize: 13,
     marginLeft: 4,
@@ -49,7 +51,8 @@ export const styles = StyleSheet.create({
   // Oy sayısı: puanın yanında ikincil bilgi — daha soluk ve ince, puanı
   // gölgelemesin.
   votesText: {
-    color: 'rgba(250, 204, 21, 0.6)',
+    color: MOBILE_PALETTE.rating,
+    opacity: 0.65,
     fontWeight: '600',
     fontSize: 11,
     marginLeft: 4,
@@ -65,8 +68,8 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   userRatingActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    backgroundColor: MOBILE_PALETTE.ratingTint,
+    borderColor: MOBILE_PALETTE.ratingBorder,
   },
   userRatingText: {
     color: '#a3a3a3',
@@ -75,7 +78,7 @@ export const styles = StyleSheet.create({
     marginLeft: 6,
   },
   userRatingTextActive: {
-    color: '#3b82f6',
+    color: MOBILE_PALETTE.rating,
   },
   progressContainer: { marginTop: 8, width: '100%', maxWidth: 240, flexDirection: 'row', alignItems: 'center' },
   progressBarWrapper: { flex: 1 },

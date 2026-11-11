@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useTranslation } from 'react-i18next';
@@ -43,7 +44,7 @@ export default function GizlilikScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={[styles.header, isDesktop && styles.headerDesktop]}>
         <TouchableOpacity onPress={goBack} hitSlop={12} style={styles.backButton}>
-          <ArrowLeft size={20} color="#e2e8f0" />
+          <ArrowLeft size={20} color={nativeColor('text', "#e2e8f0")} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('legal:title')}</Text>
       </View>
@@ -67,7 +68,7 @@ export default function GizlilikScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   header: {
     flexDirection: 'row',
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: nativeColor('raised', '#1e293b'),
   },
   headerDesktop: {
     paddingHorizontal: 32,
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   headerTitle: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 16,
     fontWeight: '700',
     flexShrink: 1,
@@ -112,14 +113,14 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   heading: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     lineHeight: 24,
     fontWeight: 'bold',
     marginBottom: 6,
   },
   body: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     lineHeight: 23,
   },

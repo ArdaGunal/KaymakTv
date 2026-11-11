@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { ArrowUp, RefreshCw, CloudOff } from '../../../components/icons';
@@ -108,7 +109,7 @@ export default function FeedScreen() {
                   disabled={isRefreshing}
                   activeOpacity={0.7}
                 >
-                  <RefreshCw size={16} color={isRefreshing ? '#334155' : '#94a3b8'} />
+                  <RefreshCw size={16} color={isRefreshing ? nativeColor('border', '#334155') : nativeColor('muted', '#94a3b8')} />
                 </TouchableOpacity>
               )}
               {/* 🔎 Kişi arama artık bir SİMGE (2026-09-17). Kullanıcı: *"kişi arama
@@ -205,7 +206,7 @@ export default function FeedScreen() {
               />
             }
             refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#3b82f6" />
+              <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={nativeColor('steel', "#3b82f6")} />
             }
             ListEmptyComponent={
               <FeedListEmpty isFiltering={isFiltering} filtre={filtre} showError={showError} onRetry={refresh} />
@@ -217,7 +218,7 @@ export default function FeedScreen() {
             ÜSTÜNDE (absolute) durur, içeriği kaydırmaz. */}
         {unseenCount > 0 && (
           <TouchableOpacity style={styles.newPostsPill} onPress={handleJumpToTop} activeOpacity={0.85}>
-            <ArrowUp size={14} color="#0B1120" />
+            <ArrowUp size={14} color={nativeColor('background', "#0B1120")} />
             <Text style={styles.newPostsPillText}>
               {t('feed:newPosts', '{{count}} yeni gönderi', { count: unseenCount })}
             </Text>
@@ -233,7 +234,7 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   // Takip listesi bayat uyarısı (F6) — hata değil, bilgi. Bu yüzden kırmızı
   // değil amber ve kutunun kendisi düşük kontrastlı: akışı gölgelemeden
@@ -274,9 +275,9 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   listContent: {
     paddingBottom: 40,
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 100,
-    backgroundColor: '#38bdf8',
+    backgroundColor: nativeColor('steel', '#38bdf8'),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   newPostsPillText: {
-    color: '#0B1120',
+    color: nativeColor('background', '#0B1120'),
     fontSize: 13,
     fontWeight: '800',
   },

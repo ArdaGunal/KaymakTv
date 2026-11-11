@@ -1,4 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 // F12 — download.web.tsx'ten çıkarıldı (400 satır kuralı, AI_RULES §1).
 // Saf stil tanımı, mantık yok.
@@ -14,7 +15,7 @@ export const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     minHeight: '100vh' as any,
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingVertical: 36,
@@ -29,7 +30,7 @@ export const styles = StyleSheet.create({
     width: 600,
     height: 400,
     borderRadius: 300,
-    backgroundColor: 'rgba(59, 130, 246, 0.04)',
+    backgroundColor: 'rgba(15, 74, 128, 0.04)',
     ...(Platform.OS === 'web' ? ({ filter: 'blur(120px)', pointerEvents: 'none' } as any) : {}),
   },
   ambientGlowTopDesktop: {
@@ -39,7 +40,7 @@ export const styles = StyleSheet.create({
     width: 800,
     height: 450,
     borderRadius: 400,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    backgroundColor: 'rgba(15, 74, 128, 0.05)',
     ...(Platform.OS === 'web' ? ({ filter: 'blur(150px)', pointerEvents: 'none' } as any) : {}),
   },
   ambientGlowBottom: {
@@ -48,7 +49,7 @@ export const styles = StyleSheet.create({
     width: 500,
     height: 350,
     borderRadius: 250,
-    backgroundColor: 'rgba(34, 211, 238, 0.03)',
+    backgroundColor: 'rgba(140, 165, 181, 0.03)',
     ...(Platform.OS === 'web' ? ({ filter: 'blur(120px)', pointerEvents: 'none' } as any) : {}),
   },
   ambientGlowBottomDesktop: {
@@ -58,7 +59,7 @@ export const styles = StyleSheet.create({
     width: 600,
     height: 400,
     borderRadius: 300,
-    backgroundColor: 'rgba(34, 211, 238, 0.04)',
+    backgroundColor: 'rgba(140, 165, 181, 0.04)',
     ...(Platform.OS === 'web' ? ({ filter: 'blur(150px)', pointerEvents: 'none' } as any) : {}),
   },
 
@@ -85,20 +86,20 @@ export const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.2)',
+    borderColor: MOBILE_PALETTE.navBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandTitle: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 19,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   brandSub: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.2,
@@ -115,13 +116,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    backgroundColor: 'rgba(15, 74, 128, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.18)',
+    borderColor: 'rgba(140, 165, 181, 0.24)',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
   webAppLinkText: {
-    color: '#93c5fd',
+    color: MOBILE_PALETTE.steel,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -132,13 +133,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(140, 165, 181, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: MOBILE_PALETTE.border,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
   backLinkText: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -154,10 +155,10 @@ export const styles = StyleSheet.create({
   },
   heroCard: {
     width: '100%',
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    backgroundColor: 'rgba(21, 34, 46, 0.92)',
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: MOBILE_PALETTE.border,
     padding: 28,
     alignItems: 'center',
     ...(Platform.OS === 'web'
@@ -195,16 +196,16 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    backgroundColor: 'rgba(15, 74, 128, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.18)',
+    borderColor: 'rgba(140, 165, 181, 0.24)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 100,
     marginBottom: 24,
   },
   categoryBadgeText: {
-    color: '#60a5fa',
+    color: MOBILE_PALETTE.steel,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.2,
@@ -228,7 +229,7 @@ export const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
+    borderColor: 'rgba(140, 165, 181, 0.32)',
   },
   appIconContainerDesktop: {
     width: 76,
@@ -245,7 +246,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   appTitle: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -255,7 +256,7 @@ export const styles = StyleSheet.create({
     letterSpacing: -0.7,
   },
   appSubtitle: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 13.5,
     marginTop: 4,
   },
@@ -287,7 +288,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.25)',
+    borderColor: 'rgba(140, 165, 181, 0.32)',
   },
   downloadButtonDesktop: {
     paddingVertical: 18,
@@ -311,7 +312,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   downloadButtonText: {
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -321,7 +322,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
   downloadButtonSubtext: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: MOBILE_PALETTE.body,
     fontSize: 12,
     marginTop: 2,
   },
@@ -338,27 +339,27 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(140, 165, 181, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: MOBILE_PALETTE.border,
     borderRadius: 14,
     padding: 11,
   },
   clickableMetaCard: {
-    backgroundColor: 'rgba(59, 130, 246, 0.06)',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    backgroundColor: 'rgba(15, 74, 128, 0.10)',
+    borderColor: 'rgba(140, 165, 181, 0.28)',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
   metaCardTextWrapper: {
     flex: 1,
   },
   metaLabel: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 10.5,
     fontWeight: '600',
   },
   metaValue: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 1,
@@ -370,7 +371,7 @@ export const styles = StyleSheet.create({
     marginTop: 1,
   },
   metaValueLink: {
-    color: '#60a5fa',
+    color: MOBILE_PALETTE.steel,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -378,9 +379,9 @@ export const styles = StyleSheet.create({
   // Masaüstü Ek Bilgi Kutusu
   desktopTrustBox: {
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(140, 165, 181, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(140, 165, 181, 0.13)',
     borderRadius: 16,
     padding: 18,
     marginTop: 4,
@@ -392,12 +393,12 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
   },
   trustBoxTitle: {
-    color: '#e2e8f0',
+    color: MOBILE_PALETTE.text,
     fontSize: 13.5,
     fontWeight: '700',
   },
   trustBoxDesc: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 12.5,
     lineHeight: 19,
   },
@@ -405,10 +406,10 @@ export const styles = StyleSheet.create({
   // Sürüm Notları
   changelogCard: {
     width: '100%',
-    backgroundColor: 'rgba(23, 32, 51, 0.5)',
+    backgroundColor: 'rgba(21, 34, 46, 0.72)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: MOBILE_PALETTE.border,
     padding: 20,
     marginBottom: 20,
   },
@@ -419,10 +420,10 @@ export const styles = StyleSheet.create({
     marginBottom: 14,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: MOBILE_PALETTE.border,
   },
   changelogTitle: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -440,7 +441,7 @@ export const styles = StyleSheet.create({
   },
   changelogText: {
     flex: 1,
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 13.5,
     lineHeight: 20,
   },
@@ -448,10 +449,10 @@ export const styles = StyleSheet.create({
   // Adım Adım Kurulum Rehberi
   guideContainer: {
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(140, 165, 181, 0.03)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(140, 165, 181, 0.13)',
     overflow: 'hidden',
   },
   guideHeader: {
@@ -467,7 +468,7 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   guideTitle: {
-    color: '#e2e8f0',
+    color: MOBILE_PALETTE.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -476,7 +477,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.04)',
+    borderTopColor: 'rgba(140, 165, 181, 0.12)',
     paddingTop: 16,
   },
   stepRow: {
@@ -488,15 +489,15 @@ export const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
+    borderColor: MOBILE_PALETTE.steel,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   stepNumberText: {
-    color: '#60a5fa',
+    color: MOBILE_PALETTE.steel,
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -504,20 +505,20 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   stepHeading: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontSize: 13.5,
     fontWeight: '700',
     marginBottom: 2,
   },
   stepDesc: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 12.5,
     lineHeight: 18,
   },
 
   // Footer Note
   footerNote: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',

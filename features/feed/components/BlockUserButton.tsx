@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -53,11 +54,11 @@ export default function BlockUserButton({ targetUserId }: BlockUserButtonProps) 
   return (
     <TouchableOpacity style={styles.btn} onPress={handlePress} disabled={isMutating} activeOpacity={0.7} hitSlop={8}>
       {isMutating ? (
-        <ActivityIndicator size="small" color="#94a3b8" />
+        <ActivityIndicator size="small" color={nativeColor('muted', "#94a3b8")} />
       ) : didIBlockThem ? (
         <UserCheck size={18} color="#4ade80" />
       ) : (
-        <UserX size={18} color="#94a3b8" />
+        <UserX size={18} color={nativeColor('muted', "#94a3b8")} />
       )}
     </TouchableOpacity>
   );

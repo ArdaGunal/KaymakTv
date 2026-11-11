@@ -18,6 +18,7 @@ import { useLibraryTypeData, getLibraryTitleKey, LibraryItem } from '../../../ho
 import { useLibraryFilters } from '../../../hooks/useLibraryFilters';
 import LibraryFilterBar from '../../../components/library/LibraryFilterBar';
 import LibraryFilterModal from '../../../components/library/LibraryFilterModal';
+import { MOBILE_PALETTE } from '../../../constants/mobilePalette';
 
 const SPACING = 16;
 // Sabit sütun sayısı: FlatList'te numColumns çalışma anında değişirse React
@@ -144,7 +145,7 @@ export default function LibraryScreenWeb() {
       <View style={styles.webContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <ChevronLeft color="#ffffff" size={28} />
+            <ChevronLeft color={MOBILE_PALETTE.text} size={28} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
         </View>
@@ -180,7 +181,7 @@ export default function LibraryScreenWeb() {
         ) : !hasData ? (
           <View style={styles.loadingContainer}>
             <View style={styles.emptyIconWrap}>
-              <Inbox size={40} color="#334155" />
+            <Inbox size={40} color={MOBILE_PALETTE.mutedDeep} />
             </View>
             <Text style={styles.emptyTitle}>{t('libraryEmptyTitle', 'Burada henüz bir şey yok')}</Text>
             <Text style={styles.emptyText}>{t('libraryEmptyText', 'İçerik ekledikçe burada görünecek.')}</Text>
@@ -188,7 +189,7 @@ export default function LibraryScreenWeb() {
         ) : noMatches ? (
           <View style={styles.loadingContainer}>
             <View style={styles.emptyIconWrap}>
-              <SearchX size={40} color="#334155" />
+            <SearchX size={40} color={MOBILE_PALETTE.mutedDeep} />
             </View>
             <Text style={styles.emptyTitle}>{t('noMatchTitle', 'Sonuç bulunamadı')}</Text>
             <Text style={styles.emptyText}>{t('noMatchText', 'Aramayı veya seçtiğin filtreleri değiştirmeyi dene.')}</Text>
@@ -228,7 +229,7 @@ export default function LibraryScreenWeb() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
     alignItems: 'center',
   },
   webContainer: {
@@ -246,21 +247,21 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: 16,
     padding: 8,
-    backgroundColor: '#1f2937',
+    backgroundColor: MOBILE_PALETTE.raised,
     borderRadius: 20,
     ...( { cursor: 'pointer', transition: 'all 0.2s ease' } as any)
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffffff'
+    color: MOBILE_PALETTE.text
   },
   statsContainer: {
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
   statsText: {
-    color: '#8b93a1',
+    color: MOBILE_PALETTE.muted,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.4,
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
     aspectRatio: 2/3,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#1f2937',
+    backgroundColor: MOBILE_PALETTE.surface,
     marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -308,7 +309,7 @@ const styles = StyleSheet.create({
     ...( { transition: 'background-color 0.3s ease' } as any)
   },
   titleText: {
-    color: '#e5e7eb',
+    color: MOBILE_PALETTE.text,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center'
@@ -322,21 +323,21 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: MOBILE_PALETTE.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
   },
   emptyTitle: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 6,
   },
   emptyText: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 14,
   },
 });

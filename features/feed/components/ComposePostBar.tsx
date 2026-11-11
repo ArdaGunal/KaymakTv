@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Avatar from '../../../components/Avatar';
@@ -36,16 +37,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 14,
   },
   placeholder: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 14,
     fontWeight: '500',
   },

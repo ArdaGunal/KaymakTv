@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, StyleSheet, View, StyleProp, TextStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +29,7 @@ export default function ExpandableText({ text, style, limit = 160 }: ExpandableT
         activeOpacity={0.7} 
         style={styles.toggleBtn}
       >
-        <Text style={[styles.toggleText, { color: (StyleSheet.flatten(style)?.color as string) || '#cbd5e1' }]}>
+        <Text style={[styles.toggleText, { color: (StyleSheet.flatten(style)?.color as string) || nativeColor('body', '#cbd5e1') }]}>
           {isExpanded ? t('showLess', 'Daha az göster') : t('readMore', 'Devamını göster')}
         </Text>
       </TouchableOpacity>

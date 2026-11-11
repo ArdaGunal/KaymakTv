@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Lock } from '../../../components/icons';
@@ -14,7 +15,7 @@ export default function PrivateProfileLock() {
   const { t } = useTranslation('feed');
   return (
     <View style={styles.wrap}>
-      <Lock size={40} color="#334155" />
+      <Lock size={40} color={nativeColor('border', "#334155")} />
       <Text style={styles.title}>{t('privateProfileTitle', 'Bu Hesap Gizli')}</Text>
       <Text style={styles.text}>
         {t('privateProfileText', 'İzlediklerini ve paylaşımlarını görmek için takip isteği gönder.')}
@@ -32,13 +33,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
   },
   text: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,

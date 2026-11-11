@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -52,14 +53,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   activeTab: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: nativeColor('primary', 'rgba(59, 130, 246, 0.15)'),
   },
   tabText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontWeight: '600',
     fontSize: 13,
   },
   activeTabText: {
-    color: '#3B82F6',
+    color: nativeColor('text', '#3B82F6'),
   },
 });

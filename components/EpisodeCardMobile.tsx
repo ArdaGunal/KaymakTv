@@ -10,6 +10,7 @@ import BitisIcerigi, { BITIS_RENK } from './tracking/BitisIcerigi';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
 import { getProgressBarColor, ilerlemeYuzdesi } from '../utils/progressBarColor';
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 
 interface EpisodeCardProps {
   data: any;
@@ -86,7 +87,7 @@ const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
   // "Bırak" ile gizlenmiş yapımlar bu kartın beslendiği hiçbir listede
   // (takip panosu kategorileri / yaklaşanlar) görünmez — bu yüzden burada
   // "bırakıldı" rengi diye bir durum yoktur.
-  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'));
+  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'), MOBILE_PALETTE.steel);
 
   const episodeCode = !data.isCalculating && data.season !== undefined
     ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`
@@ -159,7 +160,7 @@ const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
           <Text style={styles.showNameText} numberOfLines={1}>
             {data.showName}
           </Text>
-          <ChevronRight size={10} color="#94a3b8" style={{ marginLeft: 2 }} />
+          <ChevronRight size={10} color={MOBILE_PALETTE.muted} style={{ marginLeft: 2 }} />
         </TouchableOpacity>
 
         {bitti ? (
@@ -251,10 +252,10 @@ export default EpisodeCard;
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: MOBILE_PALETTE.border,
     overflow: 'hidden',
     marginBottom: 12,
     minHeight: 120,
@@ -296,7 +297,7 @@ const styles = StyleSheet.create({
   // Poster
   posterContainer: {
     width: 84,
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     position: 'relative',
   },
   posterImage: {
@@ -327,14 +328,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: MOBILE_PALETTE.raised,
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginBottom: 4,
   },
   showNameText: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.6,
@@ -346,18 +347,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   episodeNumberText: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontWeight: '800',
     fontSize: 16,
     letterSpacing: 0.3,
   },
   remainingText: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 12,
     fontWeight: '600',
   },
   episodeTitleText: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '500',
@@ -381,10 +382,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
-  tagWhite: { backgroundColor: '#ffffff' },
+  tagWhite: { backgroundColor: nativeColor('text', '#ffffff') },
   tagYellow: { backgroundColor: '#facc15' },
   tagTextBlack: {
-    color: '#0B1120',
+    color: nativeColor('background', '#0B1120'),
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   tagTextGhost: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,

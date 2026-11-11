@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +28,7 @@ function Web({ onToken, calisiyor }: Props) {
       <View pointerEvents={calisiyor ? 'none' : 'auto'} style={calisiyor ? styles.gizli : undefined}>
         <View nativeID={buttonElementId} style={styles.gis} />
       </View>
-      {calisiyor && <ActivityIndicator size="small" color="#94a3b8" />}
+      {calisiyor && <ActivityIndicator size="small" color={nativeColor('muted', "#94a3b8")} />}
       {loadError && <Text style={styles.hata}>{t('googleLoadError')}</Text>}
     </View>
   );
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
   wrap: { gap: 6, alignItems: 'flex-start' },
   gis: { minHeight: 44 },
   gizli: { opacity: 0, height: 0 },
-  dugme: { backgroundColor: '#2563eb', paddingVertical: 9, paddingHorizontal: 16, borderRadius: 9, minWidth: 140, alignItems: 'center' },
+  dugme: { backgroundColor: nativeColor('primary', '#2563eb'), paddingVertical: 9, paddingHorizontal: 16, borderRadius: 9, minWidth: 140, alignItems: 'center' },
   dugmeMetin: { color: '#fff', fontWeight: '700', fontSize: 13.5 },
   hata: { color: '#f87171', fontSize: 12.5 },
 });

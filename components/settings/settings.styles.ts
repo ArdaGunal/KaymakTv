@@ -1,4 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 
 // `app/(public)/settings.tsx`'ten çıkarıldı (400 satır kuralı, AI_RULES §1) —
 // 2026-08-21 giriş ekranı redesign'ı dosyayı sınırın üstüne taşırdı.
@@ -10,7 +11,7 @@ import { StyleSheet, Platform } from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: nativeColor('background', '#0f172a'),
   },
   scrollContent: {
     flexGrow: 1,
@@ -24,11 +25,11 @@ export const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   desktopCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    backgroundColor: nativeColor('surface', 'rgba(30, 41, 59, 0.7)'),
     padding: 48,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.8)',
+    borderColor: nativeColor('border', 'rgba(51, 65, 85, 0.8)'),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.4,
@@ -46,37 +47,37 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     textAlign: 'center',
   },
   formContainer: {
     gap: 16,
   },
   description: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 8,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#3b82f680',
+    backgroundColor: nativeTint('primary', 0.5, '#3b82f680'),
   },
   buttonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '600',
     fontSize: 16,
   },
@@ -87,12 +88,12 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   tertiaryLinkText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: '500',
     fontSize: 14,
   },
   tertiarySeparator: {
-    color: '#334155',
+    color: nativeColor('border', '#334155'),
     fontSize: 14,
   },
   miniDivider: {
@@ -104,10 +105,10 @@ export const styles = StyleSheet.create({
   miniDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: nativeColor('border', '#334155'),
   },
   miniDividerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     paddingHorizontal: 12,
     fontSize: 11,
     fontWeight: '600',
@@ -121,10 +122,10 @@ export const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: nativeColor('border', '#334155'),
   },
   dividerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     paddingHorizontal: 16,
     fontSize: 12,
     fontWeight: 'bold',
@@ -138,16 +139,16 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   checkboxText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     flexShrink: 1,
   },
   linkText: {
-    color: '#3b82f6',
+    color: nativeColor('steel', '#3b82f6'),
     textDecorationLine: 'underline',
   },
   pollingText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
@@ -159,16 +160,16 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
     zIndex: 10,
   },
   topRightLangText: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: 'bold',
     fontSize: 14,
   },

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Flame, Clock, History, LucideIcon } from '../icons';
@@ -37,7 +38,7 @@ export default function CommentSortBar({ value, onChange }: CommentSortBarProps)
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
           >
-            <Icon size={13} color={active ? '#04121f' : '#94a3b8'} />
+            <Icon size={13} color={active ? nativeColor('background', '#04121f') : nativeColor('muted', '#94a3b8')} />
             <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(labelKey)}</Text>
           </TouchableOpacity>
         );
@@ -61,21 +62,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   chipActive: {
-    backgroundColor: '#38bdf8',
-    borderColor: '#38bdf8',
+    backgroundColor: nativeColor('steel', '#38bdf8'),
+    borderColor: nativeColor('steel', '#38bdf8'),
   },
   chipText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#04121f',
+    color: nativeColor('background', '#04121f'),
   },
 });

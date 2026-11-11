@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -13,13 +14,13 @@ import type { BitisTuru } from '../../store/bitisAniStore';
  * parlak değil. Kartlar zemin ve kenarı buradan alır.
  */
 export const BITIS_RENK = {
-  zemin: '#15243A',
-  kenar: '#2B4366',
-  vurgu: '#8DB0DC',
-  metin: '#C9D9EE',
-  soluk: '#8296B3',
-  dugme: '#22395A',
-  rozet: 'rgba(141, 176, 220, 0.16)',
+  zemin: nativeColor('surface', '#15243A'),
+  kenar: nativeColor('border', '#2B4366'),
+  vurgu: nativeColor('steel', '#8DB0DC'),
+  metin: nativeColor('text', '#C9D9EE'),
+  soluk: nativeColor('muted', '#8296B3'),
+  dugme: nativeColor('raised', '#22395A'),
+  rozet: nativeColor('steelTint', 'rgba(141, 176, 220, 0.16)'),
 } as const;
 
 interface Props {
@@ -53,7 +54,7 @@ export default function BitisIcerigi({ tur, id, ad, film, yerlesim = 'satir' }: 
       {!!b.ozetMetni && <Text style={styles.ozet} numberOfLines={2}>{b.ozetMetni}</Text>}
       {b.puanGoster && (
         <TouchableOpacity style={styles.puanDugmesi} onPress={b.puanlaAc} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Star size={13} color={BITIS_RENK.metin} fill={b.puan ? BITIS_RENK.metin : 'transparent'} />
+          <Star size={13} color={nativeColor('rating', BITIS_RENK.metin)} fill={b.puan ? nativeColor('rating', BITIS_RENK.metin) : 'transparent'} />
           <Text style={styles.puanMetni}>{b.puan ? `${formatRating(b.puan)}/5` : t('rate')}</Text>
         </TouchableOpacity>
       )}
@@ -70,7 +71,7 @@ export default function BitisIcerigi({ tur, id, ad, film, yerlesim = 'satir' }: 
 
 const styles = StyleSheet.create({
   kap: { gap: 4 },
-  ad: { color: '#ffffff', fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  ad: { color: nativeColor('text', '#ffffff'), fontSize: 13, fontWeight: '700', marginBottom: 2 },
   baslikSatiri: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rozet: {
     width: 20,

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import SeasonAccordion from '../SeasonAccordion';
 import SectionErrorBoundary from '../SectionErrorBoundary';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 interface SeasonsListMobileProps {
   seasons: any[] | null | undefined;
@@ -71,5 +72,5 @@ export default function SeasonsListMobile({
 
 const styles = StyleSheet.create({
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Platform.OS === 'web' ? '#fff' : MOBILE_PALETTE.text, marginBottom: 12 },
 });

@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -131,7 +132,7 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
               <View style={styles.header}>
                 <Text style={styles.title}>{t('composeTitle', 'Fikir Paylaş')}</Text>
                 <TouchableOpacity onPress={requestClose} hitSlop={8}>
-                  <X size={20} color="#64748b" />
+                  <X size={20} color={nativeColor('mutedDeep', "#64748b")} />
                 </TouchableOpacity>
               </View>
 
@@ -154,7 +155,7 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
                   value={body}
                   onChangeText={setBody}
                   placeholder={t('composeBodyPlaceholder', 'Bir dizi/film hakkında ne düşünüyorsun?')}
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={nativeColor('mutedDeep', "#475569")}
                   multiline
                   autoFocus
                   maxLength={POST_MAX_LENGTH + 100}
@@ -177,12 +178,12 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
                       {media.showTitle}
                     </Text>
                     <TouchableOpacity onPress={() => setMedia(null)} hitSlop={8}>
-                      <X size={16} color="#94a3b8" />
+                      <X size={16} color={nativeColor('muted', "#94a3b8")} />
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.addMediaBtn} onPress={() => setPickerVisible(true)} activeOpacity={0.7}>
-                    <Plus size={14} color="#60a5fa" />
+                    <Plus size={14} color={nativeColor('steel', "#60a5fa")} />
                     <Text style={styles.addMediaBtnText}>{t('composeAddMedia', 'Dizi/Film Ekle (opsiyonel)')}</Text>
                   </TouchableOpacity>
                 )}
@@ -193,8 +194,8 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
                     value={spoiler}
                     onValueChange={setSpoiler}
                     disabled={isSubmitting}
-                    trackColor={{ false: '#334155', true: '#3b82f6' }}
-                    thumbColor="#f1f5f9"
+                    trackColor={{ false: nativeColor('border', '#334155'), true: nativeColor('primary', '#3b82f6') }}
+                    thumbColor={nativeColor('text', "#f1f5f9")}
                   />
                 </View>
 
@@ -232,11 +233,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     // Ekranın tamamını kaplamasın diye üst sınır — geri kalan boşluk
     // ScrollView'a kalır, klavye açıkken de sheet'in tamamı ekranda görünür
     // kalır (KeyboardAvoidingView bu yüksekliği klavye kadar küçültür).
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 16,
     fontWeight: '700',
   },
@@ -275,18 +276,18 @@ const styles = StyleSheet.create({
     // gönderide sheet'in tamamı (input + medya + spoiler + buton) birlikte
     // kayar; kullanıcı üste/alta rahatça gezinebilir.
     minHeight: 140,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#22304A',
-    color: '#e2e8f0',
+    borderColor: nativeColor('border', '#22304A'),
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     lineHeight: 22,
     padding: 14,
     textAlignVertical: 'top',
   },
   inputFocused: {
-    borderColor: '#3b82f6',
+    borderColor: nativeColor('primary', '#3b82f6'),
     backgroundColor: 'rgba(15, 23, 42, 0.7)',
   },
   counterRow: {
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   counterText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },
@@ -317,12 +318,12 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(59,130,246,0.08)',
+    backgroundColor: nativeTint('primary', 0.08, 'rgba(59,130,246,0.08)'),
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
+    borderColor: nativeTint('primary', 0.3, 'rgba(59,130,246,0.3)'),
   },
   addMediaBtnText: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -333,19 +334,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 8,
     borderRadius: 10,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   mediaChipPoster: {
     width: 30,
     height: 44,
     borderRadius: 5,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   mediaChipText: {
     flex: 1,
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 13,
     fontWeight: '600',
   },
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   spoilerLabel: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     fontWeight: '500',
   },
@@ -370,7 +371,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     minHeight: 46,
     borderRadius: 12,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     alignItems: 'center',
     justifyContent: 'center',
   },

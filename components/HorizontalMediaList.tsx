@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { ChevronRight } from './icons';
@@ -60,7 +61,7 @@ export default function HorizontalMediaList({ title, titleIcon, data, onShowAll,
         </View>
         {onShowAll && (
           <TouchableOpacity style={styles.seeAllButton} onPress={onShowAll}>
-            <ChevronRight size={20} color="#a3a3a3" />
+            <ChevronRight size={20} color={nativeColor('muted', "#a3a3a3")} />
           </TouchableOpacity>
         )}
       </View>
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   title: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeholderText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 12,
     textAlign: 'center',
     fontWeight: 'bold',

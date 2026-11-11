@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
@@ -13,6 +14,6 @@ export default function DaySeparator({ label }: { label: string }) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, marginBottom: 10, paddingHorizontal: 2 },
-  label: { color: '#64748b', fontSize: 11, fontWeight: '600', letterSpacing: 0.3 },
-  line: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#22304A' },
+  label: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 11, fontWeight: '600', letterSpacing: 0.3 },
+  line: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: nativeColor('border', '#22304A') },
 });

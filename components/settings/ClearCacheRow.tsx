@@ -6,6 +6,7 @@ import { Folder } from '../icons';
 import SettingsRow from './SettingsRow';
 import { confirmAsync, notify } from '../../utils/confirmDialog';
 import { logError } from '../../utils/errorLog';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 /**
  * "Önbelleği Temizle" — TODO.md'deki performans kalemi. F13'ten sonra
@@ -59,9 +60,9 @@ export default function ClearCacheRow() {
 
   return (
     <SettingsRow
-      icon={<Folder size={20} color="#a78bfa" />}
+      icon={<Folder size={20} color={MOBILE_PALETTE.steel} />}
       label={t('settings:clearCache', 'Önbelleği Temizle')}
-      tintColor="#a78bfa"
+      tintColor={MOBILE_PALETTE.steel}
       onPress={handlePress}
       disabled={isClearing}
     />

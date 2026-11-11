@@ -14,6 +14,7 @@ import TrackingCardMenu from './tracking/TrackingCardMenu';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
 import { getProgressBarColor, ilerlemeYuzdesi } from '../utils/progressBarColor';
 import { getMediaTagLabel } from '../utils/mediaTagLabel';
+import { MOBILE_PALETTE } from '../constants/mobilePalette';
 
 interface EpisodeCardProps {
   data: any;
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
       transition: 'box-shadow 0.25s ease',
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
   },
   tagText: {
-    color: '#e2e8f0',
+    color: MOBILE_PALETTE.text,
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -322,19 +323,19 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   showName: {
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   episodeCode: {
-    color: '#60a5fa',
+    color: MOBILE_PALETTE.steel,
     fontWeight: '700',
     fontSize: 11,
     letterSpacing: 0.5,
   },
   episodeTitle: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 11,
     lineHeight: 15,
   },

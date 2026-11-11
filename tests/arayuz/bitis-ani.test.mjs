@@ -227,9 +227,15 @@ T.ok('uc dugmede alt alta: birincil, ikincil, Vazgec (onDismiss)', /altAlta \? \
 T.ok('dugmelerde yatay dolgu + ortali metin', /paddingHorizontal: 12/.test(kutu) && (kutu.match(/textAlign: 'center'/g) || []).length >= 3);
 T.ok('«Vazgec» TR + EN (common)', JSON.parse(oku('locales/tr/common.json')).vazgec === 'Vazgeç' && !!JSON.parse(oku('locales/en/common.json')).vazgec);
 
-T.H('BITIS-01 renk: sakin mavi, yesil degil, neon degil');
+T.H('BITIS-01 renk: sakin mavi / notr, yesil degil, neon degil');
+// M597 (2026-11-11, kullanici: «Evet, uyarla, yayinla»): renkler artik TARDIS paletinden gelir
+// (`nativeColor('token', '#eski')`). Test token'i `constants/mobilePalette.ts`'ten cozer; kural:
+// mavi ton (195-230) YA DA notr (doygunluk < %10), hicbiri yesil/neon degil.
 const icerik = oku('components/tracking/BitisIcerigi.tsx');
-const renkler = [...icerik.matchAll(/(zemin|kenar|vurgu|metin|soluk|dugme): '#([0-9A-Fa-f]{6})'/g)].map((m) => m[2]);
+const palet = oku('constants/mobilePalette.ts');
+const paletRengi = (ad) => { const m = palet.match(new RegExp(`\\b${ad}: '#([0-9A-Fa-f]{6})'`)); return m ? m[1] : null; };
+const renkler = [...icerik.matchAll(/(zemin|kenar|vurgu|metin|soluk|dugme): (?:'#([0-9A-Fa-f]{6})'|nativeColor\('(\w+)')/g)]
+  .map((m) => m[2] || paletRengi(m[3])).filter(Boolean);
 const hsl = (hex) => {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const mx = Math.max(r, g, b);
@@ -242,7 +248,8 @@ const hsl = (hex) => {
   return { h: (h * 60 + 360) % 360, s: doy };
 };
 T.ok('6 renk tanimli', renkler.length === 6);
-T.ok('hepsi mavi tonda (195-230 derece)', renkler.every((x) => { const { h } = hsl(x); return h >= 195 && h <= 230; }));
+T.ok('hepsi mavi tonda (195-230 derece) ya da notr (doygunluk < %10)', renkler.every((x) => { const { h, s } = hsl(x); return (h >= 195 && h <= 230) || s < 0.1; }),
+  renkler.map((x) => { const { h, s } = hsl(x); return `${x}:${Math.round(h)}/${Math.round(s * 100)}`; }).join(' '));
 T.ok('neon / parlak degil (doygunluk < %60)', renkler.every((x) => hsl(x).s < 0.6));
 T.ok('karttaki yesil «bolum izlendi» rengi bitiste kullanilmiyor', !/#10b981|#064e3b|#6ee7b7/i.test(icerik));
 

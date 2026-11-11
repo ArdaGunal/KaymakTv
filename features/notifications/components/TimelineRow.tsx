@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Avatar from '../../../components/Avatar';
@@ -19,15 +20,15 @@ import type { TimelineEntry } from '../inbox/timeline';
  */
 
 const CATEGORY_ICONS: Record<NotificationCategoryId, React.ReactNode> = {
-  episodeToday: <Tv size={18} color="#3b82f6" />,
-  seasonPremiere: <Sparkles size={18} color="#a855f7" />,
-  movieRelease: <Film size={18} color="#22d3ee" />,
-  continueWatching: <PlayCircle size={18} color="#94a3b8" />,
+  episodeToday: <Tv size={18} color={nativeColor('steel', '#3b82f6')} />,
+  seasonPremiere: <Sparkles size={18} color={nativeColor('steel', '#a855f7')} />,
+  movieRelease: <Film size={18} color={nativeColor('steel', '#22d3ee')} />,
+  continueWatching: <PlayCircle size={18} color={nativeColor('steel', '#94a3b8')} />,
   // `MessageCircle` BILEREK secildi: lucide diyetinden sonra (Madde 235,
   // 1751 -> 93 ikon) yeni ikon eklemek bundle'i buyutur; bu ikon
   // `components/icons.ts` barrel'inda ZATEN var.
-  social: <MessageCircle size={18} color="#ec4899" />,
-  monthlyStats: <BarChart2 size={18} color="#f59e0b" />,
+  social: <MessageCircle size={18} color={nativeColor('steel', '#ec4899')} />,
+  monthlyStats: <BarChart2 size={18} color={nativeColor('steel', '#f59e0b')} />,
 };
 
 function UnreadDot({ visible }: { visible: boolean }) {
@@ -53,7 +54,7 @@ export function TimelineRow({ entry }: { entry: TimelineEntry }) {
       >
         <UnreadDot visible={!entry.read} />
         <View style={styles.iconSlot}>
-          {CATEGORY_ICONS[entry.categoryId] ?? <Inbox size={18} color="#94a3b8" />}
+          {CATEGORY_ICONS[entry.categoryId] ?? <Inbox size={18} color={nativeColor('muted', "#94a3b8")} />}
         </View>
 
         <View style={styles.textWrap}>
@@ -93,7 +94,7 @@ export function TimelineRow({ entry }: { entry: TimelineEntry }) {
           {message}
         </Text>
         <View style={styles.socialMeta}>
-          <UserPlus size={11} color="#64748b" />
+          <UserPlus size={11} color={nativeColor('mutedDeep', "#64748b")} />
           <Text style={styles.socialMetaText}>@{entry.username}</Text>
         </View>
       </View>
@@ -114,9 +115,9 @@ const styles = StyleSheet.create({
     // Kaydırınca altındaki kırmızı zemin görünsün diye satırın KENDİ zemini
     // opak olmak ZORUNDA; şeffaf bırakılırsa silme zemini satırın altından
     // sürekli sızar ve satır hep "silinmek üzere" görünür.
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
   },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#3b82f6' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: nativeColor('primary', '#3b82f6') },
   dotHidden: { backgroundColor: 'transparent' },
 
   iconSlot: {
@@ -129,14 +130,14 @@ const styles = StyleSheet.create({
   },
 
   textWrap: { flex: 1, gap: 3 },
-  title: { color: '#cbd5e1', fontSize: 14, fontWeight: '600' },
-  titleUnread: { color: '#f8fafc', fontWeight: '800' },
-  body: { color: '#94a3b8', fontSize: 12, lineHeight: 16 },
+  title: { color: nativeColor('body', '#cbd5e1'), fontSize: 14, fontWeight: '600' },
+  titleUnread: { color: nativeColor('text', '#f8fafc'), fontWeight: '800' },
+  body: { color: nativeColor('muted', '#94a3b8'), fontSize: 12, lineHeight: 16 },
 
-  socialMessage: { color: '#cbd5e1', fontSize: 13.5, lineHeight: 18 },
-  socialUnread: { color: '#f8fafc', fontWeight: '700' },
+  socialMessage: { color: nativeColor('body', '#cbd5e1'), fontSize: 13.5, lineHeight: 18 },
+  socialUnread: { color: nativeColor('text', '#f8fafc'), fontWeight: '700' },
   socialMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  socialMetaText: { color: '#64748b', fontSize: 11.5 },
+  socialMetaText: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 11.5 },
 
-  time: { color: '#64748b', fontSize: 11, alignSelf: 'flex-start', paddingTop: 2 },
+  time: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 11, alignSelf: 'flex-start', paddingTop: 2 },
 });

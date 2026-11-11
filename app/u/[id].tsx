@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,10 +22,10 @@ export default function KisaProfilBaglantisi() {
   return (
     <SafeAreaView style={styles.kap}>
       {durum === 'calisiyor' ? (
-        <ActivityIndicator color="#94a3b8" />
+        <ActivityIndicator color={nativeColor('muted', "#94a3b8")} />
       ) : (
         <View style={styles.govde}>
-          <SearchX size={40} color="#64748b" />
+          <SearchX size={40} color={nativeColor('mutedDeep', "#64748b")} />
           <Text style={styles.metin}>
             {durum === 'hata' ? t('kisaLinkHata') : durum === 'gorulemez' ? t('kisaLinkGorulemez') : t('kisaLinkYok')}
           </Text>
@@ -38,9 +39,9 @@ export default function KisaProfilBaglantisi() {
 }
 
 const styles = StyleSheet.create({
-  kap: { flex: 1, backgroundColor: '#0B1120', alignItems: 'center', justifyContent: 'center' },
+  kap: { flex: 1, backgroundColor: nativeColor('background', '#0B1120'), alignItems: 'center', justifyContent: 'center' },
   govde: { alignItems: 'center', gap: 14, paddingHorizontal: 24 },
-  metin: { color: '#cbd5e1', fontSize: 15, textAlign: 'center', lineHeight: 21 },
-  dugme: { backgroundColor: '#2563eb', paddingVertical: 11, paddingHorizontal: 20, borderRadius: 10 },
+  metin: { color: nativeColor('body', '#cbd5e1'), fontSize: 15, textAlign: 'center', lineHeight: 21 },
+  dugme: { backgroundColor: nativeColor('primary', '#2563eb'), paddingVertical: 11, paddingHorizontal: 20, borderRadius: 10 },
   dugmeMetin: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

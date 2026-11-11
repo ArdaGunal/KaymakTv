@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { useAppBack } from '../hooks/useAppBack';
@@ -27,7 +28,7 @@ export default function ProfileStatisticsScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ChevronLeft size={26} color="#ffffff" />
+          <ChevronLeft size={26} color={nativeColor('text', "#ffffff")} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('detailedAnalysis', 'Detaylı Analiz')}</Text>
         <View style={{ width: 26 }} />
@@ -40,7 +41,7 @@ export default function ProfileStatisticsScreen() {
             onPress={() => setActiveTab('shows')}
             activeOpacity={0.85}
           >
-            <Tv size={13} color={activeTab === 'shows' ? '#2563EB' : '#94a3b8'} />
+            <Tv size={13} color={activeTab === 'shows' ? nativeColor('text', '#2563EB') : nativeColor('muted', '#94a3b8')} />
             <Text style={[styles.tabText, activeTab === 'shows' && styles.tabTextActive]}>
               {t('statsShowsTab', 'Diziler')}
             </Text>
@@ -50,7 +51,7 @@ export default function ProfileStatisticsScreen() {
             onPress={() => setActiveTab('movies')}
             activeOpacity={0.85}
           >
-            <Film size={13} color={activeTab === 'movies' ? '#2563EB' : '#94a3b8'} />
+            <Film size={13} color={activeTab === 'movies' ? nativeColor('text', '#2563EB') : nativeColor('muted', '#94a3b8')} />
             <Text style={[styles.tabText, activeTab === 'movies' && styles.tabTextActive]}>
               {t('statsMoviesTab', 'Filmler')}
             </Text>
@@ -90,7 +91,7 @@ export default function ProfileStatisticsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   header: {
     flexDirection: 'row',
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 18,
     fontWeight: '700',
   },
@@ -131,15 +132,15 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   tabActive: {
-    backgroundColor: 'rgba(37,99,235,0.16)',
+    backgroundColor: nativeColor('primary', 'rgba(37,99,235,0.16)'),
   },
   tabText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
   },
   tabTextActive: {
-    color: '#2563EB',
+    color: nativeColor('text', '#2563EB'),
     fontWeight: '700',
   },
   scroll: {
@@ -159,14 +160,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 6,
     textAlign: 'center',
   },
   emptyText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12.5,
     lineHeight: 18,
     textAlign: 'center',

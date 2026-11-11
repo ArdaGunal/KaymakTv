@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAppBack } from '../../hooks/useAppBack';
@@ -131,9 +132,9 @@ export default function SettingsScreen() {
 
           <SettingsSection title={t('settings:accountPreferences', 'Hesap Tercihleri')}>
             <SettingsRow
-              icon={<User size={20} color="#60a5fa" />}
+              icon={<User size={20} color={nativeColor('steel', "#60a5fa")} />}
               label={t('settings:accountSettings', 'Hesap Ayarları')}
-              tintColor="#60a5fa"
+              tintColor={nativeColor('steel', "#60a5fa")}
               showChevron
               onPress={() => router.push('/(protected)/account-settings')}
             />
@@ -141,9 +142,9 @@ export default function SettingsScreen() {
 
           <SettingsSection title={t('settings:appPreferences', 'Uygulama Tercihleri')}>
             <SettingsRow
-              icon={<Globe size={20} color="#60a5fa" />}
+              icon={<Globe size={20} color={nativeColor('steel', "#60a5fa")} />}
               label={t('language', 'Dil')}
-              tintColor="#60a5fa"
+              tintColor={nativeColor('steel', "#60a5fa")}
               value={languageLabel}
               showChevron
               onPress={() => setLanguageModalVisible(true)}
@@ -155,17 +156,17 @@ export default function SettingsScreen() {
               <>
                 <SettingsSectionDivider />
                 <SettingsRow
-                  icon={<Bell size={20} color="#3b82f6" />}
+                  icon={<Bell size={20} color={nativeColor('steel', "#3b82f6")} />}
                   label={t('notifications:screenTitle', 'Bildirimler')}
-                  tintColor="#3b82f6"
+                  tintColor={nativeColor('steel', "#3b82f6")}
                   showChevron
                   onPress={() => router.push('/(protected)/notification-settings')}
                 />
                 <SettingsSectionDivider />
                 <SettingsRow
-                  icon={<Rss size={20} color="#c084fc" />}
+                  icon={<Rss size={20} color={nativeColor('steel', '#c084fc')} />}
                   label={t('settings:feedSettings', 'Akış Ayarları')}
-                  tintColor="#c084fc"
+                  tintColor={nativeColor('steel', '#c084fc')}
                   showChevron
                   onPress={() => router.push('/(protected)/feed-settings')}
                 />
@@ -188,9 +189,9 @@ export default function SettingsScreen() {
               erişilebilen bağlantı budur. */}
           <SettingsSection title={t('settings:legalSection', 'Yasal')}>
             <SettingsRow
-              icon={<FileText size={20} color="#60a5fa" />}
+              icon={<FileText size={20} color={nativeColor('steel', "#60a5fa")} />}
               label={t('settings:termsOfUseRowLabel', 'Kullanım Koşulları')}
-              tintColor="#60a5fa"
+              tintColor={nativeColor('steel', "#60a5fa")}
               showChevron
               onPress={() => setLegalModalVisible(true)}
             />
@@ -198,9 +199,9 @@ export default function SettingsScreen() {
             <SettingsSectionDivider />
 
             <SettingsRow
-              icon={<ShieldCheck size={20} color="#60a5fa" />}
+              icon={<ShieldCheck size={20} color={nativeColor('steel', "#60a5fa")} />}
               label={t('settings:privacyPolicyRowLabel', 'Gizlilik Politikası')}
-              tintColor="#60a5fa"
+              tintColor={nativeColor('steel', "#60a5fa")}
               showChevron
               onPress={() => router.push('/(public)/gizlilik')}
             />
@@ -217,9 +218,9 @@ export default function SettingsScreen() {
             {isDeveloperMode && (
               <>
                 <SettingsRow
-                  icon={<Activity size={20} color="#60a5fa" />}
+                  icon={<Activity size={20} color={nativeColor('steel', "#60a5fa")} />}
                   label={t('settings:devPanelRowLabel', 'Geliştirici Paneli')}
-                  tintColor="#60a5fa"
+                  tintColor={nativeColor('steel', "#60a5fa")}
                   showChevron
                   onPress={() => router.push('/(protected)/dev-panel')}
                 />
@@ -229,9 +230,9 @@ export default function SettingsScreen() {
             )}
 
             <SettingsRow
-              icon={<MessageCircle size={20} color="#60a5fa" />}
+              icon={<MessageCircle size={20} color={nativeColor('steel', "#60a5fa")} />}
               label={t('settings:feedbackRowLabel', 'İstek / Öneri / Şikayet')}
-              tintColor="#60a5fa"
+              tintColor={nativeColor('steel', "#60a5fa")}
               showChevron
               onPress={() => setReportModalVisible(true)}
             />
@@ -288,7 +289,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0e131d',
+    backgroundColor: nativeColor('background', '#0e131d'),
   },
   scroll: {
     flex: 1,

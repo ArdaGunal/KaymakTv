@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -100,7 +101,7 @@ function Calisiyor() {
   const { t } = useTranslation('common');
   return (
     <View style={styles.row}>
-      <ActivityIndicator size="small" color="#94a3b8" />
+      <ActivityIndicator size="small" color={nativeColor('muted', "#94a3b8")} />
       <Text style={styles.info}>{t('googleSigningIn')}</Text>
     </View>
   );
@@ -116,6 +117,6 @@ const styles = StyleSheet.create({
   // M536: Trakt düğmesiyle AYNI ölçü (settings.tsx `GIRIS_DUGME_YUKSEKLIK_NATIVE`).
   nativeButton: { width: '100%', height: 48 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  info: { color: '#94a3b8', fontSize: 13 },
+  info: { color: nativeColor('muted', '#94a3b8'), fontSize: 13 },
   error: { color: '#f87171', fontSize: 13, textAlign: 'center' },
 });

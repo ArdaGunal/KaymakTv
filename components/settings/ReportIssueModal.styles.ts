@@ -1,4 +1,5 @@
 import { Platform, StyleSheet } from 'react-native';
+import { nativeColor } from '../../constants/mobilePalette';
 
 // F12 — ReportIssueModal.tsx'ten çıkarıldı (400 satır kuralı, AI_RULES §1).
 // Saf stil tanımı, mantık yok.
@@ -6,15 +7,15 @@ export const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(3, 7, 18, 0.75)',
-    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
-    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
-    padding: Platform.OS === 'web' ? 20 : 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Platform.OS === 'web' ? 20 : 16,
   },
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    backgroundColor: '#0b1329',
+    backgroundColor: nativeColor('surface', '#0b1329'),
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
     shadowColor: '#000000',
@@ -24,12 +25,14 @@ export const styles = StyleSheet.create({
     elevation: 24,
   },
   sheetMobile: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 12,
     width: '100%',
+    maxWidth: 440,
+    maxHeight: '86%',
   },
+  sheetScroll: { flexShrink: 1 },
   sheetWeb: {
     borderRadius: 24,
     padding: 24,
@@ -66,13 +69,13 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   subtitle: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     marginTop: 1,
   },
@@ -112,12 +115,12 @@ export const styles = StyleSheet.create({
     backgroundColor: '#16a34a',
   },
   tabBtnText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     fontWeight: '600',
   },
   tabBtnTextActive: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '700',
   },
   activeDot: {
@@ -141,7 +144,7 @@ export const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 12.5,
     lineHeight: 18,
   },
@@ -158,7 +161,7 @@ export const styles = StyleSheet.create({
     width: '100%',
     minHeight: 110,
     padding: 14,
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 14.5,
     lineHeight: 22,
     textAlignVertical: 'top',
@@ -179,7 +182,7 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
   },
   charCountText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },
@@ -200,12 +203,12 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   switchLabel: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 13.5,
     fontWeight: '600',
   },
   switchHint: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     marginTop: 2,
   },
@@ -254,7 +257,7 @@ export const styles = StyleSheet.create({
     elevation: 0,
   },
   sendBtnText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '700',
     fontSize: 15,
     letterSpacing: -0.2,

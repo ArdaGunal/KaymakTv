@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +35,7 @@ export default function ProfileActivityTab() {
   if (hasError && data.length === 0) {
     return (
       <View style={styles.emptyState}>
-        <WifiOff size={36} color="#334155" />
+        <WifiOff size={36} color={nativeColor('border', "#334155")} />
         <Text style={styles.emptyTitle}>{t('profileActivityErrorTitle', 'Aktiviteler Yüklenemedi')}</Text>
         <Text style={styles.emptyText}>
           {t('profileActivityErrorText', 'Bağlantını kontrol edip tekrar dene.')}
@@ -49,7 +50,7 @@ export default function ProfileActivityTab() {
   if (data.length === 0) {
     return (
       <View style={styles.emptyState}>
-        <Rss size={36} color="#334155" />
+        <Rss size={36} color={nativeColor('border', "#334155")} />
         <Text style={styles.emptyTitle}>{t('profileActivityEmptyTitle', 'Henüz aktivite yok')}</Text>
         <Text style={styles.emptyText}>
           {t('profileActivityEmptyText', 'Dizi/film izledikçe veya puanladıkça burada görünecek.')}
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   headerTitle: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 14,
     fontWeight: '700',
   },
@@ -100,13 +101,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     fontWeight: '700',
     marginTop: 6,
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -117,12 +118,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 100,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   retryButtonText: {
-    color: '#38bdf8',
+    color: nativeColor('steel', '#38bdf8'),
     fontSize: 13,
     fontWeight: '700',
   },

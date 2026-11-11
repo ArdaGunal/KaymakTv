@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { memo, useRef, useState } from 'react';
 import { eylemHatasiGoster } from '../../utils/eylemHatasi';
 import {
@@ -162,7 +163,7 @@ const TrackingCardMenu = memo(
             openMenu();
           }}
         >
-          <MoreVertical size={16} color="#f1f5f9" />
+          <MoreVertical size={16} color={nativeColor('text', "#f1f5f9")} />
         </TouchableOpacity>
 
         <Modal visible={open} transparent animationType="fade" onRequestClose={closeMenu}>
@@ -173,7 +174,7 @@ const TrackingCardMenu = memo(
                     GENELİNDEKİ tek ikonu (detay sayfasındaki OptionsModal ile
                     birebir aynı). Eskiden burada `Bookmark` vardı; aynı eylem
                     iki farklı yüzeyde iki farklı ikonla görünüyordu. */}
-                <PauseCircle size={18} color="#f1f5f9" />
+                <PauseCircle size={18} color={nativeColor('text', "#f1f5f9")} />
                 <Text style={styles.menuItemText}>{t('stopWatching')}</Text>
               </TouchableOpacity>
 
@@ -181,20 +182,20 @@ const TrackingCardMenu = memo(
                   gösterilmiyor (kullanıcı kararı: uyarı değil gizleme). */}
               {ozelListeler && (
                 <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={openListModal}>
-                  <ListPlus size={18} color="#f1f5f9" />
+                  <ListPlus size={18} color={nativeColor('text', "#f1f5f9")} />
                   <Text style={styles.menuItemText}>{t('addToList')}</Text>
                 </TouchableOpacity>
               )}
 
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleToggleFavorite}>
-                <Heart size={18} color={isFavorited ? '#ef4444' : '#f1f5f9'} fill={isFavorited ? '#ef4444' : 'transparent'} />
+                <Heart size={18} color={isFavorited ? '#ef4444' : nativeColor('text', '#f1f5f9')} fill={isFavorited ? '#ef4444' : 'transparent'} />
                 <Text style={styles.menuItemText}>
                   {isFavorited ? t('removeFromFavorites') : t('addToFavorites')}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleShare}>
-                <Share2 size={18} color="#f1f5f9" />
+                <Share2 size={18} color={nativeColor('text', "#f1f5f9")} />
                 <Text style={styles.menuItemText}>{t('share')}</Text>
               </TouchableOpacity>
 
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
   },
   menu: {
     position: 'absolute',
-    backgroundColor: '#141b2e',
+    backgroundColor: nativeColor('surface', '#141b2e'),
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -254,12 +255,12 @@ const styles = StyleSheet.create({
     height: ROW_HEIGHT,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
-  menuItemText: { color: '#f1f5f9', fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  menuItemText: { color: nativeColor('text', '#f1f5f9'), fontSize: 14, fontWeight: '600', flexShrink: 1 },
   divider: {
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
     marginVertical: 4,
     marginHorizontal: 10,
   },
-  dismissText: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
+  dismissText: { color: nativeColor('muted', '#94a3b8'), fontSize: 14, fontWeight: '600' },
 });

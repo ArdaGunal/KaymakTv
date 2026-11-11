@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Share } from 'react-native';
 import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
@@ -129,8 +130,8 @@ export default function OptionsModal({
           "devam et" yönünde onun doğal karşıtı `PlayCircle` kullanılır. */}
       {onHideFromProgress && (
         <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
-          {isHidden ? <PlayCircle color="#38bdf8" size={24} /> : <PauseCircle color="#fff" size={24} />}
-          <Text style={[styles.optionText, isHidden && { color: '#38bdf8' }]}>
+          {isHidden ? <PlayCircle color={nativeColor('steel', "#38bdf8")} size={24} /> : <PauseCircle color="#fff" size={24} />}
+          <Text style={[styles.optionText, isHidden && { color: nativeColor('steel', '#38bdf8') }]}>
             {isHidden ? t('unhideProgress') : t('hideProgress')}
           </Text>
         </TouchableOpacity>
@@ -174,11 +175,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A364F',
+    borderBottomColor: nativeColor('border', '#2A364F'),
   },
   optionText: {
     flex: 1,
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 16,
     marginLeft: 16,
     fontWeight: '500',

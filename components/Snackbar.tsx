@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, Platform } from 'react-native';
 
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     padding: 16,
     borderRadius: 8,
     flexDirection: 'row',
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     zIndex: 9999,
     borderWidth: 1,
-    borderColor: '#172033',
+    borderColor: nativeColor('surface', '#172033'),
   },
   containerBottom: {
     bottom: 24, // above bottom tabs if any
@@ -137,12 +138,12 @@ const styles = StyleSheet.create({
     top: 24, // safe-area/header'ın altında, ekranın en üstüne yakın
   },
   message: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 14,
     flex: 1,
   },
   actionText: {
-    color: '#3b82f6',
+    color: nativeColor('steel', '#3b82f6'),
     fontWeight: 'bold',
     fontSize: 14,
     marginLeft: 16,

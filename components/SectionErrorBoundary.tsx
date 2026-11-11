@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AlertTriangle } from './icons';
@@ -89,14 +90,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   text: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     flex: 1,
   },
   retryBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 8,
   },
   retryText: {

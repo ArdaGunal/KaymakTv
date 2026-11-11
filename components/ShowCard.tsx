@@ -13,6 +13,7 @@ import { getMediaFollowStatus } from '../utils/followStatus';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';
 import { gorunenBaslik } from '../utils/gorunenBaslik';
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 
 const ShowCard = memo(({ data }: { data: any }) => {
   const { t, i18n } = useTranslation(['media', 'common']);
@@ -59,7 +60,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
-  const progressColor = getProgressBarColor(isDropped, isFinished);
+  const progressColor = getProgressBarColor(isDropped, isFinished, MOBILE_PALETTE.steel);
 
   // 🔴 M416 — DÖNEN SİMGE YOK, DURUM ZATEN ANINDA DOĞRU.
   // `toggleWatchlistStatus` mağazayı İYİMSER günceller (collections.ts:105-121)
@@ -127,7 +128,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
             {isFollowing ? (
               <Check size={18} color="#10b981" strokeWidth={3} />
             ) : (
-              <Plus size={18} color="#a3a3a3" strokeWidth={2.5} />
+              <Plus size={18} color={nativeColor('muted', "#a3a3a3")} strokeWidth={2.5} />
             )}
           </TouchableOpacity>
         </View>
@@ -136,7 +137,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
           <Text style={styles.yearText}>{media?.year || t('unknown')}</Text>
           <View style={styles.separator} />
           <View style={styles.ratingContainer}>
-            <Star size={14} color="#facc15" fill="#facc15" />
+            <Star size={14} color={MOBILE_PALETTE.rating} fill={MOBILE_PALETTE.rating} />
             <Text style={styles.ratingText}>
               {formatRating(media?.rating)}
             </Text>
@@ -172,13 +173,13 @@ const styles = StyleSheet.create({
   // Dizi/film kartlarıyla aynı tasarım dili: slate yüzey + ince kenarlık + yumuşak köşe
   card: {
     flexDirection: 'row',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 12,
     height: 144,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     position: 'relative',
   },
   progressBar: {
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   },
   posterContainer: {
     width: 96,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
   },
   posterImage: {
     width: '100%',
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   posterPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   contentContainer: {
     flex: 1,
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   titleText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 16,
     fontWeight: 'bold',
     flex: 1,
@@ -239,7 +240,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   yearText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 12,
   },
   separator: {
@@ -255,12 +256,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   ratingText: {
-    color: '#facc15',
+    color: MOBILE_PALETTE.rating,
     fontSize: 12,
     fontWeight: 'bold',
   },
   watchersText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 12,
   },
   overviewText: {

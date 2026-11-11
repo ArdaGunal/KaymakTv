@@ -11,6 +11,7 @@ import { MediaFollowStatus } from '../../utils/followStatus';
 import { webHeroStyles as s } from './mediaHeroWeb.styles';
 import { gorunenBaslik } from '../../utils/gorunenBaslik';
 import IkincilBaslik from './IkincilBaslik';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 interface MediaHeroWebViewProps {
   type: 'show' | 'movie';
@@ -77,14 +78,14 @@ export default function MediaHeroWebView({
           duruyormus gibi gorunuyordu (canli goruntuden duzeltildi). */}
       <View style={s.toolbar}>
         <TouchableOpacity style={s.ghostButton} onPress={onBack} activeOpacity={0.75}>
-          <ChevronLeft color="#e2e8f0" size={18} />
+          <ChevronLeft color={MOBILE_PALETTE.text} size={18} />
           <Text style={s.ghostButtonText}>{t('common:back', 'Geri')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.ghostIconButton} onPress={onHome} activeOpacity={0.75}>
-          <Home color="#e2e8f0" size={18} />
+          <Home color={MOBILE_PALETTE.text} size={18} />
         </TouchableOpacity>
         <TouchableOpacity style={s.ghostIconButton} onPress={onOptions} activeOpacity={0.75}>
-          <MoreVertical color="#e2e8f0" size={18} />
+          <MoreVertical color={MOBILE_PALETTE.text} size={18} />
         </TouchableOpacity>
       </View>
 
@@ -120,8 +121,8 @@ export default function MediaHeroWebView({
             >
               <Bookmark
                 size={17}
-                color={followStatus.isFollowing ? '#60a5fa' : '#ffffff'}
-                fill={followStatus.isFollowing ? '#60a5fa' : 'transparent'}
+                color={followStatus.isFollowing ? MOBILE_PALETTE.text : MOBILE_PALETTE.text}
+                fill={followStatus.isFollowing ? MOBILE_PALETTE.text : 'transparent'}
               />
               <Text style={[s.followButtonText, followStatus.isFollowing && s.followButtonTextActive]}>
                 {followStatus.isFollowing ? t('watchlistActive', 'Takip Ediliyor') : t('watchlistAction', 'Takip Et')}
@@ -129,7 +130,7 @@ export default function MediaHeroWebView({
             </TouchableOpacity>
 
             <View style={[s.pill, s.pillStatic, s.pillRating]}>
-              <Star size={15} color="#facc15" fill="#facc15" />
+              <Star size={15} color={MOBILE_PALETTE.rating} fill={MOBILE_PALETTE.rating} />
               <Text style={[s.pillText, s.pillRatingText]}>{formatRating(data?.rating)}</Text>
             </View>
 
@@ -140,8 +141,8 @@ export default function MediaHeroWebView({
             >
               <Star
                 size={15}
-                color={hasUserRating ? '#60a5fa' : '#94a3b8'}
-                fill={hasUserRating ? '#60a5fa' : 'transparent'}
+                color={hasUserRating ? MOBILE_PALETTE.steel : MOBILE_PALETTE.muted}
+                fill={hasUserRating ? MOBILE_PALETTE.steel : 'transparent'}
               />
               <Text style={[s.pillText, hasUserRating && s.pillActiveText]}>
                 {hasUserRating ? `${formatRating(userRating)}/5` : t('rate', 'Puanla')}

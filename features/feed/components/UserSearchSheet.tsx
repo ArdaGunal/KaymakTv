@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useCallback, useRef } from 'react';
 import {
   View,
@@ -101,11 +102,11 @@ export default function UserSearchSheet({ visible, onClose }: Props) {
           accessibilityRole="button"
           accessibilityLabel={t('searchClose', 'Kapat')}
         >
-          {genis ? <X size={20} color="#94a3b8" /> : <ChevronLeft size={24} color="#f1f5f9" />}
+          {genis ? <X size={20} color={nativeColor('muted', "#94a3b8")} /> : <ChevronLeft size={24} color={nativeColor('text', "#f1f5f9")} />}
         </TouchableOpacity>
 
         <View style={styles.kutu}>
-          <Search size={17} color="#64748b" />
+          <Search size={17} color={nativeColor('mutedDeep', "#64748b")} />
           <TextInput
             ref={inputRef}
             style={styles.input}
@@ -113,7 +114,7 @@ export default function UserSearchSheet({ visible, onClose }: Props) {
             onChangeText={search.setQuery}
             onSubmitEditing={search.search}
             placeholder={t('searchPlaceholder', 'Kullanıcı adı ara')}
-            placeholderTextColor="#64748b"
+            placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus={Platform.OS === 'web'}
@@ -121,7 +122,7 @@ export default function UserSearchSheet({ visible, onClose }: Props) {
             accessibilityLabel={t('searchPlaceholder', 'Kullanıcı adı ara')}
           />
           {search.isSearching ? (
-            <ActivityIndicator size="small" color="#38bdf8" />
+            <ActivityIndicator size="small" color={nativeColor('steel', "#38bdf8")} />
           ) : search.query.length > 0 ? (
             <TouchableOpacity
               onPress={() => { search.clear(); inputRef.current?.focus(); }}
@@ -129,7 +130,7 @@ export default function UserSearchSheet({ visible, onClose }: Props) {
               accessibilityRole="button"
               accessibilityLabel={t('searchClear', 'Temizle')}
             >
-              <X size={17} color="#64748b" />
+              <X size={17} color={nativeColor('mutedDeep', "#64748b")} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -146,7 +147,7 @@ export default function UserSearchSheet({ visible, onClose }: Props) {
           <UserSearchResults results={search.results} error={search.error} onSelect={kapat} />
         ) : kisa && !search.isSearching ? (
           <View style={styles.ipucu}>
-            <UserSearch size={34} color="#334155" />
+            <UserSearch size={34} color={nativeColor('border', "#334155")} />
             <Text style={styles.ipucuMetni}>
               {t('searchHint', 'Takip etmek istediğin kişinin KaymakTV kullanıcı adını yaz.')}
             </Text>
@@ -182,7 +183,7 @@ export default function UserSearchSheet({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   tamZemin: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   perde: {
     flex: 1,
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   panel: {
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   panelTam: {
     flex: 1,
@@ -204,8 +205,8 @@ const styles = StyleSheet.create({
     maxHeight: '72%',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#22304A',
-    backgroundColor: '#111827',
+    borderColor: nativeColor('border', '#22304A'),
+    backgroundColor: nativeColor('surface', '#111827'),
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 12,
@@ -238,11 +239,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   input: {
     flex: 1,
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     // Web'de odak halkası kutunun kendi kenarlığıyla çakışmasın.
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null),
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   ipucuMetni: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',

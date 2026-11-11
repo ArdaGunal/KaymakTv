@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, TouchableOpacity, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -60,7 +61,7 @@ export default function LandingPage() {
             onPress={() => setLangModalVisible(true)}
             activeOpacity={0.75}
           >
-            <Globe size={14} color="#7aa2f7" />
+            <Globe size={14} color={nativeColor('steel', '#7aa2f7')} />
             <Text style={styles.langButtonText}>
               {dilBilgisi(currentLanguage).kisa}
             </Text>
@@ -71,7 +72,7 @@ export default function LandingPage() {
             onPress={() => router.push('/(public)/settings')}
             activeOpacity={0.82}
           >
-            <LogIn size={14} color="#ffffff" strokeWidth={2.2} />
+            <LogIn size={14} color={nativeColor('text', "#ffffff")} strokeWidth={2.2} />
             {/* Kullanıcı (2026-10-31): «Trakt'a Bağlan» değil «Giriş Yap» — artık Google ile de girilebiliyor. */}
             <Text style={styles.loginButtonText}>{t('login', 'Giriş Yap')}</Text>
           </TouchableOpacity>
@@ -103,7 +104,7 @@ export default function LandingPage() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0e131d',
+    backgroundColor: nativeColor('background', '#0e131d'),
   },
   // ── Sticky Navbar ────────────────────────────────────────────────────────
   navbar: {
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: 'rgba(14, 19, 29, 0.85)',
+    backgroundColor: nativeColor('background', 'rgba(14, 19, 29, 0.85)'),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     ...(Platform.OS === 'web' ? ({
@@ -129,10 +130,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#5c8cf5',
+    backgroundColor: nativeColor('primary', '#5c8cf5'),
   },
   brandText: {
-    color: '#5c8cf5',
+    color: nativeColor('steel', '#5c8cf5'),
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.4,
@@ -143,7 +144,7 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   navLinkText: {
-    color: '#c2c6d6',
+    color: nativeColor('body', '#c2c6d6'),
     fontSize: 14,
     fontWeight: '500',
   },
@@ -159,12 +160,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: 'rgba(27, 32, 42, 0.8)',
+    backgroundColor: nativeColor('surface', 'rgba(27, 32, 42, 0.8)'),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   langButtonText: {
-    color: '#c2c6d6',
+    color: nativeColor('body', '#c2c6d6'),
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -176,11 +177,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   loginButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.1,

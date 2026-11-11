@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -63,14 +64,14 @@ function Bagli({ metin }: { metin: string }) {
 const styles = StyleSheet.create({
   satir: { paddingHorizontal: 16, paddingVertical: 13, gap: 8 },
   ayrac: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(148,163,184,0.18)' },
-  ad: { color: '#e2e8f0', fontWeight: '700', fontSize: 14 },
+  ad: { color: nativeColor('text', '#e2e8f0'), fontWeight: '700', fontSize: 14 },
   govde: { gap: 10 },
-  aciklama: { color: '#8c90a0', fontSize: 12.5, lineHeight: 18 },
+  aciklama: { color: nativeColor('muted', '#8c90a0'), fontSize: 12.5, lineHeight: 18 },
   bagli: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bagliMetin: { flex: 1, color: '#4ade80', fontWeight: '600', fontSize: 13 },
   dugme: {
     flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
-    backgroundColor: '#2563eb', paddingVertical: 9, paddingHorizontal: 16, borderRadius: 9,
+    backgroundColor: nativeColor('primary', '#2563eb'), paddingVertical: 9, paddingHorizontal: 16, borderRadius: 9,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   dugmeMetin: { color: '#fff', fontWeight: '700', fontSize: 13.5 },

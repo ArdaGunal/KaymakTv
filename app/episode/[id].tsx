@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Platform } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ import { formatEpisodeCode } from '../../features/feed/services/feedPublish';
 import MediaCast from '../../components/MediaCast';
 import { useLibrary } from '../../context/LibraryContext';
 import { getProgressBarColor } from '../../utils/progressBarColor';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 import { useEpisodeCast } from '../../hooks/useEpisodeCast';
 import { parseEpisodeSlug, formatSlugToTitle, generateMediaSlug, generateEpisodeSlug } from '../../utils/slugHelper';
 import { useTranslation } from 'react-i18next';
@@ -133,7 +134,7 @@ export default function EpisodeDetailScreen() {
   const showProgressPercentage = hasShowProgress ? (showProgress.completed / showProgress.aired) * 100 : 0;
   const isShowHidden = (hiddenShowIds || []).includes(traktIdNum);
   const isShowFinished = !!hasShowProgress && showProgress.completed >= showProgress.aired;
-  const showProgressColor = getProgressBarColor(isShowHidden, isShowFinished);
+  const showProgressColor = getProgressBarColor(isShowHidden, isShowFinished, Platform.OS === 'web' ? undefined : MOBILE_PALETTE.steel);
 
   const handleRate = async (val: number) => {
     if (await actions.rate(val)) setRatingModalVisible(false);

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Avatar from '../Avatar';
@@ -57,7 +58,7 @@ export default function TraktCommentRow({ comment, onPress }: TraktCommentRowPro
           {/* Beğeni SAYISI gösteriliyor ama TIKLANAMAZ — bilgi, aksiyon değil. */}
           {comment.likes > 0 && (
             <View style={styles.likeInfo}>
-              <Heart size={11} color="#64748b" />
+              <Heart size={11} color={nativeColor('mutedDeep', "#64748b")} />
               <Text style={styles.likeCount}>{comment.likes}</Text>
             </View>
           )}
@@ -73,7 +74,7 @@ export default function TraktCommentRow({ comment, onPress }: TraktCommentRowPro
             onPress={() => setRevealed(true)}
             style={styles.spoilerWrap}
           >
-            <EyeOff size={11} color="#64748b" />
+            <EyeOff size={11} color={nativeColor('mutedDeep', "#64748b")} />
             <Text style={styles.spoilerText}>
               {t('feed:spoilerReveal', 'Spoiler var — görmek için dokun')}
             </Text>
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   username: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: '600',
     fontSize: 13,
     flexShrink: 1,
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(148,163,184,0.12)',
   },
   badgeText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 8,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -126,12 +127,12 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   likeCount: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },
   text: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     lineHeight: 19,
   },
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   spoilerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },

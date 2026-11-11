@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Platform, useWindowDimensions, ScrollView } from 'react-native';
 
@@ -257,7 +258,7 @@ export default function Login() {
         style={styles.topRightLangButton}
         onPress={() => setIsLangMenuVisible(true)}
       >
-        <Globe size={18} color="#94a3b8" />
+        <Globe size={18} color={nativeColor('muted', "#94a3b8")} />
         <Text style={styles.topRightLangText}>{i18n.language.toUpperCase()}</Text>
       </TouchableOpacity>
 
@@ -305,9 +306,9 @@ export default function Login() {
                   onPress={() => setIsChecked(!isChecked)}
                 >
                   {isChecked ? (
-                    <CheckSquare size={20} color="#3b82f6" />
+                    <CheckSquare size={20} color={nativeColor('steel', "#3b82f6")} />
                   ) : (
-                    <Square size={20} color="#64748b" />
+                    <Square size={20} color={nativeColor('mutedDeep', "#64748b")} />
                   )}
                   <Text style={styles.checkboxText}>
                     <Trans

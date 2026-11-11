@@ -8,6 +8,7 @@ import { useLibrarySelector } from '../../context/LibraryContext';
 import { formatWatchDuration } from '../../utils/watchTimeHelper';
 import ProfileStatsMobile from './ProfileStatsMobile';
 import { gosterilecekIstatistik, yerelIstatistik } from '../../utils/yerelIstatistik';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 
 /**
  * Masaüstü (Web) için çerçevesiz (borderless) mikro-şerit istatistik bileşeni.
@@ -72,7 +73,7 @@ const ProfileStatsWeb = () => {
         <View style={styles.block}>
           <View style={styles.headerRow}>
             <View style={styles.iconChip}>
-              <Tv size={13} color="#60a5fa" />
+              <Tv size={13} color={MOBILE_PALETTE.steel} />
             </View>
             <Text style={styles.blockTitle} numberOfLines={1}>
               {t('statsShowsTab', 'Diziler')}
@@ -93,7 +94,7 @@ const ProfileStatsWeb = () => {
         <View style={styles.block}>
           <View style={styles.headerRow}>
             <View style={styles.iconChip}>
-              <Film size={13} color="#60a5fa" />
+              <Film size={13} color={MOBILE_PALETTE.steel} />
             </View>
             <Text style={styles.blockTitle} numberOfLines={1}>
               {t('statsMoviesTab', 'Filmler')}
@@ -114,7 +115,7 @@ const ProfileStatsWeb = () => {
         <View style={styles.actionBlock}>
           <View style={styles.actionPill}>
             <Text style={styles.actionText}>{t('detailedAnalysis', 'Detaylı Analiz')}</Text>
-            <ChevronRight size={14} color="#60a5fa" />
+            <ChevronRight size={14} color={MOBILE_PALETTE.steel} />
           </View>
         </View>
       </Pressable>
@@ -134,17 +135,17 @@ const styles = StyleSheet.create({
   stripContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 16,
     paddingHorizontal: 22,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: MOBILE_PALETTE.border,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.2s ease' } as any) : null),
   },
   pressed: {
     opacity: 0.75,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: MOBILE_PALETTE.raised,
   },
   block: {
     flex: 1,
@@ -160,31 +161,31 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 7,
-    backgroundColor: 'rgba(96, 165, 250, 0.12)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   blockTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     letterSpacing: 0.3,
   },
   statValueText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     letterSpacing: -0.4,
   },
   statSubText: {
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
   },
   verticalDivider: {
     width: 1,
     height: 42,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: MOBILE_PALETTE.border,
     marginHorizontal: 16,
   },
   actionBlock: {
@@ -199,13 +200,13 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: 'rgba(96, 165, 250, 0.08)',
+    backgroundColor: MOBILE_PALETTE.steelTint,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.15)',
+    borderColor: MOBILE_PALETTE.navBorder,
   },
   actionText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#60a5fa',
+    color: MOBILE_PALETTE.steel,
   },
 });

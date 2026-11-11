@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CloudOff, RotateCw, ChevronLeft } from './icons';
@@ -50,13 +51,13 @@ export default function LoadFailedState({ title, text, onRetry, onBack }: LoadFa
       <View style={styles.actions}>
         {onRetry && (
           <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.8}>
-            <RotateCw size={15} color="#0B1120" />
+            <RotateCw size={15} color={nativeColor('background', "#0B1120")} />
             <Text style={styles.retryText}>{t('common:retry', 'Tekrar Dene')}</Text>
           </TouchableOpacity>
         )}
         {onBack && (
           <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-            <ChevronLeft size={15} color="#94a3b8" />
+            <ChevronLeft size={15} color={nativeColor('muted', "#94a3b8")} />
             <Text style={styles.backText}>{t('media:goBack', 'Geri Dön')}</Text>
           </TouchableOpacity>
         )}
@@ -68,7 +69,7 @@ export default function LoadFailedState({ title, text, onRetry, onBack }: LoadFa
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
@@ -86,13 +87,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 17,
     fontWeight: '700',
     textAlign: 'center',
   },
   text: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
@@ -106,13 +107,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: '#38bdf8',
+    backgroundColor: nativeColor('steel', '#38bdf8'),
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
   },
   retryText: {
-    color: '#0B1120',
+    color: nativeColor('background', '#0B1120'),
     fontSize: 13,
     fontWeight: '700',
   },
@@ -124,10 +125,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: nativeColor('raised', '#1e293b'),
   },
   backText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     fontWeight: '600',
   },

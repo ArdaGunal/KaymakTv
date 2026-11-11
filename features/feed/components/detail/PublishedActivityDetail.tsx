@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, TextInput, Keyboard } from 'react-native';
 import { useNavigation } from 'expo-router';
@@ -123,12 +124,12 @@ export default function PublishedActivityDetail({ activity, patchLocal, focusCom
   );
 
   const bos = yorumlar.isLoading ? (
-    <ActivityIndicator style={styles.loading} color="#3b82f6" />
+    <ActivityIndicator style={styles.loading} color={nativeColor('steel', "#3b82f6")} />
   ) : yorumlar.hasError ? (
     <Text style={styles.emptyText}>{t('commentsError', 'Yorumlar yüklenemedi.')}</Text>
   ) : (
     <View style={styles.empty}>
-      <MessageSquare size={26} color="#334155" />
+      <MessageSquare size={26} color={nativeColor('border', "#334155")} />
       <Text style={styles.emptyText}>{t('detailFirstComment', 'İlk yorumu sen yaz.')}</Text>
     </View>
   );
@@ -180,8 +181,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
   composerWrap: { width: '100%', maxWidth: 680, alignSelf: 'center' },
-  separator: { height: 1, backgroundColor: '#1a2438' },
+  separator: { height: 1, backgroundColor: nativeColor('border', '#1a2438') },
   loading: { marginTop: 24 },
   empty: { alignItems: 'center', gap: 8, paddingTop: 28 },
-  emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 12 },
+  emptyText: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 13, textAlign: 'center', marginTop: 12 },
 });

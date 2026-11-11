@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -54,7 +55,7 @@ export default function CallToAction() {
             activeOpacity={0.82}
             onPress={() => router.push('/(public)/settings')}
           >
-            <LogIn color="#ffffff" size={16} strokeWidth={2.2} />
+            <LogIn color={nativeColor('text', "#ffffff")} size={16} strokeWidth={2.2} />
             <Text style={styles.primaryText}>{t('login', 'Giriş Yap')}</Text>
             <ArrowRight color="rgba(255,255,255,0.7)" size={15} />
           </TouchableOpacity>
@@ -65,7 +66,7 @@ export default function CallToAction() {
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
-            <Compass color="#8c90a0" size={16} />
+            <Compass color={nativeColor('muted', "#8c90a0")} size={16} />
             <Text style={styles.ghostText}>{t('exploreAsGuest', 'Misafir Olarak Devam Et')}</Text>
           </TouchableOpacity>
         </View>
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: 'rgba(27, 32, 42, 0.7)',
+    backgroundColor: nativeColor('surface', 'rgba(27, 32, 42, 0.7)'),
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   eyebrow: {
-    backgroundColor: 'rgba(27, 32, 42, 0.9)',
+    backgroundColor: nativeColor('raised', 'rgba(27, 32, 42, 0.9)'),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 12,
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   eyebrowText: {
-    color: '#7aa2f7',
+    color: nativeColor('steel', '#7aa2f7'),
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.4,
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#dee2f1',
+    color: nativeColor('text', '#dee2f1'),
     textAlign: 'center',
     lineHeight: 33,
     marginBottom: 12,
@@ -133,12 +134,12 @@ const styles = StyleSheet.create({
     lineHeight: 40,
   },
   highlight: {
-    color: '#5c8cf5',
+    color: nativeColor('steel', '#5c8cf5'),
     fontStyle: 'italic',
   },
   subtitle: {
     fontSize: 14,
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -168,11 +169,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     minHeight: 50,
     borderRadius: 14,
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   primaryText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 15,
     fontWeight: '700',
     flex: 1,
@@ -189,17 +190,17 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(27, 32, 42, 0.8)',
+    backgroundColor: nativeColor('raised', 'rgba(27, 32, 42, 0.8)'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   ghostText: {
-    color: '#c2c6d6',
+    color: nativeColor('body', '#c2c6d6'),
     fontSize: 15,
     fontWeight: '600',
   },
   footNote: {
     textAlign: 'center',
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11.5,
     paddingBottom: 20,
     letterSpacing: 0.1,

@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../constants/mobilePalette';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, RefreshControl } from 'react-native';
 
@@ -139,7 +140,7 @@ export default function ProfileScreen() {
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Settings size={20} color="#cbd5e1" />
+              <Settings size={20} color={nativeColor('body', "#cbd5e1")} />
             </TouchableOpacity>
           </>
         }
@@ -149,7 +150,7 @@ export default function ProfileScreen() {
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={nativeColor('text', "#ffffff")} />
         }
       >
         {isProfileLoading || !profile ? (
@@ -182,8 +183,8 @@ export default function ProfileScreen() {
             <View style={styles.listsSection}>
               <SectionHeader
                 title={t('myLists', 'Listelerim')}
-                icon={<ListIcon size={14} color="#60a5fa" />}
-                iconTint="#60a5fa"
+                icon={<ListIcon size={14} color={nativeColor('steel', "#60a5fa")} />}
+                iconTint={nativeColor('steel', "#60a5fa")}
                 count={lists.length}
                 seeAllLabel={seeAllLabel}
                 onSeeAll={lists.length > 0 ? () => router.push('/(protected)/library/lists') : undefined}
@@ -213,8 +214,8 @@ export default function ProfileScreen() {
             {shows.length > 0 ? (
               <HorizontalShowList
                 title={t('shows')}
-                titleIcon={<Tv size={14} color="#60a5fa" />}
-                titleTint="#60a5fa"
+                titleIcon={<Tv size={14} color={nativeColor('steel', "#60a5fa")} />}
+                titleTint={nativeColor('steel', "#60a5fa")}
                 data={shows}
                 seeAllLabel={seeAllLabel}
                 onShowAll={() => router.push('/(protected)/library/shows')}
@@ -238,8 +239,8 @@ export default function ProfileScreen() {
             {movies.length > 0 ? (
               <HorizontalShowList
                 title={t('movies')}
-                titleIcon={<Film size={14} color="#60a5fa" />}
-                titleTint="#60a5fa"
+                titleIcon={<Film size={14} color={nativeColor('steel', "#60a5fa")} />}
+                titleTint={nativeColor('steel', "#60a5fa")}
                 data={movies}
                 seeAllLabel={seeAllLabel}
                 onShowAll={() => router.push('/(protected)/library/movies')}
@@ -274,7 +275,7 @@ export default function ProfileScreen() {
                     onPress={() => router.push('/(protected)/(tabs)/explore')}
                   >
                     <View style={styles.emptyFavPlusChip}>
-                      <Plus size={18} color="#93c5fd" />
+                      <Plus size={18} color={nativeColor('steel', "#93c5fd")} />
                     </View>
                     <Text style={styles.emptyFavText}>{t('addFavMovies')}</Text>
                   </TouchableOpacity>
@@ -289,7 +290,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0B1120' },
+  safeArea: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
   headerBar: {
     paddingHorizontal: SECTION_PADDING_H,
   },
@@ -315,16 +316,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.18)',
+    borderColor: nativeTint('steel', 0.18, 'rgba(96,165,250,0.18)'),
     borderStyle: 'dashed',
   },
   emptyFavPlusChip: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(59,130,246,0.12)',
+    backgroundColor: nativeTint('primary', 0.12, 'rgba(59,130,246,0.12)'),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyFavText: { color: '#94a3b8', fontSize: 12.5, fontWeight: '600', letterSpacing: 0.3 },
+  emptyFavText: { color: nativeColor('muted', '#94a3b8'), fontSize: 12.5, fontWeight: '600', letterSpacing: 0.3 },
 });

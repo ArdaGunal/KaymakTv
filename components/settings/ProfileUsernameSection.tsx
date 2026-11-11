@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User } from '../icons';
@@ -45,9 +46,9 @@ export default function ProfileUsernameSection() {
     <>
       <SettingsSection title={t('settings:profileSection', 'Profil')}>
         <SettingsRow
-          icon={<User size={20} color="#60a5fa" />}
+          icon={<User size={20} color={nativeColor('steel', "#60a5fa")} />}
           label={t('settings:usernameRowLabel', 'Kullanıcı Adı')}
-          tintColor="#60a5fa"
+          tintColor={nativeColor('steel', "#60a5fa")}
           value={profile.username}
           showChevron
           onPress={() => setEditModalVisible(true)}

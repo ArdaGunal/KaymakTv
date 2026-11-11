@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -86,7 +87,7 @@ export default function EditDisplayNameModal({ visible, onClose, currentName, on
             <View style={styles.header}>
               <Text style={styles.title}>{t('settings:editDisplayNameTitle', 'Görünen Ad')}</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X color="#94a3b8" size={22} />
+                <X color={nativeColor('muted', "#94a3b8")} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -97,7 +98,7 @@ export default function EditDisplayNameModal({ visible, onClose, currentName, on
               maxLength={AD_EN_COK * 2}
               editable={!isSaving}
               placeholder={t('settings:displayNamePlaceholder', 'Adın ve soyadın')}
-              placeholderTextColor="#64748b"
+              placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
               autoCapitalize="words"
               returnKeyType="done"
               onSubmitEditing={handleSave}
@@ -133,7 +134,7 @@ export default function EditDisplayNameModal({ visible, onClose, currentName, on
 
 const localStyles = StyleSheet.create({
   counter: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     alignSelf: 'flex-end',
     marginTop: 6,
@@ -143,7 +144,7 @@ const localStyles = StyleSheet.create({
     fontWeight: '700',
   },
   hint: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,

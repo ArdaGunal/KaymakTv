@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, StyleSheet, Platform, ViewProps } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +15,7 @@ export default function ProgressBar({
   percentage,
   height = 4,
   trackColor = 'rgba(255, 255, 255, 0.1)',
-  fillColor = '#3b82f6', // App accent color
+  fillColor = nativeColor('steel', '#3b82f6'),
   style
 }: ProgressBarProps) {
   const { t } = useTranslation('common');

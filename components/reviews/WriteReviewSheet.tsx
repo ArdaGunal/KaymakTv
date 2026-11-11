@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -164,8 +165,8 @@ export default function WriteReviewSheet({
                   <Switch
                     value={isSpoiler}
                     onValueChange={setIsSpoiler}
-                    trackColor={{ false: '#3f3f46', true: '#3b82f6' }}
-                    thumbColor={Platform.OS === 'ios' ? '#fff' : isSpoiler ? '#fff' : '#a3a3a3'}
+                    trackColor={{ false: '#3f3f46', true: nativeColor('primary', '#3b82f6') }}
+                    thumbColor={Platform.OS === 'ios' ? '#fff' : isSpoiler ? '#fff' : nativeColor('muted', '#a3a3a3')}
                   />
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -181,7 +182,7 @@ export default function WriteReviewSheet({
                 <TextInput
                   style={styles.textInput}
                   placeholder={t('reviewPlaceholder', 'Bu yapım hakkında ne düşünüyorsun?')}
-                  placeholderTextColor="#a3a3a3"
+                  placeholderTextColor={nativeColor('muted', "#a3a3a3")}
                   value={inputText}
                   onChangeText={setInputText}
                   multiline
@@ -198,7 +199,7 @@ export default function WriteReviewSheet({
                   {isSubmitting ? (
                     <ActivityIndicator size="small" />
                   ) : (
-                    <Send size={20} color={canSend ? '#fb923c' : '#475569'} />
+                    <Send size={20} color={canSend ? '#fb923c' : nativeColor('mutedDeep', '#475569')} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -239,7 +240,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingBottom: Platform.OS === 'ios' ? 32 : 16,
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#172033',
+    borderBottomColor: nativeColor('surface', '#172033'),
   },
   title: {
     color: '#fff',
@@ -271,9 +272,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(56,189,248,0.08)',
+    backgroundColor: nativeTint('steel', 0.08, 'rgba(56,189,248,0.08)'),
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.2)',
+    borderColor: nativeTint('steel', 0.2, 'rgba(56,189,248,0.2)'),
     borderRadius: 8,
     paddingVertical: 7,
     paddingHorizontal: 10,
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footnote: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     marginTop: 12,
     fontStyle: 'italic',

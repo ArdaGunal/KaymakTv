@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +31,7 @@ export default function TraktGirisDugmesi({ etkin, yukleniyor, onPress }: Props)
       accessibilityRole="button"
     >
       <View style={styles.simge}>
-        <Tv size={16} color="#ffffff" />
+        <Tv size={16} color={nativeColor('text', "#ffffff")} />
       </View>
       {yukleniyor ? (
         <ActivityIndicator size="small" color="#fff" style={styles.metinAlani} />
@@ -64,5 +65,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metinAlani: { flex: 1, textAlign: 'center', marginRight: YUKSEKLIK - 10 },
-  metin: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  metin: { color: nativeColor('text', '#ffffff'), fontSize: 14, fontWeight: '600' },
 });

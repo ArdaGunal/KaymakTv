@@ -1,3 +1,4 @@
+import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,7 +19,7 @@ const features = [
     titleKey: 'viewingDiary',
     descKey: 'viewingDiaryDesc',
     Icon: Calendar,
-    iconColor: '#5c8cf5',
+    iconColor: nativeColor('primary', '#5c8cf5'),
     accent: 'rgba(92, 140, 245, 0.10)',
     borderAccent: 'rgba(92, 140, 245, 0.14)',
   },
@@ -26,7 +27,7 @@ const features = [
     titleKey: 'fastSearchTitle',
     descKey: 'fastSearchDesc',
     Icon: Search,
-    iconColor: '#38bdf8',
+    iconColor: nativeColor('steel', '#38bdf8'),
     accent: 'rgba(56, 189, 248, 0.08)',
     borderAccent: 'rgba(56, 189, 248, 0.12)',
   },
@@ -105,13 +106,13 @@ const FeatureCard = ({ feature, isDesktop, isLastOdd, t }: CardProps) => {
       ]}
     >
       <Animated.View style={[styles.cardAnimWrap, { transform: [{ scale: scaleAnim }] }]}>
-        <View style={[styles.card, { borderColor: feature.borderAccent }]}>
+        <View style={[styles.card, { borderColor: Platform.OS === 'web' ? feature.borderAccent : MOBILE_PALETTE.border }]}>
           {/* Subtle accent glow in corner */}
-          <View style={[styles.cardCornerGlow, { backgroundColor: feature.accent }]} />
+          <View style={[styles.cardCornerGlow, { backgroundColor: Platform.OS === 'web' ? feature.accent : MOBILE_PALETTE.steelTint }]} />
 
           {/* İkon */}
-          <View style={[styles.iconWrap, { backgroundColor: feature.accent }]}>
-            <feature.Icon size={20} color={feature.iconColor} strokeWidth={1.8} />
+          <View style={[styles.iconWrap, { backgroundColor: Platform.OS === 'web' ? feature.accent : MOBILE_PALETTE.steelTint }]}>
+            <feature.Icon size={20} color={Platform.OS === 'web' ? feature.iconColor : MOBILE_PALETTE.steel} strokeWidth={1.8} />
           </View>
 
           {/* Başlık */}
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   eyebrow: {
-    backgroundColor: 'rgba(27, 32, 42, 0.9)',
+    backgroundColor: nativeColor('surface', 'rgba(27, 32, 42, 0.9)'),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 14,
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   eyebrowText: {
-    color: '#7aa2f7',
+    color: nativeColor('steel', '#7aa2f7'),
     fontSize: 10.5,
     fontWeight: '700',
     letterSpacing: 1.4,
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#dee2f1',
+    color: nativeColor('text', '#dee2f1'),
     textAlign: 'center',
     marginBottom: 10,
     letterSpacing: -0.4,
@@ -223,14 +224,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14.5,
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     textAlign: 'center',
     lineHeight: 22,
   },
   subtitleDesktop: {
     fontSize: 16,
     lineHeight: 25,
-    color: '#c2c6d6',
+    color: nativeColor('body', '#c2c6d6'),
   },
   // ── Grid ────────────────────────────────────────────────────────────────
   grid: {
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    backgroundColor: 'rgba(27, 32, 42, 0.7)',
+    backgroundColor: nativeColor('surface', 'rgba(27, 32, 42, 0.7)'),
     position: 'relative',
     overflow: 'hidden',
     gap: 10,
@@ -298,13 +299,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   cardTitle: {
-    color: '#dee2f1',
+    color: nativeColor('text', '#dee2f1'),
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   cardDesc: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 13,
     lineHeight: 20,
   },

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useRef, useState } from 'react';
 import {
   View,
@@ -135,7 +136,7 @@ export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock,
           openMenu();
         }}
       >
-        <MoreVertical size={16} color="#94a3b8" />
+        <MoreVertical size={16} color={nativeColor('muted', "#94a3b8")} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={closeMenu}>
@@ -143,28 +144,28 @@ export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock,
           <View style={[styles.menu, { top, left, width: MENU_WIDTH }]}>
             {onEdit && (
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleEdit}>
-                <Pencil size={16} color="#f1f5f9" />
+                <Pencil size={16} color={nativeColor('text', "#f1f5f9")} />
                 <Text style={styles.menuItemText}>{t('common:edit')}</Text>
               </TouchableOpacity>
             )}
 
             {onShare && (
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleShare}>
-                <Share2 size={16} color="#f1f5f9" />
+                <Share2 size={16} color={nativeColor('text', "#f1f5f9")} />
                 <Text style={styles.menuItemText}>{t('media:share')}</Text>
               </TouchableOpacity>
             )}
 
             {onReport && (
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleReport}>
-                <Flag size={16} color="#f1f5f9" />
+                <Flag size={16} color={nativeColor('text', "#f1f5f9")} />
                 <Text style={styles.menuItemText}>{t('feed:reportContentMenuLabel', 'İçeriği Bildir')}</Text>
               </TouchableOpacity>
             )}
 
             {onBlock && (
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleBlock}>
-                <UserX size={16} color="#f1f5f9" />
+                <UserX size={16} color={nativeColor('text', "#f1f5f9")} />
                 <Text style={styles.menuItemText}>{t('feed:blockUserMenuLabel', 'Kullanıcıyı Engelle')}</Text>
               </TouchableOpacity>
             )}
@@ -225,6 +226,6 @@ const styles = StyleSheet.create({
     height: ROW_HEIGHT,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
-  menuItemText: { color: '#f1f5f9', fontSize: 14, fontWeight: '600' },
+  menuItemText: { color: nativeColor('text', '#f1f5f9'), fontSize: 14, fontWeight: '600' },
   deleteText: { color: '#f87171' },
 });

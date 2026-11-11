@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +41,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   middle: { flex: 1, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-  username: { color: '#f8fafc', fontWeight: '700', fontSize: 15, flexShrink: 1 },
-  date: { color: '#64748b', fontSize: 12 },
+  username: { color: nativeColor('text', '#f8fafc'), fontWeight: '700', fontSize: 15, flexShrink: 1 },
+  date: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12 },
 });

@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Clock, Tv, Film } from '../../icons';
@@ -39,14 +40,14 @@ const StatsSummaryRow = ({ summary, activeTab }: StatsSummaryRowProps) => {
     ? t('episodesWatchedCount', 'İzlenen Bölüm')
     : t('moviesWatchedCount', 'İzlenen Film');
   const countRoute = isShows ? '/(protected)/library/shows' : '/(protected)/library/movies';
-  const countIconColor = isShows ? '#a78bfa' : '#fbbf24';
-  const countIconBg = isShows ? 'rgba(139,92,246,0.14)' : 'rgba(245,158,11,0.14)';
+  const countIconColor = isShows ? nativeColor('steel', '#a78bfa') : nativeColor('steel', '#fbbf24');
+  const countIconBg = isShows ? nativeColor('steelTint', 'rgba(139,92,246,0.14)') : nativeColor('steelTint', 'rgba(245,158,11,0.14)');
 
   return (
     <View style={styles.row}>
       <View style={[styles.card, styles.cardWide]}>
-        <View style={[styles.iconBadge, { backgroundColor: 'rgba(96,165,250,0.14)' }]}>
-          <Clock size={14} color="#60a5fa" />
+        <View style={[styles.iconBadge, { backgroundColor: nativeTint('steel', 0.14, 'rgba(96,165,250,0.14)') }]}>
+          <Clock size={14} color={nativeColor('steel', "#60a5fa")} />
         </View>
         <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>{totalWatchTime}</Text>
         <Text style={styles.label}>{t('totalWatchTime', 'Toplam İzleme Süresi')}</Text>
@@ -102,14 +103,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   value: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
     marginBottom: 2,
   },
   label: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 11,
     fontWeight: '500',
   },

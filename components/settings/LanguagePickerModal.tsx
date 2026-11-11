@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import { Check, X } from '../icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -54,7 +55,7 @@ export default function LanguagePickerModal({
           style={styles.closeBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <X size={20} color="#94a3b8" />
+          <X size={20} color={nativeColor('muted', "#94a3b8")} />
         </TouchableOpacity>
       </View>
 
@@ -73,7 +74,7 @@ export default function LanguagePickerModal({
           >
             <FlagImage iso2={dil.bayrakUlke} emoji={dil.bayrak} />
             <Text style={styles.label}>{dil.ad}</Text>
-            {isSelected && <Check size={18} color="#3b82f6" strokeWidth={2.5} />}
+            {isSelected && <Check size={18} color={nativeColor('steel', "#3b82f6")} strokeWidth={2.5} />}
           </TouchableOpacity>
         );
       })}
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 19,
     fontWeight: '700',
     letterSpacing: -0.3,
@@ -107,14 +108,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   rowSelected: {
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    backgroundColor: nativeTint('primary', 0.12, 'rgba(59, 130, 246, 0.12)'),
   },
   flag: {
     fontSize: 20,
   },
   label: {
     flex: 1,
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     fontWeight: '600',
   },

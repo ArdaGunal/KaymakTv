@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { getPersonPhoto } from '../services/tmdbApi';
 import PersonSheet from './person/PersonSheet';
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 
 interface MediaCastProps {
   cast: any[];
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    color: '#ffffff',
+    color: Platform.OS === 'web' ? nativeColor('text', '#ffffff') : MOBILE_PALETTE.text,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 150,
     borderRadius: 8,
-    backgroundColor: '#172033',
+    backgroundColor: Platform.OS === 'web' ? nativeColor('surface', '#172033') : MOBILE_PALETTE.surface,
     marginBottom: 8,
     overflow: 'hidden',
   },
@@ -97,16 +98,16 @@ const styles = StyleSheet.create({
   castImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#172033',
+    backgroundColor: Platform.OS === 'web' ? nativeColor('surface', '#172033') : MOBILE_PALETTE.surface,
   },
   castName: {
-    color: '#ffffff',
+    color: Platform.OS === 'web' ? nativeColor('text', '#ffffff') : MOBILE_PALETTE.text,
     fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 2,
   },
   castCharacter: {
-    color: '#a3a3a3',
+    color: Platform.OS === 'web' ? nativeColor('muted', '#a3a3a3') : MOBILE_PALETTE.muted,
     fontSize: 12,
   },
 });

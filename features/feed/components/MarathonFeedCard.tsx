@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 /**
  * MarathonFeedCard — Gruplanmış Maraton Aktivitesi Kartı
  *
@@ -51,6 +52,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
   // 🪪 `users.id` ile (M339 · §F6) — bkz. FeedCard'daki aynı not.
   const isOwnActivity = !!myUserId && myUserId === activity.user.id;
   const message = getMarathonMessage(activity.user.username, activity.episodeCount, t);
+  const accentColor = nativeColor('steel', message.color);
 
   const handlePressProfile = () => {
     // bkz. FeedCard.tsx'teki AYNI düzeltme notu — takip durumu (followStore)
@@ -73,7 +75,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
       // `hovered` yalnız web'de gelir (react-native-web).
       style={(state) => [
         styles.card,
-        { borderColor: colorAlpha(message.color, (state as { hovered?: boolean }).hovered ? '66' : '2e') },
+        { borderColor: colorAlpha(accentColor, (state as { hovered?: boolean }).hovered ? '66' : '2e') },
         state.pressed && styles.cardPressed,
       ]}
     >
@@ -98,16 +100,16 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
           ad={activity.user.username}
           size={40}
           borderWidth={1.5}
-          borderColor={colorAlpha(message.color, '55')}
+          borderColor={colorAlpha(accentColor, '55')}
         />
       </TouchableOpacity>
 
       {/* ── Orta: İçerik ─────────────────────────────────────────────────── */}
       <View style={styles.body}>
         {/* Seviye rozeti */}
-        <View style={[styles.badge, { backgroundColor: colorAlpha(message.color, '1a') }]}>
-          <Zap size={9} color={message.color} fill={message.color} />
-          <Text style={[styles.badgeText, { color: message.color }]}>
+        <View style={[styles.badge, { backgroundColor: colorAlpha(accentColor, '1a') }]}>
+          <Zap size={9} color={accentColor} fill={accentColor} />
+          <Text style={[styles.badgeText, { color: accentColor }]}>
             {message.badge}
           </Text>
         </View>
@@ -143,7 +145,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
           style={styles.poster}
           placeholderTextLines={2}
         />
-        <View style={[styles.counterBadge, { backgroundColor: colorAlpha(message.color, 'e6') }]}>
+        <View style={[styles.counterBadge, { backgroundColor: colorAlpha(accentColor, 'e6') }]}>
           <Text style={styles.counterBadgeText}>×{activity.episodeCount}</Text>
         </View>
       </TouchableOpacity>
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131f35',
+    backgroundColor: nativeColor('surface', '#131f35'),
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
@@ -189,22 +191,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   headline: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 13.5,
     fontWeight: '700',
     lineHeight: 19,
   },
   subtitle: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     lineHeight: 17,
   },
   showNameLink: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: '700',
   },
   timestamp: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     marginTop: 2,
   },
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 62,
     borderRadius: 8,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   // Sayaç posterin üstünde bir rozet: hem bölüm sayısını korur hem de
   // kartın görsel ağırlığını postere taşır (sosyal akış hissi).
@@ -235,10 +237,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 100,
     borderWidth: 1.5,
-    borderColor: '#131f35',
+    borderColor: nativeColor('surface', '#131f35'),
   },
   counterBadgeText: {
-    color: '#0B1120',
+    color: nativeColor('background', '#0B1120'),
     fontSize: 10,
     fontWeight: '800',
   },

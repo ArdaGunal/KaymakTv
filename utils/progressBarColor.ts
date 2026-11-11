@@ -12,10 +12,16 @@ export const PROGRESS_BAR_COLOR = {
   finished: '#10b981',
 } as const;
 
-export function getProgressBarColor(isDropped: boolean, isFinished: boolean): string {
+// Native ekran aktif çizgiyi kendi paletiyle çizebilir; tamamlandı/ bırakıldı
+// durumlarının semantik renkleri aynı kalır.
+export function getProgressBarColor(
+  isDropped: boolean,
+  isFinished: boolean,
+  activeColor: string = PROGRESS_BAR_COLOR.active
+): string {
   if (isDropped) return PROGRESS_BAR_COLOR.dropped;
   if (isFinished) return PROGRESS_BAR_COLOR.finished;
-  return PROGRESS_BAR_COLOR.active;
+  return activeColor;
 }
 
 /**

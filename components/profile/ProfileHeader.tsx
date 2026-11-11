@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Avatar from '../Avatar';
@@ -98,7 +99,7 @@ export default function ProfileHeader({
             activeOpacity={0.85}
           >
             {isFollowBusy ? (
-              <ActivityIndicator size="small" color={connectionState === 'none' ? '#fff' : '#94a3b8'} />
+              <ActivityIndicator size="small" color={connectionState === 'none' ? '#fff' : nativeColor('muted', '#94a3b8')} />
             ) : (
               <Text
                 style={[
@@ -170,12 +171,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 16,
     fontWeight: '800',
   },
   statLabel: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 11,
     fontWeight: '600',
     marginTop: 1,
@@ -196,8 +197,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   actionBtnFollow: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
+    borderColor: nativeColor('primary', '#2563eb'),
   },
   actionBtnFollowing: {
     backgroundColor: 'rgba(74, 222, 128, 0.12)',
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(250, 204, 21, 0.3)',
   },
   actionBtnText: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -225,18 +226,18 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   name: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   handle: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12.5,
     fontWeight: '500',
   },
   bio: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     lineHeight: 18,
     marginTop: 6,
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   reportBioText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11.5,
     fontWeight: '600',
   },

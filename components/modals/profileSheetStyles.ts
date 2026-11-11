@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 
 // Alt sayfa (bottom sheet) düzenleme modallarının ORTAK görünümü —
 // `EditProfileModal` (kullanıcı adı) ve `EditBioModal` (açıklama, T4 · `043`).
@@ -9,11 +10,17 @@ export const profileSheetStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
+  modalOverlayCentered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
   },
   modalContent: {
-    backgroundColor: '#0F172A',
+    backgroundColor: nativeColor('surface', '#0F172A'),
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -27,6 +34,15 @@ export const profileSheetStyles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 24,
   },
+  modalContentCentered: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '85%',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: nativeColor('border', '#334155'),
+  },
+  modalScroll: { flexShrink: 1 },
   grabber: {
     width: 40,
     height: 4,
@@ -42,7 +58,7 @@ export const profileSheetStyles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 20,
     fontWeight: '700',
   },
@@ -51,12 +67,12 @@ export const profileSheetStyles = StyleSheet.create({
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.05)',
-    color: '#fff',
+    color: nativeColor('text', '#fff'),
     padding: 14,
     borderRadius: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   inputDisabled: {
     opacity: 0.5,
@@ -69,8 +85,8 @@ export const profileSheetStyles = StyleSheet.create({
     marginTop: 12,
   },
   noticeInfo: {
-    backgroundColor: 'rgba(56,189,248,0.08)',
-    borderColor: 'rgba(56,189,248,0.25)',
+    backgroundColor: nativeTint('steel', 0.08, 'rgba(56,189,248,0.08)'),
+    borderColor: nativeTint('steel', 0.25, 'rgba(56,189,248,0.25)'),
   },
   noticeError: {
     backgroundColor: 'rgba(239,68,68,0.1)',
@@ -81,20 +97,20 @@ export const profileSheetStyles = StyleSheet.create({
     lineHeight: 17,
   },
   noticeTextInfo: {
-    color: '#7dd3fc',
+    color: nativeColor('steel', '#7dd3fc'),
   },
   noticeTextError: {
     color: '#fca5a5',
   },
   saveBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
   },
   saveBtnText: {
-    color: '#fff',
+    color: nativeColor('text', '#fff'),
     fontSize: 16,
     fontWeight: '700',
   },

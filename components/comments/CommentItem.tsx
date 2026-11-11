@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -42,7 +43,7 @@ const SpoilerOverlay = memo(({ text }: SpoilerOverlayProps) => {
           style={styles.hideSpoilerBtn}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
-          <EyeOff size={12} color="#64748b" />
+          <EyeOff size={12} color={nativeColor('mutedDeep', "#64748b")} />
           <Text style={styles.hideSpoilerText}>{t('hideSpoiler', 'Gizle')}</Text>
         </TouchableOpacity>
       </View>
@@ -114,7 +115,7 @@ const CommentItem = memo(({ item }: CommentItemProps) => {
           )}
           {item.likes > 0 && (
             <View style={styles.stat}>
-              <Heart size={12} color="#e879f9" fill="#e879f9" />
+              <Heart size={12} color="#f87171" fill="#f87171" />
               <Text style={styles.statText}>{item.likes}</Text>
             </View>
           )}
@@ -162,7 +163,7 @@ export default CommentItem;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
@@ -183,13 +184,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   username: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: '700',
     fontSize: 14,
     letterSpacing: -0.2,
   },
   date: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     marginTop: 1,
   },
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   statText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     fontWeight: '600',
   },
@@ -227,7 +228,7 @@ const styles = StyleSheet.create({
     paddingLeft: 46, // align with avatar
   },
   commentText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     lineHeight: 22,
   },
@@ -244,12 +245,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     ...(Platform.OS === 'web' && {
       filter: 'blur(6px)',
-      color: '#94a3b8',
+      color: nativeColor('muted', '#94a3b8'),
       userSelect: 'none',
     } as any),
     ...(Platform.OS !== 'web' && {
       opacity: 0.05,
-      color: '#94a3b8',
+      color: nativeColor('muted', '#94a3b8'),
     }),
   },
   spoilerFrost: {
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   spoilerCta: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
   },
   // Reveal controls
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   hideSpoilerText: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 12,
   },
 });

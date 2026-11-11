@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { ScrollView, Text, StyleSheet, Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -57,13 +58,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
-  chipOn: { backgroundColor: '#e2e8f0', borderColor: '#e2e8f0' },
+  chipOn: { backgroundColor: nativeColor('text', '#e2e8f0'), borderColor: nativeColor('text', '#e2e8f0') },
   chipHover: { borderColor: '#2E4166' },
   chipPressed: { opacity: 0.8 },
-  text: { color: '#cbd5e1', fontSize: 13, fontWeight: '600' },
-  textOn: { color: '#0B1120' },
+  text: { color: nativeColor('body', '#cbd5e1'), fontSize: 13, fontWeight: '600' },
+  textOn: { color: nativeColor('background', '#0B1120') },
 });

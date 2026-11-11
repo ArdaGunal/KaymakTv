@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -50,7 +51,7 @@ export default function HeroSection() {
         ]}
       >
         <View style={styles.badge}>
-          <Clapperboard size={13} color="#5c8cf5" strokeWidth={2} />
+          <Clapperboard size={13} color={nativeColor('steel', "#5c8cf5")} strokeWidth={2} />
           <Text style={styles.badgeText}>{t('diaryEyebrow').toUpperCase()}</Text>
         </View>
 
@@ -71,7 +72,7 @@ export default function HeroSection() {
             activeOpacity={0.82}
             onPress={() => router.push('/(public)/settings')}
           >
-            <LogIn color="#ffffff" size={17} strokeWidth={2.2} />
+            <LogIn color={nativeColor('text', "#ffffff")} size={17} strokeWidth={2.2} />
             <Text style={styles.primaryButtonText}>{t('login', 'Giriş Yap')}</Text>
           </TouchableOpacity>
 
@@ -80,7 +81,7 @@ export default function HeroSection() {
             activeOpacity={0.78}
             onPress={handleGuestLogin}
           >
-            <Compass color="#8c90a0" size={17} strokeWidth={2} />
+            <Compass color={nativeColor('muted', "#8c90a0")} size={17} strokeWidth={2} />
             <Text style={styles.secondaryButtonText}>{t('exploreAsGuest')}</Text>
           </TouchableOpacity>
         </View>
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(27, 32, 42, 0.9)',
+    backgroundColor: nativeColor('surface', 'rgba(27, 32, 42, 0.9)'),
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 100,
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   badgeText: {
-    color: '#7aa2f7',
+    color: nativeColor('steel', '#7aa2f7'),
     fontWeight: '700',
     fontSize: 11,
     letterSpacing: 1.4,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#dee2f1',
+    color: nativeColor('text', '#dee2f1'),
     textAlign: 'center',
     lineHeight: 46,
     marginBottom: 20,
@@ -138,12 +139,12 @@ const styles = StyleSheet.create({
     letterSpacing: -1.2,
   },
   highlight: {
-    color: '#5c8cf5',
+    color: nativeColor('steel', '#5c8cf5'),
     fontStyle: 'italic',
   },
   subtitle: {
     fontSize: 15,
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     textAlign: 'center',
     lineHeight: 26,
     marginBottom: 36,
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   subtitleDesktop: {
     fontSize: 17,
     lineHeight: 28,
-    color: '#c2c6d6',
+    color: nativeColor('body', '#c2c6d6'),
   },
   ctaGroup: {
     width: '100%',
@@ -173,11 +174,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     minHeight: 54,
     borderRadius: 12,
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -193,11 +194,11 @@ const styles = StyleSheet.create({
     minHeight: 54,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(27, 32, 42, 0.8)',
+    backgroundColor: nativeColor('surface', 'rgba(27, 32, 42, 0.8)'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   secondaryButtonText: {
-    color: '#c2c6d6',
+    color: nativeColor('body', '#c2c6d6'),
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.1,

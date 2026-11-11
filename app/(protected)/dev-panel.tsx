@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -130,7 +131,7 @@ export default function DeveloperPanelScreen() {
         activeOpacity={0.7}
         accessibilityLabel={t('settings:devPanelRefreshAction', 'Yenile')}
       >
-        <RefreshCw size={15} color="#94a3b8" />
+        <RefreshCw size={15} color={nativeColor('muted', "#94a3b8")} />
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerIconBtn}
@@ -138,7 +139,7 @@ export default function DeveloperPanelScreen() {
         activeOpacity={0.7}
         accessibilityLabel={t('settings:devPanelCopyReport', 'Raporu Kopyala')}
       >
-        <Copy size={15} color="#94a3b8" />
+        <Copy size={15} color={nativeColor('muted', "#94a3b8")} />
       </TouchableOpacity>
     </View>
   ) : (
@@ -148,7 +149,7 @@ export default function DeveloperPanelScreen() {
       activeOpacity={0.75}
       accessibilityLabel="Daha Fazla Eylem"
     >
-      <MoreVertical size={18} color="#f1f5f9" />
+      <MoreVertical size={18} color={nativeColor('text', "#f1f5f9")} />
     </TouchableOpacity>
   );
 
@@ -157,7 +158,7 @@ export default function DeveloperPanelScreen() {
       <StatCard
         value={stats.totalMeasurements}
         label={t('settings:devPanelStatMeasurements', 'Ölçüm')}
-        accentColor="#60a5fa"
+        accentColor={nativeColor('steel', "#60a5fa")}
         style={isDesktop ? styles.statCardFlex : styles.statCardMobileItem}
       />
       <StatCard
@@ -200,7 +201,7 @@ export default function DeveloperPanelScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor="#94a3b8" />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={nativeColor('muted', "#94a3b8")} />}
       >
         <NotificationDebugCard />
 
@@ -224,7 +225,7 @@ export default function DeveloperPanelScreen() {
             onPress={() => setActiveTab('performance')}
             activeOpacity={0.8}
           >
-            <Activity size={15} color={activeTab === 'performance' ? '#ffffff' : '#64748b'} />
+            <Activity size={15} color={activeTab === 'performance' ? nativeColor('text', '#ffffff') : nativeColor('mutedDeep', '#64748b')} />
             <Text style={[styles.tabText, activeTab === 'performance' && styles.tabTextActive]}>
               {t('settings:devPanelTabPerformance', 'Performans')}
             </Text>
@@ -312,7 +313,7 @@ export default function DeveloperPanelScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0e131d',
+    backgroundColor: nativeColor('background', '#0e131d'),
   },
   scroll: {
     flex: 1,
@@ -405,15 +406,15 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   tabActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
   },
   tabText: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 12.5,
     fontWeight: '600',
   },
   tabTextActive: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '700',
   },
   mobileBottomBar: {

@@ -30,6 +30,7 @@ import ProfileActivityTab from '../../../components/profile/ProfileActivityTab';
 import { NotificationBadge } from '../../../features/notifications/components/NotificationBadge';
 import { DESKTOP_CARD_WIDTH, DESKTOP_CARD_HEIGHT, DESKTOP_CARD_GAP } from '../../../components/profile/profileMetrics';
 import { gorunenBaslik } from '../../../utils/gorunenBaslik';
+import { MOBILE_PALETTE, nativeColor } from '../../../constants/mobilePalette';
 
 const mapMedia = (items: any[], type: 'show' | 'movie', dil: string) =>
   items.map((item: any) => ({
@@ -327,19 +328,19 @@ const desktopHeaderStyles = StyleSheet.create({
     flexShrink: 1,
   },
   name: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
     marginBottom: 2,
   },
   handle: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 13,
     fontWeight: '500',
   },
   bio: {
-    color: '#cbd5e1',
+    color: MOBILE_PALETTE.body,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 4,
@@ -361,12 +362,12 @@ const desktopHeaderStyles = StyleSheet.create({
     minWidth: 60,
   },
   statValue: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontSize: 18,
     fontWeight: '800',
   },
   statLabel: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 11,
     fontWeight: '600',
     marginTop: 1,
@@ -374,21 +375,21 @@ const desktopHeaderStyles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: MOBILE_PALETTE.raised,
   },
   editBtn: {
     height: 38,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: MOBILE_PALETTE.raised,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: MOBILE_PALETTE.border,
     alignItems: 'center',
     justifyContent: 'center',
     ...({ cursor: 'pointer', transition: 'background-color 0.2s ease' } as any),
   },
   editBtnText: {
-    color: '#f1f5f9',
+    color: MOBILE_PALETTE.text,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -398,11 +399,11 @@ const desktopHeaderStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   pageBackground: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   container: {
     flex: 1,
@@ -423,16 +424,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: MOBILE_PALETTE.border,
   },
   settingsButton: {
     marginLeft: 16,
     flexShrink: 0,
     padding: 9,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: MOBILE_PALETTE.border,
     ...({ cursor: 'pointer', transition: 'background-color 0.2s ease' } as any),
   },
   // ── Sekmeler: profil içeriğiyle aynı sol hizasında (avatarın çizgisi) ──────
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
   // eşleşecek şekilde ayarlandı — eskiden 20px'ti, dolu/boş durumlar arasında
   // geçişte başlık boyutu görünür şekilde zıplıyordu.
   carouselTitle: {
-    color: '#f8fafc',
+    color: MOBILE_PALETTE.text,
     fontSize: 24,
     fontWeight: 'bold',
     letterSpacing: 0.5,

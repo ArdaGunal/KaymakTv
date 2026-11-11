@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import {
   View,
@@ -65,10 +66,10 @@ export default function FeedSettingsScreen() {
         >
           {/* Tüm Aktivitemi Gizle */}
           <SettingsSwitchRow
-            icon={<EyeOff size={20} color="#c084fc" />}
+            icon={<EyeOff size={20} color={nativeColor('steel', '#c084fc')} />}
             label={t('settings:hideFromFeed', 'Tüm Aktivitemi Gizle')}
             hint={t('settings:hideFromFeedHint', 'Açıkken izlediklerin, puanladıkların ve incelemelerin kimsenin akışında görünmez.')}
-            tintColor="#c084fc"
+            tintColor={nativeColor('steel', '#c084fc')}
             value={feedPrivacy.hideAll}
             onValueChange={feedPrivacy.setHideAll}
             isLoading={feedPrivacy.isLoading}
@@ -79,10 +80,10 @@ export default function FeedSettingsScreen() {
 
           {/* İzlediklerimi Gizle */}
           <SettingsSwitchRow
-            icon={<Tv size={20} color="#60a5fa" />}
+            icon={<Tv size={20} color={nativeColor('steel', "#60a5fa")} />}
             label={t('settings:hideWatches', 'İzlediklerimi Gizle')}
             hint={t('settings:hideWatchesHint', 'Açıkken izleme aktiviten kimsenin akışında görünmez.')}
-            tintColor="#60a5fa"
+            tintColor={nativeColor('steel', "#60a5fa")}
             value={!feedPrivacy.settings.publishWatches}
             onValueChange={(hide) => feedPrivacy.update('publishWatches', !hide)}
             isLoading={feedPrivacy.isLoading}
@@ -93,10 +94,10 @@ export default function FeedSettingsScreen() {
 
           {/* Puanlarımı Gizle */}
           <SettingsSwitchRow
-            icon={<Star size={20} color="#fbbf24" />}
+            icon={<Star size={20} color={nativeColor('rating', '#fbbf24')} />}
             label={t('settings:hideRatings', 'Puanlarımı Gizle')}
             hint={t('settings:hideRatingsHint', 'Açıkken verdiğin puanlar kimsenin akışında görünmez.')}
-            tintColor="#fbbf24"
+            tintColor={nativeColor('rating', '#fbbf24')}
             value={!feedPrivacy.settings.publishRatings}
             onValueChange={(hide) => feedPrivacy.update('publishRatings', !hide)}
             isLoading={feedPrivacy.isLoading}
@@ -107,10 +108,10 @@ export default function FeedSettingsScreen() {
 
           {/* İncelemelerimi Gizle */}
           <SettingsSwitchRow
-            icon={<PenLine size={20} color="#34d399" />}
+            icon={<PenLine size={20} color={nativeColor('steel', '#34d399')} />}
             label={t('settings:hideManual', 'İncelemelerimi Gizle')}
             hint={t('settings:hideManualHint', 'Açıkken incelemelerin ve gönderilerin akışta görünmez. Silinmezler — dizi ve film sayfalarında kalmaya devam eder.')}
-            tintColor="#34d399"
+            tintColor={nativeColor('steel', '#34d399')}
             value={!feedPrivacy.settings.publishManual}
             onValueChange={(hide) => feedPrivacy.update('publishManual', !hide)}
             isLoading={feedPrivacy.isLoading}
@@ -136,7 +137,7 @@ export default function FeedSettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0e131d',
+    backgroundColor: nativeColor('background', '#0e131d'),
   },
   scroll: {
     flex: 1,

@@ -1,3 +1,4 @@
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 import { useTranslation } from 'react-i18next';
 import React, { memo, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Platform } from 'react-native';
@@ -117,7 +118,7 @@ const HorizontalShowList = memo(({
         {varMi && (
           <ProgressBar
             percentage={yuzde}
-            fillColor={getProgressBarColor(birakildi, bitti)}
+            fillColor={getProgressBarColor(birakildi, bitti, Platform.OS === 'web' ? undefined : MOBILE_PALETTE.steel)}
             style={styles.ilerleme}
           />
         )}
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -186,24 +187,24 @@ const styles = StyleSheet.create({
   placeholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#2A364F',
+    backgroundColor: nativeColor('border', '#2A364F'),
     justifyContent: 'center',
     alignItems: 'center',
     padding: 8,
   },
   placeholderText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '600',
   },
   listPosterFallback: {
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     justifyContent: 'center',
     alignItems: 'center',
     padding: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   // 🔴 MUTLAK KONUM, POSTERİN DİBİNDE — `ShowCard`'daki `progressBar` ile AYNI.
   //

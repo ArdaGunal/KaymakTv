@@ -3,14 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useTranslation } from 'react-i18next';
 import type { MonthlyBar, StatsTab } from '../../../hooks/useProfileStatistics';
+import { MOBILE_PALETTE } from '../../../constants/mobilePalette';
 
 interface MonthlyFrequencyChartWideProps {
   data: MonthlyBar[];
   activeTab: StatsTab;
 }
 
-const ACTIVE_COLOR = '#3B82F6';
-const IDLE_COLOR = '#1e3a5f';
+const ACTIVE_COLOR = MOBILE_PALETTE.steel;
+const IDLE_COLOR = MOBILE_PALETTE.raised;
 const SECTIONS = 4;
 
 // Sağ sütun: GenreDonutChartWide ile aynı yükseklikte, daha kalın çubuklu
@@ -28,7 +29,7 @@ const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWid
       value: bar.value,
       label: bar.label,
       frontColor: index === selectedIndex ? ACTIVE_COLOR : IDLE_COLOR,
-      gradientColor: index === selectedIndex ? '#60A5FA' : '#24507f',
+      gradientColor: index === selectedIndex ? MOBILE_PALETTE.primary : MOBILE_PALETTE.surface,
       onPress: () => setSelectedIndex(index),
     })),
     [data, selectedIndex]
@@ -97,9 +98,9 @@ export default MonthlyFrequencyChartWide;
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: MOBILE_PALETTE.border,
     borderRadius: 22,
     padding: 24,
   },
@@ -111,12 +112,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    color: '#e2e8f0',
+    color: MOBILE_PALETTE.text,
     fontSize: 15,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 11,
     fontWeight: '500',
     marginTop: 3,
@@ -125,18 +126,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   selectedMonth: {
-    color: '#60a5fa',
+    color: MOBILE_PALETTE.steel,
     fontSize: 15,
     fontWeight: '800',
   },
   selectedValue: {
-    color: '#94a3b8',
+    color: MOBILE_PALETTE.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 1,
   },
   emptyText: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 13,
     paddingVertical: 40,
   },
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   axisLabel: {
-    color: '#64748b',
+    color: MOBILE_PALETTE.mutedDeep,
     fontSize: 11,
     fontWeight: '600',
   },

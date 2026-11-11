@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import SkeletonLoader from '../SkeletonLoader';
@@ -40,12 +41,12 @@ export default function MediaRowSkeleton({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   content: { flex: 1, padding: 12, justifyContent: 'center' },
   gap: { marginBottom: 8 },

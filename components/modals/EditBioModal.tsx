@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -88,7 +89,7 @@ export default function EditBioModal({ visible, onClose, currentBio, onSaved }: 
             <View style={styles.header}>
               <Text style={styles.title}>{t('settings:editBioTitle', 'Hakkımda')}</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X color="#94a3b8" size={22} />
+                <X color={nativeColor('muted', "#94a3b8")} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -100,7 +101,7 @@ export default function EditBioModal({ visible, onClose, currentBio, onSaved }: 
               maxLength={BIO_EN_COK * 3}
               editable={!isSaving}
               placeholder={t('settings:bioPlaceholder', 'Kendinden kısaca bahset')}
-              placeholderTextColor="#64748b"
+              placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
               autoFocus
             />
             <Text style={[localStyles.counter, tooLong && localStyles.counterOver]}>
@@ -145,7 +146,7 @@ const localStyles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   counter: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     alignSelf: 'flex-end',
     marginTop: 6,

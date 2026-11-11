@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -38,7 +39,7 @@ export default function ActivityDetailHero({ activity, actions, menuProps, onPre
           <Text style={styles.body} selectable>{activity.note}</Text>
         ) : (
           <TouchableOpacity style={styles.spoiler} onPress={() => setRevealed(true)} activeOpacity={0.7}>
-            <EyeOff size={14} color="#64748b" />
+            <EyeOff size={14} color={nativeColor('mutedDeep', "#64748b")} />
             <Text style={styles.spoilerText}>{t('spoilerReveal', 'Spoiler var — görmek için dokun')}</Text>
           </TouchableOpacity>
         )
@@ -62,7 +63,7 @@ export default function ActivityDetailHero({ activity, actions, menuProps, onPre
         >
           <View style={styles.stars}>
             {[1, 2, 3, 4, 5].map((i) => (
-              <Star key={i} size={18} color={i <= dolu ? '#facc15' : '#334155'} fill={i <= dolu ? '#facc15' : 'none'} />
+              <Star key={i} size={18} color={i <= dolu ? nativeColor('rating', '#facc15') : nativeColor('border', '#334155')} fill={i <= dolu ? nativeColor('rating', '#facc15') : 'none'} />
             ))}
             <Text style={styles.starsText}>{`${formatRating(activity.rating)}/5`}</Text>
           </View>
@@ -88,7 +89,7 @@ export default function ActivityDetailHero({ activity, actions, menuProps, onPre
                 : `${label.before}${activity.showTitle ?? ''}${label.after}`}
             </Text>
           </View>
-          <ChevronRight size={18} color="#64748b" />
+          <ChevronRight size={18} color={nativeColor('mutedDeep', "#64748b")} />
         </TouchableOpacity>
       )}
     </View>
@@ -97,35 +98,35 @@ export default function ActivityDetailHero({ activity, actions, menuProps, onPre
 
 const styles = StyleSheet.create({
   wrap: { gap: 14, paddingBottom: 14 },
-  body: { color: '#f1f5f9', fontSize: 17, lineHeight: 26 },
-  sentence: { color: '#cbd5e1', fontSize: 17, lineHeight: 25 },
-  sentenceTitle: { color: '#f1f5f9', fontWeight: '700' },
+  body: { color: nativeColor('text', '#f1f5f9'), fontSize: 17, lineHeight: 26 },
+  sentence: { color: nativeColor('body', '#cbd5e1'), fontSize: 17, lineHeight: 25 },
+  sentenceTitle: { color: nativeColor('text', '#f1f5f9'), fontWeight: '700' },
   spoiler: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
-  spoilerText: { color: '#94a3b8', fontSize: 14 },
+  spoilerText: { color: nativeColor('muted', '#94a3b8'), fontSize: 14 },
   starsWrap: { alignSelf: 'flex-start', gap: 4 },
   stars: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  editHint: { color: '#64748b', fontSize: 11 },
-  starsText: { color: '#facc15', fontSize: 13, fontWeight: '700', marginLeft: 6 },
+  editHint: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 11 },
+  starsText: { color: nativeColor('rating', '#facc15'), fontSize: 13, fontWeight: '700', marginLeft: 6 },
   media: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     borderRadius: 12,
     padding: 8,
   },
-  poster: { width: 42, height: 62, borderRadius: 6, backgroundColor: '#0B1120' },
+  poster: { width: 42, height: 62, borderRadius: 6, backgroundColor: nativeColor('background', '#0B1120') },
   mediaText: { flex: 1, gap: 3 },
-  mediaTitle: { color: '#f1f5f9', fontSize: 14, fontWeight: '700' },
-  mediaSub: { color: '#64748b', fontSize: 12 },
+  mediaTitle: { color: nativeColor('text', '#f1f5f9'), fontSize: 14, fontWeight: '700' },
+  mediaSub: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12 },
 });

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Avatar from '../../../components/Avatar';
@@ -84,7 +85,7 @@ export default function UserSearchResults({ results, error, onSelect }: Props) {
                 <Text style={styles.ad} numberOfLines={1}>
                   {kisi.displayName || `@${kisi.username}`}
                 </Text>
-                {kisi.isPrivate && <Lock size={13} color="#94a3b8" />}
+                {kisi.isPrivate && <Lock size={13} color={nativeColor('muted', "#94a3b8")} />}
               </View>
               {/* §C24 — görünen ad BENZERSİZ DEĞİL; kimliği @username ayırt
                   eder, bu yüzden ad varken de altında HER ZAMAN duruyor. */}
@@ -124,13 +125,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   ad: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 1,
   },
   kullaniciAdi: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     marginTop: 1,
   },
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bosMetni: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     textAlign: 'center',
   },

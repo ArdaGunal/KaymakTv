@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, BackHandler, Linking, Platform } from 'react-native';
 import { Image } from 'expo-image';
@@ -56,7 +57,7 @@ export default function ForceUpdateScreen({ updateUrl }: ForceUpdateScreenProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -72,28 +73,28 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   title: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 12,
     textAlign: 'center',
   },
   message: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 32,
   },
   button: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 12,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
   buttonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 16,
     fontWeight: 'bold',
   },

@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { MOBILE_PALETTE, nativeTint } from '../constants/mobilePalette';
 
 // F12 — MediaHero.tsx'ten çıkarıldı (400 satır kuralı, AI_RULES §1).
 // Saf stil tanımı, mantık yok.
@@ -18,7 +19,7 @@ export const styles = StyleSheet.create({
   backdropPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
   },
   gradientOverlay: {
     position: 'absolute',
@@ -76,7 +77,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   progressText: {
-    color: '#a3a3a3',
+    color: MOBILE_PALETTE.muted,
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 8,
@@ -86,13 +87,13 @@ export const styles = StyleSheet.create({
     height: 165,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2A364F',
+    borderColor: MOBILE_PALETTE.border,
   },
   posterPlaceholder: {
     width: 110,
     height: 165,
     borderRadius: 8,
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
   },
   textContainer: {
     flex: 1,
@@ -103,22 +104,22 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: MOBILE_PALETTE.text,
     marginBottom: 4,
   },
   ikincilBaslik: {
     fontSize: 14,
-    color: '#a3a3a3',
+    color: MOBILE_PALETTE.muted,
     marginBottom: 4,
   },
   meta: {
     fontSize: 13,
-    color: '#a3a3a3',
+    color: MOBILE_PALETTE.muted,
     marginBottom: 4,
   },
   genres: {
     fontSize: 13,
-    color: '#a3a3a3',
+    color: MOBILE_PALETTE.muted,
     marginBottom: 12,
   },
   ratingsRow: {
@@ -131,15 +132,15 @@ export const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(250, 204, 21, 0.1)',
+    backgroundColor: MOBILE_PALETTE.ratingTint,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.2)',
+    borderColor: MOBILE_PALETTE.ratingBorder,
   },
   ratingText: {
-    color: '#facc15',
+    color: MOBILE_PALETTE.rating,
     fontWeight: 'bold',
     fontSize: 13,
     marginLeft: 4,
@@ -147,13 +148,13 @@ export const styles = StyleSheet.create({
   userRatingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(163, 163, 163, 0.1)',
+    backgroundColor: MOBILE_PALETTE.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
     minHeight: 28,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(163, 163, 163, 0.2)',
+    borderColor: MOBILE_PALETTE.border,
   },
   // Sadece ikon barındıran rozetler: metin olmadığı için dokunma alanı
   // önerilen 44pt'nin çok altında kalıyordu — biraz genişletildi.
@@ -162,17 +163,17 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   userRatingActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    backgroundColor: nativeTint('primary', 0.1, 'rgba(59, 130, 246, 0.1)'),
+    borderColor: nativeTint('primary', 0.3, 'rgba(59, 130, 246, 0.3)'),
   },
   userRatingText: {
-    color: '#a3a3a3',
+    color: MOBILE_PALETTE.muted,
     fontWeight: '500',
     fontSize: 13,
     marginLeft: 4,
   },
   userRatingTextActive: {
-    color: '#3b82f6',
+    color: MOBILE_PALETTE.rating,
     fontWeight: 'bold',
   },
   watchlistSection: {
@@ -185,60 +186,47 @@ export const styles = StyleSheet.create({
     gap: 8,
     minHeight: 46,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: MOBILE_PALETTE.border,
   },
   watchlistBtnActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-    borderColor: 'rgba(59, 130, 246, 0.35)',
+    backgroundColor: nativeTint('primary', 0.12, 'rgba(59, 130, 246, 0.12)'),
+    borderColor: nativeTint('primary', 0.35, 'rgba(59, 130, 246, 0.35)'),
   },
   watchlistBtnText: {
-    color: '#fff',
+    color: MOBILE_PALETTE.text,
     fontSize: 14,
     fontWeight: '700',
   },
   watchlistBtnTextActive: {
-    color: '#3b82f6',
+    color: MOBILE_PALETTE.text,
   },
   overviewSection: {
     padding: 16,
     marginTop: 8,
   },
   overviewText: {
-    color: '#d4d4d4',
+    color: MOBILE_PALETTE.body,
     fontSize: 14,
     lineHeight: 22,
   },
-  trailerSection: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  trailerContainer: {
-    height: 180,
-    width: '100%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  trailerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  trailerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+});
+
+/** Native ve dar web detaylarının TARDIS renkleri ve film eylem sırası. */
+export const nativeStyles = StyleSheet.create({
+  backdropContainer: { height: 264 },
+  title: { color: MOBILE_PALETTE.text },
+  muted: { color: MOBILE_PALETTE.muted },
+  ratingBadge: { backgroundColor: MOBILE_PALETTE.ratingTint, borderColor: MOBILE_PALETTE.ratingBorder },
+  ratingText: { color: MOBILE_PALETTE.rating },
+  userRatingBadge: { backgroundColor: MOBILE_PALETTE.surface, borderColor: MOBILE_PALETTE.border },
+  userRatingActive: { backgroundColor: MOBILE_PALETTE.ratingTint, borderColor: MOBILE_PALETTE.ratingBorder },
+  userRatingTextActive: { color: MOBILE_PALETTE.rating },
+  watchlistBtn: { flex: 1, backgroundColor: MOBILE_PALETTE.surface, borderColor: MOBILE_PALETTE.border },
+  watchlistBtnActive: { backgroundColor: MOBILE_PALETTE.primary, borderColor: MOBILE_PALETTE.primary },
+  watchlistBtnText: { color: MOBILE_PALETTE.text },
+  watchlistBtnTextActive: { color: MOBILE_PALETTE.text },
+  movieActions: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  overviewText: { color: MOBILE_PALETTE.text },
 });

@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
@@ -49,7 +50,7 @@ export default function ErrorFallback({ onRetry }: ErrorFallbackProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -76,27 +77,27 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239,68,68,0.25)',
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 19,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 10,
   },
   message: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
     marginBottom: 28,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
   },
   buttonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: '600',
     fontSize: 15,
   },

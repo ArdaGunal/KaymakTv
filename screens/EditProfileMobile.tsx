@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -93,7 +94,7 @@ export default function EditProfileMobile() {
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           {isProfileLoading || !profile ? (
-            <ActivityIndicator size="large" color="#3b82f6" style={styles.loadingIndicator} />
+            <ActivityIndicator size="large" color={nativeColor('steel', "#3b82f6")} style={styles.loadingIndicator} />
           ) : (
             <>
               <View style={styles.avatarSection}>
@@ -132,7 +133,7 @@ export default function EditProfileMobile() {
               >
                 <View style={styles.cardBaslik}>
                   <Text style={styles.label}>{t('media:editProfileNameLabel', 'Görünen Ad')}</Text>
-                  <Pencil size={15} color="#a78bfa" />
+                  <Pencil size={15} color={nativeColor('steel', '#a78bfa')} />
                 </View>
                 <Text style={styles.value}>
                   {profile.name || <Text style={styles.valueEmpty}>{t('media:editProfileNameEmpty', 'Adını ekle')}</Text>}
@@ -161,7 +162,7 @@ export default function EditProfileMobile() {
               >
                 <View style={styles.cardBaslik}>
                   <Text style={styles.label}>{t('media:editProfileAboutLabel', 'Hakkımda')}</Text>
-                  <Pencil size={15} color="#a78bfa" />
+                  <Pencil size={15} color={nativeColor('steel', '#a78bfa')} />
                 </View>
                 <Text style={styles.value}>
                   {profile.about || <Text style={styles.valueEmpty}>{t('media:editProfileAboutEmpty', 'Kendinden kısaca bahset')}</Text>}
@@ -182,7 +183,7 @@ export default function EditProfileMobile() {
               {(
                 <>
                   <View style={styles.infoBox}>
-                    <Info size={16} color="#60a5fa" />
+                    <Info size={16} color={nativeColor('steel', "#60a5fa")} />
                     <Text style={styles.infoText}>
                       {t(
                         'media:editProfileGoogleOnlyHint',
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   scrollContent: {
     flexGrow: 1,
@@ -287,13 +288,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   displayName: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 19,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   handle: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     fontWeight: '500',
   },
@@ -307,36 +308,36 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   value: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     lineHeight: 21,
   },
   valueEmpty: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontStyle: 'italic',
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(96,165,250,0.08)',
+    backgroundColor: nativeTint('steel', 0.08, 'rgba(96,165,250,0.08)'),
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.18)',
+    borderColor: nativeTint('steel', 0.18, 'rgba(96,165,250,0.18)'),
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 2,
   },
   infoText: {
     flex: 1,
-    color: '#93c5fd',
+    color: nativeColor('steel', '#93c5fd'),
     fontSize: 12.5,
     lineHeight: 17,
   },
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 52,
     borderRadius: 14,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     marginTop: 4,
     ...({ cursor: 'pointer' } as any),
   },

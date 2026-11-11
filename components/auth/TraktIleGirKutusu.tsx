@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation, Trans } from 'react-i18next';
@@ -62,14 +63,14 @@ const styles = StyleSheet.create({
   kutu: { width: '100%', alignItems: 'center', gap: 16, paddingVertical: 8 },
   profil: {
     flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'stretch',
-    padding: 14, borderRadius: 12, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155',
+    padding: 14, borderRadius: 12, backgroundColor: nativeColor('surface', '#0f172a'), borderWidth: 1, borderColor: nativeColor('border', '#334155'),
   },
   profilMetin: { flex: 1, gap: 2 },
-  ad: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
-  no: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
-  metin: { color: '#cbd5e1', fontSize: 15, lineHeight: 22, textAlign: 'center' },
-  kalin: { fontWeight: '800', color: '#ffffff' },
-  birincil: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 10, backgroundColor: '#2563eb' },
-  birincilMetin: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
-  ikincil: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
+  ad: { color: nativeColor('text', '#f8fafc'), fontSize: 18, fontWeight: '700' },
+  no: { color: nativeColor('muted', '#94a3b8'), fontSize: 14, fontWeight: '600' },
+  metin: { color: nativeColor('body', '#cbd5e1'), fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  kalin: { fontWeight: '800', color: nativeColor('text', '#ffffff') },
+  birincil: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 10, backgroundColor: nativeColor('primary', '#2563eb') },
+  birincilMetin: { color: nativeColor('text', '#ffffff'), fontSize: 16, fontWeight: '700' },
+  ikincil: { color: nativeColor('muted', '#94a3b8'), fontSize: 14, fontWeight: '600' },
 });

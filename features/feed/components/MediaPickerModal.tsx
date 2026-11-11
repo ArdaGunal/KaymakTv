@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -85,7 +86,7 @@ export default function MediaPickerModal({ visible, onSelect, onClose }: MediaPi
               <View style={styles.header}>
                 <Text style={styles.title}>{t('mediaPickerTitle', 'Bir Yapım Seç')}</Text>
                 <TouchableOpacity onPress={onClose} hitSlop={8}>
-                  <X size={20} color="#64748b" />
+                  <X size={20} color={nativeColor('mutedDeep', "#64748b")} />
                 </TouchableOpacity>
               </View>
 
@@ -100,7 +101,7 @@ export default function MediaPickerModal({ visible, onSelect, onClose }: MediaPi
               </View>
 
               {isLoading ? (
-                <ActivityIndicator style={styles.loading} color="#3b82f6" />
+                <ActivityIndicator style={styles.loading} color={nativeColor('steel', "#3b82f6")} />
               ) : query.trim().length < 2 ? (
                 <Text style={styles.hint}>{t('mediaPickerHint', 'Aramak için en az 2 karakter yaz.')}</Text>
               ) : results.length === 0 ? (
@@ -132,11 +133,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     maxHeight: '85%',
     minHeight: 380,
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 16,
     fontWeight: '700',
   },
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   hint: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     marginTop: 24,

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { confirmAsync } from '../../../utils/confirmDialog';
@@ -116,7 +117,7 @@ export default function NoteEditorModal({
                     : t('noteEditorTitle', 'Alıntı Yap')}
                 </Text>
                 <TouchableOpacity onPress={requestClose} hitSlop={8}>
-                  <X size={20} color="#64748b" />
+                  <X size={20} color={nativeColor('mutedDeep', "#64748b")} />
                 </TouchableOpacity>
               </View>
 
@@ -125,7 +126,7 @@ export default function NoteEditorModal({
                 value={note}
                 onChangeText={setNote}
                 placeholder={t('noteEditorPlaceholder', 'Bu yapım hakkında ne düşünüyorsun?')}
-                placeholderTextColor="#475569"
+                placeholderTextColor={nativeColor('mutedDeep', "#475569")}
                 multiline
                 maxLength={NOTE_MAX_LENGTH + 50}
                 editable={!saving}
@@ -140,8 +141,8 @@ export default function NoteEditorModal({
                   value={spoiler}
                   onValueChange={setSpoiler}
                   disabled={saving}
-                  trackColor={{ false: '#334155', true: '#3b82f6' }}
-                  thumbColor="#f1f5f9"
+                  trackColor={{ false: nativeColor('border', '#334155'), true: nativeColor('primary', '#3b82f6') }}
+                  thumbColor={nativeColor('text', "#f1f5f9")}
                 />
               </View>
 
@@ -178,13 +179,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   dialog: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 420,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   header: {
     flexDirection: 'row',
@@ -193,25 +194,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 17,
     fontWeight: '700',
   },
   input: {
     minHeight: 90,
     maxHeight: 160,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#22304A',
-    color: '#e2e8f0',
+    borderColor: nativeColor('border', '#22304A'),
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     padding: 12,
     textAlignVertical: 'top',
   },
   counter: {
     alignSelf: 'flex-end',
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     marginTop: 4,
   },
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   spoilerLabel: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     fontWeight: '500',
   },
@@ -247,12 +248,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   cancelText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: '600',
     fontSize: 14,
   },
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
   },
   btnDisabled: {
     opacity: 0.5,

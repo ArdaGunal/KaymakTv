@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 
@@ -66,13 +67,13 @@ const styles = StyleSheet.create({
     right: 0,
   },
   listPlaceholder: {
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    backgroundColor: nativeTint('primary', 0.08, 'rgba(59, 130, 246, 0.08)'),
     justifyContent: 'center',
     alignItems: 'center',
     padding: 10,
   },
   listPlaceholderText: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 13,
     fontWeight: '700',
     textAlign: 'center',

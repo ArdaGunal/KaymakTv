@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { memo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Search, SlidersHorizontal, X } from '../icons';
@@ -39,7 +40,7 @@ function LibraryFilterBar({
     <View style={[styles.container, wide && styles.containerWide]}>
       <View style={styles.row}>
         <View style={[styles.inputWrap, wide && styles.inputWrapWide]}>
-          <Search size={wide ? 18 : 16} color="#64748b" />
+          <Search size={wide ? 18 : 16} color={nativeColor('mutedDeep', "#64748b")} />
           <TextInput
             style={[styles.input, wide && styles.inputWide]}
             value={value}
@@ -54,7 +55,7 @@ function LibraryFilterBar({
           />
           {value.length > 0 ? (
             <TouchableOpacity onPress={onClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <X size={16} color="#94a3b8" />
+              <X size={16} color={nativeColor('muted', "#94a3b8")} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -66,7 +67,7 @@ function LibraryFilterBar({
           accessibilityRole="button"
           accessibilityLabel={filterLabel}
         >
-          <SlidersHorizontal size={wide ? 20 : 18} color={hasFilters ? '#0b1120' : '#e2e8f0'} />
+          <SlidersHorizontal size={wide ? 20 : 18} color={hasFilters ? nativeColor('background', '#0b1120') : nativeColor('text', '#e2e8f0')} />
           {hasFilters ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{activeFilterCount}</Text>
@@ -87,9 +88,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 8,
-    backgroundColor: '#101010',
+    backgroundColor: nativeColor('background', '#101010'),
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: nativeColor('surface', '#1a1a1a'),
   },
   containerWide: {
     paddingHorizontal: 20,
@@ -110,20 +111,20 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: nativeColor('surface', '#1a1a1a'),
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: nativeColor('border', '#262626'),
   },
   inputWrapWide: {
     height: 44,
     maxWidth: 420,
     borderRadius: 12,
-    backgroundColor: '#111827',
-    borderColor: '#1f2937',
+    backgroundColor: nativeColor('surface', '#111827'),
+    borderColor: nativeColor('raised', '#1f2937'),
   },
   input: {
     flex: 1,
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 14,
     padding: 0,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null),
@@ -137,21 +138,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: nativeColor('surface', '#1a1a1a'),
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: nativeColor('border', '#262626'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   filterButtonWide: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#111827',
-    borderColor: '#1f2937',
+    backgroundColor: nativeColor('surface', '#111827'),
+    borderColor: nativeColor('raised', '#1f2937'),
   },
   filterButtonActive: {
-    backgroundColor: '#38bdf8',
-    borderColor: '#38bdf8',
+    backgroundColor: nativeColor('steel', '#38bdf8'),
+    borderColor: nativeColor('steel', '#38bdf8'),
   },
   badge: {
     position: 'absolute',
@@ -163,18 +164,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: nativeColor('surface', '#0f172a'),
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: nativeColor('steel', '#38bdf8'),
   },
   badgeText: {
-    color: '#e0f2fe',
+    color: nativeColor('text', '#e0f2fe'),
     fontSize: 10,
     fontWeight: '700',
   },
   caption: {
     marginTop: 8,
-    color: '#8b93a1',
+    color: nativeColor('muted', '#8b93a1'),
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.4,

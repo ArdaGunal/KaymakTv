@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, useWindowDimensions, ActivityIndicator } from 'react-native';
 import Avatar from '../../components/Avatar';
@@ -48,7 +49,7 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
           onPress={() => onAccept(request.userId)}
           activeOpacity={0.8}
         >
-          <Check size={15} color="#ffffff" />
+          <Check size={15} color={nativeColor('text', "#ffffff")} />
           <Text style={styles.acceptButtonText}>{t('accept', 'Kabul Et')}</Text>
         </TouchableOpacity>
 
@@ -57,7 +58,7 @@ function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps
           onPress={() => onReject(request.userId)}
           activeOpacity={0.8}
         >
-          <X size={15} color="#94a3b8" />
+          <X size={15} color={nativeColor('muted', "#94a3b8")} />
         </TouchableOpacity>
       </View>
     </View>
@@ -119,7 +120,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={nativeColor('text', "#ffffff")} />
         }
       >
         {/* Bildirimleri ac hatirlatmasi — izin yoksa ve kullanici kapatmadiysa
@@ -133,13 +134,13 @@ export default function NotificationsScreen() {
         {showRequests && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <UserPlus size={16} color="#94a3b8" />
+              <UserPlus size={16} color={nativeColor('muted', "#94a3b8")} />
               <Text style={styles.sectionTitle}>{t('followRequests', 'Takip İstekleri')}</Text>
             </View>
 
             {isRequestsLoading ? (
               <View style={styles.emptyBox}>
-                <ActivityIndicator size="small" color="#3b82f6" />
+                <ActivityIndicator size="small" color={nativeColor('steel', "#3b82f6")} />
               </View>
             ) : (
               <View style={styles.card}>
@@ -164,7 +165,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   scroll: {
     flex: 1,
@@ -190,14 +191,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   sectionTitle: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
@@ -221,17 +222,17 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   requestName: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 14,
     fontWeight: '700',
   },
   requestHandle: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     marginTop: 1,
   },
   requestUsername: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
   },
   requestActions: {
@@ -243,13 +244,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#2563eb',
+    backgroundColor: nativeColor('primary', '#2563eb'),
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   acceptButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
 
   // Boş durum (yalnızca takip istekleri yüklenirken)
   emptyBox: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',

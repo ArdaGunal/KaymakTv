@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChevronLeft } from '../icons';
@@ -21,7 +22,7 @@ export function SettingsHeader({ title, isDesktop, onBack, rightSlot }: Settings
         activeOpacity={0.75}
         accessibilityRole="button"
       >
-        <ChevronLeft size={isDesktop ? 18 : 22} color="#f1f5f9" strokeWidth={2.2} />
+        <ChevronLeft size={isDesktop ? 18 : 22} color={nativeColor('text', "#f1f5f9")} strokeWidth={2.2} />
         {isDesktop && <Text style={styles.backButtonText}>{t('back', 'Geri')}</Text>}
       </TouchableOpacity>
       <Text style={styles.title} numberOfLines={1}>
@@ -72,11 +73,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#1f2937',
+    backgroundColor: nativeColor('raised', '#1f2937'),
     ...({ cursor: 'pointer', transition: 'all 0.2s ease' } as any),
   },
   backButtonText: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     fontWeight: '600',
   },

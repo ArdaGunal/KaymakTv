@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
@@ -26,7 +27,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.1,
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   footerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12,
     lineHeight: 16,
     marginTop: 6,

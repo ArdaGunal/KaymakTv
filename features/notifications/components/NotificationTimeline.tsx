@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -95,7 +96,7 @@ export function NotificationTimeline() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
           >
-            <Trash2 size={13} color="#94a3b8" />
+            <Trash2 size={13} color={nativeColor('muted', "#94a3b8")} />
             <Text style={styles.clearText}>{t('timeline.clearAll', 'Tümünü temizle')}</Text>
           </TouchableOpacity>
         </View>
@@ -103,7 +104,7 @@ export function NotificationTimeline() {
 
       {total === 0 ? (
         <View style={styles.emptyBox}>
-          <Inbox size={28} color="#334155" />
+          <Inbox size={28} color={nativeColor('border', "#334155")} />
           <Text style={styles.emptyTitle}>{t('timeline.emptyTitle', 'Bildirim kutun boş')}</Text>
           <Text style={styles.emptyText}>
             {t('timeline.emptyBody', 'Takip ettiğin dizilerin yeni bölümleri ve sosyal etkileşimler burada görünür.')}
@@ -162,12 +163,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   clearButton: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  clearText: { color: '#94a3b8', fontSize: 12, fontWeight: '600' },
+  clearText: { color: nativeColor('muted', '#94a3b8'), fontSize: 12, fontWeight: '600' },
 
   group: { gap: 8 },
-  groupTitle: { color: '#64748b', fontSize: 12, fontWeight: '700', paddingHorizontal: 4 },
+  groupTitle: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12, fontWeight: '700', paddingHorizontal: 4 },
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -181,12 +182,12 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 30,
     paddingHorizontal: 24,
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  emptyTitle: { color: '#cbd5e1', fontSize: 14, fontWeight: '700', marginTop: 2 },
-  emptyText: { color: '#64748b', fontSize: 12.5, textAlign: 'center', lineHeight: 18 },
+  emptyTitle: { color: nativeColor('body', '#cbd5e1'), fontSize: 14, fontWeight: '700', marginTop: 2 },
+  emptyText: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12.5, textAlign: 'center', lineHeight: 18 },
 
 });

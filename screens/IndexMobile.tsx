@@ -17,6 +17,7 @@ import UpcomingSectionList from '../components/index/UpcomingSectionList';
 import TrackingAccordionList from '../components/tracking/TrackingAccordionList';
 import AktarimBandi from '../components/library/AktarimBandi';
 import { useAktarimGorunumu } from '../hooks/useAktarimGorunumu';
+import { MOBILE_PALETTE } from '../constants/mobilePalette';
 
 export default function DizilerScreen() {
   const insets = useSafeAreaInsets();
@@ -185,7 +186,7 @@ export default function DizilerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1120' },
+  container: { flex: 1, backgroundColor: MOBILE_PALETTE.background },
   scrollContent: { paddingTop: 12 },
   skeletonBlock: { marginBottom: 16 },
   skeletonTitle: { marginBottom: 12, marginLeft: 16 },

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -60,7 +61,7 @@ export default function NetworkScreen() {
   const renderItem = ({ item }: { item: NetworkUser }) => <NetworkUserCard user={item} />;
 
   return (
-    <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>
+    <LinearGradient colors={[nativeColor('surface', '#0F172A'), nativeColor('background', '#0B1120')]} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
         <TouchableOpacity
           onPress={handleBack}
@@ -93,7 +94,7 @@ export default function NetworkScreen() {
         </View>
 
         {isLoading || kimlikCozuluyor ? (
-          <ActivityIndicator size="large" color="#3b82f6" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={nativeColor('steel', "#3b82f6")} style={{ marginTop: 40 }} />
         ) : (
           <FlatList
             data={data}
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#22304A',
+    borderBottomColor: nativeColor('border', '#22304A'),
     marginBottom: 10,
   },
   tab: {
@@ -177,15 +178,15 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#3b82f6',
+    borderBottomColor: nativeColor('steel', '#3b82f6'),
   },
   tabText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
   },
   listContent: {
     paddingTop: 10,
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 14,
     textAlign: 'center',
   },

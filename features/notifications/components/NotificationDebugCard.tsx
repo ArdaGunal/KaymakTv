@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 13,
     fontWeight: '700',
   },
@@ -295,11 +296,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   meta: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 11,
   },
   permissionValue: {
-    color: '#93c5fd',
+    color: nativeColor('steel', '#93c5fd'),
     fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   buttonText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 11.5,
     fontWeight: '600',
   },
@@ -337,12 +338,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   pendingTitle: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 11.5,
     fontWeight: '700',
   },
   pendingLine: {
-    color: '#8c90a0',
+    color: nativeColor('muted', '#8c90a0'),
     fontSize: 10.5,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },

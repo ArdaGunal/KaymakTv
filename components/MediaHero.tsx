@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { notify } from '../utils/confirmDialog';
 import { Image } from 'expo-image';
-import { ChevronLeft, Play, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from './icons';
+import { ChevronLeft, Star, Home, MoreVertical, Heart, ListPlus, Bookmark } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -20,8 +20,10 @@ import { useAppBack, useAppHome } from '../hooks/useAppBack';
 import { useDetailLayout } from '../hooks/useDetailLayout';
 import MediaHeroWebView from './hero/MediaHeroWebView';
 import { deriveFollowStatus, resolveFollowAction } from '../utils/followStatus';
-import { styles } from './MediaHero.styles';
+import { styles, nativeStyles } from './MediaHero.styles';
 import ExpandableText from './ExpandableText';
+import MediaTrailer from './detail/MediaTrailer';
+import { MOBILE_PALETTE } from '../constants/mobilePalette';
 import { gorunenBaslik } from '../utils/gorunenBaslik';
 import IkincilBaslik from './hero/IkincilBaslik';
 
@@ -51,6 +53,8 @@ interface MediaHeroProps {
   onHideFromProgress?: () => void;
   onDeleteFromHistory?: () => void;
   onRewatch?: () => void;
+  /** Mobil yerleşimde (native ve dar web) film izleme eylemi takip eyleminin yanında gösterilir. */
+  movieWatchAction?: React.ReactNode;
 }
 
 export default function MediaHero({
@@ -71,12 +75,14 @@ export default function MediaHero({
   onHideFromProgress,
   onDeleteFromHistory,
   onRewatch,
+  movieWatchAction,
 }: MediaHeroProps) {
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
   const { ozelListeler } = useKaymakYetenekleri();
   const { showProgressMap } = useLibrary();
+  const { isDesktopWeb } = useDetailLayout();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [listModalVisible, setListModalVisible] = useState(false);
@@ -85,7 +91,9 @@ export default function MediaHero({
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
-  const progressColor = getProgressBarColor(!!isHidden, isFinished);
+  const native = Platform.OS !== 'web';
+  const useMobileStyles = native || !isDesktopWeb;
+  const progressColor = getProgressBarColor(!!isHidden, isFinished, useMobileStyles ? MOBILE_PALETTE.steel : undefined);
 
 
   const handleRate = (r: number) => {
@@ -101,8 +109,6 @@ export default function MediaHero({
   // Masaüstü web'de hero TAMAMEN farklı bir düzende çiziliyor (bkz.
   // hooks/useDetailLayout.ts). Native'de `isDesktopWeb` HER ZAMAN false —
   // aşağıdaki mobil ağaç bit bit aynı kalır.
-  const { isDesktopWeb } = useDetailLayout();
-
   const handleRemove = () => {
     onRemoveRating();
     setRatingModalVisible(false);
@@ -195,14 +201,14 @@ export default function MediaHero({
       ) : (
       <>
       {/* BACKDROP */}
-      <View style={styles.backdropContainer}>
+      <View style={[styles.backdropContainer, useMobileStyles && nativeStyles.backdropContainer]}>
         {backdrop ? (
           <Image source={{ uri: backdrop }} style={styles.backdropImage} contentFit="cover" transition={300} />
         ) : (
           <View style={styles.backdropPlaceholder} />
         )}
         <LinearGradient
-          colors={['transparent', 'rgba(11,17,32,0.8)', '#0B1120']}
+          colors={['transparent', 'rgba(12,29,43,0.8)', MOBILE_PALETTE.background]}
           style={styles.gradientOverlay}
         />
         <TouchableOpacity
@@ -237,38 +243,38 @@ export default function MediaHero({
         )}
         
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={2}>{gorunenBaslik(data, i18n.language)}</Text>
-          <IkincilBaslik yapim={data} style={styles.ikincilBaslik} />
+          <Text style={[styles.title, useMobileStyles && nativeStyles.title]} numberOfLines={2}>{gorunenBaslik(data, i18n.language)}</Text>
+          <IkincilBaslik yapim={data} style={[styles.ikincilBaslik, useMobileStyles && nativeStyles.muted]} />
           
-          <Text style={styles.meta}>
+          <Text style={[styles.meta, useMobileStyles && nativeStyles.muted]}>
             {data.year} 
             {type === 'show' && data.network ? ` • ${data.network}` : ''}
             {type === 'movie' && data.runtime ? ` • ${formatRuntime(data.runtime)}` : ''}
           </Text>
 
-          <Text style={styles.genres} numberOfLines={1}>
+          <Text style={[styles.genres, useMobileStyles && nativeStyles.muted]} numberOfLines={1}>
             {data.genres?.join(', ')}
           </Text>
 
           {/* RATINGS ROW */}
           <View style={styles.ratingsRow}>
             {/* Global Trakt Rating */}
-            <View style={styles.ratingBadge}>
-              <Star size={14} color="#facc15" fill="#facc15" />
-              <Text style={styles.ratingText}>
+            <View style={[styles.ratingBadge, useMobileStyles && nativeStyles.ratingBadge]}>
+              <Star size={14} color={MOBILE_PALETTE.rating} fill={MOBILE_PALETTE.rating} />
+              <Text style={[styles.ratingText, useMobileStyles && nativeStyles.ratingText]}>
                 {formatRating(data.rating)}
               </Text>
             </View>
 
             {/* User Rating (Delicate Button) */}
             <TouchableOpacity
-              style={[styles.userRatingBadge, (userRating !== undefined && userRating !== null) ? styles.userRatingActive : null]}
+              style={[styles.userRatingBadge, useMobileStyles && nativeStyles.userRatingBadge, (userRating !== undefined && userRating !== null) ? nativeStyles.userRatingActive : null]}
               onPress={openRating}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
-              <Star size={14} color={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "#a3a3a3"} fill={(userRating !== undefined && userRating !== null) ? "#3b82f6" : "transparent"} />
-              <Text style={[styles.userRatingText, (userRating !== undefined && userRating !== null) ? styles.userRatingTextActive : null]}>
+              <Star size={14} color={(userRating !== undefined && userRating !== null) ? MOBILE_PALETTE.rating : MOBILE_PALETTE.muted} fill={(userRating !== undefined && userRating !== null) ? MOBILE_PALETTE.rating : "transparent"} />
+              <Text style={[styles.userRatingText, useMobileStyles && nativeStyles.muted, (userRating !== undefined && userRating !== null) ? nativeStyles.userRatingTextActive : null]}>
                 {(userRating !== undefined && userRating !== null) ? `${formatRating(userRating)}/5` : t('rate')}
               </Text>
             </TouchableOpacity>
@@ -277,6 +283,7 @@ export default function MediaHero({
             <TouchableOpacity
               style={[
                 styles.userRatingBadge,
+                useMobileStyles && nativeStyles.userRatingBadge,
                 styles.iconOnlyBadge,
                 isFavorited ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' } : null
               ]}
@@ -284,7 +291,7 @@ export default function MediaHero({
               onPress={handleToggleFavorite}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Heart size={16} color={isFavorited ? "#ef4444" : "#a3a3a3"} fill={isFavorited ? "#ef4444" : "transparent"} />
+              <Heart size={16} color={isFavorited ? "#ef4444" : MOBILE_PALETTE.muted} fill={isFavorited ? "#ef4444" : "transparent"} />
             </TouchableOpacity>
 
             {/* Add to List Button — hem mobil hem web'de TEK dokunuşla liste
@@ -295,12 +302,12 @@ export default function MediaHero({
                 dışında (bkz. useKaymakYetenekleri). */}
             {ozelListeler && (
               <TouchableOpacity
-                style={[styles.userRatingBadge, styles.iconOnlyBadge]}
+                style={[styles.userRatingBadge, useMobileStyles && nativeStyles.userRatingBadge, styles.iconOnlyBadge]}
                 activeOpacity={0.7}
                 onPress={openList}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <ListPlus size={16} color="#a3a3a3" />
+                <ListPlus size={16} color={MOBILE_PALETTE.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -310,7 +317,7 @@ export default function MediaHero({
               <View style={styles.progressBarWrapper}>
                 <ProgressBar percentage={progressPercentage} fillColor={progressColor} />
               </View>
-              <Text style={styles.progressText}>%{Math.round(progressPercentage)}</Text>
+              <Text style={[styles.progressText, useMobileStyles && nativeStyles.muted]}>%{Math.round(progressPercentage)}</Text>
             </View>
           )}
         </View>
@@ -323,51 +330,33 @@ export default function MediaHero({
           kendi başına, tam genişlikte, tanınabilir bir aksiyon çubuğu —
           "kişiyi takip et" (Public Profile) butonuyla karışmasın diye hâlâ
           `Bookmark` ikonunu ve farklı bir sayfa bağlamını koruyor. */}
-      <View style={[styles.watchlistSection, { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right }]}>
+      <View style={[styles.watchlistSection, { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right }, useMobileStyles && type === 'movie' && nativeStyles.movieActions]}>
         <TouchableOpacity
-          style={[styles.watchlistBtn, followStatus.isFollowing && styles.watchlistBtnActive]}
+          style={[styles.watchlistBtn, useMobileStyles && nativeStyles.watchlistBtn, followStatus.isFollowing && nativeStyles.watchlistBtnActive]}
           onPress={handleToggleFollow}
           activeOpacity={0.85}
         >
           <Bookmark
             size={18}
-            color={followStatus.isFollowing ? '#3b82f6' : '#fff'}
-            fill={followStatus.isFollowing ? '#3b82f6' : 'transparent'}
+            color={followStatus.isFollowing ? MOBILE_PALETTE.text : MOBILE_PALETTE.steel}
+            fill={followStatus.isFollowing ? MOBILE_PALETTE.text : 'transparent'}
           />
-          <Text style={[styles.watchlistBtnText, followStatus.isFollowing && styles.watchlistBtnTextActive]}>
+          <Text style={[styles.watchlistBtnText, useMobileStyles && nativeStyles.watchlistBtnText, followStatus.isFollowing && nativeStyles.watchlistBtnTextActive]}>
             {followStatus.isFollowing ? t('watchlistActive', 'Takip Ediliyor') : t('watchlistAction', 'Takip Et')}
           </Text>
         </TouchableOpacity>
+        {useMobileStyles && type === 'movie' && movieWatchAction}
       </View>
 
       {/* OVERVIEW */}
       {data.overview && (
         <View style={styles.overviewSection}>
-          <ExpandableText text={data.overview} style={styles.overviewText} limit={150} />
+          <ExpandableText text={data.overview} style={[styles.overviewText, useMobileStyles && nativeStyles.overviewText]} limit={150} />
         </View>
       )}
 
       {/* TRAILER */}
-      {trailerId && trailerId !== 'null' && (
-        <View style={styles.trailerSection}>
-          <Text style={styles.sectionTitle}>{t('trailer')}</Text>
-          <TouchableOpacity 
-            style={styles.trailerContainer}
-            activeOpacity={0.8}
-            onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${trailerId}`)}
-          >
-            <Image 
-              source={{ uri: `https://img.youtube.com/vi/${trailerId}/hqdefault.jpg` }} 
-              style={styles.trailerImage}
-              contentFit="cover"
-              transition={200}
-            />
-            <View style={styles.trailerOverlay}>
-              <Play color="#fff" size={40} fill="#fff" />
-            </View>
-          </TouchableOpacity>
-        </View>
-      )}
+      {!native && <MediaTrailer trailerId={trailerId} />}
 
       </>
       )}

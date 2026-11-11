@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -104,7 +105,7 @@ export default function CommentSheet({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <MessageSquare size={20} color="#60a5fa" />
+              <MessageSquare size={20} color={nativeColor('steel', "#60a5fa")} />
               <Text style={styles.title}>
                 {t('media:comments')}
                 {(totalCount + kaymakReviewCount) > 0 && (
@@ -113,7 +114,7 @@ export default function CommentSheet({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X color="#94a3b8" size={22} />
+              <X color={nativeColor('muted', "#94a3b8")} size={22} />
             </TouchableOpacity>
           </View>
 
@@ -190,7 +191,7 @@ export default function CommentSheet({
               ListEmptyComponent={
                 kaymakReviewCount === 0 ? (
                   <View style={styles.emptyState}>
-                    <MessageSquare size={40} color="#1e293b" />
+                    <MessageSquare size={40} color={nativeColor('raised', "#1e293b")} />
                     <Text style={styles.emptyTitle}>{t('noCommentsYet')}</Text>
                     <Text style={styles.emptySubtitle}>{t('firstCommentPrompt')}</Text>
                   </View>
@@ -218,10 +219,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
   },
   dividerLabel: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
     fontWeight: '600',
   },
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     height: '88%',
@@ -260,13 +261,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   count: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontWeight: '500',
   },
   closeBtn: {
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   stateText: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 14,
   },
   errorText: {
@@ -296,15 +297,15 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   retryBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   retryBtnText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: '600',
     fontSize: 14,
   },
@@ -318,12 +319,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 17,
     fontWeight: '700',
   },
   emptySubtitle: {
-    color: '#334155',
+    color: nativeColor('border', '#334155'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 20,

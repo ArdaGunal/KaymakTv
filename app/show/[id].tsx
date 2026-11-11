@@ -24,6 +24,8 @@ import { useDetailLayout } from '../../hooks/useDetailLayout';
 import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import SeasonsRailWeb from '../../components/detail/SeasonsRailWeb';
 import SeasonsListMobile from '../../components/detail/SeasonsListMobile';
+import MediaTrailer from '../../components/detail/MediaTrailer';
+import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 import { diziSayfaSirasi } from '../../utils/diziSayfaSirasi';
 import { sezonEvreniKur } from '../../utils/sezonEvreni';
 import ShowDetailOverlays from '../../components/detail/ShowDetailOverlays';
@@ -241,6 +243,7 @@ export default function ShowDetailScreen() {
   // listenin altinda akiyor (bkz. MediaCommentsSection basligi).
   const commentsSection = (
     <MediaCommentsSection
+      writeActionVariant={Platform.OS === 'web' ? 'default' : 'input'}
       reviewsState={reviewsState}
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
@@ -346,13 +349,14 @@ export default function ShowDetailScreen() {
               sınırlarında. Eskiden tek bir render istisnası kök
               ErrorBoundary'ye çıkıp TÜM SAYFAYI düşürüyordu — S13'ün
               gerekçesi buydu ama pratikte yalnızca bir yerde uygulanmıştı. */}
-          {/* DIZI-SAYFA-01 (M513): sıra utils/diziSayfaSirasi.ts'te — uygulamada
-              sezonlar yorumların ÜSTÜNDE, web'de (dar) eski sırada.
+          {/* DIZI-SAYFA-01 (M587): sıra utils/diziSayfaSirasi.ts'te — native'de
+              oyuncular, sezonlar, incelemeler, fragman, benzerler; web'de eski sıra.
               KaymakTV İncelemeleri: kendi sosyal evrenimiz, "Trakt Topluluğu"
               bölümünden BİLİNÇLİ olarak ayrı (bkz. docs/design/REVIEWS_PLAN.md §4.2). */}
           {diziSayfaSirasi(Platform.OS).map((bolum) => (
             <React.Fragment key={bolum}>
               {bolum === 'oyuncular' && castSection}
+              {bolum === 'fragman' && <MediaTrailer trailerId={trailerId} noPadding />}
               {bolum === 'yorumlar' && <View style={styles.section}>{commentsSection}</View>}
               {bolum === 'sezonlar' && (
                 <SeasonsListMobile
@@ -381,7 +385,7 @@ export default function ShowDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1120' },
+  container: { flex: 1, backgroundColor: Platform.OS === 'web' ? nativeColor('background', '#0B1120') : MOBILE_PALETTE.background },
   contentArea: { padding: 16 },
   section: { marginBottom: 24 },
   // Masaustu sol sutununda bloklar arasi dikey ritim.

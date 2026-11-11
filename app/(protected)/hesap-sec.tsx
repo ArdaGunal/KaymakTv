@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -84,16 +85,16 @@ export default function HesapSecEkrani() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0B1120' },
+  safe: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
   icerik: { padding: 16, gap: 14, maxWidth: 560, width: '100%', alignSelf: 'center' },
   bos: { padding: 24, gap: 16, alignItems: 'center' },
-  aciklama: { color: '#cbd5e1', fontSize: 14, lineHeight: 20 },
-  birincil: { backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 6 },
+  aciklama: { color: nativeColor('body', '#cbd5e1'), fontSize: 14, lineHeight: 20 },
+  birincil: { backgroundColor: nativeColor('primary', '#2563eb'), borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 6 },
   birincilMetin: { color: '#fff', fontWeight: '700', fontSize: 15 },
   sil: { backgroundColor: '#dc2626', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   pasif: { opacity: 0.45 },
   ikincil: { alignItems: 'center', paddingVertical: 10 },
-  ikincilMetin: { color: '#94a3b8', fontWeight: '600', fontSize: 14 },
+  ikincilMetin: { color: nativeColor('muted', '#94a3b8'), fontWeight: '600', fontSize: 14 },
   uyari: { alignItems: 'center', gap: 10, padding: 18, borderRadius: 14, backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
   uyariBaslik: { color: '#fecaca', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   uyariMetin: { color: '#fca5a5', fontSize: 14, lineHeight: 20, textAlign: 'center' },

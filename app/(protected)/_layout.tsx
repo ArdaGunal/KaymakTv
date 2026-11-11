@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import { Stack, Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -35,7 +36,7 @@ export default function ProtectedLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#171717' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: nativeColor('surface', '#171717') } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="account" />
         <Stack.Screen name="dev-panel" />

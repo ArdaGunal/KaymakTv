@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View, ActivityIndicator, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,7 +78,7 @@ export default function SyncStatusBanner() {
       style={[styles.wrapper, { top: insets.top + 8, opacity, transform: [{ translateY }] }]}
     >
       <View style={styles.pill}>
-        <ActivityIndicator size="small" color="#60a5fa" />
+        <ActivityIndicator size="small" color={nativeColor('steel', "#60a5fa")} />
         <Text style={styles.text} numberOfLines={1}>{t('syncInProgress')}</Text>
       </View>
     </Animated.View>
@@ -97,12 +98,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     maxWidth: 320,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#172033',
+    borderColor: nativeColor('surface', '#172033'),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   text: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     fontWeight: '500',
   },

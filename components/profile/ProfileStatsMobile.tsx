@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../../constants/mobilePalette';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Tv, Film, ChevronRight } from '../icons';
@@ -68,7 +69,7 @@ const ProfileStats = () => {
       <View style={styles.block}>
         <View style={styles.headerRow}>
           <View style={styles.iconChip}>
-            <Tv size={12} color="#60a5fa" />
+            <Tv size={12} color={nativeColor('steel', "#60a5fa")} />
           </View>
           <Text style={styles.blockTitle} numberOfLines={1}>
             {t('statsShowsTab', 'Diziler')}
@@ -89,7 +90,7 @@ const ProfileStats = () => {
       <View style={styles.block}>
         <View style={styles.headerRow}>
           <View style={styles.iconChip}>
-            <Film size={12} color="#60a5fa" />
+            <Film size={12} color={nativeColor('steel', "#60a5fa")} />
           </View>
           <Text style={styles.blockTitle} numberOfLines={1}>
             {t('statsMoviesTab', 'Filmler')}
@@ -105,7 +106,7 @@ const ProfileStats = () => {
       </View>
 
       <View style={styles.chevronWrap}>
-        <ChevronRight size={16} color="#64748b" />
+        <ChevronRight size={16} color={nativeColor('mutedDeep', "#64748b")} />
       </View>
     </Pressable>
   );
@@ -143,26 +144,26 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 6,
-    backgroundColor: 'rgba(96, 165, 250, 0.12)',
+    backgroundColor: nativeTint('steel', 0.12, 'rgba(96, 165, 250, 0.12)'),
     alignItems: 'center',
     justifyContent: 'center',
   },
   blockTitle: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     letterSpacing: 0.3,
   },
   statValueText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     letterSpacing: -0.3,
   },
   statSubText: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
   },
   verticalDivider: {
     width: 1,

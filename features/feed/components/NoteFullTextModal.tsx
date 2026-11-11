@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -37,7 +38,7 @@ export default function NoteFullTextModal({ visible, text, onClose }: NoteFullTe
               <View style={styles.header}>
                 <Text style={styles.title}>{t('fullTextTitle', 'Tam Metin')}</Text>
                 <TouchableOpacity onPress={onClose} hitSlop={8}>
-                  <X size={20} color="#64748b" />
+                  <X size={20} color={nativeColor('mutedDeep', "#64748b")} />
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -60,14 +61,14 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   dialog: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 20,
     padding: 22,
     width: '100%',
     maxWidth: 440,
     maxHeight: '70%',
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   header: {
     flexDirection: 'row',
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     fontWeight: '700',
   },
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   text: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 21,

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Check } from '../icons';
@@ -42,7 +43,7 @@ const MovieCardActions = memo(({ data, onCheckIn }: {
           onPress={onCheckIn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Check size={20} color="#ffffff" strokeWidth={3} />
+          <Check size={20} color={nativeColor('text', "#ffffff")} strokeWidth={3} />
         </TouchableOpacity>
       )}
     </View>
@@ -132,10 +133,10 @@ const styles = StyleSheet.create({
   // EpisodeCard ile aynı gece-lacivert tasarım dili: slate yüzey + ince kenarlık
   card: {
     flexDirection: 'row',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     overflow: 'hidden',
     marginBottom: 12,
     height: 144,
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   },
   posterContainer: {
     width: 96,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     position: 'relative',
   },
   posterImage: {
@@ -166,14 +167,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   movieTitleText: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.2,
     marginBottom: 5,
   },
   yearText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     fontWeight: '500',
   },
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   tagText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   countdownText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,

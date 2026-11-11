@@ -9,6 +9,7 @@ import EpisodeCheckButton from './EpisodeCheckButton';
 import OrtaPencere from './modals/OrtaPencere';
 import { useSezonIsaretleme } from '../hooks/useSezonIsaretleme';
 import { bolumYayinlandiMi } from '../utils/atlananBolumler';
+import { MOBILE_PALETTE, nativeColor, nativeTint } from '../constants/mobilePalette';
 
 interface SeasonAccordionProps {
   season: any;
@@ -82,13 +83,13 @@ export default function SeasonAccordion({
   });
 
   return (
-    <View style={styles.seasonContainer}>
+    <View style={[styles.seasonContainer, Platform.OS !== 'web' && styles.nativeSeasonContainer]}>
       <TouchableOpacity
-        style={[styles.seasonHeader, !isExpanded && { borderBottomLeftRadius: 15, borderBottomRightRadius: 15 }]}
+        style={[styles.seasonHeader, Platform.OS !== 'web' && styles.nativeSeasonHeader, !isExpanded && { borderBottomLeftRadius: 15, borderBottomRightRadius: 15 }]}
         onPress={onToggle}
         activeOpacity={0.7}
       >
-        <Text style={styles.seasonTitle}>
+        <Text style={[styles.seasonTitle, Platform.OS !== 'web' && styles.nativeSeasonTitle]}>
           {season.number === 0 ? t('specials', 'Özel Bölümler') : t('seasonNum', { number: season.number })}
         </Text>
         <View style={styles.seasonHeaderRight}>
@@ -97,9 +98,9 @@ export default function SeasonAccordion({
               style={[styles.markSeasonBtn, isSeasonWatched && styles.markSeasonBtnWatched]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
            >
-              <CheckCheck color="#ffffff" size={20} />
+              <CheckCheck color={nativeColor('text', "#ffffff")} size={20} />
            </TouchableOpacity>
-           {isExpanded ? <ChevronUp color="#a3a3a3" /> : <ChevronDown color="#a3a3a3" />}
+           {isExpanded ? <ChevronUp color={nativeColor('muted', "#a3a3a3")} /> : <ChevronDown color={nativeColor('muted', "#a3a3a3")} />}
         </View>
       </TouchableOpacity>
 
@@ -175,8 +176,8 @@ export default function SeasonAccordion({
         </View>
 
         <TouchableOpacity style={styles.menuButton} onPress={sezon.tekrarIzle}>
-          <RotateCcw size={20} color="#3b82f6" />
-          <Text style={[styles.menuButtonText, { color: '#3b82f6' }]}>{t('rewatch')}</Text>
+          <RotateCcw size={20} color={nativeColor('steel', "#3b82f6")} />
+          <Text style={[styles.menuButtonText, { color: nativeColor('steel', '#3b82f6') }]}>{t('rewatch')}</Text>
         </TouchableOpacity>
 
         {sezon.menuOncekiSayisi > 0 && (
@@ -206,6 +207,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
   },
+  nativeSeasonContainer: { backgroundColor: MOBILE_PALETTE.surface, borderColor: MOBILE_PALETTE.border },
+  nativeSeasonHeader: { backgroundColor: MOBILE_PALETTE.surface },
+  nativeSeasonTitle: { color: MOBILE_PALETTE.text },
   seasonHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -228,7 +232,7 @@ const styles = StyleSheet.create({
   seasonTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     letterSpacing: -0.2,
   },
   episodesList: {
@@ -247,16 +251,16 @@ const styles = StyleSheet.create({
   },
   // Yalnızca `activeEpisodeNumber` verildiğinde uygulanır (masaüstü web).
   episodeRowActive: {
-    backgroundColor: 'rgba(59,130,246,0.10)',
+    backgroundColor: nativeTint('primary', 0.10, 'rgba(59,130,246,0.10)'),
     borderLeftWidth: 3,
-    borderLeftColor: '#3b82f6',
-    borderBottomColor: 'rgba(59,130,246,0.18)',
+    borderLeftColor: nativeColor('steel', '#3b82f6'),
+    borderBottomColor: nativeTint('primary', 0.18, 'rgba(59,130,246,0.18)'),
     marginHorizontal: -12,
     paddingHorizontal: 12,
     borderRadius: 8,
   },
   episodeNameActive: {
-    color: '#93c5fd',
+    color: nativeColor('steel', '#93c5fd'),
   },
   episodeInfo: {
     flex: 1,
@@ -265,18 +269,18 @@ const styles = StyleSheet.create({
   episodeNumber: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     marginBottom: 4,
   },
   episodeName: {
     fontSize: 14,
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontWeight: '600',
     marginBottom: 2,
   },
   episodeDate: {
     fontSize: 12,
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
   },
   watchedIcon: {
     width: 32,
@@ -294,7 +298,7 @@ const styles = StyleSheet.create({
   },
   unairedText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: 'bold',
   },
   seasonHeaderRight: {
@@ -314,13 +318,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   menuTitle: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   menuSubtitle: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 14,
   },
   menuButton: {
@@ -328,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: nativeColor('raised', '#1E293B'),
     gap: 12,
   },
   menuButtonText: {

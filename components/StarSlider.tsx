@@ -4,6 +4,7 @@ import { Star } from './icons';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 
 interface StarSliderProps {
   initialRating?: number | null; // 1 to 10
@@ -14,6 +15,7 @@ interface StarSliderProps {
 const STAR_SIZE = 40;
 const STAR_COLOR = '#facc15';
 const STAR_EMPTY_COLOR = '#3f3f46';
+const NATIVE_STAR_EMPTY = '#52616B';
 
 const STAR_SHADOW = {
   textShadowColor: 'rgba(250, 204, 21, 0.5)',
@@ -24,7 +26,7 @@ const STAR_SHADOW = {
 // Statik bir yıldız sırası: sürükleme sırasında YENİDEN RENDER OLMAZ.
 // Dolgu efekti bunun üstüne bindirilen, genişliği Animated.Value ile
 // sürülen ayrı bir katmandan gelir (bkz. FillLayer).
-const StarsRow = React.memo(({ color, filled }: { color: string; filled: boolean }) => (
+const StarsRow = React.memo(({ color, filled, glow = true }: { color: string; filled: boolean; glow?: boolean }) => (
   <View style={styles.starsRow} pointerEvents="none">
     {[1, 2, 3, 4, 5].map((i) => (
       <View key={i} style={styles.starWrapper}>
@@ -32,7 +34,7 @@ const StarsRow = React.memo(({ color, filled }: { color: string; filled: boolean
           size={STAR_SIZE}
           color={color}
           fill={filled ? color : 'transparent'}
-          style={filled ? (STAR_SHADOW as any) : undefined}
+          style={filled && glow ? (STAR_SHADOW as any) : undefined}
         />
       </View>
     ))}
@@ -41,6 +43,7 @@ const StarsRow = React.memo(({ color, filled }: { color: string; filled: boolean
 
 export default function StarSlider({ initialRating, onRate, onRemove }: StarSliderProps) {
   const { t } = useTranslation(['common']);
+  const native = Platform.OS !== 'web';
   const [rating, setRating] = useState<number>(initialRating || 5); // 0..10, kaydedilen ayrık değer
   const [containerWidth, setContainerWidth] = useState(0);
   const widthRef = useRef(0);
@@ -51,11 +54,10 @@ export default function StarSlider({ initialRating, onRate, onRemove }: StarSlid
   const isPanningRef = useRef(false);
 
   React.useEffect(() => {
-    if (initialRating) {
-      setRating(initialRating);
-      lastDiscreteRef.current = initialRating;
-      fill.setValue(initialRating / 10);
-    }
+    const nextRating = initialRating || 5;
+    setRating(nextRating);
+    lastDiscreteRef.current = nextRating;
+    fill.setValue(nextRating / 10);
   }, [initialRating, fill]);
 
   const commitFromX = useCallback((x: number, snapToFullStar: boolean) => {
@@ -133,8 +135,8 @@ export default function StarSlider({ initialRating, onRate, onRemove }: StarSlid
 
   return (
     <View style={styles.container}>
-      <Text style={styles.ratingText}>{formatRating(rating)} / 5</Text>
-      <Text style={styles.sentimentText}>{sentimentText}</Text>
+      <Text style={[styles.ratingText, native && styles.nativeRatingText]}>{formatRating(rating)} / 5</Text>
+      <Text style={[styles.sentimentText, native && styles.nativeSentimentText]}>{sentimentText}</Text>
 
       <View
         style={[
@@ -148,24 +150,24 @@ export default function StarSlider({ initialRating, onRate, onRemove }: StarSlid
         }}
         {...panResponder.panHandlers}
       >
-        <StarsRow color={STAR_EMPTY_COLOR} filled={false} />
+        <StarsRow color={native ? NATIVE_STAR_EMPTY : STAR_EMPTY_COLOR} filled={false} />
         <Animated.View style={[styles.fillClip, { width: fillWidth }]}>
           {/* Sabit piksel genişlik (konteynerin tam genişliği) — dıştaki
               Animated genişlik küçüldükçe bu satırı SIKIŞTIRMAZ, sadece
               maskeler. Böylece yıldızlar orantısız küçülmeden düzgün açığa çıkar. */}
           <View style={[styles.fillInner, { width: containerWidth }]}>
-            <StarsRow color={STAR_COLOR} filled />
+            <StarsRow color={native ? MOBILE_PALETTE.rating : STAR_COLOR} filled glow={!native} />
           </View>
         </Animated.View>
       </View>
 
-      <TouchableOpacity style={styles.saveButton} activeOpacity={0.85} onPress={() => onRate(rating)}>
+      <TouchableOpacity style={[styles.saveButton, native && styles.nativeSaveButton]} activeOpacity={0.85} onPress={() => onRate(rating)}>
         <Text style={styles.saveButtonText}>{t('saveRating', 'Puanı Kaydet')}</Text>
       </TouchableOpacity>
 
       {initialRating && onRemove ? (
         <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
-          <Text style={styles.removeButtonText}>{t('removeRating', 'Puanı Kaldır')}</Text>
+          <Text style={[styles.removeButtonText, native && styles.nativeRemoveButtonText]}>{t('removeRating', 'Puanı Kaldır')}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -180,9 +182,10 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     marginBottom: 4,
   },
+  nativeRatingText: { color: MOBILE_PALETTE.text },
   sentimentText: {
     fontSize: 14,
     color: '#d4d4d4',
@@ -190,6 +193,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: 0.5,
   },
+  nativeSentimentText: { color: MOBILE_PALETTE.muted },
   starsSlot: {
     position: 'relative',
     width: '100%',
@@ -216,7 +220,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   saveButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     width: '100%',
     paddingVertical: 12,
     borderRadius: 12,
@@ -224,8 +228,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     ...(Platform.OS === 'web' && ({ cursor: 'pointer' } as any)),
   },
+  nativeSaveButton: { backgroundColor: MOBILE_PALETTE.primary, borderWidth: 1, borderColor: MOBILE_PALETTE.border },
   saveButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -236,4 +241,5 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 14,
   },
+  nativeRemoveButtonText: { color: '#B98988' },
 });

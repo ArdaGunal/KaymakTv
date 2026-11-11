@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -68,15 +69,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menu: {
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderRadius: 12,
     padding: 16,
     width: 250,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   title: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     marginBottom: 12,
     fontWeight: '600',
@@ -88,14 +89,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   itemActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
   },
   itemText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 16,
   },
   itemTextActive: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: 'bold',
   },
 });

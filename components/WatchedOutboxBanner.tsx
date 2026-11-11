@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import { Text, View, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +29,7 @@ export default function WatchedOutboxBanner() {
 }
 const styles = StyleSheet.create({
   banner: { position: 'absolute', left: 12, right: 12, zIndex: 9998,
-    backgroundColor: '#1e293b', borderRadius: 8, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  text: { color: '#cbd5e1', flex: 1, fontSize: 12 },
-  retry: { color: '#60a5fa', padding: 4 },
+    backgroundColor: nativeColor('raised', '#1e293b'), borderRadius: 8, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  text: { color: nativeColor('body', '#cbd5e1'), flex: 1, fontSize: 12 },
+  retry: { color: nativeColor('steel', '#60a5fa'), padding: 4 },
 });

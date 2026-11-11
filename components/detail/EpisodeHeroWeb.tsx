@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 import { yerelEtiket } from '../../locales/diller';
 import { ChevronLeft, ChevronRight, Share2, Star, Check } from '../icons';
 import ProgressBar from '../ProgressBar';
@@ -72,11 +73,11 @@ export default function EpisodeHeroWeb({
     <View>
       <View style={s.toolbar}>
         <TouchableOpacity style={s.ghostButton} onPress={onBack} activeOpacity={0.75}>
-          <ChevronLeft color="#e2e8f0" size={18} />
+          <ChevronLeft color={MOBILE_PALETTE.text} size={18} />
           <Text style={s.ghostButtonText}>{t('common:back', 'Geri')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.ghostIconButton} onPress={onShare} activeOpacity={0.75}>
-          <Share2 color="#e2e8f0" size={18} />
+          <Share2 color={MOBILE_PALETTE.text} size={18} />
         </TouchableOpacity>
       </View>
 
@@ -108,7 +109,7 @@ export default function EpisodeHeroWeb({
 
       <View style={[s.actionRow, local.actions]}>
         <View style={[s.pill, s.pillStatic, s.pillRating]}>
-          <Star size={15} color="#facc15" fill="#facc15" />
+          <Star size={15} color={MOBILE_PALETTE.rating} fill={MOBILE_PALETTE.rating} />
           <Text style={[s.pillText, s.pillRatingText]}>{rating}</Text>
           {votes > 0 && (
             <Text style={local.votes}>({votes.toLocaleString(yerelEtiket(i18n.language))})</Text>
@@ -120,7 +121,7 @@ export default function EpisodeHeroWeb({
           onPress={onOpenRating}
           activeOpacity={0.75}
         >
-          <Star size={15} color={hasMyRating ? '#60a5fa' : '#94a3b8'} fill={hasMyRating ? '#60a5fa' : 'transparent'} />
+          <Star size={15} color={hasMyRating ? MOBILE_PALETTE.steel : MOBILE_PALETTE.muted} fill={hasMyRating ? MOBILE_PALETTE.steel : 'transparent'} />
           <Text style={[s.pillText, hasMyRating && s.pillActiveText]}>
             {hasMyRating ? `${formatRating(myRating)}/5` : t('rate', 'Puanla')}
           </Text>
@@ -176,12 +177,12 @@ const local = StyleSheet.create({
     aspectRatio: 16 / 9,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#172033',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.10)',
   },
   stillImage: { width: '100%', height: '100%' },
-  stillPlaceholder: { width: '100%', height: '100%', backgroundColor: '#172033' },
+  stillPlaceholder: { width: '100%', height: '100%', backgroundColor: MOBILE_PALETTE.surface },
   breadcrumb: {
     flexDirection: 'row',
     alignItems: 'center',

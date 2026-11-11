@@ -1,3 +1,4 @@
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
@@ -134,7 +135,7 @@ export default function LibraryScreen() {
     const birakildi = !!item.id && !!hiddenShowIds?.includes?.(item.id);
     // 🔑 Hesap TEK KAYNAKTAN (`utils/ilerlemeCubugu.ts`) — eskiden bu üç satır
     // her çağıranın içine kopyalanıyordu ve §C17.1 o yüzden dört tur açıldı.
-    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi);
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, MOBILE_PALETTE.steel);
     return (
       <LibraryGridItem
         item={item}
@@ -187,7 +188,7 @@ export default function LibraryScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <ChevronLeft size={28} color="#ffffff" />
+          <ChevronLeft size={28} color={nativeColor('text', "#ffffff")} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>
         <View style={{ width: 28 }} />
@@ -217,7 +218,7 @@ export default function LibraryScreen() {
       ) : !hasData ? (
         <View style={styles.centered}>
           <View style={styles.emptyIconWrap}>
-            <Inbox size={36} color="#334155" />
+            <Inbox size={36} color={nativeColor('border', "#334155")} />
           </View>
           <Text style={styles.emptyTitle}>{t('libraryEmptyTitle', 'Burada henüz bir şey yok')}</Text>
           <Text style={styles.emptyText}>{t('libraryEmptyText', 'İçerik ekledikçe burada görünecek.')}</Text>
@@ -225,7 +226,7 @@ export default function LibraryScreen() {
       ) : noMatches ? (
         <View style={styles.centered}>
           <View style={styles.emptyIconWrap}>
-            <SearchX size={36} color="#334155" />
+            <SearchX size={36} color={nativeColor('border', "#334155")} />
           </View>
           <Text style={styles.emptyTitle}>{t('noMatchTitle', 'Sonuç bulunamadı')}</Text>
           <Text style={styles.emptyText}>{t('noMatchText', 'Aramayı veya seçtiğin filtreleri değiştirmeyi dene.')}</Text>
@@ -243,7 +244,7 @@ export default function LibraryScreen() {
           contentContainerStyle={styles.gridContainer}
           getItemLayout={getItemLayout}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={nativeColor('text', "#ffffff")} />
           }
           ListFooterComponent={<View style={{ height: 40 }} />}
           keyboardShouldPersistTaps="handled"
@@ -277,7 +278,7 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: nativeColor('background', '#0a0a0a'),
   },
   header: {
     flexDirection: 'row',
@@ -286,26 +287,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#171717',
+    borderBottomColor: nativeColor('surface', '#171717'),
   },
   backButton: {
     padding: 4,
     marginLeft: -4,
   },
   headerTitle: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 20,
     fontWeight: 'bold',
   },
   statsContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#121212',
+    backgroundColor: nativeColor('surface', '#121212'),
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: nativeColor('surface', '#1a1a1a'),
   },
   statsText: {
-    color: '#a3a3a3',
+    color: nativeColor('muted', '#a3a3a3'),
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -328,14 +329,14 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   emptyTitle: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 17,
     fontWeight: '700',
     marginBottom: 6,
     textAlign: 'center',
   },
   emptyText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -345,10 +346,10 @@ const styles = StyleSheet.create({
   },
   card: {
     margin: SPACING / 2,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
 });

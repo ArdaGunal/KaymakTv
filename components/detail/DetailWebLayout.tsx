@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MOBILE_PALETTE } from '../../constants/mobilePalette';
 import { COLUMN_GAP, DetailLayoutMetrics } from '../../hooks/useDetailLayout';
 
 interface DetailWebLayoutProps {
@@ -41,7 +42,7 @@ export default function DetailWebLayout({ metrics, backdrop, left, rail }: Detai
         )}
         {/* Arkadaki görselin üstüne, içerik okunabilsin diye daha güçlü karartma */}
         <LinearGradient
-          colors={['rgba(11, 17, 32, 0.75)', 'rgba(11, 17, 32, 0.95)', '#0B1120']}
+          colors={['rgba(12,29,43,0.75)', 'rgba(12,29,43,0.95)', MOBILE_PALETTE.background]}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
   },
   bannerPlaceholder: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
   },
   container: {
     alignSelf: 'center',

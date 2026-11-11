@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import SkeletonLoader from '../SkeletonLoader';
@@ -65,7 +66,7 @@ export default function DetailHeroSkeleton({ hasPoster = true }: { hasPoster?: b
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1120' },
+  container: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
   headerRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,

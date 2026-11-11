@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Check, X } from '../icons';
@@ -65,7 +66,7 @@ export default function LibraryFilterModal<TKey extends string>({
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <X size={20} color="#94a3b8" />
+          <X size={20} color={nativeColor('muted', "#94a3b8")} />
         </TouchableOpacity>
       </View>
 
@@ -81,7 +82,7 @@ export default function LibraryFilterModal<TKey extends string>({
             accessibilityState={{ checked: isChecked }}
           >
             <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-              {isChecked ? <Check size={14} color="#0b1120" strokeWidth={3} /> : null}
+              {isChecked ? <Check size={14} color={nativeColor('background', "#0b1120")} strokeWidth={3} /> : null}
             </View>
             <Text style={[styles.optionText, isChecked && styles.optionTextChecked]}>
               {option.label}
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 17,
     fontWeight: '700',
   },
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1c2537',
+    borderBottomColor: nativeColor('border', '#1c2537'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   checkbox: {
@@ -136,22 +137,22 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#475569',
+    borderColor: nativeColor('mutedDeep', '#475569'),
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#38bdf8',
-    borderColor: '#38bdf8',
+    backgroundColor: nativeColor('steel', '#38bdf8'),
+    borderColor: nativeColor('steel', '#38bdf8'),
   },
   optionText: {
     flex: 1,
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 15,
     fontWeight: '500',
   },
   optionTextChecked: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontWeight: '600',
   },
   footer: {
@@ -164,27 +165,27 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 12,
-    backgroundColor: '#1a2333',
+    backgroundColor: nativeColor('raised', '#1a2333'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   clearText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 15,
     fontWeight: '600',
   },
   clearTextDisabled: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
   },
   applyButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#38bdf8',
+    backgroundColor: nativeColor('steel', '#38bdf8'),
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   applyText: {
-    color: '#04121f',
+    color: nativeColor('background', '#04121f'),
     fontSize: 15,
     fontWeight: '700',
   },

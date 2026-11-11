@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -20,11 +21,11 @@ interface EmptyProps {
 
 export function FeedListEmpty({ isFiltering, filtre, showError, onRetry }: EmptyProps) {
   const { t } = useTranslation('feed');
-  if (isFiltering) return <ActivityIndicator style={styles.filterLoader} color="#38bdf8" />;
+  if (isFiltering) return <ActivityIndicator style={styles.filterLoader} color={nativeColor('steel', "#38bdf8")} />;
   if (showError) {
     return (
       <View style={styles.emptyState}>
-        <WifiOff size={40} color="#334155" />
+        <WifiOff size={40} color={nativeColor('border', "#334155")} />
         <Text style={styles.emptyTitle}>{t('errorTitle', 'Akış Yüklenemedi')}</Text>
         <Text style={styles.emptyText}>{t('errorText', 'Bağlantını kontrol edip tekrar dene.')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.8}>
@@ -37,7 +38,7 @@ export function FeedListEmpty({ isFiltering, filtre, showError, onRetry }: Empty
   const filtreli = filtre !== 'tumu';
   return (
     <View style={styles.emptyState}>
-      <Rss size={40} color="#334155" />
+      <Rss size={40} color={nativeColor('border', "#334155")} />
       <Text style={styles.emptyTitle}>
         {filtreli ? t('filterEmptyTitle', 'Burada henüz bir şey yok') : t('emptyTitle', 'Akışın Boş')}
       </Text>
@@ -69,7 +70,7 @@ export function FeedListFooter({ isLoadingMore, loadMoreFailed, hasMore, hasData
   if (isLoadingMore) {
     return (
       <View style={styles.footer}>
-        <ActivityIndicator size="small" color="#38bdf8" />
+        <ActivityIndicator size="small" color={nativeColor('steel', "#38bdf8")} />
       </View>
     );
   }
@@ -96,22 +97,22 @@ export function FeedListFooter({ isLoadingMore, loadMoreFailed, hasMore, hasData
 const styles = StyleSheet.create({
   filterLoader: { marginTop: 40 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 8 },
-  emptyTitle: { color: '#e2e8f0', fontSize: 16, fontWeight: '700', marginTop: 8 },
-  emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', paddingHorizontal: 40, lineHeight: 18 },
+  emptyTitle: { color: nativeColor('text', '#e2e8f0'), fontSize: 16, fontWeight: '700', marginTop: 8 },
+  emptyText: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 13, textAlign: 'center', paddingHorizontal: 40, lineHeight: 18 },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 100,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
-  retryButtonText: { color: '#38bdf8', fontSize: 13, fontWeight: '700' },
+  retryButtonText: { color: nativeColor('steel', '#38bdf8'), fontSize: 13, fontWeight: '700' },
   loadMoreFailedBox: { alignItems: 'center', gap: 8, paddingVertical: 18 },
-  loadMoreFailedText: { color: '#94a3b8', fontSize: 12 },
-  loadMoreRetryBtn: { paddingHorizontal: 16, paddingVertical: 7, backgroundColor: '#172033', borderRadius: 8 },
+  loadMoreFailedText: { color: nativeColor('muted', '#94a3b8'), fontSize: 12 },
+  loadMoreRetryBtn: { paddingHorizontal: 16, paddingVertical: 7, backgroundColor: nativeColor('surface', '#172033'), borderRadius: 8 },
   loadMoreRetryText: { color: '#e5e5e5', fontSize: 12, fontWeight: '700' },
   footer: { paddingVertical: 20, alignItems: 'center', justifyContent: 'center' },
-  footerText: { color: '#475569', fontSize: 12, fontWeight: '600', letterSpacing: 0.3 },
+  footerText: { color: nativeColor('mutedDeep', '#475569'), fontSize: 12, fontWeight: '600', letterSpacing: 0.3 },
 });

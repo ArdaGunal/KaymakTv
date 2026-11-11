@@ -21,6 +21,7 @@ import { groupByDateGroup } from '../../../utils/groupByDateGroup';
 import AktarimBandi from '../../../components/library/AktarimBandi';
 import { useAktarimGorunumu } from '../../../hooks/useAktarimGorunumu';
 import { buyukBaslik } from '../../../utils/gorunenBaslik';
+import { nativeColor } from '../../../constants/mobilePalette';
 
 export default function DizilerScreenWeb() {
   const { isDesktop } = useResponsive();
@@ -260,7 +261,7 @@ export default function DizilerScreenWeb() {
 }
 
 const styles = StyleSheet.create({
-  pageBackground: { flex: 1, backgroundColor: '#0B1120' },
+  pageBackground: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
   container: { flex: 1 },
   contentContainer: {
     maxWidth: 1200,
@@ -270,9 +271,9 @@ const styles = StyleSheet.create({
   },
   segmentedControlContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: nativeColor('surface', 'rgba(255,255,255,0.06)'),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: nativeColor('border', 'rgba(255,255,255,0.08)'),
     borderRadius: 24,
     padding: 4,
     marginBottom: 32,
@@ -281,19 +282,19 @@ const styles = StyleSheet.create({
   },
   segmentedTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center', borderRadius: 20 },
   segmentedTabActive: {
-    backgroundColor: '#2563EB',
-    shadowColor: '#3B82F6',
+    backgroundColor: nativeColor('primary', '#2563EB'),
+    shadowColor: nativeColor('primary', '#3B82F6'),
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 4,
   },
-  segmentedTabText: { fontWeight: '600', color: '#94a3b8', fontSize: 13, letterSpacing: 0.5 },
-  segmentedTabTextActive: { color: '#ffffff', fontWeight: 'bold' },
+  segmentedTabText: { fontWeight: '600', color: nativeColor('muted', '#94a3b8'), fontSize: 13, letterSpacing: 0.5 },
+  segmentedTabTextActive: { color: nativeColor('text', '#ffffff'), fontWeight: 'bold' },
   filterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   filterPill: { backgroundColor: 'rgba(82, 82, 82, 0.5)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 9999 },
-  filterPillText: { color: '#ffffff', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
-  categoryTitle: { color: '#f8fafc', fontSize: 24, fontWeight: 'bold', marginBottom: 16, letterSpacing: 0.5 },
+  filterPillText: { color: nativeColor('text', '#ffffff'), fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+  categoryTitle: { color: nativeColor('text', '#f8fafc'), fontSize: 24, fontWeight: 'bold', marginBottom: 16, letterSpacing: 0.5 },
   skeletonRow: { flexDirection: 'row', gap: 16, marginBottom: 32, flexWrap: 'wrap' },
-  emptyText: { color: '#64748b', paddingVertical: 40, fontStyle: 'italic', fontSize: 16 },
+  emptyText: { color: nativeColor('mutedDeep', '#64748b'), paddingVertical: 40, fontStyle: 'italic', fontSize: 16 },
 });

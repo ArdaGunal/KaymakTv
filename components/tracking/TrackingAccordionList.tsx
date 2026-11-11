@@ -19,6 +19,7 @@ import { ChevronDown, PlayCircle, Bookmark, PauseCircle } from '../icons';
 import EpisodeCard from '../EpisodeCard';
 import type { ShowCategories, TrackingCard } from '../../store/tracking/trackingLogic';
 import type { TrackingCategoryKey, CollapsedMap } from '../../store/tracking/useTrackingStore';
+import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 
 // ============================================================================
 // NEDEN `stickySectionHeadersEnabled` KULLANMIYORUZ (Madde 61)
@@ -57,9 +58,9 @@ import type { TrackingCategoryKey, CollapsedMap } from '../../store/tracking/use
 // çakışmadan muaftır, korunuyor.
 
 const SECTION_META: Record<TrackingCategoryKey, { Icon: React.ComponentType<any>; tint: string; bg: string }> = {
-  upNext: { Icon: PlayCircle, tint: '#22d3ee', bg: 'rgba(34, 211, 238, 0.12)' },
-  paused: { Icon: PauseCircle, tint: '#fb7185', bg: 'rgba(251, 113, 133, 0.12)' },
-  notStarted: { Icon: Bookmark, tint: '#a5b4fc', bg: 'rgba(165, 180, 252, 0.12)' },
+  upNext: { Icon: PlayCircle, tint: MOBILE_PALETTE.steel, bg: MOBILE_PALETTE.steelTint },
+  paused: { Icon: PauseCircle, tint: MOBILE_PALETTE.steel, bg: MOBILE_PALETTE.steelTint },
+  notStarted: { Icon: Bookmark, tint: MOBILE_PALETTE.steel, bg: MOBILE_PALETTE.steelTint },
 };
 
 const SECTION_ORDER: TrackingCategoryKey[] = ['upNext', 'paused', 'notStarted'];
@@ -154,7 +155,7 @@ const SectionHeader = memo(function SectionHeader({
           </View>
         </View>
         <Animated.View style={{ transform: [{ rotate }] }}>
-          <ChevronDown size={20} color="#64748b" />
+          <ChevronDown size={20} color={MOBILE_PALETTE.mutedDeep} />
         </Animated.View>
       </TouchableOpacity>
     </View>
@@ -297,8 +298,8 @@ function TrackingAccordionList({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#ffffff"
-            colors={['#ffffff']}
+            tintColor={nativeColor('text', "#ffffff")}
+            colors={[nativeColor('text', '#ffffff')]}
             progressBackgroundColor="#262626"
           />
         }
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
   // iptal edilip zemin tam genişliğe yayılır, ardından `paddingHorizontal: 12`
   // ile başlığın iç hizası BİREBİR eskisiyle aynı kalacak şekilde geri eklenir.
   categoryHeaderWrapper: {
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
     marginHorizontal: -12,
     paddingHorizontal: 12,
   },
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0B1120',
+    backgroundColor: MOBILE_PALETTE.background,
     paddingHorizontal: 12,
     zIndex: 999,
     elevation: 10,
@@ -365,10 +366,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
     marginBottom: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: MOBILE_PALETTE.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: MOBILE_PALETTE.border,
   },
   categoryHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   categoryIconBox: {
@@ -379,9 +380,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-  categoryTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  categoryTitle: { color: MOBILE_PALETTE.text, fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
   badgeContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: MOBILE_PALETTE.raised,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -390,6 +391,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
-  emptyText: { color: '#64748b', textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
+  badgeText: { color: MOBILE_PALETTE.muted, fontSize: 12, fontWeight: '700' },
+  emptyText: { color: MOBILE_PALETTE.mutedDeep, textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
 });

@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -44,16 +45,16 @@ export default function ActivityActionBar({ activity, onToggleLike, isLiking, on
           accessibilityRole="button"
           accessibilityLabel={t('detailLike', 'Beğen')}
         >
-          <Heart size={20} color={liked ? '#f87171' : '#94a3b8'} fill={liked ? '#f87171' : 'none'} />
+          <Heart size={20} color={liked ? '#f87171' : nativeColor('muted', '#94a3b8')} fill={liked ? '#f87171' : 'none'} />
           {!showCounts && activity.likeCount > 0 && <Text style={styles.inlineCount}>{activity.likeCount}</Text>}
         </TouchableOpacity>
         {onPressComment && (
           <TouchableOpacity style={styles.btn} onPress={onPressComment} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('detailComment', 'Yorum yaz')}>
-            <MessageCircle size={20} color="#94a3b8" />
+            <MessageCircle size={20} color={nativeColor('muted', "#94a3b8")} />
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.btn} onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('detailShare', 'Paylaş')}>
-          <Share2 size={19} color="#94a3b8" />
+          <Share2 size={19} color={nativeColor('muted', "#94a3b8")} />
         </TouchableOpacity>
       </View>
     </View>
@@ -66,20 +67,20 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#22304A',
+    borderTopColor: nativeColor('border', '#22304A'),
   },
-  countText: { color: '#64748b', fontSize: 13 },
-  countNum: { color: '#f1f5f9', fontWeight: '700' },
+  countText: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 13 },
+  countNum: { color: nativeColor('text', '#f1f5f9'), fontWeight: '700' },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#22304A',
+    borderTopColor: nativeColor('border', '#22304A'),
     borderBottomWidth: 1,
-    borderBottomColor: '#22304A',
+    borderBottomColor: nativeColor('border', '#22304A'),
   },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 6 },
-  inlineCount: { color: '#94a3b8', fontSize: 13, fontWeight: '600' },
+  inlineCount: { color: nativeColor('muted', '#94a3b8'), fontSize: 13, fontWeight: '600' },
 });

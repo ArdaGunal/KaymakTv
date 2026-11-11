@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import { AlertTriangle, Clock, Info, Lightbulb, Send, Sparkles, X } from '../icons';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   Switch,
   Text,
   TextInput,
@@ -96,12 +98,12 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
       <Modal
         visible={visible}
         transparent
-        animationType={isWeb ? 'fade' : 'slide'}
+        animationType="fade"
         onRequestClose={onClose}
         statusBarTranslucent={Platform.OS === 'android'}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior="padding"
           style={styles.overlay}
         >
           <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={onClose} />
@@ -113,6 +115,12 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
               { paddingBottom: isWeb ? 24 : Math.max(insets.bottom, 20) },
             ]}
           >
+            <ScrollView
+              style={styles.sheetScroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
             {!isWeb && <View style={styles.grabber} />}
 
             {/* Header Area */}
@@ -143,7 +151,7 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
                 style={styles.closeBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <X size={18} color="#94a3b8" />
+                <X size={18} color={nativeColor('muted', "#94a3b8")} />
               </TouchableOpacity>
             </View>
 
@@ -158,7 +166,7 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
                 disabled={isSubmitting}
                 activeOpacity={0.8}
               >
-                <AlertTriangle size={15} color={isBug ? '#ffffff' : '#64748b'} />
+                <AlertTriangle size={15} color={isBug ? nativeColor('text', '#ffffff') : nativeColor('mutedDeep', '#64748b')} />
                 <Text style={[styles.tabBtnText, isBug && styles.tabBtnTextActive]}>
                   {t('feedbackTabBug', 'Hata / Problem')}
                 </Text>
@@ -174,7 +182,7 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
                 disabled={isSubmitting}
                 activeOpacity={0.8}
               >
-                <Lightbulb size={15} color={!isBug ? '#ffffff' : '#64748b'} />
+                <Lightbulb size={15} color={!isBug ? nativeColor('text', '#ffffff') : nativeColor('mutedDeep', '#64748b')} />
                 <Text style={[styles.tabBtnText, !isBug && styles.tabBtnTextActive]}>
                   {t('feedbackTabFeature', 'İstek / Öneri')}
                 </Text>
@@ -208,7 +216,7 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
                     ? t('reportIssuePlaceholder', 'Örn: Bölüm işaretlerken uygulama kapandı...')
                     : t('feedbackFeaturePlaceholder', 'Örn: Watchlist listelerini sıralayabilmek istiyorum...')
                 }
-                placeholderTextColor="#64748b"
+                placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
                 multiline
                 numberOfLines={isBug ? 4 : 6}
                 maxLength={maxLength}
@@ -247,8 +255,8 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
                   value={includeLogs}
                   onValueChange={setIncludeLogs}
                   disabled={isSubmitting}
-                  trackColor={{ false: '#334155', true: '#3b82f6' }}
-                  thumbColor="#f8fafc"
+                  trackColor={{ false: nativeColor('border', '#334155'), true: nativeColor('primary', '#3b82f6') }}
+                  thumbColor={nativeColor('text', "#f8fafc")}
                 />
               </View>
             )}
@@ -277,13 +285,13 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
               activeOpacity={0.85}
             >
               {isSubmitting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={nativeColor('text', "#ffffff")} />
               ) : (
                 <View style={styles.sendBtnContent}>
                   {isBug ? (
-                    <Send size={17} color="#ffffff" />
+                    <Send size={17} color={nativeColor('text', "#ffffff")} />
                   ) : (
-                    <Sparkles size={17} color="#ffffff" />
+                    <Sparkles size={17} color={nativeColor('text', "#ffffff")} />
                   )}
                   <Text style={styles.sendBtnText}>
                     {isBug
@@ -293,6 +301,7 @@ export default function ReportIssueModal({ visible, onClose }: ReportIssueModalP
                 </View>
               )}
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

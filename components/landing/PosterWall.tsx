@@ -1,5 +1,6 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -33,12 +34,16 @@ export default function PosterWall({ posters }: PosterWallProps) {
       </View>
 
       <LinearGradient
-        colors={['rgba(14,19,29,0.55)', 'rgba(14,19,29,0.88)', '#0e131d']}
+        colors={Platform.OS === 'web'
+          ? ['rgba(14,19,29,0.55)', 'rgba(14,19,29,0.88)', '#0e131d']
+          : ['rgba(12,29,43,0.55)', 'rgba(12,29,43,0.88)', nativeColor('background', '#0e131d')]}
         locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={['rgba(14,19,29,0.35)', 'rgba(14,19,29,0)', 'rgba(14,19,29,0.35)']}
+        colors={Platform.OS === 'web'
+          ? ['rgba(14,19,29,0.35)', 'rgba(14,19,29,0)', 'rgba(14,19,29,0.35)']
+          : ['rgba(12,29,43,0.35)', 'rgba(12,29,43,0)', 'rgba(12,29,43,0.35)']}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={StyleSheet.absoluteFill}

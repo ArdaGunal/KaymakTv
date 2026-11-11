@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useFonts } from 'expo-font';
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 24,
     fontWeight: '600',
     letterSpacing: 0,

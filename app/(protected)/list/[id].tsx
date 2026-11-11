@@ -1,3 +1,4 @@
+import { MOBILE_PALETTE, nativeColor, nativeTint } from '../../../constants/mobilePalette';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -151,7 +152,7 @@ export default function ListDetailsScreen() {
     // `mediaId` Trakt kimliği — `showProgressMap`in anahtarı da o.
     const ilerleme = item.type === 'show' ? showProgressMap?.[item.mediaId] : null;
     const birakildi = !!hiddenShowIds?.includes?.(item.mediaId);
-    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi);
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, Platform.OS === 'web' ? undefined : MOBILE_PALETTE.steel);
     return (
       <View style={styles.row}>
         <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={() => openMedia(item)}>
@@ -182,7 +183,7 @@ export default function ListDetailsScreen() {
             disabled={isRemoving}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {isRemoving ? <ActivityIndicator size="small" /> : <X size={18} color="#94a3b8" />}
+            {isRemoving ? <ActivityIndicator size="small" /> : <X size={18} color={nativeColor('muted', "#94a3b8")} />}
           </TouchableOpacity>
         )}
       </View>
@@ -190,7 +191,7 @@ export default function ListDetailsScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>
+    <LinearGradient colors={[nativeColor('surface', '#0F172A'), nativeColor('background', '#0B1120')]} style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <View style={[styles.innerContainer, isLargeScreen && styles.webInnerContainer]}>
@@ -201,7 +202,7 @@ export default function ListDetailsScreen() {
           <View style={styles.headerTitleContainer}>
             <View style={styles.headerTitleRow}>
               <Text style={styles.headerTitle} numberOfLines={1}>{listName}</Text>
-              {isDefault && <Lock size={13} color="#64748b" style={{ marginLeft: 6 }} />}
+              {isDefault && <Lock size={13} color={nativeColor('mutedDeep', "#64748b")} style={{ marginLeft: 6 }} />}
             </View>
             <Text style={styles.headerSubtitle}>
               {t('itemsCount', { count: items.length, defaultValue: `${items.length} içerik` })}
@@ -225,11 +226,11 @@ export default function ListDetailsScreen() {
             keyExtractor={(item) => item.key}
             renderItem={renderItem}
             contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 90 }]}
-            refreshControl={<RefreshControl refreshing={false} onRefresh={fetchListItems} tintColor="#3b82f6" colors={['#3b82f6']} />}
+            refreshControl={<RefreshControl refreshing={false} onRefresh={fetchListItems} tintColor={nativeColor('steel', "#3b82f6")} colors={[nativeColor('primary', '#3b82f6')]} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <View style={styles.emptyIconWrapper}>
-                  <ListIcon size={44} color="#334155" />
+                  <ListIcon size={44} color={nativeColor('border', "#334155")} />
                 </View>
                 <Text style={styles.emptyTitle}>{t('emptyListTitle', 'Listen boş')}</Text>
                 <Text style={styles.emptyText}>{t('emptyListText', 'Dizi veya film sayfalarındaki liste butonuyla buraya içerik ekleyebilirsin.')}</Text>
@@ -259,7 +260,7 @@ export default function ListDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1120' },
+  container: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
   innerContainer: { flex: 1, width: '100%' },
   webInnerContainer: {
     maxWidth: 800,
@@ -284,30 +285,30 @@ const styles = StyleSheet.create({
   headerTitleContainer: { flex: 1, alignItems: 'center', marginHorizontal: 12 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: '#fff', fontSize: 19, fontWeight: '700', letterSpacing: 0.3, maxWidth: '85%' },
-  headerSubtitle: { color: '#94a3b8', fontSize: 13, marginTop: 2, fontWeight: '500' },
+  headerSubtitle: { color: nativeColor('muted', '#94a3b8'), fontSize: 13, marginTop: 2, fontWeight: '500' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: 12 },
   // Row
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
     marginBottom: 10,
     overflow: 'hidden',
   },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  thumb: { width: 60, height: 90, backgroundColor: '#1e293b' },
+  thumb: { width: 60, height: 90, backgroundColor: nativeColor('raised', '#1e293b') },
   thumbImg: { width: '100%', height: '100%' },
   rowInfo: { flex: 1, paddingHorizontal: 12, paddingVertical: 8 },
-  rowTitle: { color: '#f1f5f9', fontSize: 15, fontWeight: '700', marginBottom: 6 },
+  rowTitle: { color: nativeColor('text', '#f1f5f9'), fontSize: 15, fontWeight: '700', marginBottom: 6 },
   rowMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   typeBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
-  typeBadgeShow: { backgroundColor: 'rgba(59, 130, 246, 0.15)' },
+  typeBadgeShow: { backgroundColor: nativeTint('primary', 0.15, 'rgba(59, 130, 246, 0.15)') },
   typeBadgeMovie: { backgroundColor: 'rgba(168, 85, 247, 0.15)' },
-  typeBadgeText: { color: '#cbd5e1', fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
+  typeBadgeText: { color: nativeColor('body', '#cbd5e1'), fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
   // Satırın altına, meta bilgisinden sonra. Kütüphane ızgarasındaki
   // çubukla aynı ince görünüm.
   ilerleme: {
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
   },
-  rowYear: { color: '#64748b', fontSize: 12, fontWeight: '500' },
+  rowYear: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12, fontWeight: '500' },
   removeBtn: {
     width: 44,
     height: '100%',
@@ -333,10 +334,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
   emptyTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
-  emptyText: { color: '#94a3b8', fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
+  emptyText: { color: nativeColor('muted', '#94a3b8'), fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
   emptyCta: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#3b82f6', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: nativeColor('primary', '#3b82f6'), paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12,
   },
   emptyCtaText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   // FAB
@@ -346,13 +347,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 26,
     ...(Platform.OS === 'web'
       ? { boxShadow: '0 8px 24px rgba(59,130,246,0.45)', cursor: 'pointer' } as any
-      : { shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 }),
+      : { shadowColor: nativeColor('primary', '#3b82f6'), shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 }),
   },
   fabText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

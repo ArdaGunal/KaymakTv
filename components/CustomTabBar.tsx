@@ -23,6 +23,7 @@ import Animated, {
   interpolate,
   interpolateColor,
 } from 'react-native-reanimated';
+import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
 
 // Tab ikonu eşleştirmeleri
 const TAB_ICONS: Record<string, React.ComponentType<any>> = {
@@ -33,11 +34,11 @@ const TAB_ICONS: Record<string, React.ComponentType<any>> = {
   profile: User,
 };
 
-// Pastel Turkuaz Accent Renkleri
-const ACCENT_COLOR = '#22d3ee';
-const ACCENT_BG = 'rgba(34, 211, 238, 0.14)';
-const ACCENT_BORDER = 'rgba(34, 211, 238, 0.28)';
-const INACTIVE_COLOR = '#64748b';
+// Seçili sekme tüm platformlarda aynı mat çelik / TARDIS ailesini kullanır.
+const ACCENT_COLOR = MOBILE_PALETTE.steel;
+const ACCENT_BG = MOBILE_PALETTE.navPill;
+const ACCENT_BORDER = MOBILE_PALETTE.navBorder;
+const INACTIVE_COLOR = nativeColor('mutedDeep', '#64748b');
 
 // Spring konfigürasyonu: hafif yay — hissedilir ama kullanıcıyı bekletmez
 const SPRING_CFG = {
@@ -115,12 +116,12 @@ const TabItemNative = memo(function TabItemNative({
     const backgroundColor = interpolateColor(
       progress.value,
       [0, 1],
-      ['rgba(34,211,238,0)', ACCENT_BG]
+      ['rgba(15,74,128,0)', MOBILE_PALETTE.navPill]
     );
     const borderColor = interpolateColor(
       progress.value,
       [0, 1],
-      ['rgba(34,211,238,0)', ACCENT_BORDER]
+      ['rgba(140,165,181,0)', MOBILE_PALETTE.navBorder]
     );
     // Yatay dolgu: ikondan kapsüle yumuşak genişleme
     const paddingHorizontal = interpolate(progress.value, [0, 1], [10, 16]);
@@ -172,7 +173,7 @@ const TabItemNative = memo(function TabItemNative({
             <IconComponent size={22} color={INACTIVE_COLOR} strokeWidth={1.8} />
           </Animated.View>
           <Animated.View style={activeIconStyle}>
-            <IconComponent size={20} color={ACCENT_COLOR} strokeWidth={2.3} />
+            <IconComponent size={20} color={MOBILE_PALETTE.steel} strokeWidth={2.3} />
           </Animated.View>
         </View>
 
@@ -251,13 +252,16 @@ export default memo(CustomTabBar);
 
 const styles = StyleSheet.create({
   outerWrapper: {
-    backgroundColor: '#0B1120',
+    backgroundColor: Platform.OS === 'web' ? nativeColor('background', '#0B1120') : MOBILE_PALETTE.background,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: MOBILE_PALETTE.border,
   },
   blurContainer: {
-    backgroundColor:
-      Platform.OS === 'android' ? 'rgba(11, 17, 32, 0.95)' : 'rgba(11, 17, 32, 0.82)',
+    backgroundColor: Platform.OS === 'android'
+      ? MOBILE_PALETTE.navBackgroundAndroid
+      : Platform.OS === 'ios'
+        ? MOBILE_PALETTE.navBackgroundIos
+        : MOBILE_PALETTE.navBackgroundIos,
   },
   tabBarContent: {
     flexDirection: 'row',
@@ -309,7 +313,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   activeLabel: {
-    color: ACCENT_COLOR,
+    color: Platform.OS === 'web' ? ACCENT_COLOR : MOBILE_PALETTE.steel,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.2,

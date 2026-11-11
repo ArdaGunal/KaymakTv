@@ -101,7 +101,7 @@ const TAKIMLAR = [
   { ad: 'profil-kimlik', grup: 'arayuz', dosya: 'arayuz/profil-kimligi.test.mjs', aciklama: 'M519/PROFIL-AD-01: ad ve aciklama yalniz bizden, Trakt adi yalniz Ayarlarda' },
   { ad: 'cikis', grup: 'arayuz', dosya: 'arayuz/cikis-denetimi.test.mjs', aciklama: 'M517/Faz 4d (D8): cikista anahtar listesi = izin listesi (3 telemetri anahtari, M529), kuyruk uyarisi' },
   { ad: 'yeni-hesap', grup: 'arayuz', dosya: 'arayuz/yeni-hesap-birak.test.mjs', aciklama: 'M515/Faz 4b: isim ekraninda Zaten hesabin var mi linki (Google acik + sunucu karari)' },
-  { ad: 'dizi-sira', grup: 'arayuz', dosya: 'arayuz/dizi-sayfa-sirasi.test.mjs', aciklama: 'M513/DIZI-SAYFA-01: uygulamada sezonlar yorumlarin ustunde, web sirasi ayni' },
+  { ad: 'dizi-sira', grup: 'arayuz', dosya: 'arayuz/dizi-sayfa-sirasi.test.mjs', aciklama: 'M587/DIZI-SAYFA-01: mobilde oyuncular, sezon, inceleme, fragman; web sirasi ayni' },
   { ad: 'push-kayit', grup: 'arayuz', dosya: 'arayuz/push-kayit.test.mjs', aciklama: 'M466: push kaydi tekrarlanamaz (Discord 429 koku)' },
   { ad: 'sezon-akis', grup: 'arayuz', dosya: 'arayuz/sezon-akis.test.mjs', aciklama: 'M467: her isaretleme yolu akisa tek temsilci olay' },
   { ad: 'aktivite-tazeleme', grup: 'arayuz', dosya: 'arayuz/aktivite-tazeleme.test.mjs', aciklama: 'M468/A1: silme sonrasi acik aktivite listesi tazelenir' },

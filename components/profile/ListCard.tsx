@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useRef, memo } from 'react';
 import {
   View,
@@ -80,7 +81,7 @@ const ListCard = memo(({ data, cardWidth = POSTER_CARD_WIDTH, cardHeight = POSTE
             />
           ) : (
             <View style={styles.posterFallback}>
-              <ListIcon size={24} color="#475569" />
+              <ListIcon size={24} color={nativeColor('mutedDeep', "#475569")} />
             </View>
           )}
 
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     // width/height artık inline (prop'tan) geliyor.
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
     elevation: 3,
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
   },
   posterFallback: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -143,13 +144,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   countChipText: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 16,

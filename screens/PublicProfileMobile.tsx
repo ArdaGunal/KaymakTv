@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -157,7 +158,7 @@ export default function PublicProfileMobile() {
   ) : null;
 
   return (
-    <LinearGradient colors={['#0F172A', '#0B1120']} style={styles.container}>
+    <LinearGradient colors={[nativeColor('surface', '#0F172A'), nativeColor('background', '#0B1120')]} style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
@@ -232,7 +233,7 @@ export default function PublicProfileMobile() {
             (activeTab === 'shows' && isLoadingShows) ||
             (activeTab === 'movies' && isLoadingMovies) ? (
               <View style={styles.skeletonWrap}>
-                {activeTab === 'activity' ? <FeedSkeleton /> : <ActivityIndicator size="large" color="#3b82f6" style={{marginTop: 40}} />}
+                {activeTab === 'activity' ? <FeedSkeleton /> : <ActivityIndicator size="large" color={nativeColor('steel', "#3b82f6")} style={{marginTop: 40}} />}
               </View>
             ) : activeTab === 'activity' && isActivityError ? (
               // "Veri yok" ile "yüklenemedi" AYRI durumlar (bkz. ProfileActivityTab.tsx'teki
@@ -240,7 +241,7 @@ export default function PublicProfileMobile() {
               // gerçek bir ağ/veritabanı hatasında da bu kullanıcı hiçbir şey izlememiş
               // gibi "Henüz aktivite yok" gösteriliyordu.
               <View style={styles.emptyState}>
-                <WifiOff size={36} color="#334155" />
+                <WifiOff size={36} color={nativeColor('border', "#334155")} />
                 <Text style={styles.emptyTitle}>{t('feed:publicProfileActivityErrorTitle', 'Aktiviteler Yüklenemedi')}</Text>
                 <Text style={styles.emptyText}>
                   {t('feed:publicProfileActivityErrorText', 'Bağlantını kontrol edip tekrar dene.')}
@@ -251,7 +252,7 @@ export default function PublicProfileMobile() {
               </View>
             ) : (
               <View style={styles.emptyState}>
-                <Rss size={36} color="#334155" />
+                <Rss size={36} color={nativeColor('border', "#334155")} />
                 <Text style={styles.emptyTitle}>
                   {activeTab === 'activity' ? t('feed:publicProfileEmptyTitle', 'Henüz aktivite yok') : t('feed:publicProfileEmptyTitle', 'Henüz içerik yok')}
                 </Text>
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   errorText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     textAlign: 'center',
   },
@@ -334,13 +335,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     fontWeight: '700',
     marginTop: 6,
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -351,19 +352,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 100,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   retryButtonText: {
-    color: '#38bdf8',
+    color: nativeColor('steel', '#38bdf8'),
     fontSize: 13,
     fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#22304A',
+    borderBottomColor: nativeColor('border', '#22304A'),
     marginBottom: 4,
   },
   tab: {
@@ -374,15 +375,15 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#3b82f6',
+    borderBottomColor: nativeColor('steel', '#3b82f6'),
   },
   tabText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 14,
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
   },
   gridContent: {
     paddingHorizontal: 4,
@@ -390,11 +391,11 @@ const styles = StyleSheet.create({
   },
   gridCard: {
     margin: 4,
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#22304A',
+    borderColor: nativeColor('border', '#22304A'),
   },
   poster: {
     width: '100%',

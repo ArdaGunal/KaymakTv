@@ -29,6 +29,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { gorunenBaslik } from '../../utils/gorunenBaslik';
 import { useTmdbBasliklari } from '../../hooks/useTmdbBasliklari';
+import MediaTrailer from '../../components/detail/MediaTrailer';
+import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -193,6 +195,7 @@ export default function MovieDetailScreen() {
   };
 
   const isReleased = movieData?.released ? new Date(movieData.released) <= new Date() : true;
+  const compactWebActions = Platform.OS === 'web' && !layout.isDesktopWeb;
 
   // Sayısal kimliksiz bağlantıda kanca ağa hiç çıkmaz; iskelet sonsuza dek kalırdı (C34).
   if (isLoading && traktIdNum) {
@@ -211,8 +214,34 @@ export default function MovieDetailScreen() {
     );
   }
 
+  // Masaüstü web'de bağımsız satır; native ve dar web'de MediaHero içinde.
+  const watchButton = isReleased ? (
+          <TouchableOpacity
+            style={[styles.actionButton, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButton, isWatched && styles.actionButtonActive]}
+            onPress={handleToggleWatched}
+            disabled={actionLoading}
+            activeOpacity={0.8}
+          >
+            {isWatched ? (
+              <>
+                <CheckCheck color={nativeColor('text', "#ffffff")} size={20} style={{ marginRight: 8 }} />
+                <Text style={[styles.actionButtonText, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButtonText]}>{t('watched')}</Text>
+              </>
+            ) : (
+              <>
+                <Check color={nativeColor('text', "#ffffff")} size={20} style={{ marginRight: 8 }} />
+                <Text style={[styles.actionButtonText, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButtonText]}>{t('iWatched')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.actionButton, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButton, { backgroundColor: MOBILE_PALETTE.raised }]}>
+            <Text style={[styles.actionButtonText, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButtonText]}>{t('notAiredYet')}</Text>
+          </View>
+        );
+  const watchAction = <View style={styles.actionRow}>{watchButton}</View>;
+
   // ── Her iki duzenin PAYLASTIGI parcalar (AI_RULES 2.5: kopya yok) ─────
-  // Y20: bkz. app/show/[id].tsx'teki ayni sinir ve gerekcesi.
   const hero = (
     <SectionErrorBoundary label="movie-hero">
       <MediaHero
@@ -233,43 +262,14 @@ export default function MovieDetailScreen() {
         onRewatch={handleRewatch}
         isHidden={isHidden}
         onHideFromProgress={() => eylemHatasiGoster(toggleHiddenFromProgress(traktIdNum, 'movie', isHidden))}
+        movieWatchAction={watchButton}
       />
     </SectionErrorBoundary>
   );
 
-  const watchAction = (
-      <View style={styles.actionRow}>
-        {isReleased ? (
-          <TouchableOpacity
-            style={[styles.actionButton, isWatched && styles.actionButtonActive]}
-            onPress={handleToggleWatched}
-            disabled={actionLoading}
-            activeOpacity={0.8}
-          >
-            {isWatched ? (
-              <>
-                <CheckCheck color="#ffffff" size={20} style={{ marginRight: 8 }} />
-                <Text style={styles.actionButtonText}>{t('watched')}</Text>
-              </>
-            ) : (
-              <>
-                <Check color="#ffffff" size={20} style={{ marginRight: 8 }} />
-                <Text style={styles.actionButtonText}>{t('iWatched')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.actionButton, { backgroundColor: '#333' }]}>
-            <Text style={styles.actionButtonText}>{t('notAiredYet')}</Text>
-          </View>
-        )}
-        
-        {/* İleride Seçenekler menüsü buraya gelecek */}
-      </View>
-  );
-
   const commentsSection = (
     <MediaCommentsSection
+      writeActionVariant={Platform.OS === 'web' ? 'default' : 'input'}
       reviewsState={reviewsState}
       traktComments={commentsData}
       isLoadingTraktComments={isLoadingComments}
@@ -335,7 +335,7 @@ export default function MovieDetailScreen() {
     );
   }
 
-  // ── MOBIL (ve dar web) — YERLESIM DEGISTIRILMEDI ──────────────────────
+  // ── MOBIL (ve dar web) — native'de oyuncular incelemelerin üstünde ────
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -348,15 +348,16 @@ export default function MovieDetailScreen() {
         {hero}
 
         <View style={styles.contentArea}>
-          {/* ACTION BUTTONS */}
-          {watchAction}
+          {Platform.OS !== 'web' && castSection}
 
           {/* ── KaymakTV İncelemeleri ──────────────────────────────────
               bkz. app/show/[id].tsx'teki aynı blok ve docs/design/REVIEWS_PLAN.md §4.2. */}
           <View style={styles.section}>{commentsSection}</View>
 
 
-          {castSection}
+          {Platform.OS === 'web' && castSection}
+
+          {Platform.OS !== 'web' && <MediaTrailer trailerId={trailerId} />}
 
           {relatedSection}
         </View>
@@ -371,7 +372,7 @@ export default function MovieDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: Platform.OS === 'web' ? nativeColor('background', '#0B1120') : MOBILE_PALETTE.background,
   },
   contentArea: {
     paddingTop: 16,
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
@@ -394,10 +395,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981',
   },
   actionButtonText: {
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontWeight: 'bold',
     fontSize: 16,
   },
+  nativeActionButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: MOBILE_PALETTE.raised,
+    borderWidth: 1,
+    borderColor: MOBILE_PALETTE.border,
+  },
+  nativeActionButtonText: { fontSize: 14, color: MOBILE_PALETTE.text },
   section: {
     paddingHorizontal: 16,
     marginBottom: 24,

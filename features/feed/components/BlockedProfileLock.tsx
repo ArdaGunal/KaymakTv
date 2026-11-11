@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ban } from '../../../components/icons';
@@ -13,7 +14,7 @@ export default function BlockedProfileLock() {
   const { t } = useTranslation('feed');
   return (
     <View style={styles.wrap}>
-      <Ban size={40} color="#334155" />
+      <Ban size={40} color={nativeColor('border', "#334155")} />
       <Text style={styles.title}>{t('blockedProfileTitle', 'Bu Profili Görüntüleyemezsin')}</Text>
       <Text style={styles.text}>
         {t('blockedProfileText', 'Bu kullanıcıyla aranızda bir engelleme ilişkisi var.')}
@@ -31,13 +32,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
   },
   text: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,

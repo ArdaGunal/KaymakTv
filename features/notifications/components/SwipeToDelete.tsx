@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, PanResponder, Platform, TouchableOpacity } from 'react-native';
 import { Trash2 } from '../../../components/icons';
@@ -89,7 +90,7 @@ export function SwipeToDelete({ onDelete, deleteLabel, children }: Props) {
           accessibilityRole="button"
           accessibilityLabel={deleteLabel}
         >
-          <Trash2 size={16} color="#94a3b8" />
+          <Trash2 size={16} color={nativeColor('muted', "#94a3b8")} />
         </TouchableOpacity>
       </View>
     );

@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, SectionList, FlatList, RefreshControl, Platform } from 'react-native';
 
@@ -160,7 +161,7 @@ export default function MoviesScreen() {
           windowSize={3}
           removeClippedSubviews={Platform.OS !== 'web'}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={nativeColor('text', "#ffffff")} />
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noUpcomingMovies')}</Text>
@@ -180,7 +181,7 @@ export default function MoviesScreen() {
           windowSize={3}
           removeClippedSubviews={Platform.OS !== 'web'}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#ffffff" />
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={nativeColor('text', "#ffffff")} />
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>{aktarim.aktarimSuruyor ? aktarim.bosMetni : t('noWatchlistMovies')}</Text>
@@ -192,10 +193,10 @@ export default function MoviesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1120' },
+  container: { flex: 1, backgroundColor: nativeColor('background', '#0B1120') },
 
   scrollView: { flex: 1, paddingHorizontal: 12 },
   scrollContent: { paddingTop: 12 },
-  emptyText: { color: '#64748b', textAlign: 'center', paddingVertical: 40, fontStyle: 'italic' },
-  calendarDateHeader: { color: '#a3a3a3', fontSize: 13, fontWeight: 'bold', letterSpacing: 1, marginTop: 16, marginBottom: 12, marginLeft: 4 },
+  emptyText: { color: nativeColor('mutedDeep', '#64748b'), textAlign: 'center', paddingVertical: 40, fontStyle: 'italic' },
+  calendarDateHeader: { color: nativeColor('muted', '#a3a3a3'), fontSize: 13, fontWeight: 'bold', letterSpacing: 1, marginTop: 16, marginBottom: 12, marginLeft: 4 },
 });

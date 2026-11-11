@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -53,10 +54,10 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: nativeColor('raised', '#1F2937'),
     padding: 20,
   },
 });

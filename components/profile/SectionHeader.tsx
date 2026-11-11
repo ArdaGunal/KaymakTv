@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { ChevronRight } from '../icons';
@@ -28,7 +29,7 @@ interface SectionHeaderProps {
 const SectionHeader = memo(({
   title,
   icon,
-  iconTint = '#60a5fa',
+  iconTint = nativeColor('steel', '#60a5fa'),
   count,
   onSeeAll,
   seeAllLabel,
@@ -59,7 +60,7 @@ const SectionHeader = memo(({
     {onSeeAll ? (
       <View style={styles.seeAll}>
         <Text style={styles.seeAllText}>{seeAllLabel}</Text>
-        <ChevronRight size={15} color="#60a5fa" />
+        <ChevronRight size={15} color={nativeColor('steel', "#60a5fa")} />
       </View>
     ) : null}
   </TouchableOpacity>
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
     marginRight: 9,
   },
   title: {
-    color: '#f8fafc',
+    color: nativeColor('text', '#f8fafc'),
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   countText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 11,
     fontWeight: '700',
     textAlign: 'center',
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   seeAllText: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 13,
     fontWeight: '600',
   },

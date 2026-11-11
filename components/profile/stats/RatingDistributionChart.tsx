@@ -4,6 +4,7 @@ import { Star } from '../../icons';
 import { useTranslation } from 'react-i18next';
 import type { ProfileStatsRatings } from '../../../hooks/useProfileStatistics';
 import { formatRating } from '../../../utils/formatRating';
+import { MOBILE_PALETTE, nativeColor } from '../../../constants/mobilePalette';
 
 interface RatingDistributionChartProps {
   ratings: ProfileStatsRatings;
@@ -53,7 +54,7 @@ const RatingDistributionChart = ({ ratings }: RatingDistributionChartProps) => {
         </View>
 
         <View style={styles.averageBadge}>
-          <Star size={12} color="#fbbf24" fill="#fbbf24" />
+          <Star size={12} color={Platform.OS === 'web' ? '#fbbf24' : MOBILE_PALETTE.rating} fill={Platform.OS === 'web' ? '#fbbf24' : MOBILE_PALETTE.rating} />
           {/* `average` zaten 5'lik ölçekte; `formatRating` ham (1-10) beklediği
               için ×2 ile geri çevrilip AYNI biçimlendirme kuralına (tam sayıda
               ondalık gösterme) tabi tutuluyor. */}
@@ -124,12 +125,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '500',
     marginTop: 3,
@@ -141,22 +142,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
-    backgroundColor: 'rgba(251,191,36,0.12)',
+    backgroundColor: Platform.OS === 'web' ? 'rgba(251,191,36,0.12)' : MOBILE_PALETTE.ratingTint,
     borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.22)',
+    borderColor: Platform.OS === 'web' ? 'rgba(251,191,36,0.22)' : MOBILE_PALETTE.ratingBorder,
   },
   averageValue: {
-    color: '#fbbf24',
+    color: Platform.OS === 'web' ? '#fbbf24' : MOBILE_PALETTE.rating,
     fontSize: 14,
     fontWeight: '800',
   },
   averageMax: {
-    color: 'rgba(251,191,36,0.6)',
+    color: Platform.OS === 'web' ? 'rgba(251,191,36,0.6)' : MOBILE_PALETTE.rating,
+    opacity: Platform.OS === 'web' ? 1 : 0.65,
     fontSize: 11,
     fontWeight: '600',
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 12.5,
     paddingVertical: 12,
   },
@@ -171,13 +173,13 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null),
   },
   barCount: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 9,
     fontWeight: '700',
     height: 12,
   },
   barCountActive: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
   },
   barTrack: {
     height: BAR_AREA_HEIGHT,
@@ -188,22 +190,22 @@ const styles = StyleSheet.create({
   bar: {
     width: '100%',
     borderRadius: 5,
-    backgroundColor: '#2563EB',
+    backgroundColor: nativeColor('primary', '#2563EB'),
   },
   barEmpty: {
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   barSelected: {
-    backgroundColor: '#60a5fa',
+    backgroundColor: nativeColor('steel', '#60a5fa'),
   },
   barLabel: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 10,
     fontWeight: '600',
     marginTop: 6,
   },
   barLabelActive: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontWeight: '800',
   },
 });

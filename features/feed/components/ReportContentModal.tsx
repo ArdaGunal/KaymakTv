@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -147,7 +148,7 @@ export default function ReportContentModal({
                         {selected ? (
                           <CheckCircle2 size={18} color="#f87171" />
                         ) : (
-                          <Circle size={18} color="#475569" />
+                          <Circle size={18} color={nativeColor('mutedDeep', "#475569")} />
                         )}
                         <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>
                           {t(r.labelKey)}
@@ -162,7 +163,7 @@ export default function ReportContentModal({
                   value={detail}
                   onChangeText={(text) => setDetail(text.slice(0, 500))}
                   placeholder={t('feed:reportDetailPlaceholder', 'İstersen kısaca açıkla (opsiyonel)')}
-                  placeholderTextColor="#64748b"
+                  placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
                   multiline
                   numberOfLines={3}
                   maxLength={500}
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   dialog: {
-    backgroundColor: '#111827',
+    backgroundColor: nativeColor('surface', '#111827'),
     borderRadius: 20,
     padding: 22,
     width: '100%',
@@ -285,12 +286,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 16,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12.5,
     marginTop: 3,
     lineHeight: 17,
@@ -311,12 +312,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.08)',
   },
   reasonText: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 14,
     flexShrink: 1,
   },
   reasonTextSelected: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontWeight: '600',
   },
   detailInput: {
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     padding: 12,
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 13.5,
     minHeight: 70,
     textAlignVertical: 'top',
@@ -341,12 +342,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
   },
   cancelText: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontWeight: '600',
     fontSize: 14,
   },

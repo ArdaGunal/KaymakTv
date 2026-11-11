@@ -1,3 +1,4 @@
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Search, X } from './icons';
@@ -62,9 +63,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#172033',
+    backgroundColor: nativeColor('surface', '#172033'),
     borderWidth: 1,
-    borderColor: '#2A364F',
+    borderColor: nativeColor('border', '#2A364F'),
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#ffffff',
+    color: nativeColor('text', '#ffffff'),
     fontSize: 16,
     height: '100%',
   },

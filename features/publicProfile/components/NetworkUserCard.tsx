@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Avatar from '../../../components/Avatar';
@@ -38,12 +39,12 @@ export default function NetworkUserCard({ user }: NetworkUserCardProps) {
 
   const dugmeIcerigi = () => {
     if (isFollowPending || isLoadingConnection) {
-      return <ActivityIndicator size="small" color="#94a3b8" />;
+      return <ActivityIndicator size="small" color={nativeColor('muted', "#94a3b8")} />;
     }
     if (connectionState === 'following') {
       return (
         <>
-          <Check size={14} color="#94a3b8" />
+          <Check size={14} color={nativeColor('muted', "#94a3b8")} />
           <Text style={styles.dugmeMetniPasif}>{t('following', 'Takiptesin')}</Text>
         </>
       );
@@ -51,14 +52,14 @@ export default function NetworkUserCard({ user }: NetworkUserCardProps) {
     if (connectionState === 'pending') {
       return (
         <>
-          <Clock size={14} color="#94a3b8" />
+          <Clock size={14} color={nativeColor('muted', "#94a3b8")} />
           <Text style={styles.dugmeMetniPasif}>{t('requested', 'İstek gönderildi')}</Text>
         </>
       );
     }
     return (
       <>
-        <UserPlus size={14} color="#0b1120" />
+        <UserPlus size={14} color={nativeColor('background', "#0b1120")} />
         <Text style={styles.dugmeMetni}>
           {/* 🔒 Gizli hesapta düğme "İstek Gönder" demeli — basınca doğrudan
               takip KURULMUYOR, sunucu bir istek satırı açıyor. "Takip Et"
@@ -82,7 +83,7 @@ export default function NetworkUserCard({ user }: NetworkUserCardProps) {
         <View style={styles.adAlani}>
           <View style={styles.adSatiri}>
             <Text style={styles.ad} numberOfLines={1}>{user.displayName || `@${user.username}`}</Text>
-            {user.isPrivate && <Lock size={13} color="#94a3b8" />}
+            {user.isPrivate && <Lock size={13} color={nativeColor('muted', "#94a3b8")} />}
           </View>
           {/* §C24 — ad benzersiz değil; @username ad varken de görünür. */}
           {!!user.displayName && (
@@ -126,12 +127,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   kullaniciAdi: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     marginTop: 1,
   },
   ad: {
-    color: '#f1f5f9',
+    color: nativeColor('text', '#f1f5f9'),
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 1,
@@ -145,18 +146,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#3b82f6',
+    backgroundColor: nativeColor('primary', '#3b82f6'),
   },
   dugmePasif: {
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   dugmeMetni: {
-    color: '#0b1120',
+    color: nativeColor('background', '#0b1120'),
     fontSize: 13,
     fontWeight: '700',
   },
   dugmeMetniPasif: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 13,
     fontWeight: '600',
   },

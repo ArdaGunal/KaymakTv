@@ -1,3 +1,4 @@
+import { nativeColor, nativeTint } from '../constants/mobilePalette';
 import React, { memo, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
@@ -18,7 +19,7 @@ interface AvatarProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const HALKA_RENGI = 'rgba(59,130,246,0.4)';
+const HALKA_RENGI = nativeTint('primary', 0.4, 'rgba(59,130,246,0.4)');
 
 /**
  * Uygulamanın TEK avatar bileşeni — Faz T · T4 (M341).
@@ -54,7 +55,7 @@ function Avatar({ url, ad, size, halka = false, borderColor, borderWidth, style 
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: resimVar ? '#1e293b' : avatarRengi(ad),
+          backgroundColor: resimVar ? nativeColor('raised', '#1e293b') : avatarRengi(ad),
           borderWidth: cerceveKalinligi,
           borderColor: cerceveRengi,
         },

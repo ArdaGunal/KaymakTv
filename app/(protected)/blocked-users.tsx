@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -41,7 +42,7 @@ function BlockedUserRow({ user, isRemoving, onUnblock }: BlockedUserRowProps) {
 
       <TouchableOpacity style={styles.unblockBtn} onPress={onUnblock} disabled={isRemoving} activeOpacity={0.8}>
         {isRemoving ? (
-          <ActivityIndicator size="small" color="#94a3b8" />
+          <ActivityIndicator size="small" color={nativeColor('muted', "#94a3b8")} />
         ) : (
           <Text style={styles.unblockBtnText}>{t('unblock', 'Engeli Kaldır')}</Text>
         )}
@@ -127,14 +128,14 @@ export default function BlockedUsersScreen() {
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           {isLoading ? (
-            <ActivityIndicator style={styles.loading} color="#3b82f6" />
+            <ActivityIndicator style={styles.loading} color={nativeColor('steel', "#3b82f6")} />
           ) : hasError ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>{t('blockedUsersError', 'Liste yüklenemedi.')}</Text>
             </View>
           ) : users.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ban size={36} color="#334155" />
+              <Ban size={36} color={nativeColor('border', "#334155")} />
               <Text style={styles.emptyTitle}>{t('blockedUsersEmptyTitle', 'Kimseyi engellemedin')}</Text>
               <Text style={styles.emptyText}>
                 {t('blockedUsersEmptyText', 'Engellediğin kullanıcılar burada listelenir.')}
@@ -161,7 +162,7 @@ export default function BlockedUsersScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1120',
+    backgroundColor: nativeColor('background', '#0B1120'),
   },
   scroll: {
     flex: 1,
@@ -192,13 +193,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 15,
     fontWeight: '700',
     marginTop: 6,
   },
   emptyText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   },
   username: {
     flex: 1,
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: '600',
     fontSize: 14,
   },
@@ -219,19 +220,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: nativeColor('border', '#334155'),
     minWidth: 96,
     alignItems: 'center',
   },
   unblockBtnText: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 12.5,
     fontWeight: '600',
   },
   separator: {
     height: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
   },
 });

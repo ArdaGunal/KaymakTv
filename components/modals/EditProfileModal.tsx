@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -6,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  ScrollView,
   KeyboardAvoidingView,
   ActivityIndicator,
   StyleSheet,
@@ -92,15 +94,22 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-        <KeyboardAvoidingView behavior="padding" style={styles.modalOverlay}>
+      <Modal visible={visible} animationType={Platform.OS === 'web' ? 'slide' : 'fade'} transparent onRequestClose={handleClose}>
+        <KeyboardAvoidingView behavior="padding" style={[styles.modalOverlay, Platform.OS !== 'web' && styles.modalOverlayCentered]}>
           <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={handleClose} />
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }, Platform.OS === 'web' && styles.modalContentWeb]}>
-            <View style={styles.grabber} />
+          <View style={[styles.modalContent, Platform.OS === 'web' ? styles.modalContentWeb : styles.modalContentCentered]}>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+            {Platform.OS === 'web' && <View style={styles.grabber} />}
             <View style={styles.header}>
               <Text style={styles.title}>{t('settings:editUsernameTitle', 'Kullanıcı Adını Düzenle')}</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X color="#94a3b8" size={22} />
+                <X color={nativeColor('muted', "#94a3b8")} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -114,7 +123,7 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
               maxLength={KULLANICI_ADI_EN_COK}
               editable={!retryAt && !isSaving}
               placeholder={t('settings:usernamePlaceholder', 'Kullanıcı adın')}
-              placeholderTextColor="#64748b"
+              placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
               autoFocus={!retryAt}
               autoCapitalize="none"
               autoCorrect={false}
@@ -147,6 +156,7 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
             >
               {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>{t('common:save')}</Text>}
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

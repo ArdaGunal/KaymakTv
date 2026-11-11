@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Avatar from '../../../components/Avatar';
@@ -39,14 +40,14 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
           <Text style={styles.text} selectable>{comment.body}</Text>
         ) : (
           <TouchableOpacity activeOpacity={0.7} onPress={() => setRevealed(true)} style={styles.spoilerWrap}>
-            <EyeOff size={11} color="#64748b" />
+            <EyeOff size={11} color={nativeColor('mutedDeep', "#64748b")} />
             <Text style={styles.spoilerText}>{t('spoilerReveal', 'Spoiler var — görmek için dokun')}</Text>
           </TouchableOpacity>
         )}
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.likeBtn} onPress={onToggleLike} activeOpacity={0.7} hitSlop={6}>
-            <Heart size={13} color={isLiked ? '#f87171' : '#64748b'} fill={isLiked ? '#f87171' : 'none'} />
+            <Heart size={13} color={isLiked ? '#f87171' : nativeColor('mutedDeep', '#64748b')} fill={isLiked ? '#f87171' : 'none'} />
             {comment.likeCount > 0 && <Text style={styles.likeCount}>{comment.likeCount}</Text>}
           </TouchableOpacity>
 
@@ -92,16 +93,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   username: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontWeight: '700',
     fontSize: 13,
   },
   timestamp: {
-    color: '#475569',
+    color: nativeColor('mutedDeep', '#475569'),
     fontSize: 11,
   },
   text: {
-    color: '#cbd5e1',
+    color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     lineHeight: 18,
   },
@@ -112,12 +113,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: nativeColor('raised', '#1e293b'),
     borderRadius: 8,
     marginTop: 2,
   },
   spoilerText: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   likeCount: {
-    color: '#64748b',
+    color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 11,
     fontWeight: '600',
   },

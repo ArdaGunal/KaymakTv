@@ -1,3 +1,4 @@
+import { nativeColor } from '../../../constants/mobilePalette';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +31,7 @@ const CompletionProgressBar = ({ completion, activeTab }: CompletionProgressBarP
 
       <View style={styles.track}>
         <LinearGradient
-          colors={['#3B82F6', '#60A5FA']}
+          colors={[nativeColor('steel', '#3B82F6'), nativeColor('steel', '#60A5FA')]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.fill, { width: `${Math.max(ratio * 100, 4)}%` }]}
@@ -61,12 +62,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: '#e2e8f0',
+    color: nativeColor('text', '#e2e8f0'),
     fontSize: 14,
     fontWeight: '700',
   },
   percent: {
-    color: '#60a5fa',
+    color: nativeColor('steel', '#60a5fa'),
     fontSize: 14,
     fontWeight: '800',
   },
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   description: {
-    color: '#94a3b8',
+    color: nativeColor('muted', '#94a3b8'),
     fontSize: 12,
     fontWeight: '500',
   },

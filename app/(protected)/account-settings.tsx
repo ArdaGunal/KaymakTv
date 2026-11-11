@@ -1,3 +1,4 @@
+import { nativeColor } from '../../constants/mobilePalette';
 import React, { useState } from 'react';
 import {
   ScrollView,
@@ -109,13 +110,13 @@ export default function AccountSettingsScreen() {
         {!isGuest && accessToken && (
           <SettingsSection title={t('settings:privacySection', 'Gizlilik')}>
             <SettingsSwitchRow
-              icon={<Lock size={20} color="#60a5fa" />}
+              icon={<Lock size={20} color={nativeColor('steel', "#60a5fa")} />}
               label={t('settings:privateAccountSwitch', 'Gizli hesap')}
               hint={t(
                 'settings:privateAccountHint',
                 'Gizli hesapta izlediklerini ve paylaşımlarını yalnızca onayladığın takipçiler görür.'
               )}
-              tintColor="#60a5fa"
+              tintColor={nativeColor('steel', "#60a5fa")}
               value={profilePrivacy.isPrivate}
               onValueChange={gizliligiDegistir}
               disabled={profilePrivacy.isLoading || profilePrivacy.isSaving}
@@ -144,9 +145,9 @@ export default function AccountSettingsScreen() {
               <SettingsSectionDivider />
 
               <SettingsRow
-                icon={<LogOut size={20} color="#60a5fa" />}
+                icon={<LogOut size={20} color={nativeColor('steel', "#60a5fa")} />}
                 label={t('settings:digerCihazlarBaslik')}
-                tintColor="#60a5fa"
+                tintColor={nativeColor('steel', "#60a5fa")}
                 onPress={digerCihazlar.calistir}
                 disabled={digerCihazlar.calisiyor}
               />
@@ -179,7 +180,7 @@ export default function AccountSettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0e131d',
+    backgroundColor: nativeColor('background', '#0e131d'),
   },
   scroll: {
     flex: 1,
