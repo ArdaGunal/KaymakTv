@@ -64,6 +64,7 @@ export default function WebLandingPage() {
 
       <style dangerouslySetInnerHTML={{ __html: LandingCSS }} />
 
+      <div className="landing-scroll">
       <nav className="nav" style={navStyle}>
         <div className="kaymak-container">
           <button type="button" onClick={() => window.scrollTo(0, 0)} className="logo">
@@ -191,6 +192,7 @@ export default function WebLandingPage() {
           </div>
         </div>
       </footer>
+      </div>
 
       <LanguagePickerModal
         visible={langModalVisible}

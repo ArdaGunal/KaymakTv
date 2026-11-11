@@ -5,6 +5,7 @@ export const LandingCSS = `
 :root { --bg:${p.background}; --surface:${p.surface}; --text:${p.text}; --muted:${p.muted}; --steel:${p.steel}; --border:${p.border}; --primary:${p.primary}; }
 * { box-sizing:border-box; }
 html,body,#root { margin:0; min-height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; }
+.landing-scroll { height:100vh; height:100dvh; overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; }
 button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
 button:focus-visible { outline:2px solid var(--steel); outline-offset:5px; }
 .kaymak-container { width:min(100%,1120px); margin:auto; padding:0 28px; }
