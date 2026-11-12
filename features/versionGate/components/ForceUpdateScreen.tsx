@@ -36,7 +36,7 @@ export default function ForceUpdateScreen({ updateUrl }: ForceUpdateScreenProps)
   return (
     <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.content}>
-        <Image source={require('../../../assets/icon.png')} style={styles.logo} contentFit="contain" />
+        <Image source={require('../../../assets/images/icon-384.png')} style={styles.logo} contentFit="contain" />
 
         <Text style={styles.title}>{t('forceUpdateTitle', 'Güncelleme Gerekli')}</Text>
         <Text style={styles.message}>
