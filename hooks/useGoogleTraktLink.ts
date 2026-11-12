@@ -10,7 +10,7 @@ import { checkGoogleAccount, linkGoogleToTrakt, createGoogleOnlyAccount, GoogleC
 // `settings.tsx`'ten AYRI bir dosyaya çıkarılmasının sebebi AI_RULES §1'in
 // 400 satır sınırı — mantığın kendisi (TEK giriş noktası ilkesi) bilinçli
 // olarak `settings.tsx`'te YAŞAMAYA devam ediyor, bu yalnızca o dosyanın
-// AsyncStorage plakasını taşıyor (bkz. GoogleSignInSection.tsx'in başlığı).
+// AsyncStorage plakasını taşıyor (o açıklamayı taşıyan GoogleSignInSection.tsx M608'de ölü kod olarak silindi; geçmişi git'te).
 const PENDING_GOOGLE_LINK_KEY = 'settings.pendingGoogleLink';
 
 export function useGoogleTraktLink() {

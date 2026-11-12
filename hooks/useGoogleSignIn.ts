@@ -156,7 +156,7 @@ export function useGoogleSignIn(onCredential: (idToken: string, nonce: string) =
   // `if (container)` ile konteyner yoksa SESSİZCE atlanıyordu.
   //
   // Somut kırılma (tarayıcıda ölçülerek kanıtlandı): köprü kartı
-  // (`awaitingTraktLink`) açıkken `GoogleSignInSection` erken `return`
+  // (`awaitingTraktLink`) açıkken eski `GoogleSignInSection` (M608'de silindi) erken `return`
   // ediyor, yani konteyner DOM'da HİÇ YOK. Kullanıcı "İptal"e bastığında
   // konteyner geri geliyor ama BOŞ — hiçbir şey `renderButton`'ı yeniden
   // tetiklemiyor. Ölçüm: `containerExists: true, containerChildren: 0,
