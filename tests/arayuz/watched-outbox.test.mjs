@@ -139,6 +139,69 @@ T.ok('Gecmis okunamazsa korlemesine POST yok', !http.some((e) => e[0] === 'POST'
 await assert.rejects(transport.writeTraktWatched(job, { season: 1, episodes: [7] }, A));
 T.ok('Google-only icin Trakt POST reddedildi', !http.some((e) => e[0] === 'POST'));
 
+T.H('ISTEK-SEL (M607): Trakt damgayi SANIYEYE keser; tekrar turu sonsuz donmez');
+// Gercek Trakt yaniti: `…:00.000Z`. Bizim damga `…:00.123Z`. Eski kod ms ile karsilastirip mevcut
+// kaydi gormuyor, her turda yeniden POST ediyordu (emulatorde olculdu, 2026-11-12).
+const traktDamga = at.replace(/\.\d{3}Z$/, '.000Z');
+const sahte = (gecmis, postYaniti) => {
+  const kayit = [];
+  const tr = tsLoader(root, {
+    axios: { default: {
+      get: async (url, opts) => { kayit.push(['GET', url, opts]); return { headers: { 'x-pagination-page-count': '1' }, data: gecmis() }; },
+      post: async (url, body) => { kayit.push(['POST', url, body]); return { data: postYaniti(body) }; },
+    } },
+    '../../../features/feed/services/feedPublish': { formatEpisodeCode: (s, e) => `S${s}E${e}` },
+  })('services/library/outbox/transport.ts');
+  return { tr, kayit };
+};
+const bolumSatiri = (n, damga = traktDamga) => ({ watched_at: damga, show: { ids: { trakt: 33733 } }, episode: { season: 1, number: n } });
+
+const s1 = sahte(() => [bolumSatiri(6), bolumSatiri(7)], () => ({ added: { episodes: 0 } }));
+await s1.tr.writeTraktWatched(job, { season: 1, episodes: [6, 7], traktStarted: true }, trSession);
+T.ok('Trakt saniyeye kesilmis kayitlar VAR sayildi: tekrar turunda POST yok', !s1.kayit.some((e) => e[0] === 'POST'), JSON.stringify(s1.kayit.map((e) => e[0])));
+
+const s2 = sahte(() => [bolumSatiri(6, '2026-10-03T00:00:01.000Z')], () => ({ added: { episodes: 2 } }));
+await s2.tr.writeTraktWatched(job, { season: 1, episodes: [6, 7], traktStarted: true }, trSession);
+T.ok('Bir saniye farkli kayit AYNI sayilmaz (yalniz ayni saniye)', s2.kayit.find((e) => e[0] === 'POST')?.[2].shows[0].seasons[0].episodes.length === 2);
+
+let yazildi = false;
+const s3 = sahte(() => (yazildi ? [bolumSatiri(7)] : []), () => { yazildi = true; return { added: { episodes: 0 } }; });
+await s3.tr.writeTraktWatched(job, { season: 1, episodes: [7] }, trSession);
+T.ok('added sayisi tutmasa da gecmiste varsa is BITER (dongu yok)', s3.kayit.filter((e) => e[0] === 'POST').length === 1);
+
+const s4 = sahte(() => [], () => ({ added: { episodes: 0 }, not_found: { episodes: [{ ids: { trakt: 1 } }] } }));
+await s4.tr.writeTraktWatched(job, { season: 1, episodes: [7] }, trSession);
+T.ok('Trakt bolumu TANIMIYORSA (not_found) is biter, sonsuz tekrar yok', s4.kayit.filter((e) => e[0] === 'POST').length === 1);
+
+// Gercek Trakt yaniti (emulator, 2026-11-12, show 1397 S01E01): zaten izlenmis bolum EKLENMEZ, GUNCELLENIR.
+// O saniyede gecmiste satir da yok. Eski kod bunu basarisiz sayip sonsuza dek yeniden POST ediyordu.
+const gercekYanit = { added: { movies: 0, episodes: 0 }, updated: { movies: 0, episodes: 1 },
+  not_found: { movies: [], shows: [], seasons: [], episodes: [], people: [], users: [] } };
+const s6 = sahte(() => [], () => gercekYanit);
+await s6.tr.writeTraktWatched(job, { season: 1, episodes: [1], traktStarted: true }, trSession);
+T.ok('GERCEK yanit {added:0, updated:1}: is biter, tek POST, dogrulama GET\'i bile yok', s6.kayit.filter((e) => e[0] === 'POST').length === 1
+  && s6.kayit.filter((e) => e[0] === 'GET').length === 1, JSON.stringify(s6.kayit.map((e) => e[0])));
+T.ok('traktIslenen = added + updated (dizi/film ayri, bozuk alan 0)', s6.tr.traktIslenen(gercekYanit, 'show') === 1
+  && s6.tr.traktIslenen({ added: { movies: 1 }, updated: { movies: 'x' } }, 'movie') === 1 && s6.tr.traktIslenen(undefined, 'show') === 0);
+
+const s5 = sahte(() => [], () => ({ added: { episodes: 0 } }));
+await assert.rejects(s5.tr.writeTraktWatched(job, { season: 1, episodes: [7] }, trSession));
+T.ok('Ne yazildi ne tanimadi dedi: hata (kayit korunur, sessizce yutulmaz)', s5.kayit.filter((e) => e[0] === 'POST').length === 1);
+T.ok('traktTanimadi saf: bos/eksik govde false', !s5.tr.traktTanimadi(undefined) && !s5.tr.traktTanimadi({ episodes: [] }) && s5.tr.traktTanimadi({ shows: [{}] }));
+
+T.H('ISTEK-SEL (M607): acilis /feed/sync F5 sikliginda tekrarlanmaz');
+const aralik = tsLoader(root, {
+  '@react-native-async-storage/async-storage': { default: { getItem: async () => null, setItem: async () => {} } },
+})('features/feed/services/feedSyncAraligi.ts');
+const dk = 60 * 1000;
+T.ok('Son tur yoksa kosulur', aralik.feedSyncAtlanirMi(null, 1_000_000) === false);
+T.ok('30 sn once kostuysa atlanir', aralik.feedSyncAtlanirMi(1_000_000, 1_000_000 + 30_000) === true);
+T.ok('2 dk dolunca yeniden kosulur', aralik.feedSyncAtlanirMi(1_000_000, 1_000_000 + 2 * dk) === false);
+T.ok('Saat geri gittiyse (gelecek damga) kosulur', aralik.feedSyncAtlanirMi(1_000_000 + dk, 1_000_000) === false);
+const tetik = fs.readFileSync(path.join(root, 'features/feed/hooks/useFeedSyncTrigger.ts'), 'utf8');
+T.ok('Tetikleyici once araligi okuyor, basari ve 429 sonrasi yaziyor', tetik.indexOf('feedSyncAtlanirMi') < tetik.indexOf('syncFeedActivity(accessToken)')
+  && (tetik.match(/feedSyncSonTurYaz\(\)/g) || []).length === 2 && tetik.includes('status === 429'));
+
 T.H('Gercek mutasyon: disk ACK olmadan ilerleme/film degismez');
 const localGate = deferred();
 const state = { showProgressMap: { 33733: { seasons: [{ number: 1, episodes: [{ number: 6, completed: false, first_aired: '2020-01-01' }] }] } },

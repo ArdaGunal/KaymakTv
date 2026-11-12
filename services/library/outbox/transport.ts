@@ -39,10 +39,17 @@ export async function writeKaymakWatched(job: WatchedJob, part: WatchedPart, s: 
   if (data.eksik || data.yazilan !== expected) throw new Error('İşaretlemenin bazı bölümleri henüz kaydedilemedi.');
 }
 
+/**
+ * ISTEK-SEL (M607) · Trakt `watched_at`'i SANİYEYE keser (`…:12.000Z`); bizim damgamız milisaniyeli
+ * (`nowStamp` → `…:12.345Z`). Milisaniyeyle karşılaştırınca Trakt'taki kayıt hiç «var» sayılmazdı.
+ */
+const saniye = (iso: string): number => Math.floor(Date.parse(iso) / 1000);
+
 /** Trakt item+watched_at tekilleştirmez. Belirsiz POST'u körlemesine tekrarlama. */
 export async function missingTraktWatches(job: WatchedJob, part: WatchedPart, s: OutboxSession): Promise<number[]> {
   const existing = new Set<number>();
   const at = Date.parse(job.watchedAt);
+  const atSaniye = saniye(job.watchedAt);
   const type = job.mediaType === 'movie' ? 'movies' : 'shows';
   let pages = 1;
   for (let page = 1; page <= pages; page++) {
@@ -56,7 +63,7 @@ export async function missingTraktWatches(job: WatchedJob, part: WatchedPart, s:
     }
     pages = Number.isInteger(pageCount) && pageCount > 0 ? pageCount : 1;
     for (const row of res.data) {
-      if (Date.parse(row.watched_at) !== at) continue;
+      if (saniye(row.watched_at) !== atSaniye) continue;
       if (job.mediaType === 'movie' && row.movie?.ids?.trakt === job.mediaId) existing.add(0);
       if (job.mediaType === 'show' && row.show?.ids?.trakt === job.mediaId && row.episode?.season === part.season) {
         existing.add(row.episode.number);
@@ -77,8 +84,31 @@ export async function writeTraktWatched(job: WatchedJob, part: WatchedPart, s: O
     : { shows: [{ ids: { trakt: job.mediaId }, seasons: [{ number: part.season,
       episodes: missing.map((number) => ({ number, watched_at: job.watchedAt })) }] }] };
   const res = await axios.post('https://api.trakt.tv/sync/history', body, { headers: headers(s), timeout: 15000 });
-  const added = job.mediaType === 'movie' ? res.data?.added?.movies : res.data?.added?.episodes;
-  if (added !== missing.length) throw new Error('Trakt yazmasının tamamı doğrulanamadı.');
+  if (traktIslenen(res.data, job.mediaType) >= missing.length) return;
+  // ISTEK-SEL (M607) · Sayı yine tutmadı: körlemesine tekrar (sonsuz döngü) yerine geçmişten doğrula.
+  const kalan = await missingTraktWatches(job, { ...part, episodes: job.mediaType === 'movie' ? part.episodes : missing }, s);
+  if (!kalan.length) return;
+  // Trakt'ın TANIMADIĞI öğe tekrar denemekle yazılmaz; işi bitir (bizdeki kayıt zaten yazıldı).
+  if (traktTanimadi(res.data?.not_found)) return;
+  throw new Error('Trakt yazmasının tamamı doğrulanamadı.');
+}
+
+/**
+ * ISTEK-SEL (M607) · Saf — Trakt'ın İŞLEDİĞİ öğe sayısı = `added` + `updated`.
+ * Trakt zaten izlenmiş bölümü yeni kayıt olarak EKLEMİYOR, var olanı güncelleyip `updated` diyor
+ * (emülatörde ölçüldü, 2026-11-12: `{added:{episodes:0}, updated:{episodes:1}, not_found:{…boş}}`).
+ * Eskiden yalnız `added` sayılıyordu → başarılı yazım «başarısız» sayılıp iş 30 sn'de bir sonsuza
+ * dek yeniden POST ediliyordu; kuyruk boşalmadığı için kart da «Sıradaki aranıyor» çarkında kalıyordu.
+ */
+export function traktIslenen(data: any, mediaType: 'show' | 'movie'): number {
+  const k = mediaType === 'movie' ? 'movies' : 'episodes';
+  const sayi = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : 0);
+  return sayi(data?.added?.[k]) + sayi(data?.updated?.[k]);
+}
+
+/** Saf — Trakt `not_found` gövdesinde herhangi bir öğe var mı. */
+export function traktTanimadi(notFound: any): boolean {
+  return ['movies', 'shows', 'seasons', 'episodes'].some((k) => Array.isArray(notFound?.[k]) && notFound[k].length > 0);
 }
 
 export async function publishWatched(job: WatchedJob, s: OutboxSession) {
