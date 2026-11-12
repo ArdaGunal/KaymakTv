@@ -1,46 +1,137 @@
 {
-  "title": "KAYMAK UYGULAMASI KULLANIM KOŞULLARI VE GİZLİLİK BİLDİRİMİ",
+  "title": "Kullanım Koşulları",
+  "updatedAt": "Son güncelleme: 12 Kasım 2026",
   "sections": [
     {
       "heading": "1. Kapsam ve Kabul",
-      "text": "Kaymak uygulamasını (bundan sonra \"Uygulama\" olarak anılacaktır) kullanarak bu koşulları ve gizlilik bildirimini tamamen kabul etmiş sayılırsınız. Şartları kabul etmiyorsanız, Uygulamayı kullanmayı bırakmalısınız."
+      "text": "KaymakTV'yi (bundan sonra \"Uygulama\") kullanarak bu Kullanım Koşulları'nı, Topluluk Kuralları'nı ve Gizlilik Politikası'nı kabul etmiş olursun. Kabul etmiyorsan Uygulama'yı kullanmamalısın. Uygulama 13 yaşından küçükler için tasarlanmamıştır; 13 yaşından küçüksen hesap açmamalısın."
     },
     {
       "heading": "2. Üçüncü Taraf Hizmetleri ve Veri Doğruluğu",
-      "text": "Uygulama, dizi ve film verilerini, görsellerini ve içerik bilgilerini Trakt ve TMDB gibi üçüncü taraf API'ler üzerinden sağlamaktadır. Kaymak, bu verilerin doğruluğunu, güncelliğini veya kesintisiz sunulacağını garanti etmez. Üçüncü taraf servislerde yaşanabilecek kesintilerden veya veri kayıplarından Uygulama geliştiricisi sorumlu tutulamaz."
+      "text": "Dizi ve film bilgileri ile görseller Trakt ve TMDB gibi üçüncü taraf hizmetlerden gelir. KaymakTV bu verilerin doğruluğunu, güncelliğini veya kesintisiz sunulacağını garanti etmez. Üçüncü taraf hizmetlerdeki kesinti veya veri kayıplarından sorumlu tutulamaz. Bu ürün TMDB API'sini kullanır, ancak TMDB tarafından onaylanmış veya sertifikalandırılmış değildir."
     },
     {
-      "heading": "3. Kullanıcı İçerikleri ve Yorumlar",
-      "text": "Kullanıcılar, Uygulama içerisinde paylaştıkları yorumlardan ve içeriklerden bütünüyle kendileri sorumludur. Hakaret, nefret söylemi, yasa dışı içerik veya üçüncü şahısların fikri mülkiyet haklarını ihlal eden yorumlar barındırılamaz. Kaymak, uygunsuz bulduğu içerikleri ve hesapları önceden haber vermeksizin silme hakkını saklı tutar. Uygulama, 5651 sayılı kanun kapsamında \"Yer Sağlayıcı\" konumundadır ve kullanıcı içeriklerini peşinen denetleme yükümlülüğü bulunmamaktadır."
+      "heading": "3. Kullanıcı İçerikleri",
+      "text": "Paylaştığın yorum, inceleme, gönderi, not ve profil bilgilerinden (ad, açıklama, fotoğraf) sen sorumlusun. Neyin yasak olduğu Topluluk Kuralları'nda yazar; içerik paylaşmadan önce o kuralları kabul etmen gerekir. Kurallara aykırı içerik gizlenebilir veya kaldırılabilir; kuralları ihlal eden hesaplar geçici olarak askıya alınabilir veya kalıcı olarak kapatılabilir. Her içeriği ve kullanıcıyı uygulama içinden bildirebilir, istemediğin kullanıcıyı engelleyebilirsin. KaymakTV, 5651 sayılı Kanun kapsamında \"yer sağlayıcı\" konumundadır; kullanıcı içeriklerini önceden denetleme yükümlülüğü yoktur, bildirilen içerikleri inceler."
     },
     {
-      "heading": "4. Gizlilik ve Veri Güvenliği",
-      "text": "Uygulama, size daha iyi bir deneyim sunmak amacıyla izleme geçmişinizi ve profil verilerinizi güvenli bir şekilde işler ve saklar. Kişisel verileriniz KVKK standartlarına uygun olarak korunmakta olup, yasal zorunluluklar dışında hiçbir üçüncü şahıs veya reklam şirketiyle satılmak amacıyla paylaşılmaz. Giriş işlemleriniz (OAuth vb.) güvenlik standartlarına uygun olarak şifrelenmiş altyapılar üzerinden gerçekleştirilir. Uygulama, şifrenizi asla sistemlerinde tutmaz."
+      "heading": "4. Gizlilik",
+      "text": "Hangi verileri topladığımız, neden kullandığımız, kimlerle paylaştığımız ve nasıl sildirebileceğin Gizlilik Politikası'nda anlatılır. Parolanı hiçbir zaman görmeyiz ve saklamayız: giriş Google veya Trakt'ın kendi sayfasında yapılır."
     },
     {
       "heading": "5. Hesap Güvenliği",
-      "text": "Cihazınızın güvenliğini sağlamak ve yetkisiz erişimleri önlemek bütünüyle kullanıcının sorumluluğundadır. Trakt veya bağlı diğer hesaplarınıza izinsiz erişimden kaynaklanabilecek veri değişikliklerinden Uygulama sorumlu tutulamaz."
+      "text": "Cihazının güvenliğini sağlamak ve hesabına yetkisiz erişimi önlemek senin sorumluluğundadır. Google, Trakt veya bağlı diğer hesaplarına izinsiz erişimden doğan değişikliklerden KaymakTV sorumlu tutulamaz."
     },
     {
-      "heading": "6. Fikri Mülkiyet Hakları",
-      "text": "Uygulamanın arayüzü, marka kimliği, logosu ve özgün yazılım kodları geliştirici ekibe aittir. Üçüncü şahıslardan sağlanan afiş ve dizi/film bilgileri ise ilgili sağlayıcıların (TMDB, Trakt) telif hakları kapsamındadır."
+      "heading": "6. Fikri Mülkiyet",
+      "text": "Uygulama'nın arayüzü, marka kimliği, logosu ve özgün yazılımı geliştiricisine aittir. Afişler ile dizi ve film bilgileri ilgili sağlayıcıların (TMDB, Trakt) ve hak sahiplerinin haklarına tabidir. Paylaştığın içeriğin hakları sende kalır; içeriğin Uygulama içinde diğer kullanıcılara gösterilmesine izin vermiş olursun."
     },
     {
-      "heading": "7. Sorumluluk Reddi (Disclaimer)",
-      "text": "Uygulama \"olduğu gibi\" sunulmaktadır. Uygulamanın kullanımından doğabilecek doğrudan veya dolaylı hiçbir maddi/manevi zarardan geliştirici ekip sorumlu tutulamaz."
+      "heading": "7. Sorumluluk Reddi",
+      "text": "Uygulama \"olduğu gibi\" sunulur. Yasaların izin verdiği ölçüde, Uygulama'nın kullanımından doğabilecek doğrudan veya dolaylı zararlardan geliştirici sorumlu tutulamaz."
     },
     {
-      "heading": "8. Koşullarda Değişiklik Hakkı",
-      "text": "Geliştirici ekip, bu Kullanım Koşulları ve Gizlilik Politikası metnini önceden haber vermeksizin değiştirme hakkını saklı tutar. Yapılan değişiklikler Uygulama üzerinden yayınlandığı an yürürlüğe girer."
+      "heading": "8. Değişiklikler",
+      "text": "Bu koşullar güncellenebilir. Güncel metin her zaman Uygulama'da ve kaymaktv.com adresinde yayınlanır. Topluluk Kuralları değiştiğinde, içerik paylaşmaya devam etmeden önce yeni kuralları onaylaman istenir."
+    },
+    {
+      "heading": "9. İletişim",
+      "text": "Sorular, şikâyetler ve itirazlar için: destek@kaymaktv.com"
     }
   ],
+  "privacyTitle": "Gizlilik Politikası",
+  "privacySections": [
+    {
+      "heading": "1. Bu politika neyi kapsar",
+      "text": "Bu politika, KaymakTV mobil uygulamasını ve kaymaktv.com sitesini kullanırken hangi verilerin toplandığını, neden kullanıldığını, kimlerle paylaşıldığını ve verilerini nasıl sildirebileceğini anlatır. Veri sorumlusu KaymakTV'nin geliştiricisidir. İletişim: destek@kaymaktv.com"
+    },
+    {
+      "heading": "2. Topladığımız veriler",
+      "text": "Hesap: Google ile girişte Google hesap kimliğin, adın (ilk kullanıcı adını türetmek için) ve profil fotoğrafının adresi. E-posta adresin yalnızca giriş sırasında doğrulama ve hesap seçme ekranında gösterme amacıyla işlenir, sunucularımızda saklanmaz. Trakt ile girişte Trakt kullanıcı adın ve kimliğin; Trakt hesabına senin adına erişebilmemiz için gereken erişim anahtarları sunucumuzda şifrelenmiş olarak saklanır. Parolanı hiçbir zaman görmeyiz.\n\nProfil: kullanıcı adın, görünen adın, açıklaman, profil fotoğrafının adresi ve gizlilik ayarların.\n\nİzleme verilerin: izlediğin bölüm ve filmler, puanların, izleme listen, favorilerin ve gizlediğin yapımlar. Trakt hesabını bağlarsan Trakt'taki geçmişin de içe aktarılır.\n\nPaylaşımların: gönderilerin, incelemelerin, notların, yorumların ve beğenilerin.\n\nSosyal bağlantıların: takip ettiklerin, takipçilerin, takip isteklerin ve engellediğin kullanıcılar.\n\nBildirimler: bildirim gönderebilmemiz için cihazının bildirim anahtarı ve platformu (Android, iOS veya web).\n\nŞikâyetler: bir içeriği veya profili bildirdiğinde hangi içeriği bildirdiğin, seçtiğin sebep ve yazdığın açıklama.\n\nGeri bildirim ve tanılama: bize yazdığın mesaj, işletim sistemi sürümün ve uygulama sürümün; ayrıca yalnızca sen izin verirsen cihazındaki hata günlükleri ve performans özeti. Uygulama beklenmedik bir hatayla karşılaşırsa hata mesajı, platform ve uygulama sürümü, hesabınla eşleştirilmeyen rastgele bir kurulum kimliğiyle otomatik olarak gönderilir.\n\nTeknik veriler: IP adresin, kötüye kullanımı önlemek için istek sınırlamada anlık olarak kullanılır ve altyapı sağlayıcılarımızın günlüklerinde işlenebilir."
+    },
+    {
+      "heading": "3. Toplamadığımız veriler",
+      "text": "Konumunu, rehberini, fotoğraflarını, mikrofonunu veya kameranı kullanmayız. Reklam kimliği toplamayız. Uygulamada reklam yoktur. Verilerini satmayız."
+    },
+    {
+      "heading": "4. Verileri neden kullanıyoruz",
+      "text": "Hesabını oluşturmak ve oturumunu açık tutmak; izleme geçmişini, listelerini ve puanlarını cihazların arasında eşitlemek; akışı, yorumları ve takip özelliklerini çalıştırmak; yeni bölüm ve etkileşim bildirimleri göndermek; şikâyetleri incelemek ve Topluluk Kuralları'nı uygulamak; hataları bulup düzeltmek ve kötüye kullanımı önlemek."
+    },
+    {
+      "heading": "5. Diğer kullanıcıların gördükleri",
+      "text": "Kullanıcı adın, görünen adın, profil fotoğrafın ve açıklaman diğer kullanıcılara görünür. Paylaştığın gönderi, inceleme ve yorumlar herkese açıktır. Hesabını gizli yaparsan izleme etkinliğini yalnızca onayladığın takipçiler görür. İzlediklerinin ve puanlarının akışta paylaşılıp paylaşılmayacağını Ayarlar'dan ayrı ayrı kapatabilirsin."
+    },
+    {
+      "heading": "6. Verileri işleyen hizmetler",
+      "text": "Verilerin şu hizmet sağlayıcılar aracılığıyla işlenir; sunucuları Türkiye dışında olabilir:\n\nSupabase: veritabanı (hesap, izleme verileri ve paylaşımlar burada saklanır).\nCloudflare: uygulamanın sunucu tarafı ve ağ güvenliği.\nGoogle: Google ile giriş ve Android bildirimlerinin iletimi.\nExpo: bildirimlerin cihazına iletimi.\nTrakt: hesabını bağlarsan izleme, puan ve liste işlemlerin Trakt hesabına da yazılır ve oradan okunur.\nTMDB: dizi ve film bilgileri ile görseller. Görseller doğrudan TMDB sunucularından yüklendiği için TMDB IP adresini görebilir.\nDiscord: geri bildirimler, otomatik hata raporları ve yeni şikâyet uyarıları geliştiricinin özel kanalına iletilir. Şikâyet edilen içeriğin metni Discord'a gönderilmez.\nYouTube: bir fragmanı açarsan YouTube'a yönlendirilirsin.\n\nBu hizmetlere yalnızca işlerini yapmaları için gereken veriler aktarılır. Yasal bir zorunluluk dışında verilerini başka kimseyle paylaşmayız."
+    },
+    {
+      "heading": "7. Ne kadar saklıyoruz",
+      "text": "Verilerin hesabın açık olduğu sürece saklanır. Hesabını sildiğinde hesabın, izleme verilerin, paylaşımların, yorumların, takip bağlantıların, bildirim anahtarların ve saklanan Trakt erişim anahtarların kalıcı olarak silinir. Akıştaki eski etkinlik kayıtları düzenli olarak temizlenir. Gönderdiğin geri bildirimler hesabına bağlı olmayan rastgele bir kimlikle tutulur ve hesap silmeyle silinmez; silinmesini istersen bize yaz. Sağlayıcılarımızın yedeklerinde veriler sınırlı bir süre daha kalabilir."
+    },
+    {
+      "heading": "8. Hakların ve hesabını silme",
+      "text": "Hesabını ve verilerini uygulamada Ayarlar > Hesap Seçenekleri > Hesabı Sil yolundan ya da kaymaktv.com/hesap-sil adresinden silebilirsin. Verilerine erişmek, düzeltmek, silmek veya işlenmesine itiraz etmek için destek@kaymaktv.com adresine yazabilirsin. 6698 sayılı KVKK ve geçerli olduğu yerde GDPR kapsamındaki haklarını bu adres üzerinden kullanabilirsin."
+    },
+    {
+      "heading": "9. Çocuklar",
+      "text": "KaymakTV 13 yaşından küçükler için tasarlanmamıştır ve bilerek 13 yaşından küçüklerden veri toplamaz. 13 yaşından küçük birinin hesap açtığını fark edersek hesabı sileriz; böyle bir durumu fark edersen bize yaz."
+    },
+    {
+      "heading": "10. Güvenlik",
+      "text": "Veriler şifreli bağlantı (HTTPS) üzerinden iletilir. Veritabanında her kullanıcının yalnızca görmeye yetkili olduğu verilere erişebilmesi için erişim kuralları uygulanır; Trakt erişim anahtarları şifrelenmiş olarak saklanır. Hiçbir sistem tamamen güvenli değildir; bir güvenlik sorunu fark edersen bize yaz."
+    },
+    {
+      "heading": "11. Değişiklikler",
+      "text": "Bu politika güncellenebilir. Güncel metin her zaman Uygulama'da ve kaymaktv.com/gizlilik adresinde yayınlanır."
+    }
+  ],
+  "rulesTitle": "Topluluk Kuralları",
+  "rulesSections": [
+    {
+      "heading": "1. Neden kurallar var",
+      "text": "KaymakTV, izlediklerini konuşmak isteyenler için bir yer. Bu kurallar gönderiler, incelemeler, notlar, yorumlar ve profil bilgilerin (ad, kullanıcı adı, fotoğraf, açıklama) için geçerlidir. İçerik paylaşabilmek için bu kuralları kabul etmen gerekir."
+    },
+    {
+      "heading": "2. Yasak içerik ve davranışlar",
+      "text": "• Taciz, zorbalık, tehdit ve bir kişiyi hedef gösterme.\n• Nefret söylemi: ırk, etnik köken, din, cinsiyet, cinsel yönelim, engellilik veya benzeri özellikler nedeniyle aşağılama ya da şiddete teşvik.\n• Cinsel içerik, çıplaklık ve reşit olmayanları cinselleştiren her türlü içerik.\n• Şiddeti özendiren ya da öven içerik; kendine zarar vermeye teşvik.\n• Yasa dışı içerik ve yasa dışı işlere yönlendirme; korsan yayın bağlantıları.\n• Spam, reklam, dolandırıcılık ve yanıltıcı bağlantılar.\n• Başka bir kişi ya da kurumun kimliğine bürünme.\n• Başkasının kişisel bilgilerini izni olmadan paylaşma.\n• Başkasına ait içeriği hak sahibinin izni olmadan paylaşma."
+    },
+    {
+      "heading": "3. Sürpriz bozanlar",
+      "text": "Bir yapımın gidişatını açık eden yazıları \"sürpriz bozan içerir\" olarak işaretle. İşaretlenmemiş sürpriz bozanlar bildirilebilir ve gizlenebilir."
+    },
+    {
+      "heading": "4. Bildirme ve engelleme",
+      "text": "Kurallara aykırı gördüğün gönderi, inceleme, yorum ya da profili üzerindeki menüden \"Bildir\" ile bize iletebilirsin. Görmek istemediğin kullanıcıyı aynı menüden engelleyebilirsin; engellediğin kişi seninle etkileşime geçemez ve içerikleri sana gösterilmez. Engellediklerini Ayarlar'dan yönetebilirsin."
+    },
+    {
+      "heading": "5. Kurallar ihlal edilince ne olur",
+      "text": "Bildirimleri inceleriz. Bir içerik birden çok kullanıcı tarafından bildirilirse inceleme tamamlanana kadar otomatik olarak gizlenebilir. İhlalin ağırlığına ve tekrarına göre içerik gizlenebilir ya da kaldırılabilir, hesap geçici olarak askıya alınabilir ya da kalıcı olarak kapatılabilir. Askıdaki bir hesap içerik paylaşamaz, ama verilerine erişmeye ve hesabını silmeye devam edebilir."
+    },
+    {
+      "heading": "6. İtiraz",
+      "text": "Bir kararın yanlış olduğunu düşünüyorsan destek@kaymaktv.com adresine kullanıcı adınla birlikte yaz; kararı yeniden inceleriz."
+    },
+    {
+      "heading": "7. Değişiklikler",
+      "text": "Kurallar güncellenebilir. Güncellendiğinde, içerik paylaşmaya devam etmeden önce yeni kuralları onaylaman istenir."
+    }
+  ],
+  "rulesAcceptTitle": "Topluluk Kuralları",
+  "rulesAcceptIntro": "Paylaşmadan önce kısa bir söz: saygılı ol, sürpriz bozanları işaretle, kimseyi rahatsız etme. Kurallara aykırı içerik gizlenebilir, hesap askıya alınabilir.",
+  "rulesAcceptRead": "Kuralların tamamını oku",
+  "rulesAcceptConfirm": "Kabul ediyorum",
+  "rulesAcceptLater": "Şimdi değil",
+  "rulesAcceptError": "Onay kaydedilemedi. Bağlantını kontrol edip yeniden dene.",
+  "rulesAcceptOutdated": "Kurallar güncellendi. Uygulamayı güncelleyip yeniden dene.",
+  "rulesAcceptRequired": "Paylaşmak için Topluluk Kuralları'nı kabul etmen gerekiyor.",
   "deleteAccountPageTitle": "Hesabımı ve Verilerimi Sil",
   "deleteAccountHowTitle": "Nasıl silinir?",
-  "deleteAccountHowText": "1) Aşağıdaki \"Giriş Yap\" butonuyla Trakt hesabınla giriş yap.\n2) Ayarlar ekranına git.\n3) \"Hesap Seçenekleri\" altında \"Hesabı Sil\"e dokun ve onayla.",
+  "deleteAccountHowText": "1) Aşağıdaki \"Giriş Yap\" düğmesiyle, hesabını açarken kullandığın yöntemle (Google ya da Trakt) giriş yap.\n2) Ayarlar ekranına git.\n3) \"Hesap Seçenekleri\" altında \"Hesabı Sil\"e dokun ve onayla.\n\nGiriş yapamıyorsan destek@kaymaktv.com adresine kullanıcı adınla birlikte yaz; hesabını biz sileriz.",
   "deleteAccountWhatTitle": "Ne silinir?",
-  "deleteAccountWhatText": "KaymakTV sunucusundaki kullanıcı kaydın, akış aktivitelerin (izleme/puanlama paylaşımların) ve yorumların kalıcı olarak silinir.",
+  "deleteAccountWhatText": "KaymakTV'deki hesabın ve ona bağlı her şey kalıcı olarak silinir: profil bilgilerin, izleme geçmişin, puanların, izleme listen ve favorilerin, gönderi, inceleme ve yorumların, beğenilerin, takip bağlantıların, bildirim anahtarların ve sunucumuzda saklanan Trakt erişim anahtarların. Bu işlem geri alınamaz.",
   "deleteAccountWhatNotTitle": "Ne silinmez?",
-  "deleteAccountWhatNotText": "Trakt.tv hesabına HİÇ dokunulmaz — KaymakTV, Trakt hesabını silme yetkisine sahip değildir. Trakt hesabını silmek istersen bunu trakt.tv üzerinden ayrıca yapmalısın.",
+  "deleteAccountWhatNotText": "Google hesabına ve (bağladıysan) Trakt.tv hesabına dokunulmaz; KaymakTV bu hesapları silemez. Trakt'taki geçmişini silmek istersen bunu trakt.tv üzerinden ayrıca yapmalısın. Gönderdiğin geri bildirimler hesabına bağlı olmayan rastgele bir kimlikle tutulduğu için hesap silmeyle silinmez; silinmesini istersen bize yaz.",
   "deleteAccountCta": "Giriş Yap ve Devam Et",
   "deleteAccountFootnote": "Uygulamayı yüklemene gerek yok — bu işlem tarayıcıdan da tamamlanabilir."
 }

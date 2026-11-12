@@ -2,7 +2,7 @@ import { nativeColor } from '../../constants/mobilePalette';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAppBack } from '../../hooks/useAppBack';
-import { Activity, Bell, FileText, Globe, MessageCircle, Rss, ShieldCheck, User } from '../../components/icons';
+import { Activity, Bell, FileText, Globe, MessageCircle, Rss, ShieldCheck, User, Users } from '../../components/icons';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -194,6 +194,16 @@ export default function SettingsScreen() {
               tintColor={nativeColor('steel', "#60a5fa")}
               showChevron
               onPress={() => setLegalModalVisible(true)}
+            />
+
+            <SettingsSectionDivider />
+
+            <SettingsRow
+              icon={<Users size={20} color={nativeColor('steel', "#60a5fa")} />}
+              label={t('settings:communityRulesRowLabel', 'Topluluk Kuralları')}
+              tintColor={nativeColor('steel', "#60a5fa")}
+              showChevron
+              onPress={() => router.push('/(public)/topluluk-kurallari')}
             />
 
             <SettingsSectionDivider />

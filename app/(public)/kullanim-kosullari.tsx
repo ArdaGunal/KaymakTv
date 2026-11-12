@@ -1,4 +1,7 @@
-// Aynı içerik, ayrı URL — bkz. gizlilik.tsx başındaki not (Play Console
-// Gizlilik Politikası ve Kullanım Koşulları için ayrı ayrı link isteyebiliyor,
-// ikisi de aynı birleşik `legal` metnine işaret ediyor).
-export { default } from './gizlilik';
+import React from 'react';
+import LegalDocument from '../../components/public/LegalDocument';
+
+/** Kullanım Koşulları — herkese açık, girişsiz adres. Bkz. `gizlilik.tsx`. */
+export default function KullanimKosullariScreen() {
+  return <LegalDocument belge="terms" />;
+}

@@ -2,21 +2,18 @@ import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ONAY_BELGE_SIRASI, YASAL_BELGELER, bolumleriCoz } from '../../utils/yasalBelge';
 
 interface LegalTermsModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-interface LegalSection {
-  heading: string;
-  text: string;
-}
-
 /**
- * Kullanım Koşulları metnini gösteren modal. İçerik tamamen `legal` i18n
- * namespace'inden (`legal:title` + `legal:sections` dizisi) gelir — yeni bir
- * madde eklemek için yalnızca locale dosyaları güncellenir, burası değişmez.
+ * Girişte onaylanan metinlerin TAMAMINI gösteren pencere: Kullanım Koşulları,
+ * Topluluk Kuralları ve Gizlilik Politikası (sıra `ONAY_BELGE_SIRASI`). Onay kutusu
+ * üçünü birden kapsadığı için pencere de üçünü gösterir (M609; önceden tek birleşik
+ * metin vardı). İçerik `legal` çeviri ad alanında; harita `utils/yasalBelge.ts`.
  *
  * Ayrı bir bileşene çıkarıldı: aynı blok bir dönem hem `(public)/settings.tsx`
  * hem `TraktAccountSection.tsx` içinde KOPYALANMIŞTI ve `(public)/settings.tsx`
@@ -24,20 +21,24 @@ interface LegalSection {
  */
 export default function LegalTermsModal({ visible, onClose }: LegalTermsModalProps) {
   const { t } = useTranslation(['legal', 'common']);
-  const sections = t('legal:sections', { returnObjects: true }) as LegalSection[];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.panel}>
-          <Text style={styles.title}>{t('legal:title')}</Text>
           <ScrollView style={styles.scroll}>
-            {(Array.isArray(sections) ? sections : []).map((section, index) => (
-              <View key={index} style={styles.section}>
-                <Text style={styles.heading}>{section.heading}</Text>
-                <Text style={styles.body}>{section.text}</Text>
+            {ONAY_BELGE_SIRASI.map((belge) => (
+              <View key={belge} style={styles.document}>
+                <Text style={styles.title}>{t(YASAL_BELGELER[belge].baslik)}</Text>
+                {bolumleriCoz(t(YASAL_BELGELER[belge].bolumler, { returnObjects: true })).map((section, index) => (
+                  <View key={index} style={styles.section}>
+                    <Text style={styles.heading}>{section.heading}</Text>
+                    <Text style={styles.body}>{section.text}</Text>
+                  </View>
+                ))}
               </View>
             ))}
+            <Text style={styles.updated}>{t('legal:updatedAt')}</Text>
           </ScrollView>
           <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.85}>
             <Text style={styles.closeButtonText}>{t('common:close')}</Text>
@@ -74,6 +75,14 @@ const styles = StyleSheet.create({
   },
   scroll: {
     marginBottom: 16,
+  },
+  document: {
+    marginBottom: 12,
+  },
+  updated: {
+    color: nativeColor('muted', '#94a3b8'),
+    fontSize: 12,
+    marginBottom: 8,
   },
   section: {
     marginBottom: 16,

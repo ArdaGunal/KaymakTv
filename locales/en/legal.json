@@ -1,46 +1,137 @@
 {
-  "title": "KAYMAK APP TERMS OF USE AND PRIVACY POLICY",
+  "title": "Terms of Use",
+  "updatedAt": "Last updated: November 12, 2026",
   "sections": [
     {
       "heading": "1. Scope and Acceptance",
-      "text": "By using the Kaymak application (hereinafter referred to as the \"App\"), you fully agree to these terms and the privacy policy. If you do not agree to the terms, you must stop using the App."
+      "text": "By using KaymakTV (the \"App\") you accept these Terms of Use, the Community Guidelines and the Privacy Policy. If you do not accept them, do not use the App. The App is not designed for children under 13; if you are under 13, do not create an account."
     },
     {
       "heading": "2. Third-Party Services and Data Accuracy",
-      "text": "The App provides series and movie data, images, and content information via third-party APIs such as Trakt and TMDB. Kaymak does not guarantee the accuracy, currency, or uninterrupted availability of this data. The App developer cannot be held responsible for interruptions or data losses experienced in third-party services."
+      "text": "TV show and movie information and images come from third-party services such as Trakt and TMDB. KaymakTV does not guarantee that this data is accurate, up to date or always available, and is not responsible for outages or data loss in third-party services. This product uses the TMDB API but is not endorsed or certified by TMDB."
     },
     {
-      "heading": "3. User Content and Comments",
-      "text": "Users are entirely responsible for the comments and content they share within the App. Insulting, hate speech, illegal content, or comments that violate the intellectual property rights of third parties cannot be hosted. Kaymak reserves the right to delete content and accounts it deems inappropriate without prior notice. The App is in the position of a \"Hosting Provider\" within the scope of law No. 5651, and has no obligation to monitor user content in advance."
+      "heading": "3. User Content",
+      "text": "You are responsible for the comments, reviews, posts, notes and profile details (name, bio, photo) you share. The Community Guidelines say what is not allowed; you must accept them before you can share content. Content that breaks the guidelines may be hidden or removed, and accounts that break them may be suspended temporarily or closed permanently. You can report any content or user from inside the app and block any user you do not want to see. Under Turkish Law No. 5651 KaymakTV is a \"hosting provider\": it has no obligation to review user content in advance, and it reviews content that is reported."
     },
     {
-      "heading": "4. Privacy and Data Security",
-      "text": "The App securely processes and stores your viewing history and profile data to provide you with a better experience. Your personal data is protected in accordance with KVKK standards and will never be shared with any third party or advertising company to be sold, except for legal obligations. Your login operations (OAuth etc.) are carried out over encrypted infrastructures in accordance with security standards. The App never stores your password on its systems."
+      "heading": "4. Privacy",
+      "text": "The Privacy Policy explains what data we collect, why we use it, who we share it with and how you can have it deleted. We never see or store your password: sign-in happens on Google's or Trakt's own page."
     },
     {
       "heading": "5. Account Security",
-      "text": "Ensuring the security of your device and preventing unauthorized access is entirely the user's responsibility. The App cannot be held responsible for data changes that may result from unauthorized access to Trakt or your other linked accounts."
+      "text": "Keeping your device secure and preventing unauthorized access to your account is your responsibility. KaymakTV is not responsible for changes caused by unauthorized access to your Google, Trakt or other connected accounts."
     },
     {
-      "heading": "6. Intellectual Property Rights",
-      "text": "The App's interface, brand identity, logo, and original software codes belong to the developer team. Posters and series/movie information provided by third parties are within the copyright scope of the respective providers (TMDB, Trakt)."
+      "heading": "6. Intellectual Property",
+      "text": "The App's interface, brand identity, logo and original software belong to its developer. Posters and TV show and movie information are subject to the rights of their providers (TMDB, Trakt) and rights holders. You keep the rights to the content you share; by sharing it you allow it to be shown to other users inside the App."
     },
     {
       "heading": "7. Disclaimer",
-      "text": "The App is provided \"as is\". The developer team cannot be held responsible for any direct or indirect material/moral damages that may arise from the use of the App."
+      "text": "The App is provided \"as is\". To the extent permitted by law, the developer is not liable for any direct or indirect damage arising from use of the App."
     },
     {
-      "heading": "8. Right to Modify Terms",
-      "text": "The developer team reserves the right to change these Terms of Use and Privacy Policy texts without prior notice. The changes will take effect as soon as they are published via the App."
+      "heading": "8. Changes",
+      "text": "These terms may be updated. The current text is always published in the App and at kaymaktv.com. When the Community Guidelines change, you will be asked to accept the new guidelines before you continue sharing content."
+    },
+    {
+      "heading": "9. Contact",
+      "text": "For questions, complaints and appeals: destek@kaymaktv.com"
     }
   ],
+  "privacyTitle": "Privacy Policy",
+  "privacySections": [
+    {
+      "heading": "1. What this policy covers",
+      "text": "This policy explains what data is collected when you use the KaymakTV mobile app and the kaymaktv.com website, why it is used, who it is shared with and how you can have your data deleted. The data controller is the developer of KaymakTV. Contact: destek@kaymaktv.com"
+    },
+    {
+      "heading": "2. Data we collect",
+      "text": "Account: when you sign in with Google, your Google account ID, your name (to derive your first username) and the address of your profile photo. Your email address is processed only during sign-in, for verification and to show it on the account selection screen; it is not stored on our servers. When you sign in with Trakt, your Trakt username and ID; the access keys we need to reach your Trakt account on your behalf are stored encrypted on our server. We never see your password.\n\nProfile: your username, display name, bio, the address of your profile photo and your privacy settings.\n\nWatch data: the episodes and movies you watched, your ratings, your watchlist, your favorites and the titles you hid. If you connect your Trakt account, your Trakt history is imported as well.\n\nWhat you share: your posts, reviews, notes, comments and likes.\n\nSocial connections: who you follow, your followers, your follow requests and the users you blocked.\n\nNotifications: your device's notification token and platform (Android, iOS or web), so we can send you notifications.\n\nReports: when you report content or a profile, what you reported, the reason you chose and the explanation you wrote.\n\nFeedback and diagnostics: the message you write to us, your operating system version and app version; and, only if you allow it, the error logs and performance summary from your device. If the app hits an unexpected error, the error message, platform and app version are sent automatically with a random installation ID that is not linked to your account.\n\nTechnical data: your IP address is used momentarily for rate limiting to prevent abuse and may be processed in our infrastructure providers' logs."
+    },
+    {
+      "heading": "3. Data we do not collect",
+      "text": "We do not use your location, contacts, photos, microphone or camera. We do not collect an advertising ID. The app has no ads. We do not sell your data."
+    },
+    {
+      "heading": "4. Why we use the data",
+      "text": "To create your account and keep you signed in; to sync your watch history, lists and ratings across your devices; to run the feed, comments and follow features; to send new-episode and interaction notifications; to review reports and enforce the Community Guidelines; to find and fix errors and prevent abuse."
+    },
+    {
+      "heading": "5. What other users can see",
+      "text": "Your username, display name, profile photo and bio are visible to other users. The posts, reviews and comments you share are public. If you make your account private, only followers you approve can see your watch activity. In Settings you can separately turn off sharing what you watch and what you rate to the feed."
+    },
+    {
+      "heading": "6. Services that process the data",
+      "text": "Your data is processed through the following service providers; their servers may be outside Türkiye:\n\nSupabase: database (your account, watch data and shared content are stored here).\nCloudflare: the app's server side and network security.\nGoogle: Google sign-in and delivery of Android notifications.\nExpo: delivery of notifications to your device.\nTrakt: if you connect your account, your watch, rating and list actions are also written to and read from your Trakt account.\nTMDB: TV show and movie information and images. Images load directly from TMDB's servers, so TMDB can see your IP address.\nDiscord: feedback, automatic error reports and new-report alerts are delivered to the developer's private channel. The text of reported content is not sent to Discord.\nYouTube: if you open a trailer you are taken to YouTube.\n\nOnly the data these services need to do their job is passed to them. We do not share your data with anyone else unless the law requires it."
+    },
+    {
+      "heading": "7. How long we keep it",
+      "text": "Your data is kept for as long as your account is open. When you delete your account, your account, watch data, shared content, comments, follow connections, notification tokens and stored Trakt access keys are permanently deleted. Old activity records in the feed are cleaned up regularly. Feedback you sent is kept under a random ID that is not linked to your account and is not removed by account deletion; write to us if you want it deleted. Data may remain in our providers' backups for a limited time."
+    },
+    {
+      "heading": "8. Your rights and deleting your account",
+      "text": "You can delete your account and data in the app under Settings > Account Options > Delete Account, or at kaymaktv.com/hesap-sil. To access, correct or delete your data, or to object to its processing, write to destek@kaymaktv.com. You can exercise your rights under Turkish Law No. 6698 (KVKK) and, where it applies, the GDPR through this address."
+    },
+    {
+      "heading": "9. Children",
+      "text": "KaymakTV is not designed for children under 13 and does not knowingly collect data from children under 13. If we learn that someone under 13 has created an account, we delete it; if you notice such a case, write to us."
+    },
+    {
+      "heading": "10. Security",
+      "text": "Data is transmitted over an encrypted connection (HTTPS). Access rules in the database ensure each user can reach only the data they are allowed to see; Trakt access keys are stored encrypted. No system is completely secure; if you notice a security problem, write to us."
+    },
+    {
+      "heading": "11. Changes",
+      "text": "This policy may be updated. The current text is always published in the App and at kaymaktv.com/gizlilik."
+    }
+  ],
+  "rulesTitle": "Community Guidelines",
+  "rulesSections": [
+    {
+      "heading": "1. Why there are guidelines",
+      "text": "KaymakTV is a place for people who want to talk about what they watch. These guidelines apply to posts, reviews, notes, comments and your profile details (name, username, photo, bio). You must accept them before you can share content."
+    },
+    {
+      "heading": "2. Content and behavior that is not allowed",
+      "text": "• Harassment, bullying, threats and targeting a person.\n• Hate speech: demeaning people or inciting violence because of race, ethnicity, religion, gender, sexual orientation, disability or similar characteristics.\n• Sexual content, nudity and any content that sexualizes minors.\n• Content that encourages or glorifies violence; encouraging self-harm.\n• Illegal content and directing people to illegal activity; links to pirated streams.\n• Spam, advertising, scams and misleading links.\n• Impersonating another person or organization.\n• Sharing someone else's personal information without permission.\n• Sharing someone else's content without the rights holder's permission."
+    },
+    {
+      "heading": "3. Spoilers",
+      "text": "Mark anything that reveals the plot of a title as \"contains spoilers\". Unmarked spoilers can be reported and hidden."
+    },
+    {
+      "heading": "4. Reporting and blocking",
+      "text": "You can send us any post, review, comment or profile that breaks the guidelines with \"Report\" in its menu. You can block a user you do not want to see from the same menu; a blocked user cannot interact with you and their content is not shown to you. You can manage the users you blocked in Settings."
+    },
+    {
+      "heading": "5. What happens when the guidelines are broken",
+      "text": "We review reports. If content is reported by several users it may be hidden automatically until the review is finished. Depending on how serious and how repeated the violation is, content may be hidden or removed and the account may be suspended temporarily or closed permanently. A suspended account cannot share content, but can still access its data and delete the account."
+    },
+    {
+      "heading": "6. Appeals",
+      "text": "If you think a decision was wrong, write to destek@kaymaktv.com with your username and we will review it again."
+    },
+    {
+      "heading": "7. Changes",
+      "text": "The guidelines may be updated. When they are, you will be asked to accept the new guidelines before you continue sharing content."
+    }
+  ],
+  "rulesAcceptTitle": "Community Guidelines",
+  "rulesAcceptIntro": "A quick word before you share: be respectful, mark spoilers, don't harass anyone. Content that breaks the guidelines can be hidden and accounts can be suspended.",
+  "rulesAcceptRead": "Read the full guidelines",
+  "rulesAcceptConfirm": "I accept",
+  "rulesAcceptLater": "Not now",
+  "rulesAcceptError": "Could not save your acceptance. Check your connection and try again.",
+  "rulesAcceptOutdated": "The guidelines were updated. Update the app and try again.",
+  "rulesAcceptRequired": "You need to accept the Community Guidelines to share.",
   "deleteAccountPageTitle": "Delete My Account and Data",
-  "deleteAccountHowTitle": "How to delete",
-  "deleteAccountHowText": "1) Log in with your Trakt account using the \"Log In\" button below.\n2) Go to the Settings screen.\n3) Under \"Account Options\", tap \"Delete Account\" and confirm.",
+  "deleteAccountHowTitle": "How do I delete it?",
+  "deleteAccountHowText": "1) Use the \"Sign In\" button below and sign in the same way you created your account (Google or Trakt).\n2) Go to the Settings screen.\n3) Under \"Account Options\" tap \"Delete Account\" and confirm.\n\nIf you cannot sign in, write to destek@kaymaktv.com with your username and we will delete the account for you.",
   "deleteAccountWhatTitle": "What gets deleted?",
-  "deleteAccountWhatText": "Your user record on the KaymakTV server, your feed activities (watch/rating shares), and your comments are permanently deleted.",
-  "deleteAccountWhatNotTitle": "What is not deleted?",
-  "deleteAccountWhatNotText": "Your Trakt.tv account is NOT touched — KaymakTV has no authority to delete a Trakt account. If you also want to delete your Trakt account, you must do that separately on trakt.tv.",
-  "deleteAccountCta": "Log In and Continue",
-  "deleteAccountFootnote": "You don't need to install the app — this can also be completed from a browser."
+  "deleteAccountWhatText": "Your KaymakTV account and everything linked to it is permanently deleted: your profile details, watch history, ratings, watchlist and favorites, your posts, reviews and comments, your likes, follow connections, notification tokens and the Trakt access keys stored on our server. This cannot be undone.",
+  "deleteAccountWhatNotTitle": "What does not get deleted?",
+  "deleteAccountWhatNotText": "Your Google account and (if you connected it) your Trakt.tv account are not touched; KaymakTV cannot delete those accounts. If you want to delete your history on Trakt, do that separately on trakt.tv. Feedback you sent is kept under a random ID that is not linked to your account, so account deletion does not remove it; write to us if you want it deleted.",
+  "deleteAccountCta": "Sign In and Continue",
+  "deleteAccountFootnote": "You don't need to install the app — this can be done from a browser too."
 }

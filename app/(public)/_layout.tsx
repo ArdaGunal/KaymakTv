@@ -9,6 +9,7 @@ export default function PublicLayout() {
       <Stack.Screen name="profil-olustur" />
       <Stack.Screen name="gizlilik" />
       <Stack.Screen name="kullanim-kosullari" />
+      <Stack.Screen name="topluluk-kurallari" />
       <Stack.Screen name="hesap-sil" />
     </Stack>
   );

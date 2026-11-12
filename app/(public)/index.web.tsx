@@ -184,6 +184,7 @@ export default function WebLandingPage() {
           <div className="footer-links">
             <button type="button" onClick={() => router.push('/(public)/gizlilik')}>{t('welcomePrivacy')}</button>
             <button type="button" onClick={() => router.push('/(public)/kullanim-kosullari')}>{t('welcomeTerms')}</button>
+            <button type="button" onClick={() => router.push('/(public)/topluluk-kurallari')}>{t('welcomeRules')}</button>
           </div>
 
           <div className="footer-bottom">

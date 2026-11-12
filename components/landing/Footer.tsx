@@ -28,6 +28,10 @@ export default function Footer() {
         <TouchableOpacity onPress={() => router.push('/(public)/kullanim-kosullari')} activeOpacity={0.7}>
           <Text style={styles.link}>{t('welcomeTerms')}</Text>
         </TouchableOpacity>
+        <Text style={styles.linkDot}>·</Text>
+        <TouchableOpacity onPress={() => router.push('/(public)/topluluk-kurallari')} activeOpacity={0.7}>
+          <Text style={styles.link}>{t('welcomeRules')}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Telif */}
