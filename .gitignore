@@ -64,7 +64,6 @@ firebase.json
 *.bat
 /*.js
 !/metro.config.js
-!/tailwind.config.js
 !/babel.config.js
 !/server.js
 /*.py
