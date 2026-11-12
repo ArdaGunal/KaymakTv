@@ -1,6 +1,11 @@
 // KaymakTV Sabitleri
 
+/** Yan yüklenen APK'nın güncelleme adresi için son çare (sunucu `update_url` boşsa). */
 export const STORE_URL = 'https://kaymaktv.com';
+
+/** Play paketinin güncelleme adresi için son çare (sunucu `store_update_url` boşsa).
+ * Kanal seçimi: `features/versionGate/services/dagitim.ts`. */
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.ardagnl.kaymak';
 
 // BETA APK DAĞITIMI (bkz. app/(public)/download.web.tsx) — Play Store'a
 // çıkıldıktan sonra bir ara kaldırılmıştı ama kullanıcı hâlâ aktif olarak

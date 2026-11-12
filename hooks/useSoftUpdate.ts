@@ -3,53 +3,46 @@ import { Platform, Linking } from 'react-native';
 import * as Application from 'expo-application';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettingsStore } from '../store/appSettingsStore';
-import { isVersionBelow } from '../utils/semver';
-import { STORE_URL } from '../utils/constants';
+import { guncellemeAdresi } from '../features/versionGate/services/dagitim';
+import { kuruluYapiNumarasi } from '../features/versionGate/services/surumKarari';
+import { bantGosterilsinMi } from '../features/versionGate/services/bantKarari';
 
 const SNOOZE_KEY = 'soft_update_snoozed_until';
 const SNOOZE_DURATION_MS = 5 * 60 * 60 * 1000; // 5 saat
 
+/**
+ * «Yeni sürüm var» bandı. Veriyi `VersionGate`'in çektiği `appSettingsStore`'dan alır (çift istek yok).
+ * YAYIN_ONCESI_PLAN Adım 1: yapı numarası (versionCode) ile `min_required_build` / `latest_build`
+ * karşılaştırılır; sürüm adına bakılmaz. Karar saf `bantGosterilsinMi`'de.
+ */
 export function useSoftUpdate() {
   const [showBanner, setShowBanner] = useState(false);
   const { settings, isFetched } = useAppSettingsStore();
 
   useEffect(() => {
-    // 1. Platform Kontrolü: Web'de ASLA çalışmaz
     if (Platform.OS === 'web') {
       setShowBanner(false);
       return;
     }
 
     const checkSoftUpdate = async () => {
-      // 2. Çift İstek Engellemesi: VersionGate'in (appSettingsStore'un) çektiği datayı kullanıyoruz
       if (!isFetched || !settings) return;
 
-      const currentVersion = Application.nativeApplicationVersion;
-      if (!currentVersion) return;
-
-      // 2.6.5 madde 8: zorunlu güncelleme oturum içinde engel ekranı açmaz
-      // (useVersionGate) — bunun yerine bant çıkar, ertelenmiş olsa bile.
-      if (isVersionBelow(currentVersion, settings.minRequiredVersion)) {
+      const karar = bantGosterilsinMi(kuruluYapiNumarasi(Application.nativeBuildVersion), settings);
+      if (karar === 'yok') return;
+      // Zorunlu güncelleme bekliyorsa bant ertelemeye bakmadan açılır (oturum içinde engel yerine).
+      if (karar === 'zorunlu') {
         setShowBanner(true);
         return;
       }
 
-      // 3. Güvenli SemVer: isVersionBelow zaten utils/semver.ts içinde Integer split mantığıyla yazılmış durumda.
-      if (isVersionBelow(currentVersion, settings.latestVersion)) {
-        try {
-          const snoozedUntilStr = await AsyncStorage.getItem(SNOOZE_KEY);
-          if (snoozedUntilStr) {
-            const snoozedUntil = parseInt(snoozedUntilStr, 10);
-            if (Date.now() < snoozedUntil) {
-              // Snooze süresi henüz dolmamış
-              return;
-            }
-          }
-          setShowBanner(true);
-        } catch (error) {
-          console.warn('[useSoftUpdate] Snooze kontrolü başarısız:', error);
-          setShowBanner(true);
-        }
+      try {
+        const snoozedUntilStr = await AsyncStorage.getItem(SNOOZE_KEY);
+        if (snoozedUntilStr && Date.now() < parseInt(snoozedUntilStr, 10)) return;
+        setShowBanner(true);
+      } catch (error) {
+        console.warn('[useSoftUpdate] Snooze kontrolü başarısız:', error);
+        setShowBanner(true);
       }
     };
 
@@ -67,8 +60,7 @@ export function useSoftUpdate() {
   };
 
   const onUpdate = () => {
-    const url = settings?.updateUrl || STORE_URL;
-    Linking.openURL(url).catch((err) => console.error('URL açılamadı:', err));
+    Linking.openURL(guncellemeAdresi(settings)).catch((err) => console.error('URL açılamadı:', err));
   };
 
   return { showBanner, onSnooze, onUpdate };

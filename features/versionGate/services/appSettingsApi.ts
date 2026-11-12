@@ -6,10 +6,20 @@ export const SURUM_ISTEGI_SINIRI_MS = 5000;
 // supabase/schema/009_app_settings.sql. Salt okunur (anon key + RLS SELECT,
 // feed'deki `getFeedPrivacySettings` ile aynı desen); yazma yalnızca Supabase
 // Dashboard'dan elle yapılır, istemcide hiçbir yazma yolu YOKTUR.
+//
+// YAYIN_ONCESI_PLAN Adım 1 (076): kapı sürüm ADINA değil yapı numarasına (versionCode) bakar.
+// Mağaza adı 1.0.0 olunca ad karşılaştırması 1.0.0'ı 2.6.8'den eski sayıp kilitlerdi.
+// `min_required_version` / `latest_version` canlıda DURUR: sahadaki 2.6.x APK'lar onları okur.
+// Bu istemci onlara hiç bakmaz.
 export interface AppSettings {
-  minRequiredVersion: string;
-  latestVersion: string;
-  updateUrl: string;
+  /** Bundan küçük yapı numarası açılışta engellenir. `null` → engel yok. */
+  minRequiredBuild: number | null;
+  /** Bundan küçük yapı numarasına «yeni sürüm var» bandı. `null` → bant yok. */
+  latestBuild: number | null;
+  /** Yan yüklenen APK'nın güncelleme adresi (indirme sayfası). */
+  updateUrl: string | null;
+  /** Play paketinin güncelleme adresi. */
+  storeUpdateUrl: string | null;
 }
 
 /** `app_settings` tablosunun tek satırını (id=1) okur. Satır hiç yoksa/DB
@@ -25,7 +35,9 @@ export async function getAppSettings(): Promise<AppSettings | null> {
   const zamanlayici = setTimeout(() => denetci.abort(), SURUM_ISTEGI_SINIRI_MS);
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/app_settings?id=eq.1&select=min_required_version,latest_version,update_url`,
+      // 🔴 `select=*`, kolon adı sayılmaz: sayılan bir kolon canlıda yoksa PostgREST 400 döner ve
+      // kapı sessizce «açık» kalırdı (fail-open hatayı gizler).
+      `${SUPABASE_URL}/rest/v1/app_settings?id=eq.1&select=*`,
       {
         headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
         signal: denetci.signal,
@@ -45,12 +57,22 @@ export async function getAppSettings(): Promise<AppSettings | null> {
   }
 }
 
-/** Saf — sınanır. Eksik satır/alan → `null`. */
+/** Saf — pozitif tam sayı ya da `null` (metin «13» de kabul; 0, negatif, kesirli, bozuk → `null`). */
+export function yapiNumarasi(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+const metinYaDaNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
+
+/** Saf — sınanır. Satır yoksa `null`; alanlar tek tek doğrulanır, bozuk alan `null` olur. */
 export function ayarlariCoz(data: any): AppSettings | null {
-  if (!data?.min_required_version || !data?.update_url) return null;
+  if (!data || typeof data !== 'object') return null;
   return {
-    minRequiredVersion: data.min_required_version,
-    latestVersion: data.latest_version || data.min_required_version,
-    updateUrl: data.update_url,
+    minRequiredBuild: yapiNumarasi(data.min_required_build),
+    latestBuild: yapiNumarasi(data.latest_build),
+    updateUrl: metinYaDaNull(data.update_url),
+    storeUpdateUrl: metinYaDaNull(data.store_update_url),
   };
 }

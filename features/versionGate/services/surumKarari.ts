@@ -1,12 +1,19 @@
-import { isVersionBelow } from '../../../utils/semver';
+import { yapiNumarasi } from './appSettingsApi';
 
 // M458 · Sürüm kapısının saklanan son sonucu. Açılışta AĞI BEKLEMEDEN karar
 // vermek için cihazda tutulur (bkz. useVersionGate.ts): her açılışta 1–5 sn boş
 // ekran (Geliştirici Paneli, 2026-10-08) yerine anında açılış.
-export const SURUM_ONBELLEK_ANAHTARI = '@kaymak_surum_kapisi_v1';
+//
+// YAYIN_ONCESI_PLAN Adım 1 · v2: karar yapı numarasıyla (versionCode). v1 sürüm ADINI
+// («2.6.8») tutuyordu; 2.6.8 üzerine kurulan 1.0.0 onu okusaydı ağı beklemeden kilitlenirdi.
+// 🔴 v1 HİÇ OKUNMAZ; kanca açılışta siler.
+export const SURUM_ONBELLEK_ANAHTARI = '@kaymak_surum_kapisi_v2';
+export const ESKI_SURUM_ONBELLEK_ANAHTARI = '@kaymak_surum_kapisi_v1';
 
 export interface SurumOnbellegi {
-  minRequiredVersion: string;
+  /** `null` → sunucuda sınır yok (önceki engel de kalkar). */
+  minRequiredBuild: number | null;
+  /** Kanala göre çözülmüş güncelleme adresi (`dagitim.ts`). */
   updateUrl: string | null;
 }
 
@@ -14,11 +21,15 @@ export type SurumKarari =
   | { durum: 'ok' }
   | { durum: 'blocked'; updateUrl: string | null };
 
-/** Saf karar: önbellek/sunucu sonucu ile kurulu sürümü karşılaştırır.
- * Önbellek yoksa ya da bozuksa `ok` (fail-open — dosya başı notu). */
-export function surumKarari(kurulu: string | null, kayit: SurumOnbellegi | null): SurumKarari {
-  if (!kurulu || !kayit?.minRequiredVersion) return { durum: 'ok' };
-  return isVersionBelow(kurulu, kayit.minRequiredVersion)
+/** Cihazdaki ham yapı numarası (`Application.nativeBuildVersion`, metin) → sayı ya da `null`. */
+export const kuruluYapiNumarasi = (ham: string | null | undefined): number | null => yapiNumarasi(ham);
+
+/** Saf karar: kurulu yapı numarası sınırdan KESİNLİKLE küçükse engel.
+ * Kurulu numara bilinmiyorsa ya da sınır yoksa `ok` (fail-open — useVersionGate.ts notu).
+ * 🔴 Sürüm ADINA geri düşülmez: ada bakan bir yedek yol 1.0.0'ı yine kilitler. */
+export function surumKarari(kuruluYapi: number | null, kayit: SurumOnbellegi | null): SurumKarari {
+  if (kuruluYapi === null || !kayit?.minRequiredBuild) return { durum: 'ok' };
+  return kuruluYapi < kayit.minRequiredBuild
     ? { durum: 'blocked', updateUrl: kayit.updateUrl }
     : { durum: 'ok' };
 }
@@ -33,13 +44,14 @@ export function oturumIciKarar(mevcut: SurumKarari, sunucu: SurumKarari): SurumK
   return mevcut.durum === 'ok' ? { durum: 'ok' } : sunucu;
 }
 
-/** AsyncStorage'dan okunan ham metni doğrular; şekil yanlışsa `null`. */
+/** AsyncStorage'dan okunan ham metni doğrular; şekil yanlışsa `null` (= sınır yok). */
 export function onbellegiCoz(ham: string | null): SurumOnbellegi | null {
   if (!ham) return null;
   try {
     const v = JSON.parse(ham);
-    if (typeof v?.minRequiredVersion !== 'string' || !v.minRequiredVersion) return null;
-    return { minRequiredVersion: v.minRequiredVersion, updateUrl: typeof v.updateUrl === 'string' ? v.updateUrl : null };
+    const sinir = yapiNumarasi(v?.minRequiredBuild);
+    if (sinir === null) return null;
+    return { minRequiredBuild: sinir, updateUrl: typeof v.updateUrl === 'string' ? v.updateUrl : null };
   } catch {
     return null;
   }

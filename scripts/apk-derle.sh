@@ -21,7 +21,11 @@ set -euo pipefail
 KOK="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$KOK/android"
 
-unset EXPO_PUBLIC_AG_IZLE EXPO_PUBLIC_GOOGLE_GIRIS_TEST
+unset EXPO_PUBLIC_AG_IZLE EXPO_PUBLIC_GOOGLE_GIRIS_TEST EXPO_PUBLIC_DAGITIM
+# Dagitim kanali (YAYIN_ONCESI_PLAN Adim 1): bu betigin APK'lari yan yuklenir → guncelleme dugmesi
+# indirme sayfasini acar. Play paketi (AAB) 'play' ile derlenir (eas.json production; --aab Adim 2).
+# Her derlemede ACIKCA ayarlanir: Metro onbellegi eski degeri tasimasin.
+export EXPO_PUBLIC_DAGITIM=apk
 TUR="YAYIN (AG kapali; Google girisi utils/googleGirisBayragi.ts)"; EK=""
 case "${1:-}" in
   --ag) export EXPO_PUBLIC_AG_IZLE=1; TUR="TEST (AG acik)"; EK="-AG-TEST" ;;
