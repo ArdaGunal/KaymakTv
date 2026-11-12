@@ -205,4 +205,29 @@ T.ok('078: uc tablo + uc islev + rol adiyla geri alma + dogrulama',
   ['hesap_durumu', 'moderasyon_kaydi', 'kullanici_rolleri', 'mod_askiya_al', 'mod_kapat', 'mod_aski_kaldir',
     'FROM PUBLIC, anon, authenticated, service_role', 'FROM PUBLIC, anon, authenticated;', 'has_function_privilege']
     .every((k) => oku('supabase/schema/078_hesap_durumu.sql').includes(k)));
+
+T.H('Aski nedeni yazilan yerde gorunur (M613: «paylasilamadi, tekrar dene» degil)');
+const kapiKaynak = oku('services/kuralOnayiKapisi.ts');
+T.ok('hataAskiMetni: axios hatasi ve `aski` alani ikisini de okur, yoksa null',
+  kapiKaynak.includes('export function hataAskiMetni') && kapiKaynak.includes('k?.aski ?? askiYanitiCoz(k?.response?.status, k?.response?.data)')
+  && kapiKaynak.includes('return bilgi ? askiMetni(bilgi) : null'));
+T.ok('Kutu ve satir ayni metni kullanir', kapiKaynak.includes("notify(i18n.t('legal:suspendedTitle'), askiMetni(bilgi))"));
+T.ok('Sonuc donduren servisler askiyi tasir (gonderi, inceleme, profil)',
+  oku('features/feed/services/feedPublish.ts').includes('aski: askiYanitiCoz(error?.response?.status, error?.response?.data)')
+  && oku('features/feed/services/feedReviews.ts').includes('aski: askiYanitiCoz(error?.response?.status, error?.response?.data)')
+  && oku('features/feed/services/profile.ts').includes('askiYanitiCoz(response.status, response.data)'));
+const askiYuzeyleri = {
+  'gonderi penceresi': ['features/feed/components/ComposePostModal.tsx', 'hataAskiMetni(result) ??'],
+  'yorum (hook)': ['features/feed/hooks/useFeedComments.ts', 'askiMetni: hataAskiMetni(error)'],
+  'yorum (satir)': ['features/feed/components/detail/PublishedActivityDetail.tsx', 'sonuc.askiMetni ??'],
+  'not': ['features/feed/hooks/useActivityActions.tsx', 'hataAskiMetni(error) ??'],
+  'inceleme (hook)': ['hooks/useMediaReviews.ts', 'askiMetni: hataAskiMetni(result)'],
+  'inceleme (pencere)': ['components/reviews/WriteReviewSheet.tsx', 'result.askiMetni ??'],
+  'profil (hook)': ['hooks/useUpdateProfile.ts', 'askiMetni: hataAskiMetni(err)'],
+  'aciklama penceresi': ['components/modals/EditBioModal.tsx', 'error.askiMetni ??'],
+  'gorunen ad penceresi': ['components/modals/EditDisplayNameModal.tsx', 'error.askiMetni ??'],
+  'kullanici adi penceresi': ['components/modals/EditProfileModal.tsx', 'error.askiMetni ??'],
+  'isim ekrani': ['app/(public)/profil-olustur.tsx', 'error.askiMetni ??'],
+};
+for (const [ad, [dosya, iz]] of Object.entries(askiYuzeyleri)) T.ok(`${ad}: aski nedenini gosterir`, oku(dosya).includes(iz), dosya);
 T.bitir();

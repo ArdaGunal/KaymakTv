@@ -1,11 +1,14 @@
 import { useCallback, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, ProfileUpdateError, UpdateProfilePatch } from '../features/feed/services/profile';
+import { hataAskiMetni } from '../services/kuralOnayiKapisi';
 
 /** Yalnız KOD — sunucunun (Türkçe) `message`'ı ekrana taşınmaz; arayüz t() gösterir (M490). */
 export interface UpdateProfileErrorState {
   code?: string;
   retryAt?: string;
+  /** M613 · hesap askıdaysa kullanıcının dilinde açıklama; pencereler genel metin yerine bunu gösterir. */
+  askiMetni?: string | null;
 }
 
 /**
@@ -33,7 +36,7 @@ export function useUpdateProfile() {
       } catch (e) {
         const err = e as ProfileUpdateError;
         console.warn('[Profile] Profil kaydedilemedi:', err?.message);
-        setError({ code: err.code, retryAt: err.retryAt });
+        setError({ code: err.code, retryAt: err.retryAt, askiMetni: hataAskiMetni(err) });
         return false;
       } finally {
         setIsSaving(false);

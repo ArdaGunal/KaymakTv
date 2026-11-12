@@ -9,6 +9,7 @@ import {
   FeedComment,
 } from '../services/feedSocial';
 import { getMySupabaseUserId } from '../services/userBlocks';
+import { hataAskiMetni } from '../../../services/kuralOnayiKapisi';
 import { useFeedStore } from '../store/feedStore';
 
 export interface UseFeedCommentsResult {
@@ -20,7 +21,7 @@ export interface UseFeedCommentsResult {
   likedCommentIds: Set<string>;
   /** Başarıda `count`: yeniden yüklenen görünür yorum sayısı (kesin değer). */
   /** Hata metni DÖNMEZ — arayüz t() ile gösterir (M490: ham metin ekrana sızıyordu). */
-  submitComment: (body: string, spoiler: boolean) => Promise<{ ok: true; count: number | null } | { ok: false }>;
+  submitComment: (body: string, spoiler: boolean) => Promise<{ ok: true; count: number | null } | { ok: false; askiMetni?: string | null }>;
   removeComment: (commentId: string) => Promise<void>;
   toggleCommentLike: (commentId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -74,7 +75,7 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
   }, [isOpen, load]);
 
   const submitComment = useCallback(
-    async (body: string, spoiler: boolean): Promise<{ ok: true; count: number | null } | { ok: false }> => {
+    async (body: string, spoiler: boolean): Promise<{ ok: true; count: number | null } | { ok: false; askiMetni?: string | null }> => {
       if (!accessToken) return { ok: false };
       setIsSubmitting(true);
       try {
@@ -93,7 +94,8 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
         return { ok: true, count };
       } catch (error: any) {
         console.warn('[Feed] Yorum gönderilemedi:', error);
-        return { ok: false };
+        // M613: askı reddi yorum satırında nedeniyle gösterilir.
+        return { ok: false, askiMetni: hataAskiMetni(error) };
       } finally {
         setIsSubmitting(false);
       }

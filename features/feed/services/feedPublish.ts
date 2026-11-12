@@ -11,6 +11,7 @@ import { invalidateFeedCache, invalidateUserFeedActivitiesCache, fetchActivityBy
 import { FeedActivity, FeedMediaType } from '../types';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
+import { askiYanitiCoz, type AskiBilgisi } from '../../../utils/hesapAskisi';
 
 /**
  * ANINDA YAYIN — bir aktivite Trakt'a yazıldığı ANDA akışa düşer.
@@ -357,7 +358,7 @@ async function settleOptimistic(tempId: string, realId?: string): Promise<void> 
   }
 }
 
-export async function publishPost(input: PublishablePost): Promise<{ ok: true } | { ok: false; message: string }> {
+export async function publishPost(input: PublishablePost): Promise<{ ok: true } | { ok: false; message: string; aski?: AskiBilgisi | null }> {
   if (!KAYMAK_WORKER_URL) return { ok: false, message: 'Sunucu adresi tanımlı değil.' };
 
   const token = await SecureStore.getItemAsync('traktAccessToken');
@@ -434,7 +435,11 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
     recordMutationResult('publishPost', false);
     logError('feedPublish.publishPost', error);
     console.warn('[Feed] Gönderi paylaşılamadı:', error);
-    return { ok: false, message: error?.response?.data?.message || error?.message || 'Gönderi paylaşılamadı.' };
+    return {
+      ok: false,
+      message: error?.response?.data?.message || error?.message || 'Gönderi paylaşılamadı.',
+      aski: askiYanitiCoz(error?.response?.status, error?.response?.data),
+    };
   } finally {
     recordApiLatency('worker.feed.post', Date.now() - start);
   }

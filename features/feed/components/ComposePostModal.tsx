@@ -22,6 +22,7 @@ import MediaPoster from '../../../components/MediaPoster';
 import MediaPickerModal from './MediaPickerModal';
 import { PickedMedia } from './MediaPickerRow';
 import { publishPost } from '../services/feedPublish';
+import { hataAskiMetni } from '../../../services/kuralOnayiKapisi';
 
 const POST_MAX_LENGTH = 1000;
 
@@ -97,7 +98,8 @@ export default function ComposePostModal({ visible, onClose }: ComposePostModalP
         resetAndClose();
       } else {
         console.warn('[Feed] Gönderi paylaşılamadı:', result.message);
-        setError(t('postShareError', 'Gönderi paylaşılamadı, tekrar dene.'));
+        // M613: askı reddi «tekrar dene» değil, nedeniyle gösterilir.
+        setError(hataAskiMetni(result) ?? t('postShareError', 'Gönderi paylaşılamadı, tekrar dene.'));
       }
     } finally {
       setIsSubmitting(false);

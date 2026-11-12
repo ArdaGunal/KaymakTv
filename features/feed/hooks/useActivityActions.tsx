@@ -9,6 +9,7 @@ import { useMyUserId } from './useMyUserId';
 import { useQuickBlock } from './useQuickBlock';
 import { useFeedStore } from '../store/feedStore';
 import { setLike, setActivityNote } from '../services/feedSocial';
+import { hataAskiMetni } from '../../../services/kuralOnayiKapisi';
 import {
   deleteActivitiesBulk,
   invalidateFeedCache,
@@ -102,9 +103,8 @@ export function useActivityActions(
       setNoteModalVisible(false);
     } catch (error: any) {
       console.warn('[Feed] Not kaydedilemedi:', error);
-      setNoteError(
-        t('noteSaveError', 'Alıntı kaydedilemedi, tekrar dene.')
-      );
+      // M613: askı reddi nedeniyle gösterilir.
+      setNoteError(hataAskiMetni(error) ?? t('noteSaveError', 'Alıntı kaydedilemedi, tekrar dene.'));
     } finally {
       setIsSavingNote(false);
     }

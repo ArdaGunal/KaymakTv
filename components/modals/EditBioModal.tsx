@@ -121,7 +121,7 @@ export default function EditBioModal({ visible, onClose, currentBio, onSaved }: 
 
             {error && (
               <View style={[styles.notice, styles.noticeError]}>
-                <Text style={[styles.noticeText, styles.noticeTextError]}>{t('settings:profileSaveError', 'Kaydedilemedi, tekrar dene.')}</Text>
+                <Text style={[styles.noticeText, styles.noticeTextError]}>{error.askiMetni ?? t('settings:profileSaveError', 'Kaydedilemedi, tekrar dene.')}</Text>
               </View>
             )}
 

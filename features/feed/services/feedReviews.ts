@@ -4,6 +4,7 @@ import * as SecureStore from '../../../utils/secureStorage';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
 import { FeedMediaType } from '../types';
+import { askiYanitiCoz, type AskiBilgisi } from '../../../utils/hesapAskisi';
 import {
   deleteActivitiesBulk,
   invalidateFeedCache,
@@ -57,7 +58,7 @@ export interface PublishableReview {
 
 export type ReviewResult =
   | { ok: true; activityId: string; updated: boolean }
-  | { ok: false; message: string };
+  | { ok: false; message: string; aski?: AskiBilgisi | null };
 
 /** Yayın/silme sonrası bayat kalabilecek önbellekleri tek yerden temizler. */
 function invalidateAfterReviewChange(
@@ -140,6 +141,7 @@ export async function publishReview(input: PublishableReview): Promise<ReviewRes
     return {
       ok: false,
       message: error?.response?.data?.message || error?.message || 'İnceleme paylaşılamadı.',
+      aski: askiYanitiCoz(error?.response?.status, error?.response?.data),
     };
   } finally {
     recordApiLatency('worker.feed.review', Date.now() - start);

@@ -144,7 +144,7 @@ export default function EditProfileModal({ visible, onClose, currentUsername, us
             {error && !retryAt && (
               <View style={[styles.notice, styles.noticeError]}>
                 <Text style={[styles.noticeText, styles.noticeTextError]}>
-                  {kullaniciAdiHataMetni(t, error.code)}
+                  {error.askiMetni ?? kullaniciAdiHataMetni(t, error.code)}
                 </Text>
               </View>
             )}

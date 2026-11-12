@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { kuralOnayiZorunlu } from '../../../services/kuralOnayiKapisi';
 import { profilYamasiOnayIsterMi } from '../../../utils/kuralOnayi';
+import { askiYanitiCoz, type AskiBilgisi } from '../../../utils/hesapAskisi';
 import { tekUcus } from '../../../utils/tekUcus';
 
 // Profil güncelleme (kullanıcı adı + Google profil fotoğrafı kabul/red) —
@@ -171,10 +172,13 @@ export class ProfileUpdateError extends Error {
   /** `taken` · `cooldown` · `kullanici_adi_{kisa|uzun|karakter|ayrilmis}` … — metne `kullaniciAdiHataMetni` çevirir. */
   code?: string;
   retryAt?: string;
-  constructor(message: string, code?: string, retryAt?: string) {
+  /** M613 · `403 hesap_askida` ise askı bilgisi (arayüz `hataAskiMetni` ile açıklar). */
+  aski?: AskiBilgisi | null;
+  constructor(message: string, code?: string, retryAt?: string, aski?: AskiBilgisi | null) {
     super(message);
     this.code = code;
     this.retryAt = retryAt;
+    this.aski = aski ?? null;
   }
 }
 
@@ -203,7 +207,8 @@ export async function updateProfile(traktAccessToken: string, patch: UpdateProfi
     throw new ProfileUpdateError(
       response.data?.message || 'İşlem başarısız.',
       response.data?.code,
-      response.data?.retryAt
+      response.data?.retryAt,
+      askiYanitiCoz(response.status, response.data)
     );
   }
 }

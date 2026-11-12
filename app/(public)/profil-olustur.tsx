@@ -136,7 +136,7 @@ export default function ProfilOlusturScreen() {
           {error && (
             <View style={styles.notice}>
               <Text style={styles.noticeText}>
-                {kullaniciAdiHataMetni(t, error.code)}
+                {error.askiMetni ?? kullaniciAdiHataMetni(t, error.code)}
               </Text>
             </View>
           )}

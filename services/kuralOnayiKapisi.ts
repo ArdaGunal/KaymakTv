@@ -179,13 +179,31 @@ export async function sunucuOnayiReddetti(): Promise<void> {
 // biçimde, metni seçili dilde gösterir. Art arda gelen kopyalar tek kutu açar.
 let sonAskiKutusu = 0;
 
+/** Askının kullanıcının dilindeki açıklaması (tarih + itiraz adresi). */
+export function askiMetni(bilgi: AskiBilgisi): string {
+  const adres = bilgi.itiraz || ILETISIM_EPOSTA;
+  const tarih = bilgi.bitis ? askiTarihiYaz(bilgi.bitis, i18n.language || 'tr') : '';
+  return i18n.t(askiMetinAnahtari(bilgi), { tarih, adres });
+}
+
+/**
+ * M613 · Yazma yüzeyinin hata satırı için: hata bir askı reddiyse açıklamasını, değilse `null`
+ * döndürür. Kabul eder: axios hatası (`response.status/data`), servis sonucu / hata nesnesi
+ * üzerinde `aski` alanı. Yüzey `hataAskiMetni(x) ?? genelMetin` gösterir.
+ * NEDEN: kutu (`askiKutusunuGoster`) açık bir yazma penceresinin arkasında kalabiliyor ve
+ * servisler reddi «paylaşılamadı, tekrar dene» diye gösteriyordu → kullanıcı hata sanıyordu.
+ */
+export function hataAskiMetni(kaynak: unknown): string | null {
+  const k = kaynak as { aski?: AskiBilgisi | null; response?: { status?: number; data?: unknown } } | null;
+  const bilgi = k?.aski ?? askiYanitiCoz(k?.response?.status, k?.response?.data);
+  return bilgi ? askiMetni(bilgi) : null;
+}
+
 export function askiKutusunuGoster(bilgi: AskiBilgisi): void {
   const simdi = Date.now();
   if (simdi - sonAskiKutusu < ASKI_KUTUSU_ARALIGI_MS) return;
   sonAskiKutusu = simdi;
-  const adres = bilgi.itiraz || ILETISIM_EPOSTA;
-  const tarih = bilgi.bitis ? askiTarihiYaz(bilgi.bitis, i18n.language || 'tr') : '';
-  void notify(i18n.t('legal:suspendedTitle'), i18n.t(askiMetinAnahtari(bilgi), { tarih, adres }));
+  void notify(i18n.t('legal:suspendedTitle'), askiMetni(bilgi));
 }
 
 // İçerik yazan beş servis de varsayılan axios örneğini kullanıyor; kodları tek yerde yakalamak,

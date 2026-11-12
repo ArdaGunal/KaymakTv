@@ -75,7 +75,7 @@ export default function PublishedActivityDetail({ activity, patchLocal, focusCom
       // Store'daki kopyayı hook kesin sayıyla yazıyor; yerel kopya (paylaşım linki) için:
       if (sonuc.count != null) patchLocal({ commentCount: sonuc.count });
     } else {
-      setSubmitError(t('commentSubmitError', 'Yorum gönderilemedi, tekrar dene.'));
+      setSubmitError(sonuc.askiMetni ?? t('commentSubmitError', 'Yorum gönderilemedi, tekrar dene.'));
     }
   };
 

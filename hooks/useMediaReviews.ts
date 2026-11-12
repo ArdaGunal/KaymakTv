@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { hataAskiMetni } from '../services/kuralOnayiKapisi';
 import { useAuth } from '../context/AuthContext';
 import { fetchMediaReviews } from '../features/feed/services/feedApi';
 import { getMySupabaseUserId } from '../features/feed/services/userBlocks';
@@ -51,7 +52,7 @@ export interface UseMediaReviewsResult {
   otherReviews: FeedActivity[];
   /** `tmdbId` henüz çözülmedi — yazma butonunun GEÇİCİ olarak pasif olduğunu ayırt eder. */
   isTmdbIdPending: boolean;
-  submitReview: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }>;
+  submitReview: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni; askiMetni?: string | null }>;
   removeReview: () => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }>;
   toggleReviewLike: (activityId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -143,7 +144,7 @@ export function useMediaReviews({
   const canSubmit = !isGuest && !!accessToken && !!tmdbId && !!mediaTitle;
 
   const submitReview = useCallback(
-    async (body: string, spoiler: boolean): Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }> => {
+    async (body: string, spoiler: boolean): Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni; askiMetni?: string | null }> => {
       if (isGuest) return { ok: false, neden: 'misafir' };
       if (!tmdbId) return { ok: false, neden: 'yapim_yok' };
 
@@ -158,7 +159,7 @@ export function useMediaReviews({
         // yukarı geçiyor; `WriteReviewSheet` sheet'i açık bırakıp metni koruyor.
         if (!result.ok) {
           console.warn('[Reviews] İnceleme paylaşılamadı:', result.message);
-          return { ok: false, neden: 'gonderilemedi' };
+          return { ok: false, neden: 'gonderilemedi', askiMetni: hataAskiMetni(result) };
         }
 
         // Sunucu satırını (gerçek id, sayaçlar, kullanıcı bilgisi) geri

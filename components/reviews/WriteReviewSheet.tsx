@@ -42,7 +42,7 @@ interface WriteReviewSheetProps {
   /** Düzenleme modunda mevcut inceleme metni (bizim DB'mizden). */
   initialBody?: string;
   initialSpoiler?: boolean;
-  onSubmit: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni }>;
+  onSubmit: (body: string, spoiler: boolean) => Promise<{ ok: true } | { ok: false; neden: IncelemeHataNedeni; askiMetni?: string | null }>;
 }
 
 export default function WriteReviewSheet({
@@ -94,7 +94,7 @@ export default function WriteReviewSheet({
     // Kullanıcı ağı düzelip tekrar "Gönder"e basabilir.
     // (Sheet kapanma sıfırlaması bilinçli olarak `visible` AÇILIRKEN çalışıyor,
     // kapanırken değil — böylece burada state'i temizleyen bir yan etki yok.)
-    setErrorMessage(incelemeHataMetni(t, result.neden));
+    setErrorMessage(result.askiMetni ?? incelemeHataMetni(t, result.neden));
   };
 
   /**
