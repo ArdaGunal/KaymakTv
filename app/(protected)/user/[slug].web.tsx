@@ -58,7 +58,6 @@ export default function PublicProfileScreenWeb() {
     followingCount,
     isPrivate,
     traktSlug,
-    bioBizden,
     gizliKilitli,
     isLoading: isProfileLoading,
     error,
@@ -162,9 +161,10 @@ export default function PublicProfileScreenWeb() {
                     {profile.about}
                   </Text>
                 )}
-                {!!profile.about && canShowBlockButton && bioBizden && (
+                {/* Adım 4c (M609): «Profili bildir» — açıklaması olmayan profil de bildirilebilir. */}
+                {canShowBlockButton && !!hedefUserId && (
                   <TouchableOpacity onPress={() => setBioRaporAcik(true)} style={styles.reportBio} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Text style={styles.reportBioText}>{t('feed:reportBio', 'Açıklamayı bildir')}</Text>
+                    <Text style={styles.reportBioText}>{t('feed:reportProfile', 'Profili bildir')}</Text>
                   </TouchableOpacity>
                 )}
 

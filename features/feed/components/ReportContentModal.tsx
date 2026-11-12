@@ -127,9 +127,16 @@ export default function ReportContentModal({
                     <Flag size={18} color="#f87171" />
                   </View>
                   <View style={styles.headerText}>
-                    <Text style={styles.title}>{t('feed:reportModalTitle', 'İçeriği Bildir')}</Text>
+                    {/* Adım 4c (M609): `user_bio` hedefi profilin TAMAMIDIR (ad, kullanıcı adı, fotoğraf, açıklama). */}
+                    <Text style={styles.title}>
+                      {targetType === 'user_bio'
+                        ? t('feed:reportProfileModalTitle', 'Profili Bildir')
+                        : t('feed:reportModalTitle', 'İçeriği Bildir')}
+                    </Text>
                     <Text style={styles.subtitle}>
-                      {t('feed:reportModalSubtitle', 'Bu içerikle ilgili sorunu bize bildir, inceleyelim.')}
+                      {targetType === 'user_bio'
+                        ? t('feed:reportProfileModalSubtitle', 'Bu profilin adı, fotoğrafı ya da açıklamasıyla ilgili sorunu bize bildir, inceleyelim.')
+                        : t('feed:reportModalSubtitle', 'Bu içerikle ilgili sorunu bize bildir, inceleyelim.')}
                     </Text>
                   </View>
                 </View>

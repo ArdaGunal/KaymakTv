@@ -21,7 +21,10 @@ import { logError } from '../../../utils/errorLog';
  * beğeni, yorum ve engelleme de giriş gerektiriyor; bildirme tek istisnaydı.
  * Kimliksiz bildirim kabul etmek, kısıtın tamamını işlevsiz bırakıyordu.
  */
-// `user_bio` (T4 · `043`) → `targetId` = açıklaması bildirilen kişinin `users.id`'si.
+// `user_bio` (T4 · `043`) → `targetId` = bildirilen kişinin `users.id`'si.
+// 🔴 Adım 4c (M609): ad tarihsel; hedef PROFİLİN TAMAMIDIR (ad, kullanıcı adı, fotoğraf, açıklama).
+// Arayüzde «Profili bildir». Tip adı değişmedi: DB kısıtı (`043`) ve Worker aynı değeri bekliyor,
+// yeniden adlandırma migration + eski APK uyumu isterdi. Profil için otomatik gizleme YOK.
 export type ReportTargetType = 'activity' | 'comment' | 'trakt_comment' | 'user_bio';
 export type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'spoiler' | 'illegal' | 'other';
 

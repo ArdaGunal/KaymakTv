@@ -139,9 +139,10 @@ export default function ProfileHeader({
             {profile.about}
           </Text>
         )}
-        {!!profile.about && !!onReportBio && (
+        {/* Adım 4c (M609): açıklaması olmayan profil de bildirilebilir (ad, kullanıcı adı, fotoğraf). */}
+        {!!onReportBio && (
           <TouchableOpacity onPress={onReportBio} style={styles.reportBio} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Text style={styles.reportBioText}>{t('feed:reportBio', 'Açıklamayı bildir')}</Text>
+            <Text style={styles.reportBioText}>{t('feed:reportProfile', 'Profili bildir')}</Text>
           </TouchableOpacity>
         )}
       </View>

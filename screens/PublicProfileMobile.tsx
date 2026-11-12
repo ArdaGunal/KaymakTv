@@ -63,7 +63,6 @@ export default function PublicProfileMobile() {
     takipIliskisi,
     followingCount,
     traktSlug,
-    bioBizden,
     gizliKilitli,
     isLoading: isProfileLoading,
     error,
@@ -147,7 +146,8 @@ export default function PublicProfileMobile() {
       isFollowPending={isFollowPending}
       isLoadingConnection={isLoadingConnection}
       onPressAction={toggleFollow}
-      onReportBio={canShowBlockButton && bioBizden ? () => setBioRaporAcik(true) : undefined}
+      // Adım 4c (M609): «Profili bildir» — açıklama olsun olmasın, bizde kaydı olan her başka kullanıcı için.
+      onReportBio={canShowBlockButton && hedefUserId ? () => setBioRaporAcik(true) : undefined}
       onPressFollowers={() => {
         router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'followers' } });
       }}
