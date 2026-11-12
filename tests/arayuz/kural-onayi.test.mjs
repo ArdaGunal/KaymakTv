@@ -118,7 +118,7 @@ T.ok('Sira: cihaz → giris kutusu → sunucu → pencere',
 T.ok('uc_yok diske YAZILMAZ (yalniz oturum bayragi)',
   /sonuc === 'kaydedildi'\) await cihazaYaz/.test(kapi) && /sonuc === 'uc_yok'\) \{[^}]*oturumdaOnayli = true/s.test(kapi));
 T.ok('Sunucu 403 kural_onayi_gerekli derse cihaz kaydi silinir (pencere yeniden cikabilsin)',
-  kapi.includes("hata?.response?.data?.code === 'kural_onayi_gerekli'")
+  kapi.includes("durum === 403 && govde?.code === 'kural_onayi_gerekli'")
   && kapi.includes('void sunucuOnayiReddetti();')
   && kapi.includes('AsyncStorage.multiRemove([KURAL_ONAYI_ANAHTARI, KURAL_ONAYI_BEKLEYEN_ANAHTARI])')
   && kapi.includes('return Promise.reject(hata)'));
@@ -165,4 +165,33 @@ if (fs.existsSync(workerDosyasi)) {
 }
 T.ok('077: kolonlar + tutarlilik kisiti + dogrulama sorgusu',
   ['kurallar_onay_surumu', 'kurallar_onay_at', 'users_kurallar_onay_tutarli', 'has_column_privilege'].every((k) => oku('supabase/schema/077_kurallar_onayi.sql').includes(k)));
+T.H('Hesap askisi (Adim 4e): yaniti tani, kullanicinin dilinde acikla');
+const { askiYanitiCoz, askiMetinAnahtari, askiTarihiYaz } = yukle('utils/hesapAskisi.ts');
+T.ok('403 hesap_askida (aski) → durum + ISO bitis + itiraz',
+  JSON.stringify(askiYanitiCoz(403, { code: 'hesap_askida', durum: 'aski', bitis: '2026-11-19T12:00:00+00:00', itiraz: 'destek@kaymaktv.com' }))
+  === JSON.stringify({ durum: 'aski', bitis: '2026-11-19T12:00:00.000Z', itiraz: 'destek@kaymaktv.com' }));
+T.ok('403 hesap_askida (kapali) → suresiz', (() => { const b = askiYanitiCoz(403, { code: 'hesap_askida', durum: 'kapali', bitis: null }); return b.durum === 'kapali' && b.bitis === null && b.itiraz === null; })());
+T.ok('Bitis okunamazsa yine aski (tarihsiz metin)', askiYanitiCoz(403, { code: 'hesap_askida', durum: 'aski', bitis: 'x' }).bitis === null);
+T.ok('Baska 403 / baska durum aski DEGIL',
+  [[403, { code: 'kural_onayi_gerekli' }], [403, {}], [401, { code: 'hesap_askida' }], [200, { code: 'hesap_askida' }], [undefined, undefined]]
+    .every(([d, g]) => askiYanitiCoz(d, g) === null));
+T.ok('Metin anahtari: tarihli / tarihsiz / kapali',
+  askiMetinAnahtari({ durum: 'aski', bitis: '2026-11-19T12:00:00.000Z', itiraz: null }) === 'legal:suspendedUntil'
+  && askiMetinAnahtari({ durum: 'aski', bitis: null, itiraz: null }) === 'legal:suspendedNoDate'
+  && askiMetinAnahtari({ durum: 'kapali', bitis: null, itiraz: null }) === 'legal:suspendedClosed');
+T.ok('Tarih kullanicinin dilinde yazilir', /2026/.test(askiTarihiYaz('2026-11-19T12:00:00.000Z', 'tr')) && /2026/.test(askiTarihiYaz('2026-11-19T12:00:00.000Z', 'en')));
+for (const [dil, d] of diller) {
+  T.ok(`${dil}: aski metinleri var, tarih ve adres yer tutuculu`,
+    typeof d.suspendedTitle === 'string' && d.suspendedUntil.includes('{{tarih}}')
+    && ['suspendedUntil', 'suspendedNoDate', 'suspendedClosed'].every((k) => d[k].includes('{{adres}}')));
+  T.ok(`${dil}: kapali metni hesap silme hakkini soyler`, /hesabını silebilirsin|delete your account/.test(d.suspendedClosed));
+}
+T.ok('Aski yaniti tek yerde yakalanir, hata aynen firlatilir',
+  kapi.includes('const aski = askiYanitiCoz(durum, govde);') && kapi.includes('if (aski) askiKutusunuGoster(aski);'));
+T.ok('Art arda kopyalar tek kutu', kapi.includes('if (simdi - sonAskiKutusu < ASKI_KUTUSU_ARALIGI_MS) return;'));
+T.ok('Iletisim sabiti yasal metinlerle ayni adres', oku('utils/constants.ts').includes("ILETISIM_EPOSTA = 'destek@kaymaktv.com'"));
+T.ok('078: uc tablo + uc islev + rol adiyla geri alma + dogrulama',
+  ['hesap_durumu', 'moderasyon_kaydi', 'kullanici_rolleri', 'mod_askiya_al', 'mod_kapat', 'mod_aski_kaldir',
+    'FROM PUBLIC, anon, authenticated, service_role', 'FROM PUBLIC, anon, authenticated;', 'has_function_privilege']
+    .every((k) => oku('supabase/schema/078_hesap_durumu.sql').includes(k)));
 T.bitir();
