@@ -20,8 +20,16 @@ export const YASAL_BELGELER: Record<YasalBelge, YasalBelgeAnahtarlari> = {
   rules: { baslik: 'legal:rulesTitle', bolumler: 'legal:rulesSections', yol: '/(public)/topluluk-kurallari' },
 };
 
-/** Giriş ekranındaki onayın kapsadığı sıra: koşullar → kurallar → gizlilik. */
-export const ONAY_BELGE_SIRASI: YasalBelge[] = ['terms', 'rules', 'privacy'];
+/**
+ * Giriş kutusunda KABUL edilen belgeler: yalnız sözleşme niteliğindekiler (M611).
+ * 🔴 Gizlilik Politikası bu listeye GİRMEZ: KVKK'da aydınlatma metni onaya bağlanmaz
+ * (Kurul 2018/90; işleme sözleşmeye dayandığında yalnız aydınlatma yapılır, 2026/347).
+ * Gizlilik kutunun altında ayrı bir bilgi bağlantısıdır.
+ */
+export const GIRIS_KABUL_BELGELERI: YasalBelge[] = ['terms', 'rules'];
+
+/** Üç belgenin okuma sırası (pencere varsayılanı). */
+export const TUM_YASAL_BELGELER: YasalBelge[] = ['terms', 'rules', 'privacy'];
 
 export interface YasalBolum {
   heading: string;

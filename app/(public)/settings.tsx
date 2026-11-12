@@ -16,6 +16,7 @@ import {
 import { logWarning } from '../../utils/errorLog';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
+import type { YasalBelge } from '../../utils/yasalBelge';
 import { girisOnayiniIsaretle } from '../../services/kuralOnayiKapisi';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
@@ -48,7 +49,7 @@ export default function Login() {
   const { saveTokens, loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
-  const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
+  const [acikBelge, setAcikBelge] = useState<YasalBelge | null>(null);
   const [isChecked, setIsChecked] = useState(false);
   // Adım 4b (M609): kutu Topluluk Kuralları'nı da kapsar; işaretlenen sürüm cihaza not edilir ve
   // girişten sonraki ilk içerik yazımında sunucuya yazılır (services/kuralOnayiKapisi.ts).
@@ -317,10 +318,20 @@ export default function Login() {
                   <Text style={styles.checkboxText}>
                     <Trans
                       i18nKey="settings:termsAcceptance"
-                      components={{ 1: <Text onPress={() => setIsLegalModalVisible(true)} style={styles.linkText} /> }}
+                      components={{
+                        1: <Text onPress={() => setAcikBelge('terms')} style={styles.linkText} />,
+                        2: <Text onPress={() => setAcikBelge('rules')} style={styles.linkText} />,
+                      }}
                     />
                   </Text>
                 </TouchableOpacity>
+                {/* M611 · KVKK: Gizlilik Politikası aydınlatmadır, kutuyla ONAYLATILMAZ; yalnız bilgi bağlantısı. */}
+                <Text style={styles.privacyNoticeText}>
+                  <Trans
+                    i18nKey="settings:privacyNotice"
+                    components={{ 1: <Text onPress={() => setAcikBelge('privacy')} style={styles.linkText} /> }}
+                  />
+                </Text>
               </>
             </>}
 
@@ -373,8 +384,9 @@ export default function Login() {
       </View>
       </ScrollView>
       <LegalTermsModal
-        visible={isLegalModalVisible}
-        onClose={() => setIsLegalModalVisible(false)}
+        visible={acikBelge !== null}
+        belgeler={acikBelge ? [acikBelge] : undefined}
+        onClose={() => setAcikBelge(null)}
       />
 
     </View>

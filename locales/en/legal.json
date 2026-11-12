@@ -4,7 +4,7 @@
   "sections": [
     {
       "heading": "1. Scope and Acceptance",
-      "text": "By using KaymakTV (the \"App\") you accept these Terms of Use, the Community Guidelines and the Privacy Policy. If you do not accept them, do not use the App. The App is not designed for children under 13; if you are under 13, do not create an account."
+      "text": "By using KaymakTV (the \"App\") you accept these Terms of Use and the Community Guidelines. How your personal data is processed is explained separately in the Privacy Policy. If you do not accept them, do not use the App. The App is not designed for children under 13; if you are under 13, do not create an account."
     },
     {
       "heading": "2. Third-Party Services and Data Accuracy",
@@ -24,11 +24,11 @@
     },
     {
       "heading": "6. Intellectual Property",
-      "text": "The App's interface, brand identity, logo and original software belong to its developer. Posters and TV show and movie information are subject to the rights of their providers (TMDB, Trakt) and rights holders. You keep the rights to the content you share; by sharing it you allow it to be shown to other users inside the App."
+      "text": "The App's interface, brand identity, logo and original software belong to its developer. Posters and TV show and movie information are subject to the rights of their providers (TMDB, Trakt) and rights holders. You keep the rights to the content you share; by sharing it, you grant us a free, non-exclusive license to host it on the App and kaymaktv.com, back it up and show it to other users until you delete it."
     },
     {
       "heading": "7. Disclaimer",
-      "text": "The App is provided \"as is\". To the extent permitted by law, the developer is not liable for any direct or indirect damage arising from use of the App."
+      "text": "The App is provided \"as is\". To the extent permitted by law, the developer is not liable for any direct or indirect damage arising from use of the App. KaymakTV reserves the right to change, suspend or discontinue the service or any of its features without prior notice. These terms are governed by the laws of the Republic of Türkiye."
     },
     {
       "heading": "8. Changes",
@@ -67,7 +67,7 @@
     },
     {
       "heading": "7. How long we keep it",
-      "text": "Your data is kept for as long as your account is open. When you delete your account, your account, watch data, shared content, comments, follow connections, notification tokens and stored Trakt access keys are permanently deleted. Old activity records in the feed are cleaned up regularly. Feedback you sent is kept under a random ID that is not linked to your account and is not removed by account deletion; write to us if you want it deleted. Data may remain in our providers' backups for a limited time."
+      "text": "Your data is kept for as long as your account is open. When you delete your account, your account, watch data, shared content, comments, follow connections, notification tokens and stored Trakt access keys are permanently deleted. Old activity records in the feed are cleaned up regularly. Feedback you sent is kept under a random ID that is not linked to your account and is not removed by account deletion; write to us if you want it deleted. Data may remain in our providers' backups for a limited time. Moderation action records (which action was taken, when and why) may be kept after your account is deleted for security, abuse prevention and legal obligations; your account link is removed from these records."
     },
     {
       "heading": "8. Your rights and deleting your account",
@@ -94,7 +94,7 @@
     },
     {
       "heading": "2. Content and behavior that is not allowed",
-      "text": "• Harassment, bullying, threats and targeting a person.\n• Hate speech: demeaning people or inciting violence because of race, ethnicity, religion, gender, sexual orientation, disability or similar characteristics.\n• Sexual content, nudity and any content that sexualizes minors.\n• Content that encourages or glorifies violence; encouraging self-harm.\n• Illegal content and directing people to illegal activity; links to pirated streams.\n• Spam, advertising, scams and misleading links.\n• Impersonating another person or organization.\n• Sharing someone else's personal information without permission.\n• Sharing someone else's content without the rights holder's permission."
+      "text": "• Harassment, bullying, threats and targeting a person.\n• Hate speech: demeaning people or inciting violence because of race, ethnicity, religion, gender, sexual orientation, disability or similar characteristics.\n• Sexual content, nudity, child sexual abuse and exploitation (CSAE) or any content that sexualizes minors (zero tolerance).\n• Content that encourages or glorifies violence; encouraging self-harm.\n• Illegal content and directing people to illegal activity; links to pirated streams.\n• Spam, advertising, scams and misleading links.\n• Impersonating another person or organization.\n• Sharing someone else's personal information without permission.\n• Sharing someone else's content without the rights holder's permission."
     },
     {
       "heading": "3. Spoilers",
@@ -106,7 +106,7 @@
     },
     {
       "heading": "5. What happens when the guidelines are broken",
-      "text": "We review reports. If content is reported by several users it may be hidden automatically until the review is finished. Depending on how serious and how repeated the violation is, content may be hidden or removed and the account may be suspended temporarily or closed permanently. A suspended account cannot share content, but can still access its data and delete the account."
+      "text": "We review reports promptly. If content is reported by several users it may be hidden automatically until the review is finished. Depending on how serious and how repeated the violation is, content may be hidden or removed and the account may be suspended temporarily or closed permanently. A suspended account cannot share content, but can still access its data and delete the account."
     },
     {
       "heading": "6. Appeals",
@@ -135,7 +135,7 @@
   "deleteAccountWhatTitle": "What gets deleted?",
   "deleteAccountWhatText": "Your KaymakTV account and everything linked to it is permanently deleted: your profile details, watch history, ratings, watchlist and favorites, your posts, reviews and comments, your likes, follow connections, notification tokens and the Trakt access keys stored on our server. This cannot be undone.",
   "deleteAccountWhatNotTitle": "What does not get deleted?",
-  "deleteAccountWhatNotText": "Your Google account and (if you connected it) your Trakt.tv account are not touched; KaymakTV cannot delete those accounts. If you want to delete your history on Trakt, do that separately on trakt.tv. Feedback you sent is kept under a random ID that is not linked to your account, so account deletion does not remove it; write to us if you want it deleted.",
+  "deleteAccountWhatNotText": "Your Google account and (if you connected it) your Trakt.tv account are not touched; KaymakTV cannot delete those accounts. If you want to delete your history on Trakt, do that separately on trakt.tv. Feedback you sent is kept under a random ID that is not linked to your account, so account deletion does not remove it; write to us if you want it deleted. Moderation action records (which action was taken, when and why) may be kept after your account is deleted for security, abuse prevention and legal obligations; your account link is removed from these records.",
   "deleteAccountCta": "Sign In and Continue",
   "deleteAccountFootnote": "You don't need to install the app — this can be done from a browser too."
 }

@@ -147,6 +147,13 @@ export const styles = StyleSheet.create({
     color: nativeColor('steel', '#3b82f6'),
     textDecorationLine: 'underline',
   },
+  privacyNoticeText: {
+    color: nativeColor('muted', '#94a3b8'),
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 8,
+  },
   pollingText: {
     color: nativeColor('muted', '#94a3b8'),
     marginTop: 8,

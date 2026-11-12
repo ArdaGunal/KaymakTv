@@ -4,7 +4,7 @@
   "sections": [
     {
       "heading": "1. Kapsam ve Kabul",
-      "text": "KaymakTV'yi (bundan sonra \"Uygulama\") kullanarak bu Kullanım Koşulları'nı, Topluluk Kuralları'nı ve Gizlilik Politikası'nı kabul etmiş olursun. Kabul etmiyorsan Uygulama'yı kullanmamalısın. Uygulama 13 yaşından küçükler için tasarlanmamıştır; 13 yaşından küçüksen hesap açmamalısın."
+      "text": "KaymakTV'yi (bundan sonra \"Uygulama\") kullanarak bu Kullanım Koşulları'nı ve Topluluk Kuralları'nı kabul etmiş olursun. Kişisel verilerinin nasıl işlendiği ayrıca Gizlilik Politikası'nda anlatılır. Kabul etmiyorsan Uygulama'yı kullanmamalısın. Uygulama 13 yaşından küçükler için tasarlanmamıştır; 13 yaşından küçüksen hesap açmamalısın."
     },
     {
       "heading": "2. Üçüncü Taraf Hizmetleri ve Veri Doğruluğu",
@@ -24,11 +24,11 @@
     },
     {
       "heading": "6. Fikri Mülkiyet",
-      "text": "Uygulama'nın arayüzü, marka kimliği, logosu ve özgün yazılımı geliştiricisine aittir. Afişler ile dizi ve film bilgileri ilgili sağlayıcıların (TMDB, Trakt) ve hak sahiplerinin haklarına tabidir. Paylaştığın içeriğin hakları sende kalır; içeriğin Uygulama içinde diğer kullanıcılara gösterilmesine izin vermiş olursun."
+      "text": "Uygulama'nın arayüzü, marka kimliği, logosu ve özgün yazılımı geliştiricisine aittir. Afişler ile dizi ve film bilgileri ilgili sağlayıcıların (TMDB, Trakt) ve hak sahiplerinin haklarına tabidir. Paylaştığın içeriğin hakları sende kalır; içeriği paylaşarak, sen silene kadar onu Uygulama'da ve kaymaktv.com'da barındırmamız, yedeklememiz ve diğer kullanıcılara göstermemiz için bize ücretsiz ve münhasır olmayan bir kullanım izni vermiş olursun."
     },
     {
       "heading": "7. Sorumluluk Reddi",
-      "text": "Uygulama \"olduğu gibi\" sunulur. Yasaların izin verdiği ölçüde, Uygulama'nın kullanımından doğabilecek doğrudan veya dolaylı zararlardan geliştirici sorumlu tutulamaz."
+      "text": "Uygulama \"olduğu gibi\" sunulur. Yasaların izin verdiği ölçüde, Uygulama'nın kullanımından doğabilecek doğrudan veya dolaylı zararlardan geliştirici sorumlu tutulamaz. KaymakTV, hizmeti veya herhangi bir özelliğini önceden bildirmeksizin değiştirme, askıya alma veya sonlandırma hakkını saklı tutar. Bu koşullar Türkiye Cumhuriyeti yasalarına tabidir."
     },
     {
       "heading": "8. Değişiklikler",
@@ -67,7 +67,7 @@
     },
     {
       "heading": "7. Ne kadar saklıyoruz",
-      "text": "Verilerin hesabın açık olduğu sürece saklanır. Hesabını sildiğinde hesabın, izleme verilerin, paylaşımların, yorumların, takip bağlantıların, bildirim anahtarların ve saklanan Trakt erişim anahtarların kalıcı olarak silinir. Akıştaki eski etkinlik kayıtları düzenli olarak temizlenir. Gönderdiğin geri bildirimler hesabına bağlı olmayan rastgele bir kimlikle tutulur ve hesap silmeyle silinmez; silinmesini istersen bize yaz. Sağlayıcılarımızın yedeklerinde veriler sınırlı bir süre daha kalabilir."
+      "text": "Verilerin hesabın açık olduğu sürece saklanır. Hesabını sildiğinde hesabın, izleme verilerin, paylaşımların, yorumların, takip bağlantıların, bildirim anahtarların ve saklanan Trakt erişim anahtarların kalıcı olarak silinir. Akıştaki eski etkinlik kayıtları düzenli olarak temizlenir. Gönderdiğin geri bildirimler hesabına bağlı olmayan rastgele bir kimlikle tutulur ve hesap silmeyle silinmez; silinmesini istersen bize yaz. Sağlayıcılarımızın yedeklerinde veriler sınırlı bir süre daha kalabilir. Moderasyon işlem kayıtları (hangi işlemin ne zaman ve neden yapıldığı) güvenlik, kötüye kullanımın önlenmesi ve yasal yükümlülükler için hesap silindikten sonra da saklanabilir; bu kayıtlarda hesabınla bağlantı kaldırılır."
     },
     {
       "heading": "8. Hakların ve hesabını silme",
@@ -94,7 +94,7 @@
     },
     {
       "heading": "2. Yasak içerik ve davranışlar",
-      "text": "• Taciz, zorbalık, tehdit ve bir kişiyi hedef gösterme.\n• Nefret söylemi: ırk, etnik köken, din, cinsiyet, cinsel yönelim, engellilik veya benzeri özellikler nedeniyle aşağılama ya da şiddete teşvik.\n• Cinsel içerik, çıplaklık ve reşit olmayanları cinselleştiren her türlü içerik.\n• Şiddeti özendiren ya da öven içerik; kendine zarar vermeye teşvik.\n• Yasa dışı içerik ve yasa dışı işlere yönlendirme; korsan yayın bağlantıları.\n• Spam, reklam, dolandırıcılık ve yanıltıcı bağlantılar.\n• Başka bir kişi ya da kurumun kimliğine bürünme.\n• Başkasının kişisel bilgilerini izni olmadan paylaşma.\n• Başkasına ait içeriği hak sahibinin izni olmadan paylaşma."
+      "text": "• Taciz, zorbalık, tehdit ve bir kişiyi hedef gösterme.\n• Nefret söylemi: ırk, etnik köken, din, cinsiyet, cinsel yönelim, engellilik veya benzeri özellikler nedeniyle aşağılama ya da şiddete teşvik.\n• Cinsel içerik, çıplaklık, çocukların cinsel istismarı ve sömürüsü (CSAE) veya reşit olmayanları cinselleştiren her türlü içerik (sıfır tolerans uygulanır).\n• Şiddeti özendiren ya da öven içerik; kendine zarar vermeye teşvik.\n• Yasa dışı içerik ve yasa dışı işlere yönlendirme; korsan yayın bağlantıları.\n• Spam, reklam, dolandırıcılık ve yanıltıcı bağlantılar.\n• Başka bir kişi ya da kurumun kimliğine bürünme.\n• Başkasının kişisel bilgilerini izni olmadan paylaşma.\n• Başkasına ait içeriği hak sahibinin izni olmadan paylaşma."
     },
     {
       "heading": "3. Sürpriz bozanlar",
@@ -106,7 +106,7 @@
     },
     {
       "heading": "5. Kurallar ihlal edilince ne olur",
-      "text": "Bildirimleri inceleriz. Bir içerik birden çok kullanıcı tarafından bildirilirse inceleme tamamlanana kadar otomatik olarak gizlenebilir. İhlalin ağırlığına ve tekrarına göre içerik gizlenebilir ya da kaldırılabilir, hesap geçici olarak askıya alınabilir ya da kalıcı olarak kapatılabilir. Askıdaki bir hesap içerik paylaşamaz, ama verilerine erişmeye ve hesabını silmeye devam edebilir."
+      "text": "Bildirimleri gecikmeksizin inceleriz. Bir içerik birden çok kullanıcı tarafından bildirilirse inceleme tamamlanana kadar otomatik olarak gizlenebilir. İhlalin ağırlığına ve tekrarına göre içerik gizlenebilir ya da kaldırılabilir, hesap geçici olarak askıya alınabilir ya da kalıcı olarak kapatılabilir. Askıdaki bir hesap içerik paylaşamaz, ama verilerine erişmeye ve hesabını silmeye devam edebilir."
     },
     {
       "heading": "6. İtiraz",
@@ -135,7 +135,7 @@
   "deleteAccountWhatTitle": "Ne silinir?",
   "deleteAccountWhatText": "KaymakTV'deki hesabın ve ona bağlı her şey kalıcı olarak silinir: profil bilgilerin, izleme geçmişin, puanların, izleme listen ve favorilerin, gönderi, inceleme ve yorumların, beğenilerin, takip bağlantıların, bildirim anahtarların ve sunucumuzda saklanan Trakt erişim anahtarların. Bu işlem geri alınamaz.",
   "deleteAccountWhatNotTitle": "Ne silinmez?",
-  "deleteAccountWhatNotText": "Google hesabına ve (bağladıysan) Trakt.tv hesabına dokunulmaz; KaymakTV bu hesapları silemez. Trakt'taki geçmişini silmek istersen bunu trakt.tv üzerinden ayrıca yapmalısın. Gönderdiğin geri bildirimler hesabına bağlı olmayan rastgele bir kimlikle tutulduğu için hesap silmeyle silinmez; silinmesini istersen bize yaz.",
+  "deleteAccountWhatNotText": "Google hesabına ve (bağladıysan) Trakt.tv hesabına dokunulmaz; KaymakTV bu hesapları silemez. Trakt'taki geçmişini silmek istersen bunu trakt.tv üzerinden ayrıca yapmalısın. Gönderdiğin geri bildirimler hesabına bağlı olmayan rastgele bir kimlikle tutulduğu için hesap silmeyle silinmez; silinmesini istersen bize yaz. Moderasyon işlem kayıtları (hangi işlemin ne zaman ve neden yapıldığı) güvenlik, kötüye kullanımın önlenmesi ve yasal yükümlülükler için hesap silindikten sonra da saklanabilir; bu kayıtlarda hesabınla bağlantı kaldırılır.",
   "deleteAccountCta": "Giriş Yap ve Devam Et",
   "deleteAccountFootnote": "Uygulamayı yüklemene gerek yok — bu işlem tarayıcıdan da tamamlanabilir."
 }

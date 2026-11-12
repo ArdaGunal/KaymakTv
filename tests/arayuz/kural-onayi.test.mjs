@@ -20,7 +20,7 @@ const {
   KURALLAR_SURUMU, KURAL_ONAYI_ANAHTARI, KURAL_ONAYI_BEKLEYEN_ANAHTARI,
   onayGecerliMi, onaySurumuCoz, onayYazimKarari, profilYamasiOnayIsterMi,
 } = yukle('utils/kuralOnayi.ts');
-const { YASAL_BELGELER, ONAY_BELGE_SIRASI, bolumleriCoz } = yukle('utils/yasalBelge.ts');
+const { YASAL_BELGELER, GIRIS_KABUL_BELGELERI, TUM_YASAL_BELGELER, bolumleriCoz } = yukle('utils/yasalBelge.ts');
 
 T.H('Saf kararlar');
 T.ok('Yururlukteki surum gecerli, bos/eski/bozuk gecersiz',
@@ -71,10 +71,16 @@ T.ok('Iki dilde anahtar kumesi ayni', Object.keys(diller[0][1]).sort().join() ==
 T.ok('bolumleriCoz: dizi degilse / bozuk oge varsa cokmez',
   bolumleriCoz('legal:sections').length === 0 && bolumleriCoz(null).length === 0
   && bolumleriCoz([{ heading: 'a', text: 'b' }, { heading: 1 }, null]).length === 1);
-T.ok('Giris onayi uc belgeyi de kapsar (sira: kosullar, kurallar, gizlilik)', ONAY_BELGE_SIRASI.join() === 'terms,rules,privacy');
+T.ok('Giris kutusu yalniz sozlesmeleri kabul ettirir (kosullar, kurallar); gizlilik onaya baglanmaz (KVKK, M611)', GIRIS_KABUL_BELGELERI.join() === 'terms,rules');
+T.ok('Pencere varsayilani uc belge (kosullar, kurallar, gizlilik)', TUM_YASAL_BELGELER.join() === 'terms,rules,privacy');
 for (const d of ['tr', 'en']) {
-  const s = json(`locales/${d}/settings.json`).termsAcceptance;
-  T.ok(`${d}: giris kutusu metni Topluluk Kurallari'ni anar`, /Topluluk Kuralları|Community Guidelines/.test(s) && s.includes('<1>'), s);
+  const ayar = json(`locales/${d}/settings.json`);
+  const s = ayar.termsAcceptance;
+  T.ok(`${d}: giris kutusu iki ayri baglanti (kosullar <1>, kurallar <2>)`, /<1>[^<]*(Kullanım Koşulları|Terms of Use)[^<]*<\/1>/.test(s) && /<2>[^<]*(Topluluk Kuralları|Community Guidelines)[^<]*<\/2>/.test(s), s);
+  T.ok(`${d}: giris kutusu gizliligi onaylatmaz`, !/Gizlilik|Privacy/.test(s), s);
+  T.ok(`${d}: gizlilik ayri bilgi satiri, kendi baglantisiyla`, /<1>[^<]*(Gizlilik Politikası|Privacy Policy)[^<]*<\/1>/.test(ayar.privacyNotice || ''), ayar.privacyNotice);
+  const kosul1 = json(`locales/${d}/legal.json`).sections[0].text;
+  T.ok(`${d}: Kosullar 1.1 gizliligi kabule baglamaz`, !/(Gizlilik Politikası'nı kabul|accept[^.]*Privacy Policy)/.test(kosul1), kosul1.slice(0, 120));
 }
 
 T.H('Sayfalar ve baglantilar');
@@ -89,7 +95,12 @@ T.ok('Belge yollari sayfa dosyalariyla eslesir',
 T.ok('Ayarlar > Yasal: Topluluk Kurallari satiri', oku('app/(protected)/account.tsx').includes("'/(public)/topluluk-kurallari'"));
 T.ok('Karsilama alt bilgisi (mobil + web) kurallara baglanir',
   oku('components/landing/Footer.tsx').includes('topluluk-kurallari') && oku('app/(public)/index.web.tsx').includes('topluluk-kurallari'));
-T.ok('Onay penceresi uc belgeyi gosterir', oku('components/settings/LegalTermsModal.tsx').includes('ONAY_BELGE_SIRASI.map'));
+T.ok('Pencere istenen belgeleri gosterir (varsayilan uc belge)', oku('components/settings/LegalTermsModal.tsx').includes('belgeler = TUM_YASAL_BELGELER') && oku('components/settings/LegalTermsModal.tsx').includes('belgeler.map'));
+const giris = oku('app/(public)/settings.tsx');
+T.ok('Giris ekrani: her baglanti kendi belgesini acar, gizlilik kutunun disinda',
+  ["setAcikBelge('terms')", "setAcikBelge('rules')", "setAcikBelge('privacy')", 'settings:privacyNotice'].every((p) => giris.includes(p))
+  && giris.indexOf('settings:privacyNotice') > giris.indexOf('</TouchableOpacity>', giris.indexOf('settings:termsAcceptance')));
+T.ok('Giris kutusu isaretsiz baslar', giris.includes('const [isChecked, setIsChecked] = useState(false);'));
 
 T.H('Icerik yazan her servis kapidan gecer (agdan ONCE)');
 const kapidanOnce = (dosya, uc, kapi) => {

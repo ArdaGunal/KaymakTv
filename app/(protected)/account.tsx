@@ -272,6 +272,7 @@ export default function SettingsScreen() {
 
       <LegalTermsModal
         visible={legalModalVisible}
+        belgeler={['terms']}
         onClose={() => setLegalModalVisible(false)}
       />
 

@@ -2,24 +2,27 @@ import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { ONAY_BELGE_SIRASI, YASAL_BELGELER, bolumleriCoz } from '../../utils/yasalBelge';
+import { TUM_YASAL_BELGELER, YASAL_BELGELER, bolumleriCoz, type YasalBelge } from '../../utils/yasalBelge';
 
 interface LegalTermsModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Gösterilecek belgeler; verilmezse üçü (`TUM_YASAL_BELGELER`). Giriş ekranı her
+   *  bağlantıda tek belge açar (M611: belgeler ayrı ayrı tıklanabilir olmalı). */
+  belgeler?: YasalBelge[];
 }
 
 /**
- * Girişte onaylanan metinlerin TAMAMINI gösteren pencere: Kullanım Koşulları,
- * Topluluk Kuralları ve Gizlilik Politikası (sıra `ONAY_BELGE_SIRASI`). Onay kutusu
- * üçünü birden kapsadığı için pencere de üçünü gösterir (M609; önceden tek birleşik
- * metin vardı). İçerik `legal` çeviri ad alanında; harita `utils/yasalBelge.ts`.
+ * Yasal belgeleri uygulama içinde gösteren pencere: Kullanım Koşulları, Topluluk
+ * Kuralları, Gizlilik Politikası. Pencere sayfa değiştirmez; giriş ekranındaki kutu
+ * işareti ve bekleyen giriş isteği yerinde kalır. İçerik `legal` çeviri ad alanında;
+ * harita `utils/yasalBelge.ts`.
  *
  * Ayrı bir bileşene çıkarıldı: aynı blok bir dönem hem `(public)/settings.tsx`
  * hem `TraktAccountSection.tsx` içinde KOPYALANMIŞTI ve `(public)/settings.tsx`
  * projenin 400 satır sınırını aşmıştı.
  */
-export default function LegalTermsModal({ visible, onClose }: LegalTermsModalProps) {
+export default function LegalTermsModal({ visible, onClose, belgeler = TUM_YASAL_BELGELER }: LegalTermsModalProps) {
   const { t } = useTranslation(['legal', 'common']);
 
   return (
@@ -27,7 +30,7 @@ export default function LegalTermsModal({ visible, onClose }: LegalTermsModalPro
       <View style={styles.overlay}>
         <View style={styles.panel}>
           <ScrollView style={styles.scroll}>
-            {ONAY_BELGE_SIRASI.map((belge) => (
+            {belgeler.map((belge) => (
               <View key={belge} style={styles.document}>
                 <Text style={styles.title}>{t(YASAL_BELGELER[belge].baslik)}</Text>
                 {bolumleriCoz(t(YASAL_BELGELER[belge].bolumler, { returnObjects: true })).map((section, index) => (
