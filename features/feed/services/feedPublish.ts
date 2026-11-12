@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { kuralOnayiSagla, KuralOnayiReddi } from '../../../services/kuralOnayiKapisi';
 import { useAktiviteSurumu } from '../store/aktiviteSurumu';
 import * as SecureStore from '../../../utils/secureStorage';
 import { getMyTraktSlug } from '../../../services/api/myIdentity';
@@ -361,6 +362,9 @@ export async function publishPost(input: PublishablePost): Promise<{ ok: true } 
 
   const token = await SecureStore.getItemAsync('traktAccessToken');
   if (!token) return { ok: false, message: 'Oturum bulunamadı.' };
+
+  // Adım 4b (M609): içerik yazmadan önce Topluluk Kuralları onayı. İyimser karttan ÖNCE.
+  if (!(await kuralOnayiSagla())) return { ok: false, message: new KuralOnayiReddi().message };
 
   // ⚠️ `me` YOKLUĞU ARTIK YAYINI ENGELLEMEZ (F4-T9'da bulundu, 2026-08-17).
   //

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { kuralOnayiZorunlu } from '../../../services/kuralOnayiKapisi';
 import { supabase } from './supabaseClient';
 
 // Akış Sosyal Katmanı — Kişisel Not/Alıntı, Yorum, Beğeni. bkz.
@@ -79,6 +80,8 @@ export async function setActivityNote(
   noteSpoiler: boolean
 ): Promise<{ note: string | null; noteSpoiler: boolean }> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+  // Adım 4b (M609): not YAZMAK kural onayı ister; notu kaldırmak (`null`/boş) istemez.
+  if (typeof note === 'string' && note.trim().length > 0) await kuralOnayiZorunlu();
   const response = await axios.post(
     `${KAYMAK_WORKER_URL}/feed/note`,
     { traktAccessToken, activityId, note, noteSpoiler },
@@ -98,6 +101,8 @@ export async function addComment(
   spoiler: boolean
 ): Promise<{ id: string; createdAt: string }> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+  // Adım 4b (M609): yorum yazmadan önce Topluluk Kuralları onayı.
+  await kuralOnayiZorunlu();
   const response = await axios.post(
     `${KAYMAK_WORKER_URL}/feed/comment`,
     { traktAccessToken, activityId, body, spoiler },

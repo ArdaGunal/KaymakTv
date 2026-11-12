@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { kuralOnayiZorunlu } from '../../../services/kuralOnayiKapisi';
+import { profilYamasiOnayIsterMi } from '../../../utils/kuralOnayi';
 import { tekUcus } from '../../../utils/tekUcus';
 
 // Profil güncelleme (kullanıcı adı + Google profil fotoğrafı kabul/red) —
@@ -178,6 +180,8 @@ export class ProfileUpdateError extends Error {
 
 export async function updateProfile(traktAccessToken: string, patch: UpdateProfilePatch): Promise<void> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+  // Adım 4b (M609): başkalarının göreceği profil METNİ (ad, görünen ad, açıklama) kural onayı ister.
+  if (profilYamasiOnayIsterMi(patch)) await kuralOnayiZorunlu();
   let response;
   try {
     response = await axios.post(

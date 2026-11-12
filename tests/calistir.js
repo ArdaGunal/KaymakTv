@@ -93,6 +93,7 @@ const TAKIMLAR = [
   { ad: 'hidden-outbox', grup: 'arayuz', dosya: 'arayuz/hidden-outbox.test.mjs', aciklama: 'M447: Birak/Geri Al disk ACK, kill/replay, ters niyet, hesap izolasyonu' },
   { ad: 'yazim-kapisi', grup: 'arayuz', dosya: 'arayuz/yazim-kapisi.test.mjs', aciklama: 'M575: Trakt yazimi yalniz cift yazim kapisindan, puan yalniz bizde' },
   { ad: 'surum-kapisi', grup: 'arayuz', dosya: 'arayuz/surum-kapisi.test.mjs', aciklama: 'M458: surum kapisi agi beklemez, onbellekten anlik karar' },
+  { ad: 'kural-onayi', grup: 'arayuz', dosya: 'arayuz/kural-onayi.test.mjs', aciklama: 'YAYIN Adim 4a/4b: uc yasal belge iki dilde, icerik yazan her servis kural onayi kapisindan gecer' },
   { ad: 'tek-ucus', grup: 'arayuz', dosya: 'arayuz/tek-ucus.test.mjs', aciklama: 'M461: profil/graf eszamanli kopya istekleri birlesir' },
   { ad: 'bolum-plan', grup: 'arayuz', dosya: 'arayuz/bolum-sayfasi-plan.test.mjs', aciklama: 'M463/K2: bolum sayfasi oncekileri isaretle tam sezon listesiyle' },
   { ad: 'afis', grup: 'arayuz', dosya: 'arayuz/afis-onbellek.test.mjs', aciklama: 'K2/M531: gecici TMDB hatasi afisi oturum boyu "yok" diye saklamaz' },

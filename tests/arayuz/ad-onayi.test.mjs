@@ -42,7 +42,8 @@ T.ok('K2 kalkti: Ayarlar kullanici adi satiri Trakt hesabina da acik',
 T.ok('Silme penceresi «Trakt etkilenmez» notunu yalniz Trakt hesabinda gosterir (M491 bulgusu)',
   /authProvider === 'trakt' && \(/.test(oku('components/settings/DeleteAccountModal.tsx')));
 // Cihazda bulundu: «admin» sunucuda reddediliyor ama ekranda yalnız «Kaydedilemedi» yazıyordu.
-const kural = tsLoader(root, { axios: {} })('features/feed/services/profile.ts');
+// Adım 4b (M609): profil servisi artık kural onayı kapısını içe aktarır; kapının kendi testi `kural-onayi`.
+const kural = tsLoader(root, { axios: {}, '../../../services/kuralOnayiKapisi': { kuralOnayiSagla: async () => true, kuralOnayiZorunlu: async () => {}, KuralOnayiReddi: class extends Error {} } })('features/feed/services/profile.ts');
 T.ok('Istemci ayrilmis adi kendisi reddeder (admin / ADMIN / support)',
   ['admin', 'ADMIN', 'support'].every((a) => kural.kullaniciAdiSorunu(a) === 'ayrilmis') && kural.kullaniciAdiSorunu('Arda_TV') === null);
 const kurallarJs = path.join(root, '../kaymaktv-feedback-worker/src/lib/usernameRules.js');

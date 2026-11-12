@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { kuralOnayiSagla, KuralOnayiReddi } from '../../../services/kuralOnayiKapisi';
 import * as SecureStore from '../../../utils/secureStorage';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
@@ -87,6 +88,9 @@ export async function publishReview(input: PublishableReview): Promise<ReviewRes
 
   const token = await SecureStore.getItemAsync('traktAccessToken');
   if (!token) return { ok: false, message: 'Oturum bulunamadı.' };
+
+  // Adım 4b (M609): içerik yazmadan önce Topluluk Kuralları onayı.
+  if (!(await kuralOnayiSagla())) return { ok: false, message: new KuralOnayiReddi().message };
 
   // Damga İSTEMCİDE üretilip Worker'a gönderiliyor. Gerekçe R6 (bkz.
   // docs/design/REVIEWS_PLAN.md): sunucu kendi zamanını yazarsa Realtime yankısı

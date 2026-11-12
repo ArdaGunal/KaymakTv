@@ -33,6 +33,7 @@ import { workerYanitKoruyucusunuKur } from '../services/api/workerYanitKoruyucu'
 // M525 (b): Worker `invalid_token` (silinmiş hesabın oturum belgesi) → tam çıkış.
 workerYanitKoruyucusunuKur();
 import { cihazAnahtarlariniSil, gorselOnbelleginiSil, googleOturumunuKapat } from '../services/auth/cikisTemizligi';
+import { kuralOnayiniUnut } from '../services/kuralOnayiKapisi';
 import { useWatchedOutboxStore } from '../store/watchedOutboxStore';
 import { useHiddenOutboxStore } from '../store/hiddenOutboxStore';
 
@@ -339,6 +340,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // uyarıyı çıkıştan ÖNCE `useSettings.handleLogout` gösterir. Kalan anahtar =
       // `CIKISTA_KALAN_ANAHTARLAR` (yalnız 3 kimliksiz telemetri anahtarı, M529). Ayrıntı: services/auth/cikisTemizligi.ts.
       await cihazAnahtarlariniSil();
+      kuralOnayiniUnut(); // Adım 4b: oturum içi kural onayı bayrağı; disk kaydını üstteki satır sildi.
       useWatchedOutboxStore.setState({ ready: false, pendingCount: 0, pendingShowIds: [], hasError: false, saveError: false });
       useHiddenOutboxStore.setState({ ready: false, pendingCount: 0, hasError: false, saveError: false });
       // Telefon son Google hesabını hatırlamasın; profil fotoğrafları dahil görsel önbellek gitsin.

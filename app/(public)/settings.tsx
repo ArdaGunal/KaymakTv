@@ -16,6 +16,7 @@ import {
 import { logWarning } from '../../utils/errorLog';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
+import { girisOnayiniIsaretle } from '../../services/kuralOnayiKapisi';
 import LanguageMenuModal from '../../components/settings/LanguageMenuModal';
 import GoogleGirisDugmesi from '../../components/auth/GoogleGirisDugmesi';
 import TraktGirisDugmesi from '../../components/auth/TraktGirisDugmesi';
@@ -49,6 +50,9 @@ export default function Login() {
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [isLegalModalVisible, setIsLegalModalVisible] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  // Adım 4b (M609): kutu Topluluk Kuralları'nı da kapsar; işaretlenen sürüm cihaza not edilir ve
+  // girişten sonraki ilk içerik yazımında sunucuya yazılır (services/kuralOnayiKapisi.ts).
+  useEffect(() => { void girisOnayiniIsaretle(isChecked); }, [isChecked]);
   const router = useRouter();
   // GIRIS-TASARIM-01 (M536): Google giriş durumu BU EKRANDA tutulur — «Trakt ile devam et»
   // kutusu açılınca diğer bütün giriş seçenekleri gizlenir (kullanıcı: tek birincil düğme kalsın).

@@ -17,6 +17,7 @@ import { useWatchedOutbox } from '../hooks/useWatchedOutbox';
 import { useHiddenOutbox } from '../hooks/useHiddenOutbox';
 import WatchedOutboxBanner from '../components/WatchedOutboxBanner';
 import ConfirmHost from '../components/ConfirmHost';
+import KuralOnayiHost from '../components/rules/KuralOnayiHost';
 
 // expo-router'ın kök segmentindeki (bu dosya) BÜTÜN alt ağacı kapsayan
 // çökme yakalayıcısı — bir render hatası eskiden beyaz/boş bir ekranda
@@ -91,6 +92,8 @@ export default function RootLayout() {
         </AuthProvider>
       </VersionGate>
       <ConfirmHost />
+      {/* Adım 4b (M609): içerik yazmadan önce Topluluk Kuralları onayı — services/kuralOnayiKapisi.ts */}
+      <KuralOnayiHost />
     </>
   );
 }

@@ -25,6 +25,8 @@ const load = tsLoader(root, {
   './feedApi': { invalidateFeedCache: () => {}, invalidateUserFeedActivitiesCache: () => {}, fetchActivityById: async () => null },
   '../../../utils/metrics': { recordApiLatency: () => {}, recordMutationResult: () => {} },
   '../../../utils/errorLog': { logError: () => {} },
+  // Adım 4b (M609): yayın servisi kural onayı kapısını içe aktarır; kapının kendi testi `kural-onayi`.
+  '../../../services/kuralOnayiKapisi': { kuralOnayiSagla: async () => true, kuralOnayiZorunlu: async () => {}, KuralOnayiReddi: class extends Error {} },
 });
 const { useFeedStore } = load('features/feed/store/feedStore.ts');
 const { publishActivities } = load('features/feed/services/feedPublish.ts');
