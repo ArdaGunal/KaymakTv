@@ -29,14 +29,23 @@
 // yalnızca `.db` kopyalamak EKSİK, üçünü birden kopyalamak kopyalama
 // sırasında yazım olursa BOZUK yedek üretir (`db.js` `backupTo`).
 
+//
+// 🆕 SAKLAMA (029 · 2026-11-12, kullanıcı onayı): eskiden "en yeni 7 kopya" idi. Artık günlük 7 +
+// haftalık 4 + aylık 4, en çok 120 gün (`server/yedek/saklama.js`, `kurallar.js`). Yedek diski
+// takıldıktan sonra (danışman 028) LazyFetch tar'ı, elle/ budaması ve aylık geri yükleme sınaması da
+// aynı sabah turunda, arşiv yedeğinden SONRA koşar (`server/yedek/ekIsler.js`). Klasör düzeni:
+// `server/yedek/klasorler.js` — KaymakTV'nin her yedeği tek proje kökünün altında.
+
 const fs = require('fs');
 const path = require('path');
 const { backupToAsync, getArchiveStatus, isArchiveEnabled } = require('./db');
 const { logSync } = require('./store');
+const { arsivYedekDizini, ayniAygitIzinli, ayniAygitMi, damgaUret } = require('../yedek/klasorler');
+const { budaDizin } = require('../yedek/saklama');
+const { DESEN, arsivKurali } = require('../yedek/kurallar');
 
-// Kaç kopya tutulur. 7 = bir haftalık geri dönüş. Arşiv ölçüldü: 40 MB
-// (2026-09-02), yani 7 kopya ≈ 280 MB — SD kartta rahat. Sayı ölçülmüş
-// değil, gerekçelendirilmiş bir başlangıç (04_KARARLAR.md B).
+// Günlük kural: en yeni kaç kopya YAŞINA BAKILMADAN kalır. 7 = bir haftalık geri dönüş.
+// Haftalık/aylık/120 gün kuralı bunun üstüne eklenir (`kurallar.js`, env ile değişir).
 const VARSAYILAN_KOPYA = 7;
 
 // Gece penceresi — süpürücüyle (04:00-06:00) AYNI aralık ama ondan SONRA
@@ -52,32 +61,11 @@ const KONTROL_ARALIGI_MS = 60 * 60 * 1000;
  * yani arşivin bulunduğu SSD'den BAŞKA bir aygıt.
  */
 function yedekDizini() {
-  if (process.env.ARCHIVE_BACKUP_DIR && process.env.ARCHIVE_BACKUP_DIR.trim()) {
-    return process.env.ARCHIVE_BACKUP_DIR.trim();
-  }
-  const ev = process.env.HOME || process.env.USERPROFILE;
-  return ev ? path.join(ev, 'kaymak-arsiv-yedek') : null;
+  return arsivYedekDizini(process.env);
 }
 
-/**
- * İki yol AYNI dosya sisteminde mi?
- *
- * `fs.statfs` yerine `st_dev` kullanılıyor: aynı aygıttaki iki mount da
- * ayrı `statfs` verebilir, ama `st_dev` fiziksel aygıtı gösterir — bizim
- * sorumuz tam olarak bu.
- */
-/** Aynı diske yedek AÇIKÇA izinli mi? Yalnız `ARCHIVE_BACKUP_AYNI_AYGIT === '1'` (D3). */
-function ayniAygitIzinli(ortam = process.env) {
-  return String(ortam.ARCHIVE_BACKUP_AYNI_AYGIT ?? '').trim() === '1';
-}
-
-function ayniAygitMi(a, b) {
-  try {
-    return fs.statSync(a).dev === fs.statSync(b).dev;
-  } catch {
-    return false; // kararsızsak engellemiyoruz; asıl kontrol aşağıda loglanıyor
-  }
-}
+// `ayniAygitIzinli` / `ayniAygitMi` → `server/yedek/klasorler.js` (LazyFetch yedeği de aynı kuralı
+// kullanır). `st_dev` fiziksel aygıtı gösterir; kararsızsak engellemiyoruz, aşağıda loglanıyor.
 
 /**
  * Bir yedek turu çalıştırır. **Hiçbir koşulda throw ETMEZ.**
@@ -117,8 +105,7 @@ async function runBackup({ keep = VARSAYILAN_KOPYA, dir = null } = {}) {
     return { ok: false, reason: 'ayni_aygit', dir: hedefDizin };
   }
 
-  const damga = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const hedef = path.join(hedefDizin, `katalog-${damga}.db`);
+  const hedef = path.join(hedefDizin, `katalog-${damgaUret()}.db`);
 
   const basladi = Date.now();
   // 🆕 Paket D (M558 · O-1b/O-2): ayrı İŞ PARÇACIĞI + ayrı salt-okur bağlantı (`yedekIsci.js`). Ana
@@ -130,7 +117,8 @@ async function runBackup({ keep = VARSAYILAN_KOPYA, dir = null } = {}) {
     return { ok: false, reason: sonuc.reason };
   }
 
-  const dondurulen = kopyalariDondur(hedefDizin, keep);
+  const kural = arsivKurali(process.env, keep);
+  const dondurulen = kopyalariDondur(hedefDizin, kural);
 
   const ozet = {
     ok: true,
@@ -138,7 +126,8 @@ async function runBackup({ keep = VARSAYILAN_KOPYA, dir = null } = {}) {
     bytes: sonuc.bytes,
     durationMs: Date.now() - basladi,
     rotated: dondurulen,
-    kept: keep,
+    kept: kural.sonN,
+    kural,
   };
   console.log(
     `[Arsiv yedek] ${(sonuc.bytes / 1048576).toFixed(1)} MB -> ${hedef} (${ozet.durationMs} ms` +
@@ -149,38 +138,30 @@ async function runBackup({ keep = VARSAYILAN_KOPYA, dir = null } = {}) {
 }
 
 /**
- * En yeni `keep` kopyayı bırakır, gerisini siler.
+ * Eski kopyaları saklama kuralıyla budar; silinen sayısını döndürür.
+ * `kural` sayı ise eski anlam: yalnız en yeni N kopya (testler, elle kullanım).
  *
- * ⚠️ Bu, arşiv projesinde dosya SİLEN tek yer — ama sildiği şey ARŞİV
- * DEĞİL, arşivin eski kopyaları. "Arşiv hiçbir şeyi silmez" kuralı katalog
- * verisi içindir; sonsuz yedek biriktirmek diski doldurup ASIL yedeği
- * imkânsız kılardı.
+ * ⚠️ Sildiği şey ARŞİV DEĞİL, arşivin eski kopyaları. "Arşiv hiçbir şeyi silmez" kuralı katalog
+ * verisi içindir; sonsuz yedek biriktirmek diski doldurup ASIL yedeği imkânsız kılardı.
  *
- * 🔴 YALNIZCA KENDİ ÜRETTİĞİ DESENİ siler (`katalog-<damga>.db`) — hedef
- * dizinde başka dosyalar varsa onlara dokunmaz. Kullanıcı yanlışlıkla
- * dolu bir dizini hedef gösterirse veri kaybı olmaz.
+ * 🔴 YALNIZCA KENDİ ÜRETTİĞİ DESENİ siler (`katalog-<damga>.db`, damga çözülebilir olmalı) — hedef
+ * dizinde başka dosyalar varsa onlara dokunmaz. Yaş dosya ADINDAN okunur (029), mtime'dan değil.
  */
-function kopyalariDondur(dizin, keep) {
-  if (!Number.isFinite(keep) || keep < 1) return 0;
-  let dosyalar;
-  try {
-    dosyalar = fs.readdirSync(dizin)
-      .filter((f) => /^katalog-.+\.db$/.test(f))
-      .map((f) => ({ f, t: fs.statSync(path.join(dizin, f)).mtimeMs }))
-      .sort((a, b) => b.t - a.t);
-  } catch {
-    return 0;
-  }
-  let silinen = 0;
-  for (const { f } of dosyalar.slice(keep)) {
-    try { fs.unlinkSync(path.join(dizin, f)); silinen++; } catch { /* onemli degil */ }
-  }
-  return silinen;
+function kopyalariDondur(dizin, kural, simdi = new Date()) {
+  const k = typeof kural === 'number' ? { sonN: kural } : kural;
+  if (!k || !Number.isFinite(k.sonN) || k.sonN < 1) return 0;
+  return budaDizin(dizin, { desen: DESEN.arsiv, kural: k, simdi }).silinen.length;
 }
 
 let zamanlayici = null;
 let sonYedekGunu = null;
+let sonEkIsGunu = null;
 let calisiyor = false;
+
+// Geç yükleme: `ekIsler` → `lazyfetch/paths`, `telemetry` zincirini yalnız zamanlayıcı kurulunca açar.
+function yedekEkIsleri(p) {
+  return require('../yedek/ekIsler').yedekEkIsleri(p);
+}
 
 /**
  * Gece yedek zamanlayıcısını kurar. `server.js` açılışta bir kez çağırır.
@@ -223,17 +204,31 @@ function startBackupSchedule(config) {
   // 🆕 Paket D (M558 · D-5c): gün YALNIZ BAŞARILI yedekle kapanır. Eskiden `sonYedekGunu` yedekten ÖNCE
   // yazılıyordu: düşen yedek o gün bir daha denenmiyordu. Artık pencere içindeki bir sonraki kontrol
   // yeniden dener; `calisiyor` aynı anda iki yedeği engeller.
+  // 🆕 029: arşiv yedeği günün kapısı; EK İŞLER (elle/ budaması, haftalık LazyFetch tar'ı, aylık
+  // sınama) yalnız o kapı kapandıktan sonra ve günde bir kez koşar. Ek işlerin kendi "yapıldı mı"
+  // kararı diskten (`ekIsler.js`) — yeniden başlatma onları da tekrarlatmaz.
   const kontrolEt = () => {
     const simdi = new Date();
     const saat = simdi.getHours();
     const gun = simdi.toDateString();
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
-    if (calisiyor || sonYedekGunu === gun) return;
-    if (bugunYedekAlindiMi(simdi)) { sonYedekGunu = gun; return; }
+    if (calisiyor || (sonYedekGunu === gun && sonEkIsGunu === gun)) return;
     calisiyor = true;
-    runBackup(config)
-      .then((r) => { if (r && r.ok) sonYedekGunu = gun; })
-      .catch(() => { /* runBackup zaten yutuyor */ })
+    (async () => {
+      if (sonYedekGunu !== gun) {
+        if (bugunYedekAlindiMi(simdi)) sonYedekGunu = gun;
+        else {
+          const r = await runBackup(config);
+          if (!(r && r.ok)) return; // ek işler yedeksiz koşmaz; pencere içindeki sonraki kontrol yeniden dener
+          sonYedekGunu = gun;
+        }
+      }
+      if (sonEkIsGunu !== gun) {
+        await yedekEkIsleri({ simdi });
+        sonEkIsGunu = gun;
+      }
+    })()
+      .catch((e) => { console.error(`[Arsiv yedek] tur: ${e && e.message}`); })
       .finally(() => { calisiyor = false; });
   };
 
@@ -268,11 +263,13 @@ function startBackupSchedule(config) {
 function stopBackupSchedule() {
   if (zamanlayici) { clearInterval(zamanlayici); zamanlayici = null; }
   sonYedekGunu = null;
+  sonEkIsGunu = null;
   calisiyor = false;
 }
 
 module.exports = {
   ayniAygitIzinli,
+  ayniAygitMi,
   runBackup,
   startBackupSchedule,
   stopBackupSchedule,

@@ -31,6 +31,7 @@ const { kapiDurumu } = require('./archive/kanonik');
 const { anlikAktarim } = require('./archive/anlikAktarim');
 const { bugunkuAyna } = require('./archive/mirrorSchedule');
 const { ayniAygitIzinli } = require('./archive/backup');
+const { yedekOzeti } = require('./yedek/ozet');
 const { geceIsleriAcikMi } = require('./geceIsleri');
 
 const SAGLAYICILAR = ['tmdb', 'trakt'];
@@ -123,6 +124,8 @@ async function saglikRaporu() {
       sonAyna: sonAynaDurumu(db),
       // Taşıma D3: yedek arşivle AYNI diske izinli mi (tek diskli sunucu, geçici) — gözden kaçmasın.
       yedekAyniAygit: ayniAygitIzinli(),
+      // 029: yedeklerin zamanı + kopya sayıları + son geri yükleme sınaması (yol/ad DÖNMEZ).
+      yedek: yedekOzeti(),
       kanonikKapi: kapiDurumu(),
       geriDusus: geriDusus
         ? {

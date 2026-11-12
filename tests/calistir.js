@@ -56,6 +56,10 @@ const TAKIMLAR = [
   { ad: 'paket-de', grup: 'arsiv', dosya: 'arsiv/paket-de-regresyon.test.js', aciklama: 'M558: dis denetim R7 (sizma) + R8 (yedek) + O-2/O-4/O-10 + D-1/D-9 (once KALDI, sonra GECTI)' },
   { ad: 'ayna-zamanlayici', grup: 'arsiv', dosya: 'arsiv/ayna-zamanlayici.test.js', aciklama: 'M555: dusen ayna turu ayni sabah yeniden denenir (gunde en cok 3), yeniden baslatma sayimi korur' },
   { ad: 'kimlik-onarim', grup: 'arsiv', dosya: 'arsiv/kimlik-onarim.test.js', aciklama: 'M552: A3 onarim araci — G1/G1s/G2/G3/G5, veri kaybi yok, tekrar kosuda is yok, hata -> ROLLBACK' },
+  // 029 (2026-11-12): yedek saklama, haftalik LazyFetch tar'i, geri yukleme sinamasi — `server/yedek/`.
+  { ad: 'yedek-saklama', grup: 'yedek', dosya: 'yedek/saklama.test.js', aciklama: '029: gunluk 7 + haftalik 4 + aylik 4, 120 gun; yas addan, yabanci dosyaya dokunmaz' },
+  { ad: 'yedek-lazyfetch', grup: 'yedek', dosya: 'yedek/lazyfetch-yedek.test.js', aciklama: '029: haftalik tar + sha256, tar -xf ile birebir, yarim dosya yedek sayilmaz, ayni disk reddi' },
+  { ad: 'yedek-sinama', grup: 'yedek', dosya: 'yedek/sinama.test.js', aciklama: '029: geri yukleme sinamasi (butunluk, sayilar, coklu-aktif), sabah ek isleri, saglik ozeti' },
   // 🔴 UCUNCU GRUP: bildirimler. Digerlerinden farkli olarak SUNUCU DEGIL,
   // ISTEMCI kodunu test eder (`features/notifications/` saf katmani) ve bu
   // yuzden `.mjs` + Node'un yerel TypeScript soymasini kullanir — ayrinti

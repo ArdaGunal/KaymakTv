@@ -119,8 +119,10 @@ const depo = require(path.join(AR, 'store'));
   T.H('Kopya dondurme (rotation)');
   // ==================================================================
   // 10 sahte kopya + alakasiz bir dosya
+  // 029: yas dosya ADINDAN okunur — gecerli gunler (01-10). Eskiden 09-00 da vardi; artik adi
+  // cozulemeyen dosyaya dokunulmuyor (tests/yedek/saklama.test.js).
   for (let i = 0; i < 10; i++) {
-    const f = path.join(hedefDizin, `katalog-2026-09-0${i}T00-00-00.db`);
+    const f = path.join(hedefDizin, `katalog-2026-09-${String(i + 1).padStart(2, '0')}T00-00-00.db`);
     fs.writeFileSync(f, 'x');
     const t = new Date(Date.now() - (10 - i) * 3600000);
     fs.utimesSync(f, t, t);
@@ -131,9 +133,10 @@ const depo = require(path.join(AR, 'store'));
   fs.writeFileSync(baskaDb, 'dokunma');
 
   const silinen = yedek.kopyalariDondur(hedefDizin, 3);
-  const kalanKopya = fs.readdirSync(hedefDizin).filter((f) => /^katalog-.+\.db$/.test(f));
+  const kalanKopya = fs.readdirSync(hedefDizin).filter((f) => /^katalog-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.db$/.test(f));
+  T.ok('029: damgasiz katalog-deneme.db (adi cozulemez) SILINMEDI', fs.existsSync(dosya));
   T.ok('Yalnizca 3 kopya birakildi', kalanKopya.length === 3, kalanKopya.length + ' kopya, ' + silinen + ' silindi');
-  T.ok('En YENI kopyalar tutuldu', kalanKopya.some((f) => f.includes('katalog-2026-09-09')));
+  T.ok('En YENI kopyalar tutuldu', ['08', '09', '10'].every((g) => kalanKopya.some((f) => f.includes(`katalog-2026-09-${g}`))));
   T.ok('🔴 Kendi deseni DISINDAKI dosyalara DOKUNULMADI',
     fs.existsSync(alakasiz) && fs.existsSync(baskaDb));
   T.ok('keep=0 gibi anlamsiz degerde hicbir sey silinmiyor', yedek.kopyalariDondur(hedefDizin, 0) === 0);
