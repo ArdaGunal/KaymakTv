@@ -27,7 +27,10 @@ T.ok('Bolumler her platformda tekil', ['android', 'ios', 'web'].every((os) => {
 
 T.H('Baglanti');
 const sayfa = source('app/show/[id].tsx');
-T.ok('Mobil dal sirayi Platform.OS ile kuruyor', sayfa.includes('diziSayfaSirasi(Platform.OS)'));
+// d9b4384 (M599): dar (mobil) web de native sırasını kullanır; yalnız masaüstü web eski sırada kalır.
+T.ok('Mobil dal sirayi ekran duzenine gore kuruyor (dar web = native sirasi)',
+  sayfa.includes("diziSayfaSirasi(layout.isDesktopWeb ? 'web' : 'native')"));
+T.ok("'native' anahtari android/ios ile ayni sirayi verir", diziSayfaSirasi('native').join(',') === diziSayfaSirasi('android').join(','));
 T.ok('Mobil sezon listesi ayri bilesende', sayfa.includes('<SeasonsListMobile'));
 T.ok('Fragman native sirasinda ayri bilesende', sayfa.includes("bolum === 'fragman' && <MediaTrailer"));
 T.ok('Masaustu web dali DEGISMEDI (sag ray SeasonsRailWeb)', sayfa.includes('<SeasonsRailWeb') && sayfa.includes('if (layout.isDesktopWeb)'));
