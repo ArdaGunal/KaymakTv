@@ -15,7 +15,6 @@ export const DEFAULT_LIST_NAME = 'Koleksiyonum';
 // Trakt platform limitleri (ücretsiz hesap).
 // Not: Favori listesi de Trakt'ın 5 liste kotasına dahildir. Favorilemenin her zaman
 // çalışabilmesi için 1 slot ona rezerve edilir → kullanıcıya en fazla 4 liste izni verilir.
-export const MAX_TRAKT_LISTS_TOTAL = 5;
 export const MAX_USER_LISTS = 4;
 export const MAX_LIST_ITEMS = 250;
 

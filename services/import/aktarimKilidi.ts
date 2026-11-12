@@ -26,5 +26,3 @@ export function kilitAl(kim: KilitSahibi): boolean {
 export function kilitBirak(kim: KilitSahibi): void {
   if (sahip === kim) sahip = null;
 }
-
-export const kilitSahibi = (): KilitSahibi | null => sahip;

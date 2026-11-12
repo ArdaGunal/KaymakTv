@@ -167,19 +167,8 @@ export const markEpisodesWatched = (
   showId: number, season: number, episodes: number[], watchedAt?: string,
 ) => istek('watched', { op: 'ekle', trakt: { showId, season, episodes }, watchedAt });
 
-/**
- * Sezonun TAMAMI. `episodes: "*"` Worker tarafinda "bu sezonun tum
- * bolumleri" demek — bolum listesini ne istemci ne cagiran biliyor, katalog
- * biliyor. Yine TEK istek.
- */
-export const markSeasonWatched = (showId: number, season: number, watchedAt?: string) =>
-  istek('watched', { op: 'ekle', trakt: { showId, season, episodes: '*' }, watchedAt });
-
 export const unwatchSeason = (showId: number, season: number) =>
   istek('watched', { op: 'sil', trakt: { showId, season, episodes: '*' }, tumu: true });
-
-export const markMovieWatched = (movieId: number, watchedAt?: string) =>
-  istek('watched', { op: 'ekle', trakt: { movieId }, watchedAt });
 
 /**
  * İzleme kaydını kaldırır.
@@ -190,9 +179,6 @@ export const markMovieWatched = (movieId: number, watchedAt?: string) =>
  */
 export const unwatchEpisode = (showId: number, season: number, episode: number) =>
   istek('watched', { op: 'sil', trakt: { showId, season, episode }, tumu: true });
-
-export const unwatchEpisodes = (showId: number, season: number, episodes: number[]) =>
-  istek('watched', { op: 'sil', trakt: { showId, season, episodes }, tumu: true });
 
 export const unwatchMovie = (movieId: number) =>
   istek('watched', { op: 'sil', trakt: { movieId }, tumu: true });
@@ -244,9 +230,6 @@ export const unrateShow = (showId: number) =>
 export const unrateMovie = (movieId: number) =>
   istek('rating', { op: 'sil', trakt: { movieId } });
 
-export const unrateEpisode = (showId: number, season: number, episode: number) =>
-  istek('rating', { op: 'sil', trakt: { showId, season, episode } });
-
 /**
  * Bölüm puanı — YALNIZCA bölüm Trakt kimliğiyle.
  *
@@ -276,46 +259,16 @@ export const addToFavorites = (konum: TraktKonumu) =>
 export const removeFromFavorites = (konum: TraktKonumu) =>
   istek('favorite', { op: 'sil', trakt: konum });
 
-/**
- * 🔴 GİZLEME SANILANDAN KRİTİK (plan §6.3): `hiddenShowIds` yalnızca
- * kütüphaneyi değil, `mapCalendar.ts` üzerinden BİLDİRİMLERİ de süzüyor.
- * Burada bir kayıp, kullanıcının gizlediği dizi için bildirim almasına
- * yol açar — sinsi ve geç fark edilir.
- */
-export const hideShow = (showId: number) =>
-  istek('hidden', { op: 'ekle', trakt: { showId } });
-
-export const unhideShow = (showId: number) =>
-  istek('hidden', { op: 'sil', trakt: { showId } });
-
-/**
- * ⚠️ FİLM DE GİZLENEBİLİR. Worker'ın `hidden` ailesi jenerik
- * (`basitAile("user_hidden", …)` — yalnızca `kaymak_id` görür), ama bu
- * dosyanın ilk turunda yalnızca dizi sarmalayıcısı yazılmıştı.
- * `toggleHiddenFromProgress` iki tipi de kabul ediyor; film dalı olmadan
- * adaptör yarım kalırdı.
- */
-export const hideMovie = (movieId: number) =>
-  istek('hidden', { op: 'ekle', trakt: { movieId } });
-
-export const unhideMovie = (movieId: number) =>
-  istek('hidden', { op: 'sil', trakt: { movieId } });
-
-// ── Durum ─────────────────────────────────────────────────────────────────
-
-/**
- * 🆕 "Bırakıldı" — Trakt'ta KARŞILIĞI YOK, bağımsızlığın ilk somut kazancı.
- *
- * ⚠️ Yalnızca TÜRETİLEMEZ durum buraya yazılır. `upNext`/`paused`/
- * `caughtUp` izleme geçmişinden hesaplanıyor (`useLibraryFilters.ts`);
- * onları buraya yazmak ikinci bir gerçek kaynağı yaratırdı — Worker ve
- * `037`'nin CHECK'i de reddeder.
- */
-export const setShowDropped = (showId: number) =>
-  istek('state', { op: 'ekle', trakt: { showId }, state: 'dropped' });
-
-export const clearShowState = (showId: number) =>
-  istek('state', { op: 'sil', trakt: { showId } });
+// ── Gizleme ve durum ──────────────────────────────────────────────────────
+//
+// 🔴 GİZLEME BU DOSYADAN GEÇMEZ: yazımı `services/library/hiddenOutbox/transport.ts`
+// (`/library/hidden`, diske ACK'li kuyruk) yapar. `hiddenShowIds` yalnız kütüphaneyi
+// değil, `mapCalendar.ts` üzerinden BİLDİRİMLERİ de süzer; orada bir kayıp, kullanıcının
+// gizlediği dizi için bildirim almasına yol açar.
+//
+// Worker'ın `state` ailesi («bırakıldı», Trakt'ta karşılığı yok) duruyor ama istemcide
+// çağıranı yok; eski `hideShow/unhideShow/hideMovie/unhideMovie/setShowDropped/
+// clearShowState` sarmalayıcıları M608'de ölü kod olarak silindi (git geçmişinde).
 
 // ── Okuma ─────────────────────────────────────────────────────────────────
 

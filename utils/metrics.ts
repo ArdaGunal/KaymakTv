@@ -16,12 +16,6 @@ export const recordApiLatency = (endpointKey: string, durationMs: number): void 
   metricsStore.recordHistogram(`api.latency.${endpointKey}`, durationMs);
 };
 
-// Faz 7 kapsamında henüz hiçbir ekrandan çağrılmıyor (bkz. docs/HISTORY.md) —
-// gelecekte navigasyon süresi ölçülmek istendiğinde kullanılmaya hazır.
-export const recordScreenTransition = (screenName: string, durationMs: number): void => {
-  metricsStore.recordHistogram(`screen.transition.${screenName}`, durationMs);
-};
-
 export const setMemoryGauge = (name: string, value: number): void => {
   metricsStore.setGauge(`memory.${name}`, value);
 };

@@ -100,9 +100,6 @@ export const fetchTraktCatalog = async (endpoint: string, params: Record<string,
   return response.data;
 };
 
-/** Bayrak kapalıyken de yapılandırmayı görebilmek için — `shows.ts` çağırır. */
-export const reportCatalogConfig = logCatalogConfigOnce;
-
 /**
  * Bir geçit hatasını teşhis edilebilir etiketlere çevirir.
  * En çok işe yarayan alan `durum`: 404 → uç yayında yok · 502/522 →

@@ -112,17 +112,3 @@ export type FeedItem = FeedActivity | MarathonActivity;
 export function isMarathonActivity(item: FeedItem): item is MarathonActivity {
   return 'type' in item && item.type === 'marathon';
 }
-
-/** Bağımsız gönderi mi ("Fikir Paylaş")? FeedCard.tsx bu kartları izleme/
- *  puanlama kartlarından farklı render eder (izledi satırı yok, yapım
- *  opsiyonel — bkz. FeedCard.tsx içindeki dal). */
-export function isPostActivity(item: FeedItem): item is FeedActivity {
-  return !isMarathonActivity(item) && item.activityType === 'posted';
-}
-
-/** İnceleme kartı mı? `posted` ile aynı görsel dili paylaşır (metin birincil
- *  içerik) ama silme/düzenleme yolu FARKLIDIR — Trakt'a da gider, bu yüzden
- *  `CardMenu` bu ayrımı bilmek zorunda (bkz. docs/design/REVIEWS_PLAN.md §6.1). */
-export function isReviewActivity(item: FeedItem): item is FeedActivity {
-  return !isMarathonActivity(item) && item.activityType === 'reviewed';
-}

@@ -4,11 +4,7 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import { toggleHiddenFromProgress } from './collections';
 import { CACHE_KEYS, safeStorageSet, setWatchedShows, setWatchlistShows, setShowProgressMap, persistShowProgressMap } from '../utils';
 import { izlenenDiziyeEkle, izlemeListesindenDus } from './optimistikDizi';
-import { resolveMediaMeta } from '../mediaMeta';
 import { logError } from '../../../utils/errorLog';
-
-/** Yayın için gereken meta (başlık + poster id) — bkz. services/library/mediaMeta.ts */
-export const showMetaFor = (showId: number) => resolveMediaMeta(showId, 'show');
 
 // Kullanıcı "Bırak" ile Trakt'ta gizlediği bir diziyi/filmi sonradan yeniden
 // izlemeye başlarsa gizleme otomatik kaldırılır — aksi halde dizi/film Trakt'ın
