@@ -53,7 +53,6 @@ T.ok('ag / tekrar_dene / cok_istek / sunucu → gecici (durum SILINMEZ)', ['ag',
 
 T.H('Gosterim');
 T.ok('Kod 4+4', O.koduBicimle('JBWT7NY7') === 'JBWT 7NY7' && O.koduBicimle('ABC') === 'ABC');
-T.ok('Kalan sure d:ss', O.kalanSureMetni(601_000, 1_000) === '10:00' && O.kalanSureMetni(66_000, 1_000) === '1:05' && O.kalanSureMetni(0, 5) === '0:00');
 
 T.H('Disk (SecureStore)');
 await O.cihazOturumunuKaydet(o);
@@ -99,6 +98,8 @@ T.ok('Gec gelen yanit yok sayilir (nesil)', (kanca.match(/if \(nesil !== nesilRe
 T.ok('Gecici hata oturumu SILMEZ (cevrimdisi + geri cekilme)', /sinif === 'gecici'[\s\S]{0,200}planla\(geriCekilmeMs\(/.test(kanca));
 T.ok('Basari: oturum diskten silinir, sonra giris tamamlanir; uyusmazlikta kod gorunumu kapanir',
   kanca.indexOf("setDurum({ tur: 'tamamlaniyor' })") > kanca.indexOf('await cihazOturumunuSil();') && /await onGirisRef\.current\(sonuc\.giris, oturum\.mod\);\s+\/\/[^\n]*\n\s+setDurum\(\{ tur: 'bos' \}\);/.test(kanca));
+T.ok('M622: kod alininca Trakt KENDILIGINDEN acilir (ikinci dokunus yok)', /surdur\(o\);\s+await trakttaOnayla\(\);/.test(kanca) && kanca.indexOf('const trakttaOnayla') < kanca.indexOf('const baslat'));
+T.ok('M622: «otomatik kopyalandi» yalniz pano gercekten yazildiysa; bitince sifirlanir', /await Clipboard\.setStringAsync\(o\.userCode\);\s+setKopyalandi\(true\);/.test(kanca) && /oturumRef\.current = null;\s+setKopyalandi\(false\);/.test(kanca));
 T.ok('Onayla: kod panoya + sayfa siradan tarayicida (auth oturumu DEGIL)', /Clipboard\.setStringAsync\(o\.userCode\)/.test(kanca) && /Linking\.openURL\(o\.dogrulamaAdresi\)/.test(kanca) && !/openAuthSessionAsync|promptAsync/.test(kanca));
 T.ok('Acilista bekleyen oturum surer', /cihazOturumunuOku\(\)\.then\(\(o\) => \{\s+if \(!iptal && o && !oturumRef\.current\) surdur\(o\);/.test(kanca));
 
@@ -117,12 +118,16 @@ const giris = oku('app/(public)/index.tsx');
 T.ok('Karsilama: bekleyen oturum varsa giris ekranina (surec olumu sonrasi)', /cihazOturumunuOku\(\)\.then\(\(o\) => \{\s+if \(o && !iptal\) router\.replace\('\/\(public\)\/settings'\);/.test(giris) && /Platform\.OS === 'web'/.test(giris));
 const uyari = oku('components/auth/TraktHesapUyusmazligiEkrani.tsx');
 T.ok('Uyusmazlik ekrani cihaz kodu metinlerini kullanir (prompt=login yok)', /cihazKodu = false/.test(uyari) && /settings:uyusmazlikIpucu\$\{ek\}/.test(uyari) && /cihazKodu=\{TRAKT_CIHAZ_GIRISI\}/.test(ekran));
-const anahtarlar = ['cihazBaslik', 'cihazAltBaslik', 'cihazAdim1', 'cihazAdim2', 'cihazAdim3', 'cihazKodEtiketi', 'cihazKalanSure', 'cihazTrakttaOnayla', 'cihazKopyalandi',
-  'cihazOnayBekleniyor', 'cihazBaglantiBekleniyor', 'cihazVazgec', 'cihazKodAliniyor', 'cihazGirisYapiliyor', 'cihazSuresiDoldu', 'cihazReddedildi', 'cihazYeniKodGerekli',
-  'cihazKodAlinamadi', 'cihazYeniKodAl', 'rehberAdim2Cihaz', 'rehberAdim3Cihaz', 'uyusmazlikIpucuCihaz'];
+const anahtarlar = ['cihazBaslik', 'cihazAltBaslik', 'cihazKodEtiketi', 'cihazKodKopyalandi', 'cihazTekrarAc', 'cihazTekrarDene',
+  'cihazBaglantiBekleniyor', 'cihazVazgec', 'cihazKodAliniyor', 'cihazGirisYapiliyor', 'cihazSuresiDoldu', 'cihazReddedildi', 'cihazYeniKodGerekli',
+  'cihazKodAlinamadi', 'rehberAdim2Cihaz', 'rehberAdim3Cihaz', 'uyusmazlikIpucuCihaz'];
 const eksik = ['tr', 'en'].flatMap((d) => { const j = JSON.parse(oku(`locales/${d}/settings.json`)); return anahtarlar.filter((a) => typeof j[a] !== 'string').map((a) => `${d}:${a}`); });
 T.ok('Butun metinler TR + EN', eksik.length === 0, eksik.join(','));
-T.ok('Kalan sure metni {{sure}} tasir', ['tr', 'en'].every((d) => JSON.parse(oku(`locales/${d}/settings.json`)).cihazKalanSure.includes('{{sure}}')));
+const bilesen = oku('components/auth/TraktCihazKodu.tsx');
+T.ok('M622: sade ekran — maddeli kilavuz, geri sayim, buyuk onay dugmesi YOK', !/cihazAdim|cihazKalanSure|cihazTrakttaOnayla/.test(bilesen + ekran)
+  && ['cihazAdim1', 'cihazKalanSure', 'cihazTrakttaOnayla'].every((a) => ['tr', 'en'].every((d) => !(a in JSON.parse(oku(`locales/${d}/settings.json`))))));
+T.ok('M622: kod kutusu + «tekrar ac» + «vazgec»', /cihazKodKopyalandi/.test(bilesen) && /onPress=\{onTekrarAc\}/.test(bilesen) && /onTekrarAc=\{cihaz\.trakttaOnayla\}/.test(ekran) && /t\('cihazVazgec'\)/.test(bilesen));
+T.ok('M622: bekleme basligi yalniz bekleme durumlarinda; hata ekraninda karsilama basligi', /const cihazBekliyor = \['kod_aliniyor', 'bekliyor', 'tamamlaniyor'\]\.includes\(cihaz\.durum\.tur\);/.test(ekran) && /cihazBekliyor \? 'cihazBaslik'/.test(ekran));
 
 T.H('Baglama niyeti (asili kalmaz)');
 const disk = new Map();

@@ -34,6 +34,8 @@ type Secenekler = { onGiris: (giris: TraktGirisi, mod: CihazModu) => Promise<voi
 
 export function useTraktCihazGirisi({ onGiris, onHata }: Secenekler) {
   const [durum, setDurum] = useState<CihazDurumu>({ tur: 'bos' });
+  // Kod panoya gerçekten kopyalandı mı (ekran «otomatik kopyalandı» der). Süreç ölümünden sonra false.
+  const [kopyalandi, setKopyalandi] = useState(false);
   const oturumRef = useRef<BekleyenCihazOturumu | null>(null);
   const nesilRef = useRef(0);
   const zamanlayiciRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,6 +57,7 @@ export function useTraktCihazGirisi({ onGiris, onHata }: Secenekler) {
     nesilRef.current += 1;
     zamanlayiciyiDurdur();
     oturumRef.current = null;
+    setKopyalandi(false);
     await cihazOturumunuSil();
     setDurum(sonraki);
   }, []);
@@ -130,7 +133,28 @@ export function useTraktCihazGirisi({ onGiris, onHata }: Secenekler) {
     planla(sonrakiYoklamaGecikmesi(sonYoklamaRef.current, o.aralikMs, Date.now()));
   }, [planla]);
 
-  /** Kod alır. «Trakt'ı bağla» niyeti varsa ŞİMDİ tüketilir ve moda yazılır. */
+  /**
+   * Kodu panoya kopyalar ve Trakt onay sayfasını sıradan tarayıcıda açar (auth oturumu DEĞİL). Kod
+   * alınınca KENDİLİĞİNDEN çağrılır (kullanıcı, 2026-11-14: «kimse ordan oraya kod alayım istemez»);
+   * ekrandaki «Trakt sayfasını tekrar aç» da bunu çağırır.
+   */
+  const trakttaOnayla = useCallback(async (): Promise<void> => {
+    const o = oturumRef.current;
+    if (!o) return;
+    try {
+      await Clipboard.setStringAsync(o.userCode);
+      setKopyalandi(true);
+    } catch {
+      // pano yoksa adres zaten kodu taşıyor (Trakt kutuya kendisi doldurur)
+    }
+    try {
+      await Linking.openURL(o.dogrulamaAdresi);
+    } catch {
+      onHataRef.current?.('tarayici');
+    }
+  }, []);
+
+  /** Kod alır, panoya kopyalar ve Trakt'ı açar. «Trakt'ı bağla» niyeti varsa ŞİMDİ tüketilir ve moda yazılır. */
   const baslat = useCallback(async (istenen: CihazModu) => {
     if (durum.tur === 'kod_aliniyor' || durum.tur === 'tamamlaniyor') return; // çift dokunuş
     nesilRef.current += 1;
@@ -146,36 +170,18 @@ export function useTraktCihazGirisi({ onGiris, onHata }: Secenekler) {
       await cihazOturumunuKaydet(o);
       sonYoklamaRef.current = Date.now(); // ilk yoklama bir aralık sonra (kişi henüz onaylamadı)
       surdur(o);
+      await trakttaOnayla(); // ikinci bir dokunuş istemeden doğrudan Trakt
     } catch (e) {
       if (nesil !== nesilRef.current) return;
       onHataRef.current?.(e instanceof CihazHatasi ? e.kod : 'ag');
       setDurum({ tur: 'kod_alinamadi', mod });
     }
-  }, [durum.tur, surdur]);
+  }, [durum.tur, surdur, trakttaOnayla]);
 
   /** Bitmiş / düşmüş bir oturumdan sonra aynı modla yeni kod. */
   const yeniKod = useCallback(() => baslat('mod' in durum ? durum.mod : 'giris'), [durum, baslat]);
 
   const vazgec = useCallback(() => bitir({ tur: 'bos' }), [bitir]);
-
-  /** Kodu panoya kopyalar ve Trakt onay sayfasını sıradan tarayıcıda açar (auth oturumu DEĞİL). */
-  const trakttaOnayla = useCallback(async (): Promise<boolean> => {
-    const o = oturumRef.current;
-    if (!o) return false;
-    let kopyalandi = false;
-    try {
-      await Clipboard.setStringAsync(o.userCode);
-      kopyalandi = true;
-    } catch {
-      // pano yoksa adres zaten kodu taşıyor
-    }
-    try {
-      await Linking.openURL(o.dogrulamaAdresi);
-    } catch {
-      onHataRef.current?.('tarayici');
-    }
-    return kopyalandi;
-  }, []);
 
   // Açılış: bekleyen oturum varsa kaldığı yerden.
   useEffect(() => {
@@ -200,5 +206,5 @@ export function useTraktCihazGirisi({ onGiris, onHata }: Secenekler) {
     return () => abone.remove();
   }, [planla]);
 
-  return { durum, baslat, yeniKod, vazgec, trakttaOnayla };
+  return { durum, kopyalandi, baslat, yeniKod, vazgec, trakttaOnayla };
 }

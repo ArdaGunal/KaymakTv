@@ -83,12 +83,6 @@ export function koduBicimle(kod: string): string {
   return kod.length === 8 ? `${kod.slice(0, 4)} ${kod.slice(4)}` : kod;
 }
 
-/** Kalan süre «d:ss». */
-export function kalanSureMetni(bitisMs: number, simdi: number): string {
-  const sn = Math.max(0, Math.ceil((bitisMs - simdi) / 1000));
-  return `${Math.floor(sn / 60)}:${String(sn % 60).padStart(2, '0')}`;
-}
-
 // ── DİSK ───────────────────────────────────────────────────────────────────────────────────────
 
 export async function cihazOturumunuKaydet(o: BekleyenCihazOturumu): Promise<void> {

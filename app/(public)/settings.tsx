@@ -67,6 +67,9 @@ export default function Login() {
     onHata: (kod) => logWarning('traktCihaz.hata', new Error(kod)),
   });
   const cihazAcik = cihaz.durum.tur !== 'bos';
+  // M622: bekleme (ve kod alınırken / giriş yapılırken) başlık alanı «Trakt onayı bekleniyor» + tek cümle; hata
+  // ekranlarında olağan karşılama başlığı (mesajı kutu kendisi yazar).
+  const cihazBekliyor = ['kod_aliniyor', 'bekliyor', 'tamamlaniyor'].includes(cihaz.durum.tur);
   const uyariAcik = uyusmazlik !== null;
   const kutuAcik = (GOOGLE_GIRIS_ACIK && google.durum === 'trakt_ile_gir') || uyariAcik || cihazAcik;
   const { width } = useWindowDimensions();
@@ -249,8 +252,8 @@ export default function Login() {
         {/* M536: başlık her genişlikte ORTALI — eskiden yalnız masaüstünde ortalanıyordu, dar ekranda başlık sola,
             gövde ortaya yaslı kalıyordu (kullanıcı: «dar ekranda da başlık ve alt başlık ortalansın»). */}
         {!uyariAcik && <View style={[styles.headerContainer, isDesktop && { marginBottom: 40 }]}>
-          <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(cihazAcik ? 'cihazBaslik' : kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
-          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(cihaz.durum.tur === 'bekliyor' ? 'cihazAltBaslik' : kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
+          <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(cihazBekliyor ? 'cihazBaslik' : kutuAcik && !cihazAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
+          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(cihazBekliyor ? 'cihazAltBaslik' : kutuAcik && !cihazAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
         </View>}
 
       <View style={styles.formContainer}>
@@ -265,7 +268,7 @@ export default function Login() {
               />
             )}
             {cihazAcik && !uyariAcik && (
-              <TraktCihazKodu durum={cihaz.durum} onTrakttaOnayla={cihaz.trakttaOnayla} onYeniKod={cihaz.yeniKod} onVazgec={cihaz.vazgec} />
+              <TraktCihazKodu durum={cihaz.durum} kopyalandi={cihaz.kopyalandi} onTekrarAc={cihaz.trakttaOnayla} onYeniKod={cihaz.yeniKod} onVazgec={cihaz.vazgec} />
             )}
             {kutuAcik && !uyariAcik && !cihazAcik && (
               <TraktIleGirKutusu hesap={google.bagliHesap} onTraktIleDevam={handleKartlaTraktGiris} onBaskaHesap={google.sifirla} />
