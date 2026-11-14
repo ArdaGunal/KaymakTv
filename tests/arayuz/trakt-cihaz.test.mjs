@@ -107,6 +107,7 @@ const ekran = oku('app/(public)/settings.tsx');
 T.ok('Native + bayrak acik → cihaz kodu; web eski yolda', /if \(TRAKT_CIHAZ_GIRISI\) \{\s+await cihaz\.baslat\(zorunluGiris \? 'kart' : 'giris'\);\s+return;/.test(ekran)
   && /Platform\.OS !== 'web' && process\.env\.EXPO_PUBLIC_TRAKT_CIHAZ_GIRISI !== '0'/.test(oku('utils/traktCihazBayragi.ts')));
 T.ok('Kod ekrani acikken diger secenekler gizli', /const kutuAcik = [^\n]*\|\| cihazAcik;/.test(ekran) && /\{cihazAcik && !uyariAcik && \(\s+<TraktCihazKodu/.test(ekran));
+T.ok('Emulator bulgusu: kod ekraninda Google dugmesi de gizli (Madde 231: unmount DEGIL, gizli)', /<GoogleGirisDugmesi [^>]*gizli=\{uyariAcik \|\| cihazAcik\}/.test(ekran));
 T.ok('settings.tsx 400 satirin altinda', ekran.split('\n').length < 400);
 const auth = oku('context/AuthContext.tsx');
 const misafir = auth.slice(auth.indexOf('const loginAsGuest'), auth.indexOf('const removeKeys = '));

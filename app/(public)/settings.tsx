@@ -250,7 +250,7 @@ export default function Login() {
             gövde ortaya yaslı kalıyordu (kullanıcı: «dar ekranda da başlık ve alt başlık ortalansın»). */}
         {!uyariAcik && <View style={[styles.headerContainer, isDesktop && { marginBottom: 40 }]}>
           <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(cihazAcik ? 'cihazBaslik' : kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
-          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(cihazAcik ? 'cihazAltBaslik' : kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
+          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(cihaz.durum.tur === 'bekliyor' ? 'cihazAltBaslik' : kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
         </View>}
 
       <View style={styles.formContainer}>
@@ -333,7 +333,7 @@ export default function Login() {
                 basınca İKİNCİ, boş hesap açılıyordu (veri bölünmesi). Kimlik planı
                 Faz 3 (docs/design/KIMLIK_BIRLIGI_PLANI.md) bitince açılır.
                 D10 (2026-10-13): Faz 4–5 testleri için yalnız test APK'sında açık. */}
-            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} giris={google} gizli={uyariAcik} />}
+            {GOOGLE_GIRIS_ACIK && <GoogleGirisDugmesi etkin={isChecked && !isGenerating} giris={google} gizli={uyariAcik || cihazAcik} />}
 
             {/* Misafir/Vitrin de aynı gerekçeyle koşulsuz görünür (kutu açıkken değil — tek seçenek kalsın). */}
             {!kutuAcik && <>
