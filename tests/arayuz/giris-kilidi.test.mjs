@@ -97,7 +97,7 @@ T.ok('Kart dugmesi beklentiyi saklar ve Trakt girisini ZORLAR', /onTraktIleDevam
 T.ok('Duz Trakt dugmesi beklentiyi SILER, zorlamaz', /handleTraktLogin = async \(\) => \{\s+await beklenenTraktHesabiSil\(\);\s+await traktGirisiniBaslat\(false\);/.test(ekran)
   && /<TraktGirisDugmesi[^>]*onPress=\{handleTraktLogin\}/.test(ekran));
 T.ok('Tekrar dene: deneme +1, zorunlu giris', /handleTekrarDene = async \(\) => \{\s+if \(!uyusmazlik\) return;\s+await beklenenTraktHesabiKaydet\(\{ \.\.\.uyusmazlik\.beklenen, deneme: uyusmazlik\.beklenen\.deneme \+ 1 \}\);[\s\S]{0,80}traktGirisiniBaslat\(true\)/.test(ekran));
-T.ok('Web ve APK ayni zorunlu adresi kullanir', /window\.location\.href = adres;/.test(ekran) && /promptAsync\(adres && zorunluGiris \? \{ url: adres \} : undefined\)/.test(ekran) && /zorunluGirisAdresi\(request\.url\)/.test(ekran));
+T.ok('Web ve APK ayni zorunlu adresi kullanir', /window\.location\.href = adres;/.test(ekran) && /promptAsync\(\{ \.\.\.\(adres && zorunluGiris \? \{ url: adres \} : \{\}\), createTask: false \}\)/.test(ekran) && /zorunluGirisAdresi\(request\.url\)/.test(ekran));
 T.ok('Ekran acikken diger secenekler ve Google dugmesi gizli (Google SOKULMEZ)', /const kutuAcik = \(GOOGLE_GIRIS_ACIK && google\.durum === 'trakt_ile_gir'\) \|\| uyariAcik;/.test(ekran) && /giris=\{google\} gizli=\{uyariAcik\}/.test(ekran));
 const gdugme = fs.readFileSync(path.join(root, 'components/auth/GoogleGirisDugmesi.tsx'), 'utf8');
 T.ok('Madde 231: Google sarmalayicisi kosulsuz, gizleme yalniz display:none', /<View style=\{props\.gizli \? styles\.tamGizli : undefined\}>/.test(gdugme) && /tamGizli: \{ display: 'none' \}/.test(gdugme));

@@ -37,4 +37,9 @@ T.ok('Derin baglanti dali dogrulamadan gecer', /else if \(routerCode\) \{\s+dogr
 T.ok('Web URL dali dogrulamadan gecer', /dogrulanmisKod\(code, urlParams\.get\('state'\)\)/.test(ekran));
 T.ok('Dogrulamasiz handleTokenExchange cagrisi yalniz kutuphane yolunda + dogrulanmisKod icinde',
   (ekran.match(/handleTokenExchange\(/g) || []).length === 2 && /handleTokenExchange\(response\.params\.code\)/.test(ekran));
+T.ok('M617: Trakt sayfasi uygulamanin kendi gorevinde acilir (createTask: false) — e-posta kodu icin cikip donunce kapanmaz',
+  /promptAsync\(\{ \.\.\.\(adres && zorunluGiris \? \{ url: adres \} : \{\}\), createTask: false \}\)/.test(ekran) &&!/promptAsync\(adres && zorunluGiris \? \{ url: adres \} : undefined\)/.test(ekran));
+T.ok('M617: Trakt sayfasi kapaninca (dismiss) nasil surdurulecegi yazar (TR + EN)',
+  ekran.includes("response?.type === 'dismiss' && !isGenerating") && ekran.includes("t('settings:traktSayfasiKapandi')")
+  && ['tr', 'en'].every((d) => typeof JSON.parse(fs.readFileSync(path.join(root, `locales/${d}/settings.json`), 'utf8')).traktSayfasiKapandi === 'string'));
 T.bitir();

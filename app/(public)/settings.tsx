@@ -181,7 +181,10 @@ export default function Login() {
       window.location.href = adres;
     } else {
       // Mobilde normal çalışmaya devam et
-      promptAsync(adres && zorunluGiris ? { url: adres } : undefined);
+      // M617 · `createTask: false`: Trakt sayfası uygulamanın KENDİ görevinde açılır. Varsayılan (ayrı
+      // görev) Android'de kullanıcı e-postadaki kodu almak için çıkıp KaymakTV'ye dönünce uygulamayı
+      // «aktif» yapar; expo-web-browser bunu «kapatıldı» sayıp Trakt sayfasını kapatıyordu.
+      promptAsync({ ...(adres && zorunluGiris ? { url: adres } : {}), createTask: false });
     }
   };
 
@@ -348,6 +351,8 @@ export default function Login() {
             )}
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
+            {/* M617: simgeden dönüş Trakt sayfasını kapatır (singleTask); kullanıcı nasıl süreceğini bilsin. */}
+            {response?.type === 'dismiss' && !isGenerating && <Text style={styles.pollingText}>{t('settings:traktSayfasiKapandi')}</Text>}
             {baglamaModu && <Text style={styles.pollingText}>{t('settings:baglamaModuNotu')}</Text>}
 
             {/* M501 · Google girişi. 🔴 M502 FAZ 0 (kullanıcı, 2026-10-12): KAPALI —
