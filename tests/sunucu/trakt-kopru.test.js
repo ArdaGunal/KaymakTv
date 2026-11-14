@@ -1,7 +1,7 @@
 // ==========================================================================
 // Trakt köprüsü — Worker'ın Trakt oturum çağrıları Pi'den çıkar (plan §6.2)
 // ==========================================================================
-// 🔴 İDDİALAR: sır yoksa kapalı, yanlış sır reddedilir · yalnız üç işlem, yol dışarıdan alınamaz ·
+// 🔴 İDDİALAR: sır yoksa kapalı, yanlış sır reddedilir · yalnız beş işlem (cihaz kodu ikisi ayrı kovada), yol dışarıdan alınamaz ·
 // istemci sırrı Pi'de eklenir · Trakt'ın durum kodu zarfla aynen döner · 1015 metni taşınır ·
 // Trakt cevap vermezse status 0 · anahtar ve gövde log'a yazılmaz.
 // Ağ YOK: axios bağdaştırıcısı sahte.
@@ -43,6 +43,17 @@ axios.defaults.adapter = async (config) => {
   T.ok('anahtarsız ayarlar → null', kopru.istegiKur({ islem: 'ayarlar' }, ortam) === null);
   T.ok('sır yoksa token/iptal → null', kopru.istegiKur({ islem: 'iptal', token: 'e' }, { TRAKT_CLIENT_ID: 'cid' }) === null);
 
+  // Cihaz kodu girişi (TRAKT_CIHAZ_KODU_PLANI §3.1)
+  const ck = kopru.istegiKur({ islem: 'cihaz_kod', client_id: 'sahte', url: 'https://evil.io' }, ortam);
+  T.ok('cihaz_kod: POST /oauth/device/code, yalnız sunucunun client_id değeri, sır GİTMEZ', ck.method === 'POST' && ck.url === 'https://api.trakt.tv/oauth/device/code' && ck.data.client_id === 'cid' && ck.data.client_secret === undefined && Object.keys(ck.data).length === 1);
+  T.ok('cihaz_kod sırsız ortamda da kurulur', kopru.istegiKur({ islem: 'cihaz_kod' }, { TRAKT_CLIENT_ID: 'cid' }) !== null);
+  const ct = kopru.istegiKur({ islem: 'cihaz_token', code: 'LS5b-x_Y', client_secret: 'sahte', grant_type: 'password' }, ortam);
+  T.ok('cihaz_token: /oauth/device/token, sır sunucuda eklenir, fazla alan atılır', ct.url === 'https://api.trakt.tv/oauth/device/token' && ct.data.code === 'LS5b-x_Y' && ct.data.client_secret === 'gizli-sir' && ct.data.client_id === 'cid' && ct.data.grant_type === undefined);
+  T.ok('cihaz_token kodsuz / string değil / 128 üstü → null', kopru.istegiKur({ islem: 'cihaz_token' }, ortam) === null && kopru.istegiKur({ islem: 'cihaz_token', code: 5 }, ortam) === null && kopru.istegiKur({ islem: 'cihaz_token', code: 'a'.repeat(129) }, ortam) === null);
+  T.ok('cihaz_token sırsız → null', kopru.istegiKur({ islem: 'cihaz_token', code: 'k' }, { TRAKT_CLIENT_ID: 'cid' }) === null);
+  T.ok('kova: cihaz işlemleri ayrı, diğerleri ortak', kopru.kovaAdi({ islem: 'cihaz_token' }) === 'worker-cihaz' && kopru.kovaAdi({ islem: 'cihaz_kod' }) === 'worker-cihaz' && kopru.kovaAdi({ islem: 'token' }) === 'worker' && kopru.kovaAdi(undefined) === 'worker');
+  T.ok('beklenen cevap: yalnız cihaz_token 400/429 susturulur', kopru.beklenenCevap('cihaz_token', 400) && kopru.beklenenCevap('cihaz_token', 429) && !kopru.beklenenCevap('cihaz_token', 410) && !kopru.beklenenCevap('token', 400));
+
   // ── HTTP ───────────────────────────────────────────────────────────────
   const app = express();
   app.use(express.json());
@@ -81,7 +92,11 @@ axios.defaults.adapter = async (config) => {
   const yok = await iste({ islem: 'token', grant_type: 'refresh_token', refresh_token: 'GIZLI-YENILEME' }, SIR);
   sahteCevap = () => ({ status: 401, data: '{}' });
   await iste({ islem: 'ayarlar', erisim: 'GIZLI-ERISIM' }, SIR);
+  // Trakt bekleyen kodu BOŞ gövdeli 400 ile döner (ölçüldü 2026-11-14): zarf aynen taşır, log'a yazılmaz.
+  sahteCevap = () => ({ status: 400, data: '' });
+  const bekliyor = await iste({ islem: 'cihaz_token', code: 'GIZLI-CIHAZ' }, SIR);
   console.warn = eskiUyar;
+  T.ok('cihaz_token 400 boş gövde → zarf status 400, veri null', bekliyor.status === 200 && bekliyor.j.status === 400 && bekliyor.j.veri === null);
   T.ok('Trakt cevap vermedi → zarf status 0 (belirsiz)', yok.status === 200 && yok.j.ok === true && yok.j.status === 0);
   T.ok('anahtar log\'a yazılmaz; yalnız işlem + durum', yazilanlar.length === 2 && !yazilanlar.join(' ').includes('GIZLI') && yazilanlar[1].includes('ayarlar') && yazilanlar[1].includes('401'));
 

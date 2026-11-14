@@ -7,8 +7,10 @@
 //
 // 🔒 GÜVENLİK (`katalogCek.js` deseni):
 //   1. SIR: `x-kaymak-sync-secret` = `PI_SYNC_SECRET`, sabit zamanlı. Sır yoksa/kısaysa uç KAPALI (503).
-//   2. KENDİ SINIRLAYICISI: Worker'dan gelen bütün istekler tek kovada.
-//   3. Girdi dar: yalnız üç işlem; yol ve sorgu dışarıdan ALINMAZ. Açık vekil DEĞİL.
+//   2. KENDİ SINIRLAYICISI: Worker'dan gelen istekler iki kovada — oturum işlemleri (ayarlar, token,
+//      iptal) ve cihaz kodu girişi (cihaz_kod, cihaz_token). Giriş bekleyenlerin her ~6 sn'lik yoklaması
+//      bütün kullanıcıların kasa yenilemesini aç bırakamasın (plan: docs/design/TRAKT_CIHAZ_KODU_PLANI.md §3.1).
+//   3. Girdi dar: yalnız beş işlem; yol ve sorgu dışarıdan ALINMAZ. Açık vekil DEĞİL.
 //   4. Anahtar, kod ve gövde LOG'A YAZILMAZ; yalnız işlem + Trakt durum kodu.
 //
 // ZARF: Trakt'a gidildiyse cevap her zaman HTTP 200 `{ ok: true, status, veri, metin }`. Worker bununla
@@ -25,6 +27,19 @@ const DAKIKA_SINIRI = 600;
 const TRAKT_ZAMAN_ASIMI_MS = 8000;
 const TOKEN_ALANLARI = ['grant_type', 'code', 'refresh_token', 'redirect_uri'];
 const IZINLI_GRANT = new Set(['authorization_code', 'refresh_token']);
+const CIHAZ_ISLEMLERI = new Set(['cihaz_kod', 'cihaz_token']);
+// Trakt `device_code`'u ~43 karakter base64url (ölçüldü 2026-11-14); tavan yalnız saçma girdiyi keser.
+const CIHAZ_KODU_TAVANI = 128;
+
+/** SAF — sınırlayıcı kovası: cihaz kodu girişi ayrı sayılır. */
+function kovaAdi(govde) {
+  return CIHAZ_ISLEMLERI.has(govde?.islem) ? 'worker-cihaz' : 'worker';
+}
+
+/** SAF — beklenen ve her yoklamada tekrarlanan cevaplar (400 bekliyor, 429 yavaşla) log'u boğmasın. */
+function beklenenCevap(islem, status) {
+  return islem === 'cihaz_token' && (status === 400 || status === 429);
+}
 
 const router = express.Router();
 
@@ -33,7 +48,7 @@ const sinirlayici = rateLimit({
   limit: DAKIKA_SINIRI,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: () => 'worker',
+  keyGenerator: (req) => kovaAdi(req.body),
   validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   message: { ok: false, durum: 'oran_siniri' },
 });
@@ -61,6 +76,11 @@ function istegiKur(govde, ortam) {
     };
   }
 
+  // Cihaz kodu almak yalnız istemci kimliği ister (Trakt belgesi; ölçüldü 2026-11-14).
+  if (govde.islem === 'cihaz_kod') {
+    return { method: 'POST', url: 'https://api.trakt.tv/oauth/device/code', headers: baslik, data: { client_id: clientId } };
+  }
+
   const sir = ortam.TRAKT_CLIENT_SECRET;
   if (!sir) return null;
   const istemci = { client_id: clientId, client_secret: sir };
@@ -74,6 +94,10 @@ function istegiKur(govde, ortam) {
     const veri = {};
     for (const alan of TOKEN_ALANLARI) if (typeof govde[alan] === 'string') veri[alan] = govde[alan];
     return { method: 'POST', url: 'https://api.trakt.tv/oauth/token', headers: baslik, data: { ...veri, ...istemci } };
+  }
+  if (govde.islem === 'cihaz_token') {
+    if (typeof govde.code !== 'string' || !govde.code || govde.code.length > CIHAZ_KODU_TAVANI) return null;
+    return { method: 'POST', url: 'https://api.trakt.tv/oauth/device/token', headers: baslik, data: { code: govde.code, ...istemci } };
   }
   return null;
 }
@@ -95,7 +119,7 @@ router.post('/', (req, res, next) => {
       responseType: 'text',
       transformResponse: [(ham) => ham],
     });
-    if (cevap.status >= 400) console.warn(`[trakt-kopru] ${req.body.islem} -> Trakt ${cevap.status}`);
+    if (cevap.status >= 400 && !beklenenCevap(req.body.islem, cevap.status)) console.warn(`[trakt-kopru] ${req.body.islem} -> Trakt ${cevap.status}`);
     let veri = null;
     try {
       veri = JSON.parse(cevap.data);
@@ -111,4 +135,6 @@ router.post('/', (req, res, next) => {
 
 module.exports = router;
 module.exports.istegiKur = istegiKur;
+module.exports.kovaAdi = kovaAdi;
+module.exports.beklenenCevap = beklenenCevap;
 module.exports.DAKIKA_SINIRI = DAKIKA_SINIRI;
