@@ -1,11 +1,14 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.ardagnl.kaymak",
       "sha256_cert_fingerprints": [
-        "09:DD:08:84:47:AE:21:9F:89:B1:78:50:A5:BB:64:B5:79:49:E9:3E:8F:B1:4E:CF:64:0D:8D:29:E5:D7:C3:1F"
+        "09:DD:08:84:47:AE:21:9F:89:B1:78:50:A5:BB:64:B5:79:49:E9:3E:8F:B1:4E:CF:64:0D:8D:29:E5:D7:C3:1F",
+        "A0:AE:4A:9F:2C:DF:E9:3A:36:38:7D:A2:05:2D:6C:37:D5:A6:CC:F3:49:CB:78:64:AB:87:F7:61:45:B0:FB:76"
       ]
     }
   }
