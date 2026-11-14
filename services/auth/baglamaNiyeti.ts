@@ -26,18 +26,34 @@ export async function traktBaglamaNiyetiTuket(simdi = Date.now()): Promise<boole
     if (!ham) return false;
     await AsyncStorage.removeItem(ANAHTAR);
     const n = JSON.parse(ham);
-    return n?.tur === 'trakt' && typeof n.zaman === 'number' && simdi - n.zaman >= 0 && simdi - n.zaman <= NIYET_OMRU_MS;
+    return niyetGecerli(n, simdi);
   } catch {
     return false;
   }
 }
 
-/** Giriş ekranı «bağlama modunda» mı (yalnız gösterim için; tüketmez). */
+/** SAF — kayıt geçerli bir Trakt niyeti mi ve ömrü dolmamış mı (`zaman` sayı, gelecekte değil). */
+export function niyetGecerli(n: any, simdi: number): boolean {
+  return n?.tur === 'trakt' && typeof n.zaman === 'number' && simdi - n.zaman >= 0 && simdi - n.zaman <= NIYET_OMRU_MS;
+}
+
+/**
+ * Giriş ekranı «bağlama modunda» mı (yalnız gösterim için; tüketmez). M620: süresi dolmuş ya da bozuk
+ * kayıt burada SİLİNİR — asılı kalıp sonraki bir girişi bağlamaya çeviremez.
+ */
 export async function traktBaglamaNiyetiVarMi(simdi = Date.now()): Promise<boolean> {
   try {
     const ham = await AsyncStorage.getItem(ANAHTAR);
-    const n = ham ? JSON.parse(ham) : null;
-    return n?.tur === 'trakt' && simdi - n.zaman <= NIYET_OMRU_MS;
+    if (!ham) return false;
+    let n: any = null;
+    try {
+      n = JSON.parse(ham);
+    } catch {
+      // bozuk → aşağıda silinir
+    }
+    if (niyetGecerli(n, simdi)) return true;
+    await AsyncStorage.removeItem(ANAHTAR);
+    return false;
   } catch {
     return false;
   }

@@ -6,13 +6,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation, Trans } from 'react-i18next';
 import { Globe, CheckSquare, Square } from '../../components/icons';
 import { useAuth } from '../../context/AuthContext';
-import { koduDegis, kasaBiletiniBirak, KasaHatasi } from '../../services/api/traktKasa';
-import { girisOturumuAc } from '../../services/auth/traktOturumu';
+import { koduDegis, KasaHatasi } from '../../services/api/traktKasa';
 import { oauthStateKaydet, oauthStateTuket } from '../../services/oauthState';
-import {
-  traktHesapKilidiDenetle, beklenenTraktHesabiKaydet, beklenenTraktHesabiSil, zorunluGirisAdresi,
-  type BeklenenTraktHesabi, type GelenTraktKimligi,
-} from '../../services/auth/traktHesapKilidi';
+import { beklenenTraktHesabiKaydet, beklenenTraktHesabiSil, zorunluGirisAdresi } from '../../services/auth/traktHesapKilidi';
 import { logWarning } from '../../utils/errorLog';
 import { notify } from '../../utils/confirmDialog';
 import LegalTermsModal from '../../components/settings/LegalTermsModal';
@@ -27,8 +23,10 @@ import { useGoogleHesapGiris } from '../../hooks/useGoogleHesapGiris';
 
 // M502 Faz 0 + D10 — yalnız --google-test APK'sında açık (bkz. utils/googleGirisBayragi.ts).
 import { GOOGLE_GIRIS_ACIK } from '../../utils/googleGirisBayragi';
-import { useGoogleTraktLink } from '../../hooks/useGoogleTraktLink';
-import { useTraktBaglamaTamamla } from '../../hooks/useTraktBaglamaTamamla';
+import { useTraktGirisiniTamamla, type Uyusmazlik } from '../../hooks/useTraktGirisiniTamamla';
+import { useTraktCihazGirisi } from '../../hooks/useTraktCihazGirisi';
+import TraktCihazKodu from '../../components/auth/TraktCihazKodu';
+import { TRAKT_CIHAZ_GIRISI } from '../../utils/traktCihazBayragi';
 import { traktBaglamaNiyetiVarMi } from '../../services/auth/baglamaNiyeti';
 import { styles } from '../../components/settings/settings.styles';
 import * as WebBrowser from 'expo-web-browser';
@@ -46,7 +44,7 @@ const OrDivider = ({ t }: { t: (key: string) => string }) => (
 );
 
 export default function Login() {
-  const { saveTokens, loginAsGuest } = useAuth();
+  const { loginAsGuest } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLangMenuVisible, setIsLangMenuVisible] = useState(false);
   const [acikBelge, setAcikBelge] = useState<YasalBelge | null>(null);
@@ -59,30 +57,25 @@ export default function Login() {
   // kutusu açılınca diğer bütün giriş seçenekleri gizlenir (kullanıcı: tek birincil düğme kalsın).
   const google = useGoogleHesapGiris();
   // GIRIS-KILIT-02: kartın hesabıyla Trakt'tan dönen farklıysa tam sayfa sakin ekran (diğer seçenekler gizli).
-  const [uyusmazlik, setUyusmazlik] = useState<{ beklenen: BeklenenTraktHesabi; gelen: GelenTraktKimligi } | null>(null);
+  const [uyusmazlik, setUyusmazlik] = useState<Uyusmazlik | null>(null);
+  // Hesap kilidi → bağlama → Google bağlama → oturum: web yönlendirmesi ve cihaz kodu AYNI yoldan.
+  const traktGirisiniTamamla = useTraktGirisiniTamamla(setUyusmazlik);
+  // M620 · native Trakt girişi cihaz koduyla (docs/design/TRAKT_CIHAZ_KODU_PLANI.md): kişi kodu tarayıcıda
+  // onaylar; uygulamadan çıkıp dönmek (simgeden bile) akışı bozmaz, süreç ölümünde diskten sürer.
+  const cihaz = useTraktCihazGirisi({
+    onGiris: (giris, mod) => traktGirisiniTamamla(giris, mod === 'baglama'),
+    onHata: (kod) => logWarning('traktCihaz.hata', new Error(kod)),
+  });
+  const cihazAcik = cihaz.durum.tur !== 'bos';
   const uyariAcik = uyusmazlik !== null;
-  const kutuAcik = (GOOGLE_GIRIS_ACIK && google.durum === 'trakt_ile_gir') || uyariAcik;
+  const kutuAcik = (GOOGLE_GIRIS_ACIK && google.durum === 'trakt_ile_gir') || uyariAcik || cihazAcik;
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const { t, i18n } = useTranslation(['settings', 'common', 'legal']);
   const { code: routerCode, state: routerState, error: routerError } = useLocalSearchParams<{ code?: string; state?: string; error?: string }>();
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 🚫 GOOGLE GİRİŞİ BU EKRANDAN KALDIRILDI (2026-08-23, ürün kararı)
-  // ─────────────────────────────────────────────────────────────────────────────
-  // GEREKÇE: Google-only bir kullanıcının Trakt hesabı olmadığı için dizi/film
-  // TAKİBİ YAPAMIYOR — Kütüphane ve Takvim ona "Trakt'a bağlan" diyor. Bu,
-  // lansmanda "uygulama bozuk" izlenimi yaratıyordu. Google artık bir GİRİŞ
-  // yöntemi değil, Trakt'lı bir hesaba eklenen bir BAĞLAMA seçeneği
-  // (bugün: Hesap Ayarları → «Giriş yöntemleri», Kimlik Faz 5; eski `GoogleLinkSection` M541'de silindi).
-  //
-  // Geri alma yolu, neyin neden değiştiği ve hangi kodun bilinçli olarak
-  // KORUNDUĞU: docs/design/GOOGLE_AUTH_MIGRATION.md
-  //
-  // ⚠️ `completeIfPending` BİLİNÇLİ OLARAK DURUYOR (UI gitti, bu kalmalı):
-  const { completeIfPending: completeGoogleLinkIfPending } = useGoogleTraktLink();
-  // Kimlik Faz 5 (M520): Ayarlar → «Trakt'ı bağla» niyeti varsa token oturum AÇMAZ, bağlanır.
-  const traktBaglamaTamamla = useTraktBaglamaTamamla();
+  // 🚫 Google girişi bu ekrandan 2026-08-23'te kaldırıldı (Google = Trakt'lı hesaba BAĞLAMA seçeneği). Gerekçe ve
+  // korunan kod (`completeIfPending` → hooks/useTraktGirisiniTamamla.ts): docs/design/GOOGLE_AUTH_MIGRATION.md
   const [baglamaModu, setBaglamaModu] = useState(false);
   useEffect(() => { traktBaglamaNiyetiVarMi().then(setBaglamaModu).catch(() => {}); }, []);
 
@@ -113,11 +106,11 @@ export default function Login() {
   // Tarayıcıdan dönüş yanıtını (Authorization Code) yakala
   useEffect(() => {
     // 1. AuthSession Response üzerinden gelen kod
-    // (expo-auth-session `state`'i bu yolda KENDİSİ doğruluyor; saklananı temizle.)
+    // (expo-auth-session `state`'i bu yolda KENDİSİ doğruluyor; saklanan listeden o değeri düş — M620 K5.)
     if (response?.type === 'success' && response.params.code) {
       handleTokenExchange(response.params.code);
-      oauthStateTuket(null);
-    } 
+      void oauthStateTuket(response.params.state);
+    }
     // 2. Expo Router (Deep Link) üzerinden gelen kod (Mobil APK için AuthSession bazen yakalayamaz)
     else if (routerCode) {
       dogrulanmisKod(routerCode, routerState);
@@ -172,6 +165,12 @@ export default function Login() {
   };
 
   const traktGirisiniBaslat = async (zorunluGiris: boolean) => {
+    // M620: native cihaz kodu. Kart modunda beklenen hesap zaten diskte (kilit dönüşte denetler); cihaz
+    // akışında `prompt=login` yok — uyuşmazlık ekranı «trakt.tv'de doğru hesaba geç» der.
+    if (TRAKT_CIHAZ_GIRISI) {
+      await cihaz.baslat(zorunluGiris ? 'kart' : 'giris');
+      return;
+    }
     // S7: dönüşte karşılaştırmak için kütüphanenin ürettiği rastgele `state`.
     await oauthStateKaydet(request?.state);
     // Aynı `state`'li adres; yalnız sonuna `prompt=login` eklenir (S7 doğrulaması değişmez).
@@ -214,37 +213,7 @@ export default function Login() {
     try {
       // Trakt kasası: kod Worker'da değişir; yenileme anahtarı cihaza gelmez, yalnız mühürlü bilet.
       // Her başarısızlık aşağıdaki catch'e düşer (yanıt `traktKasa.gonder`'de doğrulanır).
-      const giris = await koduDegis(code, redirectUri);
-
-      // GIRIS-KILIT-01: kart «@X» dediyse gelen Trakt hesabı X'in mi? Değilse token KAYDEDİLMEZ,
-      // oturum açılmaz (canlı T1, 2026-10-31: kart @ArdaGnl → trakt.tv'deki Trakt_test → @Arda_Gunal).
-      const kilit = await traktHesapKilidiDenetle(giris.kimlik);
-      if (kilit.durum === 'uyusmazlik') {
-        void kasaBiletiniBirak(giris.kasaBileti);
-        // Kimlik yazılmaz (yalnız sıklığı görmek için): kaçıncı deneme.
-        logWarning('girisKilidi.uyusmazlik', new Error('trakt_hesap_uyusmazligi'), { deneme: String(kilit.beklenen.deneme) });
-        setUyusmazlik({ beklenen: kilit.beklenen, gelen: kilit.gelen });
-        return;
-      }
-
-      if (await traktBaglamaTamamla(giris)) return;
-
-      // F8 — bekleyen bir Google bağlama akışı varsa tamamlar (yoksa no-op).
-      // ⚠️ Bağlama BAŞARISIZ olsa bile normal Trakt girişi ENGELLENMEZ —
-      // kullanıcı Trakt kimliğini az önce kanıtladı, ondan esirgemek kötü olur.
-      try {
-        await completeGoogleLinkIfPending(giris.erisim);
-      } catch (linkError: any) {
-        console.error('[Google Sign-In] Hesap bağlama hatası:', linkError);
-        notify(
-          t('common:error'),
-          linkError?.message || t('settings:googleLinkFailed', 'Google hesabın bağlanamadı, ama Trakt ile giriş yaptın.')
-        );
-      }
-
-      const oturum = await girisOturumuAc(giris.erisim, giris.kasaBileti);
-      await saveTokens(giris.erisim, oturum.kaymakOturum, oturum.userId);
-      router.replace('/(protected)/(tabs)/explore');
+      await traktGirisiniTamamla(await koduDegis(code, redirectUri));
     } catch (error: any) {
       console.error('Token Exchange Hatası:', error);
       // Kod tüketilmiş olabilir ama giriş başarısız — kullanıcı tekrar
@@ -280,8 +249,8 @@ export default function Login() {
         {/* M536: başlık her genişlikte ORTALI — eskiden yalnız masaüstünde ortalanıyordu, dar ekranda başlık sola,
             gövde ortaya yaslı kalıyordu (kullanıcı: «dar ekranda da başlık ve alt başlık ortalansın»). */}
         {!uyariAcik && <View style={[styles.headerContainer, isDesktop && { marginBottom: 40 }]}>
-          <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
-          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
+          <Text style={[styles.title, isDesktop && { fontSize: 36 }]}>{t(cihazAcik ? 'cihazBaslik' : kutuAcik ? 'traktIleDevamBaslik' : 'girisBaslik')}</Text>
+          <Text style={[styles.subtitle, isDesktop && { fontSize: 18 }]}>{t(cihazAcik ? 'cihazAltBaslik' : kutuAcik ? 'traktIleDevamAltBaslik' : 'girisAltBaslik')}</Text>
         </View>}
 
       <View style={styles.formContainer}>
@@ -292,9 +261,13 @@ export default function Login() {
                 gelen={uyusmazlik.gelen}
                 onTekrarDene={handleTekrarDene}
                 onBaskaYol={handleBaskaYol}
+                cihazKodu={TRAKT_CIHAZ_GIRISI}
               />
             )}
-            {kutuAcik && !uyariAcik && (
+            {cihazAcik && !uyariAcik && (
+              <TraktCihazKodu durum={cihaz.durum} onTrakttaOnayla={cihaz.trakttaOnayla} onYeniKod={cihaz.yeniKod} onVazgec={cihaz.vazgec} />
+            )}
+            {kutuAcik && !uyariAcik && !cihazAcik && (
               <TraktIleGirKutusu hesap={google.bagliHesap} onTraktIleDevam={handleKartlaTraktGiris} onBaskaHesap={google.sifirla} />
             )}
             {!kutuAcik && <>
@@ -347,13 +320,13 @@ export default function Login() {
             {/* M536: Google + Trakt AYNI ölçüde, alt alta (`TraktGirisDugmesi.tsx`). Kutu açıkken gizli —
                 Google konteyneri ise ASLA unmount edilmez (Madde 231), kendisi gizlenir. */}
             {!kutuAcik && (
-              <TraktGirisDugmesi etkin={!!request && isChecked} yukleniyor={isGenerating} onPress={handleTraktLogin} />
+              <TraktGirisDugmesi etkin={(TRAKT_CIHAZ_GIRISI || !!request) && isChecked} yukleniyor={isGenerating} onPress={handleTraktLogin} />
             )}
 
             {isGenerating && <Text style={styles.pollingText}>{t('pollingAuth')}</Text>}
             {/* M617: simgeden dönüş Trakt sayfasını kapatır (singleTask); kullanıcı nasıl süreceğini bilsin. */}
             {response?.type === 'dismiss' && !isGenerating && <Text style={styles.pollingText}>{t('settings:traktSayfasiKapandi')}</Text>}
-            {baglamaModu && <Text style={styles.pollingText}>{t('settings:baglamaModuNotu')}</Text>}
+            {baglamaModu && !cihazAcik && <Text style={styles.pollingText}>{t('settings:baglamaModuNotu')}</Text>}
 
             {/* M501 · Google girişi. 🔴 M502 FAZ 0 (kullanıcı, 2026-10-12): KAPALI —
                 düğme `create_new`'i doğrudan çağırıyor → Trakt'lı kullanıcı Google'a

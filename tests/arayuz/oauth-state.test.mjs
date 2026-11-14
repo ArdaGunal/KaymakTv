@@ -13,7 +13,7 @@ const AsyncStorage = {
   setItem: async (k, v) => { depo.set(k, v); },
   removeItem: async (k) => { depo.delete(k); },
 };
-const { oauthStateEsit, oauthStateKaydet, oauthStateTuket } = tsLoader(root, {
+const { oauthStateEsit, oauthStateKaydet, oauthStateTuket, stateListesiniCoz, STATE_OMRU_MS, STATE_TAVANI } = tsLoader(root, {
   '@react-native-async-storage/async-storage': { __esModule: true, default: AsyncStorage },
 })('services/oauthState.ts');
 
@@ -27,8 +27,20 @@ T.H('Tek kullanimlik');
 await oauthStateKaydet('Ab3dEf9hIj');
 T.ok('Dogru state ilk seferde kabul', await oauthStateTuket('Ab3dEf9hIj'));
 T.ok('Ayni state ikinci kez REDDEDILIR (tuketildi)', !(await oauthStateTuket('Ab3dEf9hIj')));
-await oauthStateKaydet('Ab3dEf9hIj');
-T.ok('Yanlis state de saklananı siler', !(await oauthStateTuket('baska12345')) && depo.size === 0);
+
+T.H('M620 K5: son 3 deger, 10 dk; uyusmayan donus listeye dokunmaz');
+depo.clear();
+await oauthStateKaydet('ilkDeneme01', 1000);
+await oauthStateKaydet('ikinciDen02', 2000);
+T.ok('Yanlis state REDDEDILIR ama listeyi SILMEZ', !(await oauthStateTuket('saldirgan01', 3000)) && stateListesiniCoz(depo.get('@kaymak_trakt_oauth_state_v1'), 3000).length === 2);
+T.ok('Ilk denemenin donusu ikinci deneme sonrasi da kabul (eskisi ezilmiyor)', await oauthStateTuket('ilkDeneme01', 3000));
+T.ok('Yalniz eslesen tuketildi; digeri duruyor', await oauthStateTuket('ikinciDen02', 3000) && !depo.has('@kaymak_trakt_oauth_state_v1'));
+for (let n = 0; n < 5; n++) await oauthStateKaydet(`deneme000${n}`, 10_000 + n);
+T.ok(`En cok ${STATE_TAVANI} deger tutulur (en eskiler duser)`, stateListesiniCoz(depo.get('@kaymak_trakt_oauth_state_v1'), 10_010).map((k) => k.s).join() === 'deneme0002,deneme0003,deneme0004');
+T.ok('10 dk sonra gecersiz', !(await oauthStateTuket('deneme0004', 10_004 + STATE_OMRU_MS + 1)));
+depo.set('@kaymak_trakt_oauth_state_v1', 'eskiBicim99');
+T.ok('M620 oncesi duz metin kayit da okunur', await oauthStateTuket('eskiBicim99', 5));
+T.ok('Bozuk / gelecekten kayit sayilmaz', stateListesiniCoz(JSON.stringify([{ s: 'x', t: 9e15 }, { s: 5 }, null]), 1000).length === 0);
 
 T.H('Ekran kaynagi');
 const ekran = fs.readFileSync(path.join(root, 'app/(public)/settings.tsx'), 'utf8');
@@ -36,7 +48,7 @@ T.ok('Giris oncesi state saklaniyor', /await oauthStateKaydet\(request\?\.state\
 T.ok('Derin baglanti dali dogrulamadan gecer', /else if \(routerCode\) \{\s+dogrulanmisKod\(routerCode, routerState\)/.test(ekran));
 T.ok('Web URL dali dogrulamadan gecer', /dogrulanmisKod\(code, urlParams\.get\('state'\)\)/.test(ekran));
 T.ok('Dogrulamasiz handleTokenExchange cagrisi yalniz kutuphane yolunda + dogrulanmisKod icinde',
-  (ekran.match(/handleTokenExchange\(/g) || []).length === 2 && /handleTokenExchange\(response\.params\.code\)/.test(ekran));
+  (ekran.match(/handleTokenExchange\(/g) || []).length === 2 && /void oauthStateTuket\(response\.params\.state\)/.test(ekran) && /handleTokenExchange\(response\.params\.code\)/.test(ekran));
 T.ok('M617: Trakt sayfasi uygulamanin kendi gorevinde acilir (createTask: false) — e-posta kodu icin cikip donunce kapanmaz',
   /promptAsync\(\{ \.\.\.\(adres && zorunluGiris \? \{ url: adres \} : \{\}\), createTask: false \}\)/.test(ekran) &&!/promptAsync\(adres && zorunluGiris \? \{ url: adres \} : undefined\)/.test(ekran));
 T.ok('M617: Trakt sayfasi kapaninca (dismiss) nasil surdurulecegi yazar (TR + EN)',

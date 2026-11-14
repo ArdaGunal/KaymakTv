@@ -137,6 +137,7 @@ const TAKIMLAR = [
   { ad: 'ara-verilenler', grup: 'arayuz', dosya: 'arayuz/ara-verilenler.test.mjs', aciklama: '2.6.5 madde 7: yeni cikan bolumu olan dizi Ara Verilenler\'e dusmez' },
   { ad: 'app-links', grup: 'arayuz', dosya: 'arayuz/app-links.test.mjs', aciklama: '2.6.5 madde 6: assetlinks.json + intentFilters paylasim yollarini kapsar' },
   { ad: 'oyuncu-penceresi', grup: 'arayuz', dosya: 'arayuz/oyuncu-penceresi.test.mjs', aciklama: '2.6.5 madde 9: oyuncu bilgisi uygulama ici pencere (TMDB, atif, geri tusu)' },
+  { ad: 'trakt-cihaz', grup: 'arayuz', dosya: 'arayuz/trakt-cihaz.test.mjs', aciklama: 'M620: Trakt cihaz kodu girisi (bekleyen oturum, yoklama, Worker siniflari, temizlik)' },
   { ad: 'oauth-state', grup: 'arayuz', dosya: 'arayuz/oauth-state.test.mjs', aciklama: 'S7 (M499): Trakt OAuth donusunde state dogrulamasi, tek kullanimlik' },
   { ad: 'google-giris', grup: 'arayuz', dosya: 'arayuz/google-giris.test.mjs', aciklama: 'M501: Google giris dugmesi giris ekraninda, gizli kapi (G1) kalkti' },
   { ad: 'giris-kilidi', grup: 'arayuz', dosya: 'arayuz/giris-kilidi.test.mjs', aciklama: 'GIRIS-KILIT-01: kartin hesabi Trakt donusunde denetlenir, uyusmazlikta oturum acilmaz' },

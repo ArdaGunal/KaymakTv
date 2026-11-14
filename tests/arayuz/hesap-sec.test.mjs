@@ -25,11 +25,11 @@ await N.traktBaglamaNiyetiYaz(1_000);
 T.ok('15 dk sonra gecersiz (ve yine silinir)', (await N.traktBaglamaNiyetiTuket(1_000 + N.NIYET_OMRU_MS + 1)) === false && disk.size === 0);
 
 T.H('Giris ekrani');
-const giris = oku('app/(public)/settings.tsx');
-const takas = giris.slice(giris.indexOf('const handleTokenExchange'));
+// M620: tamamlama web yönlendirmesi + cihaz kodu için ortak hook'ta (hooks/useTraktGirisiniTamamla.ts).
+const takas = oku('hooks/useTraktGirisiniTamamla.ts');
 T.ok('Niyet kontrolu saveTokens\'TAN ONCE (yoksa ayri hesap acilirdi — bolunme yolu 2)',
-  takas.indexOf('if (await traktBaglamaTamamla(giris)) return;') > -1 &&
-  takas.indexOf('if (await traktBaglamaTamamla(giris)) return;') < takas.indexOf('await saveTokens('));
+  takas.indexOf('if (await traktBaglamaTamamla(giris, baglamaNiyeti)) return;') > -1 &&
+  takas.indexOf('if (await traktBaglamaTamamla(giris, baglamaNiyeti)) return;') < takas.indexOf('await saveTokens('));
 const tamamla = oku('hooks/useTraktBaglamaTamamla.ts');
 T.ok('Yalniz niyet + Google-only oturumda devreye girer', /if \(!niyet \|\| !accessToken \|\| isGuest \|\| authProvider !== 'google'\) return false;/.test(tamamla));
 T.ok('Hatada Google oturumu KALIR (gecis yalniz basarida)', tamamla.indexOf('await gecis(') < tamamla.indexOf('catch (e)') && !/catch \(e\)[\s\S]*gecis\(/.test(tamamla));

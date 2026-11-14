@@ -291,6 +291,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginAsGuest = async () => {
     try {
       await SecureStore.setItemAsync('traktGuestMode', 'true');
+      // M620: yarım kalan Trakt cihaz kodu girişi misafire geçince unutulur (açılışta geri çağırmasın).
+      await SecureStore.deleteItemAsync('traktCihazOturumu');
       setIsGuest(true);
     } catch (error) {
       console.error('Error activating guest mode:', error);
@@ -335,6 +337,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // an için yeni oturumda görünürdü.
       await SecureStore.deleteItemAsync('kaymakMyUsername');
       await SecureStore.deleteItemAsync('kaymakMyAvatarUrl');
+      // M620: bekleyen Trakt cihaz kodu (deviceCode + Worker = token) — çıkışta kırıntı kalmaz.
+      await SecureStore.deleteItemAsync('traktCihazOturumu');
       // 🔴 D8 / Faz 4d (M517): çıkış cihazı TAMAMEN temizler — M439'daki «bekleyen
       // izleme kuyruğu korunur» kuralı KALKTI (kullanıcı, 2026-10-13). Bekleyen iş varsa
       // uyarıyı çıkıştan ÖNCE `useSettings.handleLogout` gösterir. Kalan anahtar =

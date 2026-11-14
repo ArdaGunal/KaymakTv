@@ -18,6 +18,9 @@ import { girisYontemiHataMetni } from '../utils/girisYontemiHataMetni';
  *   çakışma   → Hesap Seç ekranı (token'lar yalnız bellekte)
  *   hata      → Google oturumu AYNEN kalır, kişi Ayarlar'a döner
  * Dönüş `true` = token bu kanca tarafından tüketildi; `false` = normal giriş devam etsin.
+ *
+ * `niyetOnceden`: cihaz kodu girişi niyeti kod ALINIRKEN tüketip bekleyen oturuma yazar (10 dk'lık kod
+ * sürerken 15 dk'lık niyet dolmasın) → burada yeniden okunmaz. Verilmezse niyet şimdi tüketilir.
  */
 export function useTraktBaglamaTamamla() {
   const { accessToken, authProvider, isGuest } = useAuth();
@@ -26,8 +29,8 @@ export function useTraktBaglamaTamamla() {
   const { t } = useTranslation(['settings', 'common']);
 
   return useCallback(
-    async (giris: TraktGirisi): Promise<boolean> => {
-      const niyet = await traktBaglamaNiyetiTuket();
+    async (giris: TraktGirisi, niyetOnceden?: boolean): Promise<boolean> => {
+      const niyet = niyetOnceden ?? (await traktBaglamaNiyetiTuket());
       if (!niyet || !accessToken || isGuest || authProvider !== 'google') return false;
       try {
         const sonuc = await traktBagla(accessToken, giris.erisim);

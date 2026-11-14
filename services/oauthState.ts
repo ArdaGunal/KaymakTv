@@ -11,31 +11,60 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * ürettiği) saklanır; dönüşte gelen `state` onunla karşılaştırılır ve TEK
  * KULLANIMLIK tüketilir. AsyncStorage: uygulama/sekme dönüşte yeniden açılsa
  * da (web tam sayfa yönlendirme, Android süreç ölümü) değer kalır.
+ *
+ * M620 (K5 · docs/design/TRAKT_CIHAZ_KODU_PLANI.md): tek değer yerine SON 3 değer, her biri 10 dk.
+ * Eskiden yeni bir deneme eskisinin üstüne yazıyordu → kişi ilk denemenin dönüşüyle gelince reddediliyordu;
+ * uyuşmayan bir dönüş saklananı da siliyordu → arkasından gelen DOĞRU dönüş de reddediliyordu. Şimdi
+ * yalnız eşleşen değer tüketilir; uyuşmayan dönüş listeye dokunmaz. Güvenlik değişmez: her değer rastgele,
+ * tek kullanımlık ve bu cihazda üretilmiş.
  */
 const ANAHTAR = '@kaymak_trakt_oauth_state_v1';
+export const STATE_OMRU_MS = 10 * 60 * 1000;
+export const STATE_TAVANI = 3;
+
+type Kayit = { s: string; t: number };
 
 /** SAF — beklenen ve gelen `state` eşit ve boş değil mi. */
 export function oauthStateEsit(beklenen: string | null | undefined, gelen: string | null | undefined): boolean {
   return typeof beklenen === 'string' && beklenen.length >= 8 && beklenen === gelen;
 }
 
-export async function oauthStateKaydet(state: string | null | undefined): Promise<void> {
+/** SAF — diskteki ham değer → süresi geçmemiş kayıtlar (eski biçim: düz metin tek değer). */
+export function stateListesiniCoz(ham: string | null, simdi: number): Kayit[] {
+  if (!ham) return [];
+  let liste: unknown;
+  try {
+    liste = JSON.parse(ham);
+  } catch {
+    liste = null;
+  }
+  if (!Array.isArray(liste)) return [{ s: ham, t: simdi }]; // M620 öncesi kayıt
+  return liste.filter((k: any): k is Kayit =>
+    !!k && typeof k.s === 'string' && typeof k.t === 'number' && simdi - k.t >= 0 && simdi - k.t <= STATE_OMRU_MS);
+}
+
+export async function oauthStateKaydet(state: string | null | undefined, simdi = Date.now()): Promise<void> {
   if (!state) return;
   try {
-    await AsyncStorage.setItem(ANAHTAR, state);
+    const liste = stateListesiniCoz(await AsyncStorage.getItem(ANAHTAR), simdi).filter((k) => k.s !== state);
+    liste.push({ s: state, t: simdi });
+    await AsyncStorage.setItem(ANAHTAR, JSON.stringify(liste.slice(-STATE_TAVANI)));
   } catch {
     // Yazılamazsa dönüşte doğrulama düşer → kullanıcı yeniden dener (güvenli taraf).
   }
 }
 
-/** Saklanan değeri okur ve SİLER; eşleşiyorsa true. */
-export async function oauthStateTuket(gelen: string | null | undefined): Promise<boolean> {
-  let beklenen: string | null = null;
+/** Gelen değer listede varsa YALNIZ onu siler ve true döner; yoksa listeye dokunmaz. */
+export async function oauthStateTuket(gelen: string | null | undefined, simdi = Date.now()): Promise<boolean> {
   try {
-    beklenen = await AsyncStorage.getItem(ANAHTAR);
-    await AsyncStorage.removeItem(ANAHTAR);
+    const liste = stateListesiniCoz(await AsyncStorage.getItem(ANAHTAR), simdi);
+    const eslesen = liste.find((k) => oauthStateEsit(k.s, gelen));
+    if (!eslesen) return false;
+    const kalan = liste.filter((k) => k !== eslesen);
+    if (kalan.length) await AsyncStorage.setItem(ANAHTAR, JSON.stringify(kalan));
+    else await AsyncStorage.removeItem(ANAHTAR);
+    return true;
   } catch {
     return false;
   }
-  return oauthStateEsit(beklenen, gelen);
 }

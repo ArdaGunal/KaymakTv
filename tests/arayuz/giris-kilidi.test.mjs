@@ -81,16 +81,19 @@ T.ok('Eski Worker (alan yok) -> null, cokmez', eski.traktSlug === null && eski.t
 
 T.H('Ekran kaynagi');
 const ekran = fs.readFileSync(path.join(root, 'app/(public)/settings.tsx'), 'utf8');
-const govde = ekran.slice(ekran.indexOf('const handleTokenExchange'));
+// M620: kilit → bağlama → Google bağlama → oturum ortak hook'ta; web (koduDegis) ve cihaz kodu oradan geçer.
+const govde = fs.readFileSync(path.join(root, 'hooks/useTraktGirisiniTamamla.ts'), 'utf8');
 const i = (s) => govde.indexOf(s);
-T.ok('Kilit token degisiminden SONRA, baglama/Google baglama/saveTokens\'tan ONCE',
-  i('koduDegis(code') > -1 && i('traktHesapKilidiDenetle(giris.kimlik)') > i('koduDegis(code')
-  && i('traktHesapKilidiDenetle(') < i('traktBaglamaTamamla(giris)')
+T.ok('Web yolu: kod degisilip ortak tamamlamaya verilir', /await traktGirisiniTamamla\(await koduDegis\(code, redirectUri\)\);/.test(ekran));
+T.ok('Cihaz kodu yolu da ayni tamamlamadan gecer', /onGiris: \(giris, mod\) => traktGirisiniTamamla\(giris, mod === 'baglama'\)/.test(ekran));
+T.ok('Kilit baglama/Google baglama/saveTokens\'tan ONCE',
+  i('traktHesapKilidiDenetle(giris.kimlik)') > -1
+  && i('traktHesapKilidiDenetle(') < i('traktBaglamaTamamla(giris')
   && i('traktHesapKilidiDenetle(') < i('completeGoogleLinkIfPending(')
   && i('traktHesapKilidiDenetle(') < i('saveTokens('));
-const uyusmazlikDali = govde.slice(i("kilit.durum === 'uyusmazlik'"), i('traktBaglamaTamamla(giris)'));
+const uyusmazlikDali = govde.slice(i("kilit.durum === 'uyusmazlik'"), i('traktBaglamaTamamla(giris'));
 T.ok('Uyusmazlikta yanlis hesabin yetkisi kaldirilir', /kasaBiletiniBirak\(giris\.kasaBileti\)/.test(uyusmazlikDali));
-T.ok('Uyusmazlikta tam sayfa ekran + return; token KAYDEDILMEZ', /setUyusmazlik\(\{ beklenen: kilit\.beklenen, gelen: kilit\.gelen \}\)/.test(uyusmazlikDali) && /return;/.test(uyusmazlikDali) && !/saveTokens|router\.replace|notify\(/.test(uyusmazlikDali));
+T.ok('Uyusmazlikta tam sayfa ekran + return; token KAYDEDILMEZ', /onUyusmazlik\(\{ beklenen: kilit\.beklenen, gelen: kilit\.gelen \}\)/.test(uyusmazlikDali) && /useTraktGirisiniTamamla\(setUyusmazlik\)/.test(ekran) && /return;/.test(uyusmazlikDali) && !/saveTokens|router\.replace|notify\(/.test(uyusmazlikDali));
 T.ok('Uyusmazlik gunlugu kimlik tasimaz (yalniz deneme sayisi)', /logWarning\('girisKilidi\.uyusmazlik', new Error\('trakt_hesap_uyusmazligi'\), \{ deneme: String\(kilit\.beklenen\.deneme\) \}\)/.test(uyusmazlikDali));
 T.ok('Kart dugmesi beklentiyi saklar ve Trakt girisini ZORLAR', /onTraktIleDevam=\{handleKartlaTraktGiris\}/.test(ekran)
   && /handleKartlaTraktGiris = async \(\) => \{\s+if \(google\.bagliHesap\) await beklenenTraktHesabiKaydet\(\{ \.\.\.google\.bagliHesap, deneme: 0 \}\);\s+else await beklenenTraktHesabiSil\(\);\s+await traktGirisiniBaslat\(true\);/.test(ekran));
@@ -98,7 +101,7 @@ T.ok('Duz Trakt dugmesi beklentiyi SILER, zorlamaz', /handleTraktLogin = async \
   && /<TraktGirisDugmesi[^>]*onPress=\{handleTraktLogin\}/.test(ekran));
 T.ok('Tekrar dene: deneme +1, zorunlu giris', /handleTekrarDene = async \(\) => \{\s+if \(!uyusmazlik\) return;\s+await beklenenTraktHesabiKaydet\(\{ \.\.\.uyusmazlik\.beklenen, deneme: uyusmazlik\.beklenen\.deneme \+ 1 \}\);[\s\S]{0,80}traktGirisiniBaslat\(true\)/.test(ekran));
 T.ok('Web ve APK ayni zorunlu adresi kullanir', /window\.location\.href = adres;/.test(ekran) && /promptAsync\(\{ \.\.\.\(adres && zorunluGiris \? \{ url: adres \} : \{\}\), createTask: false \}\)/.test(ekran) && /zorunluGirisAdresi\(request\.url\)/.test(ekran));
-T.ok('Ekran acikken diger secenekler ve Google dugmesi gizli (Google SOKULMEZ)', /const kutuAcik = \(GOOGLE_GIRIS_ACIK && google\.durum === 'trakt_ile_gir'\) \|\| uyariAcik;/.test(ekran) && /giris=\{google\} gizli=\{uyariAcik\}/.test(ekran));
+T.ok('Ekran acikken diger secenekler ve Google dugmesi gizli (Google SOKULMEZ)', /const kutuAcik = \(GOOGLE_GIRIS_ACIK && google\.durum === 'trakt_ile_gir'\) \|\| uyariAcik \|\| cihazAcik;/.test(ekran) && /giris=\{google\} gizli=\{uyariAcik\}/.test(ekran));
 const gdugme = fs.readFileSync(path.join(root, 'components/auth/GoogleGirisDugmesi.tsx'), 'utf8');
 T.ok('Madde 231: Google sarmalayicisi kosulsuz, gizleme yalniz display:none', /<View style=\{props\.gizli \? styles\.tamGizli : undefined\}>/.test(gdugme) && /tamGizli: \{ display: 'none' \}/.test(gdugme));
 const kutu = fs.readFileSync(path.join(root, 'components/auth/TraktIleGirKutusu.tsx'), 'utf8');

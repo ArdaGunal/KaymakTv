@@ -10,6 +10,8 @@ interface Props {
   gelen: GelenTraktKimligi;
   onTekrarDene: () => void;
   onBaskaYol: () => void;
+  /** M620: native cihaz kodu akışı — `prompt=login` yok, kişi trakt.tv'de hesabını kendisi değiştirir. */
+  cihazKodu?: boolean;
 }
 
 /**
@@ -21,11 +23,12 @@ interface Props {
  * zorla açar, trakt.tv'de çıkış yapmayı bilmek gerekmez. İkinci uyuşmazlıkta adım adım rehber.
  * Danışman + kullanıcı kararı: «@X ile devam et» seçeneği YOK.
  */
-export default function TraktHesapUyusmazligiEkrani({ beklenen, gelen, onTekrarDene, onBaskaYol }: Props) {
+export default function TraktHesapUyusmazligiEkrani({ beklenen, gelen, onTekrarDene, onBaskaYol, cihazKodu = false }: Props) {
   const { t } = useTranslation(['settings']);
   const istenenTrakt = beklenen.traktSlug ?? `@${beklenen.username}`;
   const rehber = beklenen.deneme >= 1;
   const kalin = { 1: <Text style={styles.kalin} /> };
+  const ek = cihazKodu ? 'Cihaz' : ''; // cihaz kodu metinleri: «tarayıcıda doğru hesaba geç, yeni kodu onayla»
 
   return (
     <View style={styles.ekran}>
@@ -59,9 +62,9 @@ export default function TraktHesapUyusmazligiEkrani({ beklenen, gelen, onTekrarD
           <Text style={styles.rehberBaslik}>{t('settings:rehberBaslik')}</Text>
           <Adim no={1}>{t('settings:rehberAdim1')}</Adim>
           <Adim no={2}>
-            <Trans i18nKey="settings:rehberAdim2" values={{ trakt: istenenTrakt }} components={kalin} />
+            <Trans i18nKey={`settings:rehberAdim2${ek}`} values={{ trakt: istenenTrakt }} components={kalin} />
           </Adim>
-          <Adim no={3}>{t('settings:rehberAdim3')}</Adim>
+          <Adim no={3}>{t(`settings:rehberAdim3${ek}`)}</Adim>
         </View>
       )}
 
@@ -70,7 +73,7 @@ export default function TraktHesapUyusmazligiEkrani({ beklenen, gelen, onTekrarD
       </TouchableOpacity>
       {!rehber && (
         <Text style={styles.ipucu}>
-          <Trans i18nKey="settings:uyusmazlikIpucu" values={{ trakt: istenenTrakt }} components={kalin} />
+          <Trans i18nKey={`settings:uyusmazlikIpucu${ek}`} values={{ trakt: istenenTrakt }} components={kalin} />
         </Text>
       )}
       <TouchableOpacity onPress={onBaskaYol} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button">

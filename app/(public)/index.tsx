@@ -1,5 +1,5 @@
 import { nativeColor } from '../../constants/mobilePalette';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeroSection from '../../components/landing/HeroSection';
@@ -14,6 +14,7 @@ import { useSettings } from '../../hooks/useSettings';
 import { Globe, LogIn } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { dilBilgisi } from '../../locales/diller';
+import { cihazOturumunuOku } from '../../services/auth/traktCihazOturumu';
 
 export default function LandingPage() {
   const { accessToken, isGuest, loginAsGuest } = useAuth();
@@ -21,6 +22,17 @@ export default function LandingPage() {
   const [langModalVisible, setLangModalVisible] = useState(false);
   const { t } = useTranslation('common');
   const router = useRouter();
+
+  // M620: yarım kalmış Trakt cihaz kodu girişi (kişi tarayıcıdayken Android süreci öldürdü) → giriş
+  // ekranına dön; orada kod görünümü kaldığı yerden açılır (hooks/useTraktCihazGirisi.ts).
+  useEffect(() => {
+    if (Platform.OS === 'web' || accessToken || isGuest) return;
+    let iptal = false;
+    cihazOturumunuOku().then((o) => {
+      if (o && !iptal) router.replace('/(public)/settings');
+    });
+    return () => { iptal = true; };
+  }, [accessToken, isGuest, router]);
 
   if (accessToken || isGuest) {
     return <Redirect href="/(protected)/(tabs)/explore" />;
