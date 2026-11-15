@@ -148,7 +148,9 @@ export const markMovieAsWatched = async (movieId: number, mediaData?: any) => {
     return list;
   });
   setWatchedMovies((prev: any[]) => {
-    const list = izlenenFilmeEkle(prev, movieId, movieItemToMove?.movie || mediaData);
+    // İşin damgası verilmeli: kuyruk projeksiyonu bu izlemeyi zaten W damgasıyla saydı; ayrı bir
+    // `new Date()` W'den yeni olur ve tekrar izleme İKİ KEZ sayılırdı (1x → 3x, emülatör 2026-11-16).
+    const list = izlenenFilmeEkle(prev, movieId, movieItemToMove?.movie || mediaData, watchedAt);
     safeStorageSet(CACHE_KEYS.watchedMovies, JSON.stringify(list));
     return list;
   });

@@ -55,8 +55,17 @@ T.ok('prev null/undefined ise bos listeyle calisir',
 // ─────────────────────────────────────────────────────────────────────────
 T.H('Kaynak denetimi: cagri zinciri baglandi mi');
 const prog = fs.readFileSync(path.join(KOK, 'services', 'library', 'mutations', 'progress.ts'), 'utf8');
-T.ok('progress.ts ortak karari kullaniyor',
-  /izlenenFilmeEkle\(prev, movieId, movieItemToMove\?\.movie \|\| mediaData\)/.test(prog));
+// 🔴 Damga İŞİN damgası olmalı: kuyruk projeksiyonu izlemeyi W ile zaten saydı; ayrı `new Date()`
+// W'den yeni olduğu için tekrar izleme iki kez sayılıyordu (1x → 3x, emülatör 2026-11-16).
+T.ok('progress.ts ortak karari ISIN DAMGASIYLA kullaniyor (tekrar izleme iki kez sayilmaz)',
+  /izlenenFilmeEkle\(prev, movieId, movieItemToMove\?\.movie \|\| mediaData, watchedAt\)/.test(prog));
+{
+  // Gerçek sıra: önce projeksiyon (W), sonra mutasyonun kendi yaması — aynı W ile sayı bir kez artar.
+  const W = '2026-11-16T10:42:40.000Z';
+  const bir = [{ plays: 1, last_watched_at: '2026-10-01T00:00:00.000Z', movie: { ids: { trakt: 7 } } }];
+  const yansitilan = izlenenFilmeEkle(bir, 7, null, W);
+  T.ok('projeksiyon + mutasyon ayni damgayla → 2x (3x degil)', izlenenFilmeEkle(yansitilan, 7, null, W)[0].plays === 2);
+}
 T.ok('Eski "yalnizca listede varsa ekle" kosulu KALMADI',
   !/if \(!exists && movieItemToMove\)/.test(prog));
 T.ok('markMovieAsWatched ikinci parametreyi aliyor',
