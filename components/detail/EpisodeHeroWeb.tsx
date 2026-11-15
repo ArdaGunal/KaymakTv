@@ -1,4 +1,5 @@
 import React from 'react';
+import { izlendiMetni } from '../../utils/izlemeSayisi';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,8 @@ interface EpisodeHeroWebProps {
   votes: number;
   myRating?: number | null;
   isWatched: boolean;
+  /** 1.0.1 Dal 4 · izleme sayısı; 2+ ise «İzlendi · 3x». */
+  playCount: number;
   isCheckLoading: boolean;
   /** `null` → yayınlanmamış/TBA: "İzledim" yerine bilgi rozeti gösterilir. */
   airStatus: 'aired' | 'unaired' | 'tba';
@@ -55,6 +58,7 @@ export default function EpisodeHeroWeb({
   votes,
   myRating,
   isWatched,
+  playCount,
   isCheckLoading,
   airStatus,
   hasShowProgress,
@@ -146,7 +150,7 @@ export default function EpisodeHeroWeb({
               <>
                 <Check size={15} color={isWatched ? '#10b981' : '#94a3b8'} strokeWidth={3} />
                 <Text style={[s.pillText, isWatched && local.pillWatchedText]}>
-                  {isWatched ? t('watched') : t('markAsWatched')}
+                  {isWatched ? izlendiMetni(t('watched'), playCount) : t('markAsWatched')}
                 </Text>
               </>
             )}

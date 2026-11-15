@@ -10,6 +10,8 @@ export interface SelectedEpisode {
   episode: number;
   title: string;
   traktId?: number;
+  /** 1.0.1 Dal 4 · izleme sayısı; 2+ ise «son izlemeyi geri al» sunulur. */
+  playCount?: number;
 }
 
 interface ShowDetailOverlaysProps {
@@ -22,6 +24,7 @@ interface ShowDetailOverlaysProps {
   onOpenEpisodeRating: () => void;
   onRewatchEpisode: () => void;
   onUnwatchEpisode: () => void;
+  onUnwatchLastPlay: () => void;
 
   episodeRatingVisible: boolean;
   onCloseEpisodeRating: () => void;
@@ -60,6 +63,7 @@ export default function ShowDetailOverlays({
   onOpenEpisodeRating,
   onRewatchEpisode,
   onUnwatchEpisode,
+  onUnwatchLastPlay,
   episodeRatingVisible,
   onCloseEpisodeRating,
   episodeInitialRating,
@@ -86,6 +90,8 @@ export default function ShowDetailOverlays({
         onRatePress={onOpenEpisodeRating}
         onRewatch={onRewatchEpisode}
         onUnwatch={onUnwatchEpisode}
+        playCount={selectedEpisode?.playCount ?? 1}
+        onUnwatchLast={onUnwatchLastPlay}
       />
 
       <EpisodeRatingModal

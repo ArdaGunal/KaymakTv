@@ -4,10 +4,9 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Tv, Film, ChevronRight } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { useLibrarySelector } from '../../context/LibraryContext';
+import { useGosterilecekIstatistik } from '../../hooks/useGosterilecekIstatistik';
 import { formatWatchDuration } from '../../utils/watchTimeHelper';
 import { SECTION_PADDING_H } from './profileMetrics';
-import { gosterilecekIstatistik, yerelIstatistik } from '../../utils/yerelIstatistik';
 
 /**
  * Profilin en üstündeki borderless (çerçevesiz) mikro-şerit istatistik bileşeni.
@@ -18,21 +17,8 @@ import { gosterilecekIstatistik, yerelIstatistik } from '../../utils/yerelIstati
 const ProfileStats = () => {
   const { t } = useTranslation('media');
   const router = useRouter();
-  // §C17.2: eskiden YALNIZCA `s.userStats` okunuyordu ve o Trakt'ın
-  // `/users/me/stats` ucundan geliyordu → Google hesabında hep `null` →
-  // bölüm HİÇ görünmüyordu. Artık kendi verimizden de hesaplanabiliyor.
-  const { userStats: sunucuStats, watchedShows, watchedMovies, showProgressMap } =
-    useLibrarySelector((s) => ({
-      userStats: s.userStats,
-      watchedShows: s.watchedShows,
-      watchedMovies: s.watchedMovies,
-      showProgressMap: s.showProgressMap,
-    }));
-
-  const userStats = useMemo(
-    () => gosterilecekIstatistik(sunucuStats, yerelIstatistik(watchedShows, watchedMovies, showProgressMap)),
-    [sunucuStats, watchedShows, watchedMovies, showProgressMap],
-  );
+  // §C17.2 + 1.0.1 Dal 4: kendi verimizden (eski Trakt `userStats` yedeği yok).
+  const userStats = useGosterilecekIstatistik();
 
   const showsDuration = useMemo(() => {
     if (!userStats?.episodes) return null;

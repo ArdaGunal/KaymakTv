@@ -28,7 +28,7 @@ import MediaTrailer from '../../components/detail/MediaTrailer';
 import { MOBILE_PALETTE, nativeColor } from '../../constants/mobilePalette';
 import { diziSayfaSirasi } from '../../utils/diziSayfaSirasi';
 import { sezonEvreniKur } from '../../utils/sezonEvreni';
-import ShowDetailOverlays from '../../components/detail/ShowDetailOverlays';
+import ShowDetailOverlays, { type SelectedEpisode } from '../../components/detail/ShowDetailOverlays';
 import { gorunenBaslik } from '../../utils/gorunenBaslik';
 import { useTmdbBasliklari } from '../../hooks/useTmdbBasliklari';
 
@@ -98,7 +98,7 @@ export default function ShowDetailScreen() {
 
   const [expandedSeasons, setExpandedSeasons] = useState<any>({});
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
-  const [selectedEpisode, setSelectedEpisode] = useState<{season: number, episode: number, title: string, traktId?: number} | null>(null);
+  const [selectedEpisode, setSelectedEpisode] = useState<SelectedEpisode | null>(null);
   const [episodeRatingModalVisible, setEpisodeRatingModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   // "Tekrar İzle" isteği aslında Trakt'a doğru gidiyordu ama kullanıcıya HİÇBİR
@@ -112,18 +112,17 @@ export default function ShowDetailScreen() {
   // buradan alınmıyor. Sezon işaretleme mantığı `SeasonAccordion.tsx`'e taşındı
   // (orada misafir kontrolü, yayınlanmamış bölüm ayıklama ve "Tekrar İzle /
   // Geçmişi Sil" menüsü de var — bu ekranda kalan kopya çok daha zayıftı ve
-  // hiçbir yere bağlı değildi). `snackbarData`'nın DEĞERİNİ ise yalnızca
-  // hook'un kendi `handleUndoUnwatch`'ı okuyor; bu ekranın yalnızca yazması
-  // (`setSnackbarData`) yeterli.
+  // hiçbir yere bağlı değildi). `snackbarData`'yı hook kendisi yazar ve okur
+  // (`handleUnwatchEpisode` → `handleUndoUnwatch`); ekranda kopyası yok.
   const {
     userRating,
     localLoadingOption,
-    setSnackbarData,
     handleRate,
     handleRemoveRating,
     handleRateEpisode: hookHandleRateEpisode,
     handleRemoveEpisodeRating: hookHandleRemoveEpisodeRating,
     handleUnwatchEpisode: hookHandleUnwatchEpisode,
+    handleUnwatchLastPlay: hookHandleUnwatchLastPlay,
     handleRewatchEpisode: hookHandleRewatchEpisode,
     handleUndoUnwatch,
   } = useShowDetailHandlers({
@@ -143,12 +142,13 @@ export default function ShowDetailScreen() {
   );
 
   const handleUnwatchEpisode = async () => {
-    const success = await hookHandleUnwatchEpisode(selectedEpisode);
-    if (success) {
-      setSnackbarData({ showId: traktIdNum, season: selectedEpisode!.season, episode: selectedEpisode!.episode });
-      setSnackbarVisible(true);
-      setSelectedEpisode(null);
-    }
+    if (!(await hookHandleUnwatchEpisode(selectedEpisode))) return;
+    // «Geri al» yalnız tek izlemede: birden çok izleme tek dokunuşla geri gelmez (1.0.1 Dal 4).
+    if ((selectedEpisode?.playCount ?? 1) < 2) setSnackbarVisible(true);
+    setSelectedEpisode(null);
+  };
+  const handleUnwatchLastPlay = async () => {
+    if (await hookHandleUnwatchLastPlay(selectedEpisode)) setSelectedEpisode(null);
   };
 
   const handleRewatchEpisode = async () => {
@@ -272,6 +272,7 @@ export default function ShowDetailScreen() {
       onOpenEpisodeRating={() => setEpisodeRatingModalVisible(true)}
       onRewatchEpisode={handleRewatchEpisode}
       onUnwatchEpisode={handleUnwatchEpisode}
+      onUnwatchLastPlay={handleUnwatchLastPlay}
       episodeRatingVisible={episodeRatingModalVisible}
       onCloseEpisodeRating={() => setEpisodeRatingModalVisible(false)}
       episodeInitialRating={selectedEpisodeRating?.rating}
@@ -315,7 +316,7 @@ export default function ShowDetailScreen() {
                 showTmdbId={etkinTmdbId}
                 expandedSeasons={expandedSeasons}
                 onToggleSeason={toggleSeason}
-                onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt })}
+                onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt, playCount: ep.playCount })}
                 // 🆕 M425 — webde de işaretleme kararları ve iyimser iskelet.
                 tumSezonlar={tumSezonlar}
                 iskeletSezonlar={iskeletSezonlar}
@@ -367,7 +368,7 @@ export default function ShowDetailScreen() {
                   showTmdbId={etkinTmdbId}
                   expandedSeasons={expandedSeasons}
                   onToggleSeason={toggleSeason}
-                  onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt })}
+                  onSelectEpisode={(ep, seasonNumber) => setSelectedEpisode({ season: seasonNumber, episode: ep.number, title: ep.title, traktId: ep?.ids?.trakt, playCount: ep.playCount })}
                   tumSezonlar={tumSezonlar}
                   iskeletSezonlar={iskeletSezonlar}
                   showMedia={showData}

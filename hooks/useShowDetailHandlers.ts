@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { tumunuKaldirOnayi } from '../utils/izlemeGeriAlma';
 import { notify } from '../utils/confirmDialog';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +28,7 @@ export function useShowDetailHandlers({
     setLocalRating,
     removeLocalRating,
     unwatchEpisode,
+    unwatchLastEpisodePlay,
     rewatchEpisode,
     // Puan yalnız bizde durur, Trakt'a gitmez (bkz. mutations/ratings.ts).
     rateMedia,
@@ -37,7 +39,7 @@ export function useShowDetailHandlers({
   const { isGuest } = useAuth();
 
   const [seasonLoading, setSeasonLoading] = useState<Record<number, boolean>>({});
-  const [localLoadingOption, setLocalLoadingOption] = useState<'remove' | 'rewatch' | null>(null);
+  const [localLoadingOption, setLocalLoadingOption] = useState<'remove' | 'rewatch' | 'last' | null>(null);
   const [snackbarData, setSnackbarData] = useState<{showId: number, season: number, episode: number} | null>(null);
 
   const userRatingObj = userRatingsShows?.find((r: any) => r.show?.ids?.trakt === traktIdNum);
@@ -132,12 +134,14 @@ export function useShowDetailHandlers({
     }
   }, [isGuest, id, markSeasonAsWatched, unwatchSeason, t]);
 
-  const handleUnwatchEpisode = useCallback(async (selectedEpisode: {season: number, episode: number} | null) => {
+  const handleUnwatchEpisode = useCallback(async (selectedEpisode: {season: number, episode: number, playCount?: number} | null) => {
     if (isGuest) {
       notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
       return;
     }
     if (!selectedEpisode) return;
+    // 1.0.1 Dal 4 · 2+ izlemede «hepsini kaldır» ayrıca onaylanır (1x'te soru yok).
+    if (!(await tumunuKaldirOnayi(t, selectedEpisode.playCount ?? 1))) return false;
     setLocalLoadingOption('remove');
     try {
       await unwatchEpisode(traktIdNum, selectedEpisode.season, selectedEpisode.episode);
@@ -150,6 +154,26 @@ export function useShowDetailHandlers({
       setLocalLoadingOption(null);
     }
   }, [isGuest, traktIdNum, unwatchEpisode, t]);
+
+  /** 1.0.1 Dal 4 · yalnız son izlemeyi geri al (3x → 2x). */
+  const handleUnwatchLastPlay = useCallback(async (selectedEpisode: {season: number, episode: number} | null) => {
+    if (isGuest) {
+      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
+      return false;
+    }
+    if (!selectedEpisode) return false;
+    setLocalLoadingOption('last');
+    try {
+      await unwatchLastEpisodePlay(traktIdNum, selectedEpisode.season, selectedEpisode.episode);
+      return true;
+    } catch (e) {
+      console.error(e);
+      notify(t('common:error'), t('media:unwatchLastPlayError', 'Son izleme geri alınamadı.'));
+      return false;
+    } finally {
+      setLocalLoadingOption(null);
+    }
+  }, [isGuest, traktIdNum, unwatchLastEpisodePlay, t]);
 
   const handleRewatchEpisode = useCallback(async (selectedEpisode: {season: number, episode: number} | null) => {
     if (isGuest) {
@@ -193,6 +217,7 @@ export function useShowDetailHandlers({
     handleRemoveEpisodeRating,
     handleMarkSeason,
     handleUnwatchEpisode,
+    handleUnwatchLastPlay,
     handleRewatchEpisode,
     handleUndoUnwatch,
   };

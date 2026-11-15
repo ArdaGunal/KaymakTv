@@ -3,11 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useTranslation } from 'react-i18next';
 import type { MonthlyBar, StatsTab } from '../../../hooks/useProfileStatistics';
+import type { DonemDurumu } from '../../../hooks/useIzlemeDonemleri';
 import { MOBILE_PALETTE } from '../../../constants/mobilePalette';
 
 interface MonthlyFrequencyChartWideProps {
   data: MonthlyBar[];
   activeTab: StatsTab;
+  /** Sunucu verisi gelmeden ya da hata varken «bu dönemde kayıt yok» denmez (1.0.1 Dal 4). */
+  status: DonemDurumu;
 }
 
 const ACTIVE_COLOR = MOBILE_PALETTE.steel;
@@ -16,7 +19,7 @@ const SECTIONS = 4;
 
 // Sağ sütun: GenreDonutChartWide ile aynı yükseklikte, daha kalın çubuklu
 // bir sürüm — dar mobil kartın büyütülmüşü değil, ayrı bileşen.
-const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWideProps) => {
+const MonthlyFrequencyChartWide = ({ data, activeTab, status }: MonthlyFrequencyChartWideProps) => {
   const { t } = useTranslation('media');
   const [selectedIndex, setSelectedIndex] = useState(data.length - 1);
 
@@ -47,9 +50,14 @@ const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWid
 
   const selectedText = selected
     ? activeTab === 'shows'
-      ? t('monthItemsShows', '{{count}} dizi', { count: selected.value })
-      : t('monthItemsMovies', '{{count}} film', { count: selected.value })
+      ? t('monthItemsShows', '{{count}} bölüm izlemesi', { count: selected.value })
+      : t('monthItemsMovies', '{{count}} film izlemesi', { count: selected.value })
     : '';
+  const bosMetin = status === 'hata'
+    ? t('monthlyLoadError', 'Aylık veriler yüklenemedi')
+    : status === 'yukleniyor'
+      ? t('common:loading', 'Yükleniyor…')
+      : total === 0 ? t('monthlyNoData', 'Bu dönemde izleme kaydı yok') : null;
 
   return (
     <View style={styles.card}>
@@ -58,7 +66,7 @@ const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWid
           <Text style={styles.title}>{t('monthlyFrequency', 'Aylık İzleme Frekansı')}</Text>
           <Text style={styles.subtitle}>{t('lastSixMonths', 'Son 6 ay')}</Text>
         </View>
-        {selected ? (
+        {selected && status === 'hazir' ? (
           <View style={styles.selectedBadge}>
             <Text style={styles.selectedMonth}>{selected.label}</Text>
             <Text style={styles.selectedValue}>{selectedText}</Text>
@@ -67,8 +75,8 @@ const MonthlyFrequencyChartWide = ({ data, activeTab }: MonthlyFrequencyChartWid
       </View>
 
       <View style={styles.chartWrap}>
-        {total === 0 ? (
-          <Text style={styles.emptyText}>{t('monthlyNoData', 'Bu dönemde izleme kaydı yok')}</Text>
+        {bosMetin ? (
+          <Text style={styles.emptyText}>{bosMetin}</Text>
         ) : (
           <BarChart
             data={chartData}

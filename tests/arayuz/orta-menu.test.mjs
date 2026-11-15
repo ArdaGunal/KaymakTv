@@ -43,7 +43,8 @@ T.ok('filtrenin olu `wide` ozelligi kalkti', !/wide\??:/.test(oku('components/li
 
 T.H('Bolum menusu: «Izlemeyi Kaldir» baslik + aciklama alt alta');
 const bolum = oku('components/modals/EpisodeOptionsModal.tsx');
-T.ok('baslik ve aciklama ayni dikey sarmalayicida', /<View style=\{styles\.destructiveTextWrap\}>\s*<Text[^>]*>\{t\('unwatch'\)\}<\/Text>\s*<Text style=\{styles\.destructiveSubtext\}>/.test(bolum));
+// 1.0.1 Dal 4: 2+ izlemede başlık «Tüm izlemeleri kaldır», açıklama silinecek izleme sayısı — düzen aynı.
+T.ok('baslik ve aciklama ayni dikey sarmalayicida', /<View style=\{styles\.destructiveTextWrap\}>\s*<Text[^>]*>\s*\{cokluIzleme \? t\('unwatchAllPlays'\) : t\('unwatch'\)\}\s*<\/Text>\s*<Text style=\{styles\.destructiveSubtext\}>/.test(bolum));
 
 T.H('Alttan kayan pencere yalniz izinli icerik sayfalarinda');
 const IZINLI = new Set([

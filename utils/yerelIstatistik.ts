@@ -17,10 +17,8 @@
 //   · `showProgressMap[traktId].completed` → o dizide izlenen bölüm sayısı.
 //
 // ⚠️ TRAKT'IN SAYISIYLA KÜÇÜK FARKLAR OLABİLİR — bilinçli ve kabul edilmiş:
-//   1. Yeniden izlemeler: `completed` TEKİL bölüm sayar, Trakt `minutes`'ı
-//      oynatma (`plays`) üzerinden hesaplar. Filmlerde `plays` elimizde
-//      olduğu için kullanılıyor; bölümlerde o kırılım yok → süre biraz DÜŞÜK
-//      çıkabilir.
+//   1. Yeniden izlemeler: ✅ 1.0.1 Dal 3–4'te kapandı — bölümde de her izleme
+//      (`play_minutes`, 081) süreye girer; sayım tekil kalır.
 //   2. `showProgressMap` yalnızca ilerlemesi çekilmiş diziler için dolu.
 //      Eksik dizi varsa sayı düşük görünür. 🔑 Bunu **T6** kökten çözecek
 //      (okuma `user_*` tablolarından, tek istekte).
@@ -31,8 +29,10 @@
 export interface IzlemeOzeti {
   /** İzlenen TEKİL öğe sayısı (bölüm / film). */
   watched: number;
-  /** Toplam dakika. Bilinmeyen `runtime` 0 sayılır. */
+  /** Toplam dakika — HER izleme (tekrarlar dahil). Bilinmeyen `runtime` 0 sayılır. */
   minutes: number;
+  /** 1.0.1 Dal 4 · ek tekrar izleme sayısı: Σ max(izleme − 1, 0). */
+  rewatches: number;
 }
 
 export interface YerelIstatistik {
@@ -46,20 +46,36 @@ function sayi(deger: unknown): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+type IlerlemeOzeti = {
+  aired?: number; completed?: number; watched_minutes?: number; play_minutes?: number; rewatch_plays?: number;
+};
+
 /**
- * SAF — kütüphane deposundan izleme özetini hesaplar.
- *
- * Çıktı `/users/me/stats`'ın kullandığımız alt kümesiyle AYNI ŞEKİLDE, böylece
- * çağıran taraf `userStats ?? yerelIstatistik(...)` diyebiliyor ve iki ayrı
- * gösterim yolu doğmuyor.
+ * Bir dizinin toplam izleme süresi. Öncelik (1.0.1 Dal 3–4):
+ *   1. `play_minutes` (081) — HER izleme, sezon 0 dahil;
+ *   2. `watched_minutes` (063) — tekil bölüm, 081 öncesi sunucu;
+ *   3. tekil bölüm × dizinin ortalama `runtime`'ı (Trakt kaynaklı eski ilerleme).
+ */
+function diziDakikasi(ilerleme: IlerlemeOzeti | undefined, izlenen: number, diziRuntime: unknown): number {
+  const izleme = Number(ilerleme?.play_minutes);
+  if (Number.isFinite(izleme) && izleme >= 0 && ilerleme?.play_minutes !== undefined) return izleme;
+  const tekil = Number(ilerleme?.watched_minutes);
+  if (Number.isFinite(tekil) && tekil > 0) return tekil;
+  return izlenen * sayi(diziRuntime);
+}
+
+/**
+ * SAF — kütüphane deposundan izleme özetini hesaplar. Sayımlar TEKİL (bölüm/film), süre ve tekrar
+ * HER izlemeyi kapsar. Tür dağılımı ayrı yerde tekil yapımdan hesaplanır (tekrar onu şişirmez).
  */
 export function yerelIstatistik(
   watchedShows: any[] | null | undefined,
   watchedMovies: any[] | null | undefined,
-  showProgressMap: Record<string | number, { aired?: number; completed?: number; watched_minutes?: number }> | null | undefined,
+  showProgressMap: Record<string | number, IlerlemeOzeti> | null | undefined,
 ): YerelIstatistik {
   let bolumSayisi = 0;
   let bolumDakika = 0;
+  let bolumTekrar = 0;
 
   for (const kayit of watchedShows || []) {
     const dizi = kayit?.show;
@@ -68,84 +84,43 @@ export function yerelIstatistik(
 
     const ilerleme = showProgressMap?.[traktId];
     const izlenen = sayi(ilerleme?.completed);
-    if (!izlenen) continue;
+    const tekrar = sayi(ilerleme?.rewatch_plays);
+    // Yalnız özel bölüm (sezon 0) izlenmiş dizi de süre/tekrar taşır; `completed` onu saymaz.
+    if (!izlenen && !sayi(ilerleme?.play_minutes) && !tekrar) continue;
 
     bolumSayisi += izlenen;
-    // 🔑 M492: sunucu bölüm bazlı süreyi verdiyse (`watched_minutes`, 063 RPC + Worker dar
-    // yolu) O kullanılır — izlenen bölümlerin KENDİ sürelerinin toplamı. Eski yol (dizinin
-    // ortalama `runtime`'ı × bölüm sayısı; `runtime` BÖLÜM BAŞINA süre) %28'e varan sapma
-    // yapıyordu (My Sassy Girl: 40 dk ortalama, gerçek 30,5). Alan yoksa (Trakt kaynaklı
-    // ilerleme, eski Worker) eski yol.
-    const sunucuDakika = Number(ilerleme?.watched_minutes);
-    bolumDakika += Number.isFinite(sunucuDakika) && sunucuDakika > 0 ? sunucuDakika : izlenen * sayi(dizi?.runtime);
+    bolumDakika += diziDakikasi(ilerleme, izlenen, dizi?.runtime);
+    bolumTekrar += tekrar;
   }
 
   let filmSayisi = 0;
   let filmDakika = 0;
+  let filmTekrar = 0;
 
   for (const kayit of watchedMovies || []) {
     const film = kayit?.movie;
     if (!film) continue;
     filmSayisi += 1;
-    // Filmde yeniden izleme sayısı elimizde: süreye onu katıyoruz ama
-    // `watched` TEKİL kalıyor — Trakt'ın `watched`/`plays` ayrımı böyle.
     const oynatma = Math.max(1, sayi(kayit?.plays));
     filmDakika += oynatma * sayi(film?.runtime);
+    filmTekrar += oynatma - 1;
   }
 
   return {
-    episodes: { watched: bolumSayisi, minutes: bolumDakika },
-    movies: { watched: filmSayisi, minutes: filmDakika },
+    episodes: { watched: bolumSayisi, minutes: bolumDakika, rewatches: bolumTekrar },
+    movies: { watched: filmSayisi, minutes: filmDakika, rewatches: filmTekrar },
   };
 }
 
 /**
- * SAF — gösterilecek istatistik: sunucudan geleni TERCİH ET, yoksa yereli kullan.
+ * SAF — gösterilecek istatistik: kendi verimizden hesap; hiç izleme yoksa `null` (bölüm gizlenir,
+ * «0 / 0» yanıltıcı olurdu).
  *
- * 🔴 SIRALAMA BİLİNÇLİ: Trakt'ın sayısı yeniden izlemeleri ve bizde ilerlemesi
- * çekilmemiş dizileri de kapsıyor, yani DAHA DOĞRU. Yerel hesap bir yedek;
- * Trakt'lı kullanıcıda davranış DEĞİŞMİYOR, Google'lı kullanıcıda ise bölüm
- * artık boş kalmıyor.
- *
- * Hiç veri yoksa `null` — çağıran bölümü gizler (0/0 göstermek yanıltıcı olurdu).
+ * 🔄 1.0.1 Dal 4 — önbellekteki Trakt `userStats` YEDEĞİ KALDIRILDI. T6.2'den (2026-09-14) beri hiç
+ * tazelenmiyordu; kütüphanesi gerçekten boşalan kullanıcıya eski Trakt sayısını (ör. «7 bölüm ·
+ * 280 dk») geri getiriyordu. İlk senkron bitene kadar bölümün gizli kalması yanlış sayıdan iyidir.
+ * `userStats` mağazada bildirim zamanlayıcısı için duruyor (`features/notifications`).
  */
-export function gosterilecekIstatistik(
-  userStats: any | null | undefined,
-  yerel: YerelIstatistik,
-): YerelIstatistik | null {
-  // ══════════════════════════════════════════════════════════════════════
-  // 🔄 T6.2 — ÖNCELİK TERSİNE ÇEVRİLDİ (2026-09-14)
-  // ══════════════════════════════════════════════════════════════════════
-  // ESKİDEN Trakt'ın `/users/me/stats`ı KAZANIYORDU, yerel hesap yalnızca
-  // yedekti (§C17.2: Google hesabında `userStats` hep null gelip istatistik
-  // sıfır görünüyordu — yerel hesap o yüzden yazılmıştı).
-  //
-  // T6.1'den sonra yerel hesabın üç girdisi de (`watchedShows`,
-  // `watchedMovies`, `showProgressMap`) BİZDEN geliyor ve eksiksiz. Trakt'ı
-  // tercih etmeye devam etmek, kendi verimiz dururken bir dış servise
-  // sormak olurdu — T6'nın amacının tam tersi.
-  //
-  // ⚠️ GÖRÜNÜR ETKİ: `minutes` artık katalogdaki `runtime`dan hesaplanıyor
-  // (kapsam ölçüldü M311: dizi %98,9 · film %99,8). Toplam saat Trakt'ın
-  // gösterdiğinden bir miktar DÜŞÜK çıkabilir. Bu bir gerileme değil: sayı
-  // artık BİZİM verimizle tutarlı ve Google-only kullanıcının gördüğüyle AYNI.
-  //
-  // 🔴 `userStats` YEDEK OLARAK DURUYOR, silinmedi: yerel hesap boşsa
-  // (ör. ilk senkron bitmeden profil açıldıysa) önbellekteki Trakt değeri
-  // "0 saat" göstermekten iyidir.
-  if (yerel.episodes.watched > 0 || yerel.movies.watched > 0) return yerel;
-
-  if (userStats?.episodes || userStats?.movies) {
-    return {
-      episodes: {
-        watched: sayi(userStats?.episodes?.watched),
-        minutes: sayi(userStats?.episodes?.minutes),
-      },
-      movies: {
-        watched: sayi(userStats?.movies?.watched),
-        minutes: sayi(userStats?.movies?.minutes),
-      },
-    };
-  }
-  return null;
+export function gosterilecekIstatistik(yerel: YerelIstatistik): YerelIstatistik | null {
+  return yerel.episodes.watched > 0 || yerel.movies.watched > 0 || yerel.episodes.minutes > 0 ? yerel : null;
 }

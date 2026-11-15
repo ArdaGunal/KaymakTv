@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { filmIzlemeSayisi, izlendiMetni } from '../../utils/izlemeSayisi';
+import { geriAlmaSor } from '../../utils/izlemeGeriAlma';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Platform, UIManager } from 'react-native';
 import { notify } from '../../utils/confirmDialog';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
@@ -69,6 +71,7 @@ export default function MovieDetailScreen() {
     toggleFavoriteStatus,
     toggleHiddenFromProgress,
     deleteMediaFromHistory,
+    unwatchLastMoviePlay,
     // Film puanı mutasyon katmanından geçiyor: Trakt'a yazar VE aynı damgayla
     // Akış'a yayınlar (bkz. services/library/mutations/ratings.ts).
     rateMedia,
@@ -105,7 +108,9 @@ export default function MovieDetailScreen() {
   const userRating = userRatingObj ? userRatingObj.rating : null;
 
   // Kullanıcı filmi izlemiş mi?
-  const isWatched = watchedMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
+  // 1.0.1 Dal 4 · izleme sayısı (0 = izlenmedi): `2x` etiketi ve geri alma seçimi.
+  const playCount = filmIzlemeSayisi(watchedMovies, traktIdNum);
+  const isWatched = playCount > 0;
   const isWatchlisted = watchlistMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   const isFavorited = favMovies?.some((m: any) => m.movie?.ids?.trakt === traktIdNum);
   // "Bırak" eylemi: Trakt'ta filmler için `calendar` bölümünden gizlenmiş mi
@@ -169,7 +174,10 @@ export default function MovieDetailScreen() {
     try {
       setActionLoading(true);
       if (isWatched) {
-        await deleteMediaFromHistory(traktIdNum, 'movie');
+        // 2+ izlemede doğrudan silinmez: son izleme / hepsi (onaylı) seçilir; 1x'te davranış aynı.
+        const secim = await geriAlmaSor(t, playCount);
+        if (secim === 'son') await unwatchLastMoviePlay(traktIdNum);
+        else if (secim === 'tumu') await deleteMediaFromHistory(traktIdNum, 'movie');
       } else {
         await markMovieAsWatched(traktIdNum, movieData);
       }
@@ -225,7 +233,7 @@ export default function MovieDetailScreen() {
             {isWatched ? (
               <>
                 <CheckCheck color={nativeColor('text', "#ffffff")} size={20} style={{ marginRight: 8 }} />
-                <Text style={[styles.actionButtonText, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButtonText]}>{t('watched')}</Text>
+                <Text style={[styles.actionButtonText, (Platform.OS !== 'web' || compactWebActions) && styles.nativeActionButtonText]}>{izlendiMetni(t('watched'), playCount)}</Text>
               </>
             ) : (
               <>

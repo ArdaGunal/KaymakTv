@@ -19,7 +19,7 @@ export default function ProfileStatisticsScreen() {
   const { t } = useTranslation('media');
   const [activeTab, setActiveTab] = useState<StatsTab>('shows');
 
-  const { summary, completion, genres, monthly, ratings, hasStats, hasContent } =
+  const { summary, completion, genres, monthly, monthlyStatus, ratings, hasStats, hasContent } =
     useProfileStatistics(activeTab);
 
   return (
@@ -69,7 +69,7 @@ export default function ProfileStatisticsScreen() {
         {hasContent ? (
           <>
             <GenreDonutChart data={genres} />
-            <MonthlyFrequencyChart data={monthly} activeTab={activeTab} />
+            <MonthlyFrequencyChart data={monthly} activeTab={activeTab} status={monthlyStatus} />
             <RatingDistributionChart ratings={ratings} />
             <CompletionProgressBar completion={completion} activeTab={activeTab} />
           </>

@@ -68,41 +68,13 @@ T.ok(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-T.H('Gosterilecek istatistik — T6.2: YEREL ONCE, Trakt YEDEK');
+T.H('Gosterilecek istatistik — 1.0.1 Dal 4: yalniz YEREL, eski Trakt yedegi YOK');
 
-// 🔄 ONCELIK TERSINE CEVRILDI (T6.2, 2026-09-14). T6.1den sonra yerel
-// hesabin uc girdisi de BIZDEN geliyor ve eksiksiz; Trakti tercih etmeye
-// devam etmek kendi verimiz dururken dis servise sormak olurdu.
-T.ok(
-  '🔑 YEREL veri VARSA Trakt gelse bile YEREL kullanilir',
-  (() => {
-    const g = gosterilecekIstatistik(
-      { episodes: { watched: 7349, minutes: 300000 }, movies: { watched: 195, minutes: 20000 } }, r);
-    return g.episodes.watched === 60 && g.movies.watched === 2;
-  })(),
-);
-T.ok('Trakt verisi YOKSA da yerel hesap calisir (Google hesabi)',
-  gosterilecekIstatistik(null, r).episodes.watched === 60);
-T.ok('undefined de yerele duser', gosterilecekIstatistik(undefined, r).movies.watched === 2);
-T.ok(
-  '🔴 YEREL BOSSA onbellekteki Trakt degeri yedek — "0 saat" gostermekten iyi',
-  (() => {
-    const g = gosterilecekIstatistik(
-      { episodes: { watched: 7349, minutes: 300000 }, movies: { watched: 195, minutes: 20000 } }, bos);
-    return g.episodes.watched === 7349 && g.movies.minutes === 20000;
-  })(),
-);
-T.ok(
-  '🔴 HIC veri yoksa null — "0 / 0" gostermek yaniltici olurdu',
-  gosterilecekIstatistik(null, bos) === null,
-);
-T.ok(
-  'yerel bosken sunucu govdesi bozuksa sayilar 0a kenetlenir, coker degil',
-  (() => {
-    const g = gosterilecekIstatistik({ episodes: { watched: 'x' } }, bos);
-    return g.episodes.watched === 0 && g.movies.watched === 0;
-  })(),
-);
+// 🔄 T6.2'de oncelik yerele cevrilmisti; 1.0.1 Dal 4'te onbellekteki Trakt `userStats` yedegi
+// tamamen kalkti: kutuphanesi gercekten bosalan kullaniciya eski Trakt sayisini geri getiriyordu.
+T.ok('yerel veri varsa yerel doner', gosterilecekIstatistik(r).episodes.watched === 60 && gosterilecekIstatistik(r).movies.watched === 2);
+T.ok('🔴 yerel BOSSA null — eski Trakt sayisi GERI GELMEZ', gosterilecekIstatistik(bos) === null);
+T.ok('imza tek parametre (userStats yedegi yok)', gosterilecekIstatistik.length === 1);
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('Ilerleme yuzdesi ve renk (C17.1 + C17.3)');
@@ -158,7 +130,7 @@ const kY = yerelIstatistik(sekil.watchedShows, sekil.watchedMovies, sekil.showPr
 T.ok('🔴 ARTIK SURE HESAPLANIYOR (eskiden 0 idi)', kY.episodes.minutes === 4 * 45, String(kY.episodes.minutes));
 T.ok('runtime bilinmeyen dizi sayima giriyor, sureye 0 katiyor', kY.episodes.watched === 9, String(kY.episodes.watched));
 T.ok('film suresi plays ile carpiliyor', kY.movies.minutes === 240, String(kY.movies.minutes));
-T.ok('🔑 bolum artik gorunur (null degil)', gosterilecekIstatistik(null, kY) !== null);
+T.ok('🔑 bolum artik gorunur (null degil)', gosterilecekIstatistik(kY) !== null);
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('Tur etiketleri — favori tur (C18)');

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { bolumIzlemeSayisi } from '../utils/izlemeSayisi';
 import { getShowSummary, getShowSeasons, getRelatedShows, getMediaComments } from '../services/traktApi';
 import { getTmdbCast } from '../services/tmdbApi';
 import { cacheManager } from '../utils/cacheManager';
@@ -209,8 +210,9 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
       // — büyük sezonlarda (örn. 500+ bölümlü animeler) bu gerçek bir O(n²)
       // darboğazıydı (bölüm sayısı × bölüm sayısı). Artık sezon başına bir kez
       // Map kurulup her bölüm O(1) okunuyor.
-      const completedByEpisodeNumber = new Map<number, boolean>(
-        (seasonProgress?.episodes || []).map((e: any) => [e.number, !!e.completed])
+      // 1.0.1 Dal 4 · izleme sayısı (0 = izlenmedi); `2x` rozeti ve geri alma seçimi bunu okur.
+      const playsByEpisodeNumber = new Map<number, number>(
+        (seasonProgress?.episodes || []).map((e: any) => [e.number, bolumIzlemeSayisi(e)])
       );
 
       return {
@@ -223,7 +225,8 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         seasonProgress: seasonProgress || null,
         episodes: season.episodes?.map((ep: any) => ({
           ...ep,
-          isWatchedLocal: completedByEpisodeNumber.get(ep.number) || false
+          isWatchedLocal: (playsByEpisodeNumber.get(ep.number) ?? 0) > 0,
+          playCount: playsByEpisodeNumber.get(ep.number) ?? 0,
         })) || []
       };
     });

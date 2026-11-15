@@ -57,6 +57,14 @@ const StatsSummaryRowWide = ({ summary, activeTab }: StatsSummaryRowWideProps) =
         </View>
         <Text style={styles.value}>{summary.watchedCount.toLocaleString()}</Text>
         <Text style={styles.label}>{countLabel}</Text>
+        {/* 1.0.1 Dal 4 · tekrar özeti: «ek izleme» — dizinin baştan tekrar bitirildiği anlamına gelmez. */}
+        {summary.rewatchCount > 0 && (
+          <Text style={styles.tekrar}>
+            {isShows
+              ? t('rewatchSummaryShows', '+{{count}} tekrar bölüm izlemesi', { count: summary.rewatchCount })
+              : t('rewatchSummaryMovies', '+{{count}} tekrar film izlemesi', { count: summary.rewatchCount })}
+          </Text>
+        )}
       </Pressable>
     </View>
   );
@@ -98,6 +106,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
     marginBottom: 4,
+  },
+  tekrar: {
+    color: '#60a5fa',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
   label: {
     color: '#94a3b8',

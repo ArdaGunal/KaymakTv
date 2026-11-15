@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { ilerlemedenBolumSayisi } from '../utils/izlemeSayisi';
+import { geriAlmaSor } from '../utils/izlemeGeriAlma';
 import { Share } from 'react-native';
 import { chooseAsync, notify } from '../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
@@ -74,16 +76,16 @@ export function useEpisodeActions({
     unrateEpisodeMedia,
     showProgressMap,
     unwatchEpisode,
+    unwatchLastEpisodePlay,
     markEpisodeAsWatched,
     planiIsaretle,
   } = useLibrary();
 
   const [isCheckLoading, setIsCheckLoading] = useState(false);
 
-  /** Bu bölüm yerel ilerlemeye göre izlenmiş mi. */
-  const isWatchedLocal = !!showProgressMap[showTraktId]
-    ?.seasons?.find((s: any) => s.number === season)
-    ?.episodes?.find((e: any) => e.number === episode)?.completed;
+  /** Bu bölümün izleme sayısı (0 = izlenmedi) — 1.0.1 Dal 4 `2x` rozeti ve geri alma seçimi. */
+  const playCount = ilerlemedenBolumSayisi(showProgressMap[showTraktId], season, episode);
+  const isWatchedLocal = playCount > 0;
 
   const rate = useCallback(async (val: number) => {
     // StarSlider zaten 1-10 dahili ölçekte değer döndürür (Trakt ile aynı) — tekrar ×2 yapılmamalı.
@@ -123,7 +125,10 @@ export function useEpisodeActions({
     setIsCheckLoading(true);
     try {
       if (isWatchedLocal) {
-        await unwatchEpisode(showTraktId, sNum, eNum);
+        // 1.0.1 Dal 4 · 2+ izlemede doğrudan silinmez: son izleme / hepsi (onaylı) seçilir.
+        const secim = await geriAlmaSor(t, playCount);
+        if (secim === 'son') await unwatchLastEpisodePlay(showTraktId, sNum, eNum);
+        else if (secim === 'tumu') await unwatchEpisode(showTraktId, sNum, eNum);
         return;
       }
 
@@ -179,7 +184,7 @@ export function useEpisodeActions({
     } finally {
       setIsCheckLoading(false);
     }
-  }, [isGuest, season, episode, isWatchedLocal, showProgressMap, showTraktId, unwatchEpisode, markEpisodeAsWatched, planiIsaretle, t, tumSezonlar]);
+  }, [isGuest, season, episode, isWatchedLocal, playCount, showProgressMap, showTraktId, unwatchEpisode, unwatchLastEpisodePlay, markEpisodeAsWatched, planiIsaretle, t, tumSezonlar]);
 
   const share = useCallback(async () => {
     try {
@@ -201,5 +206,5 @@ export function useEpisodeActions({
     return true;
   }, [isGuest, t]);
 
-  return { isWatchedLocal, isCheckLoading, rate, clearRating, toggleWatched, share, guardGuest };
+  return { isWatchedLocal, playCount, isCheckLoading, rate, clearRating, toggleWatched, share, guardGuest };
 }

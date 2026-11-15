@@ -5,10 +5,13 @@ import { BarChart } from 'react-native-gifted-charts';
 import { useTranslation } from 'react-i18next';
 import type { MonthlyBar } from '../../../hooks/useProfileStatistics';
 import type { StatsTab } from '../../../hooks/useProfileStatistics';
+import type { DonemDurumu } from '../../../hooks/useIzlemeDonemleri';
 
 interface MonthlyFrequencyChartProps {
   data: MonthlyBar[];
   activeTab: StatsTab;
+  /** Sunucu verisi gelmeden ya da hata varken «bu dönemde kayıt yok» denmez (1.0.1 Dal 4). */
+  status: DonemDurumu;
 }
 
 const ACTIVE_COLOR = nativeColor('steel', '#3B82F6');
@@ -20,7 +23,7 @@ const SECTIONS = 4;
  * değeri başlıkta yazıyla görünür (eskiden yalnızca isimsiz sütunlar vardı ve
  * veriler tamamen sahteydi).
  */
-const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) => {
+const MonthlyFrequencyChart = ({ data, activeTab, status }: MonthlyFrequencyChartProps) => {
   const { t } = useTranslation('media');
   // Varsayılan seçim en güncel ay — kullanıcı en çok onu merak eder.
   const [selectedIndex, setSelectedIndex] = useState(data.length - 1);
@@ -54,9 +57,14 @@ const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) 
 
   const selectedText = selected
     ? activeTab === 'shows'
-      ? t('monthItemsShows', '{{count}} dizi', { count: selected.value })
-      : t('monthItemsMovies', '{{count}} film', { count: selected.value })
+      ? t('monthItemsShows', '{{count}} bölüm izlemesi', { count: selected.value })
+      : t('monthItemsMovies', '{{count}} film izlemesi', { count: selected.value })
     : '';
+  const bosMetin = status === 'hata'
+    ? t('monthlyLoadError', 'Aylık veriler yüklenemedi')
+    : status === 'yukleniyor'
+      ? t('common:loading', 'Yükleniyor…')
+      : total === 0 ? t('monthlyNoData', 'Bu dönemde izleme kaydı yok') : null;
 
   return (
     <View style={styles.card}>
@@ -65,7 +73,7 @@ const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) 
           <Text style={styles.title}>{t('monthlyFrequency', 'Aylık İzleme Frekansı')}</Text>
           <Text style={styles.subtitle}>{t('lastSixMonths', 'Son 6 ay')}</Text>
         </View>
-        {selected ? (
+        {selected && status === 'hazir' ? (
           <View style={styles.selectedBadge}>
             <Text style={styles.selectedMonth}>{selected.label}</Text>
             <Text style={styles.selectedValue}>{selectedText}</Text>
@@ -73,8 +81,8 @@ const MonthlyFrequencyChart = ({ data, activeTab }: MonthlyFrequencyChartProps) 
         ) : null}
       </View>
 
-      {total === 0 ? (
-        <Text style={styles.emptyText}>{t('monthlyNoData', 'Bu dönemde izleme kaydı yok')}</Text>
+      {bosMetin ? (
+        <Text style={styles.emptyText}>{bosMetin}</Text>
       ) : (
         <BarChart
           data={chartData}

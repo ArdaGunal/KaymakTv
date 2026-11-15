@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLibrarySelector } from '../context/LibraryContext';
-import { gosterilecekIstatistik, yerelIstatistik } from '../utils/yerelIstatistik';
+import { useGosterilecekIstatistik } from './useGosterilecekIstatistik';
+import { useIzlemeDonemleri, DonemDurumu } from './useIzlemeDonemleri';
+import { aylikCubuklar } from '../utils/aylikCubuklar';
 import { yerelEtiket } from '../locales/diller';
 
 export type StatsTab = 'shows' | 'movies';
@@ -11,6 +13,8 @@ export interface ProfileStatsSummary {
   totalMinutes: number;
   /** Aktif sekmeye göre "izlenen bölüm" ya da "izlenen film" sayısı. */
   watchedCount: number;
+  /** 1.0.1 Dal 4 · aktif sekmede ek tekrar izleme sayısı (bölüm/film başına izleme − 1 toplamı). */
+  rewatchCount: number;
 }
 
 export interface ProfileStatsCompletion {
@@ -30,6 +34,7 @@ export interface GenreSlice {
 
 export interface MonthlyBar {
   label: string;
+  /** O ay izleme OLAYI sayısı (tekrarlar dahil; dizi sekmesinde bölüm izlemesi). */
   value: number;
   /** 'YYYY-MM' — sıralama ve seçim için kararlı anahtar. */
   key: string;
@@ -74,10 +79,9 @@ const MONTHS_BACK = 6;
  * Veri kaynakları:
  * - Türler: `watchedShows[].show.genres` / `watchedMovies[].movie.genres`
  *   (her iki uç nokta da `extended=full` ile çekildiği için bu alan mevcut).
- * - Aylık etkinlik: `last_watched_at`. Bu alan bir içeriğin SON izlenme anıdır;
- *   dolayısıyla grafik "o ay kaç bölüm izlendi"yi değil, "o ay kaç dizi/filmle
- *   ilgilenildi"yi gösterir. Başlıklar da bunu söyleyecek şekilde yazıldı —
- *   elimizdeki veriyle dürüstçe söylenebilecek şey bu.
+ * - Aylık etkinlik: 1.0.1 Dal 4'ten beri SUNUCUDAN (`/library/donemler`, 082) — her izleme kendi
+ *   ayında, tekrarlar dahil, cihazın saat diliminde. Eskiden yapım başına yalnız SON izleme ayına
+ *   1 ekleniyordu (ocakta izlenip kasımda tekrar izlenen film ocakta hiç görünmüyordu).
  * - Puanlar: `userRatingsShows` / `userRatingsMovies`. Trakt puanları dahili
  *   olarak 1-10 tam sayı saklar; uygulamanın HER YERİ (`formatRating`,
  *   `StarSlider`, `MediaHero`…) bunu ikiye bölüp 5 yıldızlık ölçekte gösterir.
@@ -94,7 +98,6 @@ export function useProfileStatistics(activeTab: StatsTab) {
   const { t, i18n } = useTranslation('media');
 
   const {
-    userStats,
     watchedShows,
     watchedMovies,
     watchlistMovies,
@@ -102,7 +105,6 @@ export function useProfileStatistics(activeTab: StatsTab) {
     userRatingsShows,
     userRatingsMovies,
   } = useLibrarySelector((s) => ({
-    userStats: s.userStats,
     watchedShows: s.watchedShows,
     watchedMovies: s.watchedMovies,
     watchlistMovies: s.watchlistMovies,
@@ -116,35 +118,21 @@ export function useProfileStatistics(activeTab: StatsTab) {
     const source = activeTab === 'shows' ? watchedShows : watchedMovies;
     const key = activeTab === 'shows' ? 'show' : 'movie';
     return (source || [])
-      .map((item: any) => ({
-        media: item?.[key],
-        lastWatchedAt: item?.last_watched_at as string | undefined,
-      }))
+      .map((item: any) => ({ media: item?.[key] }))
       .filter((entry) => !!entry.media);
   }, [activeTab, watchedShows, watchedMovies]);
 
-  // ESKİ HATA: bu değer `activeTab`'a hiç bakmadan dizi + film süresini/sayısını
-  // HER ZAMAN topluyordu. Sonuç: kullanıcı "Filmler" sekmesine geçse bile üstteki
-  // kartlar hâlâ dizi verisini (ör. "İzlenen Bölüm") gösteriyordu — sekmenin
-  // hiçbir anlamı yoktu. Artık her sekme YALNIZCA kendi verisini gösteriyor.
-  // §C17.2: `userStats` Trakt'ın `/users/me/stats`'ından geliyordu ve Google
-  // hesabında hep `null`'dı → istatistik ekranı sıfır gösteriyordu. Artık
-  // sunucudan gelen TERCİH EDİLİYOR, yoksa kendi verimizden hesaplanıyor.
-  const gosterilen = useMemo(
-    () => gosterilecekIstatistik(userStats, yerelIstatistik(watchedShows, watchedMovies, showProgressMap)),
-    [userStats, watchedShows, watchedMovies, showProgressMap],
-  );
+  // Her sekme YALNIZCA kendi verisini gösterir (eskiden dizi + film toplanıyordu).
+  // Sayım tekil; süre ve tekrar her izlemeyi kapsar (1.0.1 Dal 3–4).
+  const gosterilen = useGosterilecekIstatistik();
+  const { donemler, durum: monthlyStatus } = useIzlemeDonemleri(MONTHS_BACK);
 
   const summary = useMemo<ProfileStatsSummary>(() => {
-    if (activeTab === 'shows') {
-      return {
-        totalMinutes: gosterilen?.episodes.minutes || 0,
-        watchedCount: gosterilen?.episodes.watched || 0,
-      };
-    }
+    const ozet = activeTab === 'shows' ? gosterilen?.episodes : gosterilen?.movies;
     return {
-      totalMinutes: gosterilen?.movies.minutes || 0,
-      watchedCount: gosterilen?.movies.watched || 0,
+      totalMinutes: ozet?.minutes || 0,
+      watchedCount: ozet?.watched || 0,
+      rewatchCount: ozet?.rewatches || 0,
     };
   }, [activeTab, gosterilen]);
 
@@ -212,37 +200,10 @@ export function useProfileStatistics(activeTab: StatsTab) {
     return slices;
   }, [entries, t]);
 
-  const monthly = useMemo<MonthlyBar[]>(() => {
-    const locale = yerelEtiket(i18n.language);
-    const now = new Date();
-
-    // Son 6 ay iskeleti önce kurulur: veri olmayan aylar da 0 değeriyle
-    // grafikte yer alır, böylece zaman ekseni kesintisiz görünür.
-    const buckets: MonthlyBar[] = [];
-    const indexByKey = new Map<string, number>();
-
-    for (let offset = MONTHS_BACK - 1; offset >= 0; offset--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      indexByKey.set(key, buckets.length);
-      buckets.push({
-        key,
-        label: date.toLocaleDateString(locale, { month: 'short' }),
-        value: 0,
-      });
-    }
-
-    for (const entry of entries) {
-      if (!entry.lastWatchedAt) continue;
-      const date = new Date(entry.lastWatchedAt);
-      if (isNaN(date.getTime())) continue;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const index = indexByKey.get(key);
-      if (index !== undefined) buckets[index].value += 1;
-    }
-
-    return buckets;
-  }, [entries, i18n.language]);
+  const monthly = useMemo<MonthlyBar[]>(
+    () => aylikCubuklar(donemler, activeTab === 'shows' ? 'episode' : 'movie', MONTHS_BACK, yerelEtiket(i18n.language)),
+    [donemler, activeTab, i18n.language],
+  );
 
   const ratings = useMemo<ProfileStatsRatings>(() => {
     const source = activeTab === 'shows' ? userRatingsShows : userRatingsMovies;
@@ -279,6 +240,8 @@ export function useProfileStatistics(activeTab: StatsTab) {
     completion,
     genres,
     monthly,
+    /** Aylık grafiğin yükleme durumu — `hata` iken grafik «veri yok» yerine hata metni gösterir. */
+    monthlyStatus: monthlyStatus as DonemDurumu,
     ratings,
     /** Aktif sekmede analiz edilebilecek herhangi bir içerik var mı? */
     hasContent: entries.length > 0,

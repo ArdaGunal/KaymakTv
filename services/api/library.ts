@@ -91,6 +91,8 @@ export type LibraryYanit = {
   silinen?: number;
   /** Kısmen çözülemeyen konum (ör. sezonun bir bölümü katalogda yok). */
   eksik?: string;
+  /** `sonuncu: true` silmede sunucunun bulup sildiği izlemenin damgası (yoksa `null`). */
+  watchedAt?: string | null;
 };
 
 /**
@@ -182,6 +184,17 @@ export const unwatchEpisode = (showId: number, season: number, episode: number) 
 
 export const unwatchMovie = (movieId: number) =>
   istek('watched', { op: 'sil', trakt: { movieId }, tumu: true });
+
+/**
+ * 1.0.1 Dal 4 · YALNIZ en son izlemeyi siler (3x → 2x). Damgayı SUNUCU bulur (`sonuncu: true`):
+ * yereldeki `last_watched_at` art arda iki geri almada bayat kalırdı. Akıştan yalnız o izlemenin
+ * kartı geri çekilir (`061`); yanıtta silinen damga döner.
+ */
+export const unwatchLastEpisodePlay = (showId: number, season: number, episode: number) =>
+  istek('watched', { op: 'sil', trakt: { showId, season, episode }, sonuncu: true });
+
+export const unwatchLastMoviePlay = (movieId: number) =>
+  istek('watched', { op: 'sil', trakt: { movieId }, sonuncu: true });
 
 /**
  * "Bu diziyi hiç izlemedim" — TÜM bölümlerinin izleme kaydını siler.
@@ -285,14 +298,24 @@ export type KutuphaneIlerlemesi = {
       number: number;
       completed: boolean;
       last_watched_at: string | null;
+      /** 081 · bu bölümün izleme sayısı (0 = izlenmedi). 081 öncesi sunucu göndermez. */
+      plays?: number;
       title: string | null;
       first_aired: string | null;
     }>;
   }>;
   next_episode: { season: number; number: number; title: string | null } | null;
   last_episode: { season: number; number: number; title: string | null } | null;
-  /** M492 · izlenen bölümlerin kendi sürelerinin toplamı (dk). 063 öncesi sunucu göndermez. */
+  /** M492 · izlenen bölümlerin kendi sürelerinin toplamı (dk), TEKİL bölüm, sezon 0 hariç (bitiş özeti). */
   watched_minutes?: number;
+  /** 081 · HER izlemenin süresi (dk), sezon 0 dahil — analiz toplamı bunu okur. */
+  play_minutes?: number;
+  /** 081 · ek tekrar izleme sayısı: Σ max(plays − 1, 0), sezon 0 dahil. */
+  rewatch_plays?: number;
+  /** 081 · süresi bilinmeyip dizinin ortalamasıyla sayılan izleme. */
+  estimated_plays?: number;
+  /** 081 · dizinin ortalaması da bilinmediği için 0 dk sayılan izleme. */
+  unknown_plays?: number;
 };
 
 export type KutuphaneYaniti = {

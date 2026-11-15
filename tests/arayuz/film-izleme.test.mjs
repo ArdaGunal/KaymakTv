@@ -32,10 +32,16 @@ T.ok('En basa eklenir (en son izlenen ustte)',
   izlenenFilmeEkle([{ movie: { ids: { trakt: 9 } } }], 42, FILM, AN)[0].movie.ids.trakt === 42);
 
 // ─────────────────────────────────────────────────────────────────────────
+T.H('Tekrar izleme (1.0.1 Dal 4) — sayi damgaya bagli');
+const mevcut = [{ plays: 3, last_watched_at: '2026-09-01T00:00:00.000Z', movie: { ids: { trakt: 42 }, title: 'Zaten var' } }];
+const tekrar = izlenenFilmeEkle(mevcut, 42, FILM, AN);
+T.ok('Zaten izlenmis + YENI damga → plays 3 → 4, son damga guncellenir',
+  tekrar !== mevcut && tekrar[0].plays === 4 && tekrar[0].last_watched_at === AN, JSON.stringify(tekrar[0]));
+T.ok('🔴 Ayni is yeniden yansitilinca IKI KEZ sayilmaz (sunucu zaten iceriyor: son damga >= is damgasi)',
+  izlenenFilmeEkle(tekrar, 42, FILM, AN) === tekrar);
+
+// ─────────────────────────────────────────────────────────────────────────
 T.H('Dokunmadigi durumlar (ayni referans doner)');
-const mevcut = [{ plays: 3, movie: { ids: { trakt: 42 }, title: 'Zaten var' } }];
-T.ok('Zaten izlenmisse DEGISTIRMEZ (plays sayaci sunucunun isi)',
-  izlenenFilmeEkle(mevcut, 42, FILM, AN) === mevcut);
 T.ok('Film verisi yoksa DEGISTIRMEZ (uydurma kart cizilmez)',
   izlenenFilmeEkle([], 42, null, AN).length === 0
   && izlenenFilmeEkle([], 42, undefined, AN).length === 0);
@@ -58,7 +64,8 @@ T.ok('markMovieAsWatched ikinci parametreyi aliyor',
 const detay = fs.readFileSync(path.join(KOK, 'app', 'movie', '[id].tsx'), 'utf8');
 const cagri = (detay.match(/markMovieAsWatched\(traktIdNum, movieData\)/g) || []).length;
 T.ok('Film detayinin IKI cagrisi da filmi geciyor (isaretle + tekrar izle)', cagri === 2, `${cagri} cagri`);
+// 1.0.1 Dal 4: rozet izleme SAYISINDAN türer (`filmIzlemeSayisi`), kaynak yine `watchedMovies`.
 T.ok('Rozet watchedMovies okuyor (kusurun gorundugu yer)',
-  /watchedMovies\?\.some\(\(m: any\) => m\.movie\?\.ids\?\.trakt === traktIdNum\)/.test(detay));
+  /filmIzlemeSayisi\(watchedMovies, traktIdNum\)/.test(detay) && /const isWatched = playCount > 0;/.test(detay));
 
 T.bitir();

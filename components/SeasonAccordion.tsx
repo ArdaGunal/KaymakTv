@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { izlemeRozeti } from '../utils/izlemeSayisi';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { ChevronDown, ChevronUp, Check, CheckCheck, RotateCcw, Trash2 } from './icons';
 import { useRouter } from 'expo-router';
@@ -129,13 +130,21 @@ export default function SeasonAccordion({
                  </TouchableOpacity>
                  <View>
                    {isWatchedLocal ? (
-                      <TouchableOpacity
-                        style={styles.watchedIcon}
-                        activeOpacity={0.7}
-                        onPress={() => onSelectEpisode(ep, season.number)}
-                      >
-                        <Check size={20} color="#fff" strokeWidth={3} />
-                      </TouchableOpacity>
+                      <View style={styles.watchedWrap}>
+                        {/* 1.0.1 Dal 4 · 2 ve üzeri izlemede tik yanında küçük `2x` (yalnız işaretleme alanında). */}
+                        {!!izlemeRozeti(ep.playCount ?? 0) && (
+                          <Text style={styles.playBadge}>{izlemeRozeti(ep.playCount ?? 0)}</Text>
+                        )}
+                        <TouchableOpacity
+                          style={styles.watchedIcon}
+                          activeOpacity={0.7}
+                          onPress={() => onSelectEpisode(ep, season.number)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('playCountA11y', { count: Math.max(1, ep.playCount ?? 1) })}
+                        >
+                          <Check size={20} color="#fff" strokeWidth={3} />
+                        </TouchableOpacity>
+                      </View>
                    ) : !isAired ? (
                       <View style={styles.unairedBadge}>
                         <Text style={styles.unairedText}>
@@ -281,6 +290,16 @@ const styles = StyleSheet.create({
   episodeDate: {
     fontSize: 12,
     color: nativeColor('mutedDeep', '#64748b'),
+  },
+  watchedWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  playBadge: {
+    color: '#10b981',
+    fontSize: 12,
+    fontWeight: '700',
   },
   watchedIcon: {
     width: 32,

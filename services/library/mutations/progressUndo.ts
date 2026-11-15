@@ -9,7 +9,7 @@ import { logError } from '../../../utils/errorLog';
 import { flushWatchedOutbox } from '../outbox/runtime';
 import { ciftYaz } from '../ciftYaz';
 import { kaymakYoluMu } from './yazimKapisi';
-import { nesliArtir, ilerlemeNesli, mevcutIlerleme, kaymakIlerlemeTazele, tazelemeyiPlanla, geriAlVeyaTazele } from './progressState';
+import { nesliArtir, ilerlemeNesli, mevcutIlerleme, kaymakIlerlemeTazele, tazelemeyiPlanla, geriAlVeyaTazele, izlenmeyenDiziyiDusur } from './progressState';
 
 export const unwatchEpisode = async (showId: number, season: number, episode: number) => {
   await flushWatchedOutbox();
@@ -66,6 +66,7 @@ export const unwatchEpisode = async (showId: number, season: number, episode: nu
     // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
     // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
     recordMutationResult('unwatchEpisode', true);
+    izlenmeyenDiziyiDusur(showId);
     // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
     // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
     // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.
@@ -140,6 +141,7 @@ export const unwatchSeason = async (showId: number, season: number) => {
     // zaten iki ucu da savunuyor: katalogda olmayan dizide mevcut ilerlemeyi
     // KORUYOR (ezmiyor), boş `seasons` yanıtında mağazayı BOZMUYOR.
     recordMutationResult('unwatchSeason', true);
+    izlenmeyenDiziyiDusur(showId);
     // 🔴 İYİMSER DEĞER ANINDA DÖNÜYOR, ağ TURU BEKLENMİYOR (M322).
     // İyimser durum M321'den beri EKSİKSİZ; beklemek yalnızca gecikme
     // ekliyordu ve dönen bayat yanıt ekranı geri düşürüyordu.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { notify } from '../../utils/confirmDialog';
-import { Star, CheckCheck, Trash2 } from '../icons';
+import { Star, CheckCheck, Trash2, RotateCcw } from '../icons';
 import OrtaPencere from './OrtaPencere';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -11,10 +11,13 @@ interface EpisodeOptionsModalProps {
   visible: boolean;
   onClose: () => void;
   episode: { season: number; episode: number; title: string } | null;
-  loadingOption: 'remove' | 'rewatch' | null;
+  loadingOption: 'remove' | 'rewatch' | 'last' | null;
   onRatePress: () => void;
   onRewatch: () => void;
   onUnwatch: () => void;
+  /** 1.0.1 Dal 4 · izleme sayısı; 2+ ise «Son izlemeyi geri al» düğmesi çıkar. */
+  playCount: number;
+  onUnwatchLast: () => void;
 }
 
 export default function EpisodeOptionsModal({
@@ -24,8 +27,11 @@ export default function EpisodeOptionsModal({
   loadingOption,
   onRatePress,
   onRewatch,
-  onUnwatch
+  onUnwatch,
+  playCount,
+  onUnwatchLast,
 }: EpisodeOptionsModalProps) {
+  const cokluIzleme = playCount >= 2;
   const { t } = useTranslation(['media', 'common']);
   const { isGuest } = useAuth();
 
@@ -66,6 +72,22 @@ export default function EpisodeOptionsModal({
         )}
       </TouchableOpacity>
 
+      {/* 1.0.1 Dal 4 · 2+ izlemede yalnız son izleme geri alınabilir; «tümü» ayrı ve onaylı. */}
+      {cokluIzleme && (
+        <TouchableOpacity style={styles.modalButton} onPress={onUnwatchLast} disabled={!!loadingOption}>
+          {loadingOption === 'last' ? (
+            <ActivityIndicator size="small" color={nativeColor('steel', '#3b82f6')} />
+          ) : (
+            <>
+              <RotateCcw size={20} color={nativeColor('steel', '#60a5fa')} />
+              <Text style={[styles.modalButtonText, { color: nativeColor('steel', '#60a5fa') }]}>
+                {t('unwatchLastPlay', { from: playCount, to: playCount - 1 })}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
       {/* 2.6.8 MENU-01: başlık ve açıklama eskiden yan yana yapışıyordu
           («İzlemeyi KaldırTüm izleme kayıtları silinecek») — artık alt alta. */}
       <TouchableOpacity style={[styles.modalButton, styles.lastButton]} onPress={onUnwatch} disabled={!!loadingOption}>
@@ -75,8 +97,12 @@ export default function EpisodeOptionsModal({
           <>
             <Trash2 size={20} color="#ef4444" />
             <View style={styles.destructiveTextWrap}>
-              <Text style={[styles.modalButtonText, styles.destructiveText]}>{t('unwatch')}</Text>
-              <Text style={styles.destructiveSubtext}>{t('allRecordsDeleted')}</Text>
+              <Text style={[styles.modalButtonText, styles.destructiveText]}>
+                {cokluIzleme ? t('unwatchAllPlays') : t('unwatch')}
+              </Text>
+              <Text style={styles.destructiveSubtext}>
+                {cokluIzleme ? t('unwatchAllCount', { count: playCount }) : t('allRecordsDeleted')}
+              </Text>
             </View>
           </>
         )}

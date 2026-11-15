@@ -4,3 +4,4 @@
 export * from './mutations/progress';
 export * from './mutations/collections';
 export * from './mutations/ratings';
+export * from './mutations/sonIzleme';

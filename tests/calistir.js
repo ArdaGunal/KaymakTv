@@ -155,6 +155,7 @@ const TAKIMLAR = [
   { ad: 'birim-dosyasi', grup: 'sunucu', dosya: 'sunucu/birim-dosyasi.test.js', aciklama: 'Tasima D6/D8: kaymaktv.service sunucu duzeni + kodda Pi yolu/adresi kalmadi' },
   { ad: 'kaymak-no', grup: 'arayuz', dosya: 'arayuz/kaymak-no.test.mjs', aciklama: 'Kimlik Faz 2 (066): KaymakNo #48291735 gorunumu, profil + arama baglantisi' },
   { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492 + 1.0.1 Dal 1: isim ekrani (gorunen ad zorunlu, @kullanici_adi onerisi 300 ms, tek PATCH) + istatistik suresi' },
+  { ad: 'izleme-sayisi', grup: 'arayuz', dosya: 'arayuz/izleme-sayisi.test.mjs', aciklama: '1.0.1 Dal 4: izleme sayisi/2x, iyimser tekrar damgaya bagli, son izlemeyi geri al, sure + tekrar ozeti, aylik grafik' },
   { ad: 'onay-kutusu', grup: 'arayuz', dosya: 'arayuz/onay-kutusu.test.mjs', aciklama: 'GORSEL-01: onay/bilgi kutulari koyu ConfirmHost, dogrudan Alert.alert yasak, kuyruk' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];

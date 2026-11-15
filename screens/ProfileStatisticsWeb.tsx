@@ -18,7 +18,7 @@ export default function ProfileStatisticsScreenWeb() {
   const { t } = useTranslation('media');
   const [activeTab, setActiveTab] = useState<StatsTab>('shows');
 
-  const { summary, completion, genres, monthly, ratings, hasStats, hasContent } =
+  const { summary, completion, genres, monthly, monthlyStatus, ratings, hasStats, hasContent } =
     useProfileStatistics(activeTab);
 
   return (
@@ -64,7 +64,7 @@ export default function ProfileStatisticsScreenWeb() {
           <>
             <View style={styles.chartsGrid}>
               <GenreDonutChartWide data={genres} />
-              <MonthlyFrequencyChartWide data={monthly} activeTab={activeTab} />
+              <MonthlyFrequencyChartWide data={monthly} activeTab={activeTab} status={monthlyStatus} />
             </View>
 
             <RatingDistributionChart ratings={ratings} />

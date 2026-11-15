@@ -5,6 +5,7 @@ import { toggleHiddenFromProgress } from './collections';
 import { CACHE_KEYS, safeStorageSet, setWatchedShows, setWatchlistShows, setShowProgressMap, persistShowProgressMap } from '../utils';
 import { izlenenDiziyeEkle, izlemeListesindenDus } from './optimistikDizi';
 import { logError } from '../../../utils/errorLog';
+import { izlemeKaldiMi } from '../../../utils/izlemeSayisi';
 
 // Kullanıcı "Bırak" ile Trakt'ta gizlediği bir diziyi/filmi sonradan yeniden
 // izlemeye başlarsa gizleme otomatik kaldırılır — aksi halde dizi/film Trakt'ın
@@ -104,6 +105,22 @@ export const reactivateShowTracking = (showId: number, mediaData?: any) => {
 /** Mağazadaki mevcut ilerleme — tazeleme başarısız olursa geri düşülür. */
 export const mevcutIlerleme = (showId: number) =>
   (useLibraryStore.getState() as any)?.showProgressMap?.[showId] ?? null;
+
+/**
+ * 1.0.1 Dal 4 · Geri alma SUNUCUDA başarılı olduktan sonra: dizide (sezon 0 dahil) izlenmiş bölüm
+ * kalmadıysa dizi `watchedShows`'tan düşer. Yoksa analiz (tekil dizi, tür) tam senkrona kadar onu
+ * saymaya devam ediyordu. Elde ilerleme yoksa dokunulmaz (bilinmeyeni silmek yanlış olurdu).
+ */
+export const izlenmeyenDiziyiDusur = (showId: number) => {
+  const ilerleme = mevcutIlerleme(showId);
+  if (!ilerleme || izlemeKaldiMi(ilerleme)) return;
+  setWatchedShows((prev: any[]) => {
+    const liste = (prev || []).filter((p: any) => p?.show?.ids?.trakt !== showId);
+    if (liste.length === (prev || []).length) return prev;
+    safeStorageSet(CACHE_KEYS.watchedShows, JSON.stringify(liste));
+    return liste;
+  });
+};
 
 /**
  * Kaymak kullanıcısı için ilerlemeyi SUNUCUDAN tazeler, mağazaya yazar ve

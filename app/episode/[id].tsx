@@ -240,6 +240,7 @@ export default function EpisodeDetailScreen() {
                   votes={episodeData?.votes || 0}
                   myRating={myRating}
                   isWatched={actions.isWatchedLocal}
+                  playCount={actions.playCount}
                   isCheckLoading={actions.isCheckLoading}
                   airStatus={airStatus}
                   hasShowProgress={!!hasShowProgress}
@@ -309,6 +310,7 @@ export default function EpisodeDetailScreen() {
           episodeData={episodeData}
           myRating={myRating}
           isWatchedLocal={actions.isWatchedLocal}
+          playCount={actions.playCount}
           isCheckLoading={actions.isCheckLoading}
           hasShowProgress={!!hasShowProgress}
           showProgressPercentage={showProgressPercentage}

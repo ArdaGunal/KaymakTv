@@ -30,10 +30,21 @@
 /** Trakt ilerlemeyi özel bölümleri (sezon 0) saymaz — sunucu da saymıyor. */
 const OZEL_SEZON = 0;
 
+// `utils/izlemeSayisi.ts` · `bolumIzlemeSayisi` ile AYNI kural. Kopya bilinçli: bu dosya düz Node
+// testlerinde (`tests/ilerleme`, `tests/arayuz`) tek başına yükleniyor ve oradaki çözümleyici saf
+// dosyalar arası uzantısız içe aktarmayı açamıyor. Eşlik `tests/arayuz/izleme-sayisi.test.mjs`'te.
+const bolumIzlemeSayisi = (b: { completed?: boolean; plays?: number } | null | undefined): number => {
+  if (!b?.completed) return 0;
+  const n = Number(b.plays);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+};
+
 type Bolum = {
   number: number;
   completed?: boolean;
   last_watched_at?: string | null;
+  /** 081 · izleme sayısı (sunucu); iyimser artış damgaya bağlı, bkz. `bolumleriIsaretle`. */
+  plays?: number;
   title?: string | null;
   first_aired?: string | null;
 };
@@ -49,7 +60,14 @@ export type Ilerleme = {
   seasons?: Sezon[];
   next_episode?: { season: number; number: number; title: string | null } | null;
   last_episode?: { season: number; number: number; title: string | null } | null;
+  /** 081 · ek tekrar izleme sayısı (sezon 0 dahil); iyimser güncellenir, sunucu turu kesinleştirir. */
+  rewatch_plays?: number;
 };
+
+/** Ek tekrar sayacını `fark` kadar oynatır; alan hiç yoksa ve fark yoksa dokunmaz. */
+const tekrarYamasi = (ilerleme: Ilerleme, fark: number): Partial<Ilerleme> =>
+  fark === 0 && ilerleme.rewatch_plays === undefined
+    ? {} : { rewatch_plays: Math.max(0, (ilerleme.rewatch_plays ?? 0) + fark) };
 
 /** Bölüm yayınlandı mı — `null` "bilinmiyor" demek ve YAYINLANDI sayılır (039). */
 const yayinda = (b: Bolum, simdi: number) => {
@@ -170,6 +188,7 @@ export const bolumleriIsaretle = (
   const hedef = new Set(episodeNumbers);
   let yeniIsaret = 0;
   let degisti = false;
+  let ekTekrar = 0;
 
   const kopya: Ilerleme = {
     ...ilerleme,
@@ -177,16 +196,24 @@ export const bolumleriIsaretle = (
       ...s,
       episodes: (s.episodes || []).map((b) => {
         if (s.number !== seasonNumber || !hedef.has(b.number)) return { ...b };
+        // 🔴 081 · İZLEME SAYISI DAMGAYA BAĞLI, körlemesine artmaz: outbox bekleyen ve yeni onaylanmış
+        // işleri SUNUCU verisinin üstüne yeniden yansıtıyor (`outbox/projection.ts`). Sunucu bu izlemeyi
+        // zaten içeriyorsa son damga ≥ bu damgadır → sayı aynı kalır (aynı iş iki kez sayılmaz).
+        const yeni = !b.last_watched_at || Date.parse(b.last_watched_at) < Date.parse(watchedAt);
+        let plays = bolumIzlemeSayisi(b);
         if (!b.completed) {
           degisti = true;
           if (seasonNumber !== OZEL_SEZON) yeniIsaret++;
+          plays = 1;
+        } else if (yeni) {
+          plays += 1;
+          ekTekrar++;
         }
-        const stamp = !b.last_watched_at || Date.parse(b.last_watched_at) < Date.parse(watchedAt)
-          ? watchedAt : b.last_watched_at;
-        return { ...b, completed: true, last_watched_at: stamp };
+        return { ...b, completed: true, last_watched_at: yeni ? watchedAt : b.last_watched_at, plays };
       }),
     })),
   };
+  Object.assign(kopya, tekrarYamasi(ilerleme, ekTekrar));
   // M441: sunucu zaten bu tikleri döndürdüyse yalnız tarihi yamala.
   // Kısmi seasons listesinden tekrar hesaplayıp kanonik next/sayaçları bozma.
   if (!degisti && typeof ilerleme.aired === 'number' && typeof ilerleme.completed === 'number') return { ...kopya, last_watched_at:
@@ -228,17 +255,45 @@ export const bolumleriGeriAl = (
   if (!ilerleme?.seasons?.length) return null;
   const hepsi = episodeNumbers === 'tumu';
   const hedef = hepsi ? null : new Set(episodeNumbers as number[]);
+  let silinenTekrar = 0;
 
   const kopya: Ilerleme = {
     ...ilerleme,
     seasons: ilerleme.seasons.map((s) => ({
       ...s,
-      episodes: (s.episodes || []).map((b) =>
-        s.number === seasonNumber && (hepsi || hedef!.has(b.number))
-          ? { ...b, completed: false, last_watched_at: null }
-          : { ...b },
-      ),
+      episodes: (s.episodes || []).map((b) => {
+        if (s.number !== seasonNumber || !(hepsi || hedef!.has(b.number))) return { ...b };
+        silinenTekrar += Math.max(0, bolumIzlemeSayisi(b) - 1);
+        return { ...b, completed: false, last_watched_at: null, plays: 0 };
+      }),
     })),
   };
+  Object.assign(kopya, tekrarYamasi(ilerleme, -silinenTekrar));
   return yenidenHesapla(kopya, simdi);
+};
+
+/**
+ * 1.0.1 Dal 4 · Bölümün YALNIZ son izlemesini geri alır (3x → 2x). Tek izlemesi kalan bölümde
+ * `bolumleriGeriAl` ile aynı sonuç (tik kalkar). Önceki izlemenin damgası yerelde bilinmediği için
+ * `last_watched_at` sunucu turuna kadar eski hâliyle kalır (sayaçlar onu kullanmaz).
+ */
+export const sonIzlemeyiGeriAl = (
+  ilerleme: Ilerleme | null | undefined,
+  seasonNumber: number,
+  episodeNumber: number,
+  simdi: number = Date.now(),
+): Ilerleme | null => {
+  if (!ilerleme?.seasons?.length) return null;
+  const b = ilerleme.seasons.find((s) => s.number === seasonNumber)?.episodes?.find((e) => e.number === episodeNumber);
+  const plays = bolumIzlemeSayisi(b);
+  if (plays <= 1) return bolumleriGeriAl(ilerleme, seasonNumber, [episodeNumber], simdi);
+  return {
+    ...ilerleme,
+    ...tekrarYamasi(ilerleme, -1),
+    seasons: ilerleme.seasons.map((s) => ({
+      ...s,
+      episodes: (s.episodes || []).map((e) =>
+        s.number === seasonNumber && e.number === episodeNumber ? { ...e, plays: plays - 1 } : { ...e }),
+    })),
+  };
 };

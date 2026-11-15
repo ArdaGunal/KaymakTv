@@ -1,4 +1,5 @@
 import React from 'react';
+import { izlendiMetni } from '../../utils/izlemeSayisi';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,8 @@ interface EpisodeHeroMobileProps {
   episodeData: any;
   myRating?: number | null;
   isWatchedLocal: boolean;
+  /** 1.0.1 Dal 4 · izleme sayısı; 2+ ise «İzlendi · 3x». */
+  playCount: number;
   isCheckLoading: boolean;
   hasShowProgress: boolean;
   showProgressPercentage: number;
@@ -52,6 +55,7 @@ export default function EpisodeHeroMobile({
   episodeData,
   myRating,
   isWatchedLocal,
+  playCount,
   isCheckLoading,
   hasShowProgress,
   showProgressPercentage,
@@ -177,7 +181,7 @@ export default function EpisodeHeroMobile({
                   <>
                     <Check size={14} color={isWatchedLocal ? "#10b981" : nativeColor('muted', "#a3a3a3")} strokeWidth={3} />
                     <Text style={[styles.userRatingText, isWatchedLocal ? { color: '#10b981' } : null]}>
-                      {isWatchedLocal ? t('watched') : t('markAsWatched')}
+                      {isWatchedLocal ? izlendiMetni(t('watched'), playCount) : t('markAsWatched')}
                     </Text>
                   </>
                 )}
