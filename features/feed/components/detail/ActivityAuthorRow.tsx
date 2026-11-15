@@ -44,7 +44,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   middle: { flex: 1, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
-  username: { color: nativeColor('text', '#f8fafc'), fontWeight: '700', fontSize: 15, flexShrink: 0, maxWidth: '70%' },
-  handle: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 13, flexShrink: 1 },
+  username: { color: nativeColor('text', '#f8fafc'), fontWeight: '700', fontSize: 15, flexShrink: 1 },
+  // Dar ekranda önce @ad kısalır (shrink ağırlığı 1'e 3).
+  handle: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 13, flexShrink: 3 },
   date: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12 },
 });

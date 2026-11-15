@@ -286,13 +286,13 @@ const styles = StyleSheet.create({
     color: nativeColor('text', '#f8fafc'),
     fontWeight: '700',
     fontSize: 14,
-    flexShrink: 0,
-    maxWidth: '70%',
+    // Ad önce sığar; dar kartta önce @ad kısalır (shrink ağırlığı 1'e 3).
+    flexShrink: 1,
   },
   handle: {
     color: nativeColor('mutedDeep', '#64748b'),
     fontSize: 13,
-    flexShrink: 1,
+    flexShrink: 3,
   },
   label: {
     color: nativeColor('body', '#cbd5e1'),
