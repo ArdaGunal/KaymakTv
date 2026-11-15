@@ -1,23 +1,23 @@
 import { nativeColor } from '../../constants/mobilePalette';
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, TouchableOpacity, StyleSheet, View, Platform, Share } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, Share2 } from '../icons';
+import { Copy, Check } from '../icons';
 import { logError } from '../../utils/errorLog';
-import { kaymakNoMetni, profilPaylasimLinki } from '../../utils/kaymakNo';
-
+import { kaymakNoMetni } from '../../utils/kaymakNo';
 
 /**
  * KaymakNo etiketi (Kimlik birliği Faz 2 · 066). Değişmez hesap numarası; dokununca panoya
  * kopyalanır. Numara yoksa (066 uygulanmamış / eski Worker) hiçbir şey çizmez.
  * 🔴 Yalnız gösterim — giriş/yetki anahtarı değildir.
- * Faz 6 (M522, D7): yanında «paylaş» — `kaymaktv.com/u/<no>` (ad değişse de kırılmaz).
+ * 1.0.1 Dal 2 (kullanıcı kararı, 2026-11-15): profil başlığından kaldırıldı; yalnız «Profilim»
+ * ekranındaki «Kaymak ID» satırında. Paylaş artık ayrı düğme (`ProfilPaylasDugmesi`); `#numara`
+ * ile arama değişmedi.
  */
 export default function KaymakNoEtiketi({ no }: { no: number | null | undefined }) {
   const { t } = useTranslation('common');
   const [kopyalandi, setKopyalandi] = useState(false);
-  const [linkKopyalandi, setLinkKopyalandi] = useState(false);
   const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (zamanlayici.current) clearTimeout(zamanlayici.current); }, []);
 
@@ -35,29 +35,7 @@ export default function KaymakNoEtiketi({ no }: { no: number | null | undefined 
     }
   };
 
-  const link = profilPaylasimLinki(no);
-  const paylas = async () => {
-    if (!link) return;
-    try {
-      const nav: any = Platform.OS === 'web' ? (globalThis as any).navigator : null;
-      if (Platform.OS !== 'web') {
-        await Share.share({ message: `${t('profilPaylasMesaj')}
-${link}` });
-      } else if (nav?.share) {
-        await nav.share({ url: link, text: t('profilPaylasMesaj') });
-      } else {
-        await Clipboard.setStringAsync(link);
-        setLinkKopyalandi(true);
-        if (zamanlayici.current) clearTimeout(zamanlayici.current);
-        zamanlayici.current = setTimeout(() => setLinkKopyalandi(false), 1500);
-      }
-    } catch (error) {
-      logError('kaymakNo.paylas', error);
-    }
-  };
-
   return (
-    <View style={styles.satir}>
     <TouchableOpacity
       onPress={kopyala}
       style={styles.kap}
@@ -67,29 +45,14 @@ ${link}` });
       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
     >
       <Text style={styles.metin}>{metin}</Text>
-      {kopyalandi ? <Check size={12} color="#4ade80" /> : <Copy size={12} color={nativeColor('mutedDeep', "#64748b")} />}
+      {kopyalandi ? <Check size={14} color="#4ade80" /> : <Copy size={14} color={nativeColor('muted', "#94a3b8")} />}
       {kopyalandi && <Text style={styles.ok}>{t('kaymakNoKopyalandi')}</Text>}
     </TouchableOpacity>
-    {!!link && (
-      <TouchableOpacity
-        onPress={paylas}
-        accessibilityRole="button"
-        accessibilityLabel={t('profilPaylas')}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        style={styles.paylas}
-      >
-        {linkKopyalandi ? <Check size={12} color="#4ade80" /> : <Share2 size={12} color={nativeColor('mutedDeep', "#64748b")} />}
-        {linkKopyalandi && <Text style={styles.ok}>{t('profilLinkKopyalandi')}</Text>}
-      </TouchableOpacity>
-    )}
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  satir: { flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'flex-start', marginTop: 2 },
-  kap: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  paylas: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metin: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12, fontWeight: '600', letterSpacing: 0.5 },
-  ok: { color: '#4ade80', fontSize: 11, fontWeight: '600' },
+  kap: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  metin: { color: nativeColor('body', '#cbd5e1'), fontSize: 15, fontWeight: '600', letterSpacing: 0.5 },
+  ok: { color: '#4ade80', fontSize: 12, fontWeight: '600' },
 });

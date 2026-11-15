@@ -16,9 +16,12 @@ T.ok('Aralik disi / yok -> null (gosterilmez)', kaymakNoMetni(9999999) === null 
 T.H('Bagli ekranlar');
 T.ok('Profil servisi kaymakNo okuyor (yoksa null)', /kaymakNo: typeof response\.data\.kaymakNo === 'number'/.test(oku('features/feed/services/profile.ts')));
 T.ok('Kendi profil kancasi kaymakNo donduruyor', /kaymakNo: veri\?\.kaymakNo \?\? null/.test(oku('hooks/useMyTraktProfile.ts')) && /sonuc\.kaymakNo = kaymakProfil\.kaymakNo/.test(oku('store/benimProfilimStore.ts')));
-T.ok('Mobil baslik etiketi ciziyor', oku('components/profile/ProfileHeader.tsx').includes('<KaymakNoEtiketi no={kaymakNo} />'));
+// 1.0.1 Dal 2 (kullanici karari 2026-11-15): numara profil basligindan «Profilim» ekranina tasindi;
+// basliklar numarayi yalniz paylasim baglantisi icin alir.
+T.ok('Profilim ekrani etiketi ciziyor (basliklarda yok)', oku('screens/EditProfileMobile.tsx').includes('<KaymakNoEtiketi no={kaymakNo} />')
+  && !oku('components/profile/ProfileHeader.tsx').includes('KaymakNoEtiketi'));
 T.ok('Mobil: kendi + baskasinin profili numarayi veriyor', oku('screens/ProfileMobile.tsx').includes('kaymakNo={kaymakNo}') && oku('screens/PublicProfileMobile.tsx').includes('kaymakNo={kaymakProfil?.profile.kaymakNo}'));
-T.ok('Web: kendi + baskasinin profili etiketi ciziyor', oku('app/(protected)/(tabs)/profile.web.tsx').includes('<KaymakNoEtiketi no={kaymakNo} />') && oku('app/(protected)/user/[slug].web.tsx').includes('<KaymakNoEtiketi no={kaymakProfil?.profile.kaymakNo} />'));
+T.ok('Web: kendi + baskasinin profili numarayi paylas dugmesine veriyor', oku('app/(protected)/(tabs)/profile.web.tsx').includes('<ProfilPaylasDugmesi kaymakNo={kaymakNo}') && oku('app/(protected)/user/[slug].web.tsx').includes('<ProfilPaylasDugmesi kaymakNo={kaymakProfil?.profile.kaymakNo}'));
 T.ok('Arama sonucunda numara', oku('features/feed/components/UserSearchResults.tsx').includes('kaymakNoMetni(kisi.kaymakNo)'));
 T.ok('Etiket panoya kopyalar (giris anahtari degil, yalniz gosterim)', /Clipboard\.setStringAsync\(metin\)/.test(oku('components/profile/KaymakNoEtiketi.tsx')));
 

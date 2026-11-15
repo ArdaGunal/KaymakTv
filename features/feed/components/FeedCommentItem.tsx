@@ -10,6 +10,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useQuickBlock } from '../hooks/useQuickBlock';
 import CardMenu from './CardMenu';
 import ReportContentModal from './ReportContentModal';
+import { profilAdSatirlari } from '../../../utils/profilAdi';
 
 interface FeedCommentItemProps {
   comment: FeedComment;
@@ -32,7 +33,7 @@ export default function FeedCommentItem({ comment, isOwn, isLiked, onToggleLike,
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
-          <Text style={styles.username}>{comment.username}</Text>
+          <Text style={styles.username} numberOfLines={1}>{profilAdSatirlari(comment.displayName, comment.username).baslik}</Text>
           <Text style={styles.timestamp}>{formatRelativeTime(comment.createdAt, t)}</Text>
         </View>
 

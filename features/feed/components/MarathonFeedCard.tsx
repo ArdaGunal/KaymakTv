@@ -27,6 +27,7 @@ import { useMyUserId } from '../hooks/useMyUserId';
 import { useQuickBlock } from '../hooks/useQuickBlock';
 import { useAuth } from '../../../context/AuthContext';
 import CardMenu from './CardMenu';
+import { profilAdSatirlari } from '../../../utils/profilAdi';
 
 interface MarathonFeedCardProps {
   activity: MarathonActivity;
@@ -51,7 +52,7 @@ export default function MarathonFeedCard({ activity, onDeleteActivity }: Maratho
   // "sildim" yanılsaması yaratıyordu.
   // 🪪 `users.id` ile (M339 · §F6) — bkz. FeedCard'daki aynı not.
   const isOwnActivity = !!myUserId && myUserId === activity.user.id;
-  const message = getMarathonMessage(activity.user.username, activity.episodeCount, t);
+  const message = getMarathonMessage(profilAdSatirlari(activity.user.displayName, activity.user.username).baslik, activity.episodeCount, t);
   const accentColor = nativeColor('steel', message.color);
 
   const handlePressProfile = () => {

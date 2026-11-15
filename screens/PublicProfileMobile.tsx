@@ -14,7 +14,7 @@ import ProfileHeaderSkeleton from '../components/profile/ProfileHeaderSkeleton';
 import FeedCard from '../features/feed/components/FeedCard';
 import MarathonFeedCard from '../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../features/feed/components/FeedSkeleton';
-import BlockUserButton from '../features/feed/components/BlockUserButton';
+import ProfilMenusu from '../features/publicProfile/components/ProfilMenusu';
 import BlockedProfileLock from '../features/feed/components/BlockedProfileLock';
 import PrivateProfileLock from '../features/publicProfile/components/PrivateProfileLock';
 import ReportContentModal from '../features/feed/components/ReportContentModal';
@@ -146,8 +146,6 @@ export default function PublicProfileMobile() {
       isFollowPending={isFollowPending}
       isLoadingConnection={isLoadingConnection}
       onPressAction={toggleFollow}
-      // Adım 4c (M609): «Profili bildir» — açıklama olsun olmasın, bizde kaydı olan her başka kullanıcı için.
-      onReportBio={canShowBlockButton && hedefUserId ? () => setBioRaporAcik(true) : undefined}
       onPressFollowers={() => {
         router.push({ pathname: `/user/${profile.username}/network`, params: { type: 'followers' } });
       }}
@@ -169,11 +167,10 @@ export default function PublicProfileMobile() {
         >
           <ChevronLeft color="#fff" size={26} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {profile ? `@${profile.username}` : t('media:profile', 'Profil')}
-        </Text>
-        {canShowBlockButton ? (
-          <BlockUserButton targetUserId={hedefUserId as string} />
+        {/* 1.0.1 (2026-11-15): üst çubukta `@kullanıcı_adı` yazmıyor — hemen altındaki ad bloğunda
+            zaten var. Sağda «⋮»: Profili bildir + Engelle / Engeli kaldır (Adım 4c bildirme burada). */}
+        {canShowBlockButton && hedefUserId ? (
+          <ProfilMenusu targetUserId={hedefUserId} onReport={() => setBioRaporAcik(true)} />
         ) : (
           <View style={styles.headerSpacer} />
         )}
@@ -296,14 +293,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginHorizontal: 12,
   },
   headerSpacer: {
     width: 40,

@@ -27,6 +27,8 @@ const load = tsLoader(root, {
   '../../../utils/errorLog': { logError: () => {} },
   // Adım 4b (M609): yayın servisi kural onayı kapısını içe aktarır; kapının kendi testi `kural-onayi`.
   '../../../services/kuralOnayiKapisi': { kuralOnayiSagla: async () => true, kuralOnayiZorunlu: async () => {}, KuralOnayiReddi: class extends Error {} },
+  // 1.0.1 Dal 2: iyimser kart görünen adı profil deposundan okur (depo burada boş).
+  '../../../store/benimProfilimStore': { useBenimProfilimStore: { getState: () => ({ veri: null }) } },
 });
 const { useFeedStore } = load('features/feed/store/feedStore.ts');
 const { publishActivities } = load('features/feed/services/feedPublish.ts');

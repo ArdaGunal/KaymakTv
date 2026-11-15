@@ -206,7 +206,6 @@
   "pendingAction": "Onay Bekleniyor",
   "pollingAuth": "Giriş bekleniyor...",
   "premiere": "PRÖMİYER",
-  "profile": "Profil",
   "profileActivityEmptyText": "Dizi/film izledikçe veya puanladıkça burada görünecek.",
   "profileActivityEmptyTitle": "Henüz aktivite yok",
   "profileActivityErrorText": "Bağlantını kontrol edip tekrar dene.",
@@ -352,5 +351,7 @@
   "bitisYeniBolumGun": "Yeni bölüm {{count}} gün sonra",
   "bitisYeniBolumYarin": "Yeni bölüm yarın",
   "bitisYeniBolumBugun": "Yeni bölüm bugün",
-  "bitisGuncel": "Yayınlanan tüm bölümleri izledin"
+  "bitisGuncel": "Yayınlanan tüm bölümleri izledin",
+  "editProfileKaymakIdLabel": "Kaymak ID",
+  "editProfileKaymakIdHint": "Arkadaşların seni aramada bu numarayla da bulabilir."
 }

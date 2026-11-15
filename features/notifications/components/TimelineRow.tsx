@@ -8,6 +8,7 @@ import { Tv, Sparkles, Film, Inbox, PlayCircle, BarChart2, MessageCircle, UserPl
 import { formatRelativeTime } from '../../../utils/formatRelativeTime';
 import type { NotificationCategoryId } from '../types';
 import type { TimelineEntry } from '../inbox/timeline';
+import { profilAdSatirlari } from '../../../utils/profilAdi';
 
 /**
  * Birleşik bildirim akışındaki TEK satır (docs/design/notifications.md § 11).
@@ -71,7 +72,8 @@ export function TimelineRow({ entry }: { entry: TimelineEntry }) {
     );
   }
 
-  const displayName = entry.name || entry.username;
+  const ad = profilAdSatirlari(entry.name, entry.username);
+  const displayName = ad.baslik;
   const message =
     entry.activityType === 'newFollower'
       ? t('activityNewFollower', '{{name}} sizi takip etmeye başladı', { name: displayName })
@@ -95,7 +97,7 @@ export function TimelineRow({ entry }: { entry: TimelineEntry }) {
         </Text>
         <View style={styles.socialMeta}>
           <UserPlus size={11} color={nativeColor('mutedDeep', "#64748b")} />
-          <Text style={styles.socialMetaText}>@{entry.username}</Text>
+          {!!ad.altSatir && <Text style={styles.socialMetaText}>{ad.altSatir}</Text>}
         </View>
       </View>
 

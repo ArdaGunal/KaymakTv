@@ -7,6 +7,7 @@ import { FeedActivity } from '../../types';
 import { ACTIVITY_META } from '../../utils/activityMeta';
 import { formatExactDate } from '../../../../utils/formatExactDate';
 import CardMenu from '../CardMenu';
+import { profilAdSatirlari } from '../../../../utils/profilAdi';
 
 interface Props {
   activity: FeedActivity;
@@ -20,6 +21,7 @@ export default function ActivityAuthorRow({ activity, onPressProfile, menuProps 
   const { i18n } = useTranslation('feed');
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
+  const ad = profilAdSatirlari(activity.user.displayName, activity.user.username);
   return (
     <View style={styles.row}>
       <TouchableOpacity activeOpacity={0.7} onPress={onPressProfile}>
@@ -27,7 +29,8 @@ export default function ActivityAuthorRow({ activity, onPressProfile, menuProps 
       </TouchableOpacity>
       <View style={styles.middle}>
         <TouchableOpacity activeOpacity={0.7} onPress={onPressProfile} style={styles.nameRow}>
-          <Text style={styles.username} numberOfLines={1}>{activity.user.username}</Text>
+          <Text style={styles.username} numberOfLines={1}>{ad.baslik}</Text>
+          {!!ad.altSatir && <Text style={styles.handle} numberOfLines={1}>{ad.altSatir}</Text>}
           <Icon size={14} color={meta.color} />
         </TouchableOpacity>
         <Text style={styles.date}>{formatExactDate(activity.activityAt, i18n.language)}</Text>
@@ -40,7 +43,8 @@ export default function ActivityAuthorRow({ activity, onPressProfile, menuProps 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   middle: { flex: 1, gap: 2 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-  username: { color: nativeColor('text', '#f8fafc'), fontWeight: '700', fontSize: 15, flexShrink: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
+  username: { color: nativeColor('text', '#f8fafc'), fontWeight: '700', fontSize: 15, flexShrink: 0, maxWidth: '70%' },
+  handle: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 13, flexShrink: 1 },
   date: { color: nativeColor('mutedDeep', '#64748b'), fontSize: 12 },
 });

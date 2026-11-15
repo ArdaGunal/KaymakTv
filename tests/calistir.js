@@ -81,6 +81,8 @@ const TAKIMLAR = [
   { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17 + 2.6.8 ISTAT-01/02: yerel istatistik, ag ice aktarimi yok, ozet kutulari' },
   { ad: 'gorunen-ad', grup: 'arayuz', dosya: 'arayuz/gorunen-ad.test.mjs', aciklama: '1.0.1 Dal 1: gorunen ad kurali uc katmanda ayni (istemci + Worker vektorleri, 080 deseni, sizinti degismezi)' },
   { ad: 'isim-davranis', grup: 'arayuz', dosya: 'arayuz/isim-davranis.test.mjs', aciklama: '1.0.1 Dal 1 denetim: oneri yalniz guncel girdi+oturuma ait (bayat oneri yok), gorunen ad penceresi gorunmezle adi silmez (hook davranisi, sahte zaman + kontrollu ag)' },
+  { ad: 'profil-basligi', grup: 'arayuz', dosya: 'arayuz/profil-basligi.test.mjs', aciklama: '1.0.1 Dal 2: profil basligi sade (ad tekrari yok, @ad dokununca kopyalanir, paylas eylem dugmesi yaninda, Kaymak ID Profilim de)' },
+  { ad: 'ad-yuzeyleri', grup: 'arayuz', dosya: 'arayuz/ad-yuzeyleri.test.mjs', aciklama: '1.0.1 Dal 2: gorunen ad akis/yorum/ag/arama/bildirimde profil basligiyla ayni kural; 083 yalniz display_name' },
   { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M439: disk ACK oncesi yesil yok, cift dokunus kilidi' },
   { ad: 'arama', grup: 'arayuz', dosya: 'arayuz/arama.test.mjs', aciklama: 'M415: Kesfet aramasi 1 harften baslar' },
   { ad: 'film', grup: 'arayuz', dosya: 'arayuz/film-izleme.test.mjs', aciklama: 'M417: listede olmayan film isaretlenince ekranda gorunur' },

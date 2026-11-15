@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { KaymakUserSonucu, AramaHatasi } from '../../../services/api/kaymakSocial';
 import { kaymakNoMetni } from '../../../utils/kaymakNo';
+import { profilAdSatirlari } from '../../../utils/profilAdi';
 
 /**
  * Arama sonuç listesi — Faz T · T3.5.
@@ -69,6 +70,7 @@ export default function UserSearchResults({ results, error, onSelect }: Props) {
   return (
     <View style={styles.liste}>
       {results.map((kisi) => {
+        const ad = profilAdSatirlari(kisi.displayName, kisi.username);
         return (
           <TouchableOpacity
             key={kisi.id}
@@ -83,15 +85,15 @@ export default function UserSearchResults({ results, error, onSelect }: Props) {
             <View style={styles.metinAlani}>
               <View style={styles.adSatiri}>
                 <Text style={styles.ad} numberOfLines={1}>
-                  {kisi.displayName || `@${kisi.username}`}
+                  {ad.baslik}
                 </Text>
                 {kisi.isPrivate && <Lock size={13} color={nativeColor('muted', "#94a3b8")} />}
               </View>
-              {/* §C24 — görünen ad BENZERSİZ DEĞİL; kimliği @username ayırt
-                  eder, bu yüzden ad varken de altında HER ZAMAN duruyor. */}
-              {(!!kisi.displayName || !!kaymakNoMetni(kisi.kaymakNo)) && (
+              {/* §C24 — görünen ad BENZERSİZ DEĞİL; farklıysa @username altında
+                  (utils/profilAdi.ts). Tek satırlık adda başlık zaten kullanıcı adı. */}
+              {(!!ad.altSatir || !!kaymakNoMetni(kisi.kaymakNo)) && (
                 <Text style={styles.kullaniciAdi} numberOfLines={1}>
-                  {[kisi.displayName ? `@${kisi.username}` : null, kaymakNoMetni(kisi.kaymakNo)].filter(Boolean).join(' · ')}
+                  {[ad.altSatir, kaymakNoMetni(kisi.kaymakNo)].filter(Boolean).join(' · ')}
                 </Text>
               )}
             </View>

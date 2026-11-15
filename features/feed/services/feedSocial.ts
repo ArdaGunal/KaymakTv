@@ -14,6 +14,8 @@ export interface FeedComment {
   userId: string;
   traktSlug: string;
   username: string;
+  /** `users.display_name` (083). Ad çizimi `utils/profilAdi.ts`. */
+  displayName: string | null;
   avatarUrl: string | null;
   body: string;
   spoiler: boolean;
@@ -22,7 +24,7 @@ export interface FeedComment {
 }
 
 const COMMENT_COLUMNS =
-  'id, activity_id, body, spoiler, like_count, created_at, user:users!inner(id, trakt_slug, username, avatar_url)';
+  'id, activity_id, body, spoiler, like_count, created_at, user:users!inner(id, trakt_slug, username, display_name, avatar_url)';
 
 interface CommentRow {
   id: string;
@@ -31,7 +33,7 @@ interface CommentRow {
   spoiler: boolean;
   like_count: number;
   created_at: string;
-  user: { id: string; trakt_slug: string; username: string; avatar_url: string | null };
+  user: { id: string; trakt_slug: string; username: string; display_name: string | null; avatar_url: string | null };
 }
 
 function mapCommentRow(row: CommentRow): FeedComment {
@@ -41,6 +43,7 @@ function mapCommentRow(row: CommentRow): FeedComment {
     userId: row.user.id,
     traktSlug: row.user.trakt_slug,
     username: row.user.username,
+    displayName: row.user.display_name ?? null,
     avatarUrl: row.user.avatar_url,
     body: row.body,
     spoiler: row.spoiler,

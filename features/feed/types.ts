@@ -24,6 +24,8 @@ export interface FeedUser {
   id: string;
   traktSlug: string;
   username: string;
+  /** `users.display_name` (083 ile anon okunur). Ad çizimi `utils/profilAdi.ts`. */
+  displayName: string | null;
   avatarUrl: string | null;
 }
 

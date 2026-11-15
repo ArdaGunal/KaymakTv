@@ -15,6 +15,7 @@ import { NotificationTimeline } from '../../features/notifications/components/No
 import { EnableNotificationsBanner } from '../../features/notifications/components/EnableNotificationsBanner';
 import { useInboxStore } from '../../features/notifications/inbox/useInboxStore';
 import type { GelenIstek } from '../../services/api/kaymakSocial';
+import { profilAdSatirlari } from '../../utils/profilAdi';
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -26,20 +27,19 @@ interface FollowRequestRowProps {
 
 function FollowRequestRow({ request, onAccept, onReject }: FollowRequestRowProps) {
   const { t } = useTranslation('common');
-  // 🪪 Adres ve kimlik `username` ("EVRENSEL KAYMAK KİMLİĞİ"). §C24 (`053`)
-  // ile görünen ad da geliyor — varsa üstte, @username HER ZAMAN altında
-  // (ad benzersiz değil; isteği KİMİN attığını @username söyler).
+  // 🪪 Adres ve kimlik `username` ("EVRENSEL KAYMAK KİMLİĞİ"). Ad satırları
+  // `utils/profilAdi.ts`: görünen ad farklıysa üstte, @username altında.
   const kullaniciAdi = request.username ?? '?';
-  const gorunenAd = request.displayName || null;
+  const ad = profilAdSatirlari(request.displayName, request.username);
 
   return (
     <View style={styles.requestRow}>
       <Avatar url={request.avatarUrl} ad={kullaniciAdi} size={44} />
 
       <View style={styles.requestInfo}>
-        <Text style={styles.requestName} numberOfLines={1}>{gorunenAd || `@${kullaniciAdi}`}</Text>
-        {!!gorunenAd && (
-          <Text style={styles.requestHandle} numberOfLines={1}>@{kullaniciAdi}</Text>
+        <Text style={styles.requestName} numberOfLines={1}>{ad.baslik || kullaniciAdi}</Text>
+        {!!ad.altSatir && (
+          <Text style={styles.requestHandle} numberOfLines={1}>{ad.altSatir}</Text>
         )}
       </View>
 

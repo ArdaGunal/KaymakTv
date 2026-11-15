@@ -18,7 +18,7 @@ import FeedCard from '../../../features/feed/components/FeedCard';
 import MarathonFeedCard from '../../../features/feed/components/MarathonFeedCard';
 import FeedSkeleton from '../../../features/feed/components/FeedSkeleton';
 import SkeletonLoader from '../../../components/SkeletonLoader';
-import BlockUserButton from '../../../features/feed/components/BlockUserButton';
+import ProfilMenusu from '../../../features/publicProfile/components/ProfilMenusu';
 import BlockedProfileLock from '../../../features/feed/components/BlockedProfileLock';
 import PrivateProfileLock from '../../../features/publicProfile/components/PrivateProfileLock';
 import ReportContentModal from '../../../features/feed/components/ReportContentModal';
@@ -29,7 +29,8 @@ import MediaPoster from '../../../components/MediaPoster';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import { styles } from '../../../features/publicProfile/publicProfile.web.styles';
 import { MOBILE_PALETTE } from '../../../constants/mobilePalette';
-import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
+import ProfilAdBlogu from '../../../components/profile/ProfilAdBlogu';
+import ProfilPaylasDugmesi from '../../../components/profile/ProfilPaylasDugmesi';
 import { useKendiProfilineYonlendir } from '../../../hooks/useKendiProfilineYonlendir';
 import { gorunenBaslik } from '../../../utils/gorunenBaslik';
 
@@ -120,7 +121,10 @@ export default function PublicProfileScreenWeb() {
             <ChevronLeft size={18} color="#cbd5e1" />
             <Text style={styles.backButtonText}>{t('media:goBack', 'Geri Dön')}</Text>
           </TouchableOpacity>
-          {canShowBlockButton && <BlockUserButton targetUserId={hedefUserId as string} />}
+          {/* 1.0.1 (2026-11-15): «⋮» — Profili bildir + Engelle / Engeli kaldır (eskiden ayrı simge + ad altında bağlantı). */}
+          {canShowBlockButton && !!hedefUserId && (
+            <ProfilMenusu targetUserId={hedefUserId} onReport={() => setBioRaporAcik(true)} />
+          )}
         </View>
 
         {isProfileLoading ? (
@@ -145,27 +149,19 @@ export default function PublicProfileScreenWeb() {
               <Avatar url={profile.images?.avatar?.full} ad={profile.username} size={88} halka />
 
               <View style={styles.identityCol}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {profile.name || profile.username}
-                  </Text>
-                  {isPrivate && <Lock size={14} color="#94a3b8" />}
-                </View>
-                <Text style={styles.handle} numberOfLines={1}>
-                  @{profile.username}
-                </Text>
-                <KaymakNoEtiketi no={kaymakProfil?.profile.kaymakNo} />
+                {/* 1.0.1 Dal 2: ad (+ farklıysa @kullanıcı adı); Kaymak numarası başlıkta yok. */}
+                <ProfilAdBlogu
+                  name={profile.name}
+                  username={profile.username}
+                  baslikStili={styles.name}
+                  altStili={styles.handle}
+                  baslikSonu={isPrivate ? <Lock size={14} color="#94a3b8" /> : null}
+                />
 
                 {!!profile.about && (
                   <Text style={styles.bio} numberOfLines={3}>
                     {profile.about}
                   </Text>
-                )}
-                {/* Adım 4c (M609): «Profili bildir» — açıklaması olmayan profil de bildirilebilir. */}
-                {canShowBlockButton && !!hedefUserId && (
-                  <TouchableOpacity onPress={() => setBioRaporAcik(true)} style={styles.reportBio} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Text style={styles.reportBioText}>{t('feed:reportProfile', 'Profili bildir')}</Text>
-                  </TouchableOpacity>
                 )}
 
                 <View style={styles.statsRow}>
@@ -189,6 +185,8 @@ export default function PublicProfileScreenWeb() {
                 </View>
               </View>
 
+              {/* 1.0.1 Dal 2: paylaş, «Takip Et»in hemen sağında. */}
+              <View style={styles.actionRow}>
               <TouchableOpacity
                 style={[
                   styles.followBtn,
@@ -218,6 +216,8 @@ export default function PublicProfileScreenWeb() {
                   </>
                 )}
               </TouchableOpacity>
+              <ProfilPaylasDugmesi kaymakNo={kaymakProfil?.profile.kaymakNo} boyut={40} />
+              </View>
             </View>
 
             {isBlockedEitherWay ? (

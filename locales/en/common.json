@@ -235,5 +235,7 @@
   "vazgec": "Cancel",
   "welcomePrivacy": "Privacy",
   "welcomeTerms": "Terms of use",
-  "welcomeRules": "Community guidelines"
+  "welcomeRules": "Community guidelines",
+  "kullaniciAdiKopyalandi": "Username copied",
+  "kullaniciAdiKopyala": "Copy username @{{ad}}"
 }

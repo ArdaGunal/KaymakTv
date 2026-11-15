@@ -21,6 +21,8 @@ import { useMyTraktProfile } from '../hooks/useMyTraktProfile';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import EditBioModal from '../components/modals/EditBioModal';
 import EditDisplayNameModal from '../components/modals/EditDisplayNameModal';
+import ProfilAdBlogu from '../components/profile/ProfilAdBlogu';
+import KaymakNoEtiketi from '../components/profile/KaymakNoEtiketi';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { confirmAsync, notify } from '../utils/confirmDialog';
 
@@ -46,7 +48,7 @@ export default function EditProfileMobile() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  const { profile, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
+  const { profile, kaymakNo, isLoading: isProfileLoading, refetch: refetchProfile } = useMyTraktProfile();
   const [bioModalVisible, setBioModalVisible] = useState(false);
   const [adModalVisible, setAdModalVisible] = useState(false);
   const { save: kaydet, isSaving: fotografKaldiriliyor } = useUpdateProfile();
@@ -99,12 +101,8 @@ export default function EditProfileMobile() {
             <>
               <View style={styles.avatarSection}>
                 <Avatar url={profile.images?.avatar?.full} ad={profile.username} size={96} halka style={styles.avatarBosluk} />
-                <Text style={styles.displayName} numberOfLines={1}>
-                  {profile.name || profile.username}
-                </Text>
-                <Text style={styles.handle} numberOfLines={1}>
-                  @{profile.username}
-                </Text>
+                {/* 1.0.1 Dal 2: profil başlığıyla aynı kural (ad aynıysa tek satır). */}
+                <ProfilAdBlogu name={profile.name} username={profile.username} baslikStili={styles.displayName} altStili={styles.handle} />
                 {!!profile.images?.avatar?.full && (
                   <TouchableOpacity
                     style={styles.fotografKaldir}
@@ -168,6 +166,21 @@ export default function EditProfileMobile() {
                   {profile.about || <Text style={styles.valueEmpty}>{t('media:editProfileAboutEmpty', 'Kendinden kısaca bahset')}</Text>}
                 </Text>
               </TouchableOpacity>
+
+              {/* 🔢 KAYMAK ID — 1.0.1 Dal 2 (kullanıcı kararı, 2026-11-15): profil başlığından buraya
+                  taşındı; profil sade kalır, numarasını görmek/kopyalamak isteyen burada bulur.
+                  Dokununca kopyalanır. `#numara` ile arama değişmedi. Numara yoksa satır yok. */}
+              {!!kaymakNo && (
+                <View style={styles.card}>
+                  <Text style={styles.label}>{t('media:editProfileKaymakIdLabel', 'Kaymak ID')}</Text>
+                  <View style={styles.kaymakIdDeger}>
+                    <KaymakNoEtiketi no={kaymakNo} />
+                  </View>
+                  <Text style={styles.kaymakIdIpucu}>
+                    {t('media:editProfileKaymakIdHint', 'Arkadaşların seni aramada bu numarayla da bulabilir.')}
+                  </Text>
+                </View>
+              )}
 
               {/* 🔴 2026-08-22 — Google-only kullanıcı (`create_new`, Madde 221)
                   için bu blok YANLIŞ TEŞHİS koyuyordu: "yalnızca Trakt.tv'de
@@ -322,6 +335,14 @@ const styles = StyleSheet.create({
   valueEmpty: {
     color: nativeColor('mutedDeep', '#64748b'),
     fontStyle: 'italic',
+  },
+  kaymakIdDeger: {
+    paddingVertical: 2,
+  },
+  kaymakIdIpucu: {
+    color: nativeColor('mutedDeep', '#64748b'),
+    fontSize: 12,
+    lineHeight: 17,
   },
   infoBox: {
     flexDirection: 'row',

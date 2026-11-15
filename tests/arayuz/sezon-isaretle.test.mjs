@@ -148,7 +148,7 @@ T.ok('menu: «Onceki Sezonlari Isaretle» satiri (yalniz eksik varsa)', /sezon\.
 T.ok('hook: isaretleme onayi destructive:false', /t\('markAsWatched'\),\s*t\('common:cancel', 'Vazgeç'\),\s*\{ destructive: false \}/.test(hook));
 T.ok('sezonu geri al KIRMIZI kalir (yikici)', /sezonuGeriAl[\s\S]{0,300}confirmAsync\([\s\S]{0,200}t\('common:delete', 'Geri Al'\),\s*t\('common:cancel', 'Vazgeç'\),\s*\);/.test(hook));
 T.ok('engeli kaldir kirmizi degil (iki yer)', /\{ destructive: false \}/.test(oku('app/(protected)/blocked-users.tsx'))
-  && /\{ destructive: !didIBlockThem \}/.test(oku('features/feed/components/BlockUserButton.tsx')));
+  && /\{ destructive: !didIBlockThem \}/.test(oku('features/publicProfile/components/ProfilMenusu.tsx')));
 const tr = JSON.parse(oku('locales/tr/media.json')); const en = JSON.parse(oku('locales/en/media.json'));
 T.ok('yeni metinler TR + EN', ['markOnlyThisSeason', 'markPrevSeasons', 'markSeasonWithPrevMsg'].every((k) => tr[k] && en[k]));
 

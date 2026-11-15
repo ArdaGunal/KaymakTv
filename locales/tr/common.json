@@ -235,5 +235,7 @@
   "vazgec": "Vazgeç",
   "welcomePrivacy": "Gizlilik",
   "welcomeTerms": "Kullanım koşulları",
-  "welcomeRules": "Topluluk kuralları"
+  "welcomeRules": "Topluluk kuralları",
+  "kullaniciAdiKopyalandi": "Kullanıcı adı kopyalandı",
+  "kullaniciAdiKopyala": "@{{ad}} kullanıcı adını kopyala"
 }

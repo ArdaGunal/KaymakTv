@@ -26,8 +26,10 @@ T.ok('🔴 Kendi numaram → herkese acik ekran degil, kendi Profil sekmem (canl
   /if \(kendisi\) router\.replace\('\/\(protected\)\/\(tabs\)\/profile'\)/.test(oku('hooks/useKendiProfilineYonlendir.ts')));
 
 T.H('Paylasim + App Links');
-const etiket = oku('components/profile/KaymakNoEtiketi.tsx');
-T.ok('Profil etiketinde paylas: native Share, web share ya da panoya', /profilPaylasimLinki\(no\)/.test(etiket) && /Share\.share\(/.test(etiket) && /nav\.share\(/.test(etiket) && /Clipboard\.setStringAsync\(link\)/.test(etiket));
+// 1.0.1 Dal 2 (2026-11-15): paylas numara etiketinden «Profili Duzenle» / «Takip Et» yanindaki
+// ayri dugmeye tasindi; mantik `hooks/useProfilEylemleri.ts` (`useProfilPaylas`).
+const paylas = oku('hooks/useProfilEylemleri.ts');
+T.ok('Profil paylas: native Share, web share ya da panoya', /profilPaylasimLinki\(kaymakNo\)/.test(paylas) && /Share\.share\(/.test(paylas) && /nav\.share\(/.test(paylas) && /Clipboard\.setStringAsync\(link\)/.test(paylas));
 const app = JSON.parse(oku('app.json')).expo.android;
 T.ok('App Links /u/ (uygulama yukluyse baglanti uygulamada acilir)', app.intentFilters[0].data.some((d) => d.pathPrefix === '/u/' && d.host === 'kaymaktv.com'));
 

@@ -81,11 +81,6 @@ export const styles = StyleSheet.create({
     gap: 4,
     minWidth: 0,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   name: {
     color: MOBILE_PALETTE.text,
     fontSize: 20,
@@ -97,20 +92,17 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  // 1.0.1 Dal 2: ad bloğundan net ayrım (identityCol gap 4 + 6).
   bio: {
     color: MOBILE_PALETTE.body,
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 2,
+    marginTop: 6,
   },
-  reportBio: {
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  reportBioText: {
-    color: MOBILE_PALETTE.mutedDeep,
-    fontSize: 11.5,
-    fontWeight: '600',
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   statsRow: {
     flexDirection: 'row',

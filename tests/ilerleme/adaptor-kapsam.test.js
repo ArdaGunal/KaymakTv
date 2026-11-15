@@ -220,7 +220,7 @@ for (const [parcalar, ...kurallar] of KIMLIK_DENETIMI) {
     } else if (kural === 'profilEngel') {
       bekle(ad + ': engelleme durumu slug ile okunmuyor', !/useBlockState\([^)]*[Ss]lug/.test(src),
         'Google-only kimseyi engelleyemez (T3 cikis olcutu, M339)');
-      bekle(ad + ': engelleme dugmesi slug almiyor', !/<BlockUserButton[^>]*traktSlug/.test(src));
+      bekle(ad + ': profil menusu (engelle) slug almiyor', !/<ProfilMenusu[^>]*traktSlug/.test(src));
       bekle(ad + ': aktivite slug ile okunmuyor', !/usePublicProfileActivity\([^)]*[Ss]lug/.test(src));
     } else if (kural === 'aktiviteSekmesi') {
       bekle(ad + ': kendi aktivite sekmesine slug verilmiyor', !/<ProfileActivityTab[^>]*traktSlug/.test(src),

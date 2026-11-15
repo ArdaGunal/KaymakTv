@@ -13,7 +13,8 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useProfileLists } from '../../../hooks/useProfileLists';
 import { useKaymakYetenekleri } from '../../../hooks/useKaymakYetenekleri';
 import { useMyTraktProfile } from '../../../hooks/useMyTraktProfile';
-import KaymakNoEtiketi from '../../../components/profile/KaymakNoEtiketi';
+import ProfilAdBlogu from '../../../components/profile/ProfilAdBlogu';
+import ProfilPaylasDugmesi from '../../../components/profile/ProfilPaylasDugmesi';
 import ProfileMobile from '../../../screens/ProfileMobile';
 import ScreenHeader from '../../../components/ScreenHeader';
 import WebCarousel from '../../../components/web/WebCarousel';
@@ -68,15 +69,14 @@ function DesktopProfileHeader({
       {/* Avatar */}
       <Avatar url={avatarUrl} ad={profile.username} size={80} halka />
 
-      {/* Orta Kolon: İsim + Handle */}
+      {/* Orta Kolon: ad (+ farklıysa @kullanıcı adı) — 1.0.1 Dal 2; Kaymak numarası «Profilim»de. */}
       <View style={desktopHeaderStyles.identityCol}>
-        <Text style={desktopHeaderStyles.name} numberOfLines={1}>
-          {profile.name || profile.username}
-        </Text>
-        <Text style={desktopHeaderStyles.handle} numberOfLines={1}>
-          @{profile.username}
-        </Text>
-        <KaymakNoEtiketi no={kaymakNo} />
+        <ProfilAdBlogu
+          name={profile.name}
+          username={profile.username}
+          baslikStili={desktopHeaderStyles.name}
+          altStili={desktopHeaderStyles.handle}
+        />
         {!!profile.about && (
           <Text style={desktopHeaderStyles.bio} numberOfLines={2}>
             {profile.about}
@@ -108,15 +108,18 @@ function DesktopProfileHeader({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={desktopHeaderStyles.editBtn}
-          onPress={() => router.push('/(protected)/profile/edit')}
-          activeOpacity={0.85}
-        >
-          <Text style={desktopHeaderStyles.editBtnText}>
-            {t('editProfile', 'Profili Düzenle')}
-          </Text>
-        </TouchableOpacity>
+        <View style={desktopHeaderStyles.actionRow}>
+          <TouchableOpacity
+            style={desktopHeaderStyles.editBtn}
+            onPress={() => router.push('/(protected)/profile/edit')}
+            activeOpacity={0.85}
+          >
+            <Text style={desktopHeaderStyles.editBtnText}>
+              {t('editProfile', 'Profili Düzenle')}
+            </Text>
+          </TouchableOpacity>
+          <ProfilPaylasDugmesi kaymakNo={kaymakNo} boyut={38} />
+        </View>
       </View>
     </View>
   );
@@ -339,11 +342,17 @@ const desktopHeaderStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  // 1.0.1 Dal 2: ad bloğundan net ayrım.
   bio: {
     color: MOBILE_PALETTE.body,
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 4,
+    marginTop: 10,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   rightSection: {
     marginLeft: 'auto' as any,

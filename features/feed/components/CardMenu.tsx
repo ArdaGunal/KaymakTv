@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MoreVertical, Pencil, Trash2, Share2, Flag, UserX } from '../../../components/icons';
+import { MoreVertical, Pencil, Trash2, Share2, Flag, UserX, UserCheck } from '../../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { confirmAsync } from '../../../utils/confirmDialog';
 
@@ -36,6 +36,12 @@ interface CardMenuProps {
    *  menüsü kendi metnini verir (eskiden yorum silerken «Delete Activity»
    *  yazıyordu — DIL-02). */
   deleteConfirm?: { title: string; message: string };
+  /** «İçeriği Bildir» yerine başka etiket (profil menüsü: «Profili bildir»). */
+  reportLabel?: string;
+  /** Kullanıcı zaten engelliyse engelle satırı «Engeli Kaldır» olur (profil menüsü). */
+  blocked?: boolean;
+  /** Tetik simgesinin boyutu (kart 16; profil üst çubuğu daha büyük). */
+  iconSize?: number;
   style?: any;
 }
 
@@ -50,7 +56,7 @@ const ROW_HEIGHT = 46;
 // TrackingCardMenu afiş kartlarına özel (favori/listeye ekle/bırak) mantık
 // taşıyor, burası yalnızca Düzenle/Sil/Paylaş — genelleştirmek gereksiz bir
 // bağımlılık yaratırdı.
-export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock, deleteConfirm, style }: CardMenuProps) {
+export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock, deleteConfirm, reportLabel, blocked = false, iconSize = 16, style }: CardMenuProps) {
   const { t } = useTranslation(['media', 'feed', 'common']);
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -136,7 +142,7 @@ export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock,
           openMenu();
         }}
       >
-        <MoreVertical size={16} color={nativeColor('muted', "#94a3b8")} />
+        <MoreVertical size={iconSize} color={nativeColor('muted', "#94a3b8")} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={closeMenu}>
@@ -159,14 +165,18 @@ export default function CardMenu({ onEdit, onDelete, onShare, onReport, onBlock,
             {onReport && (
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleReport}>
                 <Flag size={16} color={nativeColor('text', "#f1f5f9")} />
-                <Text style={styles.menuItemText}>{t('feed:reportContentMenuLabel', 'İçeriği Bildir')}</Text>
+                <Text style={styles.menuItemText}>{reportLabel ?? t('feed:reportContentMenuLabel', 'İçeriği Bildir')}</Text>
               </TouchableOpacity>
             )}
 
             {onBlock && (
               <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleBlock}>
-                <UserX size={16} color={nativeColor('text', "#f1f5f9")} />
-                <Text style={styles.menuItemText}>{t('feed:blockUserMenuLabel', 'Kullanıcıyı Engelle')}</Text>
+                {blocked
+                  ? <UserCheck size={16} color="#4ade80" />
+                  : <UserX size={16} color="#f87171" />}
+                <Text style={[styles.menuItemText, !blocked && styles.deleteText]}>
+                  {blocked ? t('feed:unblock', 'Engeli Kaldır') : t('feed:blockUserMenuLabel', 'Kullanıcıyı Engelle')}
+                </Text>
               </TouchableOpacity>
             )}
 

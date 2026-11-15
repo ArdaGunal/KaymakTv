@@ -12,6 +12,7 @@ import { FeedActivity, FeedMediaType } from '../types';
 import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
 import { askiYanitiCoz, type AskiBilgisi } from '../../../utils/hesapAskisi';
+import { useBenimProfilimStore } from '../../../store/benimProfilimStore';
 
 /**
  * ANINDA YAYIN — bir aktivite Trakt'a yazıldığı ANDA akışa düşer.
@@ -63,7 +64,15 @@ export const nowStamp = (): string => new Date().toISOString();
 // Oturum boyunca değişmez, `getMyTraktSlug` ile aynı gerekçeyle önbelleklenir.
 let cachedMe: FeedActivity['user'] | null = null;
 
+// Görünen ad oturum içinde değişebilir (Profil › Görünen Ad) — önbelleğe girmez,
+// her yayında profil deposundan okunur. Depo henüz dolmadıysa `null`: kart kullanıcı
+// adıyla çizilir, sunucu satırı gelince düzelir.
 async function resolveMe(): Promise<FeedActivity['user'] | null> {
+  const me = await resolveMeKimlik();
+  return me && { ...me, displayName: useBenimProfilimStore.getState().veri?.profile?.name ?? null };
+}
+
+async function resolveMeKimlik(): Promise<FeedActivity['user'] | null> {
   if (cachedMe) return cachedMe;
 
   // 🔴 Google-only kullanıcı (`create_new`, Madde 221): `getMyTraktSlug()`
@@ -90,6 +99,7 @@ async function resolveMe(): Promise<FeedActivity['user'] | null> {
         // `getVisibleUserIds`'te id üzerinden yapılıyor (bkz. feedApi.ts).
         traktSlug: '',
         username: username || 'Kaymak Kullanıcısı',
+        displayName: null,
         avatarUrl: avatarUrl ?? null,
       };
       // C37: ad henüz yerelde yoksa (AuthContext sunucudan tamamlıyor) yedek adı
@@ -112,6 +122,7 @@ async function resolveMe(): Promise<FeedActivity['user'] | null> {
       id: `me-${slug}`,
       traktSlug: slug,
       username: profile?.username || slug,
+      displayName: null,
       avatarUrl: profile?.images?.avatar?.full ?? null,
     };
     return cachedMe;

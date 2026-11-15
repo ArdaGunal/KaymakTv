@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useFollowState } from '../../../hooks/useFollowState';
 import type { NetworkUser } from '../../../hooks/useNetworkList';
+import { profilAdSatirlari } from '../../../utils/profilAdi';
 
 interface NetworkUserCardProps {
   user: NetworkUser;
@@ -35,6 +36,7 @@ export default function NetworkUserCard({ user }: NetworkUserCardProps) {
     user.username,
     true,
   );
+  const ad = profilAdSatirlari(user.displayName, user.username);
 
 
   const dugmeIcerigi = () => {
@@ -82,12 +84,12 @@ export default function NetworkUserCard({ user }: NetworkUserCardProps) {
         <Avatar url={user.avatarUrl} ad={user.username} size={42} />
         <View style={styles.adAlani}>
           <View style={styles.adSatiri}>
-            <Text style={styles.ad} numberOfLines={1}>{user.displayName || `@${user.username}`}</Text>
+            <Text style={styles.ad} numberOfLines={1}>{ad.baslik}</Text>
             {user.isPrivate && <Lock size={13} color={nativeColor('muted', "#94a3b8")} />}
           </View>
-          {/* §C24 — ad benzersiz değil; @username ad varken de görünür. */}
-          {!!user.displayName && (
-            <Text style={styles.kullaniciAdi} numberOfLines={1}>@{user.username}</Text>
+          {/* §C24 — ad benzersiz değil; farklıysa @username altında (utils/profilAdi.ts). */}
+          {!!ad.altSatir && (
+            <Text style={styles.kullaniciAdi} numberOfLines={1}>{ad.altSatir}</Text>
           )}
         </View>
       </TouchableOpacity>

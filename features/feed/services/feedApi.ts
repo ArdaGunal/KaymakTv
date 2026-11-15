@@ -77,7 +77,7 @@ export interface FeedPage {
 // `fetchUserFeedActivities` ve Realtime'ın satır tamamlama sorgusu birbirinden
 // sapmasın (biri `tmdb_id` seçmeyi unutursa o kartta poster kaybolurdu).
 const ACTIVITY_COLUMNS =
-  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, trakt_comment_id, like_count, comment_count, user:users!inner(id, trakt_slug, username, avatar_url)';
+  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, trakt_comment_id, like_count, comment_count, user:users!inner(id, trakt_slug, username, display_name, avatar_url)';
 
 export interface FeedActivityRow {
   id: string;
@@ -105,6 +105,7 @@ export interface FeedActivityRow {
     id: string;
     trakt_slug: string;
     username: string;
+    display_name: string | null;
     avatar_url: string | null;
   };
 }
@@ -126,6 +127,7 @@ export function mapRow(row: FeedActivityRow): FeedActivity {
       id: row.user.id,
       traktSlug: row.user.trakt_slug,
       username: row.user.username,
+      displayName: row.user.display_name ?? null,
       avatarUrl: row.user.avatar_url,
     },
     activityType: row.activity_type,

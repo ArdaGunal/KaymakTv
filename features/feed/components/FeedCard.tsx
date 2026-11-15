@@ -13,6 +13,7 @@ import CardMenu from './CardMenu';
 import FeedActivityNote from './FeedActivityNote';
 import SystemActivitySheet from './detail/SystemActivitySheet';
 import { useActivityActions } from '../hooks/useActivityActions';
+import { profilAdSatirlari } from '../../../utils/profilAdi';
 
 interface FeedCardProps {
   activity: FeedActivity;
@@ -30,6 +31,7 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
   const { t } = useTranslation('feed');
   const meta = ACTIVITY_META[activity.activityType];
   const Icon = meta.icon;
+  const ad = profilAdSatirlari(activity.user.displayName, activity.user.username);
   const label = activityLabel(activity, t);
   const actions = useActivityActions(activity);
   const { isInteractive, isOwnActivity, canComment, hasShow, isLiking } = actions;
@@ -70,8 +72,9 @@ export default function FeedCard({ activity, onDeleteActivity, openDetailOnPress
       <View style={styles.body}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile}>
-              <Text style={styles.username}>{activity.user.username}</Text>
+            <TouchableOpacity activeOpacity={0.7} onPress={handlePressProfile} style={styles.nameTouch}>
+              <Text style={styles.username} numberOfLines={1}>{ad.baslik}</Text>
+              {!!ad.altSatir && <Text style={styles.handle} numberOfLines={1}>{ad.altSatir}</Text>}
             </TouchableOpacity>
             <Icon size={14} color={meta.color} />
           </View>
@@ -271,11 +274,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1,
+  },
+  nameTouch: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+    flexShrink: 1,
   },
   username: {
     color: nativeColor('text', '#f8fafc'),
     fontWeight: '700',
     fontSize: 14,
+    flexShrink: 0,
+    maxWidth: '70%',
+  },
+  handle: {
+    color: nativeColor('mutedDeep', '#64748b'),
+    fontSize: 13,
+    flexShrink: 1,
   },
   label: {
     color: nativeColor('body', '#cbd5e1'),

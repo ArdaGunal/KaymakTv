@@ -206,7 +206,6 @@
   "pendingAction": "Pending Approval",
   "pollingAuth": "Waiting for login...",
   "premiere": "PREMIERE",
-  "profile": "Profile",
   "profileActivityEmptyText": "Watch or rate something and it'll show up here.",
   "profileActivityEmptyTitle": "No activity yet",
   "profileActivityErrorText": "Check your connection and try again.",
@@ -355,5 +354,7 @@
   "bitisYeniBolumGun_other": "New episode in {{count}} days",
   "bitisYeniBolumYarin": "New episode tomorrow",
   "bitisYeniBolumBugun": "New episode today",
-  "bitisGuncel": "You're all caught up"
+  "bitisGuncel": "You're all caught up",
+  "editProfileKaymakIdLabel": "Kaymak ID",
+  "editProfileKaymakIdHint": "Friends can also find you in search with this number."
 }

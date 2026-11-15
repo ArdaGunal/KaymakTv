@@ -14,7 +14,8 @@ import { ConnectionState } from '../../hooks/useFollowState';
  * yapısal olarak uyumlu, o çağrı değişmedi.
  */
 
-import KaymakNoEtiketi from './KaymakNoEtiketi';
+import ProfilAdBlogu from './ProfilAdBlogu';
+import ProfilPaylasDugmesi from './ProfilPaylasDugmesi';
 export type ProfilKimligi = Pick<TraktUserProfile, 'username' | 'name' | 'about' | 'images'>;
 
 interface ProfileHeaderProps {
@@ -35,10 +36,9 @@ interface ProfileHeaderProps {
   onPressFollowers?: () => void;
   onPressFollowing?: () => void;
   onPressAction?: () => void;
-  /** Verilirse açıklamanın altında "bildir" bağlantısı çıkar (T4 · `043`). Çağıran
-   *  yalnızca BİZİM açıklamamız ve BAŞKASININ profili için verir. */
-  onReportBio?: () => void;
-  /** Kimlik birliği Faz 2 · `066` — `#48291735`; yoksa çizilmez. */
+  // «Profili bildir» 1.0.1'de (2026-11-15) başlıktan üst çubuktaki «⋮» menüsüne taşındı
+  // (`features/publicProfile/components/ProfilMenusu.tsx`).
+  /** Kimlik birliği Faz 2 · `066`. 1.0.1 Dal 2: başlıkta GÖSTERİLMEZ, yalnız paylaş bağlantısı için. */
   kaymakNo?: number | null;
 }
 
@@ -53,7 +53,6 @@ export default function ProfileHeader({
   onPressFollowers,
   onPressFollowing,
   onPressAction,
-  onReportBio,
   kaymakNo,
 }: ProfileHeaderProps) {
   const { t } = useTranslation('media');
@@ -87,6 +86,8 @@ export default function ProfileHeader({
             </TouchableOpacity>
           </View>
 
+          {/* 1.0.1 Dal 2: paylaş, eylem düğmesinin HEMEN SAĞINDA (eskiden numaranın yanında küçük simge). */}
+          <View style={styles.actionRow}>
           <TouchableOpacity
             style={[
               styles.actionBtn,
@@ -120,30 +121,25 @@ export default function ProfileHeader({
               </Text>
             )}
           </TouchableOpacity>
+          <ProfilPaylasDugmesi kaymakNo={kaymakNo} />
+          </View>
         </View>
       </View>
 
-      {/* Alt Blok: İsim ve Kullanıcı Adı */}
+      {/* Alt Blok: ad (+ farklıysa @kullanıcı adı) — kural `utils/profilAdi.ts`. Kaymak numarası
+          1.0.1 Dal 2'den beri burada değil, «Profilim» ekranında. */}
       <View style={styles.identityBlock}>
-        <Text style={styles.name} numberOfLines={1}>
-          {profile.name || profile.username || t('profileTitle', 'Profil')}
-        </Text>
-        {!!profile.username && (
-          <Text style={styles.handle} numberOfLines={1}>
-            @{profile.username}
-          </Text>
-        )}
-        <KaymakNoEtiketi no={kaymakNo} />
+        <ProfilAdBlogu
+          name={profile.name}
+          username={profile.username}
+          baslikStili={styles.name}
+          altStili={styles.handle}
+          yedekBaslik={t('profileTitle', 'Profil')}
+        />
         {!!profile.about && (
           <Text style={styles.bio} numberOfLines={3}>
             {profile.about}
           </Text>
-        )}
-        {/* Adım 4c (M609): açıklaması olmayan profil de bildirilebilir (ad, kullanıcı adı, fotoğraf). */}
-        {!!onReportBio && (
-          <TouchableOpacity onPress={onReportBio} style={styles.reportBio} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Text style={styles.reportBioText}>{t('feed:reportProfile', 'Profili bildir')}</Text>
-          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -189,7 +185,12 @@ const styles = StyleSheet.create({
     height: 22,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   actionBtn: {
+    flex: 1,
     height: 34,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -239,19 +240,11 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '500',
   },
+  // 1.0.1 Dal 2: ad bloğundan net ayrım (eskiden 6, ada yapışık görünüyordu).
   bio: {
     color: nativeColor('body', '#cbd5e1'),
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 6,
-  },
-  reportBio: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  reportBioText: {
-    color: nativeColor('mutedDeep', '#64748b'),
-    fontSize: 11.5,
-    fontWeight: '600',
+    marginTop: 10,
   },
 });
