@@ -210,7 +210,6 @@
   "profileSaveError": "Kaydedilemedi, tekrar dene.",
   "importErrAuth": "Trakt oturumun geçersiz — aktarım için Trakt'a yeniden giriş yapmalısın.",
   "importErrTraktRequired": "Bu işlem için Trakt hesabının bağlı olması gerekiyor.",
-  "profileOnboardingSubtitleAll": "Uygulamada görünecek kullanıcı adını seç. Önerilen adı kullanabilir ya da değiştirebilirsin.",
   "usernameRuleHint": "3–30 karakter · İngilizce harf, rakam ve alt çizgi (_) · boşluk yok",
   "usernameReserved": "Bu kullanıcı adı kullanılamaz, başka bir tane dene.",
   "usernameCooldownGeneric": "Kullanıcı adını 14 günde bir değiştirebilirsin.",
@@ -304,5 +303,14 @@
   "uyusmazlikIpucuCihaz": "Trakt'ta <1>{{trakt}}</1> hesabıyla giriş yapıp yeni kodu onaylaman gerekiyor.",
   "cihazKodKopyalandi": "Giriş kodu (otomatik kopyalandı)",
   "cihazTekrarAc": "Trakt sayfasını tekrar aç",
-  "cihazTekrarDene": "Tekrar dene"
+  "cihazTekrarDene": "Tekrar dene",
+  "profileOnboardingSubtitleIsim": "Profilinde görünecek adını yaz. Kullanıcı adın bundan oluşur; istersen değiştirebilirsin.",
+  "onboardingNameHint": "Profilinde ve akışta bu ad görünür.",
+  "onboardingUsernameLabel": "Kullanıcı adın",
+  "onboardingUsernameEdit": "Değiştir",
+  "displayNameRuleChars": "Görünen adda yalnızca harf, rakam, boşluk ve . - _ ' olabilir. Emoji ve sembol kullanılamaz.",
+  "displayNameRuleLetter": "Görünen ad en az bir harf içermeli.",
+  "displayNameTooLong": "Görünen ad en fazla {{max}} karakter olabilir.",
+  "displayNameRequired": "Devam etmek için görünen adını yaz.",
+  "displayNameInvisibleRemoved": "Görünmeyen karakterler çıkarıldı. Adını yaz ya da kutuyu kendin boşalt."
 }

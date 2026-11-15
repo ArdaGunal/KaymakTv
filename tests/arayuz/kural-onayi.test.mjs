@@ -227,7 +227,8 @@ const askiYuzeyleri = {
   'aciklama penceresi': ['components/modals/EditBioModal.tsx', 'error.askiMetni ??'],
   'gorunen ad penceresi': ['components/modals/EditDisplayNameModal.tsx', 'error.askiMetni ??'],
   'kullanici adi penceresi': ['components/modals/EditProfileModal.tsx', 'error.askiMetni ??'],
-  'isim ekrani': ['app/(public)/profil-olustur.tsx', 'error.askiMetni ??'],
+  // 1.0.1 Dal 1: isim ekraninda hata `hata` adinda (ekran.error).
+  'isim ekrani': ['app/(public)/profil-olustur.tsx', 'hata.askiMetni ??'],
 };
 for (const [ad, [dosya, iz]] of Object.entries(askiYuzeyleri)) T.ok(`${ad}: aski nedenini gosterir`, oku(dosya).includes(iz), dosya);
 T.bitir();

@@ -1,5 +1,5 @@
 import { nativeColor } from '../../constants/mobilePalette';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,8 @@ import {
 import { X } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUpdateProfile } from '../../hooks/useUpdateProfile';
-import { AD_EN_COK, adOnizle } from '../../utils/gorunenAd';
+import { useGorunenAdDuzenle } from '../../hooks/useGorunenAdDuzenle';
+import { AD_EN_COK, gorunenAdHataMetni } from '../../utils/gorunenAd';
 import Snackbar from '../Snackbar';
 import { profileSheetStyles as styles } from './profileSheetStyles';
 
@@ -36,46 +36,35 @@ interface EditDisplayNameModalProps {
  * Kullanıcı adından AYRI: adın 14 günlük cooldown'u var (ve Trakt'lı hesapta
  * hiç değiştirilemiyor — K2), görünen adın ikisi de yok.
  *
- * 🔴 Kurallar SUNUCUDA (`kaymaktv-feedback-worker/src/lib/profileDisplayName.js`).
- * İstemci aynı temizliği ve fazlasını yapıp TEMİZ değeri gönderir (`utils/gorunenAd.ts`,
- * 2.6.8 AD-01). Yanılsa bile Worker 400 döner ve hata aşağıda görünür (AI_RULES §2).
+ * 🔴 Kurallar SUNUCUDA (`kaymaktv-feedback-worker/src/lib/profileDisplayName.js`);
+ * mantık `hooks/useGorunenAdDuzenle.ts`'te (kural K2, kaldırma hakkı K4, denetim bulgusu 2);
+ * bu dosya yalnız çizer. Yanılsa bile Worker 400 döner ve hata aşağıda görünür (AI_RULES §2).
  */
 export default function EditDisplayNameModal({ visible, onClose, currentName, onSaved }: EditDisplayNameModalProps) {
   const { t } = useTranslation(['settings', 'common']);
   const insets = useSafeAreaInsets();
-  const { save, isSaving, error, clearError } = useUpdateProfile();
-
-  const [value, setValue] = useState(currentName ?? '');
+  const d = useGorunenAdDuzenle({ visible, currentName });
   const [toast, setToast] = useState(false);
 
-  useEffect(() => {
-    if (visible) {
-      setValue(currentName ?? '');
-      clearError();
-    }
-  }, [visible, currentName, clearError]);
-
-  const onizleme = adOnizle(value);
-  const unchanged = onizleme.deger === (currentName ?? '');
-  const tooLong = onizleme.uzunluk > AD_EN_COK;
-  const disabled = unchanged || tooLong || isSaving;
-
   const handleClose = () => {
-    if (isSaving) return;
+    if (d.isSaving) return;
     onClose();
   };
 
   const handleSave = async () => {
-    if (disabled) return;
-    // Boş kutu = görünen adı KALDIR (`null`) → arayüz @username'e düşer.
-    const yeni = onizleme.deger || null;
-    const ok = await save({ displayName: yeni });
-    if (ok) {
-      onSaved?.(yeni);
+    if (await d.kaydet()) {
+      onSaved?.(d.yeni);
       setToast(true);
       setTimeout(onClose, 900);
     }
   };
+
+  // Uyarı önceliği: kural ihlali → görünmez karakter ayıklandı → olağan ipucu.
+  const altMetin = d.sorun
+    ? { stil: localStyles.kuralUyari, metin: gorunenAdHataMetni(t, d.sorun) }
+    : d.gorunmezAyiklandi
+      ? { stil: localStyles.kuralUyari, metin: t('settings:displayNameInvisibleRemoved', 'Görünmeyen karakterler çıkarıldı. Adını yaz ya da kutuyu kendin boşalt.') }
+      : { stil: localStyles.hint, metin: t('settings:displayNameHint', 'Profilinde @kullanıcı adının üstünde görünür. Boş bırakırsan yalnızca kullanıcı adın görünür.') };
 
   return (
     <>
@@ -93,10 +82,10 @@ export default function EditDisplayNameModal({ visible, onClose, currentName, on
 
             <TextInput
               style={styles.input}
-              value={value}
-              onChangeText={setValue}
+              value={d.value}
+              onChangeText={d.onChange}
               maxLength={AD_EN_COK * 2}
-              editable={!isSaving}
+              editable={!d.isSaving}
               placeholder={t('settings:displayNamePlaceholder', 'Adın ve soyadın')}
               placeholderTextColor={nativeColor('mutedDeep', "#64748b")}
               autoCapitalize="words"
@@ -104,21 +93,19 @@ export default function EditDisplayNameModal({ visible, onClose, currentName, on
               onSubmitEditing={handleSave}
               autoFocus
             />
-            <Text style={[localStyles.counter, tooLong && localStyles.counterOver]}>
-              {onizleme.uzunluk}/{AD_EN_COK}
+            <Text style={[localStyles.counter, d.sorun === 'cok_uzun' && localStyles.counterOver]}>
+              {d.karar.uzunluk}/{AD_EN_COK}
             </Text>
-            <Text style={localStyles.hint}>
-              {t('settings:displayNameHint', 'Profilinde @kullanıcı adının üstünde görünür. Boş bırakırsan yalnızca kullanıcı adın görünür.')}
-            </Text>
+            <Text style={altMetin.stil}>{altMetin.metin}</Text>
 
-            {error && (
+            {d.error && (
               <View style={[styles.notice, styles.noticeError]}>
-                <Text style={[styles.noticeText, styles.noticeTextError]}>{error.askiMetni ?? t('settings:profileSaveError', 'Kaydedilemedi, tekrar dene.')}</Text>
+                <Text style={[styles.noticeText, styles.noticeTextError]}>{d.error.askiMetni ?? gorunenAdHataMetni(t, d.error.code)}</Text>
               </View>
             )}
 
-            <TouchableOpacity style={[styles.saveBtn, disabled && styles.disabledBtn]} onPress={handleSave} disabled={disabled}>
-              {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>{t('common:save')}</Text>}
+            <TouchableOpacity style={[styles.saveBtn, d.disabled && styles.disabledBtn]} onPress={handleSave} disabled={d.disabled}>
+              {d.isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>{t('common:save')}</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -145,6 +132,14 @@ const localStyles = StyleSheet.create({
   },
   hint: {
     color: nativeColor('mutedDeep', '#64748b'),
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  // Kullanıcı adı kural uyarısıyla aynı ton (`profil-olustur.tsx` kuralUyari).
+  kuralUyari: {
+    color: '#fbbf24',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,

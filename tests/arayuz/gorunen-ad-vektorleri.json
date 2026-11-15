@@ -1,0 +1,396 @@
+{
+  "_aciklama": "Gorunen ad kurali (1.0.1 Dal 1, karar K2, 2026-11-15). Istemci utils/gorunenAd.ts ve Worker src/lib/profileDisplayName.js AYNI sonucu vermeli. Plan: docs/design/ISIM_TEKRAR_ANALIZ_PLANI.md.",
+  "kabul": [
+    [
+      "Arda Günal",
+      "Arda Günal",
+      "Turkce harf"
+    ],
+    [
+      "İsmail Iğdır Şükrü",
+      "İsmail Iğdır Şükrü",
+      "buyuk/kucuk I ve S"
+    ],
+    [
+      "李明",
+      "李明",
+      "Cince"
+    ],
+    [
+      "佐々木 健",
+      "佐々木 健",
+      "Japonca yineleme isareti U+3005"
+    ],
+    [
+      "مُحَمَّد",
+      "مُحَمَّد",
+      "Arapca hareke (iki isaret ust uste)"
+    ],
+    [
+      "Иван Петров",
+      "Иван Петров",
+      "Kiril"
+    ],
+    [
+      "क्षत्रिय",
+      "क्षत्रिय",
+      "Hintce virama + unlu isareti"
+    ],
+    [
+      "กิ่ง",
+      "กิ่ง",
+      "Tayca unlu + ton isareti"
+    ],
+    [
+      "Nguyễn Văn An",
+      "Nguyễn Văn An",
+      "Vietnamca"
+    ],
+    [
+      "Ａｒｄａ",
+      "Ａｒｄａ",
+      "tam genislik Latin (Japonca klavye)"
+    ],
+    [
+      "Jean-Luc Picard",
+      "Jean-Luc Picard",
+      "tire"
+    ],
+    [
+      "J. R. R. Tolkien",
+      "J. R. R. Tolkien",
+      "nokta"
+    ],
+    [
+      "O'Brien",
+      "O'Brien",
+      "kesme isareti"
+    ],
+    [
+      "O\u2019Brien",
+      "O'Brien",
+      "tipografik kesme (iOS) duz kesmeye doner"
+    ],
+    [
+      "Arda_TV 2",
+      "Arda_TV 2",
+      "alt cizgi ve rakam"
+    ],
+    [
+      "Mµ",
+      "Mµ",
+      "mikro isareti harf sayilir"
+    ],
+    [
+      "e\u0301mile",
+      "émile",
+      "NFC: ayri isaret birlesik harfe doner"
+    ],
+    [
+      "\u2126mega",
+      "Ωmega",
+      "NFC: ohm isareti Yunan harfine doner"
+    ],
+    [
+      "  Arda    Günal  ",
+      "Arda Günal",
+      "kenar ve ardisik bosluk"
+    ],
+    [
+      "Arda\nGünal",
+      "Arda Günal",
+      "satir sonu bosluga doner"
+    ],
+    [
+      "Arda\tGünal",
+      "Arda Günal",
+      "sekme bosluga doner"
+    ],
+    [
+      "Arda\u00a0Günal",
+      "Arda Günal",
+      "NBSP bosluga doner"
+    ],
+    [
+      "Arda\u3000\u2003Günal",
+      "Arda Günal",
+      "ideografik ve em bosluk"
+    ],
+    [
+      "Arda\u2028Günal",
+      "Arda Günal",
+      "satir ayirici tek satir kuralini delmez"
+    ],
+    [
+      "şşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşş",
+      "şşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşş",
+      "tam 50 kod noktasi"
+    ]
+  ],
+  "ret": [
+    [
+      "Arda😀",
+      "karakter",
+      "emoji"
+    ],
+    [
+      "Arda★",
+      "karakter",
+      "grafik sembol"
+    ],
+    [
+      "★ Arda ★",
+      "karakter",
+      "sembolle suslenmis ad"
+    ],
+    [
+      "👨\u200d👩\u200d👧",
+      "karakter",
+      "ZWJ ile birlesik emoji"
+    ],
+    [
+      "🇹🇷 Arda",
+      "karakter",
+      "bayrak"
+    ],
+    [
+      "Arda\ufe0f",
+      "karakter",
+      "varyant secici"
+    ],
+    [
+      "Arda\u200d",
+      "karakter",
+      "ZWJ"
+    ],
+    [
+      "Arda\u200b",
+      "karakter",
+      "sifir genislik bosluk"
+    ],
+    [
+      "Arda\u034f",
+      "karakter",
+      "birlesen grafem birlestirici (eskiden yalniz istemci siliyordu)"
+    ],
+    [
+      "Arda\u00ad",
+      "karakter",
+      "yumusak tire"
+    ],
+    [
+      "Arda\u202elanüg",
+      "karakter",
+      "yon degistirici (ad taklidi)"
+    ],
+    [
+      "\u200b",
+      "karakter",
+      "yalniz gorunmez: eskiden sessizce bosalip adi siliyordu"
+    ],
+    [
+      "\u3164\u3164",
+      "karakter",
+      "Hangul dolgu"
+    ],
+    [
+      "Ali\u3164",
+      "karakter",
+      "harfin yaninda dolgu"
+    ],
+    [
+      "\u2800",
+      "karakter",
+      "bos Braille"
+    ],
+    [
+      "𝓐𝓻𝓭𝓪",
+      "karakter",
+      "matematik suslu harfleri"
+    ],
+    [
+      "ℝeal",
+      "karakter",
+      "harf benzeri sembol"
+    ],
+    [
+      "Ⅻ Arda",
+      "karakter",
+      "Roma rakami sembolu"
+    ],
+    [
+      "Arda²",
+      "karakter",
+      "ust simge"
+    ],
+    [
+      "Arda #1",
+      "karakter",
+      "ASCII sembol"
+    ],
+    [
+      "Arda & Co",
+      "karakter",
+      "ve isareti"
+    ],
+    [
+      "Arda@kaymak",
+      "karakter",
+      "e-posta gibi"
+    ],
+    [
+      "Arda (TV)",
+      "karakter",
+      "parantez"
+    ],
+    [
+      "a\u20d7",
+      "karakter",
+      "sembol icin birlesen ok"
+    ],
+    [
+      "\u0301Arda",
+      "karakter",
+      "harfe baglanmayan isaret"
+    ],
+    [
+      "Arda \u0301",
+      "karakter",
+      "bosluktan sonra isaret"
+    ],
+    [
+      "A\u0300\u0301\u0302\u0303\u0304",
+      "karakter",
+      "5 isaret ust uste (Zalgo)"
+    ],
+    [
+      "123",
+      "harf_yok",
+      "yalniz rakam"
+    ],
+    [
+      "...",
+      "harf_yok",
+      "yalniz nokta"
+    ],
+    [
+      "_-_",
+      "harf_yok",
+      "yalniz noktalama"
+    ],
+    [
+      "şşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşş",
+      "cok_uzun",
+      "51 kod noktasi"
+    ]
+  ],
+  "temizle": [
+    [
+      "",
+      "bos dize"
+    ],
+    [
+      "   ",
+      "yalniz bosluk"
+    ],
+    [
+      "\n\t\r\n",
+      "yalniz satir sonu ve sekme"
+    ]
+  ],
+  "_kanonik_ret": "DB ye DOGRUDAN gelse de reddedilmesi gereken, zaten kanonik bicimdeki (NFC, kirpilmis) degerler. Beklenen sonuc ELLE yazildi; SQL ya da uygulama kararindan HESAPLANMAZ (bagimsiz denetim 2026-11-15).",
+  "kanonik_ret": [
+    [
+      "Arda＄",
+      "tam genislik dolar (Sc)"
+    ],
+    [
+      "Arda؆",
+      "Arapca matematik sembolu (Sm)"
+    ],
+    [
+      "Arda\ud80d\udc30",
+      "Misir hiyeroglif bicim kontrolu (Cf, gorunmez)"
+    ],
+    [
+      "Arda\u0378",
+      "atanmamis kod noktasi (Cn)"
+    ],
+    [
+      "123",
+      "harf yok"
+    ],
+    [
+      "_-_",
+      "yalniz noktalama"
+    ],
+    [
+      "\u0301",
+      "yalniz birlesen isaret"
+    ],
+    [
+      "Arda \u0301",
+      "bosluktan sonra isaret"
+    ],
+    [
+      "À\u0301\u0302\u0303\u0304",
+      "NFC ye donusturulmus A + 5 isaret"
+    ],
+    [
+      "e\u0301",
+      "NFC degil (ayri yazilmis aksan)"
+    ],
+    [
+      " Arda",
+      "bastaki bosluk"
+    ],
+    [
+      "Arda ",
+      "sondaki bosluk"
+    ],
+    [
+      "Arda  Günal",
+      "cift bosluk"
+    ],
+    [
+      "Arda\ufeff",
+      "sonda BOM"
+    ],
+    [
+      "\ufeff",
+      "yalniz BOM"
+    ],
+    [
+      "Arda\u200b",
+      "ZWSP"
+    ],
+    [
+      "Arda😀",
+      "emoji"
+    ],
+    [
+      "Arda!",
+      "ASCII sembol"
+    ],
+    [
+      "Ⅻ Arda",
+      "Roma rakami (Nl)"
+    ],
+    [
+      "Arda²",
+      "ust simge (No)"
+    ],
+    [
+      "Ar\u00adda",
+      "yumusak tire"
+    ],
+    [
+      "",
+      "bos dize (053: 1-50)"
+    ],
+    [
+      "şşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşşş",
+      "51 kod noktasi"
+    ]
+  ]
+}

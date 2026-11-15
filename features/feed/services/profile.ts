@@ -182,6 +182,23 @@ export class ProfileUpdateError extends Error {
   }
 }
 
+/**
+ * 1.0.1 Dal 1 (K4) — isim ekranındaki `@kullanıcı_adı` önerisi: görünen addan türetilmiş,
+ * şu an BOŞTA olan ad (`POST /account/kullanici-adi-onerisi`). Kural ve benzersizlik
+ * Worker'da; istemcide kopya yok. `signal` ile eski istek iptal edilir (bayat yanıt yazılmaz).
+ */
+export async function kullaniciAdiOnerisiAl(traktAccessToken: string, displayName: string, signal?: AbortSignal): Promise<string> {
+  if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+  const response = await axios.post(
+    `${KAYMAK_WORKER_URL}/account/kullanici-adi-onerisi`,
+    { traktAccessToken, displayName },
+    { headers: { 'Content-Type': 'application/json' }, timeout: 10000, signal }
+  );
+  const ad = response.data?.username;
+  if (!response.data?.success || typeof ad !== 'string') throw new Error('Kullanıcı adı önerisi alınamadı.');
+  return ad;
+}
+
 export async function updateProfile(traktAccessToken: string, patch: UpdateProfilePatch): Promise<void> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   // Adım 4b (M609): başkalarının göreceği profil METNİ (ad, görünen ad, açıklama) kural onayı ister.

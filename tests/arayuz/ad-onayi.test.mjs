@@ -31,10 +31,25 @@ T.ok('Kapi yalniz adOnaylandi === false iken yonlendirir (ag hatasinda kilit yok
   /p\.adOnaylandi === false\) router\.replace\('\/\(public\)\/profil-olustur'\)/.test(kapi) && /\.catch\(/.test(kapi) && /if \(!accessToken \|\| isGuest\) return;/.test(kapi));
 T.ok('Kapi korumali duzende bagli', /useAdOnayKapisi\(\);/.test(oku('app/(protected)/_layout.tsx')));
 const ekran = oku('app/(public)/profil-olustur.tsx');
-T.ok('Isim ekraninda «Atla» YOK (isimsiz girilemez)', !/skipForNow|Şimdilik Atla/.test(ekran));
-T.ok('«Devam» her zaman sunucuda onay yazar (adOnayla: true)', /adOnayla: true/.test(ekran));
-T.ok('Onaylanacak ad degismese de kurala uymali (kural disi eski ad gecemez)',
-  /const kuralSorunu = trimmed\.length > 0 \? kullaniciAdiSorunu\(trimmed\) : null;/.test(ekran));
+// 1.0.1 Dal 1 (K4, 2026-11-15): mantik `hooks/useIsimEkrani.ts`'e tasindi; ekran yalniz cizer.
+const isim = oku('hooks/useIsimEkrani.ts');
+T.ok('Isim ekraninda «Atla» YOK (isimsiz girilemez)', !/skipForNow|Şimdilik Atla/.test(ekran) && /useIsimEkrani\(\)/.test(ekran));
+T.ok('«Devam» her zaman sunucuda onay yazar (adOnayla: true)', /adOnayla: true/.test(isim));
+T.ok('Onaylanacak kullanici adi degismese de kurala uymali (kural disi eski ad gecemez)',
+  /const kullaniciAdiKuralSorunu = kullaniciAdi\.length > 0 \? kullaniciAdiSorunu\(kullaniciAdi\) : 'kisa';/.test(isim)
+  && /kullaniciAdiKuralSorunu !== null/.test(isim));
+T.ok('K4: gorunen ad ZORUNLU — gecerli ad yoksa «Devam» kapali, kayitta gorunen ad gider',
+  /const devamKapali = adKarari\.tur !== 'yaz'/.test(isim) && /displayName: adKarari\.deger/.test(isim));
+T.ok('K4: kullanici adi elle duzenlenince oneri artik uzerine yazmaz',
+  /useKullaniciAdiOnerisi\(adKarari\.tur === 'yaz' && elleKullaniciAdi === null \? adKarari\.deger : null\)/.test(isim)
+  && /elleKullaniciAdi !== null \? elleKullaniciAdi\.trim\(\) : \(oneri\.ad \?\? sunucuAdi\)/.test(isim));
+T.ok('Oneri gelene kadar «Devam» bekler (eski adla kayit yarisi yok)', /const oneriBekleniyor = elleKullaniciAdi === null && oneri\.yukleniyor;/.test(isim));
+const oneri = oku('hooks/useKullaniciAdiOnerisi.ts');
+T.ok('Oneri 300 ms bekleyerek istenir (her tusta Worker a istek gitmez — kullanici, 2026-11-15)',
+  /export const ONERI_GECIKMESI_MS = 300;/.test(oneri) && /setTimeout\(async \(\) => \{[\s\S]*\}, ONERI_GECIKMESI_MS\)/.test(oneri));
+// Iptal, ters sirali yanit, bayat oneri, oturum degisimi: kaynak metni degil DAVRANIS sinanir
+// (bagimsiz denetim bulgusu 4) — `isim-davranis.test.mjs`.
+T.ok('Iptal sinyali istege iletilir (davranisi isim-davranis takiminda)', /kullaniciAdiOnerisiAl\(accessToken, gorunenAd, denetci\.signal\)/.test(oneri));
 const servis = oku('features/feed/services/profile.ts');
 T.ok('Eski Worker (alan yok) onayli sayilir', /adOnaylandi: response\.data\.adOnaylandi !== false/.test(servis));
 T.ok('K2 kalkti: Ayarlar kullanici adi satiri Trakt hesabina da acik',
@@ -62,12 +77,17 @@ T.ok('Ret kodlari dogru mesaja eslenir (sunucu kodu + istemci sorunu)',
   && kullaniciAdiHataMetni(tt, 'kullanici_adi_karakter') === 'settings:usernameRuleChars'
   && kullaniciAdiHataMetni(tt, 'cooldown') === 'settings:usernameCooldownGeneric'
   && kullaniciAdiHataMetni(tt, 'bilinmeyen') === 'settings:profileSaveError');
-T.ok('Iki ekran da ayni eslemeyi kullanir', ['app/(public)/profil-olustur.tsx', 'components/modals/EditProfileModal.tsx']
-  .every((f) => /kullaniciAdiHataMetni\(t, error\.code\)/.test(oku(f)) && /kullaniciAdiHataMetni\(t, kuralSorunu\)/.test(oku(f))));
+const ayarlarModal = oku('components/modals/EditProfileModal.tsx');
+T.ok('Iki ekran da ayni eslemeyi kullanir',
+  /kullaniciAdiHataMetni\(t, error\.code\)/.test(ayarlarModal) && /kullaniciAdiHataMetni\(t, kuralSorunu\)/.test(ayarlarModal)
+  && /kullaniciAdiHataMetni\(t, hata\?\.code\)/.test(ekran) && /kullaniciAdiHataMetni\(t, ekran\.kullaniciAdiKuralSorunu\)/.test(ekran));
+T.ok('Isim ekrani gorunen ad reddini (ad_*) kendi metnine esler', /hata\?\.code\?\.startsWith\('ad_'\) \? gorunenAdHataMetni\(t, hata\.code\)/.test(ekran));
 
 const worker = path.join(root, '../kaymaktv-feedback-worker/src/routes/account.js');
 if (fs.existsSync(worker)) {
   const w = fs.readFileSync(worker, 'utf8');
-  T.ok('Worker: ilk secim beklemeyi baslatmaz, onay yazar', /\.\.\.\(ilkSecim \? \{\} : \{ username_updated_at: simdi \}\)/.test(w) && /ad_onaylandi_at: simdi/.test(w));
+  T.ok('Worker: ilk secim beklemeyi baslatmaz, onay yazar', /if \(!ilkSecim\) yama\.username_updated_at = simdi;/.test(w) && /yama\.ad_onaylandi_at = simdi;/.test(w));
+  // 1.0.1 Dal 1: tum alanlar TEK PATCH (taken -> hicbir alan yazilmaz).
+  T.ok('Worker: profil tek PATCH ile yazilir', (w.match(/supabasePatch\(/g) || []).length === 1 && /supabasePatch\(env, "users", verified\.userId, yama\)/.test(w));
 }
 T.bitir();

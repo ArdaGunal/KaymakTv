@@ -79,7 +79,8 @@ const TAKIMLAR = [
   { ad: 'avatar', grup: 'arayuz', dosya: 'arayuz/avatar.test.mjs', aciklama: 'T4: bas harf, deterministik renk, kopya avatar denetimi' },
   { ad: 'import', grup: 'arayuz', dosya: 'arayuz/traktImport.test.mjs', aciklama: 'T5.4: hata siniflandirmasi, geri cekilme, ilerleme yuzdesi' },
   { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17 + 2.6.8 ISTAT-01/02: yerel istatistik, ag ice aktarimi yok, ozet kutulari' },
-  { ad: 'gorunen-ad', grup: 'arayuz', dosya: 'arayuz/gorunen-ad.test.mjs', aciklama: '2.6.8 AD-01: Turkce/emoji/sembol serbest, gorunmez + bosluk + dolgu temizligi' },
+  { ad: 'gorunen-ad', grup: 'arayuz', dosya: 'arayuz/gorunen-ad.test.mjs', aciklama: '1.0.1 Dal 1: gorunen ad kurali uc katmanda ayni (istemci + Worker vektorleri, 080 deseni, sizinti degismezi)' },
+  { ad: 'isim-davranis', grup: 'arayuz', dosya: 'arayuz/isim-davranis.test.mjs', aciklama: '1.0.1 Dal 1 denetim: oneri yalniz guncel girdi+oturuma ait (bayat oneri yok), gorunen ad penceresi gorunmezle adi silmez (hook davranisi, sahte zaman + kontrollu ag)' },
   { ad: 'isaret', grup: 'arayuz', dosya: 'arayuz/isaretlemeBekleme.test.mjs', aciklama: 'M439: disk ACK oncesi yesil yok, cift dokunus kilidi' },
   { ad: 'arama', grup: 'arayuz', dosya: 'arayuz/arama.test.mjs', aciklama: 'M415: Kesfet aramasi 1 harften baslar' },
   { ad: 'film', grup: 'arayuz', dosya: 'arayuz/film-izleme.test.mjs', aciklama: 'M417: listede olmayan film isaretlenince ekranda gorunur' },
@@ -151,7 +152,7 @@ const TAKIMLAR = [
   { ad: 'yayinla', grup: 'sunucu', dosya: 'sunucu/yayinla.test.js', aciklama: 'Tasima D7: yayin betigi (npm ci -> her zaman yeniden baslat, derleme duserse dist yerinde) + derleme-env' },
   { ad: 'birim-dosyasi', grup: 'sunucu', dosya: 'sunucu/birim-dosyasi.test.js', aciklama: 'Tasima D6/D8: kaymaktv.service sunucu duzeni + kodda Pi yolu/adresi kalmadi' },
   { ad: 'kaymak-no', grup: 'arayuz', dosya: 'arayuz/kaymak-no.test.mjs', aciklama: 'Kimlik Faz 2 (066): KaymakNo #48291735 gorunumu, profil + arama baglantisi' },
-  { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492: isim ekrani (her yeni hesap, Atla yok, K2 kalkti) + istatistik bolum bazli sure' },
+  { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492 + 1.0.1 Dal 1: isim ekrani (gorunen ad zorunlu, @kullanici_adi onerisi 300 ms, tek PATCH) + istatistik suresi' },
   { ad: 'onay-kutusu', grup: 'arayuz', dosya: 'arayuz/onay-kutusu.test.mjs', aciklama: 'GORSEL-01: onay/bilgi kutulari koyu ConfirmHost, dogrudan Alert.alert yasak, kuyruk' },
   { ad: 'otomatik', grup: 'arayuz', dosya: 'arayuz/otomatik-aktarim.test.mjs', aciklama: 'C33: kirilmaz otomatik Trakt aktarimi (motor + kaynak denetimi)' },
 ];
