@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { chooseAsync, confirmAsync, notify } from '../utils/confirmDialog';
 import {
-  bolumYayinlandiMi, oncekiSezonPlani, planToplami,
+  bolumYayinlandiMi, oncekiSezonPlani, planToplami, sezonIzlemeOzeti,
   type IsaretlemePlani, type SezonListesi,
 } from '../utils/atlananBolumler';
 
@@ -63,6 +63,8 @@ export function useSezonIsaretleme({
     ? oncekiSezonPlani(useLibraryStore.getState().showProgressMap[showTraktId], season.number, tumSezonlar)
     : []);
 
+  const sezonOzeti = () => sezonIzlemeOzeti(useLibraryStore.getState().showProgressMap[showTraktId], season.number);
+
   const menuyuKapat = () => setMenuGorunur(false);
 
   const tekrarIzle = () => {
@@ -72,9 +74,10 @@ export function useSezonIsaretleme({
 
   const sezonuGeriAl = async () => {
     menuyuKapat();
+    // Bölüm/film onayıyla aynı: kaç izleme kaydının silineceği yazılır (tekrarlar dahil).
     const onay = await confirmAsync(
       t('unwatchSeasonTitle'),
-      t('unwatchSeasonMsg', { season: seasonLabel }),
+      t('unwatchSeasonMsg', { season: seasonLabel, count: sezonOzeti().izleme }),
       t('common:delete', 'Geri Al'),
       t('common:cancel', 'Vazgeç'),
     );
@@ -112,14 +115,9 @@ export function useSezonIsaretleme({
       return;
     }
     // 1.0.1 Dal 5: izlenmiş bölüm yeniden gönderilmez — sunucuda sahte tekrar (`2x`) olurdu.
-    // «N bölüm işaretlenecek» metinleri yeni yazılacak sayıyı (`izlenmemis`), «N bölümün tamamı»
-    // metni bitiş durumunu (`yayinlanan`) söyler.
-    const izlenen = new Set(
-      (useLibraryStore.getState().showProgressMap[showTraktId]?.seasons
-        ?.find((s: any) => s?.number === season.number)?.episodes || [])
-        .filter((b: any) => b?.completed)
-        .map((b: any) => b.number),
-    );
+    // Onay metinleri hep yeni yazılacak sayıyı (`izlenmemis`) söyler: hiç izlenmemiş sezonda
+    // «N bölümün tamamı», yarım sezonda «kalan N bölüm».
+    const { izlenen } = sezonOzeti();
     const izlenmemis = yayinlanan.filter((n) => !izlenen.has(n));
 
     // Yalnız bu sezon: hepsi yayınlandıysa sezon-düzeyi istek (o da yalnız izlenmemişleri yazar),
@@ -148,7 +146,7 @@ export function useSezonIsaretleme({
       t('markSeasonTitle'),
       yayinlanmamis > 0
         ? t('markSeasonPartialMsg', { count: izlenmemis.length, unaired: yayinlanmamis })
-        : t('markSeasonMsg', { season: seasonLabel, count: yayinlanan.length }),
+        : t(izlenen.size > 0 ? 'markSeasonRemainingMsg' : 'markSeasonMsg', { season: seasonLabel, count: izlenmemis.length }),
       t('markAsWatched'),
       t('common:cancel', 'Vazgeç'),
       { destructive: false },

@@ -17,7 +17,7 @@
 // `null` dönüşü). O durumda kullanıcıya soru sorulmaz, yalnızca bastığı
 // bölüm işaretlenir — sunucuya var olmayan bölüm GÖNDERİLMEZ.
 
-type BolumBenzeri = { number?: number; completed?: boolean };
+type BolumBenzeri = { number?: number; completed?: boolean; plays?: number };
 type SezonBenzeri = { number?: number; episodes?: BolumBenzeri[] | null };
 type IlerlemeBenzeri = { seasons?: SezonBenzeri[] | null } | null | undefined;
 
@@ -128,6 +128,25 @@ export function atlananPlan(
 /** Plandaki toplam bölüm sayısı — onay metni sayıyı GÖSTERMEK ZORUNDA. */
 export const planToplami = (plan: IsaretlemePlani[]): number =>
   plan.reduce((t, p) => t + p.bolumler.length, 0);
+
+/**
+ * SAF — sezondaki izlenmiş bölüm numaraları ve TOPLAM izleme kaydı (tekrarlar dahil).
+ * `plays` taşımayan eski ilerlemede izlenmiş bölüm 1 izleme sayılır. Onay metinleri bunu okur:
+ * «kalan N bölüm» (işaretleme) ve «N izleme silinecek» (sezonu geri al).
+ */
+export const sezonIzlemeOzeti = (
+  ilerleme: IlerlemeBenzeri,
+  sezonNo: number,
+): { izlenen: Set<number>; izleme: number } => {
+  const izlenen = new Set<number>();
+  let izleme = 0;
+  for (const b of ilerleme?.seasons?.find((s) => s?.number === sezonNo)?.episodes || []) {
+    if (!b?.completed || typeof b.number !== 'number') continue;
+    izlenen.add(b.number);
+    izleme += Math.max(1, Number(b.plays) || 1);
+  }
+  return { izlenen, izleme };
+};
 
 /** Plan yalnızca seçilen bölümden mi ibaret? (soru sormaya gerek yok) */
 export const planTekBolumMu = (plan: IsaretlemePlani[], sezonNo: number, bolumNo: number): boolean =>

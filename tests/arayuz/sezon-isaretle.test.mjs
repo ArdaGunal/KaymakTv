@@ -21,7 +21,7 @@ const esit = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const oku = (p) => fs.readFileSync(path.join(KOK, p), 'utf8');
 
 // ── 1 · saf yardimcilar ─────────────────────────────────────────────────
-const { oncekiSezonPlani, bolumYayinlandiMi } = tsLoader(KOK)('utils/atlananBolumler.ts');
+const { oncekiSezonPlani, bolumYayinlandiMi, sezonIzlemeOzeti } = tsLoader(KOK)('utils/atlananBolumler.ts');
 const ilerleme = {
   seasons: [
     { number: 0, episodes: [{ number: 1, completed: false }] },
@@ -138,6 +138,34 @@ T.H('Oncekilerde eksik yok -> tek, kirmizi OLMAYAN onay');
   T.ok('1. sezon: onceki yok -> tek onay, iki eylem yok', k.diyalog.some((d) => d[0] === 'confirm') && !k.diyalog.some((d) => d[0] === 'choose'));
 }
 
+T.H('Onay metinleri gercek sayiyi soyler (1.0.1 IZ-6)');
+{
+  const yarim = { seasons: [{ number: 1, episodes: [{ number: 1, completed: true, plays: 2 }, { number: 2, completed: true }, { number: 3, completed: false, plays: 0 }, { number: 4, completed: false }] }] };
+  const o = sezonIzlemeOzeti(yarim, 1);
+  T.ok('sezonIzlemeOzeti: izlenen {1,2}, izleme 3 (2x + plays siz eski kayit 1)', esit([...o.izlenen], [1, 2]) && o.izleme === 3);
+  T.ok('sezonIzlemeOzeti: ilerleme/sezon yok -> bos, 0', sezonIzlemeOzeti(undefined, 1).izleme === 0 && sezonIzlemeOzeti(yarim, 9).izlenen.size === 0);
+  const sezon1 = { number: 1, aired_episodes: 4, episodes: [1, 2, 3, 4].map((n) => ({ number: n, first_aired: gecmis })) };
+
+  const k = kur({ onay: true, ilerlemeMap: { 7: yarim } });
+  await k.useSezonIsaretleme(girdi({ season: sezon1 })).sezonDugmesi(); await bekle();
+  const c = k.diyalog.find((d) => d[0] === 'confirm');
+  T.ok('yarim sezon: «kalan 2 bolum» (toplam 4 degil)', !!c && c[2].startsWith('markSeasonRemainingMsg|') && /"count":2/.test(c[2]));
+
+  const k2 = kur({ onay: true, ilerlemeMap: {} });
+  await k2.useSezonIsaretleme(girdi({ season: sezon1 })).sezonDugmesi(); await bekle();
+  const c2 = k2.diyalog.find((d) => d[0] === 'confirm');
+  T.ok('hic izlenmemis sezon: «4 bolumun tamami»', !!c2 && c2[2].startsWith('markSeasonMsg|') && /"count":4/.test(c2[2]));
+
+  const k3 = kur({ onay: true, ilerlemeMap: { 7: yarim } });
+  await k3.useSezonIsaretleme(girdi({ season: sezon1, isSeasonWatched: true })).sezonuGeriAl(); await bekle();
+  const c3 = k3.diyalog.find((d) => d[0] === 'confirm');
+  T.ok('sezonu geri al: silinecek izleme sayisi yazilir (3)', !!c3 && c3[2].startsWith('unwatchSeasonMsg|') && /"count":3/.test(c3[2]));
+  T.ok('sezonu geri al: onaydan sonra unwatchSeason(7, 1)', esit(k3.cagri, [['unwatchSeason', 7, 1]]));
+  const k4 = kur({ onay: false, ilerlemeMap: { 7: yarim } });
+  await k4.useSezonIsaretleme(girdi({ season: sezon1, isSeasonWatched: true })).sezonuGeriAl(); await bekle();
+  T.ok('sezonu geri al: vazgecince hicbir sey silinmez', k4.cagri.length === 0);
+}
+
 T.H('Korumalar');
 {
   const k = kur({ guest: true, secim: 'primary' });
@@ -166,6 +194,7 @@ T.ok('sezonu geri al KIRMIZI kalir (yikici)', /sezonuGeriAl[\s\S]{0,300}confirmA
 T.ok('engeli kaldir kirmizi degil (iki yer)', /\{ destructive: false \}/.test(oku('app/(protected)/blocked-users.tsx'))
   && /\{ destructive: !didIBlockThem \}/.test(oku('features/publicProfile/components/ProfilMenusu.tsx')));
 const tr = JSON.parse(oku('locales/tr/media.json')); const en = JSON.parse(oku('locales/en/media.json'));
-T.ok('yeni metinler TR + EN', ['markOnlyThisSeason', 'markPrevSeasons', 'markSeasonWithPrevMsg'].every((k) => tr[k] && en[k]));
+T.ok('film menusunde «Izlemeyi Birak» yok (yalniz dizi)', oku('components/modals/OptionsModal.tsx').includes("{type === 'show' && onHideFromProgress && ("));
+T.ok('yeni metinler TR + EN', ['markOnlyThisSeason', 'markPrevSeasons', 'markSeasonWithPrevMsg', 'markSeasonRemainingMsg_one', 'markSeasonRemainingMsg_other', 'unwatchSeasonMsg_one', 'unwatchSeasonMsg_other'].every((k) => tr[k] && en[k]));
 
 T.bitir();

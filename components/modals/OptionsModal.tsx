@@ -16,7 +16,7 @@ interface OptionsModalProps {
   type: 'show' | 'movie';
   data: any;
   isWatched?: boolean;
-  /** "İzlemeyi Bırak" eylemi — dizi/filmi Trakt'ın gizlenen listesinde mi
+  /** "İzlemeyi Bırak" eylemi (satır YALNIZ dizide çizilir) — dizi/filmi Trakt'ın gizlenen listesinde mi
    * (true → satır "İzlemeye Devam Et"e döner). Diziler için `progress_watched`,
    * filmler için `calendar` bölümü kullanılır (bkz.
    * services/api/users.ts:hideItemTrakt); ayrı bir yerel "bırakıldı" durumu
@@ -121,14 +121,15 @@ export default function OptionsModal({
           rozet satırındaki Bookmark butonu) yönetiliyor. Aynı eylemi iki
           yerde göstermek karışıklık yaratırdı (bkz. docs/HISTORY.md). */}
 
-      {/* "İzlemeyi Bırak" — hem diziler hem filmler için Trakt'ın gizleme uç
-          noktasına bağlıdır (bkz. isHidden/onHideFromProgress), takip
+      {/* "İzlemeyi Bırak" — YALNIZ DİZİ (1.0.1, kullanıcı kararı 2026-11-16: filmde «izlemeyi
+          bırakmak» diye bir durum yok). Filmde bırak/devam et takip düğmesinde kalır
+          (MediaHero `resolveFollowAction`). Takip
           panosundaki 3-nokta menüsüyle (`TrackingCardMenu`) BİREBİR AYNI
           eylem/mekanizma/ikon — yalnızca buradan iki yöne de (bırak/devam
           et) çalışabilir, panodaki menü tek yönlüdür (bkz. o dosyadaki not).
           `PauseCircle` uygulama genelinde bu eylemin TEK ikonudur;
           "devam et" yönünde onun doğal karşıtı `PlayCircle` kullanılır. */}
-      {onHideFromProgress && (
+      {type === 'show' && onHideFromProgress && (
         <TouchableOpacity style={styles.optionRow} onPress={handleHideProgress}>
           {isHidden ? <PlayCircle color={nativeColor('steel', "#38bdf8")} size={24} /> : <PauseCircle color="#fff" size={24} />}
           <Text style={[styles.optionText, isHidden && { color: nativeColor('steel', '#38bdf8') }]}>
