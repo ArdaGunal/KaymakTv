@@ -117,10 +117,14 @@ const oku = (...y) => fs.readFileSync(path.join(KOK, ...y), 'utf8');
 const prog = oku('services', 'library', 'mutations', 'progress.ts');
 T.ok('Uc mutasyon da ilerleme yoksa iskelete dusuyor',
   ['markEpisodeAsWatched', 'markSeasonAsWatched', 'planiIsaretle'].every((fn) => {
-    const body = prog.slice(prog.indexOf(`export const ${fn} = async`)).split(/\nexport const /)[0];
+    // 1.0.1 Dal 5: sezon işaretleme ortak `sezonuYaz` gövdesinde (düz işaretleme + Tekrar İzle).
+    const bas = fn === 'markSeasonAsWatched' ? 'const sezonuYaz = async' : `export const ${fn} = async`;
+    const body = prog.slice(prog.indexOf(bas)).split(/\n(?:export )?const /)[0];
     return /iskeletKur\(iskeletSezonlar\)/.test(body);
   }),
   String((prog.match(/iskeletKur\(iskeletSezonlar\)/g) || []).length));
+T.ok('markSeasonAsWatched iskeleti sezonuYaz a iletiyor',
+  /sezonuYaz\(showId, season, false, mediaData, iskeletSezonlar\)/.test(prog));
 const ekran = oku('app', 'show', '[id].tsx');
 // M425: turev artik ORTAK yardimcida (utils/sezonEvreni.ts), ekranda elle degil.
 T.ok('Dizi sayfasi iskelet verisini kuruyor ve geciriyor',

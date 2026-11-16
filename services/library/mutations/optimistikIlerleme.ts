@@ -245,6 +245,26 @@ export const sezonuIsaretle = (
   return bolumleriIsaretle(ilerleme, seasonNumber, numaralar, watchedAt, simdi);
 };
 
+/**
+ * Sezon işaretlemesinde sunucuya gidecek bölümler: yayınlanmış olanlar; `tekrar` değilse yalnız
+ * İZLENMEMİŞLER. `null` = sezon yerelde bilinmiyor (çağıran sezon düzeyi `'*'` gönderir).
+ * 🔴 1.0.1 Dal 5: süzme yokken yarım izlenmiş sezonda «sezonu işaretle» izlenmiş bölümlere yeni
+ * satır yazıyordu; 081'den beri bunlar sahte tekrar (`2x`) ve fazladan süre olarak görünür.
+ */
+export const sezonunIsaretlenecekleri = (
+  ilerleme: Ilerleme | null | undefined,
+  seasonNumber: number,
+  watchedAt: string,
+  tekrar: boolean,
+): number[] | null => {
+  const sezon = ilerleme?.seasons?.find((s) => s.number === seasonNumber);
+  if (!sezon) return null;
+  const an = Date.parse(watchedAt);
+  return (sezon.episodes || [])
+    .filter((b) => yayinda(b, an) && (tekrar || !b.completed))
+    .map((b) => b.number);
+};
+
 /** Bölüm(ler)i İZLENMEDİ'ye çevirir. */
 export const bolumleriGeriAl = (
   ilerleme: Ilerleme | null | undefined,

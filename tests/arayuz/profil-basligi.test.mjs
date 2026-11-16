@@ -29,7 +29,8 @@ T.ok('ikisi de yok: bos baslik (cagiran yedek gosterir)', esit(s(null, null), { 
 T.H('2 · Ekranlar ortak parcalari kullanir');
 const ekranlar = {
   'mobil baslik': 'components/profile/ProfileHeader.tsx',
-  'web kendi profilim': 'app/(protected)/(tabs)/profile.web.tsx',
+  // 1.0.1 Dal 5: masaüstü başlığı 400 satır kuralı için ekrandan ayrı bileşene taşındı.
+  'web kendi profilim': 'components/profile/DesktopProfileHeader.tsx',
   'web baskasinin profili': 'app/(protected)/user/[slug].web.tsx',
 };
 for (const [ad, dosya] of Object.entries(ekranlar)) {
@@ -38,6 +39,8 @@ for (const [ad, dosya] of Object.entries(ekranlar)) {
   T.ok(`${ad}: Kaymak numarasi baslikta YOK`, !/KaymakNoEtiketi/.test(k));
   T.ok(`${ad}: paylas dugmesi eylem dugmesinin yaninda`, /<ProfilPaylasDugmesi\b/.test(k));
 }
+T.ok('web kendi profilim: ekran masaustu basligi ortak bilesenden aliyor',
+  /<DesktopProfileHeader\b/.test(oku('app/(protected)/(tabs)/profile.web.tsx')));
 const duzenle = oku('screens/EditProfileMobile.tsx');
 T.ok('Profilim: Kaymak ID satiri + kopyala burada', /<KaymakNoEtiketi\b/.test(duzenle) && /editProfileKaymakIdLabel/.test(duzenle));
 T.ok('Profilim: ad blogu da ayni kural (tekrar yok)', /<ProfilAdBlogu\b/.test(duzenle) && !/@\{profile\.username\}/.test(duzenle));

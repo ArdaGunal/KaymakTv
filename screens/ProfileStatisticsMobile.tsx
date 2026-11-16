@@ -1,4 +1,4 @@
-import { nativeColor, nativeTint } from '../constants/mobilePalette';
+import { nativeColor } from '../constants/mobilePalette';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { useAppBack } from '../hooks/useAppBack';

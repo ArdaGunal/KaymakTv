@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 
 interface UseShowDetailHandlersProps {
   traktIdNum: number;
-  id: string | string[];
   t: any;
   /** M477: kütüphanede olmayan dizi puanlanınca da akışa yayın için başlık/tmdb. */
   medya?: { title?: string; tmdbId?: number };
@@ -14,7 +13,6 @@ interface UseShowDetailHandlersProps {
 
 export function useShowDetailHandlers({
   traktIdNum,
-  id,
   t,
   medya,
 }: UseShowDetailHandlersProps) {
@@ -23,8 +21,6 @@ export function useShowDetailHandlers({
   const userRatingsShows = useLibrarySelector((s) => s.userRatingsShows);
   // Aksiyon fonksiyonları store'a abone olmaz (bkz. useLibraryActions).
   const {
-    markSeasonAsWatched,
-    unwatchSeason,
     setLocalRating,
     removeLocalRating,
     unwatchEpisode,
@@ -38,7 +34,6 @@ export function useShowDetailHandlers({
   } = useLibraryActions();
   const { isGuest } = useAuth();
 
-  const [seasonLoading, setSeasonLoading] = useState<Record<number, boolean>>({});
   const [localLoadingOption, setLocalLoadingOption] = useState<'remove' | 'rewatch' | 'last' | null>(null);
   const [snackbarData, setSnackbarData] = useState<{showId: number, season: number, episode: number} | null>(null);
 
@@ -47,8 +42,8 @@ export function useShowDetailHandlers({
 
   // NOT: `MediaHero`/`EpisodeOptionsModal` bu aksiyonların tetikleyici
   // butonlarını zaten `isGuest` ile koruyor — buradaki kontroller bilinçli bir
-  // ikinci savunma katmanı (bu dosyadaki diğer handler'larla — `handleMarkSeason`,
-  // `handleUnwatchEpisode`, `handleRewatchEpisode` — aynı desen). Misafir bir
+  // ikinci savunma katmanı (bu dosyadaki diğer handler'larla — `handleUnwatchEpisode`,
+  // `handleRewatchEpisode` — aynı desen). Misafir bir
   // token olmadan doğrudan buraya ulaşırsa (örn. ileride eklenecek yeni bir
   // tetikleyici korumayı unutursa) Trakt'a token'sız istek gidip genel bir
   // hata mesajı göstermek yerine, burada da net bir uyarı verilir.
@@ -114,25 +109,6 @@ export function useShowDetailHandlers({
       console.error(e);
     }
   }, [isGuest, traktIdNum, removeLocalRating, unrateMedia, t]);
-
-  const handleMarkSeason = useCallback(async (seasonNum: number, isWatched: boolean) => {
-    if (isGuest) {
-      notify(t('common:error'), t('common:guestRestrictedMessage', 'Bu işlemi gerçekleştirmek için giriş yapmalısınız.'));
-      return;
-    }
-    try {
-      setSeasonLoading(prev => ({ ...prev, [seasonNum]: true }));
-      if (isWatched) {
-        await unwatchSeason(parseInt(id as string, 10), seasonNum);
-      } else {
-        await markSeasonAsWatched(parseInt(id as string, 10), seasonNum);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSeasonLoading(prev => ({ ...prev, [seasonNum]: false }));
-    }
-  }, [isGuest, id, markSeasonAsWatched, unwatchSeason, t]);
 
   const handleUnwatchEpisode = useCallback(async (selectedEpisode: {season: number, episode: number, playCount?: number} | null) => {
     if (isGuest) {
@@ -207,15 +183,11 @@ export function useShowDetailHandlers({
 
   return {
     userRating,
-    seasonLoading,
     localLoadingOption,
-    snackbarData,
-    setSnackbarData,
     handleRate,
     handleRemoveRating,
     handleRateEpisode,
     handleRemoveEpisodeRating,
-    handleMarkSeason,
     handleUnwatchEpisode,
     handleUnwatchLastPlay,
     handleRewatchEpisode,

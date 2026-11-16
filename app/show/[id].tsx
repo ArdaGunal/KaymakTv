@@ -108,12 +108,8 @@ export default function ShowDetailScreen() {
   const [rewatchSnackbarVisible, setRewatchSnackbarVisible] = useState(false);
 
   // Handler hook'u.
-  // NOT: `seasonLoading`, `handleMarkSeason` ve `snackbarData` BİLİNÇLİ OLARAK
-  // buradan alınmıyor. Sezon işaretleme mantığı `SeasonAccordion.tsx`'e taşındı
-  // (orada misafir kontrolü, yayınlanmamış bölüm ayıklama ve "Tekrar İzle /
-  // Geçmişi Sil" menüsü de var — bu ekranda kalan kopya çok daha zayıftı ve
-  // hiçbir yere bağlı değildi). `snackbarData`'yı hook kendisi yazar ve okur
-  // (`handleUnwatchEpisode` → `handleUndoUnwatch`); ekranda kopyası yok.
+  // Sezon işaretleme `useSezonIsaretleme`'de (SeasonAccordion); «geri al» verisini hook kendisi
+  // yazar ve okur (`handleUnwatchEpisode` → `handleUndoUnwatch`).
   const {
     userRating,
     localLoadingOption,
@@ -127,7 +123,6 @@ export default function ShowDetailScreen() {
     handleUndoUnwatch,
   } = useShowDetailHandlers({
     traktIdNum,
-    id,
     t,
     medya: { title: gorunenBaslik(showData, i18n.language), tmdbId: Number(showData?.ids?.tmdb ?? tmdbId) || undefined },
   });

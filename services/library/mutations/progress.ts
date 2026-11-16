@@ -1,7 +1,7 @@
 // M439: kalıcı işaretleme sınırı. YEŞİL TİK ancak günlük diske yazıldıktan sonra.
 // Kuyruk/taşıma outbox/ içinde; eski yarış ve geri alma ayrı modüllerde.
 // İzin yalnız kapanışta veri kaybı içindir; fetchers.ts/feedApi.ts değiştirilmedi.
-import { bolumleriIsaretle, sezonuIsaretle, iskeletKur } from './optimistikIlerleme';
+import { bolumleriIsaretle, sezonuIsaretle, sezonunIsaretlenecekleri, iskeletKur } from './optimistikIlerleme';
 import { izlenenFilmeEkle } from './optimistikFilm';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { CACHE_KEYS, safeStorageSet, persistShowProgressMap, setShowProgressMap, setWatchlistMovies, setWatchedMovies, setCalendarMovies } from '../utils';
@@ -77,28 +77,38 @@ export const markEpisodeAsWatched = async (showId: number, season: number, episo
 export const rewatchEpisode = async (showId: number, season: number, episode: number) =>
   markEpisodeAsWatched(showId, season, episode);
 
-export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any, iskeletSezonlar?: any[] | null) => {
+// `tekrar`: «Tekrar İzle» bütün yayınlanmış bölümlere yeni izleme yazar; düz işaretleme yalnız
+// izlenmemişlere (izlenmiş bölüm sahte `2x` almasın — `sezonunIsaretlenecekleri`).
+const sezonuYaz = async (showId: number, season: number, tekrar: boolean, mediaData?: any, iskeletSezonlar?: any[] | null) => {
   const watchedAt = nowStamp();
   const base = useLibraryStore.getState().showProgressMap[showId] || iskeletKur(iskeletSezonlar);
-  const episodes = base?.seasons?.find((s: any) => s.number === season)?.episodes
-    ?.filter((e: any) => !e.first_aired || Date.parse(e.first_aired) <= Date.parse(watchedAt))
-    .map((e: any) => e.number);
+  const episodes = sezonunIsaretlenecekleri(base, season, watchedAt, tekrar);
+  // Sezon biliniyor ve izlenmemiş yayınlanmış bölüm yok: yazılacak bir şey yok.
+  if (!tekrar && episodes && episodes.length === 0) return mevcutIlerleme(showId);
   await saveIntent({
     mediaType: 'show', mediaId: showId, watchedAt,
+    // Sezon yerelde bilinmiyorsa sezon düzeyi istek (sunucu yayınlanmışları çözer).
     parts: [{ season, episodes: episodes?.length ? episodes : '*' }],
     media: mediaFor(showId, 'show', mediaData), skeleton: compactSkeleton(iskeletSezonlar),
   }, 'markSeasonAsWatched');
   nesliArtir(showId);
   reactivateShowTracking(showId, mediaData);
   setShowProgressMap((prev: any) => {
-    const yamali = sezonuIsaretle(prev[showId] || iskeletKur(iskeletSezonlar), season, watchedAt);
+    const onceki = prev[showId] || iskeletKur(iskeletSezonlar);
+    // Kuyruk projeksiyonuyla aynı yama: açık liste → `bolumleriIsaretle`, `'*'` → `sezonuIsaretle`.
+    const yamali = episodes?.length
+      ? bolumleriIsaretle(onceki, season, episodes, watchedAt)
+      : sezonuIsaretle(onceki, season, watchedAt);
     return yamali ? { ...prev, [showId]: yamali } : prev;
   });
   return finishShow(showId, 'markSeasonAsWatched');
 };
 
+export const markSeasonAsWatched = async (showId: number, season: number, mediaData?: any, iskeletSezonlar?: any[] | null) =>
+  sezonuYaz(showId, season, false, mediaData, iskeletSezonlar);
+
 export const rewatchSeason = async (showId: number, season: number, mediaData?: any) =>
-  markSeasonAsWatched(showId, season, mediaData);
+  sezonuYaz(showId, season, true, mediaData);
 
 export const planiIsaretle = async (
   showId: number, plan: IsaretlemePlani[], mediaData?: any, iskeletSezonlar?: any[] | null,

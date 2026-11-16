@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yardimci from '../yardimci.js';
 import { bolumIzlemeSayisi, ilerlemedenBolumSayisi, filmIzlemeSayisi, izlemeRozeti, izlendiMetni, izlemeKaldiMi } from '../../utils/izlemeSayisi.ts';
-import { bolumleriIsaretle, bolumleriGeriAl, sonIzlemeyiGeriAl } from '../../services/library/mutations/optimistikIlerleme.ts';
+import { bolumleriIsaretle, bolumleriGeriAl, sonIzlemeyiGeriAl, sezonunIsaretlenecekleri } from '../../services/library/mutations/optimistikIlerleme.ts';
 import { izlenenFilmeEkle, filmIzlemesiniGeriAl } from '../../services/library/mutations/optimistikFilm.ts';
 import { yerelIstatistik, gosterilecekIstatistik } from '../../utils/yerelIstatistik.ts';
 import { aylikCubuklar } from '../../utils/aylikCubuklar.ts';
@@ -125,6 +125,25 @@ T.ok('tur ayrilir ve pencere disi ay sayilmaz', diziAy.find((c) => c.key === '20
 T.ok('bos/bozuk girdi coker degil', aylikCubuklar(null, 'episode', 6, 'tr-TR', simdi).every((c) => c.value === 0));
 
 // ─────────────────────────────────────────────────────────────────────────
+T.H('Sezon isaretleme izlenmis bolume sahte tekrar yazmaz (1.0.1 Dal 5)');
+{
+  // Yarim izlenmis sezon: E1 izlendi (1x), E2 izlenmedi, E3 henuz yayinlanmadi.
+  const W = '2026-11-16T09:00:00.000Z';
+  const yarim = ilerleme([bol(1, 1, D2), bol(2, 0), { number: 3, completed: false, plays: 0, first_aired: '2099-01-01T00:00:00Z' }]);
+  T.ok('duz isaretleme: yalniz yayinlanmis IZLENMEMIS bolum (E2)', JSON.stringify(sezonunIsaretlenecekleri(yarim, 1, W, false)) === '[2]');
+  T.ok('Tekrar Izle: butun yayinlanmis bolumler (E1, E2), gelecek bolum yok', JSON.stringify(sezonunIsaretlenecekleri(yarim, 1, W, true)) === '[1,2]');
+  T.ok('sezon yerelde bilinmiyor → null (cagiran sezon duzeyi istek atar)', sezonunIsaretlenecekleri(yarim, 5, W, false) === null);
+  const bitti = ilerleme([bol(1, 2, D2), bol(2, 1, D2)]);
+  T.ok('sezon zaten bitmis → bos liste (yazilacak bir sey yok)', JSON.stringify(sezonunIsaretlenecekleri(bitti, 1, W, false)) === '[]');
+  // Gercek zincir: projeksiyon + mutasyon ayni acik listeyle → izlenmis E1 hic artmaz.
+  const once = bolumleriIsaretle(yarim, 1, sezonunIsaretlenecekleri(yarim, 1, W, false), W);
+  const sonra = bolumleriIsaretle(once, 1, [2], W);
+  const e = (x, n) => x.seasons[0].episodes.find((b) => b.number === n);
+  T.ok('E1 1x kalir (eskiden 2x olurdu), E2 1x, ek tekrar 0',
+    e(sonra, 1).plays === 1 && e(sonra, 2).plays === 1 && (sonra.rewatch_plays ?? 0) === 0, JSON.stringify(sonra.seasons[0].episodes));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 T.H('Kaynak denetimi: yuzeyler baglandi mi');
 T.ok('optimistikIlerleme kopyasi utils/izlemeSayisi kuraliyla AYNI',
   (() => {
@@ -145,5 +164,15 @@ const sonIz = oku('services', 'library', 'mutations', 'sonIzleme.ts');
 T.ok('son izleme silmede damgayi SUNUCU buluyor (sonuncu: true)', /sonuncu: true/.test(oku('services', 'api', 'library.ts')) && !/watchedAt/.test(sonIz.split('\n').filter((l) => /libraryApi\./.test(l)).join('')));
 T.ok('analiz eski Trakt userStats okumuyor', !/userStats/.test(oku('hooks', 'useProfileStatistics.ts').replace(/\/\/.*$/gm, '')));
 T.ok('aylik grafik sunucu ozetinden (useIzlemeDonemleri)', /useIzlemeDonemleri\(MONTHS_BACK\)/.test(oku('hooks', 'useProfileStatistics.ts')));
+
+{
+  // 1.0.1 Dal 5 · sezon yazimi: duz isaretleme izlenmemislere, Tekrar Izle hepsine; olu kopya yok.
+  const prog = oku('services', 'library', 'mutations', 'progress.ts');
+  T.ok('markSeasonAsWatched tekrar=false, rewatchSeason tekrar=true',
+    /markSeasonAsWatched = async[^\n]*\n\s*sezonuYaz\(showId, season, false,/.test(prog) && /rewatchSeason = async[^\n]*\n\s*sezonuYaz\(showId, season, true,/.test(prog));
+  T.ok('bitmis sezonda yeni satir yazilmaz (erken donus)', /if \(!tekrar && episodes && episodes\.length === 0\) return mevcutIlerleme\(showId\);/.test(prog));
+  const handlers = oku('hooks', 'useShowDetailHandlers.ts');
+  T.ok('olu handleMarkSeason / seasonLoading kalmadi', !/handleMarkSeason|seasonLoading|markSeasonAsWatched/.test(handlers));
+}
 
 T.bitir();

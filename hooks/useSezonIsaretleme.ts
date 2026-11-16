@@ -111,21 +111,32 @@ export function useSezonIsaretleme({
       notify(t('seasonNotAiredTitle'), t('seasonNotAiredMsg', { season: seasonLabel }));
       return;
     }
+    // 1.0.1 Dal 5: izlenmiş bölüm yeniden gönderilmez — sunucuda sahte tekrar (`2x`) olurdu.
+    // «N bölüm işaretlenecek» metinleri yeni yazılacak sayıyı (`izlenmemis`), «N bölümün tamamı»
+    // metni bitiş durumunu (`yayinlanan`) söyler.
+    const izlenen = new Set(
+      (useLibraryStore.getState().showProgressMap[showTraktId]?.seasons
+        ?.find((s: any) => s?.number === season.number)?.episodes || [])
+        .filter((b: any) => b?.completed)
+        .map((b: any) => b.number),
+    );
+    const izlenmemis = yayinlanan.filter((n) => !izlenen.has(n));
 
-    // Yalnız bu sezon: hepsi yayınlandıysa sezon-düzeyi istek, değilse yalnız yayınlananlar.
+    // Yalnız bu sezon: hepsi yayınlandıysa sezon-düzeyi istek (o da yalnız izlenmemişleri yazar),
+    // değilse yalnız yayınlanmış izlenmemişler.
     const buSezon = () => (yayinlanmamis > 0
-      ? planiIsaretle(showTraktId, [{ sezon: season.number, bolumler: yayinlanan }], showMedia, iskeletSezonlar)
+      ? planiIsaretle(showTraktId, [{ sezon: season.number, bolumler: izlenmemis }], showMedia, iskeletSezonlar)
       : markSeasonAsWatched(showTraktId, season.number, showMedia, iskeletSezonlar));
 
     if (onceki.length > 0) {
       const secim = await chooseAsync(
         t('markSeasonTitle'),
-        t('markSeasonWithPrevMsg', { count: yayinlanan.length, prev: planToplami(onceki) }),
+        t('markSeasonWithPrevMsg', { count: izlenmemis.length, prev: planToplami(onceki) }),
         t('common:markPreviousToo'),
         t('markOnlyThisSeason'),
       );
       if (secim === 'primary') {
-        const plan = [...onceki, { sezon: season.number, bolumler: yayinlanan }];
+        const plan = [...onceki, { sezon: season.number, bolumler: izlenmemis }];
         calistir(() => planiIsaretle(showTraktId, plan, showMedia, iskeletSezonlar));
       } else if (secim === 'secondary') {
         calistir(buSezon);
@@ -136,7 +147,7 @@ export function useSezonIsaretleme({
     const onay = await confirmAsync(
       t('markSeasonTitle'),
       yayinlanmamis > 0
-        ? t('markSeasonPartialMsg', { count: yayinlanan.length, unaired: yayinlanmamis })
+        ? t('markSeasonPartialMsg', { count: izlenmemis.length, unaired: yayinlanmamis })
         : t('markSeasonMsg', { season: seasonLabel, count: yayinlanan.length }),
       t('markAsWatched'),
       t('common:cancel', 'Vazgeç'),

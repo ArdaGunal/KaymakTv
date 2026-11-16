@@ -107,6 +107,22 @@ T.H('Izlenmemis sezon, oncekilerde eksik var -> iki eylem');
     k.cagri.length === 1 && k.cagri[0][0] === 'planiIsaretle' && esit(k.cagri[0][2], [{ sezon: 3, bolumler: [1, 2] }]));
 }
 
+T.H('Yarim izlenmis sezon: izlenmis bolum yeniden gonderilmez (1.0.1 Dal 5)');
+{
+  // S3: E1 izlendi, E2 izlenmedi, E3 gelecekte. Eskiden plan S3[1,2] idi → E1 sunucuda sahte 2x.
+  const yarimMap = { 7: { seasons: [...ilerleme.seasons.filter((s) => s.number !== 3), { number: 3, episodes: [{ number: 1, completed: true }, { number: 2, completed: false }] }] } };
+  const kismi = { ...sezon3, episodes: [...sezon3.episodes, { number: 3, first_aired: '2099-01-01T00:00:00Z' }] };
+  const k = kur({ secim: 'secondary', ilerlemeMap: yarimMap });
+  await k.useSezonIsaretleme(girdi({ season: kismi })).sezonDugmesi(); await bekle();
+  T.ok('«Yalnizca Bu Sezon»: yalniz S3[2]', k.cagri.length === 1 && k.cagri[0][0] === 'planiIsaretle' && esit(k.cagri[0][2], [{ sezon: 3, bolumler: [2] }]));
+  const c = k.diyalog.find((d) => d[0] === 'choose');
+  T.ok('«N bolum isaretlenecek» sayisi yeni yazilacak bolum (1)', !!c && /"count":1/.test(c[2]));
+  const k2 = kur({ secim: 'primary', ilerlemeMap: yarimMap });
+  await k2.useSezonIsaretleme(girdi({ season: kismi })).sezonDugmesi(); await bekle();
+  const plan = k2.cagri[0]?.[2] || [];
+  T.ok('«Oncekileri de»: bu sezondan yalniz S3[2]', esit(plan[plan.length - 1], { sezon: 3, bolumler: [2] }));
+}
+
 T.H('Oncekilerde eksik yok -> tek, kirmizi OLMAYAN onay');
 {
   const k = kur({ onay: true, ilerlemeMap: { 7: { seasons: [1, 2].map((s) => ({ number: s, episodes: [1, 2, 3, 4].map((n) => ({ number: n, completed: true })) })) } } });

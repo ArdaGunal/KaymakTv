@@ -21,7 +21,7 @@ T.ok('Kendi profil kancasi kaymakNo donduruyor', /kaymakNo: veri\?\.kaymakNo \?\
 T.ok('Profilim ekrani etiketi ciziyor (basliklarda yok)', oku('screens/EditProfileMobile.tsx').includes('<KaymakNoEtiketi no={kaymakNo} />')
   && !oku('components/profile/ProfileHeader.tsx').includes('KaymakNoEtiketi'));
 T.ok('Mobil: kendi + baskasinin profili numarayi veriyor', oku('screens/ProfileMobile.tsx').includes('kaymakNo={kaymakNo}') && oku('screens/PublicProfileMobile.tsx').includes('kaymakNo={kaymakProfil?.profile.kaymakNo}'));
-T.ok('Web: kendi + baskasinin profili numarayi paylas dugmesine veriyor', oku('app/(protected)/(tabs)/profile.web.tsx').includes('<ProfilPaylasDugmesi kaymakNo={kaymakNo}') && oku('app/(protected)/user/[slug].web.tsx').includes('<ProfilPaylasDugmesi kaymakNo={kaymakProfil?.profile.kaymakNo}'));
+T.ok('Web: kendi + baskasinin profili numarayi paylas dugmesine veriyor', oku('components/profile/DesktopProfileHeader.tsx').includes('<ProfilPaylasDugmesi kaymakNo={kaymakNo}') && oku('app/(protected)/user/[slug].web.tsx').includes('<ProfilPaylasDugmesi kaymakNo={kaymakProfil?.profile.kaymakNo}'));
 T.ok('Arama sonucunda numara', oku('features/feed/components/UserSearchResults.tsx').includes('kaymakNoMetni(kisi.kaymakNo)'));
 T.ok('Etiket panoya kopyalar (giris anahtari degil, yalniz gosterim)', /Clipboard\.setStringAsync\(metin\)/.test(oku('components/profile/KaymakNoEtiketi.tsx')));
 
