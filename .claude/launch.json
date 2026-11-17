@@ -13,6 +13,12 @@
       "runtimeArgs": ["server.js"],
       "port": 4830,
       "autoPort": false
+    },
+    {
+      "name": "mod-panel-onizleme",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["../kaymaktv-feedback-worker/test/mod/onizleme.mjs"],
+      "port": 8790
     }
   ]
 }
