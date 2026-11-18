@@ -6,7 +6,7 @@ import { logWarning } from '../utils/errorLog';
 import { useKuralOnayiStore } from '../store/kuralOnayiStore';
 import { notify } from '../utils/confirmDialog';
 import { ILETISIM_EPOSTA } from '../utils/constants';
-import { ASKI_KUTUSU_ARALIGI_MS, askiMetinAnahtari, askiTarihiYaz, askiYanitiCoz, type AskiBilgisi } from '../utils/hesapAskisi';
+import { ASKI_KUTUSU_ARALIGI_MS, askiMetinAnahtari, askiTarihiYaz, askiYanitiCoz, kapaliYanitiCoz, type AskiBilgisi } from '../utils/hesapAskisi';
 import {
   KURALLAR_SURUMU,
   KURAL_ONAYI_ANAHTARI,
@@ -206,6 +206,15 @@ export function askiKutusunuGoster(bilgi: AskiBilgisi): void {
   void notify(i18n.t('legal:suspendedTitle'), askiMetni(bilgi));
 }
 
+// Moderasyon Faz 6: süresiz kapalı hesap beğeni / takip yapamaz (`403 hesap_kapali`). Beğeni ve
+// takip iyimser; servisler geri alıp sessiz kalıyordu → kullanıcı nedenini bilmiyordu.
+export function kapaliKutusunuGoster(bilgi: { itiraz: string | null }): void {
+  const simdi = Date.now();
+  if (simdi - sonAskiKutusu < ASKI_KUTUSU_ARALIGI_MS) return;
+  sonAskiKutusu = simdi;
+  void notify(i18n.t('legal:closedTitle'), i18n.t('legal:closedAction', { adres: bilgi.itiraz || ILETISIM_EPOSTA }));
+}
+
 // İçerik yazan beş servis de varsayılan axios örneğini kullanıyor; kodları tek yerde yakalamak,
 // her servise ayrı dal eklemekten güvenli (yeni bir içerik ucu eklenince unutulamaz).
 // Hata aynen yeniden fırlatılır: servislerin kendi hata yolları değişmez.
@@ -217,5 +226,7 @@ export function askiKutusunuGoster(bilgi: AskiBilgisi): void {
   }
   const aski = askiYanitiCoz(durum, govde);
   if (aski) askiKutusunuGoster(aski);
+  const kapali = kapaliYanitiCoz(durum, govde);
+  if (kapali) kapaliKutusunuGoster(kapali);
   return Promise.reject(hata);
 });

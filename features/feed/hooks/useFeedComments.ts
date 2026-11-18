@@ -11,6 +11,7 @@ import {
 import { getMySupabaseUserId } from '../services/userBlocks';
 import { hataAskiMetni } from '../../../services/kuralOnayiKapisi';
 import { useFeedStore } from '../store/feedStore';
+import { useOneGelince } from './useOneGelince';
 
 export interface UseFeedCommentsResult {
   comments: FeedComment[];
@@ -73,6 +74,14 @@ export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCom
     if (!isOpen) return;
     load();
   }, [isOpen, load]);
+
+  // Moderasyon Faz 6 (MD06): liste açıkken öne gelişte / ağa dönüşte sessizce yeniden okunur;
+  // moderatörün gizlediği yorum düşer. İskelet gösterilmez, hata eldeki listeyi silmez.
+  useOneGelince(() => {
+    fetchComments(activityId)
+      .then((list) => setComments(list))
+      .catch((error) => console.warn('[Feed] Yorum doğrulaması başarısız:', error));
+  }, isOpen);
 
   const submitComment = useCallback(
     async (body: string, spoiler: boolean): Promise<{ ok: true; count: number | null } | { ok: false; askiMetni?: string | null }> => {

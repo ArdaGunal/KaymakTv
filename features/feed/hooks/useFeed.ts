@@ -21,6 +21,7 @@ import { akisiDiskeYaz, akisiDisktenOku } from '../store/feedDiskCache';
 import { getMySupabaseUserId } from '../services/userBlocks';
 import { agIsaret } from '../../../utils/agIzleyici';
 import { useFeedRealtime } from './useFeedRealtime';
+import { useAkisGorunurlukDogrulama } from './useAkisGorunurlukDogrulama';
 import { useFeedDelete } from './useFeedDelete';
 import { groupMarathonActivities } from '../utils/groupMarathonActivities';
 import { marathonSayfaSinirinda } from '../utils/marathonSinir';
@@ -92,6 +93,8 @@ export function useFeed(): UseFeedResult {
 
   // Başkalarının aktiviteleri canlı düşsün diye.
   useFeedRealtime(canLoad);
+  // Moderasyon Faz 6 (MD06): öne gelişte / ağa dönüşte gizlenen kartlar listeden düşer.
+  useAkisGorunurlukDogrulama(canLoad);
 
   const loadFirstPage = useCallback(
     async (force: boolean) => {

@@ -77,6 +77,7 @@ const TAKIMLAR = [
   // DORDUNCU GRUP: arayuz — istemci bilesenlerinin SAF karar katmani ve
   // kaynak denetimleri (bildirimler/ ile ayni `.mjs` + TS soyma yolu).
   { ad: 'avatar', grup: 'arayuz', dosya: 'arayuz/avatar.test.mjs', aciklama: 'T4: bas harf, deterministik renk, kopya avatar denetimi' },
+  { ad: 'moderasyon-istemci', grup: 'arayuz', dosya: 'arayuz/moderasyon-istemci.test.mjs', aciklama: 'Moderasyon Faz 6: gorunurluk yeniden dogrulamasi (MD06), 403 hesap_kapali kutusu, inceleme spoiler yaniti' },
   { ad: 'import', grup: 'arayuz', dosya: 'arayuz/traktImport.test.mjs', aciklama: 'T5.4: hata siniflandirmasi, geri cekilme, ilerleme yuzdesi' },
   { ad: 'profil', grup: 'arayuz', dosya: 'arayuz/profilIstatistik.test.mjs', aciklama: 'C17 + 2.6.8 ISTAT-01/02: yerel istatistik, ag ice aktarimi yok, ozet kutulari' },
   { ad: 'gorunen-ad', grup: 'arayuz', dosya: 'arayuz/gorunen-ad.test.mjs', aciklama: '1.0.1 Dal 1: gorunen ad kurali uc katmanda ayni (istemci + Worker vektorleri, 080 deseni, sizinti degismezi)' },

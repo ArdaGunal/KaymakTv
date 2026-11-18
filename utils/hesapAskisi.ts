@@ -42,5 +42,15 @@ export function askiTarihiYaz(iso: string, dil: string): string {
   }
 }
 
+/**
+ * SÜRESİZ KAPALI HESAP — beğeni / takip / takip isteği reddi (Moderasyon Faz 6 · FAZ_4 §7,
+ * BACKLOG «KAPAT-KISIT»). Worker `403 { code: "hesap_kapali", itiraz }` döndürür; içerik
+ * yazımındaki `hesap_askida`dan ayrıdır (geçici askı beğeni/takibi durdurmaz). Değilse `null`.
+ */
+export function kapaliYanitiCoz(durum: number | undefined, govde: any): { itiraz: string | null } | null {
+  if (durum !== 403 || govde?.code !== 'hesap_kapali') return null;
+  return { itiraz: typeof govde.itiraz === 'string' && govde.itiraz.includes('@') ? govde.itiraz : null };
+}
+
 /** Aynı reddin art arda gelen kopyaları (yeniden deneme, çift dokunuş) tek kutu açsın. */
 export const ASKI_KUTUSU_ARALIGI_MS = 4000;

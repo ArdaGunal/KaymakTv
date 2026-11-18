@@ -5,6 +5,7 @@ import { recordApiLatency, recordMutationResult } from '../../../utils/metrics';
 import { logError } from '../../../utils/errorLog';
 import { FeedMediaType } from '../types';
 import { askiYanitiCoz, type AskiBilgisi } from '../../../utils/hesapAskisi';
+import { useFeedStore } from '../store/feedStore';
 import {
   deleteActivitiesBulk,
   invalidateFeedCache,
@@ -57,7 +58,9 @@ export interface PublishableReview {
 }
 
 export type ReviewResult =
-  | { ok: true; activityId: string; updated: boolean }
+  /** `noteSpoiler`: veritabanına YAZILAN değer. Moderatör spoiler kilidi koyduysa yazar `false`
+   *  gönderse de `true` döner (Moderasyon Faz 3/6); eski Worker alanı göndermezse istekteki değer. */
+  | { ok: true; activityId: string; updated: boolean; noteSpoiler: boolean }
   | { ok: false; message: string; aski?: AskiBilgisi | null };
 
 /** Yayın/silme sonrası bayat kalabilecek önbellekleri tek yerden temizler. */
@@ -133,7 +136,10 @@ export async function publishReview(input: PublishableReview): Promise<ReviewRes
 
     invalidateAfterReviewChange(input.showId, input.mediaType, input.episodeNumber);
     recordMutationResult('publishReview', true);
-    return { ok: true, activityId, updated: response.data?.updated === true };
+    const noteSpoiler = typeof response.data?.noteSpoiler === 'boolean' ? response.data.noteSpoiler : input.spoiler;
+    // Akışta açık kart varsa yazılan hâli göstersin (kilitliyse yazar da maskeli görür). Kart yoksa no-op.
+    useFeedStore.getState().patchActivity(activityId, { note: input.body, noteSpoiler });
+    return { ok: true, activityId, updated: response.data?.updated === true, noteSpoiler };
   } catch (error: any) {
     recordMutationResult('publishReview', false);
     logError('feedReviews.publishReview', error);
