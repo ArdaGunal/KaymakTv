@@ -175,6 +175,35 @@ app.use('/api/afis-yedek', require('./server/afisYedek'));
 // Trakt köprü yolları (GET/POST/DELETE/PUT + OAuth): `server/traktProxyYollari.js`.
 require('./server/traktProxyYollari')(app, { traktAuthLimiter, redirectUriGuard });
 
+// G-09 · dist web paketi ve istemci kodundan çıkarılan kaynaklar.
+// Yerel fontlar aynı origin'den gelir. Expo/RN Web sayfa içi stil üretir.
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "script-src 'self' https://accounts.google.com/gsi/client",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
+  "frame-src 'self' https://accounts.google.com/gsi/",
+  "img-src 'self' data: https://image.tmdb.org https://img.youtube.com https://flagcdn.com https://lh3.googleusercontent.com",
+  "font-src 'self'",
+  [
+    "connect-src 'self' https://kaymaktv.com https://api.trakt.tv https://api.github.com",
+    'https://accounts.google.com/gsi/ https://kaymaktv-feedback-worker.kaymaktv-feedback.workers.dev',
+    'https://omgjrsgginbiwyndvlxo.supabase.co wss://omgjrsgginbiwyndvlxo.supabase.co',
+  ].join(' '),
+].join('; ');
+
+function setWebSecurityHeaders(res) {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Strict-Transport-Security': 'max-age=15552000',
+    'Content-Security-Policy-Report-Only': CSP_REPORT_ONLY,
+  });
+}
+
 // ==========================================
 // ANDROID APP LINKS (2.6.5 madde 6)
 // ==========================================
@@ -184,6 +213,7 @@ require('./server/traktProxyYollari')(app, { traktAuthLimiter, redirectUriGuard 
 // sayar → eskiden SPA `index.html` dönüyordu ve doğrulama düşüyordu.
 // Parmak izi: yayın APK'sının imzası (EAS keystore), apksigner ile ölçüldü.
 app.get('/.well-known/assetlinks.json', (req, res) => {
+  setWebSecurityHeaders(res);
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.type('application/json').sendFile(path.join(__dirname, 'server', 'assetlinks.json'));
 });
@@ -191,6 +221,16 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
 // ==========================================
 // STATIC FILES & SPA FALLBACK
 // ==========================================
+function isWebRequest(req) {
+  return (req.method === 'GET' || req.method === 'HEAD') && !req.path.startsWith('/api/');
+}
+
+// Dosya yanıtları, dizin yönlendirmeleri ve SPA gezinmeleri aynı başlıkları alır.
+app.use((req, res, next) => {
+  if (isWebRequest(req)) setWebSecurityHeaders(res);
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'dist'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('index.html')) {
@@ -218,8 +258,7 @@ app.use((req, res) => {
   // Artık SPA fallback YALNIZCA gerçek sayfa gezinmelerine (GET/HEAD) hizmet
   // eder ve `/api/*` altındaki hiçbir yolu ASLA yutmaz — eşleşmeyen her API
   // isteği dürüstçe JSON 404 döner (docs/AI_RULES.md § sessiz başarısızlık yasak).
-  const isPageNavigation = req.method === 'GET' || req.method === 'HEAD';
-  if (!isPageNavigation || req.path.startsWith('/api/')) {
+  if (!isWebRequest(req)) {
     return res.status(404).json({
       error: 'Not Found',
       details: `${req.method} ${req.path} bu sunucuda tanımlı değil.`,
