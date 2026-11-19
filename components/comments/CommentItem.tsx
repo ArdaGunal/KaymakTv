@@ -1,0 +1,297 @@
+import { nativeColor } from '../../constants/mobilePalette';
+import React, { useState, memo } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+} from 'react-native';
+import { Heart, EyeOff, Eye } from '../icons';
+import type { CommentData } from '../../hooks/useComments';
+import CommentReplies from './CommentReplies';
+import { formatRelativeTime } from '../../utils/formatRelativeTime';
+import { useAuth } from '../../context/AuthContext';
+import { useMyTraktSlug } from '../../features/feed/hooks/useMyTraktSlug';
+import { useQuickBlock } from '../../features/feed/hooks/useQuickBlock';
+import CardMenu from '../../features/feed/components/CardMenu';
+import ReportContentModal from '../../features/feed/components/ReportContentModal';
+import Avatar from '../Avatar';
+
+// Avatar (palet · renk · baş harf) → `components/Avatar.tsx` + `utils/avatar.ts` (M341).
+
+// ─── Spoiler Overlay ───────────────────────────────────────────────────────
+
+interface SpoilerOverlayProps {
+  text: string;
+}
+
+const SpoilerOverlay = memo(({ text }: SpoilerOverlayProps) => {
+  const [revealed, setRevealed] = useState(false);
+  // `t` daha önce hiç tanımlanmamıştı (dıştaki CommentItem'ın hook'u bu ayrı
+  // bileşenin kapsamında değil) — spoiler içeren bir yorum render edilir
+  // edilmez "t is not defined" ile çöküyordu.
+  const { t } = useTranslation('common');
+
+  if (revealed) {
+    return (
+      <View>
+        <Text style={styles.commentText} selectable>{text}</Text>
+        <TouchableOpacity
+          onPress={() => setRevealed(false)}
+          style={styles.hideSpoilerBtn}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
+          <EyeOff size={12} color={nativeColor('mutedDeep', "#64748b")} />
+          <Text style={styles.hideSpoilerText}>{t('hideSpoiler', 'Gizle')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={() => setRevealed(true)}
+      style={styles.spoilerOverlay}
+      activeOpacity={0.8}
+    >
+      {/* Blurred text behind */}
+      <Text style={styles.spoilerBlurredText} numberOfLines={3}>
+        {text}
+      </Text>
+
+      {/* Frosted overlay */}
+      <View style={styles.spoilerFrost}>
+        <View style={styles.spoilerIconBadge}>
+          <Eye size={18} color="#facc15" />
+        </View>
+        <Text style={styles.spoilerLabel}>{t('containsSpoilers')}</Text>
+        <Text style={styles.spoilerCta}>{t('tapToView')}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+// ─── CommentItem ──────────────────────────────────────────────────────────
+
+interface CommentItemProps {
+  item: CommentData;
+}
+
+const CommentItem = memo(({ item }: CommentItemProps) => {
+  const { t } = useTranslation('common');
+  const { accessToken, isGuest } = useAuth();
+  const myTraktSlug = useMyTraktSlug();
+  const { blockUserQuick } = useQuickBlock();
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const username = item.user?.username || item.user?.name || 'Anonim';
+  const relDate = formatRelativeTime(item.created_at, t);
+  const traktSlug = item.user?.ids?.slug;
+  // Kendi yorumunu bildirmek/engellemek anlamsız — ayrıca slug hiç yoksa
+  // (Trakt'ın bazı eski/anonim yorumlarında olabiliyor) engelleme çalışamaz.
+  const isOwnComment = !!myTraktSlug && !!traktSlug && myTraktSlug === traktSlug;
+
+  return (
+    <View style={styles.card}>
+      {/* Header */}
+      <View style={styles.cardHeader}>
+        <Avatar ad={username} size={36} />
+
+        {/* Username + date */}
+        <View style={styles.userInfo}>
+          <Text style={styles.username} numberOfLines={1}>
+            {username}
+          </Text>
+          {relDate ? <Text style={styles.date}>{relDate}</Text> : null}
+        </View>
+
+        {/* Stats */}
+        <View style={styles.stats}>
+          {item.spoiler && (
+            <View style={styles.spoilerBadge}>
+              <Text style={styles.spoilerBadgeText}>SPOILER</Text>
+            </View>
+          )}
+          {item.likes > 0 && (
+            <View style={styles.stat}>
+              <Heart size={12} color="#f87171" fill="#f87171" />
+              <Text style={styles.statText}>{item.likes}</Text>
+            </View>
+          )}
+
+          {!isOwnComment && (
+            <CardMenu
+              onReport={() => setReportModalVisible(true)}
+              onBlock={
+                traktSlug && accessToken && !isGuest ? () => blockUserQuick({ traktSlug }) : undefined
+              }
+            />
+          )}
+        </View>
+      </View>
+
+      {/* Body */}
+      <View style={styles.cardBody}>
+        {item.spoiler ? (
+          <SpoilerOverlay text={item.comment} />
+        ) : (
+          <Text style={styles.commentText} selectable>{item.comment}</Text>
+        )}
+
+        {/* Cevaplar: sayıya tıklayınca yüklenir, her yoruma cevap yazılabilir */}
+        {item.id ? (
+          <CommentReplies commentId={item.id} initialCount={item.replies || 0} />
+        ) : null}
+      </View>
+
+      {!isOwnComment && (
+        <ReportContentModal
+          visible={reportModalVisible}
+          targetType="trakt_comment"
+          targetId={String(item.id)}
+          onClose={() => setReportModalVisible(false)}
+        />
+      )}
+    </View>
+  );
+});
+
+export default CommentItem;
+
+// ─── Styles ────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: nativeColor('surface', '#111827'),
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+    } as any),
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  userInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  username: {
+    color: nativeColor('text', '#e2e8f0'),
+    fontWeight: '700',
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
+  date: {
+    color: nativeColor('mutedDeep', '#475569'),
+    fontSize: 11,
+    marginTop: 1,
+  },
+  stats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  statText: {
+    color: nativeColor('mutedDeep', '#64748b'),
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  spoilerBadge: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  spoilerBadgeText: {
+    color: '#f87171',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  cardBody: {
+    paddingLeft: 46, // align with avatar
+  },
+  commentText: {
+    color: nativeColor('body', '#cbd5e1'),
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  // Spoiler overlay
+  spoilerOverlay: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    minHeight: 68,
+  },
+  spoilerBlurredText: {
+    color: 'transparent',
+    fontSize: 14,
+    lineHeight: 22,
+    ...(Platform.OS === 'web' && {
+      filter: 'blur(6px)',
+      color: nativeColor('muted', '#94a3b8'),
+      userSelect: 'none',
+    } as any),
+    ...(Platform.OS !== 'web' && {
+      opacity: 0.05,
+      color: nativeColor('muted', '#94a3b8'),
+    }),
+  },
+  spoilerFrost: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.2)',
+  },
+  spoilerIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(250,204,21,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  spoilerLabel: {
+    color: '#facc15',
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.3,
+  },
+  spoilerCta: {
+    color: nativeColor('muted', '#94a3b8'),
+    fontSize: 12,
+  },
+  // Reveal controls
+  hideSpoilerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  hideSpoilerText: {
+    color: nativeColor('mutedDeep', '#475569'),
+    fontSize: 12,
+  },
+});
