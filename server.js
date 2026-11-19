@@ -187,7 +187,7 @@ const CSP_REPORT_ONLY = [
   "img-src 'self' data: https://image.tmdb.org https://img.youtube.com https://flagcdn.com https://lh3.googleusercontent.com",
   "font-src 'self'",
   [
-    "connect-src 'self' https://kaymaktv.com https://api.trakt.tv https://api.github.com",
+    "connect-src 'self' https://kaymaktv.com https://api.trakt.tv",
     'https://accounts.google.com/gsi/ https://kaymaktv-feedback-worker.kaymaktv-feedback.workers.dev',
     'https://omgjrsgginbiwyndvlxo.supabase.co wss://omgjrsgginbiwyndvlxo.supabase.co',
   ].join(' '),

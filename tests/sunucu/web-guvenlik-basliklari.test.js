@@ -131,11 +131,12 @@ async function run() {
         "'self'", 'https://kaymaktv.com', 'https://accounts.google.com/gsi/',
         'https://omgjrsgginbiwyndvlxo.supabase.co', 'wss://omgjrsgginbiwyndvlxo.supabase.co',
         'https://kaymaktv-feedback-worker.kaymaktv-feedback.workers.dev',
-        'https://api.github.com', 'https://api.trakt.tv',
+        'https://api.trakt.tv',
       ],
     })) {
       T.ok('CSP ' + name + ' kaynaklari', sources.every((source) => directives.get(name)?.includes(source)));
     }
+    T.ok('CSP connect-src GitHub API izni yok', !directives.get('connect-src')?.includes('https://api.github.com'));
 
     const bundle = await get('/_expo/entry-test.js');
     T.ok('Statik JS MIME ve govde', bundle.status === 200 && /javascript/.test(bundle.headers.get('content-type')) && await bundle.text() === JS);

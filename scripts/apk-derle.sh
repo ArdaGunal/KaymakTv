@@ -14,11 +14,8 @@
 #                                        → apk/KaymakTV-<sürüm>.aab · GitHub'a YÜKLENMEZ, Play Console'a yüklenir
 #
 # 🔴 AD KURALI (2026-11-07, M583): yayın APK'sı `apk/KaymakTV-<versionName>.apk`
-# adıyla çıkar ve GitHub «beta» sürümüne AYNI adla yüklenir. kaymaktv.com/download
-# dosyayı oradan kendisi bulur (`services/github.ts` → `betaApkSec`: en son `.apk`,
-# adında `TEST` geçen ATLANIR). Test paketlerinin eki (`-AG-TEST`, `-GOOGLE-TEST`)
-# bu yüzden `TEST` içermek ZORUNDA. Sabit `kaymaktv-latest.apk` adı 404 verdi —
-# kullanılmaz. `tests/arayuz/apk-indirme.test.mjs` bu iki dosyayı birlikte denetler.
+# adıyla çıkar. Test paketlerinin eki (`-AG-TEST`, `-GOOGLE-TEST`) ayrıdır.
+# kaymaktv.com/download, Android kullanıcılarını Google Play'e yönlendirir.
 #
 # 📦 MİMARİ (YAYIN_ONCESI_PLAN Adım 2): kalıcı ayar `app.json` → expo-build-properties
 # `buildArchs` = armeabi-v7a + arm64-v8a (x86/x86_64 yalnız emülatör, ~40 MB idi). Yayın paketi
