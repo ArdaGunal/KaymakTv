@@ -50,7 +50,7 @@ T.ok('Bosluk rengi degistirmez', avatarRengi('  ardagnl ') === avatarRengi('arda
 const adlar = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u'];
 T.ok('Her sonuc palette', adlar.every((a) => AVATAR_RENKLERI.includes(avatarRengi(a))));
 
-// 🔴 Eski CommentItem ilk IKI karakteri topluyordu — ayni harfle baslayan
+// 🔴 Eski palet ilk IKI karakteri topluyordu — ayni harfle baslayan
 // adlar cogunlukla ayni renge dusuyordu. Tum adin ozeti bunu dagitmali.
 const ayniBas = ['ali', 'alper', 'aslı', 'ayse', 'arda', 'ahmet', 'asli', 'aylin'].map(avatarRengi);
 T.ok(

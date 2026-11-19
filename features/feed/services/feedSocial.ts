@@ -52,8 +52,7 @@ function mapCommentRow(row: CommentRow): FeedComment {
   };
 }
 
-/** Bir aktivitenin yorumları, eskiden yeniye (Trakt'ın kendi yorum sistemiyle
- *  KARIŞTIRILMASIN — bu tamamen ayrı, KaymakTV'nin kendi Supabase'inde). */
+/** Bir aktivitenin yorumları, eskiden yeniye (KaymakTV'nin kendi Supabase'inde). */
 export async function fetchComments(activityId: string): Promise<FeedComment[]> {
   const { data, error } = await supabase
     .from('comments')

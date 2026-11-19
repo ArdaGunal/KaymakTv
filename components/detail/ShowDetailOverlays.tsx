@@ -2,7 +2,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import EpisodeOptionsModal from '../modals/EpisodeOptionsModal';
 import EpisodeRatingModal from '../modals/EpisodeRatingModal';
-import CommentSheet from '../CommentSheet';
 import Snackbar from '../Snackbar';
 
 export interface SelectedEpisode {
@@ -15,9 +14,6 @@ export interface SelectedEpisode {
 }
 
 interface ShowDetailOverlaysProps {
-  showTraktId: number;
-  reviewsState: any;
-
   selectedEpisode: SelectedEpisode | null;
   onCloseEpisodeOptions: () => void;
   loadingOption: any;
@@ -31,9 +27,6 @@ interface ShowDetailOverlaysProps {
   episodeInitialRating?: number;
   onRateEpisode: (rating: number) => void;
   onRemoveEpisodeRating?: () => void;
-
-  commentSheetVisible: boolean;
-  onCloseCommentSheet: () => void;
 
   unwatchSnackbarVisible: boolean;
   onUndoUnwatch: () => void;
@@ -55,8 +48,6 @@ interface ShowDetailOverlaysProps {
  * Saf sunum: hiçbir karar burada verilmiyor, her şey prop olarak geliyor.
  */
 export default function ShowDetailOverlays({
-  showTraktId,
-  reviewsState,
   selectedEpisode,
   onCloseEpisodeOptions,
   loadingOption,
@@ -69,8 +60,6 @@ export default function ShowDetailOverlays({
   episodeInitialRating,
   onRateEpisode,
   onRemoveEpisodeRating,
-  commentSheetVisible,
-  onCloseCommentSheet,
   unwatchSnackbarVisible,
   onUndoUnwatch,
   onDismissUnwatchSnackbar,
@@ -100,14 +89,6 @@ export default function ShowDetailOverlays({
         initialRating={episodeInitialRating}
         onRate={onRateEpisode}
         onRemove={onRemoveEpisodeRating}
-      />
-
-      <CommentSheet
-        visible={commentSheetVisible}
-        onClose={onCloseCommentSheet}
-        mediaId={showTraktId}
-        mediaType="show"
-        reviewsState={reviewsState}
       />
 
       <Snackbar

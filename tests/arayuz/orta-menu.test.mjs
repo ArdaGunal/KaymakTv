@@ -48,7 +48,7 @@ T.ok('baslik ve aciklama ayni dikey sarmalayicida', /<View style=\{styles\.destr
 
 T.H('Alttan kayan pencere yalniz izinli icerik sayfalarinda');
 const IZINLI = new Set([
-  'components/AddToListModal.tsx', 'components/CommentSheet.tsx', 'components/reviews/WriteReviewSheet.tsx',
+  'components/AddToListModal.tsx', 'components/reviews/WriteReviewSheet.tsx',
   'components/modals/EditBioModal.tsx', 'components/modals/EditDisplayNameModal.tsx', 'components/modals/EditProfileModal.tsx',
   'components/settings/LegalTermsModal.tsx', 'features/feed/components/ComposePostModal.tsx', 'features/feed/components/MediaPickerModal.tsx',
 ]);

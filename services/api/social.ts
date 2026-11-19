@@ -23,8 +23,8 @@ import { getTraktClient } from './traktClient';
 // anahtar sunucunun döndürdüğü GERÇEK `traktSlug`'dır, rota parametresi DEĞİL
 // (bkz. `features/publicProfile/hooks/usePublicProfileIdentity.ts`).
 
-// Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor — `services/api/comments.ts`'teki
-// AYNI `cacheBustParam` deseni (bkz. docs/HISTORY.md Madde 87/102): sabit bir
+// Trakt'ın CDN'i GET yanıtlarını agresif önbelliyor — `cacheBustParam` deseni
+// (bkz. docs/HISTORY.md Madde 87/102): sabit bir
 // URL'ye (`/users/{id}?extended=full`, her çağrıda BİREBİR AYNI) her seferinde
 // benzersiz bir `_` parametresi eklemek CDN'i "yeni bir kaynak" sanmaya
 // zorlayıp önbelleği atlatır. Neden gerekli: kullanıcı adını/bio'sunu

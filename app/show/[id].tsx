@@ -74,17 +74,14 @@ export default function ShowDetailScreen() {
   // `refreshData` → `LoadFailedState.onRetry` (aşağıda). Y1'de eski tüketicisi
   // (inceleme yayını sonrası tazeleme) kaldırılmıştı ve bir süre boşta kaldı;
   // hata ekranının "Tekrar Dene"si eklenince yeniden bağlandı.
-  const { mediaData, computedSeasons, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
+  const { mediaData, computedSeasons, isLoading, hasError, isCircuitBreakerError, refreshData } = useShowDetail(traktIdNum, tmdbId, showProgress);
   const showData = useTmdbBasliklari(mediaData.summary, 'tv');
   // 2.6.5 madde 6: paylaşım linkinde `?tmdbId=` yok → afiş/arka plan hiç istenmiyordu.
   const etkinTmdbId = (tmdbId as string | undefined) || (showData?.ids?.tmdb ? String(showData.ids.tmdb) : undefined);
   const castData = mediaData.cast;
   const relatedShows = mediaData.related;
-  const commentsData = mediaData.comments;
 
-  // Y6 (Madde 244): tek çağrı — `MediaCommentsSection` (inline) VE
-  // `CommentSheet` ("Tümünü Gör") AYNI reviewsState'i tüketir, bkz.
-  // MediaCommentsSection.tsx başlığı.
+  // Y6 (Madde 244): incelemeler ekranda tek çağrıyla okunur, `MediaCommentsSection`'a geçilir.
   // C4 · akıştan `?yorum=<id>` ile gelindiyse o incelemeye kaydır + vurgula.
   const yorumOdagi = useScrollToComment();
   const reviewsState = useMediaReviews({
@@ -97,7 +94,6 @@ export default function ShowDetailScreen() {
   const { backdrop, poster, trailerId } = useShowTmdbGorselleri(etkinTmdbId);
 
   const [expandedSeasons, setExpandedSeasons] = useState<any>({});
-  const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   const [selectedEpisode, setSelectedEpisode] = useState<SelectedEpisode | null>(null);
   const [episodeRatingModalVisible, setEpisodeRatingModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -234,15 +230,10 @@ export default function ShowDetailScreen() {
     </SectionErrorBoundary>
   );
 
-  // Trakt blogu (salt okunur kuyruk) AYRI bir bolum degil: tek kesintisiz
-  // listenin altinda akiyor (bkz. MediaCommentsSection basligi).
   const commentsSection = (
     <MediaCommentsSection
       writeActionVariant={Platform.OS === 'web' && layout.isDesktopWeb ? 'default' : 'input'}
       reviewsState={reviewsState}
-      traktComments={commentsData}
-      isLoadingTraktComments={isLoadingComments}
-      onSeeAllTrakt={() => setCommentSheetVisible(true)}
       focusReviewId={yorumOdagi.focusId}
       onFocusTarget={yorumOdagi.onFocusTarget}
     />
@@ -259,8 +250,6 @@ export default function ShowDetailScreen() {
 
   const overlays = (
     <ShowDetailOverlays
-      showTraktId={traktIdNum}
-      reviewsState={reviewsState}
       selectedEpisode={selectedEpisode}
       onCloseEpisodeOptions={() => setSelectedEpisode(null)}
       loadingOption={localLoadingOption}
@@ -273,8 +262,6 @@ export default function ShowDetailScreen() {
       episodeInitialRating={selectedEpisodeRating?.rating}
       onRateEpisode={handleRateEpisode}
       onRemoveEpisodeRating={selectedEpisodeRating ? handleRemoveEpisodeRating : undefined}
-      commentSheetVisible={commentSheetVisible}
-      onCloseCommentSheet={() => setCommentSheetVisible(false)}
       unwatchSnackbarVisible={snackbarVisible}
       onUndoUnwatch={handleUndoUnwatchClick}
       onDismissUnwatchSnackbar={() => setSnackbarVisible(false)}

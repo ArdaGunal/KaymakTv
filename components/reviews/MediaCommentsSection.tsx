@@ -6,39 +6,21 @@ import { incelemeHataMetni } from '../../hooks/useMediaReviews';
 import { useAuth } from '../../context/AuthContext';
 import { UseMediaReviewsResult } from '../../hooks/useMediaReviews';
 import { notify } from '../../utils/confirmDialog';
-import { CommentData } from '../../hooks/useComments';
-import SectionErrorBoundary from '../SectionErrorBoundary';
 import ReviewItem from './ReviewItem';
-import TraktCommentsBlock from './TraktCommentsBlock';
 import WriteReviewSheet from './WriteReviewSheet';
 import { MOBILE_PALETTE, nativeColor, nativeTint } from '../../constants/mobilePalette';
 
 /**
- * Dizi/film/bölüm detay sayfasının YORUMLAR bölümü — **tek akış, iki blok**.
- *
- * ⚠️ ADI DEĞİŞTİ (eski: `MediaReviewsSection`): bileşen artık yalnızca
- * "incelemeler"i değil, TÜM yorumlar bölümünü çiziyor — bizim etkileşimli
- * incelemelerimiz + Trakt'ın salt okunur kuyruğu.
- *
- * ⚠️ v2 DEĞİŞİKLİĞİ: v1'de bu bölüm yalnızca KaymakTV incelemelerini çiziyor,
- * Trakt yorumları ekranda AYRI bir bölüm olarak duruyordu. Artık ikisi tek bir
- * kesintisiz liste (sekme YOK, ayrı alan YOK):
+ * Dizi/film/bölüm detay sayfasının YORUMLAR bölümü — yalnız KaymakTV incelemeleri.
  *
  *     [ İnceleme Yaz ]
- *     ● bizim incelemelerimiz   ❤ 💬 ⋯     ← etkileşimli
- *     ───── Trakt topluluğundan ─────      ← yumuşak ayraç
- *     ○ Trakt yorumları  ᴛʀᴀᴋᴛ            ← SALT OKUNUR, buton yok
+ *     ● incelemeler   ❤ 💬 ⋯     ← etkileşimli (beğeni, şikâyet, engel)
  *
- * NEDEN GERÇEK "INTERLEAVE" DEĞİL: iki kaynağı tarihe göre iç içe harmanlamak
- * iki imleçli bir merge-sort ister (tamponlama + "hangi kaynaktan kaç kayıt
- * tüketildi" durumu). Ölçek bunu gereksiz kılıyor — bir yapımda bizim inceleme
- * sayımız uzun süre 0-2, Trakt'ınki yüzlerce olacak. Bloklar sıralı olunca
- * Trakt'ın mevcut sayfalaması (`useComments`) HİÇ DEĞİŞMEDEN çalışıyor
- * (bkz. docs/design/REVIEWS_PLAN.md §4).
- *
- * KADEMELİ ÇÖKÜŞ: Trakt bloğu veri hatasında (boş liste) ve render hatasında
- * (`SectionErrorBoundary silent`) SESSİZCE kaybolur — sayfa çalışmaya devam
- * eder (Karar 10).
+ * Trakt topluluğu yorumları 2026-11-18'de kaldırıldı (kullanıcı kararı,
+ * BACKLOG `TRAKT-YORUM-KALDIR`, docs/design/TRAKT_YORUM_KALDIRMA.md). Eskiden
+ * bu listenin altında salt okunur bir Trakt kuyruğu ve «Tümünü Gör» penceresi
+ * vardı; incelemeler zaten burada aynı 20 sınırla tam göründüğü için pencere
+ * de kalktı.
  *
  * Tüm veri/mutasyon mantığı `hooks/useMediaReviews.ts`'te — bu dosya yalnızca
  * gösterir (docs/AI_RULES.md §1).
@@ -47,22 +29,9 @@ import { MOBILE_PALETTE, nativeColor, nativeTint } from '../../constants/mobileP
 interface MediaCommentsSectionProps {
   /** Dizi/film native detayında buton yerine yazı alanı görünümü. */
   writeActionVariant?: 'default' | 'input';
-  // ⚠️ Veri kaynağı (F12/Y6, Madde 244): `useMediaReviews` artık BURADA değil,
-  // ekranda (`app/{show,movie,episode}/[id].tsx`) bir kez çağrılıp bu bileşene
-  // VE `CommentSheet`'e AYNI referansla geçiliyor. Sebep: "Tümünü Gör" sheet'i
-  // eskiden yalnızca Trakt yorumlarını gösteriyordu, kullanıcının kendi
-  // KaymakTV incelemesi orada KAYBOLUYORDU (Y6). Hook'u burada TEKRAR
-  // çağırmak (sheet'te de) her sayfa açılışında incelemeleri İKİ KEZ
-  // çekerdi — tek kaynak, iki tüketici daha doğrusu.
+  // ⚠️ Veri kaynağı (F12/Y6, Madde 244): `useMediaReviews` ekranda
+  // (`app/{show,movie,episode}/[id].tsx`) bir kez çağrılıp buraya geçilir.
   reviewsState: UseMediaReviewsResult & { canSubmit: boolean };
-
-  // ── Trakt bloğu (salt okunur) ─────────────────────────────────────────
-  /** Ekranın `useShowDetail`/`useMovieDetail`'den aldığı Trakt yorumları. */
-  traktComments?: CommentData[];
-  /** Trakt yorumları hâlâ yükleniyor mu (S12 — bağımsız yükleme). */
-  isLoadingTraktComments?: boolean;
-  /** "Tümünü Gör" — Trakt'ın kendi sheet'ini açar (sayfalama + sıralama orada). */
-  onSeeAllTrakt?: () => void;
 
   // ── C4 · Akıştan gelinen inceleme (bkz. hooks/useScrollToComment.ts) ──
   /** Vurgulanacak incelemenin id'si (`?yorum=`). */
@@ -73,9 +42,6 @@ interface MediaCommentsSectionProps {
 
 export default function MediaCommentsSection({
   reviewsState,
-  traktComments,
-  isLoadingTraktComments,
-  onSeeAllTrakt,
   focusReviewId,
   onFocusTarget,
   writeActionVariant = 'default',
@@ -191,10 +157,8 @@ export default function MediaCommentsSection({
     }
 
     if (reviews.length === 0) {
-      // Bugünkü ölçekte neredeyse HER yapımda bu dal çalışacak (canlıda 0
-      // inceleme var). Bu yüzden hata gibi DEĞİL, davet gibi görünmeli —
-      // hemen altında Trakt bloğu akmaya devam ettiği için sayfa asla boş
-      // görünmüyor (docs/design/REVIEWS_PLAN.md §7).
+      // Bugünkü ölçekte neredeyse HER yapımda bu dal çalışacak. Bu yüzden
+      // hata gibi DEĞİL, davet gibi görünmeli (docs/design/REVIEWS_PLAN.md §7).
       return (
         <Text style={styles.emptyText}>
           {t('reviewsEmpty', 'Henüz kimse inceleme yazmadı. İlk sen ol!')}
@@ -248,22 +212,7 @@ export default function MediaCommentsSection({
 
       {renderBody()}
 
-      {/* Trakt bloğu SESSİZ hata sınırıyla sarılı: bir render istisnası
-          yalnızca bu kuyruğu düşürür, kendi incelemelerimiz ve sayfanın geri
-          kalanı ayakta kalır (S13 + Karar 10). */}
-      <SectionErrorBoundary label="trakt-comments" silent>
-        <TraktCommentsBlock
-          comments={traktComments}
-          isLoading={isLoadingTraktComments}
-          // Tekilleştirme anahtarı BURADA üretiliyor — iki veri kümesinin
-          // buluştuğu tek yer burası (bkz. TraktCommentsBlock başlığı, S7).
-          excludeSlugs={new Set(reviews.map((r) => r.user.traktSlug).filter(Boolean) as string[])}
-          onSeeAll={onSeeAllTrakt}
-        />
-      </SectionErrorBoundary>
-
-      {/* Mevcut metin artık BİZİM satırımızdan geliyor (v2) — sheet'in
-          Trakt'tan okuması kalktı. */}
+      {/* Mevcut metin BİZİM satırımızdan geliyor (v2). */}
       <WriteReviewSheet
         visible={sheetVisible}
         onClose={() => setSheetVisible(false)}

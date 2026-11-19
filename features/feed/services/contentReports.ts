@@ -25,7 +25,9 @@ import { logError } from '../../../utils/errorLog';
 // 🔴 Adım 4c (M609): ad tarihsel; hedef PROFİLİN TAMAMIDIR (ad, kullanıcı adı, fotoğraf, açıklama).
 // Arayüzde «Profili bildir». Tip adı değişmedi: DB kısıtı (`043`) ve Worker aynı değeri bekliyor,
 // yeniden adlandırma migration + eski APK uyumu isterdi. Profil için otomatik gizleme YOK.
-export type ReportTargetType = 'activity' | 'comment' | 'trakt_comment' | 'user_bio';
+// Trakt yorumu tipi istemciden 2026-11-18'de kalktı (TRAKT-YORUM-KALDIR); Worker ve DB eski
+// APK'lar için o değeri bir süre daha kabul ediyor (docs/design/TRAKT_YORUM_KALDIRMA.md).
+export type ReportTargetType = 'activity' | 'comment' | 'user_bio';
 export type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'spoiler' | 'illegal' | 'other';
 
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';

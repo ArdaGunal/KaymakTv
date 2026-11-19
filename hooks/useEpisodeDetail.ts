@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { getEpisodeDetail, getEpisodeComments, getShowSummary } from '../services/traktApi';
+import { getEpisodeDetail, getShowSummary } from '../services/traktApi';
 import { getEpisodeStill } from '../services/tmdbApi';
 import { cacheManager } from '../utils/cacheManager';
 
 interface EpisodeMediaData {
   detail: any;
-  comments: any[];
   stillUrl: string | null;
   cast: any[];
   /** Dizinin TMDB kimliği — URL'de yoksa (paylaşım linki) burada çözülür. */
@@ -20,14 +19,11 @@ export const useEpisodeDetail = (
 ) => {
   const [mediaData, setMediaData] = useState<EpisodeMediaData>({
     detail: null,
-    comments: [],
     stillUrl: null,
     cast: [],
     showTmdbId: null
   });
   const [isLoading, setIsLoading] = useState(true);
-  // Yorumlar AYRI yükleme durumu taşır — bkz. aşağıdaki S12 notu.
-  const [isLoadingComments, setIsLoadingComments] = useState(true);
   /**
    * 🔴 Y17: bu alan EKSİKTİ ve ekran hata durumunda SAHTE VERİ çiziyordu.
    *
@@ -57,30 +53,6 @@ export const useEpisodeDetail = (
       return;
     }
 
-    /**
-     * ⚠️ S12 — YORUMLAR EKRANI BLOKLAMAZ.
-     *
-     * `useShowDetail`/`useMovieDetail`'de düzeltilen AYNI hata burada da vardı
-     * ama o turda bu hook GÖZDEN KAÇMIŞTI: `getEpisodeComments` bloklayan
-     * `Promise.allSettled` batch'inin içindeydi, yani bölümün DETAYI ve
-     * GÖRSELİ Trakt'ın yorum ucunu bekliyordu.
-     *
-     * Trakt çökerse: boş listeye düşer, ekran açık kalır (Karar 10).
-     */
-    const loadCommentsInBackground = (traktIdNum: number, sNum: number, eNum: number) => {
-      setIsLoadingComments(true);
-      getEpisodeComments(traktIdNum, sNum, eNum)
-        .then((comments) => {
-          if (isMounted) setMediaData(prev => ({ ...prev, comments: comments || [] }));
-        })
-        .catch(() => {
-          if (isMounted) setMediaData(prev => ({ ...prev, comments: [] }));
-        })
-        .finally(() => {
-          if (isMounted) setIsLoadingComments(false);
-        });
-    };
-
     const loadData = async () => {
       setIsLoading(true);
       setHasError(false);
@@ -90,9 +62,6 @@ export const useEpisodeDetail = (
         const tmdbIdNum = showTmdbId ? parseInt(showTmdbId as string, 10) : NaN;
         const sNum = parseInt(season as string, 10);
         const eNum = parseInt(episode as string, 10);
-
-        // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
-        loadCommentsInBackground(traktIdNum, sNum, eNum);
 
         // Fetch cast and backdrop from Show Cache — useShowDetail'in yazdığı
         // güncel anahtarla aynı olmalı, aksi halde burası hep boş döner.
@@ -148,9 +117,6 @@ export const useEpisodeDetail = (
 
 
         if (isMounted) {
-          // FONKSİYONEL GÜNCELLEME ŞART: yorumlar paralel yükleniyor ve bu
-          // satırdan ÖNCE gelmiş olabilir; nesneyi komple değiştirmek onları
-          // silerdi (useShowDetail'de yakalanan aynı yarış durumu).
           setMediaData(prev => ({
             ...prev,
             detail: detailRes,
@@ -179,5 +145,5 @@ export const useEpisodeDetail = (
 
   const refreshData = () => setRefreshTrigger(prev => prev + 1);
 
-  return { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData };
+  return { mediaData, isLoading, hasError, isCircuitBreakerError, refreshData };
 };

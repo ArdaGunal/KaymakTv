@@ -11,8 +11,7 @@ export type FeedActivityType =
   // İzleme/puanlama olayına BAĞLI DEĞİL, kullanıcı istediği an paylaşır.
   | 'posted'
   // İnceleme — bkz. supabase/schema/019_feed_reviews.sql, docs/design/REVIEWS_PLAN.md.
-  // `posted`tan FARKI: Trakt'ta da yaşar (dual-write). Metin yine `note`
-  // alanında; ayırt edici alan `traktCommentId`.
+  // Metin `note` alanında; yalnız KaymakTV'de yaşar (v2, Trakt'a yazılmaz).
   | 'reviewed';
 
 /** Yapımın türü. `showId` hem dizi hem film trakt id'sini taşıdığı için
@@ -55,11 +54,6 @@ export interface FeedActivity {
    *  aktivitesinde, features/feed/services/feedSocial.ts ile düzenlenir. */
   note?: string | null;
   noteSpoiler?: boolean;
-  /** YALNIZCA `activityType === 'reviewed'` satırlarında dolu — Trakt'taki
-   *  karşılığının kimliği. Hem dedup'ın anahtarı (bkz. docs/design/REVIEWS_PLAN.md
-   *  §3.1) hem de "bu incelemeyi Trakt'tan da sil/güncelle" işlemlerinin
-   *  hedefi. Diğer tiplerde HER ZAMAN undefined. */
-  traktCommentId?: number;
   likeCount: number;
   commentCount: number;
   /** Ben bu aktiviteyi beğendim mi — client'ta AYRI bir sorguyla doldurulur

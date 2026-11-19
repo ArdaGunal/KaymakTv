@@ -11,11 +11,8 @@ import { FeedActivity, FeedMediaType } from '../features/feed/types';
 /**
  * Dizi/film detay sayfasının "KaymakTV İncelemeleri" bölümü.
  *
- * ⚠️ `hooks/useComments.ts` ile KARIŞTIRILMASIN — o, Trakt'ın kendi yorum
- * sistemini okur (`Trakt Topluluğu` bölümü) ve aynı ekranda BU hook'un
- * YANINDA çalışır. İkisi bilinçli olarak ayrı: birleşik bir liste, kimlik
- * uyuşmazlığı ve "bu yanıt nereye gidiyor?" belirsizliği üretirdi
- * (bkz. docs/design/REVIEWS_PLAN.md §4.2).
+ * Sayfadaki tek yorum kaynağı budur: Trakt topluluğu yorumları 2026-11-18'de
+ * kaldırıldı (docs/design/TRAKT_YORUM_KALDIRMA.md).
  *
  * UI/Logic ayrımı (docs/AI_RULES.md §1): ekranlar servis katmanını doğrudan
  * çağırmaz, yalnızca bu hook'u tüketir.

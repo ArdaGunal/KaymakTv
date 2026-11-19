@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { bolumIzlemeSayisi } from '../utils/izlemeSayisi';
-import { getShowSummary, getShowSeasons, getRelatedShows, getMediaComments } from '../services/traktApi';
+import { getShowSummary, getShowSeasons, getRelatedShows } from '../services/traktApi';
 import { getTmdbCast } from '../services/tmdbApi';
 import { cacheManager } from '../utils/cacheManager';
 import { invalidateShowDetailCache } from '../services/library/mutations/invalidation';
@@ -10,7 +10,6 @@ interface MediaData {
   seasons: any[];
   cast: any[];
   related: any[];
-  comments: any[];
 }
 
 // showProgress: TÜM showProgressMap DEĞİL, yalnızca BU dizinin ilerleme
@@ -25,12 +24,8 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     seasons: [],
     cast: [],
     related: [],
-    comments: []
   });
   const [isLoading, setIsLoading] = useState(true);
-  // Yorumlar AYRI bir yükleme durumu taşır — bkz. aşağıdaki S12 notu. Ekranın
-  // geri kalanı açıldıktan sonra Trakt bloğu kendi spinner'ıyla gelebilsin diye.
-  const [isLoadingComments, setIsLoadingComments] = useState(true);
   // Y17: hata ile "veri yok" ayrımı. Bu alan olmadan ekran, Trakt
   // düştüğünde "Dizi bulunamadı" diyordu — YANLIŞ TEŞHİS: dizi duruyor,
   // yalnızca yüklenemedi. "Tekrar Dene" sunabilmek de buna bağlıydı.
@@ -44,45 +39,10 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     let isMounted = true;
     if (!traktIdNum) return;
 
-    /**
-     * ⚠️ S12 — YORUMLAR EKRANI BLOKLAMAZ.
-     *
-     * ESKİ DAVRANIŞ (hata): `getMediaComments`, önbellek-ıska yolundaki
-     * `Promise.allSettled([summary, seasons, related, comments])` batch'inin
-     * İÇİNDEYDİ. `allSettled` HEPSİNİN bitmesini beklediği için, Trakt'ın
-     * yorum uç noktası yavaşladığında dizinin ÖZETİ, SEZONLARI ve tüm ekran
-     * onu bekliyordu — kendi Supabase verimiz hazır olsa bile.
-     *
-     * Önbellek-İSABET yolu bunu zaten doğru yapıyordu (fire-and-forget); iki
-     * yol arasındaki bu tutarsızlık düzeltildi. Artık yorumlar HER İKİ yolda da
-     * bağımsız yükleniyor ve istek en başta, önbellek okumasıyla PARALEL
-     * başlıyor.
-     *
-     * Trakt tamamen çökerse: `catch` boş listeye düşer, ekran açık kalır
-     * (bkz. docs/design/REVIEWS_PLAN.md §4.1).
-     */
-    const loadCommentsInBackground = () => {
-      setIsLoadingComments(true);
-      getMediaComments(traktIdNum, 'show')
-        .then((commRes) => {
-          if (isMounted) setMediaData(prev => ({ ...prev, comments: commRes?.data || [] }));
-        })
-        .catch(() => {
-          // Sessizce boş liste — Trakt bloğu gizlenir, sayfa çalışmaya devam
-          // eder (kullanıcı kararı: "Trakt bloğu yoksa sessizce gizlensin").
-          if (isMounted) setMediaData(prev => ({ ...prev, comments: [] }));
-        })
-        .finally(() => {
-          if (isMounted) setIsLoadingComments(false);
-        });
-    };
-
     const loadData = async () => {
       setIsLoading(true);
       setHasError(false);
       setIsCircuitBreakerError(false);
-      // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
-      loadCommentsInBackground();
       const cacheKey = `@show_detail_v3_${traktIdNum}`;
       
       let cachedContent = await cacheManager.get<any>(cacheKey);
@@ -171,15 +131,10 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
         cacheManager.set(cacheKey, { summary, seasons: slimSeasons, cast: slimCast, related: slimRelated });
 
         if (isMounted) {
-          // ⚠️ FONKSİYONEL GÜNCELLEME ŞART: yorumlar artık PARALEL yükleniyor ve
-          // bu satırdan ÖNCE gelmiş olabilir. Nesneyi komple değiştirmek
-          // (`setMediaData({...})`) o sırada gelmiş yorumları SİLERDİ — yarış
-          // durumu. `prev` üzerinden yazınca yorumlar korunur.
           setMediaData(prev => ({ ...prev, summary, seasons: slimSeasons, cast: slimCast, related: slimRelated }));
         }
       } else {
-        // CACHE HIT: sayfa anında açılır. Yorumlar zaten yukarıda,
-        // `loadCommentsInBackground` ile paralel başlatıldı.
+        // CACHE HIT: sayfa anında açılır.
         if (isMounted) {
           setMediaData(prev => ({ ...prev, summary, seasons, cast, related }));
         }
@@ -237,19 +192,12 @@ export const useShowDetail = (traktIdNum: number, tmdbId: string | string[] | un
     mediaData,
     computedSeasons,
     isLoading,
-    isLoadingComments,
     hasError,
     isCircuitBreakerError,
     // ESKİ DAVRANIŞ: yalnızca refreshTrigger'ı artırıyordu — loadData() diskteki
     // önbelleği (TTL dolmadıysa) hâlâ HIT sayıp aynı bayat veriyi döndürüyordu,
     // yani bu bir no-op'tu. Artık önce disk önbelleği açıkça temizleniyor,
     // böylece bir sonraki loadData() gerçek bir ağ isteği atmak zorunda kalıyor.
-    // NOT: Ayrı bir `refreshComments` YOK. S12'den beri yorumlar her effect
-    // çalışmasında `loadCommentsInBackground` ile zaten tazeleniyor, yani
-    // `refreshData` onları da kapsıyor. (Eski `refreshComments`'ın tek
-    // tüketicisi `MediaReviewsSection.onPublished`'di — inceleme Trakt'a DA
-    // yazıldığı dönemde Trakt listesi bayatladığı için gerekiyordu; v2'de
-    // Trakt'a yazmadığımız için o gerekçe düştü.)
     refreshData: async () => {
       await invalidateShowDetailCache(traktIdNum);
       setRefreshTrigger(prev => prev + 1);

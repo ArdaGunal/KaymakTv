@@ -22,11 +22,10 @@
  *   kaldığından en uzun TTL'e sahiptir. (fetchers.ts'teki eski `TTL_48_HOURS`
  *   sabitiyle birebir aynı, davranış DEĞİŞMEDİ.)
  * - SHORT: dakikalar içinde tazeliği önemli olan, sık tekrar istenen veri
- *   (trend dizi/film listeleri, "yorumum var mı" kontrolü için kullanıcının
- *   son yorumları). Önceden bu ikisi HİÇ önbelleklenmiyordu — Keşfet'e her
- *   giriş-çıkışta ve her açılan dizi/film/bölüm sayfasında baştan çekiliyordu
- *   (bkz. performans raporu: `shows/trending`, `movies/trending`,
- *   `users/me/comments/all/newest` en yüksek çağrı sayılarındaydı).
+ *   (trend dizi/film listeleri, yapım sayfasındaki KaymakTV incelemeleri).
+ *   Trend listeleri önceden HİÇ önbelleklenmiyordu — Keşfet'e her giriş-çıkışta
+ *   baştan çekiliyordu (bkz. performans raporu: `shows/trending`,
+ *   `movies/trending` en yüksek çağrı sayılarındaydı).
  */
 export const CACHE_TTL = {
   SYNC_INTERVAL: 10 * 60 * 1000,

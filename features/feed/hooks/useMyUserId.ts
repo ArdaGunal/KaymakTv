@@ -3,8 +3,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { getMySupabaseUserId } from '../services/userBlocks';
 
 /**
- * Bileşen seviyesinde "bu benim mi?" karşılaştırmaları için — `useMyTraktSlug`'ın
- * KİMLİK karşılığı (Faz T · M339 · `BACKLOG` §F6).
+ * Bileşen seviyesinde "bu benim mi?" karşılaştırmaları için — Trakt slug'ı
+ * yerine KİMLİK (Faz T · M339 · `BACKLOG` §F6).
  *
  * ⛔ NEDEN slug YERİNE BU: Google-only kullanıcının Trakt slug'ı YOK. Kartlar
  * "kendi içeriğim mi" sorusunu slug'la sorduğunda o kullanıcı KENDİ kartında

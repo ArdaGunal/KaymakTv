@@ -32,9 +32,8 @@ interface Props {
   label: string;
   /**
    * `true` ise hata durumunda HİÇBİR ŞEY çizilmez (bölüm sessizce kaybolur).
-   * Zorunlu olmayan, tamamlayıcı bölümler için — ör. Trakt yorumları:
-   * kullanıcı kararı "Trakt bloğu yoksa sessizce gizlensin, hata gösterme"
-   * (docs/design/REVIEWS_PLAN.md §1, Karar 10).
+   * Zorunlu olmayan, tamamlayıcı bölümler için — ör. akıştaki tek bir kart:
+   * bozuk kart sessizce atlanır, liste akmaya devam eder (Karar 10).
    */
   silent?: boolean;
 }

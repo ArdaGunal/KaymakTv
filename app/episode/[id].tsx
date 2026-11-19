@@ -10,7 +10,6 @@ import { getShowBackdrop } from '../../services/tmdbApi';
 import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { formatRating } from '../../utils/formatRating';
 import RatingModal from '../../components/RatingModal';
-import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
 import { useScrollToComment } from '../../hooks/useScrollToComment';
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
@@ -51,11 +50,10 @@ export default function EpisodeDetailScreen() {
   const { userRatingsEpisodes, showProgressMap, hiddenShowIds } = useLibrary();
   const { t, i18n } = useTranslation('media');
   // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
-  const { mediaData, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), urlShowTmdbId, String(season), String(episode));
+  const { mediaData, isLoading, hasError, isCircuitBreakerError, refreshData } = useEpisodeDetail(String(showId), urlShowTmdbId, String(season), String(episode));
   // Paylaşım linkinde URL parametresi yok → kanca dizi özetinden çözer (madde 6).
   const showTmdbId = (urlShowTmdbId as string | undefined) || (mediaData.showTmdbId ? String(mediaData.showTmdbId) : undefined);
   const episodeData = mediaData.detail;
-  const commentsData = mediaData.comments;
   const stillUrl = mediaData.stillUrl;
 
   // Y6 (Madde 244): bkz. app/show/[id].tsx'teki aynı not. `mediaId` dizinin
@@ -79,7 +77,6 @@ export default function EpisodeDetailScreen() {
   );
 
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
-  const [commentSheetVisible, setCommentSheetVisible] = useState(false);
 
   const layout = useDetailLayout();
 
@@ -176,9 +173,6 @@ export default function EpisodeDetailScreen() {
   const commentsSection = (
     <MediaCommentsSection
       reviewsState={reviewsState}
-      traktComments={commentsData}
-      isLoadingTraktComments={isLoadingComments}
-      onSeeAllTrakt={() => setCommentSheetVisible(true)}
       focusReviewId={yorumOdagi.focusId}
       onFocusTarget={yorumOdagi.onFocusTarget}
     />
@@ -199,16 +193,6 @@ export default function EpisodeDetailScreen() {
         myRating={myRating}
         onRate={handleRate}
         onRemoveRating={handleRemoveRating}
-      />
-
-      <CommentSheet
-        visible={commentSheetVisible}
-        onClose={() => setCommentSheetVisible(false)}
-        mediaId={showId as number}
-        mediaType="episode"
-        season={season}
-        episode={episode}
-        reviewsState={reviewsState}
       />
     </>
   );

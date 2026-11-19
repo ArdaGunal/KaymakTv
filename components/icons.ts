@@ -26,10 +26,6 @@
 // YENİ İKON EKLERKEN: buraya bir satır ekle. Doğrudan 'lucide-react-native'
 // ten import ETME — tek bir named import 1.751 ikonun tamamını geri getirir.
 
-// Tipler: `export type` Babel tarafından silinir, bundle'a çalışma zamanı
-// kodu EKLEMEZ — bu yüzden doğrudan paketten alınabilir.
-export type { LucideIcon } from 'lucide-react-native';
-
 export { default as Activity } from '../node_modules/lucide-react-native/dist/esm/icons/activity.mjs';
 export { default as AlertTriangle } from '../node_modules/lucide-react-native/dist/esm/icons/triangle-alert.mjs';
 export { default as ArrowLeft } from '../node_modules/lucide-react-native/dist/esm/icons/arrow-left.mjs';
@@ -55,7 +51,6 @@ export { default as Clock } from '../node_modules/lucide-react-native/dist/esm/i
 export { default as CloudOff } from '../node_modules/lucide-react-native/dist/esm/icons/cloud-off.mjs';
 export { default as Compass } from '../node_modules/lucide-react-native/dist/esm/icons/compass.mjs';
 export { default as Copy } from '../node_modules/lucide-react-native/dist/esm/icons/copy.mjs';
-export { default as CornerDownRight } from '../node_modules/lucide-react-native/dist/esm/icons/corner-down-right.mjs';
 export { default as Cpu } from '../node_modules/lucide-react-native/dist/esm/icons/cpu.mjs';
 export { default as Download } from '../node_modules/lucide-react-native/dist/esm/icons/download.mjs';
 export { default as ExternalLink } from '../node_modules/lucide-react-native/dist/esm/icons/external-link.mjs';
@@ -65,11 +60,9 @@ export { default as FileCheck } from '../node_modules/lucide-react-native/dist/e
 export { default as FileText } from '../node_modules/lucide-react-native/dist/esm/icons/file-text.mjs';
 export { default as Film } from '../node_modules/lucide-react-native/dist/esm/icons/film.mjs';
 export { default as Flag } from '../node_modules/lucide-react-native/dist/esm/icons/flag.mjs';
-export { default as Flame } from '../node_modules/lucide-react-native/dist/esm/icons/flame.mjs';
 export { default as Folder } from '../node_modules/lucide-react-native/dist/esm/icons/folder.mjs';
 export { default as Globe } from '../node_modules/lucide-react-native/dist/esm/icons/globe.mjs';
 export { default as Heart } from '../node_modules/lucide-react-native/dist/esm/icons/heart.mjs';
-export { default as History } from '../node_modules/lucide-react-native/dist/esm/icons/history.mjs';
 export { default as Home } from '../node_modules/lucide-react-native/dist/esm/icons/house.mjs';
 export { default as Inbox } from '../node_modules/lucide-react-native/dist/esm/icons/inbox.mjs';
 export { default as Info } from '../node_modules/lucide-react-native/dist/esm/icons/info.mjs';

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMovieSummary, getRelatedMovies, getMediaComments } from '../services/traktApi';
+import { getMovieSummary, getRelatedMovies } from '../services/traktApi';
 import { getMovieBackdrop, getMovieTrailer, getMoviePoster, getTmdbCast } from '../services/tmdbApi';
 import { invalidateMovieDetailCache } from '../services/library/mutations/invalidation';
 
@@ -9,8 +9,7 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
     summary: any;
     cast: any[];
     related: any[];
-    comments: any[];
-  }>({ summary: null, cast: [], related: [], comments: [] });
+  }>({ summary: null, cast: [], related: [] });
 
   const [images, setImages] = useState<{
     backdrop: string | null;
@@ -19,9 +18,6 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
   }>({ backdrop: null, poster: null, trailerId: null });
 
   const [isLoading, setIsLoading] = useState(true);
-  // Yorumlar AYRI bir yükleme durumu taşır (S12) — ekranın geri kalanı
-  // açıldıktan sonra Trakt bloğu kendi spinner'ıyla gelebilsin diye.
-  const [isLoadingComments, setIsLoadingComments] = useState(true);
   // Y17: hata ile "veri yok" ayrımı. Bu alan olmadan ekran, Trakt
   // düştüğünde "bulunamadı" diyordu — YANLIŞ TEŞHİS: içerik duruyor,
   // yalnızca yüklenemedi. Kullanıcıya "Tekrar Dene" sunulabilmesi de
@@ -50,39 +46,10 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
       }).catch(() => {});
     };
 
-    /**
-     * ⚠️ S12 — YORUMLAR EKRANI BLOKLAMAZ.
-     *
-     * Bu yardımcı ZATEN vardı ama YALNIZCA önbellek-isabet yolunda
-     * kullanılıyordu; önbellek-ıska yolu `getMediaComments`'i bloklayan
-     * `Promise.allSettled` batch'inin içinde tekrar çağırıyordu. Yani ilk kez
-     * açılan bir film sayfası, Trakt'ın yorum ucu yavaşladığında ÖZET ve
-     * BENZER FİLMLERLE birlikte tümden bekliyordu.
-     *
-     * Artık her iki yol da bu tek yardımcıyı kullanıyor (aynı mantığın iki
-     * kopyası da böylece kalktı — bkz. docs/AI_RULES.md §2.5).
-     */
-    const fetchCommentsInBackground = () => {
-      setIsLoadingComments(true);
-      getMediaComments(traktIdNum, 'movie')
-        .then((commRes) => {
-          if (alive()) setMediaData(prev => ({ ...prev, comments: commRes.data || [] }));
-        })
-        .catch(() => {
-          // Sessizce boş liste — Trakt bloğu gizlenir, sayfa çalışır.
-          if (alive()) setMediaData(prev => ({ ...prev, comments: [] }));
-        })
-        .finally(() => {
-          if (alive()) setIsLoadingComments(false);
-        });
-    };
-
     try {
       setIsLoading(true);
       setHasError(false);
       setIsCircuitBreakerError(false);
-      // Önbellek okumasıyla PARALEL başlat — hiçbir şeyi beklemez.
-      fetchCommentsInBackground();
 
       const cacheKey = `@movie_detail_v4_cache_${traktIdNum}`;
       const cached = await AsyncStorage.getItem(cacheKey);
@@ -214,7 +181,5 @@ export function useMovieDetail(traktIdNum: number, tmdbIdStr: string | string[] 
     fetchDetails();
   };
 
-
-  // Ayrı bir `refreshComments` YOK — bkz. useShowDetail.ts'teki aynı not.
-  return { mediaData, images, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData };
+  return { mediaData, images, isLoading, hasError, isCircuitBreakerError, refreshData };
 }

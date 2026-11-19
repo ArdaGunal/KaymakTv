@@ -24,11 +24,8 @@ import {
  *    "Trakt'ta var ama bizde yok" diye bir ara durum artık mümkün DEĞİL.
  *  - `deleteFeedItemsRouted` (tipe göre silme yönlendiricisi) — silme artık
  *    tüm aktivite tipleri için tek yol: `/feed/delete`.
- *  - `invalidateUserCommentsCache` çağrısı — o önbellek Trakt'ın kendi yorum
+ *  - `invalidateUserCommentsCache` çağrısı — o önbellek Trakt'taki yorum
  *    listesinindi; inceleme akışı ona artık hiç dokunmuyor.
- *
- * `services/api/comments.ts` ile karıştırılmasın: orası Trakt yorumlarını
- * OKUMA servisi (dizi sayfasındaki "Trakt topluluğu" bloğu).
  */
 
 const KAYMAK_WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';

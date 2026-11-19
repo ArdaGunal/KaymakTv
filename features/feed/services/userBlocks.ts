@@ -269,20 +269,20 @@ export async function getMyBlockedUsers(): Promise<BlockedUser[]> {
 /**
  * Engelleme hedefi (M339 · `BACKLOG` §F6).
  *
- * 🪪 `userId` TERCİH EDİLİR: Google-only kullanıcının Trakt slug'ı YOK, slug'la
- * engelleme onu ne engelleyebiliyor ne engellenebilir kılıyordu. `traktSlug`
- * yalnızca hedefin TEK kimliği Trakt olduğunda — Trakt'ın kendi yorumları
- * (`components/comments/CommentItem.tsx`): o kişi KaymakTV'de hiç olmayabilir.
+ * 🪪 Hedef HER ZAMAN `userId`: Google-only kullanıcının Trakt slug'ı YOK. Slug'la
+ * engelleme yalnız Trakt topluluğu yorumları içindi; o yorumlar 2026-11-18'de
+ * istemciden kalktı (TRAKT-YORUM-KALDIR). Worker eski APK'lar için
+ * slug ile engellemeyi bir süre daha kabul ediyor (docs/design/TRAKT_YORUM_KALDIRMA.md).
  *
  * ⛔ `getUserIdBySlug` bu dosyadan SİLİNDİ — tek kullanıcısı `useBlockState`'ti
  * ve artık kimlik profil ucundan geliyor.
  */
-export type EngelHedefi = { userId: string } | { traktSlug: string };
+export type EngelHedefi = { userId: string };
 
-const engelGovdesi = (traktAccessToken: string, hedef: EngelHedefi) =>
-  'userId' in hedef
-    ? { traktAccessToken, blockedUserId: hedef.userId }
-    : { traktAccessToken, blockedTraktSlug: hedef.traktSlug };
+const engelGovdesi = (traktAccessToken: string, hedef: EngelHedefi) => ({
+  traktAccessToken,
+  blockedUserId: hedef.userId,
+});
 
 export async function blockUser(traktAccessToken: string, hedef: EngelHedefi): Promise<void> {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');

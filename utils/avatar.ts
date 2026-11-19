@@ -7,8 +7,8 @@
 // Ürün kuralı (kullanıcı, 2026-09-06 — `design/FAZ_T_UYGULAMA_PLANI.md` §T4):
 // avatar YÜKLEME YOK. Resim varsa o; yoksa **baş harften renkli daire**.
 //
-// Palet `components/comments/CommentItem.tsx`'ten taşındı (orada yalnızca
-// Trakt yorumları kullanıyordu; diğer 15 ekran gri bir daire çiziyordu).
+// Palet eskiden yalnız tek bir yorum satırındaydı; diğer 15 ekran gri bir
+// daire çiziyordu (M341'de buraya taşındı).
 
 export const AVATAR_RENKLERI = [
   '#2563eb', '#7c3aed', '#0891b2', '#059669',
@@ -33,7 +33,7 @@ export function avatarBasHarfi(ad?: string | null): string {
  * 🔑 Büyük/küçük harf duyarsız: kullanıcı adları öyle benzersiz (`030`),
  * `ArdaGnl` ile `ardagnl` aynı kişi — farklı renkte görünmemeli.
  *
- * ⚠️ Eski `CommentItem` yalnızca ilk İKİ karakteri topluyordu; aynı harfle
+ * ⚠️ Eski palet yalnızca ilk İKİ karakteri topluyordu; aynı harfle
  * başlayan adların çoğu aynı renge düşüyordu. Tüm ad üzerinden basit bir
  * çarpımsal özet kullanılıyor.
  */

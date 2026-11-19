@@ -29,10 +29,8 @@ export interface UseFeedCommentsResult {
 }
 
 /**
- * Bir aktivitenin yorum sheet'i için veri hook'u — Trakt'ın kendi yorum
- * sistemini kullanan `hooks/useComments.ts` ile KARIŞTIRILMASIN, bu
- * tamamen ayrı: KaymakTV'nin kendi Supabase `comments` tablosu (bkz.
- * docs/design/FEED_SOCIAL_PLAN.md).
+ * Bir aktivitenin yorum sheet'i için veri hook'u — KaymakTV'nin kendi
+ * Supabase `comments` tablosu (bkz. docs/design/FEED_SOCIAL_PLAN.md).
  */
 export function useFeedComments(activityId: string, isOpen: boolean): UseFeedCommentsResult {
   const { accessToken } = useAuth();

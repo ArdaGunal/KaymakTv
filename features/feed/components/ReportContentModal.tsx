@@ -34,9 +34,9 @@ const REASONS: { value: ReportReason; labelKey: string }[] = [
 ];
 
 /**
- * Akış kartları, akış yorumları ve Trakt yorumları için ORTAK bildirme
- * modalı — üçü de yalnızca `targetType`/`targetId` farkıyla aynı bileşeni
- * kullanır (bkz. CardMenu.tsx, FeedCommentItem.tsx, CommentItem.tsx).
+ * Akış kartları, incelemeler, akış yorumları ve profiller için ORTAK bildirme
+ * modalı — hepsi yalnızca `targetType`/`targetId` farkıyla aynı bileşeni
+ * kullanır (bkz. CardMenu.tsx, FeedCommentItem.tsx).
  */
 export default function ReportContentModal({
   visible,

@@ -77,7 +77,7 @@ export interface FeedPage {
 // `fetchUserFeedActivities` ve Realtime'ın satır tamamlama sorgusu birbirinden
 // sapmasın (biri `tmdb_id` seçmeyi unutursa o kartta poster kaybolurdu).
 const ACTIVITY_COLUMNS =
-  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, trakt_comment_id, like_count, comment_count, user:users!inner(id, trakt_slug, username, display_name, avatar_url)';
+  'id, activity_type, show_id, media_type, tmdb_id, show_title, show_poster_url, episode_number, rating, activity_at, note, note_spoiler, like_count, comment_count, user:users!inner(id, trakt_slug, username, display_name, avatar_url)';
 
 export interface FeedActivityRow {
   id: string;
@@ -96,9 +96,6 @@ export interface FeedActivityRow {
   // ile güvenli varsayıma düşülür (bkz. mapRow).
   note?: string | null;
   note_spoiler?: boolean | null;
-  // 019_feed_reviews.sql öncesi satırlarda bu kolon hiç yok — yalnızca
-  // 'reviewed' tipinde dolu (bkz. types.ts traktCommentId).
-  trakt_comment_id?: number | null;
   like_count?: number | null;
   comment_count?: number | null;
   user: {
@@ -139,7 +136,6 @@ export function mapRow(row: FeedActivityRow): FeedActivity {
     activityAt: row.activity_at,
     note: row.note ?? null,
     noteSpoiler: row.note_spoiler ?? false,
-    traktCommentId: row.trakt_comment_id ?? undefined,
     likeCount: row.like_count ?? 0,
     commentCount: row.comment_count ?? 0,
   };

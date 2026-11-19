@@ -194,8 +194,6 @@ for (const parcalar of PROFIL_EKRANLARI) {
 // 🔴 Google-only kullanıcının Trakt slug'ı YOK. Bu üç yol slug'la sorulduğunda
 // o kullanıcı: kendi kartında "Engelle" görüyordu · kimseyi engelleyemiyordu
 // (T3 çıkış ölçütü sınanamıyordu) · kendi aktivite sekmesini göremiyordu.
-// ⚠️ `components/comments/CommentItem.tsx` BİLİNÇLİ OLARAK listede YOK: Trakt'ın
-// kendi yorumu, tek kimlik slug.
 console.log(NL + 'ozet: Kimlik users.id ile mi (benim mi / engelleme / aktivite)?');
 const KIMLIK_DENETIMI = [
   [['features', 'feed', 'components', 'FeedCard.tsx'], 'isOwn', 'engel'],

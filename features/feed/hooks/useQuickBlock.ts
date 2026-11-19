@@ -16,10 +16,8 @@ import { invalidateFeedCache, invalidateVisibleUserIds } from '../services/feedA
  * olamaz, menüde her zaman yalnızca "Engelle" gösterilir, "Engeli Kaldır"
  * hiç gerekmez.
  *
- * 🪪 HEDEF `{ userId }` ya da `{ traktSlug }` (M339 · `BACKLOG` §F6). Bizim
- * kullanıcılarımızın içeriği (akış kartı, akış yorumu, inceleme) HER ZAMAN
- * `userId` ile — Google-only kullanıcının slug'ı YOK. `traktSlug` yalnızca
- * Trakt'ın kendi yorumlarında: o kişi KaymakTV'de hiç olmayabilir.
+ * 🪪 HEDEF `{ userId }` (M339 · `BACKLOG` §F6): akış kartı, akış yorumu ve
+ * inceleme HER ZAMAN `userId` ile — Google-only kullanıcının slug'ı YOK.
  */
 export function useQuickBlock() {
   const { t } = useTranslation(['feed', 'common']);

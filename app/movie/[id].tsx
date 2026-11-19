@@ -22,7 +22,6 @@ import { useDetailLayout } from '../../hooks/useDetailLayout';
 import DetailWebLayout from '../../components/detail/DetailWebLayout';
 import MediaCast from '../../components/MediaCast';
 import HorizontalMediaList from '../../components/HorizontalMediaList';
-import CommentSheet from '../../components/CommentSheet';
 import MediaCommentsSection from '../../components/reviews/MediaCommentsSection';
 import { useScrollToComment } from '../../hooks/useScrollToComment';
 import SectionErrorBoundary from '../../components/SectionErrorBoundary';
@@ -48,7 +47,6 @@ export default function MovieDetailScreen() {
   
   
   const [actionLoading, setActionLoading] = useState(false);
-  const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   // "..." menüsündeki "Tekrar İzle": film zaten izlenmiş olduğundan ana
   // "İzledim" butonunun görünümü değişmiyor — görsel geri bildirim olmadan
   // işlem "çalışmıyor gibi" hissettiriyordu, bu yüzden kısa bir onay eklendi.
@@ -83,11 +81,10 @@ export default function MovieDetailScreen() {
   const { traktId: traktIdNum } = parseMediaSlug(idStr as string);
 
   // `refreshData` → `LoadFailedState.onRetry` (bkz. app/show/[id].tsx'teki aynı not).
-  const { mediaData, images, isLoading, isLoadingComments, hasError, isCircuitBreakerError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
+  const { mediaData, images, isLoading, hasError, isCircuitBreakerError, refreshData } = useMovieDetail(traktIdNum, tmdbId as string);
   const movieData = useTmdbBasliklari(mediaData.summary, 'movie');
   const castData = mediaData.cast;
   const relatedMovies = mediaData.related;
-  const commentsData = mediaData.comments;
 
   // Y6 (Madde 244): bkz. app/show/[id].tsx'teki aynı not.
   // C4 · akıştan `?yorum=<id>` ile gelindiyse o incelemeye kaydır + vurgula.
@@ -279,9 +276,6 @@ export default function MovieDetailScreen() {
     <MediaCommentsSection
       writeActionVariant={Platform.OS === 'web' && layout.isDesktopWeb ? 'default' : 'input'}
       reviewsState={reviewsState}
-      traktComments={commentsData}
-      isLoadingTraktComments={isLoadingComments}
-      onSeeAllTrakt={() => setCommentSheetVisible(true)}
       focusReviewId={yorumOdagi.focusId}
       onFocusTarget={yorumOdagi.onFocusTarget}
     />
@@ -301,13 +295,6 @@ export default function MovieDetailScreen() {
 
   const overlays = (
     <>
-      <CommentSheet
-        visible={commentSheetVisible}
-        onClose={() => setCommentSheetVisible(false)}
-        mediaId={traktIdNum}
-        mediaType="movie"
-        reviewsState={reviewsState}
-      />
       <Snackbar
         visible={rewatchSnackbarVisible}
         message={t('rewatchConfirmation')}

@@ -1,6 +1,5 @@
-// `components/comments/CommentItem.tsx`'teki yerel `formatRelativeDate`ten
-// taşındı (davranış AYNI) — bildirim satırları da aynı "X önce" formatına
-// ihtiyaç duyduğu için tek kaynağa çıkarıldı.
+// Eski bir yorum satırındaki yerel `formatRelativeDate`ten taşındı — bildirim
+// satırları da aynı "X önce" formatına ihtiyaç duyduğu için tek kaynağa çıkarıldı.
 //
 // Anahtarlar `common:` öneki ile çağrılıyor ki HANGİ ekranın `t`'si verilirse
 // verilsin çalışsın — i18next'te bir anahtarı `namespace:key` ile adreslemek
