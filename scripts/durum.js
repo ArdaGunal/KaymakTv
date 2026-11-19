@@ -164,8 +164,12 @@ async function canliKontrol() {
       // §C24 · 053 — bio ile aynı sonda: anon'a KAPALI kolon → 42501 = var, 42703 = yok.
       const ad = await supabaseSor('users?select=display_name&limit=1');
       sonuc.supabase['053 (display_name)'] = ad.kod === '42501' ? 'UYGULANDI' : ad.kod === '42703' ? 'YOK' : `? (${ad.kod || ad.http})`;
+      // 093 (SQL_DENETIM_PLANI Faz 1, D15) politikasız tablonun anon SELECT'ini kapatır: o günden
+      // sonra 42501 = tablo VAR ama istemciye kapalı. 093'ten önce 200 (boş dizi) döner; ikisi de uygulandı.
       const durum = await supabaseSor('user_import_state?select=user_id&limit=1');
-      sonuc.supabase['044 (import tablolari)'] = durum.http === 200 ? 'UYGULANDI' : `? (${durum.kod || durum.http})`;
+      sonuc.supabase['044 (import tablolari)'] = durum.http === 200 ? 'UYGULANDI'
+        : durum.kod === '42501' ? 'UYGULANDI (istemciye kapalı)'
+        : durum.kod === '42P01' || durum.kod === 'PGRST205' ? 'YOK' : `? (${durum.kod || durum.http})`;
       // 🔑 RPC karsiligi ayni ayrim: PGRST202 = fonksiyon YOK · 42501 =
       // fonksiyon VAR ama anon cagiramiyor (= uygulandi + REVOKE calisiyor).
       // Govde bos `{}` -> p_limit varsayilana duser; zaten anon reddedilecek.
@@ -174,8 +178,8 @@ async function canliKontrol() {
         : rpc.kod === 'PGRST202' ? 'YOK' : `? (${rpc.kod || rpc.http})`;
       const gen = await supabaseSor('catalog_entities?select=genres&limit=1');
       sonuc.supabase['047 (catalog genres)'] = gen.http === 200 ? 'UYGULANDI' : `? (${gen.kod || gen.http})`;
-      const alt = await supabaseSor('user_import_state?select=alt_sinir&limit=1');
-      sonuc.supabase['048 (alt_sinir)'] = alt.http === 200 ? 'UYGULANDI' : `? (${alt.kod || alt.http})`;
+      // 048'in `alt_sinir` kolon sondası kaldırıldı (D15): 093'ten sonra tablo istemciye kapalı, kolon
+      // anon'dan sorulamaz; 048'in canlılığını aşağıdaki RPC sondası söylüyor.
       // 🔴 Kolon ve FONKSİYON ayrı ayrı sorulur: `048`'in kolonu görünüp
       // RPC'leri görünmeyebilir — PostgREST şema önbelleği fonksiyonları
       // kendi listesinden çözüyor (M366; çözümü `NOTIFY pgrst, 'reload schema';`).
