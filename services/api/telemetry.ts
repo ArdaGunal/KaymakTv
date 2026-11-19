@@ -42,6 +42,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sanitizeLogTags, sanitizeText } from '../../utils/sanitize';
 
 const WORKER_URL = process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '';
 
@@ -164,7 +165,9 @@ export const reportErrorRemotely = async (input: TelemetryInput): Promise<void> 
     if (sessionCount >= SESSION_CAP) return;
     if (SAMPLE_RATE < 1 && Math.random() > SAMPLE_RATE) return;
 
-    const fp = parmakIzi(input.context, input.message);
+    const context = sanitizeText(input.context);
+    const message = sanitizeText(input.message);
+    const fp = parmakIzi(context, message);
     // Senkron kontrol + işaret — ilk `await`ten ÖNCE (yarış burada kapanır).
     if (oturumdaGorulen.has(fp)) return;
     oturumdaGorulen.add(fp);
@@ -176,12 +179,12 @@ export const reportErrorRemotely = async (input: TelemetryInput): Promise<void> 
     const installId = await getInstallId();
     const payload = {
       installId,
-      context: input.context.slice(0, 120),
-      message: input.message.slice(0, 500),
+      context: context.slice(0, 120),
+      message: message.slice(0, 500),
       // Stack YALNIZCA ilk satırlar — hem Discord alan sınırı hem de gereksiz
       // veri taşımamak için.
-      stack: input.stack ? input.stack.split('\n').slice(0, 6).join('\n').slice(0, 900) : undefined,
-      tags: input.tags,
+      stack: input.stack ? sanitizeText(input.stack).split('\n').slice(0, 6).join('\n').slice(0, 900) : undefined,
+      tags: sanitizeLogTags(input.tags),
       platform: `${Platform.OS} ${Platform.Version}`,
       appVersion: String(Constants.expoConfig?.version ?? '?'),
       fingerprint: fp,

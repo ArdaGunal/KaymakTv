@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { geciciHataNedeni } from './geciciHata';
+import { sanitizeLogTags, sanitizeText } from './sanitize';
 
 const ERROR_LOG_KEY = '@kaymak_error_log_v1';
 const MAX_ENTRIES = 50;
@@ -31,11 +32,27 @@ const serializeError = (error: unknown): { message: string; stack?: string } => 
     return { message: error };
   }
   try {
-    return { message: JSON.stringify(error) };
+    return { message: JSON.stringify(error) ?? String(error) };
   } catch {
     return { message: String(error) };
   }
 };
+
+function sanitizeEntry(entry: LoggedError): LoggedError {
+  return {
+    ...entry,
+    context: sanitizeText(entry.context),
+    message: sanitizeText(entry.message),
+    stack: entry.stack === undefined ? undefined : sanitizeText(entry.stack),
+    tags: sanitizeLogTags(entry.tags),
+  };
+}
+
+async function readEntries(): Promise<LoggedError[]> {
+  const raw = await AsyncStorage.getItem(ERROR_LOG_KEY);
+  const entries = raw ? JSON.parse(raw) : [];
+  return Array.isArray(entries) ? entries.map(sanitizeEntry) : [];
+}
 
 // Yazma işlemleri SIRALI bir kuyruğa alınır: `logError` ard arda hızlı
 // çağrılırsa (örn. ağ kopması sırasında art arda başarısız olan istekler),
@@ -63,19 +80,18 @@ export const logError = (
   const gecici = geciciHataNedeni(error);
   const message = gecici ? `${hamMesaj} [geçici: ${gecici}]` : hamMesaj;
   const etiketler = gecici ? { ...(tags || {}), gecici } : tags;
-  const entry: LoggedError = {
+  const entry = sanitizeEntry({
     timestamp: Date.now(),
     context,
     message,
     stack,
     ...(etiketler ? { tags: etiketler } : {}),
     ...(level === 'warn' ? { level } : {}),
-  };
+  });
 
   writeQueue = writeQueue.then(async () => {
     try {
-      const raw = await AsyncStorage.getItem(ERROR_LOG_KEY);
-      const existing: LoggedError[] = raw ? JSON.parse(raw) : [];
+      const existing = await readEntries();
       const updated = [entry, ...existing].slice(0, MAX_ENTRIES);
       await AsyncStorage.setItem(ERROR_LOG_KEY, JSON.stringify(updated));
     } catch {
@@ -100,6 +116,7 @@ export const logError = (
   if (level === 'error' && !gecici) {
     try {
       const { reportErrorRemotely } = require('../services/api/telemetry');
+      const { context, message, stack, tags } = entry;
       void reportErrorRemotely({ context, message, stack, tags });
     } catch {
       // yoksay
@@ -116,8 +133,7 @@ export const logWarning = (context: string, error: unknown, tags?: Record<string
  * bir tanılama ekranında veya destek talebine eklenecek bir dışa aktarımda). */
 export const getErrorLog = async (): Promise<LoggedError[]> => {
   try {
-    const raw = await AsyncStorage.getItem(ERROR_LOG_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return await readEntries();
   } catch {
     return [];
   }

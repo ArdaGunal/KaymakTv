@@ -71,7 +71,7 @@ const yas = { getItem: async (k) => yerelDisk.get(k) ?? null, setItem: async (k,
 const E = tsLoader(root, {
   '@react-native-async-storage/async-storage': { default: yas, ...yas },
   '../services/api/telemetry': { reportErrorRemotely: async (x) => { uzak.push(x); } },
-})('utils/errorLog.ts');
+}, { Error })('utils/errorLog.ts');
 // Gercek KaymakAramaHatasi gibi: Error + tur + neden.
 const sarili = (neden) => Object.assign(new Error('İşlem tamamlanamadı.'), { tur: 'genel', neden });
 E.logError('notificationStore.refreshActivity', sarili({ message: 'canceled', code: 'ERR_CANCELED' }));
@@ -82,6 +82,88 @@ const kayit = await E.getErrorLog();
 T.ok("🔴 12:28 seli: Canceled sarili hata Discord'a GITMEDI", !uzak.some((x) => x.context === 'notificationStore.refreshActivity'));
 T.ok('Yerel gunlukte gercek nedeniyle duruyor', kayit.some((k) => k.context === 'notificationStore.refreshActivity' && /\[geçici: ERR_CANCELED\]/.test(k.message) && k.tags?.gecici === 'ERR_CANCELED'), JSON.stringify(kayit));
 T.ok("🔴 Gercek 500 ve TypeError Discord'a GITTI", uzak.some((x) => x.context === 'useMyTraktProfile.graf') && uzak.some((x) => x.context === 'render'));
+
+T.H('G-13: disk ve telemetri cikisinda token maskeleme');
+const mask = '[GİZLENDİ]';
+const normal = 'GET /api/tmdb → 503; 1500 ms sonra yeniden denendi.';
+const opaque = 'f1234abcd5678abc'.repeat(4);
+const { sanitizeText, sanitizeJson, sanitizeLogTags } = load('utils/sanitize.ts');
+for (const field of ['traktAccessToken', 'kaymakOturum', 'access_token', 'refresh_token', 'id_token', 'Authorization', 'Cookie', 'bilet', 'erisim', 'yenileme', 'token']) {
+  T.ok(field + ' JSON ve duz metinde maskeli',
+    JSON.parse(sanitizeText(JSON.stringify({ [field]: 'short-fake' })))[field] === mask
+    && sanitizeText(`${field}='short-fake'; ${normal}`) === `${field}='${mask}'; ${normal}`);
+}
+T.ok('Normal metin degismiyor, uzun opaque token maskeli', sanitizeText(normal) === normal && sanitizeText(opaque) === mask);
+T.ok('Duz metinde tum cookie ciftleri maskeli',
+  sanitizeText('cookie=sid=first; other=second&status=503') === 'cookie=' + mask + '&status=503');
+
+const diagnostics = [
+  ['Web yigin satiri', 'at https://kaymaktv.com/_expo/static/js/web/entry-81584de1d8b51da43e3ba284f5d1f8ba.js:2:12345'],
+  ['API yolu', 'fetch failed https://kaymaktv.com/api/lazyfetch/tmdb/3/tv/1399/season/2/episode/10/images'],
+  ['Android bundle satiri', 'index.android.bundle:1:2345678'],
+  ['Supabase hatasi', 'PGRST116 JSON object requested, multiple (or no) rows returned'],
+  ['UUID', '3f2c9a1e-8b7d-4c6e-9f10-2a3b4c5d6e7f'],
+  ['Misafir UUID', 'guest-3f2c9a1e-8b7d-4c6e-9f10-2a3b4c5d6e7f'],
+  ['Uzun dizge iceren dosya ve URL parcalari', `./cache/${opaque} ${opaque}.bundle C:\\cache\\${opaque} https://${opaque}`],
+];
+for (const [label, message] of diagnostics) {
+  T.ok(label + ' aynen korunuyor',
+    sanitizeText(message) === message && JSON.parse(sanitizeJson({ message })).message === message);
+}
+
+const metrics = { counters: { erisim: 5, bilet: 2, token: 1 }, flags: { yenileme: false, authorization: null, cookie: true } };
+T.ok('Sayisal, boolean ve null tanilar korunuyor',
+  sanitizeJson(metrics) === JSON.stringify(metrics)
+  && sanitizeText(JSON.stringify(metrics)) === JSON.stringify(metrics));
+T.ok('Etiketlerde de yalniz dizge degerler maskeli',
+  JSON.stringify(sanitizeLogTags({ token: '1', erisim: 5, bilet: false, yenileme: null }))
+    === JSON.stringify({ token: mask, erisim: 5, bilet: false, yenileme: null }));
+
+const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJmaXh0dXJlIjp0cnVlfQ.signatureFixture';
+T.ok('Trakt hex, Kaymak oturumu, JWT, Bearer ve Basic maskeleniyor',
+  sanitizeText(`${opaque} | kaymak_session_v1.${jwt} | ${jwt} | Bearer short-fake | Basic Zm9vOmJhcg==`)
+    === `${mask} | ${mask} | ${mask} | Bearer ${mask} | Basic ${mask}`);
+T.ok('URL parametresinde acikca etiketlenen token maskeleniyor',
+  sanitizeText(`/callback?traktAccessToken=${opaque}&status=503`)
+    === `/callback?traktAccessToken=${mask}&status=503`);
+
+const logKey = '@kaymak_error_log_v1';
+yerelDisk.set(logKey, JSON.stringify([{ timestamp: 1, context: 'eski', message: 'access_token=legacy-fixture' }]));
+const legacy = await E.getErrorLog();
+T.ok('Eski kayit okunurken de maskeli', legacy[0]?.message === 'access_token=' + mask);
+
+const secretError = new Error('traktAccessToken=fakeTrakt; ' + normal);
+secretError.stack = 'Authorization: Basic fakeAuth\nat render()';
+E.logError('kaymakOturum=fakeSession', secretError, { refresh_token: 'fakeRefresh', route: '/settings' });
+E.logWarning('normal', normal);
+await new Promise((resolve) => setTimeout(resolve, 20));
+const diskText = yerelDisk.get(logKey);
+const records = JSON.parse(diskText);
+T.ok('Ham AsyncStorage yaziminda yeni veya yeniden yazilan eski token yok',
+  ['fakeTrakt', 'fakeSession', 'fakeRefresh', 'fakeAuth', 'legacy-fixture'].every((secret) => !diskText.includes(secret)));
+T.ok('Yerel kayit okunabilir hata metnini, stack ve guvenli etiketi koruyor',
+  records[0]?.message === normal
+  && records[1]?.message === 'traktAccessToken=' + mask + '; ' + normal
+  && records[1]?.stack === 'Authorization: ' + mask + '\nat render()'
+  && records[1]?.tags?.refresh_token === mask && records[1]?.tags?.route === '/settings');
+T.ok('logError telemetriye maskelenmis kaydi verir', uzak.at(-1)?.context === 'kaymakOturum=' + mask);
+
+const prefix = 'Ağ hatası ' + 'x'.repeat(470) + ' ';
+await Tel.reportErrorRemotely({
+  context: 'id_token=fakeId',
+  message: prefix + opaque,
+  stack: 'Cookie: first=fakeCookie; second=fakeCookie2\nat render()',
+  tags: { access_token: 'fakeAccess', path: '/settings' },
+});
+const remote = gonderilen.at(-1);
+const remoteText = JSON.stringify(remote);
+T.ok('Axios govdesinde token veya kirpilmis token parcasi yok',
+  ['fakeId', opaque.slice(0, 12), 'fakeCookie', 'fakeAccess'].every((secret) => !remoteText.includes(secret))
+  && remote.message === prefix + mask);
+T.ok('Telemetri parmak izi de maskeli baglami kullaniyor ve tani verileri kaliyor',
+  remote.fingerprint.startsWith('id_token=' + mask)
+  && remote.stack === 'Cookie: ' + mask + '\nat render()'
+  && remote.tags.access_token === mask && remote.tags.path === '/settings');
 
 T.H('kaymakSocial kok nedeni tasir');
 const oku = (f) => fs.readFileSync(path.join(root, f), 'utf8');
