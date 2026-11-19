@@ -88,6 +88,9 @@ firebase.json
 # yalnızca server.js/server/ dosyaları Pi'nin git pull ile aldığı şey) —
 # public repoda mimariyi ifşa etmenin bir faydası yok.
 /supabase/schema/
+# tests/sql/: canlı şema kopyaları ve CREATE/REVOKE/POLICY içeren SQL sınamaları; aynı gerekçe
+# (F19/M205), kullanıcı kararı 2026-11-20 «yerelde kalsın». Yedeği özel Worker deposunda docs-backup/tests-sql/.
+/tests/sql/
 
 # IDEs and AI tools
 .vscode/
