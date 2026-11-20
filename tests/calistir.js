@@ -37,6 +37,7 @@ const TAKIMLAR = [
   { ad: 'trend-arama', grup: 'lazyfetch', dosya: 'lazyfetch/trend-arama.test.js', aciklama: 'K5/M533: trend+arama onbellekten, kova doluysa dogrudan, Trakt cokunce arsivden yerel arama' },
   { ad: 'denetim-lazyfetch', grup: 'lazyfetch', dosya: 'lazyfetch/denetim-regresyon.test.js', aciklama: 'M548/M550: dis denetim R9 (HALF_OPEN bekcisi), sure sinirlari, K2, K4, parametre suzgeci' },
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
+  { ad: 'tmdb-izin', grup: 'lazyfetch', dosya: 'lazyfetch/tmdb-izin-listesi.test.js', aciklama: 'G-11: /api/tmdb yol + parametre izin listesi (400), anahtar ayrac kacisi, TMDB anahtar surumu 2' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
   { ad: 'goc', grup: 'arsiv', dosya: 'arsiv/goc.test.js', aciklama: 'A1: sema gocu v1 -> v2 -> v3 (C16)' },
   { ad: 'sayac', grup: 'arsiv', dosya: 'arsiv/sayac.test.js', aciklama: 'A2.6: gecelik satir sayimi, dusus alarmi (C22)' },

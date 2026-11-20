@@ -12,8 +12,43 @@ const { tmdbLimiter } = require('./security');
 const { resolveRequest } = require('./lazyfetch/orchestrator');
 const { createTmdbFetcher } = require('./lazyfetch/providers/tmdb');
 const { CircuitOpenError, RateLimitedError } = require('./lazyfetch/errors');
+const { resolveRoute } = require('./lazyfetch/routeRegistry');
 
 const router = express.Router();
+
+// 🆕 G-11 (v1.0.2 Paket 1): YOL + PARAMETRE İZİN LİSTESİ. Eskiden yol normalize edilip kalan
+// her query TMDB'ye gidiyordu; rota listesinde olmayan yol PASSTHRU oluyordu ve `session_id` gibi
+// parametreler upstream'e giderken önbellek anahtarından siliniyordu (anahtar çakışması).
+// Liste istemcinin GERÇEK çağrılarından (`services/tmdbApi.ts`, `tmdbPerson.ts`, `tmdbBasliklari.ts`):
+// 9 yol biçiminin hepsi `routeRegistry` TMDB rotalarında, tek parametre `language`.
+// `append_to_response` istemcide kullanılmıyor → izinli değil. İzin dışı her şey 400 (Trakt
+// katalog geçidiyle aynı desen; gövde kısa, ayrıntı yok).
+const IZINLI_PARAMETRE = new Set(['endpoint', 'language']);
+// BCP 47 dil etiketi (`en-US`, `tr-TR`; ileride `pt-BR`, `zh-Hant`). Ayraç karakteri giremez.
+const DIL_DESENI = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/;
+const YOL_UZUNLUK_TAVANI = 200;
+
+/**
+ * İstemci sorgusunu izin listesine göre denetler. Saf; ağ ve önbelleğe dokunmaz.
+ * @returns {{ ok: true, endpoint: string, query: Object } | { ok: false }}
+ */
+function tmdbIstegiDenetle(sorgu) {
+  if (!sorgu || typeof sorgu !== 'object') return { ok: false };
+  for (const ad of Object.keys(sorgu)) {
+    if (!IZINLI_PARAMETRE.has(ad)) return { ok: false };
+  }
+  let endpoint = sorgu.endpoint;
+  if (typeof endpoint !== 'string' || !endpoint || endpoint.length > YOL_UZUNLUK_TAVANI) return { ok: false };
+  if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
+  if (!resolveRoute('tmdb', endpoint).cacheable) return { ok: false };
+
+  const query = {};
+  if (sorgu.language !== undefined) {
+    if (typeof sorgu.language !== 'string' || !DIL_DESENI.test(sorgu.language)) return { ok: false };
+    query.language = sorgu.language;
+  }
+  return { ok: true, endpoint, query };
+}
 
 router.get('/', tmdbLimiter, async (req, res) => {
   try {
@@ -33,29 +68,26 @@ router.get('/', tmdbLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Server configuration error (missing TMDB_API_KEY)' });
     }
 
-    let endpoint = req.query.endpoint;
     // 🆕 M558 · D-9: TİP kontrolü — `?endpoint=a&endpoint=b` dizi olarak gelir; `startsWith` TypeError →
     // 500 ve iç hata mesajı dışarı sızıyordu. Diğer köprüler gibi yalnız dize kabul edilir.
-    if (!endpoint || typeof endpoint !== 'string') {
+    if (!req.query.endpoint || typeof req.query.endpoint !== 'string') {
       return res.status(400).json({ error: 'Endpoint is required' });
     }
 
-    if (!endpoint.startsWith('/')) {
-      endpoint = '/' + endpoint;
+    // 🆕 G-11: izin dışı yol/parametre upstream'e ve önbelleğe HİÇ ulaşmaz.
+    const denetim = tmdbIstegiDenetle(req.query);
+    if (!denetim.ok) {
+      return res.status(400).json({ error: 'Bad request' });
     }
 
-    const queryParams = { ...req.query };
-    delete queryParams.endpoint;
-
-    // LazyFetch: rota beyaz listede değilse (server/lazyfetch/routeRegistry.js)
-    // veya SSD kapalıysa `resolveRequest` SESSİZCE PASSTHRU'ya düşer — bu
-    // durumda içeride tam olarak eski koddaki axios çağrısı (aynı URL, aynı
-    // params, aynı header) çalışır; kimliksiz/misafir istekler de dahil
-    // TÜM istekler aynı şekilde işlenir (cache kullanıcı kimliğine hiç bakmaz).
+    // LazyFetch: yol artık her zaman rota listesinde (yukarıdaki denetim). SSD
+    // kapalıysa `resolveRequest` SESSİZCE sağlayıcıya gider; kimliksiz/misafir
+    // istekler de dahil TÜM istekler aynı şekilde işlenir (cache kullanıcı
+    // kimliğine hiç bakmaz — kimlik parametresi zaten buraya giremez).
     const result = await resolveRequest({
       provider: 'tmdb',
-      path: endpoint,
-      query: queryParams,
+      path: denetim.endpoint,
+      query: denetim.query,
       fetcher: createTmdbFetcher(tmdbApiKey),
     });
 
@@ -92,3 +124,5 @@ router.get('/', tmdbLimiter, async (req, res) => {
 });
 
 module.exports = router;
+// Yalnız test/denetim için — `server.js` yalnız router'ı bağlar.
+module.exports.tmdbIstegiDenetle = tmdbIstegiDenetle;

@@ -16,9 +16,9 @@
 const crypto = require('crypto');
 
 // Hiçbir koşulda cache anahtarına veya diske YAZILMAMASI gereken parametre
-// adları (case-insensitive). `api_key` bugün istemciden gelmiyor (server.js
-// bunu sunucu tarafında ekliyor, `endpoint` dışındaki her şeyi olduğu gibi
-// TMDB'ye iletiyor) ama savunma amaçlı: yarın bir entegrasyon yanlışlıkla
+// adları (case-insensitive). `api_key` bugün istemciden gelmiyor (sağlayıcı
+// adaptörü sunucu tarafında ekliyor; G-11'den beri TMDB proxy'si de yalnız
+// `language`'i geçiriyor) ama savunma amaçlı: yarın bir entegrasyon yanlışlıkla
 // bir token'ı query'ye karıştırırsa, o token'ın dosya adına/loga sızmasını
 // burada kesin olarak önlüyoruz.
 const SECRET_PARAM_NAMES = new Set([
@@ -40,15 +40,34 @@ const SECRET_PARAM_NAMES = new Set([
  * ile "boş string verilmiş" bilinçli olarak AYNI kabul edilir (TMDB/Trakt
  * tarafında pratik anlamları zaten aynı).
  */
+// 🆕 G-11: ayraç kaçışı. Eskiden çiftler kaçışsız birleşiyordu: {language:'tr',x:'y'} ile
+// {language:'tr&x=y'} AYNI anahtarı üretiyordu (farklı upstream sorgusu, tek önbellek kaydı).
+// Yalnız `%`, `&`, `=` yüzde-kodlanır: `%` da kodlandığı için çözüm tek anlamlıdır (birebir).
+// `encodeURIComponent` bilerek kullanılmadı: yalnız-vekil (lone surrogate) dizide fırlatır ve
+// boşluk/Türkçe harfi de değiştirip ayraç içermeyen meşru anahtarları da boşuna değiştirirdi.
+function kacir(s) {
+  return s.replace(/[%&=]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 function normalizeQuery(query) {
   if (!query || typeof query !== 'object') return '';
 
   const entries = Object.entries(query)
     .filter(([k, v]) => v !== undefined && v !== null && !SECRET_PARAM_NAMES.has(k.toLowerCase()))
-    .map(([k, v]) => [k, String(v)])
+    .map(([k, v]) => [kacir(k), kacir(String(v))])
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
   return entries.map(([k, v]) => `${k}=${v}`).join('&');
+}
+
+// 🆕 G-11: sağlayıcı başına ANAHTAR SÜRÜMÜ. TMDB 2'ye çıktı: G-11 öncesi kaçışsız/sır-ayıklayan
+// anahtarla yazılmış (zehirlenmiş olabilecek) kayıtlar artık hiç okunmaz, ilk istekte yeniden
+// çekilir. Trakt 1'de kalır → kanonik dizgesi bayt bayt aynı, Trakt önbelleği SOĞUMAZ (katalog
+// geçidi zaten izinli parametre süzgeçli, M550). Sürüm 1 için önek eski biçimdir (`v1`).
+const ANAHTAR_SURUMU = Object.freeze({ tmdb: 2 });
+
+function anahtarSurumu(provider) {
+  return ANAHTAR_SURUMU[provider] || 1;
 }
 
 /**
@@ -88,8 +107,9 @@ function buildCacheKey({ provider, family, method = 'GET', path: reqPath, query,
     throw new Error('[LazyFetch] buildCacheKey: "family" zorunlu.');
   }
 
+  const surum = anahtarSurumu(provider);
   const canonical = [
-    `v${schemaVersion}`,
+    surum > 1 ? `v${schemaVersion}.k${surum}` : `v${schemaVersion}`,
     provider,
     family,
     String(method).toUpperCase(),
@@ -115,4 +135,6 @@ module.exports = {
   // doğrudan kullanmaz, `buildCacheKey` üzerinden dolaylı çağrılır.
   normalizeQuery,
   normalizePath,
+  anahtarSurumu,
+  ANAHTAR_SURUMU,
 };
