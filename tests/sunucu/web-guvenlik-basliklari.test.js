@@ -65,11 +65,15 @@ function waitForPort(child, errors) {
   });
 }
 
-function checkWebHeaders(label, response, existingCsp = null) {
+// G-09a: zorunlu CSP tek kez gelir, Report-Only artik gonderilmez.
+// serve-static kendi yonlendirme HTML'inde daha siki CSP'yi yazar (expectedCsp).
+function checkWebHeaders(label, response, expectedCsp = null) {
   for (const [name, value] of Object.entries(headerValues)) {
     T.ok(label + ' ' + name, response.headers.get(name) === value, response.headers.get(name));
   }
-  T.ok(label + ' Report-Only ve mevcut CSP', response.headers.has(reportOnly) && response.headers.get(csp) === existingCsp);
+  const value = response.headers.get(csp);
+  T.ok(label + ' zorunlu CSP var, Report-Only yok', !response.headers.has(reportOnly)
+    && Boolean(value) && !value.includes(', ') && (expectedCsp === null || value === expectedCsp), value);
 }
 
 function checkApiHeaders(label, response) {
@@ -115,17 +119,23 @@ async function run() {
     const head = await get('/download', { method: 'HEAD' });
     T.ok('HEAD /download 200 ve bos govde', head.status === 200 && await head.text() === '');
     checkWebHeaders('HEAD /download', head);
-    const policy = head.headers.get(reportOnly) || '';
+    const policy = head.headers.get(csp) || '';
     const directives = new Map(policy.split(';').map((part) => {
       const [key, ...values] = part.trim().split(/\s+/);
       return [key, values];
     }));
     for (const [name, sources] of Object.entries({
       'default-src': ["'self'"],
-      'script-src': ["'self'", 'https://accounts.google.com/gsi/client'],
+      'object-src': ["'none'"],
+      'base-uri': ["'self'"],
+      'frame-ancestors': ["'none'"],
+      'script-src': ["'self'", 'https://accounts.google.com/gsi/client', 'https://static.cloudflareinsights.com'],
       'style-src': ["'self'", "'unsafe-inline'", 'https://accounts.google.com/gsi/style'],
       'frame-src': ["'self'", 'https://accounts.google.com/gsi/'],
-      'img-src': ['data:', 'https://image.tmdb.org', 'https://img.youtube.com', 'https://flagcdn.com'],
+      'img-src': [
+        "'self'", 'data:', 'https://image.tmdb.org', 'https://img.youtube.com', 'https://flagcdn.com',
+        'https://*.googleusercontent.com', 'https://*.trakt.tv', 'https://secure.gravatar.com',
+      ],
       'font-src': ["'self'"],
       'connect-src': [
         "'self'", 'https://kaymaktv.com', 'https://accounts.google.com/gsi/',
@@ -137,6 +147,10 @@ async function run() {
       T.ok('CSP ' + name + ' kaynaklari', sources.every((source) => directives.get(name)?.includes(source)));
     }
     T.ok('CSP connect-src GitHub API izni yok', !directives.get('connect-src')?.includes('https://api.github.com'));
+    const scriptSrc = directives.get('script-src') || [];
+    T.ok('CSP script-src unsafe-inline/unsafe-eval/joker yok', !scriptSrc.some((source) => (
+      ["'unsafe-inline'", "'unsafe-eval'", '*', 'https:', 'data:', 'blob:'].includes(source))), scriptSrc.join(' '));
+    T.ok('CSP default-src yalniz self', directives.get('default-src')?.join(' ') === "'self'");
 
     const bundle = await get('/_expo/entry-test.js');
     T.ok('Statik JS MIME ve govde', bundle.status === 200 && /javascript/.test(bundle.headers.get('content-type')) && await bundle.text() === JS);

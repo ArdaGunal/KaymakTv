@@ -175,16 +175,29 @@ app.use('/api/afis-yedek', require('./server/afisYedek'));
 // Trakt köprü yolları (GET/POST/DELETE/PUT + OAuth): `server/traktProxyYollari.js`.
 require('./server/traktProxyYollari')(app, { traktAuthLimiter, redirectUriGuard });
 
-// G-09 · dist web paketi ve istemci kodundan çıkarılan kaynaklar.
-// Yerel fontlar aynı origin'den gelir. Expo/RN Web sayfa içi stil üretir.
-const CSP_REPORT_ONLY = [
+// G-09a · ZORUNLU CSP (Report-Only'den geçiş). Kaynaklar dist paketi, istemci
+// kodu ve canlı misafir gezintisindeki ihlal envanterinden çıkarıldı.
+// - script-src: satır içi script YOK (index.html yalnız entry paketini yükler);
+//   'unsafe-inline' / 'unsafe-eval' bilerek yok. static.cloudflareinsights.com:
+//   Cloudflare kenarı Web Analytics beacon'ını her HTML yanıtına enjekte ediyor
+//   (canlıdaki tek ihlal); veriyi aynı origin'e (/cdn-cgi/rum) yollar.
+// - style-src 'unsafe-inline': Expo/RN Web stilleri çalışma anında <style> ve
+//   style="" olarak basar; index.html'de de expo-reset <style> bloğu var.
+// - img-src *.trakt.tv: TMDB afişi yoksa Trakt CDN yedeği (services/afisYedek.ts)
+//   ve Trakt avatarları; secure.gravatar.com: Trakt'ın varsayılan avatar adresi;
+//   *.googleusercontent.com: Google profil fotoğrafı. Yerel fontlar aynı origin.
+const CSP_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
-  "script-src 'self' https://accounts.google.com/gsi/client",
+  "frame-ancestors 'none'",
+  "script-src 'self' https://accounts.google.com/gsi/client https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
   "frame-src 'self' https://accounts.google.com/gsi/",
-  "img-src 'self' data: https://image.tmdb.org https://img.youtube.com https://flagcdn.com https://lh3.googleusercontent.com",
+  [
+    "img-src 'self' data: https://image.tmdb.org https://img.youtube.com https://flagcdn.com",
+    'https://*.googleusercontent.com https://*.trakt.tv https://secure.gravatar.com',
+  ].join(' '),
   "font-src 'self'",
   [
     "connect-src 'self' https://kaymaktv.com https://api.trakt.tv",
@@ -200,7 +213,7 @@ function setWebSecurityHeaders(res) {
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Strict-Transport-Security': 'max-age=15552000',
-    'Content-Security-Policy-Report-Only': CSP_REPORT_ONLY,
+    'Content-Security-Policy': CSP_POLICY,
   });
 }
 
