@@ -23,7 +23,7 @@
       },
       "package": "com.ardagnl.kaymak",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 14,
+      "versionCode": 15,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -66,6 +66,7 @@
         }
       ],
       "./plugins/withReleaseSigning",
+      "./plugins/withOptionalFeatures",
       [
         "expo-build-properties",
         {

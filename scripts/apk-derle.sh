@@ -84,7 +84,7 @@ echo "SHA-256: $(sha256sum "$HEDEF" | cut -d' ' -f1)"
 echo "Dogrula: kur + ac → adb logcat -d -s ReactNativeJS | grep -c '\[AG\]'  (yayinda 0 olmali)"
 if [ -z "$EK" ]; then
   eslemKopyala "$KOK/apk/KaymakTV-$SURUM"
-  echo "Yayin: GitHub 'beta' surumune AYNI adla yukle → $(basename "$HEDEF")  (kaymaktv.com/download en son yukleneni bulur)"
+  echo "Play: AAB'yi Play Console'a yukle (bash scripts/apk-derle.sh --aab); APK yalniz test"
   echo "Bu paket yalniz arm: EMULATORE KURULMAZ (emulator icin --ag)"
 else
   echo "TEST paketi: GitHub'a YUKLENMEZ (indirme sayfasi adinda TEST gecen paketi zaten secmez)"

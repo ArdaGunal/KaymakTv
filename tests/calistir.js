@@ -155,6 +155,9 @@ const TAKIMLAR = [
   { ad: 'web-yerel', grup: 'sunucu', dosya: 'sunucu/web-yerel.test.js', aciklama: 'Tasima D5: web-yerel.sh varsayilan GNL-SERVER/kaymaktv, KAYMAK_PI ile eski Pi duzeni, KURU kip' },
   { ad: 'yayinla', grup: 'sunucu', dosya: 'sunucu/yayinla.test.js', aciklama: 'Tasima D7: yayin betigi (npm ci -> her zaman yeniden baslat, derleme duserse dist yerinde) + derleme-env' },
   { ad: 'birim-dosyasi', grup: 'sunucu', dosya: 'sunucu/birim-dosyasi.test.js', aciklama: 'Tasima D6/D8: kaymaktv.service sunucu duzeni + kodda Pi yolu/adresi kalmadi' },
+  // imza/: Android derleme ayarlari (prebuild plugin'leri)
+  { ad: 'gradle-yama', grup: 'imza', dosya: 'imza/gradle-yama.test.js', aciklama: 'withReleaseSigning: release imzasi, debug dokunulmaz, idempotent' },
+  { ad: 'ozellik-beyani', grup: 'imza', dosya: 'imza/ozellik-beyani.test.js', aciklama: 'withOptionalFeatures: screen.portrait + wifi required=false, tek kez, izin/yonelim dokunulmaz (Play 1.0.1 reddi)' },
   { ad: 'kaymak-no', grup: 'arayuz', dosya: 'arayuz/kaymak-no.test.mjs', aciklama: 'Kimlik Faz 2 (066): KaymakNo #48291735 gorunumu, profil + arama baglantisi' },
   { ad: 'ad-onayi', grup: 'arayuz', dosya: 'arayuz/ad-onayi.test.mjs', aciklama: 'M492 + 1.0.1 Dal 1: isim ekrani (gorunen ad zorunlu, @kullanici_adi onerisi 300 ms, tek PATCH) + istatistik suresi' },
   { ad: 'izleme-sayisi', grup: 'arayuz', dosya: 'arayuz/izleme-sayisi.test.mjs', aciklama: '1.0.1 Dal 4: izleme sayisi/2x, iyimser tekrar damgaya bagli, son izlemeyi geri al, sure + tekrar ozeti, aylik grafik' },
