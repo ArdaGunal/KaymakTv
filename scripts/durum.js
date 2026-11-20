@@ -64,8 +64,32 @@ try {
 // ── belgeler ──────────────────────────────────────────────────────────────
 try {
   const docs = path.join(KOK, 'docs');
-  const devirler = fs.readdirSync(docs).filter((f) => /^DEVIR_.*\.md$/.test(f)).sort();
-  rapor.belge.guncelDevir = devirler[devirler.length - 1] || null;
+  const canliYol = path.join(docs, 'CANLI.md');
+  if (fs.existsSync(canliYol)) {
+    const canliIcerik = fs.readFileSync(canliYol, 'utf8');
+    const m = canliIcerik.match(/^> Son güncelleme: (\d{4}-\d{2}-\d{2})/m);
+    rapor.belge.canliTarih = m ? m[1] : null;
+    rapor.belge.canliSatir = canliIcerik.split('\n').length;
+  } else {
+    rapor.belge.canliTarih = null;
+    rapor.belge.canliSatir = null;
+  }
+
+  const kararlarYol = path.join(docs, 'KARARLAR.md');
+  if (fs.existsSync(kararlarYol)) {
+    const kararlarIcerik = fs.readFileSync(kararlarYol, 'utf8');
+    rapor.belge.kararSayisi = kararlarIcerik.split('\n').filter((s) => s.startsWith('- **K-')).length;
+  } else {
+    rapor.belge.kararSayisi = null;
+  }
+
+  const backlogYol = path.join(docs, 'BACKLOG.md');
+  if (fs.existsSync(backlogYol)) {
+    const backlogIcerik = fs.readFileSync(backlogYol, 'utf8');
+    rapor.belge.backlogSatir = backlogIcerik.split('\n').length;
+  } else {
+    rapor.belge.backlogSatir = null;
+  }
 
   const history = fs.readFileSync(path.join(docs, 'HISTORY.md'), 'utf8');
   const basliklar = [...history.matchAll(/^## (\d+)\. (.*)$/gm)];
@@ -266,7 +290,11 @@ function yazdir() {
   satir('sonraki numara', rapor.sema.sonrakiNumara);
 
   console.log('\n[BELGELER]');
-  satir('guncel devir', rapor.belge.guncelDevir);
+  const { canliTarih, canliSatir, kararSayisi, backlogSatir } = rapor.belge;
+  satir('CANLI.md tarihi', canliTarih);
+  satir('CANLI.md satir', `${canliSatir} / 150` + (canliSatir > 150 ? '  ASIM' : ''));
+  satir('KARARLAR sayisi', `${kararSayisi} / 60` + (kararSayisi > 60 ? '  ASIM' : ''));
+  satir('BACKLOG satir', `${backlogSatir} / 300` + (backlogSatir > 300 ? '  ASIM' : ''));
   satir('son HISTORY maddesi', rapor.belge.sonMadde ? `M${rapor.belge.sonMadde.no} — ${rapor.belge.sonMadde.baslik}` : '?');
   satir('HISTORY satir', rapor.belge.historySatir);
   satir('madde dizini', rapor.belge.dizinVar ? 'docs/HISTORY_INDEX.md' : 'YOK → npm run tarihce:index');
