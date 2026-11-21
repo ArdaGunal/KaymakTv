@@ -3,9 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * Kimlik Faz 5 (M520) — «Trakt'ı bağla» niyeti.
  *
- * Trakt OAuth dönüşü YALNIZ kayıtlı yönlendirme adresine (`kaymak://settings` / web
- * `/settings`) gelir; o da giriş ekranı. Ayarlar → «Trakt'ı bağla» bu niyeti yazar ve giriş
- * ekranına gider; ekran token'ı alınca niyet varsa OTURUM DEĞİŞTİRMEZ, `/bagla`'yı çağırır.
+ * Web OAuth dönüşü kayıtlı `https://kaymaktv.com/settings` giriş ekranına gelir.
+ * Ayarlar → «Trakt'ı bağla» bu niyeti yazar ve giriş ekranına gider. Ekran token'ı alınca
+ * niyet varsa OTURUM DEĞİŞTİRMEZ, `/bagla`'yı çağırır.
  * Niyet yoksa her şey eskisi gibi (normal Trakt girişi).
  *
  * 🔴 Eskiden Google-only kişi aynı düğmeyle giriş ekranında Trakt'a basınca AYRI bir hesap

@@ -6,6 +6,7 @@
 
 const axios = require('axios');
 const { kopruSecenekleri } = require('./lazyfetch/zamanSiniri');
+const { TRAKT_PKCE_TOKEN_URL, isValidCodeVerifier, pkceTokenPayload } = require('./traktPkce');
 
 module.exports = function traktYollariniBagla(app, { traktAuthLimiter, redirectUriGuard }) {
   // ==========================================
@@ -196,37 +197,23 @@ module.exports = function traktYollariniBagla(app, { traktAuthLimiter, redirectU
   // ==========================================
   app.post('/api/trakt', traktAuthLimiter, redirectUriGuard, async (req, res) => {
     try {
-      const { code, refresh_token, redirect_uri } = req.body;
-
-      if (!code && !refresh_token) {
-        return res.status(400).json({ error: 'Authorization code or refresh token is required' });
+      const { code, refresh_token, code_verifier } = req.body ?? {};
+      if (typeof code !== 'string' || !code || refresh_token !== undefined) {
+        return res.status(400).json({ error: 'Provide an authorization code without a refresh token' });
+      }
+      if (!isValidCodeVerifier(code_verifier)) {
+        return res.status(400).json({ error: 'Invalid code_verifier' });
       }
 
       // client_id gizli değildir (OAuth'ta genelde public), bu yüzden EXPO_PUBLIC_ fallback'i güvenlidir.
       const clientId = process.env.TRAKT_CLIENT_ID || process.env.EXPO_PUBLIC_TRAKT_CLIENT_ID;
-      // client_secret GİZLİDİR. EXPO_PUBLIC_ önekli bir değişkene ASLA fallback yapılmaz —
-      // aksi halde bu değer client bundle'ına gömülür ve bu endpoint'in tüm amacı boşa çıkar.
-      const clientSecret = process.env.TRAKT_CLIENT_SECRET;
 
-      if (!clientId || !clientSecret) {
+      if (!clientId) {
         return res.status(500).json({ error: 'Server configuration error (missing Trakt credentials)' });
       }
 
-      const payload = refresh_token ? {
-        refresh_token,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirect_uri || 'kaymak://settings',
-        grant_type: 'refresh_token',
-      } : {
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirect_uri || 'kaymak://settings',
-        grant_type: 'authorization_code',
-      };
-
-      const traktResponse = await axios.post('https://api.trakt.tv/oauth/token', payload, {
+      const payload = pkceTokenPayload(req.body, clientId);
+      const traktResponse = await axios.post(TRAKT_PKCE_TOKEN_URL, payload, {
         headers: { 'Content-Type': 'application/json' },
         ...kopruSecenekleri(),
       });

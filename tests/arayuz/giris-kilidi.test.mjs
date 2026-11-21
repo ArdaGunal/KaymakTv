@@ -81,10 +81,12 @@ T.ok('Eski Worker (alan yok) -> null, cokmez', eski.traktSlug === null && eski.t
 
 T.H('Ekran kaynagi');
 const ekran = fs.readFileSync(path.join(root, 'app/(public)/settings.tsx'), 'utf8');
+const webKanca = fs.readFileSync(path.join(root, 'hooks/useTraktWebGirisi.ts'), 'utf8');
 // M620: kilit → bağlama → Google bağlama → oturum ortak hook'ta; web (koduDegis) ve cihaz kodu oradan geçer.
 const govde = fs.readFileSync(path.join(root, 'hooks/useTraktGirisiniTamamla.ts'), 'utf8');
 const i = (s) => govde.indexOf(s);
-T.ok('Web yolu: kod degisilip ortak tamamlamaya verilir', /await traktGirisiniTamamla\(await koduDegis\(code, redirectUri\)\);/.test(ekran));
+T.ok('Web yolu: verifier ile kod degisilip ortak tamamlamaya verilir', /useTraktWebGirisi\(traktGirisiniTamamla\)/.test(ekran)
+  && /await onGiris\(await koduDegis\(code, REDIRECT_URI, verifier\)\)/.test(webKanca));
 T.ok('Cihaz kodu yolu da ayni tamamlamadan gecer', /onGiris: \(giris, mod\) => traktGirisiniTamamla\(giris, mod === 'baglama'\)/.test(ekran));
 T.ok('Kilit baglama/Google baglama/saveTokens\'tan ONCE',
   i('traktHesapKilidiDenetle(giris.kimlik)') > -1
@@ -100,7 +102,7 @@ T.ok('Kart dugmesi beklentiyi saklar ve Trakt girisini ZORLAR', /onTraktIleDevam
 T.ok('Duz Trakt dugmesi beklentiyi SILER, zorlamaz', /handleTraktLogin = async \(\) => \{\s+await beklenenTraktHesabiSil\(\);\s+await traktGirisiniBaslat\(false\);/.test(ekran)
   && /<TraktGirisDugmesi[^>]*onPress=\{handleTraktLogin\}/.test(ekran));
 T.ok('Tekrar dene: deneme +1, zorunlu giris', /handleTekrarDene = async \(\) => \{\s+if \(!uyusmazlik\) return;\s+await beklenenTraktHesabiKaydet\(\{ \.\.\.uyusmazlik\.beklenen, deneme: uyusmazlik\.beklenen\.deneme \+ 1 \}\);[\s\S]{0,80}traktGirisiniBaslat\(true\)/.test(ekran));
-T.ok('Web ve APK ayni zorunlu adresi kullanir', /window\.location\.href = adres;/.test(ekran) && /promptAsync\(\{ \.\.\.\(adres && zorunluGiris \? \{ url: adres \} : \{\}\), createTask: false \}\)/.test(ekran) && /zorunluGirisAdresi\(request\.url\)/.test(ekran));
+T.ok('Kart girisi webde prompt=login, native cihazda kart modunu kullanir', webKanca.includes('zorunluGirisAdresi(adres)') && ekran.includes("cihaz.baslat(zorunluGiris ? 'kart' : 'giris')"));
 T.ok('Ekran acikken diger secenekler ve Google dugmesi gizli (Google SOKULMEZ)', /const kutuAcik = \(GOOGLE_GIRIS_ACIK && google\.durum === 'trakt_ile_gir'\) \|\| uyariAcik \|\| cihazAcik;/.test(ekran) && /giris=\{google\} gizli=\{uyariAcik \|\| cihazAcik\}/.test(ekran));
 const gdugme = fs.readFileSync(path.join(root, 'components/auth/GoogleGirisDugmesi.tsx'), 'utf8');
 T.ok('Madde 231: Google sarmalayicisi kosulsuz, gizleme yalniz display:none', /<View style=\{props\.gizli \? styles\.tamGizli : undefined\}>/.test(gdugme) && /tamGizli: \{ display: 'none' \}/.test(gdugme));

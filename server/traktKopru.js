@@ -10,7 +10,7 @@
 //   2. KENDİ SINIRLAYICISI: Worker'dan gelen istekler iki kovada — oturum işlemleri (ayarlar, token,
 //      iptal) ve cihaz kodu girişi (cihaz_kod, cihaz_token). Giriş bekleyenlerin her ~6 sn'lik yoklaması
 //      bütün kullanıcıların kasa yenilemesini aç bırakamasın (plan: docs/design/TRAKT_CIHAZ_KODU_PLANI.md §3.1).
-//   3. Girdi dar: yalnız beş işlem; yol ve sorgu dışarıdan ALINMAZ. Açık vekil DEĞİL.
+//   3. Girdi dar: yol ve sorgu dışarıdan ALINMAZ.
 //   4. Anahtar, kod ve gövde LOG'A YAZILMAZ; yalnız işlem + Trakt durum kodu.
 //
 // ZARF: Trakt'a gidildiyse cevap her zaman HTTP 200 `{ ok: true, status, veri, metin }`. Worker bununla
@@ -21,12 +21,12 @@ const crypto = require('crypto');
 const express = require('express');
 const axios = require('axios');
 const { rateLimit } = require('express-rate-limit');
+const { TRAKT_PKCE_TOKEN_URL, isAllowedRedirectUri, isValidCodeVerifier, pkceTokenPayload } = require('./traktPkce');
 
 const DAKIKA_SINIRI = 600;
 // Worker'ın Pi'yi bekleme süresinden (10 sn) KISA: Trakt yanıt vermezse Worker zarfı yine alabilsin.
 const TRAKT_ZAMAN_ASIMI_MS = 8000;
 const TOKEN_ALANLARI = ['grant_type', 'code', 'refresh_token', 'redirect_uri'];
-const IZINLI_GRANT = new Set(['authorization_code', 'refresh_token']);
 const CIHAZ_ISLEMLERI = new Set(['cihaz_kod', 'cihaz_token']);
 // Trakt `device_code`'u ~43 karakter base64url (ölçüldü 2026-11-14); tavan yalnız saçma girdiyi keser.
 const CIHAZ_KODU_TAVANI = 128;
@@ -81,6 +81,15 @@ function istegiKur(govde, ortam) {
     return { method: 'POST', url: 'https://api.trakt.tv/oauth/device/code', headers: baslik, data: { client_id: clientId } };
   }
 
+  // Ayrı işlem adı, eski köprünün verifier'ı atıp istemci sırrıyla değişim yapmasını engeller.
+  if (govde.islem === 'token_pkce') {
+    const { code, code_verifier, redirect_uri } = govde;
+    if (typeof code !== 'string' || !code ||
+        !isAllowedRedirectUri(redirect_uri) || !isValidCodeVerifier(code_verifier)) return null;
+    const data = pkceTokenPayload(govde, clientId);
+    return { method: 'POST', url: TRAKT_PKCE_TOKEN_URL, headers: baslik, data };
+  }
+
   const sir = ortam.TRAKT_CLIENT_SECRET;
   if (!sir) return null;
   const istemci = { client_id: clientId, client_secret: sir };
@@ -90,7 +99,13 @@ function istegiKur(govde, ortam) {
     return { method: 'POST', url: 'https://api.trakt.tv/oauth/revoke', headers: baslik, data: { token: govde.token, ...istemci } };
   }
   if (govde.islem === 'token') {
-    if (!IZINLI_GRANT.has(govde.grant_type)) return null;
+    if (govde.grant_type === 'authorization_code') {
+      const { code, redirect_uri, code_verifier } = govde;
+      if (typeof code !== 'string' || !code || !isAllowedRedirectUri(redirect_uri) || code_verifier !== undefined) return null;
+      const data = { ...istemci, grant_type: 'authorization_code', code, redirect_uri };
+      return { method: 'POST', url: 'https://api.trakt.tv/oauth/token', headers: baslik, data };
+    }
+    if (govde.grant_type !== 'refresh_token') return null;
     const veri = {};
     for (const alan of TOKEN_ALANLARI) if (typeof govde[alan] === 'string') veri[alan] = govde[alan];
     return { method: 'POST', url: 'https://api.trakt.tv/oauth/token', headers: baslik, data: { ...veri, ...istemci } };

@@ -105,8 +105,9 @@ T.ok('Acilista bekleyen oturum surer', /cihazOturumunuOku\(\)\.then\(\(o\) => \{
 
 T.H('Ekran ve temizlik');
 const ekran = oku('app/(public)/settings.tsx');
-T.ok('Native + bayrak acik → cihaz kodu; web eski yolda', /if \(TRAKT_CIHAZ_GIRISI\) \{\s+await cihaz\.baslat\(zorunluGiris \? 'kart' : 'giris'\);\s+return;/.test(ekran)
-  && /Platform\.OS !== 'web' && process\.env\.EXPO_PUBLIC_TRAKT_CIHAZ_GIRISI !== '0'/.test(oku('utils/traktCihazBayragi.ts')));
+T.ok('Native cihaz kodunu, web ayri yonlendirme kancasini kullanir', /const nativeGiris = Platform\.OS !== 'web'/.test(ekran)
+  && /if \(nativeGiris\) \{\s+await cihaz\.baslat\(zorunluGiris \? 'kart' : 'giris'\);\s+return;\s+\}\s+await webGirisi\.baslat/.test(ekran)
+  && !/promptAsync|TRAKT_CIHAZ_GIRISI/.test(ekran));
 T.ok('Kod ekrani acikken diger secenekler gizli', /const kutuAcik = [^\n]*\|\| cihazAcik;/.test(ekran) && /\{cihazAcik && !uyariAcik && \(\s+<TraktCihazKodu/.test(ekran));
 T.ok('Emulator bulgusu: kod ekraninda Google dugmesi de gizli (Madde 231: unmount DEGIL, gizli)', /<GoogleGirisDugmesi [^>]*gizli=\{uyariAcik \|\| cihazAcik\}/.test(ekran));
 T.ok('settings.tsx 400 satirin altinda', ekran.split('\n').length < 400);
@@ -117,7 +118,7 @@ T.ok('Cikis bekleyen oturumu siler', auth.slice(auth.indexOf('const removeKeys =
 const giris = oku('app/(public)/index.tsx');
 T.ok('Karsilama: bekleyen oturum varsa giris ekranina (surec olumu sonrasi)', /cihazOturumunuOku\(\)\.then\(\(o\) => \{\s+if \(o && !iptal\) router\.replace\('\/\(public\)\/settings'\);/.test(giris) && /Platform\.OS === 'web'/.test(giris));
 const uyari = oku('components/auth/TraktHesapUyusmazligiEkrani.tsx');
-T.ok('Uyusmazlik ekrani cihaz kodu metinlerini kullanir (prompt=login yok)', /cihazKodu = false/.test(uyari) && /settings:uyusmazlikIpucu\$\{ek\}/.test(uyari) && /cihazKodu=\{TRAKT_CIHAZ_GIRISI\}/.test(ekran));
+T.ok('Uyusmazlik ekrani cihaz kodu metinlerini kullanir (prompt=login yok)', /cihazKodu = false/.test(uyari) && /settings:uyusmazlikIpucu\$\{ek\}/.test(uyari) && /cihazKodu=\{nativeGiris\}/.test(ekran));
 const anahtarlar = ['cihazBaslik', 'cihazAltBaslik', 'cihazKodEtiketi', 'cihazKodKopyalandi', 'cihazTekrarAc', 'cihazTekrarDene',
   'cihazBaglantiBekleniyor', 'cihazVazgec', 'cihazKodAliniyor', 'cihazGirisYapiliyor', 'cihazSuresiDoldu', 'cihazReddedildi', 'cihazYeniKodGerekli',
   'cihazKodAlinamadi', 'rehberAdim2Cihaz', 'rehberAdim3Cihaz', 'uyusmazlikIpucuCihaz'];

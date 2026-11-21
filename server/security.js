@@ -18,6 +18,7 @@
 
 const cors = require('cors');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const { isAllowedRedirectUri } = require('./traktPkce');
 
 // --------------------------------------------------------------------------
 // Geliştirme kaynaklarına izin veriliyor mu?
@@ -217,39 +218,8 @@ const traktProxyGuard = (req, res, next) => {
 // --------------------------------------------------------------------------
 // `/api/trakt` (OAuth token) — redirect_uri beyaz listesi
 // --------------------------------------------------------------------------
-// Bu uç `client_secret` ile token üretir; `redirect_uri` istemciden gelip
-// doğrudan Trakt'a iletiliyordu.
-//
-// ⚠️ `urn:ietf:wg:oauth:2.0:oob` LİSTEDEN ÇIKARILAMAZ: token YENİLEME bu
-// değeri kullanıyor (services/api/traktClient.ts, iki çağrı noktası).
-// Listeden düşerse hiçbir kullanıcının oturumu yenilenemez ve HERKES oturumdan
-// düşer. Aşağıdaki değerler koddan ölçüldü, varsayılmadı.
-const isAllowedRedirectUri = (uri) => {
-  if (typeof uri !== 'string' || uri.length === 0) return false;
-  if (uri === 'urn:ietf:wg:oauth:2.0:oob') return true; // token yenileme
-  if (uri.startsWith('kaymak://')) return true; // native derin bağlantı
-  if (uri === 'https://kaymaktv.com') return true;
-  if (uri.startsWith('https://kaymaktv.com/')) return true; // web (makeRedirectUri)
-  if (ALLOW_DEV_ORIGINS) {
-    if (uri.startsWith('exp://')) return true;
-    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(uri)) return true;
-  }
-  return false;
-};
-
-/**
- * `/api/trakt` (OAuth token) kapısı — yalnızca `redirect_uri` GÖNDERİLMİŞSE
- * doğrular.
- *
- * ⚠️ Yokluğu hata DEĞİL: `server.js` gönderilmeyen `redirect_uri` için
- * `kaymak://settings` varsayılanını kullanıyor. Burada yokluğu reddetmek,
- * bugün çalışan bir yolu sebepsiz kırardı.
- */
 const redirectUriGuard = (req, res, next) => {
-  const redirectUri = req.body?.redirect_uri;
-  if (redirectUri === undefined || redirectUri === null) return next();
-
-  if (!isAllowedRedirectUri(redirectUri)) {
+  if (!isAllowedRedirectUri(req.body?.redirect_uri)) {
     return res.status(400).json({
       error: 'Invalid redirect_uri',
       details: 'Bu redirect_uri bu uygulama icin izinli degil.',

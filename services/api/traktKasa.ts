@@ -38,8 +38,8 @@ async function gonder<T>(yol: string, govde: Record<string, unknown>): Promise<T
   }
 }
 
-export function koduDegis(code: string, redirectUri: string): Promise<TraktGirisi> {
-  return gonder('/auth/trakt/degis', { code, redirect_uri: redirectUri });
+export function koduDegis(code: string, redirectUri: string, verifier: string): Promise<TraktGirisi> {
+  return gonder('/auth/trakt/degis', { code, redirect_uri: redirectUri, code_verifier: verifier });
 }
 
 export function kasaOturumuAc(erisim: string, kasaBileti: string): Promise<KasaOturumu> {

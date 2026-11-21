@@ -16,9 +16,17 @@ const KOK = path.join(__dirname, '..', '..');
 const express = require(path.join(KOK, 'node_modules/express'));
 const axios = require(path.join(KOK, 'node_modules/axios'));
 const kopru = require(path.join(KOK, 'server/traktKopru'));
+const { redirectUriGuard } = require(path.join(KOK, 'server/security'));
+const traktYollariniBagla = require(path.join(KOK, 'server/traktProxyYollari'));
 
 const SIR = 's'.repeat(32);
 const ortam = { TRAKT_CLIENT_ID: 'cid', TRAKT_CLIENT_SECRET: 'gizli-sir' };
+const pkce = {
+  code: 'kod-1',
+  redirect_uri: 'https://kaymaktv.com/settings',
+  code_verifier: 'v'.repeat(43),
+};
+const pkceTokenUrl = 'https://auth.trakt.tv/oauth/token';
 process.env.TRAKT_CLIENT_ID = 'cid';
 process.env.TRAKT_CLIENT_SECRET = 'gizli-sir';
 
@@ -58,11 +66,12 @@ axios.defaults.adapter = async (config) => {
   const app = express();
   app.use(express.json());
   app.use('/k', kopru);
+  traktYollariniBagla(app, { traktAuthLimiter: (_req, _res, next) => next(), redirectUriGuard });
   const sunucu = http.createServer(app);
   await new Promise((b) => sunucu.listen(0, '127.0.0.1', b));
-  const adres = `http://127.0.0.1:${sunucu.address().port}/k`;
-  const iste = async (govde, sir) => {
-    const res = await fetch(adres, { method: 'POST', headers: { 'Content-Type': 'application/json', Connection: 'close', ...(sir ? { 'x-kaymak-sync-secret': sir } : {}) }, body: JSON.stringify(govde) });
+  const adres = `http://127.0.0.1:${sunucu.address().port}`;
+  const iste = async (govde, sir, yol = '/k') => {
+    const res = await fetch(adres + yol, { method: 'POST', headers: { 'Content-Type': 'application/json', Connection: 'close', ...(sir ? { 'x-kaymak-sync-secret': sir } : {}) }, body: JSON.stringify(govde) });
     return { status: res.status, j: await res.json().catch(() => null) };
   };
 
@@ -74,7 +83,57 @@ axios.defaults.adapter = async (config) => {
   T.ok('sırsız → 401, Trakt\'a gidilmez', (await iste({ islem: 'ayarlar', erisim: 'e' })).status === 401 && sonIstek === null);
   T.ok('geçersiz işlem → 400, zarf yok', (await iste({ islem: 'baska' }, SIR)).status === 400);
 
-  const tamam = await iste({ islem: 'token', grant_type: 'refresh_token', refresh_token: 'y' }, SIR);
+  T.H('G-10 · PKCE ve tam HTTPS dönüşü');
+  const ekspresIstek = (govde) => iste(govde, undefined, '/api/trakt');
+  const kopruIstek = (govde) => iste({ islem: 'token_pkce', ...govde }, SIR);
+  for (const [adi, gonder] of [['Express /api/trakt', ekspresIstek], ['GNL köprüsü', kopruIstek]]) {
+    sonIstek = null;
+    const eski = await gonder({ ...pkce, redirect_uri: 'kaymak://settings' });
+    T.ok(`${adi}: kaymak:// → 400, upstream yok`, eski.status === 400 && sonIstek === null);
+    const diger = await gonder({ ...pkce, redirect_uri: 'https://kaymaktv.com/settings?x=1' });
+    const eksikRedirect = await gonder({ ...pkce, redirect_uri: undefined });
+    T.ok(`${adi}: farklı veya eksik callback → 400, upstream yok`, diger.status === 400 && eksikRedirect.status === 400 && sonIstek === null);
+    const eksikVerifier = await gonder({ ...pkce, code_verifier: undefined });
+    const bozukVerifier = await gonder({ ...pkce, code_verifier: 'yetersiz' });
+    T.ok(`${adi}: eksik veya hatalı verifier → 400, upstream yok`, eksikVerifier.status === 400 && bozukVerifier.status === 400 && sonIstek === null);
+    const izinli = await gonder({ ...pkce, client_secret: 'sahte' });
+    const iletilen = JSON.parse(sonIstek?.data ?? '{}');
+    T.ok(`${adi}: kayıtlı HTTPS ve verifier → 200; gövdede client_secret yok`, izinli.status === 200
+      && sonIstek?.url === pkceTokenUrl && iletilen.code_verifier === pkce.code_verifier
+      && iletilen.client_id === 'cid' && !Object.hasOwn(iletilen, 'client_secret'));
+  }
+  delete process.env.TRAKT_CLIENT_SECRET;
+  T.ok('Sunucu sırrı tanımsızken de Express ve GNL PKCE değişimi çalışır',
+    (await ekspresIstek(pkce)).status === 200 && (await kopruIstek(pkce)).j?.status === 200);
+
+  const eskiIstek = { islem: 'token', grant_type: 'authorization_code', code: pkce.code, redirect_uri: pkce.redirect_uri };
+  const yenilemeIstegi = { islem: 'token', grant_type: 'refresh_token', refresh_token: 'y' };
+  sonIstek = null;
+  T.ok('Eski değişim ve sunucu yenilemesi için sır gerekli, eksikse Trakt isteği yok',
+    (await iste(eskiIstek, SIR)).status === 400 && (await iste(yenilemeIstegi, SIR)).status === 400 && sonIstek === null);
+  process.env.TRAKT_CLIENT_SECRET = ortam.TRAKT_CLIENT_SECRET;
+  sonIstek = null;
+  T.ok('Eski Worker: özel şema, eksik callback ve eski işlemde verifier reddedilir',
+    (await iste({ ...eskiIstek, redirect_uri: 'kaymak://settings' }, SIR)).status === 400
+    && (await iste({ ...eskiIstek, redirect_uri: undefined }, SIR)).status === 400
+    && (await iste({ ...eskiIstek, code_verifier: pkce.code_verifier }, SIR)).status === 400 && sonIstek === null);
+  const eskiKopru = await iste({ ...eskiIstek, client_secret: 'sahte' }, SIR);
+  const eskiGovde = JSON.parse(sonIstek?.data ?? '{}');
+  T.ok('Eski Worker: kayıtlı HTTPS ve verifier olmadan sırlı kod değişimi çalışır',
+    eskiKopru.status === 200 && eskiKopru.j.status === 200 && sonIstek?.url === 'https://api.trakt.tv/oauth/token'
+    && eskiGovde.code === pkce.code && eskiGovde.redirect_uri === pkce.redirect_uri
+    && eskiGovde.grant_type === 'authorization_code' && eskiGovde.client_id === 'cid'
+    && eskiGovde.client_secret === 'gizli-sir' && eskiGovde.code_verifier === undefined);
+
+  sonIstek = null;
+  const oob = 'urn:ietf:wg:oauth:2.0:oob';
+  T.ok('Express OAuth yenileme ve OOB isteklerini Trakt’a göndermeden reddeder',
+    (await ekspresIstek({ ...pkce, redirect_uri: oob })).status === 400
+    && (await ekspresIstek({ refresh_token: 'y', redirect_uri: oob })).status === 400
+    && (await ekspresIstek({ refresh_token: 'y', redirect_uri: pkce.redirect_uri })).status === 400
+    && (await ekspresIstek({ ...pkce, refresh_token: 'y' })).status === 400 && sonIstek === null);
+
+  const tamam = await iste(yenilemeIstegi, SIR);
   T.ok('200: zarf + çözülmüş veri', tamam.status === 200 && tamam.j.ok === true && tamam.j.status === 200 && tamam.j.veri.access_token === 'e');
 
   sahteCevap = () => ({ status: 400, data: '{"error":"invalid_grant"}' });
