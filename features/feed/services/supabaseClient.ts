@@ -4,7 +4,7 @@ import { supabaseErisimTokeni } from './supabaseKimlik';
 import { sinirliFetchKur } from './supabaseSinirliFetch';
 
 // Supabase Auth KULLANILMIYOR (kimlik doğrulama Trakt OAuth / Kaymak oturumu
-// üzerinden). §S1/§S2 · yol B (M403): Worker'ın bastığı 1 saatlik belge
+// üzerinden). §S1/§S2 · yol B (M403): Worker'ın bastığı kısa ömürlü belge (K-50)
 // `accessToken` ile her isteğe (PostgREST + Realtime) takılıyor → RLS izleyiciyi
 // (`auth.uid()` = users.id) tanıyor. Belge yoksa (misafir, Worker düştü)
 // supabase-js anon anahtara düşer. Ayrıntı: `supabaseKimlik.ts`.

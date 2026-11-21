@@ -28,6 +28,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../services/supabaseClient';
 import { fetchActivitiesByIds, fetchActivityById, getVisibleUserIds } from '../services/feedApi';
 import { toplayiciKur } from '../utils/realtimeToplayici';
+import { yenidenAbonelikPlani } from '../utils/realtimeYenidenAbonelik';
 import type { FeedActivity } from '../types';
 import { tempActivityId } from '../services/feedPublish';
 import { useFeedStore } from '../store/feedStore';
@@ -45,6 +46,11 @@ export function useFeedRealtime(enabled: boolean): void {
     if (!enabled) return;
 
     let cancelled = false;
+    // Kanal kapanınca sınırlı yeniden abonelik (bkz. utils/realtimeYenidenAbonelik.ts).
+    let deneme = 0;
+    let aboneAni: number | null = null;
+    let vazgecildi = false;
+    let yenidenZamanlayici: ReturnType<typeof setTimeout> | null = null;
 
     // Gelen satırı listeye yerleştir: kendi iyimser kartımın yankısıysa onun yerine
     // geç, değilse ekle (kendi etkinliğim «yeni gönderi» rozetine sayılmaz — M476).
@@ -78,6 +84,8 @@ export function useFeedRealtime(enabled: boolean): void {
         visibleIdsRef.current = await getVisibleUserIds();
       } catch (error) {
         console.warn('[Feed] Realtime için görünür kullanıcılar çözülemedi:', error);
+        // Kanal hiç kurulmadı → uygulama öne gelince yeniden denensin.
+        vazgecildi = true;
         return;
       }
       if (cancelled) return;
@@ -204,7 +212,34 @@ export function useFeedRealtime(enabled: boolean): void {
             useFeedStore.getState().removeActivity(row.id);
           }
         )
-        .subscribe();
+        .subscribe((durum, hata) => {
+          // Yalnız GÜNCEL kanal; kapanışta kendi `removeChannel`'ımız da CLOSED üretir (cancelled).
+          if (cancelled || channelRef.current !== channel) return;
+          if (durum === 'SUBSCRIBED') {
+            aboneAni = Date.now();
+            return;
+          }
+          if (durum !== 'CLOSED') {
+            // CHANNEL_ERROR / TIMED_OUT: realtime-js kanala kendisi yeniden katılır.
+            console.warn(`[Feed] Realtime kanalı ${durum}:`, hata?.message ?? '');
+            return;
+          }
+          // CLOSED kalıcı: kanal istemcinin listesinden de çıktı, yenisini kur.
+          const plan = yenidenAbonelikPlani(deneme, aboneAni == null ? null : Date.now() - aboneAni);
+          channelRef.current = null;
+          aboneAni = null;
+          if (!plan) {
+            vazgecildi = true;
+            console.warn('[Feed] Realtime kanalı kapandı; denemeler tükendi, uygulama öne gelince yeniden denenecek.');
+            return;
+          }
+          deneme = plan.deneme;
+          console.warn(`[Feed] Realtime kanalı kapandı; ${plan.beklemeMs} ms sonra yeniden abone olunuyor (${plan.deneme}).`);
+          yenidenZamanlayici = setTimeout(() => {
+            yenidenZamanlayici = null;
+            if (!cancelled) subscribe();
+          }, plan.beklemeMs);
+        });
 
       channelRef.current = channel;
     };
@@ -217,6 +252,12 @@ export function useFeedRealtime(enabled: boolean): void {
       const wasBackgrounded = appStateRef.current.match(/inactive|background/);
       appStateRef.current = nextState;
       if (wasBackgrounded && nextState === 'active') {
+        if (vazgecildi) {
+          vazgecildi = false;
+          deneme = 0;
+          subscribe();
+          return;
+        }
         getVisibleUserIds()
           .then((ids) => {
             visibleIdsRef.current = ids;
@@ -228,6 +269,7 @@ export function useFeedRealtime(enabled: boolean): void {
     return () => {
       cancelled = true;
       toplayici.iptal();
+      if (yenidenZamanlayici) clearTimeout(yenidenZamanlayici);
       appStateSub.remove();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);

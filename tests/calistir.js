@@ -135,6 +135,7 @@ const TAKIMLAR = [
   { ad: 'ceviri', grup: 'arayuz', dosya: 'arayuz/ceviri.test.mjs', aciklama: 'DIL-01/03: her sistem t() anahtari TR+EN dosyalarinda var, TR/EN anahtar esitligi' },
   { ad: 'modal-geri', grup: 'arayuz', dosya: 'arayuz/modal-geri.test.mjs', aciklama: 'C7: her Modal Android geri tusuna yanit verir (onRequestClose)' },
   { ad: 'akis-realtime', grup: 'arayuz', dosya: 'arayuz/akis-realtime.test.mjs', aciklama: 'A-4: Realtime INSERT patlamasi tek sorguda tamamlanir (toplayici)' },
+  { ad: 'supabase-belge', grup: 'arayuz', dosya: 'arayuz/supabase-belge.test.mjs', aciklama: 'K-50 istemci: yenileme dusunce gecerli belge korunur, bitis cihaz saatinden bagimsiz, geri cekilme, Realtime CLOSED yeniden abonelik' },
   { ad: 'aktif-siralama', grup: 'arayuz', dosya: 'arayuz/aktif-siralama.test.mjs', aciklama: '2.6.8 SIRA-01: Aktif\'te once hazir olanlar, sonra son hareket (izleme / yayin)' },
   { ad: 'sezon-isaretle', grup: 'arayuz', dosya: 'arayuz/sezon-isaretle.test.mjs', aciklama: '2.6.8 SEZON-01/02: sezon dugmesi onceki sezonlar / yalniz bu sezon, isaretleme onayi kirmizi degil' },
   { ad: 'orta-menu', grup: 'arayuz', dosya: 'arayuz/orta-menu.test.mjs', aciklama: '2.6.8 MENU-01: secim/eylem menuleri ortada (OrtaPencere), alttan kayan yalniz izinli icerik sayfalari' },
