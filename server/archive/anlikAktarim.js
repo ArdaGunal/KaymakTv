@@ -121,8 +121,13 @@ function createAnlikAktarim({
   async function calistir() {
     if (ucusta) return;
     const simdi = saat();
-    const kokler = Array.from(kuyruk, ([kok, g]) => g.hazirAt <= simdi ? kok : null)
-      .filter(Boolean).slice(0, partiKok);
+    let kokler = [];
+    for (const [kok, g] of kuyruk) {
+      if (g.hazirAt > simdi) continue;
+      if (g.tekil && kokler.length) break;
+      kokler.push(kok);
+      if (g.tekil || kokler.length === partiKok) break;
+    }
     if (kokler.length === 0) {
       if (kuyruk.size) {
         let enErken = Infinity;
@@ -151,6 +156,15 @@ function createAnlikAktarim({
       sonuc = await aynaSirala(async () => {
         const radar = require('../radar/ayar').radarKapilari(process.env).yaz;
         if (radar) await require('./db').yazimlarBitsin();
+        kokler = kokler.filter((kok) => {
+          const g = ucus.get(kok);
+          try { g.dur?.(); return true; } catch (_) {
+            sonuclandir(ucus, [kok], { ok: false, reason: 'gece_isi' });
+            ucus.delete(kok);
+            return false;
+          }
+        });
+        if (!kokler.length) return { ok: true, yazilan: 0, bos: true };
         const db = radar ? getDb() : null;
         const revler = db && require('../radar/depo').tablolarVar(db) ? Object.fromEntries(db.prepare(
           'SELECT kaymak_id,takvim_rev FROM radar_takvim WHERE kaymak_id IN (SELECT value FROM json_each(?))'
@@ -167,11 +181,12 @@ function createAnlikAktarim({
     }
     // Uçuş başına TEK satır (gündüz birkaç, gece ~10). Yeniden denemeler
     // ancak böyle görünür — ilk canlı denemede 23 sn'lik aktarım sessizdi.
+    if (!kokler.length) { if (kuyruk.size) planla(0); return; }
     const denemeler = kokler.map((k) => ucus.get(k)?.deneme ?? 0);
     console.log(`[anlik-aktarim] ${kokler.length} kok · ${sonuc.ok ? 'ok' : 'HATA ' + sonuc.reason + ' ' + (sonuc.detay || '').slice(0, 160)} · ${Date.now() - t0} ms · deneme ${Math.max(...denemeler)}`);
 
-    if (sonuc.ok) {
-      istatistik.gonderilen += kokler.length;
+    if (sonuc.ok || sonuc.reason === 'http_422') {
+      if (sonuc.ok) istatistik.gonderilen += kokler.length;
       sonuclandir(ucus, kokler, sonuc);
     } else {
       // Yeniden dene: deneme sayısı artar, tavanı aşan bırakılır.
@@ -205,6 +220,8 @@ function createAnlikAktarim({
       for (const [k, g] of ucus) {
         const yeni = kuyruk.get(k);
         if (yeni) {
+          yeni.tekil ||= g.tekil;
+          if (!g.dur) yeni.dur = null;
           yeni.deneme = Math.max(yeni.deneme, g.deneme);
           yeni.hazirAt = Math.max(yeni.hazirAt, g.hazirAt);
           if (g.hazirAt > saat()) {
@@ -227,14 +244,16 @@ function createAnlikAktarim({
     if (kuyruk.size) planla(0);
   }
 
-  function ekleIc(kok, resolve, acil) {
+  function ekleIc(kok, resolve, acil, tekil = false, dur = null) {
     istatistik.alinan += 1;
     const g = kuyruk.get(kok);
     if (g) {
       istatistik.tekillesen += 1;
       if (resolve) g.bekleyenler.push(resolve);
+      g.tekil ||= tekil;
+      if (!dur) g.dur = null;
     } else {
-      kuyruk.set(kok, { deneme: 0, hazirAt: 0, bekleyenler: resolve ? [resolve] : [] });
+      kuyruk.set(kok, { deneme: 0, hazirAt: 0, tekil, dur, bekleyenler: resolve ? [resolve] : [] });
     }
     if (acil && zamanlayici && !ucusta) {
       clearTimeout(zamanlayici);
@@ -255,12 +274,12 @@ function createAnlikAktarim({
     },
 
     /** Eksikte çekme için: pencereyi beklemeden gönder, sonucu döndür. */
-    hemen(kok) {
+    hemen(kok, { tekil = false, dur = null } = {}) {
       if (!kok) return Promise.resolve({ ok: false, reason: 'kok_yok' });
       if (!acik()) return Promise.resolve({ ok: false, reason: 'kapali' });
       const yenidenAt = kuyruk.get(kok)?.hazirAt;
       if (yenidenAt > saat()) return Promise.resolve({ ok: false, reason: 'ayna_belirsiz', yenidenAt });
-      return new Promise((resolve) => ekleIc(kok, resolve, true));
+      return new Promise((resolve) => ekleIc(kok, resolve, true, tekil, dur));
     },
 
     getStats() {

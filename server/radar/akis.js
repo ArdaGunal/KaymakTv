@@ -2,7 +2,7 @@ const { setTimeout: bekle } = require('node:timers/promises');
 const { CircuitBreaker } = require('../lazyfetch/circuitBreaker');
 const { kovaDurumu, tryConsume } = require('../lazyfetch/tokenBucket');
 const { NotFoundError, RateLimitedError, CircuitOpenError } = require('../lazyfetch/errors');
-const { gun, iso, GUN, ILK_AKIS_PENCERESI, TELAFI_PARTISI, idMi, RadarHatasi, TMDB_SAYFA_TAVANI,
+const { gun, iso, GUN, SAAT, hataKodu, ILK_AKIS_PENCERESI, TELAFI_PARTISI, idMi, RadarHatasi, TMDB_SAYFA_TAVANI,
   KOVA_REZERVI, KOTA_YEREL_DENEME, KOTA_YEREL_BEKLEME, RADAR_DEVRE } = require('./ayar');
 
 const devreler = new Map();
@@ -52,30 +52,37 @@ function sayfayiAc(akis, yanit, sayfa, bas, turBasi) {
 async function akisiTara({ akis, depo, cek, simdi, dur }) {
   const onceki = depo.imlec(akis.ad);
   const tmdb = akis.saglayici === 'tmdb';
-  // Gün çözünürlüğündeki API'lerde sınır gününü yeniden okuruz. İlk
-  // kurulumda son günü alırız, yeni takipler zaten ayrı kuyruğa girer.
-  const altSinir = Date.parse(gun(simdi)) - akis.pencere + GUN;
+  const altSinir = tmdb ? Date.parse(gun(simdi)) - akis.pencere + GUN
+    : Math.ceil((simdi - akis.pencere) / SAAT) * SAAT;
   const eski = onceki?.at ?? simdi - ILK_AKIS_PENCERESI;
-  const bas = Math.max(altSinir, eski);
-  let telafi = eski < altSinir ? 0 : (onceki?.telafi_son_id ?? null);
-  const eslesen = new Set();
-  let okunan = 0;
-  let uygulananLimit = null;
-  let saglayiciBaslangici = null;
-  let sayfaDaraldi = false;
-  let hamSatir = 0;
-  let pencereDisi = 0;
+  const kayit = tmdb ? null : depo.akisDevri(akis.ad);
+  const devir = kayit?.imlec === (onceki?.at ?? null) && kayit.bas >= altSinir && kayit.bitis <= simdi ? kayit : null;
+  const bas = devir?.bas ?? Math.max(altSinir, eski);
+  const bitis = devir?.bitis ?? simdi;
+  // Canlı listede sayfa sınırı turlar arasında kayabilir. Devredilen
+  // tarama bitince sınırlı telafi, arada yer değiştiren satırları kapsar.
+  let telafi = devir || eski < altSinir ? 0 : (onceki?.telafi_son_id ?? null);
+  const eslesen = new Set(devir?.eslesen);
+  let sonrakiSayfa = devir?.sonrakiSayfa ?? 1;
+  let traktToplam = devir?.toplam ?? null;
+  let okunan = devir?.okunan ?? 0;
+  let uygulananLimit = devir?.uygulananLimit ?? null;
+  let saglayiciBaslangici = devir?.saglayiciBaslangici ?? null;
+  let sayfaDaraldi = devir?.sayfaDaraldi ?? false;
+  let hamSatir = devir?.hamSatir ?? 0;
+  let pencereDisi = devir?.pencereDisi ?? 0;
 
   async function pencereTara(ilkGun, sonGun) {
     const basGun = gun(ilkGun);
-    const yol = tmdb ? akis.yol : `${akis.yol}/${basGun}`;
+    const basSaat = tmdb ? null : iso(Math.floor(bas / SAAT) * SAAT).replace('.000Z', 'Z');
+    const yol = tmdb ? akis.yol : akis.yol + '/' + basSaat;
     const sorgu = tmdb ? { start_date: basGun, end_date: gun(sonGun) } : { limit: akis.sayfa };
-    let toplam = null;
-    for (let sayfa = 1; toplam === null || sayfa <= toplam; sayfa++) {
+    let toplam = tmdb ? null : traktToplam;
+    for (let sayfa = tmdb ? 1 : sonrakiSayfa; toplam === null || sayfa <= toplam; sayfa++) {
       dur();
       const yanit = await cek(yol, { ...sorgu, page: sayfa });
       okunan++;
-      const acik = sayfayiAc(akis, yanit, sayfa, bas, simdi);
+      const acik = sayfayiAc(akis, yanit, sayfa, bas, bitis);
       if (tmdb && acik.sayfaSayisi >= TMDB_SAYFA_TAVANI && ilkGun < sonGun) {
         const orta = ilkGun + Math.floor((sonGun - ilkGun) / GUN / 2) * GUN;
         await pencereTara(ilkGun, orta);
@@ -87,6 +94,7 @@ async function akisiTara({ akis, depo, cek, simdi, dur }) {
       // Her iki sağlayıcının canlı listesi daralabilir. Sıralı ve
       // doğrulanmış yanıtlar geldiyse yeni son sayfa yeterlidir.
       sayfaDaraldi ||= toplam !== null && sayi < toplam;
+      if (toplam !== null && sayfa > sayi) telafi = 0;
       toplam = sayi;
       hamSatir += acik.hamSatir;
       if (!tmdb) {
@@ -106,16 +114,32 @@ async function akisiTara({ akis, depo, cek, simdi, dur }) {
         if (tarih > bas) telafi = 0;
       }
       for (const id of depo.kesisim(akis, acik.kimlikler)) eslesen.add(id);
+      if (!tmdb) {
+        sonrakiSayfa = sayfa + 1;
+        traktToplam = toplam;
+      }
     }
   }
 
-  await pencereTara(Date.parse(gun(bas)), Date.parse(gun(simdi)));
-
-  dur();
-  await depo.akisiKaydet(akis, simdi, eslesen, telafi, hamSatir);
+  try {
+    await pencereTara(Date.parse(gun(bas)), Date.parse(gun(bitis)));
+    dur();
+  } catch (error) {
+    if (!tmdb && sonrakiSayfa > 1 && ['yerel_kota', 'http_429', 'gece_isi'].includes(hataKodu(error))) {
+      await depo.akisDevriYaz(akis.ad, {
+        imlec: onceki?.at ?? null, bas, bitis, sonrakiSayfa, toplam: traktToplam, eslesen: [...eslesen],
+        okunan, uygulananLimit, saglayiciBaslangici, sayfaDaraldi, hamSatir, pencereDisi,
+      });
+    } else if (kayit) {
+      await depo.akisDevriYaz(akis.ad, null);
+    }
+    throw error;
+  }
+  const takipte = devir ? depo.kesisim(akis, [...eslesen]) : eslesen;
+  await depo.akisiKaydet(akis, bitis, takipte, telafi, hamSatir);
   return {
-    eslesen: eslesen.size, sayfa: okunan, telafi: telafi !== null, sayfaDaraldi,
-    baslangic: iso(bas), bitis: iso(simdi), hamSatir,
+    eslesen: takipte.size ?? takipte.length, sayfa: okunan, telafi: telafi !== null, sayfaDaraldi,
+    baslangic: iso(bas), bitis: iso(bitis), hamSatir,
     ...(tmdb ? {} : { uygulananLimit, saglayiciBaslangici: iso(saglayiciBaslangici), pencereDisi }),
   };
 }

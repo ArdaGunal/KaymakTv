@@ -17,10 +17,12 @@ function zamaniSinifla(deger, kaynak) {
   return { an_turu: tba ? 'tba' : null, tarih: null, guven: tba ? 'yok' : 'gecersiz' };
 }
 
+const iptalMi = (status) => ['canceled', 'cancelled'].includes(String(status ?? '').trim().toLowerCase());
+
 function satir(sezon, bolum, deger, kaynak, status) {
   const zaman = zamaniSinifla(deger, kaynak);
-  const durum = zaman.guven === 'gecersiz' ? 'eksik_yanit' : ['canceled', 'cancelled'].includes(status) ? 'iptal'
-    : status === 'postponed' ? 'ertelendi' : zaman.tarih ? 'kesin' : 'tba';
+  const durum = iptalMi(status) ? 'iptal' : zaman.guven === 'gecersiz' ? 'eksik_yanit'
+    : String(status ?? '').toLowerCase() === 'postponed' ? 'ertelendi' : zaman.tarih ? 'kesin' : 'tba';
   return { sezon, bolum, ...zaman, an_turu: zaman.an_turu ?? 'tba', durum, kaynak };
 }
 
@@ -40,7 +42,11 @@ function sezonlariOku(liste, { kaynak, detaylar = new Map(), beklenen = [] }) {
   for (const s of Array.isArray(liste) ? liste : []) {
     const sezon = trakt ? s?.number : s?.season_number;
     const sezonId = trakt ? s?.ids?.trakt || s?.ids?.tmdb : s?.id;
-    if (!numaraMi(sezon) || !idMi(sezonId) || sezonlar.has(sezon)) { listeTam = false; continue; }
+    if (!numaraMi(sezon) || !idMi(sezonId) || sezonlar.has(sezon)) {
+      if (sezon === 0) eksikSezonlar.add(0);
+      else listeTam = false;
+      continue;
+    }
     sezonlar.add(sezon);
     const detay = trakt ? s : detaylar.get(sezon);
     const bolumler = detay?.episodes;
@@ -80,12 +86,12 @@ function airsOku(airs) {
   return { day, time, timezone };
 }
 
-function takvimCikar({ tur, trakt, sezonlar, tmdb, tmdbSezonlar, tmdbBekleniyor }, onceki = [], oncekiKaynakAt) {
+function takvimCikar({ tur, trakt, sezonlar, tmdb, tmdbSezonlar, tmdbOnbellekliSezonlar, tmdbBekleniyor }, onceki = [], oncekiKaynakAt, cakismalar = new Set()) {
   const t = tur === 'movie'
-    ? { satirlar: [satir(null, null, trakt?.released, 'trakt', trakt?.status)], listeTam: Object.hasOwn(trakt || {}, 'released'), eksikSezonlar: new Set() }
+    ? { satirlar: [satir(null, null, trakt?.released, 'trakt', trakt?.status)], listeTam: iptalMi(trakt?.status) || Object.hasOwn(trakt || {}, 'released'), eksikSezonlar: new Set() }
     : sezonlariOku(sezonlar, { kaynak: 'trakt', beklenen: [trakt?.next_episode?.season, trakt?.last_episode?.season] });
   const m = tur === 'movie'
-    ? { satirlar: tmdb ? [satir(null, null, tmdb.release_date, 'tmdb', tmdb.status)] : [], listeTam: Object.hasOwn(tmdb || {}, 'release_date'), eksikSezonlar: new Set() }
+    ? { satirlar: tmdb ? [satir(null, null, tmdb.release_date, 'tmdb', tmdb.status)] : [], listeTam: iptalMi(tmdb?.status) || Object.hasOwn(tmdb || {}, 'release_date'), eksikSezonlar: new Set() }
     : sezonlariOku(tmdb?.seasons, { kaynak: 'tmdb', detaylar: tmdbSezonlar });
   if (tur === 'movie') {
     if (t.satirlar.some((r) => r.durum === 'eksik_yanit')) t.listeTam = false;
@@ -103,16 +109,34 @@ function takvimCikar({ tur, trakt, sezonlar, tmdb, tmdbSezonlar, tmdbBekleniyor 
   // takvim yuvasının silindiğine kanıt oluşturmaz.
   const tmdbGerekli = tmdbBekleniyor || onceki.some((r) => r.kaynak === 'tmdb' && etkiliDurum(r) !== 'silindi_dogrulandi');
   const satirlar = [];
+  const diziIptal = tur === 'show' && (iptalMi(trakt?.status) || iptalMi(tmdb?.status));
 
   for (const k of new Set([...traktSatirlari.keys(), ...tmdbSatirlari.keys(), ...eski.keys()])) {
     const tr = traktSatirlari.get(k);
     const tm = tmdbSatirlari.get(k);
     const once = eski.get(k);
     const sezon = (tr || tm || once).sezon;
-    const tam = t.listeTam && !t.eksikSezonlar.has(sezon) &&
+    if (cakismalar.has(sezon)) {
+      if (once) satirlar.push({ ...once, durum: 'eksik_yanit', onceki_durum: etkiliDurum(once), ayna_kaynak_at: once.ayna_kaynak_at ?? oncekiKaynakAt });
+      continue;
+    }
+    const eskiTmdbOnbellekli = once?.kaynak === 'tmdb' && !tm && tmdbOnbellekliSezonlar?.has(sezon);
+    const tam = !eskiTmdbOnbellekli && t.listeTam && !t.eksikSezonlar.has(sezon) &&
       (!tmdbGerekli || (m.listeTam && !m.eksikSezonlar.has(sezon)));
-    const secim = tr?.durum === 'iptal' || tr?.durum === 'ertelendi' || tr?.tarih ? tr
-      : tm?.tarih || tm?.durum === 'iptal' || tm?.durum === 'ertelendi' ? tm : tr || tm;
+    const secim = tr?.durum === 'iptal' ? tr : tm?.durum === 'iptal' ? tm
+      : tr?.durum === 'ertelendi' || tr?.tarih ? tr : tm?.tarih || tm?.durum === 'ertelendi' ? tm : tr || tm;
+    if (secim?.durum === 'iptal') { satirlar.push(secim); continue; }
+    const tba = secim?.durum === 'tba' || (!secim && etkiliDurum(once) === 'tba');
+    if (diziIptal && !secim?.tarih && secim?.durum !== 'ertelendi' &&
+        once?.tarih && !['iptal', 'silindi_dogrulandi'].includes(etkiliDurum(once))) {
+      satirlar.push(once);
+      continue;
+    }
+    if (diziIptal && tba) {
+      const kaynak = iptalMi(trakt?.status) ? 'trakt' : 'tmdb';
+      satirlar.push(satir(sezon, (tr || tm || once).bolum, null, kaynak, 'canceled'));
+      continue;
+    }
     const kuvvetliEski = once?.an_turu === 'kesin' && secim?.an_turu === 'yalniz_tarih' &&
       tariheBak(once) === tariheBak(secim);
     const eskiKaynak = once?.kaynak === 'tmdb' ? tm : tr;
@@ -139,11 +163,12 @@ function takvimCikar({ tur, trakt, sezonlar, tmdb, tmdbSezonlar, tmdbBekleniyor 
 
   // Dizi yayın şablonu kaynak verisi olarak saklanır. Tarih-yalnız bir
   // bölümde şablondan saat türetmek özel/birlikte yayınları yanlış gösterir.
+  const eksik = (sezonlar) => [...sezonlar].some((no) => no !== 0);
   return {
     satirlar: satirlar.sort(sirala),
     airs: airsOku(trakt?.airs),
-    traktTam: t.listeTam && !t.eksikSezonlar.size,
-    tam: t.listeTam && !t.eksikSezonlar.size && (!tmdbGerekli || (m.listeTam && !m.eksikSezonlar.size)),
+    traktTam: t.listeTam && !eksik(t.eksikSezonlar),
+    tam: !eksik(cakismalar) && t.listeTam && !eksik(t.eksikSezonlar) && (!tmdbGerekli || (m.listeTam && !eksik(m.eksikSezonlar))),
   };
 }
 

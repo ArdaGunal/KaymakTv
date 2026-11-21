@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS radar_takvim (
   tur TEXT NOT NULL, trakt_id INTEGER NOT NULL, kaymak_id TEXT NOT NULL UNIQUE,
   takvim_rev INTEGER NOT NULL, kaynak_at INTEGER NOT NULL DEFAULT 0, aynalanan_rev INTEGER NOT NULL DEFAULT 0,
   ayna_bekliyor INTEGER NOT NULL DEFAULT 1, ayna_hazir_at INTEGER NOT NULL,
-  ayna_deneme INTEGER NOT NULL DEFAULT 0, veri TEXT NOT NULL,
+  ayna_deneme INTEGER NOT NULL DEFAULT 0, veri TEXT NOT NULL, takipsiz_at INTEGER,
   PRIMARY KEY (tur, trakt_id)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS radar_ayna_hazir ON radar_takvim(ayna_bekliyor, ayna_hazir_at);

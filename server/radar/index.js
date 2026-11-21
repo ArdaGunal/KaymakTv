@@ -1,6 +1,6 @@
 const { radarKapilari, hataKodu } = require('./ayar');
 const { workerIstemcisi } = require('./worker');
-const { radarKilidi } = require('../zamanlayici/geceKilidi');
+const { radarKilidi, geceBekliyor } = require('../zamanlayici/geceKilidi');
 
 const KONTROL_MS = 30_000;
 let zamanlayici = null;
@@ -31,7 +31,7 @@ function radariBaslat({
     if (duruyor || ucus) return ucus;
     ucus = radarKilidi(async (geceBekliyor) => {
       if (!tur) {
-        depo = await (depoAc || require('./depo').depoAc)(kapilar);
+        depo = await (depoAc || require('./depo').depoAc)({ ...kapilar, olcumKalici: true });
         const { createTmdbFetcher } = require('../lazyfetch/providers/tmdb');
         const { createTraktCatalogFetcher } = require('../lazyfetch/providers/trakt');
         tur = require('./tur').radarTuruKur({
@@ -45,7 +45,7 @@ function radariBaslat({
       }
       await tur(() => duruyor || geceBekliyor());
       sonHata = null;
-    }).catch((error) => {
+    }).then((turYapildi) => turYapildi && tur.aynala(() => duruyor || geceBekliyor())).catch((error) => {
       const kod = hataKodu(error);
       if (sonHata !== kod) gunluk.warn(`[Radar] zamanlayici:${kod}`);
       sonHata = kod;

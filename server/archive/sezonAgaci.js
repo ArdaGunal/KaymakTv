@@ -1,9 +1,18 @@
-const { resolveOrCreate, traktIdsToExternal, findChild } = require('./identity');
+const { resolveOrCreate, traktIdsToExternal, findChild, findByExternal } = require('./identity');
 
-function* sezonAgaciniYaz(dizi, seasons, radarDogrula = false) {
+function* sezonAgaciniYaz(dizi, seasons, radarDogrula = false, kismi = false) {
   let sezonSayisi = 0;
   let bolumSayisi = 0;
   let atlanan = 0;
+  const eksikSezonlar = new Set();
+  function uyumsuzYuva(tip, yuva, kimlikler) {
+    if (!radarDogrula) return false;
+    const birincil = kimlikler.find((k) => k.source === `trakt:${tip}`);
+    const sahip = birincil && findByExternal(birincil.source, birincil.source_id);
+    if (sahip && sahip !== yuva) return true;
+    return kismi && yuva && !kimlikler.some((k) => findByExternal(k.source, k.source_id) === yuva);
+  }
+  const bolumler = (s) => Array.isArray(s?.episodes) ? s.episodes : [];
 
   // 🛑 KASKAD KESİCİ İÇİN KİMLİK EVRENİ. Bu yanıtta görülen TÜM bölüm
   // kimlikleri önceden toplanıyor: `resolveOrCreate` bir yuvayı dolu
@@ -12,7 +21,7 @@ function* sezonAgaciniYaz(dizi, seasons, radarDogrula = false) {
   // O durumda yeniden eşleme yapılmaz (bağımsız inceleme, 2026-09-14).
   const kimlikEvreni = new Set();
   for (const sezon of seasons) {
-    for (const bolum of sezon?.episodes || []) {
+    for (const bolum of bolumler(sezon)) {
       for (const k of traktIdsToExternal('episode', bolum?.ids || {})) {
         kimlikEvreni.add(k.source + '/' + k.source_id);
       }
@@ -20,29 +29,33 @@ function* sezonAgaciniYaz(dizi, seasons, radarDogrula = false) {
   }
 
   for (const sezon of seasons) {
-    if (!sezon || typeof sezon.number !== 'number') { atlanan++; continue; }
+    if (!sezon || typeof sezon.number !== 'number') { atlanan++; eksikSezonlar.add(sezon?.number); continue; }
 
     const sezonKimlikleri = traktIdsToExternal('season', sezon.ids);
-    if (!sezonKimlikleri.length) { atlanan++; continue; }
+    if (!sezonKimlikleri.length) { atlanan++; eksikSezonlar.add(sezon.number); continue; }
 
+    const sezonYuvasi = radarDogrula && findChild({ parentId: dizi.kaymak_id, type: 'season', seasonNumber: sezon.number });
+    if (uyumsuzYuva('season', sezonYuvasi, sezonKimlikleri)) { atlanan++; eksikSezonlar.add(sezon.number); continue; }
     const s = resolveOrCreate({
       type: 'season',
       externalIds: sezonKimlikleri,
       parentId: dizi.kaymak_id,
       seasonNumber: sezon.number,
-      derived: radarDogrula && findChild({ parentId: dizi.kaymak_id, type: 'season', seasonNumber: sezon.number }) ? {} : { title: sezon.title || null },
+      derived: sezonYuvasi ? {} : { title: sezon.title || null },
     });
     // 🆕 A1 (M549): çözüm `null` dönebilir (kimlik çakışması — `sync_log`'da kayıtlı). Eskiden
     // `s.kaymak_id` TypeError fırlatıp dizinin TÜM sezon yazımını geri aldırırdı.
-    if (!s) { atlanan++; continue; }
+    if (!s) { atlanan++; eksikSezonlar.add(sezon.number); continue; }
     sezonSayisi++;
 
-    for (const bolum of sezon.episodes || []) {
-      if (!bolum || typeof bolum.number !== 'number') { atlanan++; continue; }
+    for (const bolum of bolumler(sezon)) {
+      if (!bolum || typeof bolum.number !== 'number') { atlanan++; eksikSezonlar.add(sezon.number); continue; }
 
       const bolumKimlikleri = traktIdsToExternal('episode', bolum.ids);
-      if (!bolumKimlikleri.length) { atlanan++; continue; }
+      if (!bolumKimlikleri.length) { atlanan++; eksikSezonlar.add(sezon.number); continue; }
 
+      const bolumYuvasi = radarDogrula && findChild({ parentId: s.kaymak_id, type: 'episode', seasonNumber: sezon.number, episodeNumber: bolum.number });
+      if (uyumsuzYuva('episode', bolumYuvasi, bolumKimlikleri)) { atlanan++; eksikSezonlar.add(sezon.number); continue; }
       const bolumKaydi = resolveOrCreate({
         type: 'episode',
         externalIds: bolumKimlikleri,
@@ -52,10 +65,10 @@ function* sezonAgaciniYaz(dizi, seasons, radarDogrula = false) {
         // için ÜST SEZONUN numarasını yazıyoruz.
         seasonNumber: sezon.number,
         episodeNumber: bolum.number,
-        derived: radarDogrula && findChild({ parentId: s.kaymak_id, type: 'episode', seasonNumber: sezon.number, episodeNumber: bolum.number }) ? {} : { title: bolum.title || null },
+        derived: bolumYuvasi ? {} : { title: bolum.title || null },
         kimlikEvreni,
       });
-      if (radarDogrula && !bolumKaydi) { atlanan++; continue; }
+      if (radarDogrula && !bolumKaydi) { atlanan++; eksikSezonlar.add(sezon.number); continue; }
       bolumSayisi++;
 
       yield;
@@ -64,7 +77,7 @@ function* sezonAgaciniYaz(dizi, seasons, radarDogrula = false) {
 
   return {
     ok: true, showKaymakId: dizi.kaymak_id,
-    seasons: sezonSayisi, episodes: bolumSayisi, skipped: atlanan,
+    seasons: sezonSayisi, episodes: bolumSayisi, skipped: atlanan, ...(radarDogrula ? { eksikSezonlar } : {}),
   };
 }
 

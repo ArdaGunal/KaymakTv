@@ -43,7 +43,11 @@ const ac = (body) => {
 function gecerliTarih(d) {
   if (typeof d !== 'string' || d.length < 4) return null;
   const t = Date.parse(d);
-  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+  if (!Number.isFinite(t)) return null;
+  const gun = /^\d{4}-\d{2}-\d{2}/.exec(d)?.[0];
+  const gunAt = gun ? Date.parse(gun) : null;
+  if (gun && (!Number.isFinite(gunAt) || new Date(gunAt).toISOString().slice(0, 10) !== gun)) return null;
+  return new Date(t).toISOString();
 }
 
 /**
@@ -129,7 +133,7 @@ function baslikAlanlari(e, h) {
  * @param {{kokler: string[], altAgac: string[]} | null} kapsam
  */
 function* haritaAdimlari(db, kapsam, h) {
-  const { runtime, genres, firstAired, tmdb, baslik } = h;
+  const { runtime, genres, firstAired, firstAiredAt, tmdb, baslik } = h;
   const kok = kapsamEki(kapsam && kapsam.kokler);
   const alt = kapsamEki(kapsam && kapsam.altAgac);
   // 📏 ÖLÇÜLDÜ (Pi, 2026-09-19): `source = ? AND kaymak_id IN (json_each)`
@@ -141,7 +145,7 @@ function* haritaAdimlari(db, kapsam, h) {
   // Dizi/film KÖKÜ: runtime · genres · first_aired (film: released)
   for (const r of db.prepare(
     // 🔴 provider ŞART: TMDB'nin film ailesinin adı da `movie_detail`, Trakt değerinin üstüne yazardı.
-    "SELECT kaymak_id, body FROM payloads WHERE provider = 'trakt' AND endpoint IN ('show_detail','movie_detail')" + kok.sql
+    "SELECT kaymak_id, body, fetched_at, lang FROM payloads WHERE provider = 'trakt' AND endpoint IN ('show_detail','movie_detail')" + kok.sql + ' ORDER BY fetched_at, lang, endpoint'
   ).all(...kok.p)) {
     const j = ac(r.body);
     const k = Array.isArray(j) ? j[0] : j;
@@ -150,24 +154,25 @@ function* haritaAdimlari(db, kapsam, h) {
       const g = temizGenres(k.genres);
       if (g) genres.set(r.kaymak_id, g);
       const d = gecerliTarih(k.first_aired || k.released);
-      if (d) firstAired.set(r.kaymak_id, d);
+      if (d) { firstAired.set(r.kaymak_id, d); firstAiredAt.set(r.kaymak_id, r.fetched_at); }
       const b = baslikKaydi(baslik, r.kaymak_id);
-      b.traktDil = k.language ?? b.traktDil;
-      b.traktOzgun = k.original_title ?? b.traktOzgun;
+      b.traktDil = adTemizle(k.language) ?? b.traktDil;
+      b.traktOzgun = adTemizle(k.original_title) ?? b.traktOzgun;
     }
     yield;
   }
 
   // BASLIK: TMDB yükleri. Arşiv yük silmez; sözlük her gönderimde bunlardan yeniden kurulur (§0 madde 9).
   for (const r of db.prepare(
-    "SELECT kaymak_id, lang, body FROM payloads WHERE provider = 'tmdb' AND endpoint IN ('tv_detail','movie_detail')" + kok.sql
+    "SELECT kaymak_id, lang, body FROM payloads WHERE provider = 'tmdb' AND endpoint IN ('tv_detail','movie_detail')" + kok.sql + ' ORDER BY fetched_at, lang, endpoint'
   ).all(...kok.p)) {
     const j = ac(r.body);
     if (j) {
       const b = baslikKaydi(baslik, r.kaymak_id);
-      b.tmdbDil = j.original_language ?? b.tmdbDil;
-      b.tmdbOzgun = j.original_name ?? j.original_title ?? b.tmdbOzgun;
-      b.adlar[r.lang] = j.name ?? j.title;
+      b.tmdbDil = adTemizle(j.original_language) ?? b.tmdbDil;
+      b.tmdbOzgun = adTemizle(j.original_name) ?? adTemizle(j.original_title) ?? b.tmdbOzgun;
+      const ad = adTemizle(j.name) ?? adTemizle(j.title);
+      if (ad) b.adlar[r.lang] = ad;
     }
     yield;
   }
@@ -177,16 +182,17 @@ function* haritaAdimlari(db, kapsam, h) {
   const traktRuntime = new Map();
   const traktTarih = new Map();
   for (const r of db.prepare(
-    "SELECT body FROM payloads WHERE endpoint = 'show_seasons'" + kok.sql
+    "SELECT body, fetched_at FROM payloads WHERE provider = 'trakt' AND endpoint = 'show_seasons'" + kok.sql +
+    ' ORDER BY fetched_at, lang, kaymak_id'
   ).all(...kok.p)) {
     const j = ac(r.body);
     for (const sezon of (j ? (Array.isArray(j) ? j : [j]) : [])) {
-      for (const b of (sezon?.episodes || [])) {
+      for (const b of Array.isArray(sezon?.episodes) ? sezon.episodes : []) {
         const tid = b?.ids?.trakt;
         if (tid == null) continue;
         if (Number.isFinite(b.runtime)) traktRuntime.set(String(tid), b.runtime);
         const d = gecerliTarih(b?.first_aired);
-        if (d) traktTarih.set(String(tid), d);
+        if (d) traktTarih.set(String(tid), { tarih: d, at: r.fetched_at });
       }
     }
     yield;
@@ -200,7 +206,7 @@ function* haritaAdimlari(db, kapsam, h) {
       const rt = traktRuntime.get(String(r.source_id));
       if (rt !== undefined) runtime.set(r.kaymak_id, rt);
       const d = traktTarih.get(String(r.source_id));
-      if (d !== undefined) firstAired.set(r.kaymak_id, d);
+      if (d) { firstAired.set(r.kaymak_id, d.tarih); firstAiredAt.set(r.kaymak_id, d.at); }
     }
   }
   yield;
@@ -214,11 +220,11 @@ function* haritaAdimlari(db, kapsam, h) {
     if (Number.isInteger(n)) tmdb.set(r.kaymak_id, n);
   }
   if (require('../radar/ayar').radarKapilari(process.env).yaz) {
-    yield* require('../radar/ayna').aynaTakvimi(db, kapsam?.kokler, firstAired);
+    yield* require('../radar/ayna').aynaTakvimi(db, kapsam?.kokler, firstAired, firstAiredAt);
   }
 }
 
-const bosHarita = () => ({ runtime: new Map(), tmdb: new Map(), genres: new Map(), firstAired: new Map(), baslik: new Map() });
+const bosHarita = () => ({ runtime: new Map(), tmdb: new Map(), genres: new Map(), firstAired: new Map(), firstAiredAt: new Map(), baslik: new Map() });
 
 /** Senkron — küçük kapsam (anlık aktarım) ya da testler. */
 function haritalariKur(db, kapsam = null) {

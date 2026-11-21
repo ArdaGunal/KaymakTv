@@ -33,7 +33,7 @@
 
 const { isArchiveEnabled, getDb, islemDisiYaz } = require('./db');
 const { logSync } = require('./store');
-const { partiKokleri, belirsizKokler, belirsizUcusYaz } = require('./aynaBelirsiz');
+const { partiKokleri, ucusuKaydet, ucusuBitir } = require('./aynaBelirsiz');
 const {
   AYNALANAN_KAYNAKLAR, TIP_SIRASI, haritalariKurAsync, varlikSatiri, disKimlikSatiri,
 } = require('./aynaSatirlari');
@@ -110,13 +110,6 @@ async function partiGonder(cfg, faz, satirlar) {
   let kokler;
   try {
     kokler = cfg.db ? partiKokleri(cfg.db, satirlar) : [];
-    if (kokler.length) {
-      const bekleyen = belirsizKokler(cfg.db, kokler, saat());
-      if (bekleyen.length) return {
-        ok: false, reason: 'ayna_belirsiz', yenidenAt: Math.max(...bekleyen.map((r) => r.at)),
-        belirsizKokler: bekleyen.map((r) => r.kok),
-      };
-    }
   } catch (_) {
     return { ok: false, reason: 'ayna_kilit_okunamadi' };
   }
@@ -127,6 +120,14 @@ async function partiGonder(cfg, faz, satirlar) {
   } catch (_) {
     return { ok: false, reason: 'ayna_govde' };
   }
+  let at;
+  try {
+    if (kokler.length) {
+      const ucus = await ucusuKaydet(kokler, saat, 60_000);
+      if (ucus.ret) return ucus.ret;
+      at = ucus.at;
+    }
+  } catch (_) { return { ok: false, reason: 'ayna_kilit_yazilamadi' }; }
   const signal = AbortSignal.timeout(60_000);
   let yanitGeldi = false;
   try {
@@ -144,9 +145,11 @@ async function partiGonder(cfg, faz, satirlar) {
     if (!res.ok) {
       const govde = await res.text();
       signal.throwIfAborted();
-      if (kokler.length && ([408, 504, 524].includes(res.status) || (res.status === 502 && (govde.includes('supabase_zaman_asimi') || govde.includes('Ayna yazımı başarısız.'))))) {
-        return await belirsizUcusYaz(kokler, saat());
+      if (kokler.length && (res.status === 408 || res.status >= 500)) {
+        return await ucusuBitir(kokler, at, saat());
       }
+      const kilit = await ucusuBitir(kokler, at);
+      if (kilit) return kilit;
       return { ok: false, reason: `http_${res.status}`, detay: govde.slice(0, 300) };
     }
     const j = await res.json().catch((error) => {
@@ -154,11 +157,15 @@ async function partiGonder(cfg, faz, satirlar) {
       return {};
     });
     signal.throwIfAborted();
+    const kilit = await ucusuBitir(kokler, at);
+    if (kilit) return kilit;
     return { ok: true, yazilan: j.yazilan || 0, atlanan: j.atlanan || 0 };
   } catch (error) {
     if (kokler.length && (yanitGeldi || signal.aborted || !baglantiKurulamadi(error))) {
-      return belirsizUcusYaz(kokler, saat());
+      return ucusuBitir(kokler, at, saat());
     }
+    const kilit = await ucusuBitir(kokler, at);
+    if (kilit) return kilit;
     return { ok: false, reason: 'network', detay: String(error?.message || error).slice(0, 200) };
   }
 }

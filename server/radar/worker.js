@@ -57,9 +57,9 @@ async function olayGonder(depo, worker, dur = () => {}) {
     dur();
     let sonuc;
     try {
-      sonuc = await worker.olay(grup.map(({ olay }) => JSON.parse(olay)));
+      sonuc = await worker.olay(grup.map(({ veri }) => veri));
     } catch (error) {
-      if (hataKodu(error) !== 'http_413') throw error;
+      if (!['http_400', 'http_413', 'http_422'].includes(hataKodu(error))) throw error;
       if (grup.length === 1) return depo.olayTerk(grup[0].id);
       const orta = Math.floor(grup.length / 2);
       await gonder(grup.slice(0, orta));
@@ -83,8 +83,13 @@ async function olayGonder(depo, worker, dur = () => {}) {
       parti = [];
       boyut = cerceveBoyu;
     }
+    let veri;
+    try { veri = JSON.parse(r.olay); } catch (_) {
+      await depo.olayTerk(r.id);
+      continue;
+    }
     boyut += boy + Number(parti.length > 0);
-    parti.push(r);
+    parti.push({ ...r, veri });
   }
   await gonder(parti);
 }

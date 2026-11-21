@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { baslat } = require('../yardimci');
-const { AKISLAR, GUN, SAAT, DAKIKA, TAKIP_ARALIGI, hataKodu } = require('../../server/radar/ayar');
+const { AKISLAR, GUN, SAAT, DAKIKA, TAKIP_ARALIGI, RadarHatasi, hataKodu } = require('../../server/radar/ayar');
 const { depoAc, saglikOku } = require('../../server/radar/depo');
 const { akisiTara, telafiyiIlerlet, radarCek } = require('../../server/radar/akis');
 const { takipGoruntusu, workerIstemcisi, olayGonder } = require('../../server/radar/worker');
@@ -11,6 +11,7 @@ const { closeArchive } = require('../../server/archive/db');
 const { join } = require('node:path');
 const { resolveRequest } = require('../../server/lazyfetch/orchestrator');
 const { kovaDurumu } = require('../../server/lazyfetch/tokenBucket');
+const { RateLimitedError } = require('../../server/lazyfetch/errors');
 const { devreDurumu } = require('../../server/lazyfetch/circuitBreaker');
 
 const T = baslat('RADAR AKIS VE KAPILAR');
@@ -19,6 +20,49 @@ const simdi = Date.parse('2026-11-21T15:00:00Z');
 const dur = () => {};
 const satir = (trakt_id, tmdb_id, tur = 'show') => ({ tur, trakt_id, tmdb_id, takipci: 1 });
 const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idler.map((id) => ({ id })) } });
+
+async function traktDevri() {
+  const akis = AKISLAR.find((a) => a.ad === 'trakt_movie');
+  let depo = await depoAc({ yaz: true });
+  const bas = simdi - SAAT - 13 * DAKIKA;
+  const idler = [101, 102, 103, 104, 105];
+  const takip = (idler) => idler.map((id) => satir(id, null, 'movie'));
+  await depo.akisiKaydet(akis, bas, [], null);
+  await depo.takipDegistir(takip(idler), simdi);
+  depo.db.exec("DELETE FROM radar_is WHERE tur='movie'");
+  const yollar = [];
+  let sonSayfa = 0;
+  const cek = (hata, hataSayfasi) => async (yol, { page }) => {
+    yollar.push([yol, page]);
+    if (page === hataSayfasi) throw hata;
+    sonSayfa = page;
+    const at = page === 4 ? simdi + 1 : simdi - 1;
+    const data = [{ ids: { trakt: 100 + page }, updated_at: new Date(at).toISOString() }];
+    if (page === 4) data.push({ ids: { trakt: 105 }, updated_at: new Date(simdi).toISOString() });
+    return { data, headers: { 'x-pagination-page': page, 'x-pagination-page-count': 4,
+      'x-start-date': yol.split('/').at(-1) } };
+  };
+  const kota = new RateLimitedError('trakt');
+  const http = Object.assign(new Error('429'), { status: 429 });
+  await assert.rejects(akisiTara({ akis, depo, cek: cek(http, 2), simdi, dur }), (e) => e === http);
+  await assert.rejects(akisiTara({ akis, depo, cek: cek(kota, 3), simdi: simdi + SAAT, dur }), (e) => e === kota);
+  await assert.rejects(akisiTara({ akis, depo, cek: cek(), simdi: simdi + 2 * SAAT, dur: () => {
+    if (sonSayfa === 3) throw new RadarHatasi('gece_isi');
+  } }), /gece_isi/);
+  assert.equal(depo.imlec(akis.ad).at, bas);
+  assert.equal(depo.saglik().kuyruk.tazeleme, 0);
+  closeArchive();
+  depo = await depoAc({ yaz: true });
+  await depo.takipDegistir(takip(idler.slice(1)), simdi);
+  const sonuc = await akisiTara({ akis, depo, cek: cek(), simdi: simdi + 3 * SAAT, dur });
+  const isler = depo.hazirIsler(simdi, 10).map((is) => is.trakt_id);
+  T.ok('Trakt 429, yerel kota ve gece kesintilerinden sonra ayni saatli pencerede kalinan sayfadan devam eder',
+    yollar.every(([yol]) => yol === '/movies/updates/2026-11-21T13:00:00Z') &&
+    yollar.map(([, page]) => page).join(',') === '1,2,2,3,3,4' && sonuc.sayfa === 4);
+  T.ok('Devreden Trakt penceresi tamamlaninca imlec ve guncel takip kesisimi atomik yazilir',
+    depo.imlec(akis.ad).at === simdi && depo.imlec(akis.ad).telafi_son_id === 0 &&
+    depo.akisDevri(akis.ad) === null && isler.join(',') === '102,103,105');
+}
 
 (async () => {
   const depo = await depoAc({ yaz: true });
@@ -45,7 +89,7 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
   const tAkis = AKISLAR[2];
   await depo.akisiKaydet(tAkis, simdi - 40 * GUN, [], null);
   const tr = await akisiTara({ ...secenek, akis: tAkis, cek: async (yol) => {
-    assert.match(yol, /^\/shows\/updates\/2026-10-23$/);
+    assert.match(yol, /^\/shows\/updates\/2026-10-22T15:00:00Z$/);
     return { data: [{ show: { ids: { trakt: 11 } } }], headers: {
       'x-pagination-page': '1', 'x-pagination-page-count': '1', 'x-start-date': '2026-10-24',
     } };
@@ -108,7 +152,7 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
     akisLog.some((s) => s.includes('tmdb_show') && s.includes('yol=/tv/changes') && s.includes('sayfa_daraldi=1')) &&
     akisLog.some((s) => s.includes('tmdb_movie') && s.includes('sayfa_daraldi=1')));
   T.ok('Ilk Trakt penceresi ortak; adaptorde her HTTP sayfasina limit gider ve etkin limit loglanir',
-    traktIstekleri.length === 3 && traktIstekleri.every((r) => r.limit === 100 && r.url.endsWith('/2026-11-20')) &&
+    traktIstekleri.length === 3 && traktIstekleri.every((r) => r.limit === 100 && r.url.endsWith('/2026-11-20T15:00:00Z')) &&
     akisLog.filter((s) => s.includes('baslangic=2026-11-20T15:00:00.000Z bitis=2026-11-21T15:00:00.000Z') &&
       s.includes('trakt_')).length === 2 &&
     akisLog.some((s) => s.includes('trakt_show kesisim=0') && s.includes('limit_uygulanan=100')) &&
@@ -310,5 +354,6 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
   } });
   await worker.takip('a&b');
   T.ok('Takip GET imleci URL kodlanir ve sir yalniz baslikta', true);
+  await traktDevri();
 })().catch((e) => { console.error(e); T.ok('beklenmeyen hata', false); })
   .finally(() => { closeArchive(); T.bitir(); });

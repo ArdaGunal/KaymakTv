@@ -227,13 +227,15 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
 // 🆕 §C30 — her başarılı yazım anlık aktarımı tetikler. `require` GEÇ:
 // `anlikAktarim` → `mirror` → ... zinciri kuyruğun yüklenmesini beklemesin.
 function radarYaz(is) {
-  return new Promise((tamamla) => {
+  const { aynaSirala, aynaMesgul } = require('./aynaKilidi');
+  if (is.beklemeYok && aynaMesgul()) return Promise.resolve({ ok: false, reason: 'ayna_mesgul' });
+  return aynaSirala(() => new Promise((tamamla) => {
     const alindi = archiveQueue.enqueue({
       provider: 'radar', family: 'takvim', path: `/${is.veri.tur}/${is.veri.trakt_id}`,
       radar: is, tamamla,
     });
     if (!alindi) tamamla({ ok: false, reason: 'arsiv_kuyruk_kapali' });
-  });
+  }), true);
 }
 
 const archiveQueue = createArchiveQueue({

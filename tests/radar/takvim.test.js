@@ -10,7 +10,7 @@ const { AYNA_BELIRSIZ_BEKLEME_MS, GIDEN_KUTUSU_TAVANI, GIDEN_KUTUSU_OMRU } = req
 const { akisiGonder, partiGonder } = require('../../server/archive/mirror');
 const { aynalariGonder } = require('../../server/radar/ayna');
 const { olayGonder } = require('../../server/radar/worker');
-const { radarYaz } = require('../../server/archive/queue');
+const { radarYaz, archiveQueue } = require('../../server/archive/queue');
 const { closeArchive } = require('../../server/archive/db');
 const { createAnlikAktarim } = require('../../server/archive/anlikAktarim');
 const { altAgacFazlari } = require('../../server/archive/aynaSatirlari');
@@ -112,8 +112,13 @@ const sezon = (tarih, bolumler = [{ number: 1, ids: { trakt: 501 }, first_aired:
   const istekler = [];
   const traktSezonYolu = '/shows/5/seasons';
   const traktSezonSorgusu = { extended: 'full,episodes' };
-  await resolveRequest({ provider: 'trakt', path: traktSezonYolu, query: traktSezonSorgusu,
-    fetcher: async () => ({ data: [sezon(null)] }) });
+  const gercekSaat = Date.now;
+  Date.now = () => simdi - 1;
+  try {
+    await resolveRequest({ provider: 'trakt', path: traktSezonYolu, query: traktSezonSorgusu,
+      fetcher: async () => ({ data: [sezon(null)] }) });
+    await archiveQueue.drain();
+  } finally { Date.now = gercekSaat; }
   const veri = await kataloguCek(dizi, {
     trakt: async (yol) => {
       istekler.push(yol);
@@ -189,8 +194,8 @@ const sezon = (tarih, bolumler = [{ number: 1, ids: { trakt: 501 }, first_aired:
   hamDamga.run(simdi+6, kok);
   const yeniArsivAyna = aynaBolum();
   hamDamga.run(simdi, kok);
-  T.ok('Eksik, takipsiz, terk ve daha yeni arsivli Radar yuvasi aynaya girmez',
-    [eksikAyna, takipsizAyna, terkAyna, yeniArsivAyna].every((v) => v === null));
+  T.ok('Eksik, takipsiz ve terk yuvalar elenir; ilgisiz yeni Trakt yukunde TMDB tarihi kalir',
+    [eksikAyna, takipsizAyna, terkAyna].every((v) => v === null) && yeniArsivAyna === '2026-12-01T00:00:00.000Z');
 
   const hashA = olaylariCikar(film, [], takvimCikar({ tur: 'movie', trakt: { released: '2026-12-05' } }), 2, simdi)[0];
   const hashB = olaylariCikar(film, [], takvimCikar({ tur: 'movie', trakt: { released: '2026-12-07' } }), 2, simdi)[0];

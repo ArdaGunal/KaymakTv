@@ -13,6 +13,7 @@ function radarTuruKur({
   let takipSonra = 0;
   let olaySonra = 0;
   let budamaSonra = 0;
+  const gecmisSezonlar = new Map();
   const sonrakiAkis = new Map();
   const saglayiciSonra = new Map();
 
@@ -29,7 +30,8 @@ function radarTuruKur({
     }
   }
 
-  return async function tur(geceBekliyor = () => false) {
+  let aynaHazir = false;
+  async function tur(geceBekliyor = () => false) {
     let sonHata = null;
     let sonHataGunlukte = false;
     const kodlar = [];
@@ -47,10 +49,10 @@ function radarTuruKur({
     try {
       let yeni = 0;
       const simdi = saat();
-      if (kapilar.yaz && !kapilar.olay && simdi >= budamaSonra) {
+      if ((kapilar.yaz || kapilar.olay) && simdi >= budamaSonra) {
         dur();
         try {
-          await depo.gidenKutusuBuda(simdi);
+          await depo.gidenKutusuBuda(simdi, kapilar.olay);
           budamaSonra = simdi + TAKIP_ARALIGI;
         } catch (error) { hata('olay_budama', error); }
       }
@@ -93,21 +95,22 @@ function radarTuruKur({
           try {
             const cek = (yol, sorgu) => cekici(akis.saglayici, saglayicilar[akis.saglayici], yol, sorgu, dur);
             const r = await akisiTara({ akis, depo, cek, simdi: t0, dur });
-            sonrakiAkis.set(akis.ad, t0 + SAAT);
+            sonrakiAkis.set(akis.ad, Date.parse(r.bitis) + SAAT);
             const trakt = akis.saglayici === 'trakt'
               ? ` limit_istenen=${akis.sayfa} limit_uygulanan=${r.uygulananLimit ?? '?'} x_start_date=${r.saglayiciBaslangici} pencere_disi=${r.pencereDisi}` : '';
             gunluk.info(`[Radar] ${akis.ad} kesisim=${r.eslesen} tazelenecekler=${r.eslesen} sayfa=${r.sayfa} telafi=${r.telafi ? 1 : 0}` +
               ` yol=${akis.yol} baslangic=${r.baslangic} bitis=${r.bitis} sayfa_daraldi=${r.sayfaDaraldi ? 1 : 0} ham_satir=${r.hamSatir}${trakt}`);
           } catch (error) {
             hata(akis.ad, error, akis);
-            sonrakiAkis.set(akis.ad, t0 + Math.max(DAKIKA, tekrarMs(error, t0)));
+            const simdi = saat();
+            sonrakiAkis.set(akis.ad, simdi + Math.max(DAKIKA, tekrarMs(error, simdi)));
           }
         }
         dur();
         await telafiyiIlerlet(depo, AKISLAR, saat());
         if (kapilar.yaz) {
           await isleriTazele(0, IS_PARTISI, 1);
-          try { await aynala(depo, saat, dur); } catch (error) { hata('ayna', error); }
+          aynaHazir = true;
         }
       }
       if (kapilar.olay && saat() >= olaySonra) {
@@ -136,27 +139,47 @@ function radarTuruKur({
         if (is.oncelik < asgariOncelik) break;
         try {
           const beklenenRev = depo.takvim(is)?.takvim_rev ?? 0;
-          const veri = await kataloguCek(is, saglayicilar, dur, saat, cekici);
+          const veri = await kataloguCek(is, saglayicilar, dur, saat, cekici, gecmisSezonlar);
           dur();
-          const r = await yaz({ veri, beklenenRev, simdi: saat(), olayAcik: kapilar.olay });
+          const r = await yaz({ veri, beklenenRev, simdi: saat(), olayAcik: kapilar.olay, beklemeYok: true });
+          if (r?.reason === 'ayna_mesgul') return;
           if (!r?.ok) {
             hata('tazeleme', new RadarHatasi(r?.reason || 'arsiv_yazim_hatasi'));
-            await depo.isiErtele(is, saat(), 0);
+            await depo.isiErtele(is, saat(), 0, r?.reason !== 'daha_yeni_yanit');
             continue;
           }
           for (const girdi of r.girdiler) await girdi.yayinla?.();
-          if (!r.tam) throw new RadarHatasi('eksik_yanit');
+          if (r.tam) await depo.isiTamamla(is);
+          else {
+            hata('tazeleme', new RadarHatasi(r.cakisma ? 'sezon_kimlik_cakismasi' : 'eksik_yanit'));
+            await depo.isiErtele(is, saat(), SAAT, false);
+          }
         } catch (error) {
           hata('tazeleme', error);
           const simdi = saat();
           if (!['saglayici_bekleme', 'devre_acik', 'yerel_kota'].includes(hataKodu(error))) {
-            await depo.isiErtele(is, simdi, tekrarMs(error, simdi));
+            await depo.isiErtele(is, simdi, tekrarMs(error, simdi), hataKodu(error) !== 'http_429');
           }
           if (['http_429', 'saglayici_bekleme', 'devre_acik', 'yerel_kota'].includes(hataKodu(error))) break;
         }
       }
     }
+  }
+  tur.aynala = async (geceBekliyor) => {
+    if (!aynaHazir || geceBekliyor()) return;
+    aynaHazir = false;
+    try {
+      await aynala(depo, saat, () => { if (geceBekliyor()) throw new RadarHatasi('gece_isi'); });
+    } catch (error) {
+      const kod = hataKodu(error);
+      if (kod === 'gece_isi') return;
+      const mesaj = 'ayna:' + kod;
+      if (depo.saglik().sonHata !== mesaj) gunluk.warn(`[Radar] ${mesaj}`);
+      await depo.hataSay(kod);
+      await depo.durumYaz('sonHata', mesaj);
+    }
   };
+  return tur;
 }
 
 module.exports = { radarTuruKur };

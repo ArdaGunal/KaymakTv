@@ -1,5 +1,6 @@
 let radarTuru = null;
 let geceIsleri = 0;
+const geceBekliyor = () => geceIsleri > 0;
 
 // Radar tek uçuşta. Gece işi gelirse yeni Radar çağrıları durur, uçuşta
 // olan istek ve atomik yazım tamamlanınca gece işi başlar.
@@ -8,7 +9,7 @@ async function radarKilidi(calis) {
   let birak;
   radarTuru = new Promise((coz) => { birak = coz; });
   try {
-    await calis(() => geceIsleri > 0);
+    await calis(geceBekliyor);
     return true;
   } finally {
     radarTuru = null;
@@ -35,4 +36,4 @@ async function geceIsi(calis, beklemeMs = 60_000) {
   }
 }
 
-module.exports = { radarKilidi, geceIsi };
+module.exports = { radarKilidi, geceIsi, geceBekliyor };

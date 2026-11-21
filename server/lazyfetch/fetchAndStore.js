@@ -164,7 +164,11 @@ function tazeYanitHazirla({ provider, path, query, yanit, fetchedAt }) {
     is,
     yayinla: async () => {
       if (memoryCache.get(relativePath)?.fetchedAt > fetchedAt) return;
-      await writeCacheEntry(relativePath, envelope);
+      const sonuc = await writeCacheEntry(relativePath, envelope);
+      if (!sonuc.ok && sonuc.reason !== 'disabled') {
+        if (!(memoryCache.get(relativePath)?.fetchedAt > fetchedAt)) memoryCache.delete(relativePath);
+        throw new (require('../radar/ayar').RadarHatasi)('onbellek_yazimi');
+      }
       if (!(memoryCache.get(relativePath)?.fetchedAt > fetchedAt)) memoryCache.set(relativePath, envelope);
     },
   };
