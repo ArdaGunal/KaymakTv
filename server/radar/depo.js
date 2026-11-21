@@ -1,8 +1,15 @@
 const { getDb, transactionAsync } = require('../archive/db');
-const { gecikme, RadarHatasi, DENEME_TAVANI, YENI_IS_PARTISI, YENI_IS_ARALIGI, SAAT } = require('./ayar');
+const { gecikme, RadarHatasi, DENEME_TAVANI, YENI_IS_PARTISI, YENI_IS_ARALIGI, SAAT, GUN } = require('./ayar');
 
 const SEMA = require('./sema');
 const { gidenKutusuBuda, BUDAMA_SAYACI } = require('./gidenKutusu');
+
+const BOS_AKIS_ONEKI = 'akis_bos:';
+
+function bosAkisOku(durum, akis) {
+  const r = durum.get(BOS_AKIS_ONEKI + akis);
+  return r ? JSON.parse(r.deger) : { ardisikBos: 0, basAt: null };
+}
 
 function tablolarVar(db) {
   return !!db?.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='radar_takvim'").get();
@@ -19,7 +26,13 @@ function saglikOku(db, simdi = Date.now()) {
     sonTur: durum.get('sonTur')?.deger ?? null,
     sonHata: durum.get('sonHata')?.deger ?? null,
     imlecler: Object.fromEntries(db.prepare('SELECT akis, at, telafi_son_id FROM radar_imlec').all()
-      .map(({ akis, at, telafi_son_id }) => [akis, { at: new Date(at).toISOString(), telafi: telafi_son_id !== null, gecikti: simdi - at > 2 * SAAT }])),
+      .map(({ akis, at, telafi_son_id }) => {
+        const { ardisikBos, basAt } = bosAkisOku(durum, akis);
+        return [akis, {
+          at: new Date(at).toISOString(), telafi: telafi_son_id !== null, gecikti: simdi - at > 2 * SAAT,
+          ardisikBos, bosUyarisi: basAt !== null && at - basAt >= GUN,
+        }];
+      })),
     kuyruk: {
       tazeleme: say('SELECT count(*) n FROM radar_is WHERE terk=0'),
       ayna: say(`SELECT count(*) n FROM radar_takvim JOIN radar_takip USING(tur,trakt_id)
@@ -121,9 +134,16 @@ function depoKur(db, islem, yaz) {
       return sql(`SELECT trakt_id FROM radar_takip WHERE tur=? AND ${kolon} IN (SELECT value FROM json_each(?))`)
         .all(tur, JSON.stringify(kimlikler)).map((r) => r.trakt_id);
     },
-    akisiKaydet: (akis, at, eslesen, telafi) => islem(() => {
+    akisiKaydet: (akis, at, eslesen, telafi, hamSatir) => islem(() => {
       if (yaz) for (const id of eslesen) kuyrugaAl.run(akis.tur, id, 1, at);
       imlecYaz.run(akis.ad, at, telafi);
+      if (hamSatir === 0) {
+        const eski = bosAkisOku(sql('SELECT deger FROM radar_durum WHERE anahtar=?'), akis.ad);
+        const veri = JSON.stringify({ ardisikBos: eski.ardisikBos + 1, basAt: eski.basAt ?? at });
+        sql('INSERT OR REPLACE INTO radar_durum VALUES (?,?)').run(BOS_AKIS_ONEKI + akis.ad, veri);
+      } else if (hamSatir > 0) {
+        sql('DELETE FROM radar_durum WHERE anahtar=?').run(BOS_AKIS_ONEKI + akis.ad);
+      }
     }),
     telafi: (akis, simdi, limit) => {
       const onceki = imlec(akis.ad);

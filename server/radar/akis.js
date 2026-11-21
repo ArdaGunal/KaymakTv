@@ -37,7 +37,7 @@ function sayfayiAc(akis, yanit, sayfa, bas, turBasi) {
   const sayfaSayisi = tmdb ? yanit.data?.total_pages : Number(yanit.headers?.['x-pagination-page-count']);
   if (!Array.isArray(satirlar) || gelenSayfa !== sayfa || !Number.isSafeInteger(sayfaSayisi) ||
       sayfaSayisi < 0 || (sayfaSayisi === 0 && satirlar.length) ||
-      (!tmdb && sayfa > Math.max(sayfaSayisi, 1)) || (sayfa < sayfaSayisi && !satirlar.length)) {
+      (sayfa < sayfaSayisi && !satirlar.length)) {
     throw new RadarHatasi('akis_sayfalama');
   }
   const gecerliSatirlar = tmdb ? satirlar : satirlar.filter((s) => {
@@ -84,15 +84,12 @@ async function akisiTara({ akis, depo, cek, simdi, dur }) {
       }
       if (tmdb && acik.sayfaSayisi >= TMDB_SAYFA_TAVANI) telafi = 0;
       const sayi = tmdb ? Math.min(acik.sayfaSayisi, TMDB_SAYFA_TAVANI) : acik.sayfaSayisi;
-      if (toplam !== null && sayi < toplam) {
-        // TMDB canlı liste döndürüyor. Sıralı, doğrulanmış sayfaların
-        // ardından daralan yeni sonu kabul et; Trakt koruması sürer.
-        if (!tmdb) throw new RadarHatasi('akis_sayfa_azaldi');
-        sayfaDaraldi = true;
-      }
+      // Her iki sağlayıcının canlı listesi daralabilir. Sıralı ve
+      // doğrulanmış yanıtlar geldiyse yeni son sayfa yeterlidir.
+      sayfaDaraldi ||= toplam !== null && sayi < toplam;
       toplam = sayi;
+      hamSatir += acik.hamSatir;
       if (!tmdb) {
-        hamSatir += acik.hamSatir;
         pencereDisi += acik.hamSatir - acik.kimlikler.length;
         const limitMetni = yanit.headers?.['x-pagination-limit'];
         if (limitMetni !== undefined) {
@@ -115,11 +112,11 @@ async function akisiTara({ akis, depo, cek, simdi, dur }) {
   await pencereTara(Date.parse(gun(bas)), Date.parse(gun(simdi)));
 
   dur();
-  await depo.akisiKaydet(akis, simdi, eslesen, telafi);
+  await depo.akisiKaydet(akis, simdi, eslesen, telafi, hamSatir);
   return {
     eslesen: eslesen.size, sayfa: okunan, telafi: telafi !== null, sayfaDaraldi,
-    baslangic: iso(bas), bitis: iso(simdi),
-    ...(tmdb ? {} : { uygulananLimit, saglayiciBaslangici: iso(saglayiciBaslangici), hamSatir, pencereDisi }),
+    baslangic: iso(bas), bitis: iso(simdi), hamSatir,
+    ...(tmdb ? {} : { uygulananLimit, saglayiciBaslangici: iso(saglayiciBaslangici), pencereDisi }),
   };
 }
 

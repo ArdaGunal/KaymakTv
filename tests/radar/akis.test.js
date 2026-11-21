@@ -83,8 +83,8 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
     traktIstekleri.push({ url, ...params });
     const kayit = (id, at) => ({ [tur]: { ids: { trakt: id } }, updated_at: new Date(at).toISOString() });
     return {
-      data: show ? [kayit(10, simdi - GUN - 1)] : params.page === 1 ? [kayit(12, simdi - 1)] : [kayit(12, simdi + 1)],
-      headers: { 'x-pagination-page': String(params.page), 'x-pagination-page-count': show ? '1' : '2',
+      data: show ? [kayit(10, simdi - GUN - 1)] : params.page === 1 ? [kayit(12, simdi - 1)] : [],
+      headers: { 'x-pagination-page': String(params.page), 'x-pagination-page-count': show || params.page > 1 ? '1' : '159',
         'x-pagination-limit': show ? '100' : '10', 'x-start-date': '2026-11-20T00:00:00Z' },
     };
   };
@@ -113,6 +113,41 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
       s.includes('trakt_')).length === 2 &&
     akisLog.some((s) => s.includes('trakt_show kesisim=0') && s.includes('limit_uygulanan=100')) &&
     akisLog.some((s) => s.includes('trakt_movie kesisim=1') && s.includes('limit_uygulanan=10')));
+  T.ok('Trakt film akisi daralinca ilk turda 159 yerine iki dogrulanmis sayfayla imlec yazar',
+    ilkTur.imlec('trakt_movie')?.at === simdi &&
+    akisLog.some((s) => s.includes('trakt_movie kesisim=1') && s.includes('sayfa=2') && s.includes('sayfa_daraldi=1')));
+
+  const filmAkisi = AKISLAR.find((a) => a.ad === 'trakt_movie');
+  await assert.rejects(akisiTara({ akis: filmAkisi, depo: ilkTur, simdi: simdi + SAAT, dur, cek: async (_, { page }) => ({
+    data: page === 1 ? [{ movie: { ids: { trakt: 12 } } }] : [],
+    headers: { 'x-pagination-page': '1', 'x-pagination-page-count': page === 1 ? '4' : '1', 'x-start-date': '2026-11-21' },
+  }) }), (e) => e.kod === 'akis_sayfalama');
+  T.ok('Daralmada yanlis sayfa donerse Trakt imleci ilerlemez', ilkTur.imlec('trakt_movie').at === simdi);
+
+  const bosDepo = await depoAc({});
+  const bosTrakt = (at, baslik, data) => akisiTara({
+    akis: tAkis, depo: bosDepo, simdi: at, dur,
+    cek: async () => ({
+      data,
+      headers: { 'x-pagination-page': '1', 'x-pagination-page-count': baslik, 'x-start-date': '2026-11-20' },
+    }),
+  });
+  await bosTrakt(simdi, '0', []);
+  const ilkBos = saglikOku(bosDepo.db, simdi + GUN).imlecler.trakt_show;
+  await bosTrakt(simdi + GUN - SAAT, '1', []);
+  const yaklasti = saglikOku(bosDepo.db, simdi + GUN - SAAT).imlecler.trakt_show;
+  await bosTrakt(simdi + GUN, '0', []);
+  const uyari = saglikOku(bosDepo.db, simdi + GUN).imlecler.trakt_show;
+  T.ok('Bos Trakt dizi cevabi normal; 24 saatlik basarili bos gozlemlerden sonra uyari',
+    ilkBos.ardisikBos === 1 && !ilkBos.bosUyarisi && yaklasti.ardisikBos === 2 && !yaklasti.bosUyarisi &&
+    uyari.ardisikBos === 3 && uyari.bosUyarisi && Object.keys(bosDepo.saglik().hataSayilari).length === 0);
+  const disarida = await bosTrakt(simdi + GUN + SAAT, '1', [
+    { show: { ids: { trakt: 999 } }, updated_at: new Date(simdi).toISOString() },
+  ]);
+  const temiz = bosDepo.saglik().imlecler.trakt_show;
+  T.ok('Ham satir varsa kesisim sifir olsa bile bosluk sayaci ve uyarisi sifirlanir',
+    disarida.hamSatir === 1 && disarida.eslesen === 0 && temiz.ardisikBos === 0 && !temiz.bosUyarisi &&
+    ilkTur.saglik().imlecler.trakt_movie.ardisikBos === 0);
 
   const akisHatalari = [];
   await radarTuruKur({

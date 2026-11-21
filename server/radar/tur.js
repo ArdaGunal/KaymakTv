@@ -95,9 +95,9 @@ function radarTuruKur({
             const r = await akisiTara({ akis, depo, cek, simdi: t0, dur });
             sonrakiAkis.set(akis.ad, t0 + SAAT);
             const trakt = akis.saglayici === 'trakt'
-              ? ` limit_istenen=${akis.sayfa} limit_uygulanan=${r.uygulananLimit ?? '?'} x_start_date=${r.saglayiciBaslangici} ham_satir=${r.hamSatir} pencere_disi=${r.pencereDisi}` : '';
+              ? ` limit_istenen=${akis.sayfa} limit_uygulanan=${r.uygulananLimit ?? '?'} x_start_date=${r.saglayiciBaslangici} pencere_disi=${r.pencereDisi}` : '';
             gunluk.info(`[Radar] ${akis.ad} kesisim=${r.eslesen} tazelenecekler=${r.eslesen} sayfa=${r.sayfa} telafi=${r.telafi ? 1 : 0}` +
-              ` yol=${akis.yol} baslangic=${r.baslangic} bitis=${r.bitis} sayfa_daraldi=${r.sayfaDaraldi ? 1 : 0}${trakt}`);
+              ` yol=${akis.yol} baslangic=${r.baslangic} bitis=${r.bitis} sayfa_daraldi=${r.sayfaDaraldi ? 1 : 0} ham_satir=${r.hamSatir}${trakt}`);
           } catch (error) {
             hata(akis.ad, error, akis);
             sonrakiAkis.set(akis.ad, t0 + Math.max(DAKIKA, tekrarMs(error, t0)));
