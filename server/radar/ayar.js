@@ -13,6 +13,9 @@ const AKISLAR = [
   { ad: 'trakt_movie', saglayici: 'trakt', tur: 'movie', yol: '/movies/updates', sayfa: 100, pencere: 30 * GUN },
 ];
 const TAKIP_ARALIGI = 10 * DAKIKA;
+const ILK_AKIS_PENCERESI = GUN;
+const GIDEN_KUTUSU_TAVANI = 5000;
+const GIDEN_KUTUSU_OMRU = 7 * GUN;
 // Worker katalog yolu iki 25 sn deneme yapabilir. GNL'nin zaman
 // aşımından sonra 50 sn yürütme süresi + 25 sn pay bırak.
 const AYNA_BELIRSIZ_BEKLEME_MS = 75_000;
@@ -71,7 +74,7 @@ function gecikme(deneme) {
 
 module.exports = {
   AKISLAR, DAKIKA, SAAT, GUN, TAKIP_ARALIGI, OLAY_PARTISI, TELAFI_PARTISI, IS_PARTISI,
-  AYNA_BELIRSIZ_BEKLEME_MS,
+  AYNA_BELIRSIZ_BEKLEME_MS, ILK_AKIS_PENCERESI, GIDEN_KUTUSU_TAVANI, GIDEN_KUTUSU_OMRU,
   OLAY_GOVDE_TAVANI, DENEME_TAVANI, YENI_IS_PARTISI, YENI_IS_ARALIGI, TMDB_SAYFA_TAVANI,
   TRAKT_OZET, TRAKT_SEZON, TMDB_DIL, TAKIP_SAYFASI, KOVA_REZERVI, KOTA_YEREL_DENEME, KOTA_YEREL_BEKLEME, RADAR_DEVRE,
   gun, idMi, numaraMi, iso, radarKapilari, RadarHatasi, hataKodu, tekrarMs, gecikme,

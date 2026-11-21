@@ -72,6 +72,59 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
   T.ok('TMDB 500 sayfayi boler ve buyuyen alt pencereyi tamamlar', parca.sayfa === 7 &&
     araliklar[1].end_date === '2026-11-19' && araliklar[4].start_date === '2026-11-20');
 
+  const ilkTur = await depoAc({});
+  const akisLog = [];
+  const traktIstekleri = [];
+  const axios = require('axios');
+  const oncekiAxios = axios.get;
+  axios.get = async (url, { params }) => {
+    const show = url.includes('/shows/');
+    const tur = show ? 'show' : 'movie';
+    traktIstekleri.push({ url, ...params });
+    const kayit = (id, at) => ({ [tur]: { ids: { trakt: id } }, updated_at: new Date(at).toISOString() });
+    return {
+      data: show ? [kayit(10, simdi - GUN - 1)] : params.page === 1 ? [kayit(12, simdi - 1)] : [kayit(12, simdi + 1)],
+      headers: { 'x-pagination-page': String(params.page), 'x-pagination-page-count': show ? '1' : '2',
+        'x-pagination-limit': show ? '100' : '10', 'x-start-date': '2026-11-20T00:00:00Z' },
+    };
+  };
+  try {
+    const { createTraktCatalogFetcher } = require('../../server/lazyfetch/providers/trakt');
+    await radarTuruKur({
+      kapilar: { acik: true }, depo: ilkTur, saat: () => simdi,
+      gunluk: { info: (s) => akisLog.push(s), warn: (s) => akisLog.push(s) },
+      worker: { takip: async () => ({ satirlar: [satir(10, 51), satir(12, 53, 'movie')], sonraki: null }) },
+      saglayicilar: {
+        tmdb: async (yol, { page }) => ({
+          data: { page, total_pages: page === 1 ? 4 : yol === '/tv/changes' ? 1 : 2,
+            results: yol === '/tv/changes' && page > 1 ? [] : [{ id: yol === '/tv/changes' ? 51 : 53 }] },
+        }),
+        trakt: createTraktCatalogFetcher('sahte'),
+      },
+    })();
+  } finally { axios.get = oncekiAxios; }
+  T.ok('TMDB iki akista sayfa azalmasini tolere eder; ilk turda iki imlec de yazilir',
+    ilkTur.imlec('tmdb_show')?.at === simdi && ilkTur.imlec('tmdb_movie')?.at === simdi &&
+    akisLog.some((s) => s.includes('tmdb_show') && s.includes('yol=/tv/changes') && s.includes('sayfa_daraldi=1')) &&
+    akisLog.some((s) => s.includes('tmdb_movie') && s.includes('sayfa_daraldi=1')));
+  T.ok('Ilk Trakt penceresi ortak; adaptorde her HTTP sayfasina limit gider ve etkin limit loglanir',
+    traktIstekleri.length === 3 && traktIstekleri.every((r) => r.limit === 100 && r.url.endsWith('/2026-11-20')) &&
+    akisLog.filter((s) => s.includes('baslangic=2026-11-20T15:00:00.000Z bitis=2026-11-21T15:00:00.000Z') &&
+      s.includes('trakt_')).length === 2 &&
+    akisLog.some((s) => s.includes('trakt_show kesisim=0') && s.includes('limit_uygulanan=100')) &&
+    akisLog.some((s) => s.includes('trakt_movie kesisim=1') && s.includes('limit_uygulanan=10')));
+
+  const akisHatalari = [];
+  await radarTuruKur({
+    kapilar: { acik: true }, depo: await depoAc({}), saat: () => simdi,
+    gunluk: { info: () => {}, warn: (s) => akisHatalari.push(s) },
+    worker: { takip: async () => ({ satirlar: [], sonraki: null }) },
+    saglayicilar: { tmdb: async () => ({ data: null }) },
+  })();
+  T.ok('Son tur hatasi baska akisi gizlemez; iki TMDB yolu ayri loglanir',
+    akisHatalari.some((s) => s.includes('tmdb_show:akis_sayfalama yol=/tv/changes')) &&
+    akisHatalari.some((s) => s.includes('tmdb_movie:akis_sayfalama yol=/movie/changes')));
+
   let sayfaNo = 0;
   await assert.rejects(async () => depo.takipDegistir(await takipGoruntusu({ takip: async () => {
     if (sayfaNo++) throw sinir;
@@ -134,7 +187,6 @@ const sayfa = (page, ...idler) => ({ data: { page, total_pages: 2, results: idle
     Date.now = gercekSaat;
   }
 
-  const axios = require('axios');
   const eskiGet = axios.get;
   const { createTraktCatalogFetcher } = require('../../server/lazyfetch/providers/trakt');
   axios.get = async () => { throw sinir; };

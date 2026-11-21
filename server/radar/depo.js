@@ -2,13 +2,14 @@ const { getDb, transactionAsync } = require('../archive/db');
 const { gecikme, RadarHatasi, DENEME_TAVANI, YENI_IS_PARTISI, YENI_IS_ARALIGI, SAAT } = require('./ayar');
 
 const SEMA = require('./sema');
+const { gidenKutusuBuda, BUDAMA_SAYACI } = require('./gidenKutusu');
 
 function tablolarVar(db) {
   return !!db?.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='radar_takvim'").get();
 }
 
 function saglikOku(db, simdi = Date.now()) {
-  const bos = { sonTur: null, imlecler: {}, kuyruk: { tazeleme: 0, ayna: 0, olay: 0, terkIs: 0, terkOlay: 0 }, hataSayilari: {}, sonHata: null };
+  const bos = { sonTur: null, imlecler: {}, kuyruk: { tazeleme: 0, ayna: 0, olay: 0, terkIs: 0, terkOlay: 0, olayBudanan: 0 }, hataSayilari: {}, sonHata: null };
   if (!tablolarVar(db)) return bos;
   const durum = db.prepare('SELECT deger FROM radar_durum WHERE anahtar = ?');
   const say = (sql) => db.prepare(sql).get().n;
@@ -26,6 +27,7 @@ function saglikOku(db, simdi = Date.now()) {
       olay: say('SELECT count(*) n FROM radar_giden WHERE terk=0'),
       terkIs: say('SELECT count(*) n FROM radar_is WHERE terk=1'),
       terkOlay: say('SELECT count(*) n FROM radar_giden WHERE terk=1'),
+      olayBudanan: Number(durum.get(BUDAMA_SAYACI)?.deger ?? 0),
     },
   };
 }
@@ -149,6 +151,7 @@ function depoKur(db, islem, yaz) {
       WHERE kaymak_id=? AND takvim_rev>=?`).run(r.takvim_rev, r.takvim_rev, r.kaymak_id, r.takvim_rev)),
     aynaErtele: (r, at, yenidenAt = 0) => islem(() => sql(`UPDATE radar_takvim SET ayna_deneme=ayna_deneme+1,ayna_hazir_at=?
       WHERE kaymak_id=? AND takvim_rev=?`).run(Math.max(at + gecikme(r.ayna_deneme), yenidenAt), r.kaymak_id, r.takvim_rev)),
+    gidenKutusuBuda: (simdi) => islem(() => gidenKutusuBuda(db, simdi)),
     bekleyenOlaylar: (limit) => sql(`SELECT g.id,g.olay FROM radar_giden g
       JOIN radar_takvim t ON t.tur=g.icerik_tur AND t.trakt_id=g.trakt_id
       WHERE g.terk=0 AND t.aynalanan_rev>=g.takvim_rev ORDER BY g.id LIMIT ?`).all(limit),

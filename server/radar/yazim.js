@@ -5,7 +5,8 @@ const { payloadHazirla, hazirPayloadYaz } = require('../archive/store');
 const { sezonAgaciniYaz } = require('../archive/sezonAgaci');
 const { aynaSirala } = require('../archive/aynaKilidi');
 const { takvimCikar, olaylariCikar } = require('./takvim');
-const { idMi, numaraMi } = require('./ayar');
+const { gidenKutusuBuda } = require('./gidenKutusu');
+const { idMi, numaraMi, radarKapilari } = require('./ayar');
 
 function tmdbAgaciniTamamla(db, kok, veri) {
   const bul = db.prepare(`SELECT kaymak_id FROM entities
@@ -67,7 +68,7 @@ function arsivYaz(db, veri, mevcutKok, girdiler) {
   return { ok: true, kaymakId: kok.kaymak_id };
 }
 
-function takvimIslemi(db, veri, beklenenRev, simdi, hamGirdiler, onceki, yeni) {
+function takvimIslemi(db, veri, beklenenRev, simdi, hamGirdiler, onceki, yeni, olayAcik) {
   const { tur, trakt_id } = veri;
   const durum = db.prepare('SELECT * FROM radar_takvim WHERE tur=? AND trakt_id=?').get(tur, trakt_id);
   if ((durum?.takvim_rev ?? 0) !== beklenenRev) return ret('eski_revizyon');
@@ -95,9 +96,11 @@ function takvimIslemi(db, veri, beklenenRev, simdi, hamGirdiler, onceki, yeni) {
   if (durum && degisti) {
     const ekle = db.prepare(`INSERT INTO radar_giden (olay_anahtari,icerik_tur,trakt_id,takvim_rev,olay)
       VALUES (?,?,?,?,?) ON CONFLICT(olay_anahtari) DO NOTHING`);
-    for (const olay of olaylariCikar(veri, onceki, yeni, rev, simdi)) {
+    const olaylar = olaylariCikar(veri, onceki, yeni, rev, simdi);
+    for (const olay of olaylar) {
       ekle.run(olay.olay_anahtari, olay.icerik_tur, olay.trakt_id, rev, JSON.stringify(olay));
     }
+    if (olaylar.length && !olayAcik) gidenKutusuBuda(db, simdi);
   }
   if (!durum || JSON.stringify(onceki) !== JSON.stringify(yeni.satirlar)) {
     db.prepare(`UPDATE entities SET updated_at=max(updated_at,?) WHERE kaymak_id=? OR parent_id=?
@@ -107,7 +110,7 @@ function takvimIslemi(db, veri, beklenenRev, simdi, hamGirdiler, onceki, yeni) {
   return { ok: true, rev, tam: yeni.tam, girdiler };
 }
 
-async function takvimiYaz({ veri, beklenenRev, simdi }) {
+async function takvimiYaz({ veri, beklenenRev, simdi, olayAcik = radarKapilari(process.env).olay }) {
   const hazir = await Promise.all(veri.hazir.map(async (g) => ({
     ...g,
     sikisik: g.is.family === 'show_seasons' && !g.is.data?.length ? null : await payloadHazirla(g.is.data),
@@ -121,7 +124,7 @@ async function takvimiYaz({ veri, beklenenRev, simdi }) {
     return transactionAsync((h) => {
       // Beklenen ret yanıtı bile kimlik ve yük değişikliklerini geri alır.
       h.exec('SAVEPOINT radar_yazim');
-      const sonuc = takvimIslemi(h, veri, beklenenRev, simdi, hazir, onceki, yeni);
+      const sonuc = takvimIslemi(h, veri, beklenenRev, simdi, hazir, onceki, yeni, olayAcik);
       if (!sonuc.ok) h.exec('ROLLBACK TO radar_yazim');
       h.exec('RELEASE radar_yazim');
       return sonuc;

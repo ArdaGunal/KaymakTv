@@ -92,10 +92,17 @@ function imlecYaz(db, deger) {
  * ⚠️ FK hatası (`23503`) burada görünür ve turu DURDURUR: sıra bozulmuşsa
  * devam etmek yalnızca daha çok hata üretirdi.
  */
-function zamanAsimiMi(error, signal) {
-  return signal.aborted || ['TimeoutError', 'AbortError'].includes(error?.name) ||
-    ['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT']
-      .includes(error?.cause?.code ?? error?.code);
+// fetch soketin ne zaman koptuğunu her hata için bildirmez. DNS veya
+// bağlantı aşaması kesinleşmedikçe POST'un Worker'a ulaştığını varsay.
+const BAGLANTI_ONCESI_HATALAR = new Set([
+  'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EAI_FAIL', 'ENODATA', 'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+function baglantiKurulamadi(error) {
+  if (!error) return false;
+  if (Array.isArray(error.errors) && error.errors.length) return error.errors.every(baglantiKurulamadi);
+  if (error.cause) return baglantiKurulamadi(error.cause);
+  return BAGLANTI_ONCESI_HATALAR.has(error.code);
 }
 
 async function partiGonder(cfg, faz, satirlar) {
@@ -114,7 +121,14 @@ async function partiGonder(cfg, faz, satirlar) {
     return { ok: false, reason: 'ayna_kilit_okunamadi' };
   }
 
+  let body;
+  try {
+    body = JSON.stringify({ faz, satirlar });
+  } catch (_) {
+    return { ok: false, reason: 'ayna_govde' };
+  }
   const signal = AbortSignal.timeout(60_000);
+  let yanitGeldi = false;
   try {
     const res = await (cfg.fetch || fetch)(`${cfg.workerUrl}/catalog/sync`, {
       method: 'POST',
@@ -122,15 +136,13 @@ async function partiGonder(cfg, faz, satirlar) {
         'Content-Type': 'application/json',
         'x-kaymak-sync-secret': cfg.secret,
       },
-      body: JSON.stringify({ faz, satirlar }),
+      body,
       // GNL zaman aşımına uğrarsa Worker'ın yazımı arka planda sürebilir.
       signal,
     });
+    yanitGeldi = true;
     if (!res.ok) {
-      const govde = await res.text().catch((error) => {
-        if (zamanAsimiMi(error, signal)) throw error;
-        return '';
-      });
+      const govde = await res.text();
       signal.throwIfAborted();
       if (kokler.length && ([408, 504, 524].includes(res.status) || (res.status === 502 && (govde.includes('supabase_zaman_asimi') || govde.includes('Ayna yazımı başarısız.'))))) {
         return await belirsizUcusYaz(kokler, saat());
@@ -138,13 +150,13 @@ async function partiGonder(cfg, faz, satirlar) {
       return { ok: false, reason: `http_${res.status}`, detay: govde.slice(0, 300) };
     }
     const j = await res.json().catch((error) => {
-      if (zamanAsimiMi(error, signal)) throw error;
+      if (!(error instanceof SyntaxError) || signal.aborted) throw error;
       return {};
     });
     signal.throwIfAborted();
     return { ok: true, yazilan: j.yazilan || 0, atlanan: j.atlanan || 0 };
   } catch (error) {
-    if (kokler.length && zamanAsimiMi(error, signal)) {
+    if (kokler.length && (yanitGeldi || signal.aborted || !baglantiKurulamadi(error))) {
       return belirsizUcusYaz(kokler, saat());
     }
     return { ok: false, reason: 'network', detay: String(error?.message || error).slice(0, 200) };

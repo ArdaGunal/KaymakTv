@@ -6,7 +6,7 @@ const { baslat } = require('../yardimci');
 const { depoAc, SEMA } = require('../../server/radar/depo');
 const { kataloguCek } = require('../../server/radar/tazele');
 const { takvimCikar, zamaniSinifla, olaylariCikar } = require('../../server/radar/takvim');
-const { AYNA_BELIRSIZ_BEKLEME_MS } = require('../../server/radar/ayar');
+const { AYNA_BELIRSIZ_BEKLEME_MS, GIDEN_KUTUSU_TAVANI, GIDEN_KUTUSU_OMRU } = require('../../server/radar/ayar');
 const { akisiGonder, partiGonder } = require('../../server/archive/mirror');
 const { aynalariGonder } = require('../../server/radar/ayna');
 const { olayGonder } = require('../../server/radar/worker');
@@ -70,7 +70,7 @@ const sezon = (tarih, bolumler = [{ number: 1, ids: { trakt: 501 }, first_aired:
     trakt: async () => ({ data: { ids: { trakt: 7 }, released: tarih, title: 'Film' } }),
     tmdb: async () => ({ data: { id: 70, release_date: tarih, title: 'Film' } }),
   }, dur, saat);
-  const yazFilm = async (tarih, beklenenRev, at = simdi) => radarYaz({ veri: await filmCek(tarih), beklenenRev, simdi: at });
+  const yazFilm = async (tarih, beklenenRev, at = simdi, olayAcik) => radarYaz({ veri: await filmCek(tarih), beklenenRev, simdi: at, olayAcik });
   const ilkYaz = await yazFilm('2026-12-04', 0);
   assert.equal(ilkYaz.ok, true, JSON.stringify(ilkYaz));
   T.ok('Ilk acilista yalniz temel cizgi yazilir', depo.saglik().kuyruk.olay === 0);
@@ -269,6 +269,56 @@ const sezon = (tarih, bolumler = [{ number: 1, ids: { trakt: 501 }, first_aired:
     delete process.env.RADAR_ACIK;
     delete process.env.RADAR_YAZ;
   }
+
+  let ortamSaati = simdi + 2 * AYNA_BELIRSIZ_BEKLEME_MS;
+  const filmKok = depo.takvim(film).kaymak_id;
+  const hataGonder = (fetch) => partiGonder({ db: depo.db, workerUrl: 'https://worker.invalid', saat: () => ortamSaati, fetch },
+    'entities', [{ kaymak_id: filmKok }]);
+  const hataYukselten = (hata) => async () => { throw hata; };
+  for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN']) {
+    const r = await hataGonder(hataYukselten(new TypeError('fetch failed', { cause: { code } })));
+    assert.equal(r.reason, 'network', code);
+  }
+  let hemenGitti = false;
+  await hataGonder(async () => { hemenGitti = true; return { ok: true, json: async () => ({ yazilan: 1 }) }; });
+  T.ok('DNS ve ECONNREFUSED hemen guvenli tekrar verir', hemenGitti);
+  for (const hata of [
+    new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } }),
+    new Error('socket hang up'),
+    new TypeError('fetch failed', { cause: new AggregateError([{ code: 'ECONNREFUSED' }, { code: 'UND_ERR_SOCKET' }]) }),
+  ]) {
+    const r = await hataGonder(hataYukselten(hata));
+    assert.equal(r.reason, 'ayna_belirsiz');
+    assert.equal(r.yenidenAt, ortamSaati + AYNA_BELIRSIZ_BEKLEME_MS);
+    const bekliyor = await hataGonder(async () => assert.fail('Belirsiz ucus tekrar gonderildi'));
+    assert.equal(bekliyor.reason, 'ayna_belirsiz');
+    ortamSaati += AYNA_BELIRSIZ_BEKLEME_MS;
+  }
+  const govde = await hataGonder(async () => ({
+    ok: true, json: hataYukselten(new TypeError('terminated', { cause: { code: 'UND_ERR_SOCKET' } })),
+  }));
+  T.ok('Reset, socket hang up ve yanit govdesindeki kopma 75 saniye belirsiz ucusta kalir',
+    govde.reason === 'ayna_belirsiz' && govde.yenidenAt === ortamSaati + AYNA_BELIRSIZ_BEKLEME_MS);
+
+  const olayEkle = depo.db.prepare("INSERT INTO radar_giden (olay_anahtari,icerik_tur,trakt_id,takvim_rev,olay) VALUES (?,'movie',7,7,?)");
+  await depo.islem(() => {
+    depo.db.exec('DELETE FROM radar_giden');
+    const eskiAt = new Date(simdi - GIDEN_KUTUSU_OMRU - 1000).toISOString();
+    const tazeAt = new Date(simdi - 1000).toISOString();
+    for (let i = 0; i < 2; i++) olayEkle.run('eski-' + i, JSON.stringify({ tespit_at: eskiAt }));
+    for (let i = 0; i < GIDEN_KUTUSU_TAVANI + 1; i++) olayEkle.run('taze-' + i, JSON.stringify({ tespit_at: tazeAt }));
+  });
+  assert.equal((await yazFilm('2026-12-15', 7, simdi, true)).rev, 8);
+  const acikKuyruk = depo.saglik().kuyruk;
+  assert.equal((await yazFilm('2026-12-16', 8, simdi, false)).rev, 9);
+  const kapaliKuyruk = depo.saglik().kuyruk;
+  T.ok('Olay kapisi acikken budama yok; kapaliyken 7 gun ve 5000 satir tavani atomik uygulanir',
+    acikKuyruk.olay === GIDEN_KUTUSU_TAVANI + 4 && acikKuyruk.olayBudanan === 0 &&
+    kapaliKuyruk.olay === GIDEN_KUTUSU_TAVANI && kapaliKuyruk.olayBudanan === 5 &&
+    !depo.db.prepare("SELECT 1 FROM radar_giden WHERE olay_anahtari LIKE 'eski-%' OR olay_anahtari='taze-0'").get());
+  await depo.gidenKutusuBuda(simdi + GIDEN_KUTUSU_OMRU + 1000);
+  T.ok('Periyodik budama yeni olay yokken de calisir ve toplam budama sayaci kalir',
+    depo.saglik().kuyruk.olay === 0 && depo.saglik().kuyruk.olayBudanan === GIDEN_KUTUSU_TAVANI + 5);
 
   const karsilastir = (ozet) => celiskiVarMi({
     takvimBakimi: true,
