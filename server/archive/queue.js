@@ -101,9 +101,10 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
 
         try {
           const sonuc = await worker(is);
+          is.tamamla?.(sonuc);
           if (sonuc && sonuc.ok) {
             istatistik.yazilan += 1;
-            if (sonrasi) {
+            if (sonrasi && is.provider !== 'radar') {
               try { sonrasi(is, sonuc); } catch (_) { /* aktarım yazımı bozamaz */ }
             }
           } else {
@@ -112,15 +113,16 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
             // Gerçek bir başarısızlık (bozuk veri, disk) ise iz bırakır.
             if (sonuc && sonuc.reason && !['kapsam_disi_aile', 'desteklenmeyen_saglayici', 'bos_yanit', 'trakt_kimligi_yok', 'tur_uyusmuyor',
               // M549/M550: beklenen sonuçlar — ayrıntı (varsa) `resolveOrCreate`'in kendi `conflict` satırında.
-              'kanonik_degil', 'slug_kok_bilinmiyor', 'kimlik_cakismasi', 'daha_yeni_var'].includes(sonuc.reason)) {
+              'eski_revizyon', 'kanonik_degil', 'slug_kok_bilinmiyor', 'kimlik_cakismasi', 'daha_yeni_var'].includes(sonuc.reason)) {
               logSync({ event: 'error', provider: is.provider, endpoint: is.family, detail: `kuyruk: ${sonuc.reason}` });
             }
           }
         } catch (error) {
           // 🔴 Buraya düşmek bir HATA DEĞİL, bir GÜVENCE: kuyruk hiçbir
           // koşulda çökmemeli, yoksa sonraki tüm arşiv yazımları ölür.
+          is.tamamla?.({ ok: false, reason: 'arsiv_yazim_hatasi' });
           istatistik.hata += 1;
-          logSync({ event: 'error', provider: is.provider, endpoint: is.family, detail: `kuyruk cokmesi: ${error.message}` });
+          logSync({ event: 'error', provider: is.provider, endpoint: is.family, detail: is.provider === 'radar' ? 'radar_yazim_hatasi' : `kuyruk cokmesi: ${error.message}` });
         } finally {
           calisanAnahtar = null;
           // Aynı anahtar bu arada YENİDEN kuyruğa girdiyse bekleyen, o yeni
@@ -149,11 +151,13 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
 
         if (bekleyenler.has(anahtar)) {
           // Sıradaki yerini KORU, yalnızca veriyi tazele.
+          bekleyenler.get(anahtar)?.tamamla?.({ ok: false, reason: 'kuyrukta_degisti' });
           bekleyenler.set(anahtar, is);
           istatistik.tekillesen += 1;
         } else {
           if (sira.length >= maxQueue) {
             const dusen = sira.shift();
+            bekleyenler.get(dusen)?.tamamla?.({ ok: false, reason: 'kuyruk_tasti' });
             bekleyenler.delete(dusen);
             bekleyicileriCoz(dusen);
             istatistik.dusurulen += 1;
@@ -222,6 +226,16 @@ function createArchiveQueue({ maxQueue = MAX_KUYRUK, worker = archiveCatalogResp
 // eşzamanlılık-1 garantisi anlamsız kalırdı.
 // 🆕 §C30 — her başarılı yazım anlık aktarımı tetikler. `require` GEÇ:
 // `anlikAktarim` → `mirror` → ... zinciri kuyruğun yüklenmesini beklemesin.
+function radarYaz(is) {
+  return new Promise((tamamla) => {
+    const alindi = archiveQueue.enqueue({
+      provider: 'radar', family: 'takvim', path: `/${is.veri.tur}/${is.veri.trakt_id}`,
+      radar: is, tamamla,
+    });
+    if (!alindi) tamamla({ ok: false, reason: 'arsiv_kuyruk_kapali' });
+  });
+}
+
 const archiveQueue = createArchiveQueue({
   // İki bağımsız kanca: biri düşerse öteki yine çalışır.
   sonrasi: (is, sonuc) => {
@@ -234,5 +248,6 @@ const archiveQueue = createArchiveQueue({
 module.exports = {
   archiveQueue,
   createArchiveQueue,
+  radarYaz,
   MAX_KUYRUK,
 };

@@ -30,6 +30,7 @@ const zlib = require('zlib');
 const { getDb } = require('./db');
 const { logSync } = require('./store');
 const { hedefleriUret } = require('./backfillSource');
+const { zamaniSinifla } = require('../radar/takvim');
 
 const BEKLEME_MS = 6 * 60 * 60 * 1000;
 const SEZON_SORGUSU = { extended: 'full,episodes' };
@@ -58,17 +59,73 @@ function yayinlanmisBolumSayisi(sezonlar, simdi = Date.now()) {
 }
 
 /** SAF — üç korumalı karar. */
-function celiskiVarMi({ ozet, ozetAt, sezonlar, sezonlarAt, simdi = Date.now() }) {
-  if (!ozet || typeof ozet.aired_episodes !== 'number' || !Array.isArray(sezonlar)) {
+function celiskiVarMi({ ozet, ozetAt, sezonlar, sezonlarAt, simdi = Date.now(), takvimBakimi = false, yayinDilimi = null }) {
+  if (!ozet || !Array.isArray(sezonlar) || (!takvimBakimi && typeof ozet.aired_episodes !== 'number')) {
     return { celiski: false, neden: 'veri_yok' };
   }
   const ozetSayi = ozet.aired_episodes;
   const sezonSayi = yayinlanmisBolumSayisi(sezonlar, simdi);
   const sonuc = (celiski, neden) => ({ celiski, neden, ozetSayi, sezonSayi });
-  if (ozetSayi <= sezonSayi) return sonuc(false, 'tutarli');
+  const takvimNedeni = takvimBakimi ? takvimCeliskisi(ozet, sezonlar, simdi, yayinDilimi) : null;
+  if (!(ozetSayi > sezonSayi) && !takvimNedeni) return sonuc(false, 'tutarli');
   if (!(Number(ozetAt) > Number(sezonlarAt))) return sonuc(false, 'ozet_daha_eski');
   if (simdi - Number(sezonlarAt) < BEKLEME_MS) return sonuc(false, 'liste_cok_yeni');
-  return sonuc(true, 'ozet_buyuk');
+  return sonuc(true, takvimNedeni || 'ozet_buyuk');
+}
+
+function takvimCeliskisi(ozet, sezonlar, simdi, yayinDilimi) {
+  const dilim = ozet.airs?.timezone ?? yayinDilimi;
+  const liste = new Map(sezonlar.filter((s) => s?.number > 0).map((s) => [s.number, s]));
+  const enYeni = Math.max(0, ...liste.keys());
+  if (Number.isSafeInteger(ozet.number_of_seasons) && ozet.number_of_seasons > enYeni) return 'yeni_sezon';
+
+  const sonraki = ozet.next_episode_to_air || ozet.next_episode;
+  const sezon = sonraki?.season_number ?? sonraki?.season;
+  const no = sonraki?.episode_number ?? sonraki?.number;
+  if (sezon > 0 && !liste.has(sezon)) return 'yeni_sezon';
+  if (sezon > 0 && no > 0) {
+    const tarih = sonraki.air_date ?? sonraki.first_aired;
+    const kayit = liste.get(sezon)?.episodes?.find((b) => b?.number === no);
+    if (gelecekTarihFarki(tarih, kayit?.first_aired, simdi, dilim)) {
+      return 'gelecek_tarih';
+    }
+  }
+
+  for (const s of Array.isArray(ozet.seasons) ? ozet.seasons : []) {
+    if (!(s?.season_number > 0)) continue;
+    const kayit = liste.get(s.season_number);
+    if (!kayit) return 'yeni_sezon';
+    if (gelecekTarihFarki(s.air_date, null, simdi) &&
+        ![kayit.first_aired, ...(kayit.episodes || []).map((b) => b?.first_aired)]
+          .some((t) => !gelecekTarihFarki(s.air_date, t, simdi, dilim))) return 'gelecek_tarih';
+  }
+  return null;
+}
+
+function gelecekTarihFarki(tarih, onceki, simdi, yayinDilimi) {
+  const yeni = zamaniSinifla(tarih, 'trakt');
+  if (!yeni.tarih) return false;
+  const eski = zamaniSinifla(onceki, 'trakt');
+  if (yeni.an_turu === 'kesin') return Date.parse(yeni.tarih) >= simdi && yeni.tarih !== eski.tarih;
+  const gun = (an) => {
+    if (!yayinDilimi) return null;
+    try {
+      const parcalar = new Intl.DateTimeFormat('en', { timeZone: yayinDilimi, year: 'numeric',
+        month: '2-digit', day: '2-digit' }).formatToParts(new Date(an));
+      const p = Object.fromEntries(parcalar.map(({ type, value }) => [type, value]));
+      return `${p.year}-${p.month}-${p.day}`;
+    } catch (_) { return null; }
+  };
+  if (yeni.tarih < (gun(simdi) ?? new Date(simdi).toISOString().slice(0, 10))) return false;
+  if (eski.an_turu !== 'kesin') return yeni.tarih !== eski.tarih;
+  const yerel = gun(eski.tarih);
+  if (yerel) return yeni.tarih !== yerel;
+  // Saat dilimi bilinmiyorsa UTC gün sınırındaki bir günlük fark tek başına tetik değildir.
+  return Math.abs(Date.parse(yeni.tarih) - Date.parse(eski.tarih.slice(0, 10))) > 86_400_000;
+}
+
+function takvimBakimiAcik() {
+  return require('../radar/ayar').radarKapilari(process.env).yaz;
 }
 
 function traktKimligi(db, kaymakId) {
@@ -80,17 +137,30 @@ function traktKimligi(db, kaymakId) {
 
 /** Tek dizinin arşivdeki iki yükünü karşılaştırır. Özet dilden bağımsız → en yenisi. */
 function diziDurumu(db, kaymakId, simdi = Date.now()) {
-  const ozet = db.prepare(
-    "SELECT body, fetched_at FROM payloads WHERE kaymak_id = ? AND provider = 'trakt' AND endpoint = 'show_detail' ORDER BY fetched_at DESC LIMIT 1"
-  ).get(kaymakId);
+  const takvimBakimi = takvimBakimiAcik();
+  const ozetler = db.prepare(
+    "SELECT body, fetched_at, provider FROM payloads WHERE kaymak_id = ? AND ((provider = 'trakt' AND endpoint = 'show_detail') OR (? = 1 AND provider = 'tmdb' AND endpoint = 'tv_detail')) ORDER BY fetched_at DESC"
+  ).all(kaymakId, Number(takvimBakimi));
   const sezon = db.prepare(
     "SELECT body, fetched_at FROM payloads WHERE kaymak_id = ? AND provider = 'trakt' AND endpoint = 'show_seasons' AND lang = '-'"
   ).get(kaymakId);
-  if (!ozet || !sezon) return { celiski: false, neden: 'yuk_yok' };
-  let ozetJ;
-  let sezonJ;
-  try { ozetJ = yukuCoz(ozet.body); sezonJ = yukuCoz(sezon.body); } catch (_) { return { celiski: false, neden: 'cozulemedi' }; }
-  return celiskiVarMi({ ozet: ozetJ, ozetAt: ozet.fetched_at, sezonlar: sezonJ, sezonlarAt: sezon.fetched_at, simdi });
+  if (!ozetler.length || !sezon) return { celiski: false, neden: 'yuk_yok' };
+
+  try {
+    const sezonlar = yukuCoz(sezon.body);
+    const trakt = takvimBakimi ? ozetler.find((r) => r.provider === 'trakt') : null;
+    const yayinDilimi = trakt ? yukuCoz(trakt.body)?.airs?.timezone : null;
+    const gorulen = new Set();
+    let sonuc;
+    for (const ozet of ozetler) {
+      if (gorulen.has(ozet.provider)) continue;
+      gorulen.add(ozet.provider);
+      const r = celiskiVarMi({ ozet: yukuCoz(ozet.body), ozetAt: ozet.fetched_at, sezonlar, sezonlarAt: sezon.fetched_at, simdi, takvimBakimi, yayinDilimi });
+      if (r.celiski) return r;
+      sonuc ??= r;
+    }
+    return sonuc;
+  } catch (_) { return { celiski: false, neden: 'cozulemedi' }; }
 }
 
 /** Arşivin tamamı — gece turunun BİRİNCİ önceliği (Parça E). */
@@ -135,10 +205,13 @@ function celiskiHedefleri(dil, { simdi = Date.now() } = {}) {
  */
 function yazimSonrasiKontrol(is, sonuc, { resolve = null, fetcher = null, simdi = Date.now() } = {}) {
   try {
-    if (!is || is.provider !== 'trakt' || is.family !== 'show_detail' || !sonuc || !sonuc.kaymakId) return null;
+    if (!is || !sonuc) return null;
+    const trakt = is.provider === 'trakt' && is.family === 'show_detail';
+    const tmdb = takvimBakimiAcik() && is.provider === 'tmdb' && is.family === 'tv_detail';
+    const kaymakId = trakt ? sonuc.kaymakId : tmdb ? sonuc.arsivId : null;
+    if (!kaymakId) return null;
     const db = getDb();
     if (!db) return null;
-    const kaymakId = sonuc.kaymakId;
     const onceki = sonTetik.get(kaymakId);
     if (onceki && simdi - onceki < BEKLEME_MS) return null;
     const d = diziDurumu(db, kaymakId, simdi);
@@ -151,7 +224,9 @@ function yazimSonrasiKontrol(is, sonuc, { resolve = null, fetcher = null, simdi 
     sonTetik.set(kaymakId, simdi);
     logSync({
       event: 'tutarlilik', provider: 'trakt', endpoint: 'show_seasons', kaymakId,
-      detail: `ozet ${d.ozetSayi} > sezon listesi ${d.sezonSayi} (trakt ${traktId}) — sezon listesi tazeleniyor`,
+      detail: d.neden === 'ozet_buyuk'
+        ? `ozet ${d.ozetSayi} > sezon listesi ${d.sezonSayi} (trakt ${traktId}) — sezon listesi tazeleniyor`
+        : `${d.neden} (trakt ${traktId}) — sezon listesi tazeleniyor`,
     });
 
     const cagir = resolve || require('../lazyfetch/orchestrator').resolveRequest;

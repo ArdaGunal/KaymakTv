@@ -30,6 +30,8 @@ const { spawnSync } = require('child_process');
 // (01_MIMARI.md "cache ≠ arşiv"). Testlerin de aynı sınırı göstermesi,
 // birinin kuralının diğerine sızmasını zorlaştırır.
 const TAKIMLAR = [
+  { ad: 'radar-akis', grup: 'radar', dosya: 'radar/akis.test.js', aciklama: 'Sayfalama, imlec, kesisim, telafi ve kapilar' },
+  { ad: 'radar-takvim', grup: 'radar', dosya: 'radar/takvim.test.js', aciklama: 'Kaynak birlesimi, revizyon, ayna ve giden kutusu' },
   { ad: 'cekirdek', grup: 'lazyfetch', dosya: 'lazyfetch/cekirdek.test.js', aciklama: 'L1-L5: disk, tek-ucus, disiplin, SWR' },
   { ad: 'kopru', grup: 'lazyfetch', dosya: 'lazyfetch/trakt-koprusu.test.js', aciklama: 'M414: trakt-proxy beyaz listesi (arama acik, kapsam dar)' },
   { ad: 'supurucu', grup: 'lazyfetch', dosya: 'lazyfetch/supurucu.test.js', aciklama: 'L6: yalnizca cache/ silinir' },

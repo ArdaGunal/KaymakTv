@@ -33,6 +33,7 @@
 
 const { isArchiveEnabled, getDb, islemDisiYaz } = require('./db');
 const { logSync } = require('./store');
+const { partiKokleri, belirsizKokler, belirsizUcusYaz } = require('./aynaBelirsiz');
 const {
   AYNALANAN_KAYNAKLAR, TIP_SIRASI, haritalariKurAsync, varlikSatiri, disKimlikSatiri,
 } = require('./aynaSatirlari');
@@ -91,26 +92,61 @@ function imlecYaz(db, deger) {
  * ⚠️ FK hatası (`23503`) burada görünür ve turu DURDURUR: sıra bozulmuşsa
  * devam etmek yalnızca daha çok hata üretirdi.
  */
+function zamanAsimiMi(error, signal) {
+  return signal.aborted || ['TimeoutError', 'AbortError'].includes(error?.name) ||
+    ['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT']
+      .includes(error?.cause?.code ?? error?.code);
+}
+
 async function partiGonder(cfg, faz, satirlar) {
+  const saat = cfg.saat || Date.now;
+  let kokler;
   try {
-    const res = await fetch(`${cfg.workerUrl}/catalog/sync`, {
+    kokler = cfg.db ? partiKokleri(cfg.db, satirlar) : [];
+    if (kokler.length) {
+      const bekleyen = belirsizKokler(cfg.db, kokler, saat());
+      if (bekleyen.length) return {
+        ok: false, reason: 'ayna_belirsiz', yenidenAt: Math.max(...bekleyen.map((r) => r.at)),
+        belirsizKokler: bekleyen.map((r) => r.kok),
+      };
+    }
+  } catch (_) {
+    return { ok: false, reason: 'ayna_kilit_okunamadi' };
+  }
+
+  const signal = AbortSignal.timeout(60_000);
+  try {
+    const res = await (cfg.fetch || fetch)(`${cfg.workerUrl}/catalog/sync`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-kaymak-sync-secret': cfg.secret,
       },
       body: JSON.stringify({ faz, satirlar }),
-      // Paket B (M548): Worker kendi içinde Supabase'i en fazla 2 × 6 sn bekliyor (M542); 60 sn ölü
-      // bağlantı için. Zaman aşımı ağ hatası gibi işlenir — tur durur, imleç İLERLEMEZ, ertesi gece tekrar.
-      signal: AbortSignal.timeout(60_000),
+      // GNL zaman aşımına uğrarsa Worker'ın yazımı arka planda sürebilir.
+      signal,
     });
     if (!res.ok) {
-      const govde = await res.text().catch(() => '');
+      const govde = await res.text().catch((error) => {
+        if (zamanAsimiMi(error, signal)) throw error;
+        return '';
+      });
+      signal.throwIfAborted();
+      if (kokler.length && ([408, 504, 524].includes(res.status) || (res.status === 502 && (govde.includes('supabase_zaman_asimi') || govde.includes('Ayna yazımı başarısız.'))))) {
+        return await belirsizUcusYaz(kokler, saat());
+      }
       return { ok: false, reason: `http_${res.status}`, detay: govde.slice(0, 300) };
     }
-    const j = await res.json().catch(() => ({}));
+    const j = await res.json().catch((error) => {
+      if (zamanAsimiMi(error, signal)) throw error;
+      return {};
+    });
+    signal.throwIfAborted();
     return { ok: true, yazilan: j.yazilan || 0, atlanan: j.atlanan || 0 };
   } catch (error) {
+    if (kokler.length && zamanAsimiMi(error, signal)) {
+      return belirsizUcusYaz(kokler, saat());
+    }
     return { ok: false, reason: 'network', detay: String(error?.message || error).slice(0, 200) };
   }
 }
@@ -131,19 +167,25 @@ async function akisiGonder(cfg, faz, satirlar, sayac) {
  * Bir aynalama turu. 🔴 ASLA THROW ETMEZ (zamanlayıcıdan çağrılıyor —
  * `backfillSchedule.js` ile aynı sözleşme).
  */
-async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
+function runMirror(config) {
+  return require('./aynaKilidi').aynaSirala(() => aynaTuru(config));
+}
+
+async function aynaTuru({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
   try {
     if (!isArchiveEnabled()) return { ok: false, reason: 'arsiv_kapali' };
     const db = getDb();
     if (!db) return { ok: false, reason: 'db_yok' };
 
     const cfg = {
+      db,
       workerUrl: (process.env.EXPO_PUBLIC_KAYMAK_WORKER_URL || '').replace(/\/$/, ''),
       secret: process.env.PI_SYNC_SECRET || '',
     };
     if (!cfg.workerUrl) return { ok: false, reason: 'worker_url_yok' };
     if (cfg.secret.length < 32) return { ok: false, reason: 'sir_yok' };
 
+    if (require('../radar/ayar').radarKapilari(process.env).yaz) await require('./db').yazimlarBitsin();
     const turBasi = Date.now();
     const imlec = tamAyna ? 0 : imlecOku(db);
     const sayac = { yazilan: 0, atlanan: 0 };
@@ -172,7 +214,7 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
       const r = await akisiGonder(cfg, 'entities', satirlar, sayac);
       if (!r.ok) {
         logSync({ event: 'mirror', provider: 'supabase', detail: `entities ${tipler.join('/')} basarisiz: ${r.reason} ${r.detay || ''}` });
-        return { ok: false, reason: r.reason, detay: r.detay, ...sayac };
+        return { ...r, ...sayac };
       }
     }
 
@@ -197,7 +239,7 @@ async function runMirror({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
       );
       if (!r.ok) {
         logSync({ event: 'mirror', provider: 'supabase', detail: `external_ids basarisiz: ${r.reason} ${r.detay || ''}` });
-        return { ok: false, reason: r.reason, detay: r.detay, ...sayac };
+        return { ...r, ...sayac };
       }
     }
 

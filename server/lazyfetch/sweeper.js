@@ -309,9 +309,7 @@ async function sweepAndReport(config) {
   }
 }
 
-// ==========================================================================
 // ZAMANLAYICI
-// ==========================================================================
 // 03_FAZLAR.md L6: "gece düşük trafikte çalışır". `node-cron` gibi bir paket
 // EKLENMEDİ (03_FAZLAR.md "Paket önerisi": ilk sürümde harici paket yok) —
 // saatlik bir `setInterval` + saat kontrolü aynı işi görüyor.
@@ -324,6 +322,7 @@ const SWEEP_WINDOW_START_HOUR = 4; // 04:00–05:59 arası
 const SWEEP_WINDOW_END_HOUR = 6;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // saatte bir bak
 
+const geceHatasi = (detail) => require('../archive/store').logSync({ event: 'error', detail });
 let lastSweepDay = null;
 let timer = null;
 
@@ -345,9 +344,7 @@ function startSweeperSchedule(config) {
 
     if (hour < SWEEP_WINDOW_START_HOUR || hour >= SWEEP_WINDOW_END_HOUR) return;
     if (lastSweepDay === dayKey) return; // günde bir kez yeter
-    lastSweepDay = dayKey;
-
-    sweepAndReport(config);
+    require('../zamanlayici/geceKilidi').geceIsi(() => { lastSweepDay = dayKey; return sweepAndReport(config); }).catch(() => geceHatasi('supurucu_gece_kilidi'));
   };
   timer = setInterval(kontrolEt, CHECK_INTERVAL_MS);
 
@@ -359,7 +356,7 @@ function startSweeperSchedule(config) {
   // kontrolü bir SAAT sonra yapar; 05:xx'te yeniden başlatmada o günün süpürmesi atlanıyordu. Açılışta
   // ayrıca `tmp/` yetimleri temizlenir (D-2).
   const acilis = setTimeout(() => {
-    tmpYetimleriniTemizle().catch(() => {});
+    require('../zamanlayici/geceKilidi').geceIsi(tmpYetimleriniTemizle).catch(() => geceHatasi('supurucu_tmp_gece_kilidi'));
     kontrolEt();
   }, 150 * 1000);
   if (typeof acilis.unref === 'function') acilis.unref();

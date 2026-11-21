@@ -206,8 +206,7 @@ function startSayacSchedule() {
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
     if (sonKosuGunu === gun) return;
     if (bugunSayildiMi(simdi)) { sonKosuGunu = gun; return; }
-    sonKosuGunu = gun;
-    sayimYap();
+    require('../zamanlayici/geceKilidi').geceIsi(() => { sonKosuGunu = gun; return sayimYap(); }).catch(() => logSync({ event: 'error', detail: 'sayac_gece_kilidi' }));
   };
 
   zamanlayici = setInterval(kontrolEt, KONTROL_ARALIGI_MS);

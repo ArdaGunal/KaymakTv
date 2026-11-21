@@ -214,7 +214,7 @@ function startBackupSchedule(config) {
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
     if (calisiyor || (sonYedekGunu === gun && sonEkIsGunu === gun)) return;
     calisiyor = true;
-    (async () => {
+    require('../zamanlayici/geceKilidi').geceIsi(async () => {
       if (sonYedekGunu !== gun) {
         if (bugunYedekAlindiMi(simdi)) sonYedekGunu = gun;
         else {
@@ -227,7 +227,7 @@ function startBackupSchedule(config) {
         await yedekEkIsleri({ simdi });
         sonEkIsGunu = gun;
       }
-    })()
+    })
       .catch((e) => { console.error(`[Arsiv yedek] tur: ${e && e.message}`); })
       .finally(() => { calisiyor = false; });
   };

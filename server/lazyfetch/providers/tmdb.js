@@ -61,6 +61,7 @@ function createTmdbFetcher(apiKey) {
 
       return {
         data: response.data,
+        headers: response.headers,
         maxAgeSeconds: parseSharedMaxAge(response.headers['cache-control']),
         // 🆕 (L7+) TMDB ölçülen her yanıtta `public` dönüyor, yani bu bayrak
         // pratikte hep `true` — savunma amaçlı (cacheControl.js başlığı).

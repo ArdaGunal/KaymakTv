@@ -9,7 +9,7 @@
 // üç kapının (devre kesici · token bucket · `no-store`) hepsi burada.
 // Dolayısıyla "sağlayıcıya ne zaman gidilir?" sorusunun cevabı TEK dosyada.
 
-const { resolveTtl, NEGATIVE_TTL_MS, NEGATIVE_GRACE_MS } = require('./routeRegistry');
+const { resolveRoute, resolveTtl, NEGATIVE_TTL_MS, NEGATIVE_GRACE_MS } = require('./routeRegistry');
 
 /** `/shows/:id/seasons` → arşivdeki `entities.status` (id sayı ya da slug). Asla throw etmez. */
 function arsivDiziDurumu(yol) {
@@ -27,7 +27,7 @@ function arsivDiziDurumu(yol) {
     return null;
   }
 }
-const { normalizeQuery } = require('./key');
+const { buildCacheKey, normalizeQuery } = require('./key');
 const { createEnvelope } = require('./envelope');
 const { writeCacheEntry } = require('./diskStore');
 const circuitBreaker = require('./circuitBreaker');
@@ -52,29 +52,11 @@ const { memoryCache } = require('./state');
  * BAŞARISIZLIK olarak işlenip olduğu gibi yukarı fırlatılır.
  */
 async function fetchAndStore({ provider, family, relativePath, path, query, fetcher }) {
-  if (!circuitBreaker.canRequest(provider)) {
-    throw new CircuitOpenError(provider);
-  }
-  if (!tokenBucket.tryConsume(provider)) {
-    throw new RateLimitedError(provider);
-  }
-
+  let yanitAlindi = false;
   try {
-    const result = await fetcher(path, query);
-    circuitBreaker.recordSuccess(provider);
-    // 🆕 L8: TTL artık aileyi ve yanıtın KENDİSİNİ de görüyor — yayını
-    // süren bir dizinin sezon listesi 30 gün değil 7 gün taze kalsın diye
-    // (routeRegistry.js "KATALOG ÖMRÜ POLİTİKASI").
-    // 🆕 Parça C (2026-10-29): sezon listesinde gelecek bölüm yoksa süre arşivdeki
-    // dizi durumuna göre (bitti 30 g / yayında 7 g). Okunamazsa eski kural.
-    const durum = family === 'show_seasons' ? arsivDiziDurumu(path) : null;
-    const { ttlMs, graceMs } = resolveTtl(result.maxAgeSeconds, { family, data: result.data, durum });
-    const envelope = createEnvelope({
-      provider, family, payload: result.data, ttlMs, graceMs,
-      // 🆕 A3: zarf kendini tanımlasın — `cache/`'ten arşive aktarım bunu
-      // okuyacak (envelope.js'teki gerekçe). `normalizeQuery` sırları ayıklar.
-      requestPath: path, requestQuery: normalizeQuery(query),
-    });
+    const result = await saglayicidanCek({ provider, path, query, fetcher });
+    yanitAlindi = true;
+    const envelope = yanitZarfi({ provider, family, path, query, yanit: result });
 
     // 🆕 (L7+) SAĞLAYICI "SAKLAMA" DEDİYSE SAKLAMIYORUZ.
     // `storable === false` yalnızca `Cache-Control: no-store` / `no-cache` /
@@ -129,9 +111,6 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
     return envelope;
   } catch (error) {
     if (error instanceof NotFoundError) {
-      // Sağlayıcı SAĞLIKLI cevap verdi (yalnızca "bu kaynak yok" dedi) —
-      // devre kesici için bu bir arıza DEĞİL.
-      circuitBreaker.recordSuccess(provider);
       const negativeEnvelope = createEnvelope({
         provider,
         family,
@@ -145,9 +124,50 @@ async function fetchAndStore({ provider, family, relativePath, path, query, fetc
       memoryCache.set(relativePath, negativeEnvelope);
       return negativeEnvelope;
     }
-    circuitBreaker.recordFailure(provider);
+    if (yanitAlindi) circuitBreaker.recordFailure(provider);
     throw error;
   }
 }
 
-module.exports = { fetchAndStore, arsivDiziDurumu };
+/** LazyFetch ve Radar için ortak sağlayıcı bütçesi ve devre kesici. */
+async function saglayicidanCek({ provider, path, query, fetcher }) {
+  if (!circuitBreaker.canRequest(provider)) throw new CircuitOpenError(provider);
+  if (!tokenBucket.tryConsume(provider)) throw new RateLimitedError(provider);
+  try {
+    const result = await fetcher(path, query);
+    circuitBreaker.recordSuccess(provider);
+    return result;
+  } catch (error) {
+    if (error instanceof NotFoundError) circuitBreaker.recordSuccess(provider);
+    else circuitBreaker.recordFailure(provider);
+    throw error;
+  }
+}
+
+function yanitZarfi({ provider, family, path, query, yanit, fetchedAt }) {
+  const durum = family === 'show_seasons' ? arsivDiziDurumu(path) : null;
+  const { ttlMs, graceMs } = resolveTtl(yanit.maxAgeSeconds, { family, data: yanit.data, durum });
+  return createEnvelope({
+    provider, family, payload: yanit.data, ttlMs, graceMs, now: fetchedAt,
+    requestPath: path, requestQuery: normalizeQuery(query),
+  });
+}
+
+/** Radar ağı TTL'den bağımsız çağırır, arşiv onayına kadar önbelleğe dokunmaz. */
+function tazeYanitHazirla({ provider, path, query, yanit, fetchedAt }) {
+  const { cacheable, family } = resolveRoute(provider, path);
+  const is = { provider, family, path, query, data: yanit.data, fetchedAt };
+  if (!cacheable || yanit.storable === false) return { is, yayinla: null };
+  const { relativePath } = buildCacheKey({ provider, family, path, query });
+  const envelope = yanitZarfi({ provider, family, path, query, yanit, fetchedAt });
+  return {
+    is,
+    yayinla: async () => {
+      if (memoryCache.get(relativePath)?.fetchedAt > fetchedAt) return;
+      await writeCacheEntry(relativePath, envelope);
+      if (!(memoryCache.get(relativePath)?.fetchedAt > fetchedAt)) memoryCache.set(relativePath, envelope);
+    },
+  };
+}
+
+module.exports = { fetchAndStore, arsivDiziDurumu, saglayicidanCek, tazeYanitHazirla };

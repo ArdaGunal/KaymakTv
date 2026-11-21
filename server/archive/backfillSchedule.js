@@ -255,8 +255,8 @@ function startBackfillSchedule(config = {}) {
     if (saat < PENCERE_BASI || saat >= PENCERE_SONU) return;
     if (sonKosuGunu === gun) return;
     if (bugunKosulduMu(simdi)) { sonKosuGunu = gun; return; }
-    sonKosuGunu = gun;
-    runBackfill(config).catch(() => { /* runBackfill zaten yutuyor */ });
+    require('../zamanlayici/geceKilidi').geceIsi(() => { sonKosuGunu = gun; return runBackfill(config); })
+      .catch(() => logSync({ event: 'error', detail: 'backfill_gece_kilidi' }));
   };
 
   zamanlayici = setInterval(kontrolEt, KONTROL_ARALIGI_MS);

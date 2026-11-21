@@ -29,6 +29,7 @@
 // 30/sn = beyanın %75'i (arka plan SWR yenilemeleri de bu kovadan yer, en fazla
 // 2 paralel — `refreshQueue.js`). Jeton YALNIZCA sağlayıcıya çıkarken harcanır
 // (`fetchAndStore.js`); önbellek isabeti ve bayat dönüş kovaya dokunmaz.
+// DOĞRULANACAK (Radar): bu ortak bütçenin katalog + değişiklik trafiğindeki yeterliliği.
 const DEFAULT_LIMITS = {
   tmdb: { capacity: 40, refillRatePerSecond: 30 },
   // 🆕 L7 — Trakt. TMDB'den ÇOK daha düşük, çünkü Trakt'ın beyan ettiği

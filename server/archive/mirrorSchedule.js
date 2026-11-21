@@ -111,16 +111,19 @@ function startMirrorSchedule(config = {}, { kosucu = runMirror, saat = () => new
     calisiyor = true;
     bellekDeneme.set(gun, deneme + 1);
     Promise.resolve()
-      .then(() => kosucu(config))
+      .then(() => require('../zamanlayici/geceKilidi').geceIsi(() => kosucu(config))
+        .catch(() => ({ ok: false, reason: 'ayna_gece_kilidi' })))
       .then((r) => {
         if (r && r.ok) { tamamGunu = gun; return; }
         if (deneme + 1 >= GUNLUK_EN_COK_DENEME) {
           console.error(`[Ayna] Bugun ${deneme + 1}. deneme de dustu — yarin pencerede yeniden.`);
           return;
         }
-        console.error(`[Ayna] Tur dustu (${(r && r.reason) || '?'}) — ${Math.round(yenidenMs / 60000)} dk sonra yeniden (deneme ${deneme + 2}/${GUNLUK_EN_COK_DENEME}).`);
+        const bekleme = r?.reason === 'ayna_belirsiz' && Number.isFinite(r.yenidenAt)
+          ? Math.max(1, r.yenidenAt - saat().getTime()) : yenidenMs;
+        console.error(`[Ayna] Tur dustu (${(r && r.reason) || '?'}) — ${Math.round(bekleme / 1000)} sn sonra yeniden (deneme ${deneme + 2}/${GUNLUK_EN_COK_DENEME}).`);
         if (yenidenZamanlayici) clearTimeout(yenidenZamanlayici);
-        yenidenZamanlayici = setTimeout(() => { yenidenZamanlayici = null; kontrolEt({ yenidenDeneme: true }); }, yenidenMs);
+        yenidenZamanlayici = setTimeout(() => { yenidenZamanlayici = null; kontrolEt({ yenidenDeneme: true }); }, bekleme);
         if (typeof yenidenZamanlayici.unref === 'function') yenidenZamanlayici.unref();
       })
       .catch(() => { /* runMirror zaten yutuyor */ })

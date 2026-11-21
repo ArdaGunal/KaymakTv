@@ -34,6 +34,8 @@ const { ayniAygitIzinli } = require('./archive/backup');
 const { yedekOzeti } = require('./yedek/ozet');
 const { geceIsleriAcikMi } = require('./geceIsleri');
 
+const { radarSagligi } = require('./radar');
+
 const SAGLAYICILAR = ['tmdb', 'trakt'];
 
 /** Kökün bulunduğu diskin doluluk yüzdesi — `fs.statfs` yoksa/başarısızsa null. */
@@ -107,6 +109,7 @@ async function saglikRaporu() {
     calismaSuresiSn: Math.round(process.uptime()),
     // Taşıma D1: beş gece zamanlayıcısı kurulu mu (`GECE_ISLERI=0` → false; prova sunucusu).
     geceIsleri: geceIsleriAcikMi(),
+    radar: radarSagligi(),
     lazyfetch: {
       etkin: !!lf.enabled,
       diskDolulukYuzde: lf.enabled ? await diskYuzdesi(lf.root) : null,

@@ -213,6 +213,9 @@ function* haritaAdimlari(db, kapsam, h) {
     const n = Number(r.source_id);
     if (Number.isInteger(n)) tmdb.set(r.kaymak_id, n);
   }
+  if (require('../radar/ayar').radarKapilari(process.env).yaz) {
+    yield* require('../radar/ayna').aynaTakvimi(db, kapsam?.kokler, firstAired);
+  }
 }
 
 const bosHarita = () => ({ runtime: new Map(), tmdb: new Map(), genres: new Map(), firstAired: new Map(), baslik: new Map() });

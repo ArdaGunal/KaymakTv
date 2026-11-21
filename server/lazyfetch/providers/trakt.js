@@ -57,6 +57,7 @@ function createTraktCatalogFetcher(clientId) {
 
       return {
         data: response.data,
+        headers: response.headers,
         // Trakt paylaşımlı cache'lere ayrı bir TTL söylüyor (canlı ölçüm
         // 2026-08-29: `max-age=3600, s-maxage=43200`). `cacheControl.js`
         // `s-maxage`'i tercih ediyor → 1 saat yerine 12 saat.

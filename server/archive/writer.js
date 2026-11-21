@@ -47,6 +47,7 @@ const { upsertPayload, logSync, DILSIZ } = require('./store');
 // 🆕 K4 (M532) — TMDB detayları ayrı modülde (bu dosya 400 satır sınırında).
 const { archiveTmdbDetail } = require('./tmdbArsiv');
 const { kanonikMi } = require('./kanonik');
+const { sezonAgaciniYaz } = require('./sezonAgaci');
 
 // ==========================================================================
 // 🔴🔴 OLAY DÖNGÜSÜ NEFESİ — ÖLÇÜMDEN DOĞDU
@@ -175,76 +176,16 @@ async function archiveShowSeasons({ showId, seasons, lang = DILSIZ, fetchedAt = 
     });
     if (!yazim.ok) return { ok: false, reason: yazim.reason };
 
-    let sezonSayisi = 0;
-    let bolumSayisi = 0;
-    let atlanan = 0;
     let nefes = 0;
     let dilimBasi = performance.now();
-
-    // 🛑 KASKAD KESİCİ İÇİN KİMLİK EVRENİ. Bu yanıtta görülen TÜM bölüm
-    // kimlikleri önceden toplanıyor: `resolveOrCreate` bir yuvayı dolu
-    // bulduğunda, sahibinin kimliği bu kümede de geçiyorsa olay bir
-    // kimlik değişimi DEĞİL, sezonun yeniden numaralandırılmasıdır.
-    // O durumda yeniden eşleme yapılmaz (bağımsız inceleme, 2026-09-14).
-    const kimlikEvreni = new Set();
-    for (const sezon of seasons) {
-      for (const bolum of sezon?.episodes || []) {
-        for (const k of traktIdsToExternal('episode', bolum?.ids || {})) {
-          kimlikEvreni.add(k.source + '/' + k.source_id);
-        }
-      }
+    const agac = sezonAgaciniYaz(dizi, seasons);
+    let adim = agac.next();
+    while (!adim.done) {
+      const yeniDilim = await nefesAl(dilimBasi);
+      if (yeniDilim !== dilimBasi) { nefes++; dilimBasi = yeniDilim; }
+      adim = agac.next();
     }
-
-    for (const sezon of seasons) {
-      if (!sezon || typeof sezon.number !== 'number') { atlanan++; continue; }
-
-      const sezonKimlikleri = traktIdsToExternal('season', sezon.ids);
-      if (!sezonKimlikleri.length) { atlanan++; continue; }
-
-      const s = resolveOrCreate({
-        type: 'season',
-        externalIds: sezonKimlikleri,
-        parentId: dizi.kaymak_id,
-        seasonNumber: sezon.number,
-        derived: { title: sezon.title || null },
-      });
-      // 🆕 A1 (M549): çözüm `null` dönebilir (kimlik çakışması — `sync_log`'da kayıtlı). Eskiden
-      // `s.kaymak_id` TypeError fırlatıp dizinin TÜM sezon yazımını geri aldırırdı.
-      if (!s) { atlanan++; continue; }
-      sezonSayisi++;
-
-      for (const bolum of sezon.episodes || []) {
-        if (!bolum || typeof bolum.number !== 'number') { atlanan++; continue; }
-
-        const bolumKimlikleri = traktIdsToExternal('episode', bolum.ids);
-        if (!bolumKimlikleri.length) { atlanan++; continue; }
-
-        resolveOrCreate({
-          type: 'episode',
-          externalIds: bolumKimlikleri,
-          parentId: s.kaymak_id,
-          // Bölümün KENDİ `season` alanı, üst sezonunkiyle uyuşmayabilir
-          // (Trakt'ta nadiren olur); hiyerarşi indeksinin tutarlı kalması
-          // için ÜST SEZONUN numarasını yazıyoruz.
-          seasonNumber: sezon.number,
-          episodeNumber: bolum.number,
-          derived: { title: bolum.title || null },
-          kimlikEvreni,
-        });
-        bolumSayisi++;
-
-        // 🔴 Nefes: iş dilimi dolduysa olay döngüsüne dön, sunucu bu arada
-        // isteklere cevap versin. Transaction AÇIK kalır.
-        const yeniDilim = await nefesAl(dilimBasi);
-        if (yeniDilim !== dilimBasi) { nefes++; dilimBasi = yeniDilim; }
-      }
-    }
-
-    return {
-      ok: true, showKaymakId: dizi.kaymak_id,
-      seasons: sezonSayisi, episodes: bolumSayisi, skipped: atlanan,
-      breaths: nefes,
-    };
+    return { ...adim.value, breaths: nefes };
   });
 }
 
@@ -372,7 +313,8 @@ const DESTEKLENEN_AILELER = new Set(['show_seasons', 'show_detail', 'movie_detai
  * 🔴 ASLA THROW ETMEZ. Arşiv yazımı bir kullanıcı isteğini rehin alamaz
  * (03_FAZLAR.md A2). Hata `sync_log`'a yazılır ve `{ok:false}` döner.
  */
-async function archiveCatalogResponse({ provider, family, path, query = {}, data, fetchedAt = Date.now() }) {
+async function archiveCatalogResponse({ provider, family, path, query = {}, data, fetchedAt = Date.now(), radar }) {
+  if (provider === 'radar') return require('../radar/yazim').takvimiYaz(radar);
   // 🆕 K4 (M532): TMDB `tv_detail`/`movie_detail` artık arşive giriyor (eskiden
   // burada `desteklenmeyen_saglayici` ile reddediliyordu). Kurallar `tmdbArsiv.js`.
   // 🆕 Paket C (M550): yalnız KANONİK sorguyla gelen yanıt kalıcı kayda girer (`kanonik.js`).

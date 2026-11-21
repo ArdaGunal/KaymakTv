@@ -60,18 +60,13 @@ const DILSIZ = '-';
  *
  * @returns {{ok: boolean, bytesRaw?: number, bytesGz?: number, reason?: string}}
  */
-async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data, fetchedAt = Date.now() }) {
-  const db = getDb();
-  if (!db) return { ok: false, reason: 'arsiv kapali' };
+async function payloadHazirla(data) {
+  const ham = Buffer.from(JSON.stringify(data));
+  return { gz: await gzipAsync(ham), bytesRaw: ham.length };
+}
 
-  try {
-    const ham = Buffer.from(JSON.stringify(data));
-    const gz = await gzipAsync(ham);
-
-    // 🆕 Paket D (M558 · O-1a / R7): işlemin İÇİNDEN çağrıldıysa (Trakt yazıcısı) işlemin parçasıdır,
-    // hemen yazılır. İşlem DIŞINDAN çağrıldıysa tek yazım kapısından geçer — başkasının açık işlemine
-    // katılıp onunla birlikte geri alınmasın (yeniden üretildi: TMDB künyesi KAYBOLUYORDU).
-    const yaz = (h) => h.prepare(
+function hazirPayloadYaz(db, { kaymakId, provider, endpoint, lang = DILSIZ, fetchedAt, gz, bytesRaw }) {
+  const sonuc = db.prepare(
       `INSERT INTO payloads (kaymak_id, provider, endpoint, lang, body, bytes_raw, bytes_gz, fetched_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(kaymak_id, provider, endpoint, lang) DO UPDATE SET
@@ -84,12 +79,24 @@ async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data
        -- 150 günlük bir zarfla çalışan aktarım betiği, dün sağlayıcıdan zorla tazelenmiş yükü geri
        -- götürebiliyordu (yeniden üretildi, R6). Eşit damga yazar (aynı yanıtın tekrarı zararsız).
        WHERE excluded.fetched_at >= payloads.fetched_at`
-    ).run(kaymakId, provider, endpoint, lang || DILSIZ, gz, ham.length, gz.length, fetchedAt, Date.now());
-    const sonuc = islemIcindeMi() ? yaz(db) : await islemDisiYaz(yaz);
+    ).run(kaymakId, provider, endpoint, lang || DILSIZ, gz, bytesRaw, gz.length, fetchedAt, Date.now());
+  // `changes === 0` → satır vardı ve DAHA YENİSİYDİ; yazılmadı. Hata değil, sonuç.
+  if (sonuc.changes === 0) return { ok: true, atlandi: 'daha_yeni_var', bytesRaw: bytesRaw, bytesGz: gz.length };
+  return { ok: true, bytesRaw: bytesRaw, bytesGz: gz.length };
+}
 
-    // `changes === 0` → satır vardı ve DAHA YENİSİYDİ; yazılmadı. Hata değil, sonuç.
-    if (sonuc.changes === 0) return { ok: true, atlandi: 'daha_yeni_var', bytesRaw: ham.length, bytesGz: gz.length };
-    return { ok: true, bytesRaw: ham.length, bytesGz: gz.length };
+async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data, fetchedAt = Date.now() }) {
+  const db = getDb();
+  if (!db) return { ok: false, reason: 'arsiv kapali' };
+
+  try {
+    const hazir = await payloadHazirla(data);
+
+    // 🆕 Paket D (M558 · O-1a / R7): işlemin İÇİNDEN çağrıldıysa (Trakt yazıcısı) işlemin parçasıdır,
+    // hemen yazılır. İşlem DIŞINDAN çağrıldıysa tek yazım kapısından geçer — başkasının açık işlemine
+    // katılıp onunla birlikte geri alınmasın (yeniden üretildi: TMDB künyesi KAYBOLUYORDU).
+    const yaz = (h) => hazirPayloadYaz(h, { kaymakId, provider, endpoint, lang, fetchedAt, ...hazir });
+    return islemIcindeMi() ? yaz(db) : await islemDisiYaz(yaz);
   } catch (error) {
     // Kendi hatamızı kendi loguzmuza yazmayı da deneriz — o da patlarsa
     // sessizce vazgeçeriz, çünkü bu yol İSTEĞİ ASLA DÜŞÜREMEZ.
@@ -258,6 +265,8 @@ function summary() {
 
 module.exports = {
   upsertPayload,
+  payloadHazirla,
+  hazirPayloadYaz,
   readPayload,
   logSync,
   coverage,

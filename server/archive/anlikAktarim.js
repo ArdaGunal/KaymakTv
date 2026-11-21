@@ -32,6 +32,7 @@
 const { isArchiveEnabled, getDb } = require('./db');
 const { logSync } = require('./store');
 const { akisiGonder } = require('./mirror');
+const { aynaSirala } = require('./aynaKilidi');
 const { altAgacFazlari, kokBul } = require('./aynaSatirlari');
 
 const PENCERE_MS = 1000;
@@ -59,7 +60,7 @@ function acikMi() {
 
 /** Varsayılan gönderici: fazları sırayla `/catalog/sync`'e yollar. */
 async function varsayilanGonder(fazlar) {
-  const cfg = yapilandirma();
+  const cfg = { ...yapilandirma(), db: getDb() };
   if (!cfg.workerUrl) return { ok: false, reason: 'worker_url_yok' };
   if (cfg.secret.length < 32) return { ok: false, reason: 'sir_yok' };
   const sayac = { yazilan: 0, atlanan: 0 };
@@ -81,19 +82,30 @@ function createAnlikAktarim({
   denemeTavani = DENEME_TAVANI,
   ilkBeklemeMs = ILK_BEKLEME_MS,
   acik = acikMi,
+  saat = Date.now,
 } = {}) {
-  // kök -> { deneme, bekleyenler: [resolve] }
+  // kök -> { deneme, hazirAt, bekleyenler: [resolve] }
   const kuyruk = new Map();
   let ucusta = false;
   let zamanlayici = null;
+  let zamanlayiciAt = 0;
+  let belirsizBekliyor = false;
   const istatistik = { alinan: 0, tekillesen: 0, gonderilen: 0, tekrar: 0, birakilan: 0, hata: 0 };
 
-  function planla(ms) {
-    if (zamanlayici || ucusta) return;
+  function planla(ms, belirsiz = false) {
+    if (ucusta) return;
+    const at = Date.now() + ms;
+    if (zamanlayici && (!belirsizBekliyor || zamanlayiciAt <= at)) return;
+    if (zamanlayici) clearTimeout(zamanlayici);
+    zamanlayiciAt = at;
+    belirsizBekliyor = belirsiz;
     // ⚠️ `unref()` YOK, bilinçli: `hemen()` bekleyen bir söz varken süreç
     // bu zamanlayıcıyı "önemsiz" sayıp kapanırsa söz hiç çözülmez (testte
-    // yakalandı). Zamanlayıcılar en çok birkaç saniye yaşıyor.
-    zamanlayici = setTimeout(() => { zamanlayici = null; calistir().catch(() => {}); }, ms);
+    // yakalandı). Belirsiz ayna uçuşunda yeniden deneme daha uzun bekleyebilir.
+    zamanlayici = setTimeout(() => {
+      zamanlayici = null;
+      calistir().catch(() => {});
+    }, ms);
   }
 
   /** Uçuştaki girdilerin bekleyenlerini çözer (kuyruğa DOKUNMAZ). */
@@ -108,8 +120,17 @@ function createAnlikAktarim({
 
   async function calistir() {
     if (ucusta) return;
-    const kokler = [...kuyruk.keys()].slice(0, partiKok);
-    if (kokler.length === 0) return;
+    const simdi = saat();
+    const kokler = Array.from(kuyruk, ([kok, g]) => g.hazirAt <= simdi ? kok : null)
+      .filter(Boolean).slice(0, partiKok);
+    if (kokler.length === 0) {
+      if (kuyruk.size) {
+        let enErken = Infinity;
+        for (const g of kuyruk.values()) enErken = Math.min(enErken, g.hazirAt);
+        planla(Math.max(0, enErken - simdi), true);
+      }
+      return;
+    }
     // 🔴 UÇUŞA ALINAN KÖKLER KUYRUKTAN ÇIKAR (bağımsız denetim, M419).
     // Eskiden girdiler uçuş BİTENE kadar kuyrukta duruyordu; uçuş sürerken
     // gelen `ekle`/`hemen` aynı girdiye yapışıyor ve fazlar ÇEKİLDİKTEN
@@ -127,8 +148,17 @@ function createAnlikAktarim({
     const t0 = Date.now();
     let sonuc;
     try {
-      const fazlar = fazlariKur(kokler);
-      sonuc = fazlar.length === 0 ? { ok: true, yazilan: 0, bos: true } : await gonder(fazlar);
+      sonuc = await aynaSirala(async () => {
+        const radar = require('../radar/ayar').radarKapilari(process.env).yaz;
+        if (radar) await require('./db').yazimlarBitsin();
+        const db = radar ? getDb() : null;
+        const revler = db && require('../radar/depo').tablolarVar(db) ? Object.fromEntries(db.prepare(
+          'SELECT kaymak_id,takvim_rev FROM radar_takvim WHERE kaymak_id IN (SELECT value FROM json_each(?))'
+        ).all(JSON.stringify(kokler)).map((r) => [r.kaymak_id, r.takvim_rev])) : null;
+        const fazlar = fazlariKur(kokler);
+        const giden = fazlar.length === 0 ? { ok: true, yazilan: 0, bos: true } : await gonder(fazlar);
+        return revler ? { ...giden, revler } : giden;
+      });
     } catch (error) {
       istatistik.hata += 1;
       sonuc = { ok: false, reason: 'exception', detay: String(error?.message || error).slice(0, 200) };
@@ -150,6 +180,14 @@ function createAnlikAktarim({
       for (const k of kokler) {
         const g = ucus.get(k);
         if (!g) continue;
+        if (sonuc.belirsizKokler?.includes(k)) {
+          g.hazirAt = Math.max(g.hazirAt, sonuc.yenidenAt);
+          // Kuyruk güncel görüntüyü sonra yollar, bekleyen Radar turu ise
+          // bu kök yüzünden diğer takip ve değişiklikleri bekletmez.
+          for (const r of g.bekleyenler) r(sonuc);
+          g.bekleyenler = [];
+          continue;
+        }
         g.deneme += 1;
         if (g.deneme >= denemeTavani) birakilan.push(k);
         else enBuyuk = Math.max(enBuyuk, g.deneme);
@@ -168,6 +206,11 @@ function createAnlikAktarim({
         const yeni = kuyruk.get(k);
         if (yeni) {
           yeni.deneme = Math.max(yeni.deneme, g.deneme);
+          yeni.hazirAt = Math.max(yeni.hazirAt, g.hazirAt);
+          if (g.hazirAt > saat()) {
+            for (const r of yeni.bekleyenler) r({ ok: false, reason: 'ayna_belirsiz', yenidenAt: g.hazirAt });
+            yeni.bekleyenler = [];
+          }
           yeni.bekleyenler.push(...g.bekleyenler);
         } else {
           kuyruk.set(k, g);
@@ -176,7 +219,7 @@ function createAnlikAktarim({
       ucus.clear();
       if (kuyruk.size) {
         istatistik.tekrar += 1;
-        planla(ilkBeklemeMs * 2 ** Math.max(0, enBuyuk - 1));
+        planla(sonuc.reason === 'ayna_belirsiz' ? 0 : ilkBeklemeMs * 2 ** Math.max(0, enBuyuk - 1));
         return;
       }
     }
@@ -191,7 +234,7 @@ function createAnlikAktarim({
       istatistik.tekillesen += 1;
       if (resolve) g.bekleyenler.push(resolve);
     } else {
-      kuyruk.set(kok, { deneme: 0, bekleyenler: resolve ? [resolve] : [] });
+      kuyruk.set(kok, { deneme: 0, hazirAt: 0, bekleyenler: resolve ? [resolve] : [] });
     }
     if (acil && zamanlayici && !ucusta) {
       clearTimeout(zamanlayici);
@@ -215,6 +258,8 @@ function createAnlikAktarim({
     hemen(kok) {
       if (!kok) return Promise.resolve({ ok: false, reason: 'kok_yok' });
       if (!acik()) return Promise.resolve({ ok: false, reason: 'kapali' });
+      const yenidenAt = kuyruk.get(kok)?.hazirAt;
+      if (yenidenAt > saat()) return Promise.resolve({ ok: false, reason: 'ayna_belirsiz', yenidenAt });
       return new Promise((resolve) => ekleIc(kok, resolve, true));
     },
 
