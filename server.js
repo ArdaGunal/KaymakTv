@@ -151,6 +151,7 @@ require('./server/geceIsleri').geceIsleriniBaslat({
   ],
 });
 require('./server/radar').radariBaslat();
+require('./server/bildirim').motoruBaslat();
 require('./server/supabaseIsitma').startSupabaseIsitma(); // HIZ-02: soğuk Supabase bağlantısı
 
 // ==========================================
@@ -320,8 +321,9 @@ async function duzgunKapan(sinyal) {
   try { sunucu.close(); } catch (_) { /* zaten kapali */ }
   const sinir = new Promise((r) => { const t = setTimeout(r, 8000); if (t.unref) t.unref(); });
   const radarBitti = require('./server/radar').radariDurdur();
+  const motorBitti = require('./server/bildirim').motoruDurdur();
   const bosalt = () => archiveQueue.drain().then(() => yazimlarBitsin());
-  await Promise.race([Promise.all([radarBitti, bosalt()]).then(bosalt), sinir]);
+  await Promise.race([Promise.all([radarBitti, motorBitti, bosalt()]).then(bosalt), sinir]);
   const kalan = archiveQueue.getStats().bekleyen;
   try { closeArchive(); } catch (_) { /* kapanırken hata çıkışı engellemez */ }
   console.log(`[Kapanis] tamam (${Date.now() - bas} ms${kalan ? `, ${kalan} yazim YETISMEDI` : ''}).`);
