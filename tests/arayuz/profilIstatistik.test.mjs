@@ -15,12 +15,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yardimci from '../yardimci.js';
 import { yerelIstatistik, gosterilecekIstatistik } from '../../utils/yerelIstatistik.ts';
-import { getProgressBarColor, PROGRESS_BAR_COLOR } from '../../utils/progressBarColor.ts';
+import { tsLoader } from '../ts-test-loader.mjs';
 import { yanitiSekillendir } from '../../services/library/kaymakSekil.ts';
 import { formatWatchDuration } from '../../utils/watchTimeHelper.ts';
 
 const { baslat } = yardimci;
 const T = baslat('ARAYUZ PROFIL ISTATISTIGI (C17)', { kokOneki: 'arayuz-c17-' });
+const load = tsLoader(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const { getProgressBarColor } = load('utils/progressBarColor.ts');
+const { cubukVerisi } = load('utils/ilerlemeCubugu.ts');
+const { PROGRESS_BAR_COLOR } = load('constants/progressBarColors.ts');
 
 const dizi = (traktId, runtime) => ({ show: { ids: { trakt: traktId }, runtime } });
 const film = (runtime, plays) => ({ movie: { runtime }, ...(plays === undefined ? {} : { plays }) });
@@ -96,8 +100,29 @@ T.ok('🔑 birakilan VE bitmis -> yine turuncu (birakilma once bakilir)',
   getProgressBarColor(true, true) === PROGRESS_BAR_COLOR.dropped);
 T.ok('tamamlanmis -> yesil', getProgressBarColor(false, true) === PROGRESS_BAR_COLOR.finished);
 T.ok('devam ediyor -> mavi', getProgressBarColor(false, false) === PROGRESS_BAR_COLOR.active);
-T.ok('uc renk birbirinden FARKLI',
-  new Set(Object.values(PROGRESS_BAR_COLOR)).size === 3);
+T.ok('dort renk birbirinden farkli', new Set(Object.values(PROGRESS_BAR_COLOR)).size === 4);
+
+T.H('SERIT-RENK — afis altinda platformdan bagimsiz durum rengi');
+for (const [platform, fallback, oldColor] of [
+  ['web', undefined, '#3b82f6'],
+  ['mobil', PROGRESS_BAR_COLOR.paused, '#8CA5B5'],
+]) {
+  const progress = { completed: 3, aired: 10 };
+  for (const [status, expected] of [['upNext', '#3b82f6'], ['paused', '#8CA5B5']]) {
+    const { yuzde, renk } = cubukVerisi(progress, false, fallback, status);
+    T.ok(`${platform} ${status} -> ${expected}, %30`, renk === expected && yuzde === 30);
+  }
+  T.ok(`${platform} diger ve bilinmeyen durumlarda eski varsayilan rengi korur`,
+    [undefined, 'notStarted', 'caughtUp', 'upToDate'].every((status) =>
+      getProgressBarColor(false, false, fallback, status) === oldColor));
+  T.ok(`${platform} baslanmamis dizinin seridi cizilmez`,
+    cubukVerisi({ completed: 0, aired: 10 }, false, fallback, 'notStarted').yuzde === 0);
+  T.ok(`${platform} guncel ve bitirilen dizinin dolu seridi yesil kalir`,
+    ['caughtUp', 'upToDate', 'finished'].every((status) =>
+      cubukVerisi({ completed: 10, aired: 10 }, false, fallback, status).renk === '#10b981'));
+  T.ok(`${platform} gizlenen dizinin seridi turuncu kalir`,
+    cubukVerisi(progress, true, fallback, 'hidden').renk === '#fb923c');
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 T.H('Kaymak yolu — runtime akiyor mu (C17.2 cihaz raporu)');

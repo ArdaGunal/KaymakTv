@@ -12,12 +12,13 @@ import EpisodeCardMobile from './EpisodeCardMobile';
 import EpisodeCheckButton from './EpisodeCheckButton';
 import TrackingCardMenu from './tracking/TrackingCardMenu';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
-import { getProgressBarColor, ilerlemeYuzdesi } from '../utils/progressBarColor';
+import { getProgressBarColor, ilerlemeYuzdesi, type ShowProgressStatus } from '../utils/progressBarColor';
 import { getMediaTagLabel } from '../utils/mediaTagLabel';
 import { MOBILE_PALETTE } from '../constants/mobilePalette';
 
 interface EpisodeCardProps {
   data: any;
+  progressStatus?: ShowProgressStatus;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
@@ -25,7 +26,7 @@ interface EpisodeCardProps {
 const CARD_WIDTH = 180;
 const CARD_HEIGHT = 270;
 
-const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
+const EpisodeCard = memo(({ data, progressStatus, onToggleDropped }: EpisodeCardProps) => {
   const { isDesktop } = useResponsive();
   const router = useRouter();
   const { t } = useTranslation(['media', 'common']);
@@ -54,7 +55,7 @@ const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
   if (!data) return null;
 
   if (!isDesktop) {
-    return <EpisodeCardMobile data={data} onToggleDropped={onToggleDropped} />;
+    return <EpisodeCardMobile data={data} progressStatus={progressStatus} onToggleDropped={onToggleDropped} />;
   }
 
   const handleCardPress = () => {
@@ -84,7 +85,7 @@ const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
   const isFuture = data.rawDate !== undefined && !airStatus.isAired;
   const progressPct = ilerlemeYuzdesi(data);
   // Bkz. EpisodeCardMobile: gizlenmiş yapımlar bu kartın listelerine hiç girmez.
-  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'));
+  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'), undefined, progressStatus);
 
   const episodeCode =
     data.season !== undefined && data.episode !== undefined

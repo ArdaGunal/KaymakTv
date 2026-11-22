@@ -1,4 +1,5 @@
-import { MOBILE_PALETTE, nativeColor, nativeTint } from '../../../constants/mobilePalette';
+import { nativeColor, nativeTint } from '../../../constants/mobilePalette';
+import { PROGRESS_BAR_COLOR } from '../../../constants/progressBarColors';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import { getCustomListItems } from '../../../services/traktApi';
 import { useLibraryActions, useLibrarySelector } from '../../../context/LibraryContext';
 import ProgressBar from '../../../components/ProgressBar';
 import { cubukVerisi } from '../../../utils/ilerlemeCubugu';
+import { useShowProgressStatuses } from '../../../hooks/useTrackingShows';
 import MediaPoster from '../../../components/MediaPoster';
 import { ActivityIndicator } from 'react-native';
 import MediaRowSkeleton from '../../../components/skeletons/MediaRowSkeleton';
@@ -45,6 +47,7 @@ export default function ListDetailsScreen() {
     showProgressMap: s.showProgressMap,
     hiddenShowIds: s.hiddenShowIds,
   }));
+  const progressStatuses = useShowProgressStatuses();
   const { ozelListeler } = useKaymakYetenekleri();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -152,7 +155,9 @@ export default function ListDetailsScreen() {
     // `mediaId` Trakt kimliği — `showProgressMap`in anahtarı da o.
     const ilerleme = item.type === 'show' ? showProgressMap?.[item.mediaId] : null;
     const birakildi = !!hiddenShowIds?.includes?.(item.mediaId);
-    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, Platform.OS === 'web' ? undefined : MOBILE_PALETTE.steel);
+    const varsayilanRenk = Platform.OS === 'web' ? undefined : PROGRESS_BAR_COLOR.paused;
+    const durum = progressStatuses.get(item.mediaId);
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, varsayilanRenk, durum);
     return (
       <View style={styles.row}>
         <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={() => openMedia(item)}>

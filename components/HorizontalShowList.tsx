@@ -1,4 +1,5 @@
-import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
+import { nativeColor } from '../constants/mobilePalette';
+import { PROGRESS_BAR_COLOR } from '../constants/progressBarColors';
 import { useTranslation } from 'react-i18next';
 import React, { memo, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Platform } from 'react-native';
@@ -8,6 +9,7 @@ import ProgressBar from './ProgressBar';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { getProgressBarColor } from '../utils/progressBarColor';
 import { useLibrarySelector } from '../context/LibraryContext';
+import { useShowProgressStatuses } from '../hooks/useTrackingShows';
 import SectionHeader from './profile/SectionHeader';
 import {
   POSTER_CARD_WIDTH as CARD_WIDTH,
@@ -63,6 +65,7 @@ const HorizontalShowList = memo(({
   const router = useRouter();
   const { t, i18n } = useTranslation('media');
   const { showProgressMap, hiddenShowIds } = useLibrarySelector(ilerlemeSecici);
+  const progressStatuses = useShowProgressStatuses(type === 'show');
 
   const handleCardPress = useCallback((item: any) => {
     const traktId = item.rawTraktId || item.id || item.show?.ids?.trakt || item.movie?.ids?.trakt;
@@ -85,9 +88,6 @@ const HorizontalShowList = memo(({
     // çubuğu `ShowCard` taşıyor ve o keşfet/akış ekranlarında kullanılıyor;
     // profil ise poster-only olan bu listeye geçmişti.
     //
-    // 🔑 RENK TEK KAYNAKTAN (`utils/progressBarColor.ts`): bırakıldı=turuncu ·
-    // tamamlandı=yeşil · devam ediyor=mavi. Burada YENİ bir renk kuralı
-    // yazmak, aynı diziyi iki ekranda farklı renkte gösterirdi.
     // Kaynağa göre kimlik farklı yerde durabiliyor (`handleCardPress`'in
     // aynı savunması) — hepsini dene, bulamazsan çubuk hiç çizilmez.
     const traktId = item.rawTraktId ?? item.show?.ids?.trakt ?? item.ids?.trakt ?? item.traktId ?? item.id;
@@ -96,6 +96,8 @@ const HorizontalShowList = memo(({
     const yuzde = varMi ? (ilerleme.completed / ilerleme.aired) * 100 : 0;
     const bitti = varMi && ilerleme.completed >= ilerleme.aired;
     const birakildi = !!traktId && !!hiddenShowIds?.includes?.(traktId);
+    const durum = progressStatuses.get(traktId);
+    const varsayilanRenk = Platform.OS === 'web' ? undefined : PROGRESS_BAR_COLOR.paused;
 
     return (
       <TouchableOpacity
@@ -118,13 +120,13 @@ const HorizontalShowList = memo(({
         {varMi && (
           <ProgressBar
             percentage={yuzde}
-            fillColor={getProgressBarColor(birakildi, bitti, Platform.OS === 'web' ? undefined : MOBILE_PALETTE.steel)}
+            fillColor={getProgressBarColor(birakildi, bitti, varsayilanRenk, durum)}
             style={styles.ilerleme}
           />
         )}
       </TouchableOpacity>
     );
-  }, [type, handleCardPress, showProgressMap, hiddenShowIds]);
+  }, [type, handleCardPress, showProgressMap, hiddenShowIds, progressStatuses]);
 
   if (!data || data.length === 0) {
     return null; // Eğer veri yoksa kategoriyi hiç gösterme

@@ -21,6 +21,7 @@ import SearchTabs from '../../../components/SearchTabs';
 import ScreenHeader from '../../../components/ScreenHeader';
 import ExploreWebGrid from '../../../components/explore/ExploreWebGrid';
 import { useExplore } from '../../../hooks/useExplore';
+import { useShowProgressStatuses } from '../../../hooks/useTrackingShows';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,6 +65,7 @@ export default function ExploreScreen() {
     loadMoreFailed,
     retryLoadMore,
   } = useExplore();
+  const progressStatuses = useShowProgressStatuses(!isDesktop && activeTab === 'show');
 
   const handleTabChange = useCallback((nextTab: 'show' | 'movie') => {
     if (nextTab === activeTab) return;
@@ -233,7 +235,7 @@ export default function ExploreScreen() {
           const media = item.show || item.movie;
           return media?.ids?.trakt ? `${media.ids.trakt}-${index}` : index.toString();
         }}
-        renderItem={({ item }) => <ShowCard data={item} />}
+        renderItem={({ item }) => <ShowCard data={item} progressStatus={progressStatuses.get(item.show?.ids?.trakt)} />}
         contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 100 }]}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={renderHeader()}

@@ -10,10 +10,12 @@ import TrackingCardMenu from './TrackingCardMenu';
 import BitisIcerigi, { BITIS_RENK } from './BitisIcerigi';
 import { generateMediaSlug } from '../../utils/slugHelper';
 import { getProgressBarColor, ilerlemeYuzdesi } from '../../utils/progressBarColor';
+import type { TrackingCategoryKey } from '../../store/tracking/useTrackingStore';
 import type { TrackingCard } from '../../store/tracking/trackingLogic';
 
 interface ShowTrackCardWebProps {
   data: TrackingCard;
+  progressStatus?: TrackingCategoryKey;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
@@ -22,7 +24,7 @@ interface ShowTrackCardWebProps {
 // tarafındaki MovieCard.web ile aynı görsel dil: 180×270 afiş, hover'da karartma
 // + oynat ikonu + başlık + işaretleme butonu. Yalnızca shows.web.tsx tarafından,
 // WebCarousel içinde kullanılır — bu yüzden platform uzantısı yerine açık isim.
-const ShowTrackCardWeb = memo(({ data, onToggleDropped }: ShowTrackCardWebProps) => {
+const ShowTrackCardWeb = memo(({ data, progressStatus, onToggleDropped }: ShowTrackCardWebProps) => {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -47,7 +49,7 @@ const ShowTrackCardWeb = memo(({ data, onToggleDropped }: ShowTrackCardWebProps)
   // Bu kart yalnızca takip panosunun görünür kategorilerinden beslenir
   // (Aktif/Ara Verilen/Başlanmadı) — "Bırak" ile gizlenmiş yapımlar oraya HİÇ
   // girmez, bu yüzden burada "bırakıldı" durumu diye bir şey yoktur.
-  const progressColor = getProgressBarColor(false, false);
+  const progressColor = getProgressBarColor(false, false, undefined, progressStatus);
 
   const handleCardPress = () => {
     if (!data.id) return;

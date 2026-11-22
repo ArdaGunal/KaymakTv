@@ -8,14 +8,15 @@ import ProgressBar from './ProgressBar';
 import { useLibrarySelector, useLibraryActions } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
 import { generateMediaSlug } from '../utils/slugHelper';
-import { getProgressBarColor } from '../utils/progressBarColor';
+import { getProgressBarColor, type ShowProgressStatus } from '../utils/progressBarColor';
 import { getMediaFollowStatus } from '../utils/followStatus';
 import { useTranslation } from 'react-i18next';
 import { formatRating } from '../utils/formatRating';
 import { gorunenBaslik } from '../utils/gorunenBaslik';
 import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
+import { PROGRESS_BAR_COLOR } from '../constants/progressBarColors';
 
-const ShowCard = memo(({ data }: { data: any }) => {
+const ShowCard = memo(({ data, progressStatus }: { data: any; progressStatus?: ShowProgressStatus }) => {
   const { t, i18n } = useTranslation(['media', 'common']);
   const router = useRouter();
   // Katı seçici: tam context aboneliği listedeki HER kartı her store
@@ -60,7 +61,7 @@ const ShowCard = memo(({ data }: { data: any }) => {
   const hasProgress = progress && progress.aired > 0 && progress.completed > 0;
   const progressPercentage = hasProgress ? (progress.completed / progress.aired) * 100 : 0;
   const isFinished = !!hasProgress && progress.completed >= progress.aired;
-  const progressColor = getProgressBarColor(isDropped, isFinished, MOBILE_PALETTE.steel);
+  const progressColor = getProgressBarColor(isDropped, isFinished, PROGRESS_BAR_COLOR.paused, progressStatus);
 
   // 🔴 M416 — DÖNEN SİMGE YOK, DURUM ZATEN ANINDA DOĞRU.
   // `toggleWatchlistStatus` mağazayı İYİMSER günceller (collections.ts:105-121)

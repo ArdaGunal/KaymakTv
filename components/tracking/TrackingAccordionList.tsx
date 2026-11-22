@@ -204,8 +204,8 @@ function TrackingAccordionList({
   }, [categories, collapsed, labels]);
 
   const renderItem = useCallback(
-    ({ item }: { item: TrackingCard }) => (
-      <EpisodeCard data={item} onToggleDropped={onToggleDropped} />
+    ({ item, section }: { item: TrackingCard; section: Section }) => (
+      <EpisodeCard data={item} progressStatus={section.key} onToggleDropped={onToggleDropped} />
     ),
     [onToggleDropped]
   );

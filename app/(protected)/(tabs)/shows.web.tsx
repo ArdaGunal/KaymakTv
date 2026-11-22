@@ -16,6 +16,8 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import IndexMobile from '../../../screens/IndexMobile';
 import LoginPaywall from '../../../components/LoginPaywall';
 import { useDashboardData } from '../../../hooks/useDashboardData';
+import type { TrackingCard } from '../../../store/tracking/trackingLogic';
+import type { TrackingCategoryKey } from '../../../store/tracking/useTrackingStore';
 import { useTrackingShows } from '../../../hooks/useTrackingShows';
 import { groupByDateGroup } from '../../../utils/groupByDateGroup';
 import AktarimBandi from '../../../components/library/AktarimBandi';
@@ -113,13 +115,6 @@ export default function DizilerScreenWeb() {
     setRefreshing(false);
   }, [accessToken, refreshLibrary]);
 
-  // Takip kartı (poster) — Netflix tarzı; carousel içinde yan yana sıkı dizilir.
-  const renderTrackItem = useCallback(
-    ({ item }: { item: any }) => (
-      <ShowTrackCardWeb data={item} onToggleDropped={dropShow} />
-    ),
-    [dropShow]
-  );
   // Trend/yaklaşan için eski yatay EpisodeCard hâlâ kullanılır.
   const renderEpisodeItem = useCallback(
     ({ item }: { item: any }) => <EpisodeCard data={item} />,
@@ -134,9 +129,14 @@ export default function DizilerScreenWeb() {
     router.push((statusKey ? `/(protected)/library/shows?status=${statusKey}` : '/(protected)/library/shows') as any);
   }, [router]);
 
-  const renderTrackCarousel = (title: string, data: any[], statusKey: string) =>
+  const renderTrackCarousel = (title: string, data: TrackingCard[], statusKey: TrackingCategoryKey) =>
     data.length > 0 ? (
-      <WebCarousel title={title} data={data} renderItem={renderTrackItem} onViewAll={() => openViewAllShows(statusKey)} />
+      <WebCarousel
+        title={title}
+        data={data}
+        renderItem={({ item }) => <ShowTrackCardWeb data={item} progressStatus={statusKey} onToggleDropped={dropShow} />}
+        onViewAll={() => openViewAllShows(statusKey)}
+      />
     ) : null;
 
   // `showViewAll=false`: misafirin gördüğü trend dizileri carousel'i için —

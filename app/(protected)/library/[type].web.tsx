@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import MediaPoster from '../../../components/MediaPoster';
 import ProgressBar from '../../../components/ProgressBar';
-import { getProgressBarColor } from '../../../utils/progressBarColor';
+import { cubukVerisi } from '../../../utils/ilerlemeCubugu';
+import { useShowProgressStatuses } from '../../../hooks/useTrackingShows';
 import { useLibrarySelector } from '../../../context/LibraryContext';
 import { generateMediaSlug } from '../../../utils/slugHelper';
 import PosterGridSkeleton from '../../../components/skeletons/PosterGridSkeleton';
@@ -63,6 +64,7 @@ const LibraryGridItemWeb = memo(({ item, type, onPress, yuzde, renk }: GridItemP
 export default function LibraryScreenWeb() {
   const { isDesktop } = useResponsive();
   const { type, status } = useLocalSearchParams();
+  const progressStatuses = useShowProgressStatuses(isDesktop && (type === 'shows' || type === 'favShows'));
   const router = useRouter();
   const handleBack = useAppBack();
   // 🔴 Abonelik EKRAN düzeyinde, hücre başına DEĞİL (`ShowCard.tsx` dersi).
@@ -111,17 +113,16 @@ export default function LibraryScreenWeb() {
   const renderItem = useCallback(({ item }: { item: LibraryItem }) => {
     const diziMi = type === 'shows' || type === 'favShows';
     const ilerleme = diziMi && item.id ? showProgressMap?.[item.id] : null;
-    const varMi = !!ilerleme && ilerleme.aired > 0 && ilerleme.completed > 0;
-    const yuzde = varMi ? (ilerleme.completed / ilerleme.aired) * 100 : 0;
-    const bitti = varMi && ilerleme.completed >= ilerleme.aired;
     const birakildi = !!item.id && !!hiddenShowIds?.includes?.(item.id);
+    const durum = item.id == null ? undefined : progressStatuses.get(item.id);
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, undefined, durum);
     return (
       <LibraryGridItemWeb
         item={item} type={type} onPress={handleItemPress}
-        yuzde={yuzde} renk={getProgressBarColor(birakildi, bitti)}
+        yuzde={yuzde} renk={renk}
       />
     );
-  }, [showProgressMap, hiddenShowIds, type, handleItemPress]);
+  }, [showProgressMap, hiddenShowIds, progressStatuses, type, handleItemPress]);
 
   const keyExtractor = useCallback((item: LibraryItem) => item.key, []);
 
