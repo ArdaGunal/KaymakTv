@@ -166,12 +166,15 @@ function createAnlikAktarim({
         });
         if (!kokler.length) return { ok: true, yazilan: 0, bos: true };
         const db = radar ? getDb() : null;
-        const revler = db && require('../radar/depo').tablolarVar(db) ? Object.fromEntries(db.prepare(
-          'SELECT kaymak_id,takvim_rev FROM radar_takvim WHERE kaymak_id IN (SELECT value FROM json_each(?))'
-        ).all(JSON.stringify(kokler)).map((r) => [r.kaymak_id, r.takvim_rev])) : null;
+        const takvimler = db && require('../radar/depo').tablolarVar(db) ? db.prepare(
+          'SELECT kaymak_id,takvim_rev,veri FROM radar_takvim WHERE kaymak_id IN (SELECT value FROM json_each(?))'
+        ).all(JSON.stringify(kokler)) : null;
         const fazlar = fazlariKur(kokler);
         const giden = fazlar.length === 0 ? { ok: true, yazilan: 0, bos: true } : await gonder(fazlar);
-        return revler ? { ...giden, revler } : giden;
+        return takvimler ? { ...giden,
+          revler: Object.fromEntries(takvimler.map((r) => [r.kaymak_id, r.takvim_rev])),
+          takvimler: Object.fromEntries(takvimler.map((r) => [r.kaymak_id, r])),
+        } : giden;
       });
     } catch (error) {
       istatistik.hata += 1;

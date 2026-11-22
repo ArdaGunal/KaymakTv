@@ -35,6 +35,7 @@ const { yedekOzeti } = require('./yedek/ozet');
 const { geceIsleriAcikMi } = require('./geceIsleri');
 
 const { radarSagligi } = require('./radar');
+const { motorKapilari } = require('./bildirim/ayar');
 
 const SAGLAYICILAR = ['tmdb', 'trakt'];
 
@@ -102,6 +103,7 @@ async function saglikRaporu() {
 
   const saglayicilar = {};
   for (const p of SAGLAYICILAR) saglayicilar[p] = { devre: devreDurumu(p), kova: kovaDurumu(p) };
+  const motor = motorKapilari();
 
   return {
     ok: !!lf.enabled && !!arsiv.enabled,
@@ -110,6 +112,7 @@ async function saglikRaporu() {
     // Taşıma D1: beş gece zamanlayıcısı kurulu mu (`GECE_ISLERI=0` → false; prova sunucusu).
     geceIsleri: geceIsleriAcikMi(),
     radar: radarSagligi(),
+    motor: { sirOrtamDegiskeni: 'MOTOR_SIR', MOTOR_PLANLA: motor.planla, MOTOR_GONDER: motor.gonder },
     lazyfetch: {
       etkin: !!lf.enabled,
       diskDolulukYuzde: lf.enabled ? await diskYuzdesi(lf.root) : null,

@@ -28,6 +28,24 @@ const saglik = require(path.join(__dirname, '..', '..', 'server', 'saglik'));
   T.ok('🔴 Dosya yolu SIZMIYOR (kok, dbPath, root yok)', !metin.includes(T.kok) && !/dbPath|"root"|katalog\.db/.test(metin));
   T.ok('🔴 Sir/ortam degeri SIZMIYOR', !/secret|api_key|TMDB_API_KEY|SYNC_SECRET|Bearer/i.test(metin));
 
+  const motorOrtami = { MOTOR_SIR: 'saglik-test-sir-degeri', MOTOR_PLANLA: '1', MOTOR_GONDER: '1', GECE_ISLERI: '1' };
+  const eskiOrtam = Object.fromEntries(Object.keys(motorOrtami).map((k) => [k, process.env[k]]));
+  try {
+    Object.assign(process.env, motorOrtami);
+    const acik = await saglik.saglikRaporu();
+    process.env.GECE_ISLERI = '0';
+    const kapali = await saglik.saglikRaporu();
+    T.ok('Motor sagligi sir adini ve etkili kapilari gosterir; sir degeri gizli kalir',
+      acik.motor.sirOrtamDegiskeni === 'MOTOR_SIR' && acik.motor.MOTOR_PLANLA === true && acik.motor.MOTOR_GONDER === true &&
+      kapali.motor.MOTOR_PLANLA === false && kapali.motor.MOTOR_GONDER === false &&
+      !JSON.stringify(acik).includes(motorOrtami.MOTOR_SIR));
+  } finally {
+    for (const [k, deger] of Object.entries(eskiOrtam)) {
+      if (deger === undefined) delete process.env[k];
+      else process.env[k] = deger;
+    }
+  }
+
   T.H('Durumu DEGISTIRMEDEN okur');
   for (let i = 0; i < 5; i++) cb.recordFailure('trakt');
   const devreOnce = cb.devreDurumu('trakt');

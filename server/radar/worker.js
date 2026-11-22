@@ -1,5 +1,8 @@
 const { saglayiciSecenekleri } = require('../lazyfetch/zamanSiniri');
-const { idMi, RadarHatasi, OLAY_PARTISI, OLAY_GOVDE_TAVANI, TAKIP_SAYFASI, hataKodu } = require('./ayar');
+const { idMi, RadarHatasi, OLAY_PARTISI, OLAY_GOVDE_TAVANI, TAKIP_SAYFASI, IS_PARTISI, hataKodu, tekrarMs } = require('./ayar');
+
+const AYNA_UYE_TAVANI = 2000;
+const AYNA_SOZLESME_RET_TAVANI = 8;
 
 function workerIstemcisi({ workerUrl, sir, fetch = globalThis.fetch }) {
   async function iste(yol, secenekler) {
@@ -20,6 +23,7 @@ function workerIstemcisi({ workerUrl, sir, fetch = globalThis.fetch }) {
   return {
     takip: (sonraki) => iste(`takip?${new URLSearchParams({ sonraki, sayfa: TAKIP_SAYFASI })}`),
     olay: (olaylar) => iste('olay', { method: 'POST', body: JSON.stringify({ olaylar }) }),
+    ayna: (satirlar) => iste('ayna', { method: 'POST', body: JSON.stringify({ satirlar }) }),
   };
 }
 
@@ -94,4 +98,84 @@ async function olayGonder(depo, worker, dur = () => {}) {
   await gonder(parti);
 }
 
-module.exports = { workerIstemcisi, takipGoruntusu, olayGonder };
+async function aynaBildirimleriniGonder(depo, worker, dur, saat = Date.now) {
+  let ret;
+  let onaylanan = 0;
+  let sozlesmeRetleri = 0;
+  const tekilRetler = [];
+  async function terk(r, kod) {
+    await depo.aynaBildirimiTerk(r);
+    ret ??= kod;
+  }
+
+  async function partiyiGonder(parti) {
+    if (!parti.length) return;
+    async function gonder(grup) {
+      dur();
+      const satirlar = grup.map(({ tur, trakt_id, takvim_rev, satirlar }) => ({ tur, trakt_id, takvim_rev, satirlar }));
+      try {
+        if (Buffer.byteLength(JSON.stringify({ satirlar })) > 1024 * 1024) throw new RadarHatasi('http_413');
+        const sonuc = await worker.ayna(satirlar);
+        if (!Number.isSafeInteger(sonuc?.yazilan) || sonuc.yazilan < 0 ||
+            !Number.isSafeInteger(sonuc.yinelenen) || sonuc.yinelenen < 0 ||
+            sonuc.yazilan + sonuc.yinelenen !== grup.length) throw new RadarHatasi('ayna_yaniti');
+      } catch (error) {
+        const kod = hataKodu(error);
+        const sozlesmeReddi = kod === 'http_400' || kod === 'http_422';
+        if (!sozlesmeReddi && kod !== 'http_413') {
+          const simdi = saat();
+          await depo.aynaBildirimiErtele(grup, simdi, tekrarMs(error, simdi), kod === 'http_409');
+          throw error;
+        }
+        if (sozlesmeReddi && ++sozlesmeRetleri >= AYNA_SOZLESME_RET_TAVANI) throw new RadarHatasi('ayna_sozlesme');
+        if (grup.length === 1) {
+          if (sozlesmeReddi) tekilRetler.push([grup[0], kod]);
+          else await terk(grup[0], kod);
+          return;
+        }
+        // Worker bir kökün tam görüntüsünü bekler. Yalnız kökler arasında bölünür.
+        const orta = Math.floor(grup.length / 2);
+        await gonder(grup.slice(0, orta));
+        await gonder(grup.slice(orta));
+        return;
+      }
+      await depo.aynaBildirimiOnayla(grup);
+      onaylanan += grup.length;
+    }
+    await gonder(parti);
+  }
+
+  let parti = [];
+  let uyeSayisi = 0;
+  const bekleyen = depo.bekleyenAynaBildirimleri(IS_PARTISI, saat());
+  for (const r of bekleyen) {
+    dur();
+    let satirlar;
+    try {
+      satirlar = JSON.parse(r.veri).satirlar.map(({ sezon, bolum, tarih, an_turu, durum }) =>
+        ({ sezon, bolum, tarih, an_turu, durum }));
+    } catch {
+      await terk(r, 'ayna_verisi');
+      continue;
+    }
+    const yeniden = r.deneme > 0 || r.cakisma_deneme > 0;
+    if (yeniden || uyeSayisi + satirlar.length > AYNA_UYE_TAVANI) {
+      await partiyiGonder(parti);
+      parti = [];
+      uyeSayisi = 0;
+    }
+    if (yeniden) await partiyiGonder([{ ...r, satirlar }]);
+    else {
+      parti.push({ ...r, satirlar });
+      uyeSayisi += satirlar.length;
+    }
+  }
+  await partiyiGonder(parti);
+  // Toplu reddin tekil denemeleri, bir kabul görülmeden kalıcı terke dönüşmez.
+  if (tekilRetler.length && bekleyen.length > 1 && !onaylanan) throw new RadarHatasi('ayna_sozlesme');
+  for (const [r, kod] of tekilRetler) await terk(r, kod);
+  if (ret) throw new RadarHatasi(ret);
+  return onaylanan;
+}
+
+module.exports = { workerIstemcisi, takipGoruntusu, olayGonder, aynaBildirimleriniGonder };

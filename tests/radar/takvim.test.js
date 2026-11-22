@@ -9,7 +9,8 @@ const { takvimCikar, zamaniSinifla, olaylariCikar } = require('../../server/rada
 const { AYNA_BELIRSIZ_BEKLEME_MS, GIDEN_KUTUSU_TAVANI, GIDEN_KUTUSU_OMRU } = require('../../server/radar/ayar');
 const { akisiGonder, partiGonder } = require('../../server/archive/mirror');
 const { aynalariGonder } = require('../../server/radar/ayna');
-const { olayGonder } = require('../../server/radar/worker');
+const { olayGonder, aynaBildirimleriniGonder, workerIstemcisi } = require('../../server/radar/worker');
+const { radarTuruKur } = require('../../server/radar/tur');
 const { radarYaz, archiveQueue } = require('../../server/archive/queue');
 const { closeArchive } = require('../../server/archive/db');
 const { createAnlikAktarim } = require('../../server/archive/anlikAktarim');
@@ -95,9 +96,53 @@ const sezon = (tarih, bolumler = [{ number: 1, ids: { trakt: 501 }, first_aired:
   depo.db.exec('DROP TRIGGER radar_yapay_hata');
   const sonra = await readPayload({ kaymakId: r.kaymak_id, provider: 'trakt', endpoint: 'movie_detail', lang: 'tr' });
   T.ok('Olay yazimi dusunce revizyon ve katalog birlikte geri alinir', depo.takvim(film).takvim_rev === 4 && sonra.data.released === '2026-12-05');
-  await depo.aynaOnayla(r);
+  assert.deepEqual(depo.bekleyenAynaBildirimleri(100), []);
+  await depo.aynaOnayla({ ...r, goruntu: r });
+  assert.equal(JSON.parse(depo.bekleyenAynaBildirimleri(100)[0].veri).satirlar[0].tarih, '2026-12-06');
   T.ok('Eski ayna ACK yeni revizyonu tamamlayamaz', depo.takvim(film).ayna_bekliyor === 1 && depo.bekleyenOlaylar(500).length === 2);
   await aynalariGonder(depo, () => simdi + 1, dur, async () => ({ ok: true, yazilan: 0, atlanan: 0 }));
+  const aynaIstekleri = [];
+  const worker = workerIstemcisi({ workerUrl: 'https://worker.invalid', sir: 'radar-sir', fetch: async (url, istek) => {
+    assert.equal(url, 'https://worker.invalid/ic/radar/ayna');
+    assert.equal(istek.method, 'POST');
+    assert.equal(istek.headers['x-kaymak-sync-secret'], 'radar-sir');
+    aynaIstekleri.push(istek.body);
+    if (aynaIstekleri.length === 1) throw new Error('sahte ACK kaybi');
+    return Response.json({ yazilan: 0, yinelenen: 1 });
+  } });
+  let aynaSaati = simdi + 1;
+  const yeniTur = (yaz, olay, depo) => radarTuruKur({ kapilar: { yaz, olay }, depo, worker,
+    saglayicilar: {}, saat: () => aynaSaati });
+  await yeniTur(false, true, depo).aynala(() => false);
+  await yeniTur(true, false, depo).aynala(() => false);
+  assert.deepEqual(aynaIstekleri, []);
+  await assert.rejects(aynaBildirimleriniGonder(depo, worker, dur, () => aynaSaati), /ACK kaybi/);
+  const tekrar = await depoAc({ yaz: true });
+  await yeniTur(true, true, tekrar).aynala(() => false);
+  assert.equal(aynaIstekleri.length, 1);
+  aynaSaati += 60_000;
+  await yeniTur(true, true, tekrar).aynala(() => false);
+  assert.equal(aynaIstekleri.length, 2);
+  assert.equal(aynaIstekleri[0], aynaIstekleri[1]);
+  assert.deepEqual(JSON.parse(aynaIstekleri[1]), { satirlar: [{ tur: 'movie', trakt_id: 7, takvim_rev: 4,
+    satirlar: [{ sezon: null, bolum: null, tarih: '2026-12-05', an_turu: 'yalniz_tarih', durum: 'kesin' }] }] });
+  assert.deepEqual((await depoAc({ yaz: true })).bekleyenAynaBildirimleri(100), []);
+  T.ok('Ayna bildirimi iki kapiya bagli; ACK kaybi ayni revizyon ve govde ile tekrar edilir', true);
+
+  depo.db.exec(`INSERT INTO radar_ayna_giden(tur,trakt_id,takvim_rev,veri)
+    VALUES ('movie',8,1,'{"satirlar":[]}'),('show',9,2,'{"satirlar":[]}'),('show',10,3,'{"satirlar":[]}')`);
+  const boyutDenemeleri = [];
+  await assert.rejects(aynaBildirimleriniGonder(depo, { ayna: async (parti) => {
+    boyutDenemeleri.push(parti.map((x) => x.trakt_id));
+    if (parti.length > 1 || parti[0].trakt_id === 9) throw Object.assign(new Error('asiri_govde'), { status: 413 });
+    if (parti[0].trakt_id === 8) {
+      depo.db.exec("UPDATE radar_ayna_giden SET takvim_rev=2 WHERE tur='movie' AND trakt_id=8");
+    }
+    return { yazilan: parti.length, yinelenen: 0 };
+  } }, dur), /http_413/);
+  assert.deepEqual(boyutDenemeleri, [[8, 9, 10], [8], [9, 10], [9], [10]]);
+  assert.deepEqual(depo.bekleyenAynaBildirimleri(100).map((x) => [x.trakt_id, x.takvim_rev]), [[8, 2]]);
+  T.ok('Ayna 413 tam kokler arasinda bolunur; eski ACK yeni revizyonu silmez', true);
   const gonderilen = [];
   await assert.rejects(olayGonder(depo, { olay: async (parti) => {
     gonderilen.push(...parti);

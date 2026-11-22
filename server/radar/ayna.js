@@ -56,7 +56,8 @@ async function aynalariGonder(depo, saat, dur, aktar = (kok, secenek) => anlikAk
     }
     if (cevap?.reason === 'gece_isi') continue;
     if (cevap?.ok && !cevap.atlanan) {
-      await depo.aynaOnayla({ ...r, takvim_rev: cevap.revler?.[r.kaymak_id] ?? r.takvim_rev });
+      await depo.aynaOnayla({ ...r, takvim_rev: cevap.revler?.[r.kaymak_id] ?? r.takvim_rev,
+        goruntu: cevap.takvimler?.[r.kaymak_id] ?? r }, saat());
     } else {
       await depo.aynaErtele(r, saat(), cevap?.yenidenAt, satirReddi(cevap));
       hata = true;

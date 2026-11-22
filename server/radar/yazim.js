@@ -95,7 +95,9 @@ function takvimIslemi(db, veri, beklenenRev, simdi, hamGirdiler, onceki, yeni, o
 
   const json = JSON.stringify(yeni);
   const degisti = durum?.veri !== json;
-  const rev = beklenenRev + Number(degisti);
+  // Takipsiz takvim budansa bile Worker'daki son ayna revizyonu korunur.
+  const sonAyna = durum ? null : db.prepare('SELECT takvim_rev FROM radar_ayna_giden WHERE tur=? AND trakt_id=?').get(tur, trakt_id);
+  const rev = (sonAyna?.takvim_rev ?? beklenenRev) + Number(degisti);
   db.prepare(`INSERT INTO radar_takvim (tur,trakt_id,kaymak_id,takvim_rev,kaynak_at,ayna_hazir_at,veri)
     VALUES (?,?,?,?,?,?,?) ON CONFLICT(tur,trakt_id) DO UPDATE SET
     kaynak_at=excluded.kaynak_at, takvim_rev=excluded.takvim_rev, veri=excluded.veri,

@@ -1,6 +1,6 @@
-const { AKISLAR, TAKIP_ARALIGI, DAKIKA, SAAT, IS_PARTISI, YENI_IS_PARTISI, RadarHatasi, hataKodu, tekrarMs, iso } = require('./ayar');
+const { AKISLAR, TAKIP_ARALIGI, DAKIKA, SAAT, IS_PARTISI, YENI_IS_PARTISI, RadarHatasi, hataKodu, tekrarMs, gecikme, iso } = require('./ayar');
 const { akisiTara, telafiyiIlerlet, radarCek } = require('./akis');
-const { takipGoruntusu, olayGonder } = require('./worker');
+const { takipGoruntusu, olayGonder, aynaBildirimleriniGonder } = require('./worker');
 const { kataloguCek } = require('./tazele');
 const { radarYaz } = require('../archive/queue');
 const { aynalariGonder } = require('./ayna');
@@ -12,6 +12,9 @@ function radarTuruKur({
   let takipAt = null;
   let takipSonra = 0;
   let olaySonra = 0;
+  let aynaDoldurSonra = 0;
+  let aynaSozlesmeSonra = 0;
+  let aynaSozlesmeDeneme = 0;
   let budamaSonra = 0;
   const gecmisSezonlar = new Map();
   const sonrakiAkis = new Map();
@@ -62,6 +65,7 @@ function radarTuruKur({
           dur();
           yeni = await depo.takipDegistir(satirlar, saat());
           takipAt = simdi;
+          if (yeni) aynaDoldurSonra = 0;
           gunluk.info(`[Radar] takip=${satirlar.length} tazelenecekler=yeni:${yeni} yazim=${kapilar.yaz ? 1 : 0}`);
         } catch (error) {
           hata('takip', error);
@@ -166,17 +170,41 @@ function radarTuruKur({
     }
   }
   tur.aynala = async (geceBekliyor) => {
-    if (!aynaHazir || geceBekliyor()) return;
-    aynaHazir = false;
-    try {
-      await aynala(depo, saat, () => { if (geceBekliyor()) throw new RadarHatasi('gece_isi'); });
-    } catch (error) {
-      const kod = hataKodu(error);
-      if (kod === 'gece_isi') return;
-      const mesaj = 'ayna:' + kod;
+    if (!kapilar.yaz || geceBekliyor()) return;
+    const dur = () => { if (geceBekliyor()) throw new RadarHatasi('gece_isi'); };
+    async function hataYaz(asama, hata) {
+      const kod = hataKodu(hata);
+      const mesaj = `${asama}:${kod}`;
       if (depo.saglik().sonHata !== mesaj) gunluk.warn(`[Radar] ${mesaj}`);
       await depo.hataSay(kod);
       await depo.durumYaz('sonHata', mesaj);
+    }
+    if (aynaHazir) {
+      aynaHazir = false;
+      try { await aynala(depo, saat, dur); } catch (error) {
+        if (hataKodu(error) === 'gece_isi') return;
+        await hataYaz('ayna', error);
+      }
+    }
+    if (!kapilar.olay || geceBekliyor() || saat() < aynaSozlesmeSonra) return;
+    try {
+      const simdi = saat();
+      if (simdi >= aynaDoldurSonra) {
+        // Yeni onaylar önce gider. Eski, takipli takvimler dilim dilim eklenir.
+        const eklenen = await depo.aynaBildirimleriniDoldur(simdi + DAKIKA, IS_PARTISI);
+        if (eklenen < IS_PARTISI) aynaDoldurSonra = simdi + TAKIP_ARALIGI;
+      }
+      if (await aynaBildirimleriniGonder(depo, worker, dur, saat)) {
+        aynaSozlesmeDeneme = 0;
+        await depo.durumYaz('aynaBildirimiSonHata', null);
+      }
+    } catch (error) {
+      const kod = hataKodu(error);
+      if (kod === 'gece_isi') return;
+      if (kod === 'ayna_sozlesme') aynaSozlesmeSonra = saat() + gecikme(++aynaSozlesmeDeneme);
+      if (depo.saglik().aynaBildirimiSonHata !== kod) gunluk.warn(`[Radar] ayna_bildirimi:${kod}`);
+      await depo.hataSay(kod);
+      await depo.durumYaz('aynaBildirimiSonHata', kod);
     }
   };
   return tur;

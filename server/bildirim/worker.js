@@ -2,7 +2,7 @@ const { PARTI } = require('./ayar');
 const { saglayiciSecenekleri } = require('../lazyfetch/zamanSiniri');
 
 /*
- * Worker sözleşmesi (öneri). /ic/bildirim/* yalnız MOTOR_SIR,
+ * Worker sözleşmesi (f8c45df). /ic/bildirim/* yalnız MOTOR_SIR,
  * /ic/push mevcut ICPUSH_SIR. Header x-kaymak-sync-secret, JSON UTF-8,
  * yönlendirme kapalı. Tarihler ISO UTC; sayfa imleçleri opak ve son sayfada null.
  * Her sayfada en çok 100 satır. Anahtarlar sunucuya özel; hesap UUID'si dışında
@@ -46,13 +46,15 @@ const { saglayiciSecenekleri } = require('../lazyfetch/zamanSiniri');
  *
  * POST /ic/bildirim/gonderim-adaylari {simdi,sonraki,limit}
  *   -> {satirlar:[{id,plan_surumu,plan,kutu_id,okundu_at,silindi_at,dil,
- *        son_sablon_id,kutu_sablonu?,hesap_acik,takipte,izlendi,zaman_dilimi,tercihler,
+ *        son_sablon_id,kutu_sablonu?,gonderilebilir,zaman_dilimi,tercihler,
  *        duzeltme_id?:string,geri_cek?:boolean}], sonraki}
  *   Kutu zamanı gelenler, düzeltmeler ve zamanlanmış niyetler (ilk veya güvenli
  *   tekrar) sayfalanır. Süre dolduğunda kutu işi yine okunur. Terminal veya
  *   belirsiz niyet yeniden gönderilmez; süresi aşılmış gonderiliyor durumunu
  *   Worker belirsiz olarak sonuçlandırır. Adayın planı tam üye listesi içerir.
- *   takipte tüm üyeler takipte, izlendi en az bir üye artık izlenmiş demektir.
+ *   gonderilebilir hesap açık, tüm üyeler takipte ve hiçbiri izlenmemişse true.
+ *   Uygun olmayan bekleyen aday için iptal nedeni uygun_degil gönderilir.
+ *   Worker iptal nedenini güncel hesap, takip ve izleme durumundan çözer.
  *   tercihler {tumu,sezon_duyuru,yayin,film,sosyal}; kaydı yoksa varsayılan true.
  *   düzeltmede plan, mevcut kutunun yeni izdüşümüdür; silinen kutu canlanmaz.
  *   Mevcut kutuyu güncellerken kutu_sablonu özgün satırdır (aktif olmasa da);

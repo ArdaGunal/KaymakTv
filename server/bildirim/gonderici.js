@@ -6,15 +6,16 @@ const { sayfalariOku } = require('./worker');
 
 function gonderimKarari(aday, simdi, takvimNedeni, motorBaslangic = -Infinity) {
   const { plan, tercihler } = aday;
+  if (typeof aday.gonderilebilir !== 'boolean') throw new Error('gonderim_adayi_yaniti');
+  if (aday.duzeltme_id) return aday.gonderilebilir ? { islem: 'duzelt', geri_cek: aday.geri_cek === true } : null;
+  if (!aday.gonderilebilir) return { islem: 'iptal', neden: 'uygun_degil' };
   const duyuru = duyuruMu(plan);
   if (duyuru && motorBaslangic !== -Infinity && !(Date.parse(plan.olay_alindi_at) > motorBaslangic)) {
     return { islem: 'iptal', neden: 'motor_oncesi' };
   }
-  if (aday.duzeltme_id) return { islem: 'duzelt', geri_cek: aday.geri_cek === true };
   if (takvimNedeni === 'takvim_belirsiz') return null;
-  const neden = !aday.hesap_acik ? 'hesap_kapali' : !aday.takipte ? 'takip_yok'
-    : aday.izlendi ? 'izlendi' : aday.silindi_at ? 'kutu_silindi'
-      : takvimNedeni || (gecerliDilim(aday.zaman_dilimi) !== plan.zaman_dilimi ? 'dilim_degisti' : null);
+  const neden = aday.silindi_at ? 'kutu_silindi'
+    : takvimNedeni || (gecerliDilim(aday.zaman_dilimi) !== plan.zaman_dilimi ? 'dilim_degisti' : null);
   if (neden) return { islem: 'iptal', neden };
   if (simdi < Date.parse(plan.kutu_an)) return null;
   if (simdi < Date.parse(plan.planlanan_an)) return { islem: 'hazirla', push: false, neden: 'push_bekliyor' };
@@ -52,7 +53,7 @@ async function gonderimTuru({ worker, takvimiDogrula, sablonlar, saat, dur, moto
       try {
         const { plan, id, plan_surumu, duzeltme_id } = aday;
         if (!plan.icerikler.length && !aday.geri_cek) throw new Error('teslim_uyeleri_yok');
-        const dogrulama = aday.geri_cek ? {} : takvimiDogrula(plan.icerikler);
+        const dogrulama = aday.geri_cek || aday.gonderilebilir === false ? {} : takvimiDogrula(plan.icerikler);
         if (duzeltme_id && dogrulama.neden) continue;
         const karar = gonderimKarari(aday, saat(), dogrulama.neden, motorBaslangic);
         if (!karar) continue;

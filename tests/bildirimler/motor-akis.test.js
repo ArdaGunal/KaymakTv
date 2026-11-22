@@ -22,7 +22,7 @@ const bolum = {
   planlanan_an: new Date(simdi).toISOString(), push_son_an: '2026-11-22T12:45:00.000Z', yakin_son: tarih,
   beklenen_rev: 10, icerikler: [icerik], birimler: [{ baslik: 'Dizi', sezon: 2, bolum: 3, icerikler: [icerik] }],
 };
-const aday = { id: 'teslim', plan_surumu: 5, plan: bolum, hesap_acik: true, takipte: true, izlendi: false,
+const aday = { id: 'teslim', plan_surumu: 5, plan: bolum, gonderilebilir: true,
   zaman_dilimi: 'UTC', dil: 'tr', tercihler: { tumu: true, yayin: true } };
 const sablon = { id: 'sablon', dil: 'tr', kategori: 'bolum_yakinda', baslik: '{baslik}', govde: 'Bölüm {bolum}', agirlik: 1 };
 const sayfa = (satirlar) => ({ satirlar, sonraki: null });
@@ -32,7 +32,7 @@ const dogrula = (icerikler) => ({ icerikler });
 test('Gönderim anı takip, izleme, tarih, dilim, tercih, okundu ve TTL kapıları', () => {
   assert.deepEqual(gonderimKarari(aday, simdi), { islem: 'hazirla', push: true });
   for (const [ek, neden] of [
-    [{ takipte: false }, 'takip_yok'], [{ izlendi: true }, 'izlendi'], [{ hesap_acik: false }, 'hesap_kapali'],
+    [{ gonderilebilir: false }, 'uygun_degil'],
     [{ silindi_at: tarih }, 'kutu_silindi'], [{ zaman_dilimi: 'Europe/Istanbul' }, 'dilim_degisti'],
   ]) {
     assert.deepEqual(gonderimKarari({ ...aday, ...ek }, simdi), { islem: 'iptal', neden });
@@ -106,6 +106,41 @@ test('Kutu yazılırken tercih kapalıysa Worker push çağrısı kurulmaz', asy
   assert.equal(sonuc.kutu, 1);
   assert.equal(sonuc.istek, 0);
   assert.equal(kutu.baslik, 'Dizi');
+});
+
+test('Worker uygun olmayan adayın iptal nedenini çözer', async () => {
+  const worker = {
+    gonderimAdaylari: async () => sayfa([{ ...aday, gonderilebilir: false }]),
+    teslim: async (girdi) => {
+      assert.deepEqual(JSON.parse(JSON.stringify(girdi)), { id: aday.id, beklenen_plan_surumu: 5,
+        beklenen_rev: 10, icerikler: [icerik], islem: 'iptal', neden: 'uygun_degil' });
+      return { durum: 'uygulandi', gonderim_idler: [] };
+    },
+    push: async () => assert.fail('push kapalı'),
+  };
+  const sonuc = await gonderimTuru({ worker, takvimiDogrula: () => assert.fail('takvim sorgusu'),
+    sablonlar: async () => assert.fail('şablon sorgusu'), saat: () => simdi, dur });
+  assert.equal(sonuc.iptal, 1);
+  assert.equal(sonuc.hata, 0);
+});
+
+test('Worker uygun geri çekme adayının düzeltmesini gönderir; uygun olmayan düzeltmeyi atlar', async () => {
+  const teslimler = [];
+  const geriCek = { ...aday, duzeltme_id: 'duzeltme', geri_cek: true,
+    plan: { ...aday.plan, beklenen_rev: null, icerikler: [], birimler: [] } };
+  const worker = {
+    gonderimAdaylari: async () => sayfa([geriCek, { ...geriCek, id: 'uygun-degil', gonderilebilir: false }]),
+    teslim: async (girdi) => {
+      teslimler.push(JSON.parse(JSON.stringify(girdi)));
+      return { durum: 'uygulandi', gonderim_idler: [] };
+    },
+    push: async () => assert.fail('push kapalı'),
+  };
+  const sonuc = await gonderimTuru({ worker, takvimiDogrula: () => assert.fail('takvim sorgusu'),
+    sablonlar: async () => assert.fail('şablon sorgusu'), saat: () => simdi, dur });
+  assert.deepEqual(teslimler, [{ id: aday.id, beklenen_plan_surumu: 5, beklenen_rev: null,
+    icerikler: [], duzeltme_id: 'duzeltme', islem: 'duzelt', geri_cek: true }]);
+  assert.equal(sonuc.hata, 0);
 });
 
 test('Kesin geçici hatada sonraki tur aynı niyet kimliğini kullanır', async () => {

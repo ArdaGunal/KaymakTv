@@ -33,6 +33,7 @@ const TAKIMLAR = [
   { ad: 'radar-akis', grup: 'radar', dosya: 'radar/akis.test.js', aciklama: 'Sayfalama, imlec, kesisim, telafi ve kapilar' },
   { ad: 'radar-denetim', grup: 'radar', dosya: 'radar/denetim.test.js', aciklama: 'Ayna, toparlanma ve kuyruk regresyonlari' },
   { ad: 'radar-takvim', grup: 'radar', dosya: 'radar/takvim.test.js', aciklama: 'Kaynak birlesimi, revizyon, ayna ve giden kutusu' },
+  { ad: 'radar-ayna-bildirimi', grup: 'radar', dosya: 'radar/ayna-bildirimi.test.js', aciklama: 'Katalog onayi, ayna bildirimi kapilari ve yeniden deneme' },
   { ad: 'motor-kurallar', grup: 'motor', dosya: 'bildirimler/motor-kurallar.test.js', aciklama: 'K-52 zamanlama, gruplama, tercihler ve sablonlar' },
   { ad: 'motor-akis', grup: 'motor', dosya: 'bildirimler/motor-akis.test.js', aciklama: 'GNL kapilari, Worker sozlesmesi ve idempotent teslim' },
   { ad: 'cekirdek', grup: 'lazyfetch', dosya: 'lazyfetch/cekirdek.test.js', aciklama: 'L1-L5: disk, tek-ucus, disiplin, SWR' },

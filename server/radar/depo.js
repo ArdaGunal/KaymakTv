@@ -18,15 +18,18 @@ function tablolarVar(db) {
 }
 
 function saglikOku(db, simdi = Date.now()) {
-  const bos = { sonTur: null, imlecler: {}, kuyruk: { tazeleme: 0, ayna: 0, olay: 0, terkIs: 0, terkAyna: 0, terkOlay: 0, olayBudanan: 0 }, hataSayilari: {}, sonHata: null };
+  const bos = { sonTur: null, imlecler: {}, kuyruk: { tazeleme: 0, ayna: 0, olay: 0, terkIs: 0, terkAyna: 0, terkOlay: 0,
+    olayBudanan: 0, aynaBildirimi: 0, terkAynaBildirimi: 0 }, hataSayilari: {}, sonHata: null, aynaBildirimiSonHata: null };
   if (!tablolarVar(db)) return bos;
   const durum = db.prepare('SELECT deger FROM radar_durum WHERE anahtar = ?');
   const say = (sql) => db.prepare(sql).get().n;
+  const aynaKutusuVar = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='radar_ayna_giden'").get();
   return {
     hataSayilari: Object.fromEntries(db.prepare("SELECT substr(anahtar,6) AS kod,deger FROM radar_durum WHERE anahtar LIKE 'hata:%'").all()
       .map(({ kod, deger }) => [kod, Number(deger)])),
     sonTur: durum.get('sonTur')?.deger ?? null,
     sonHata: durum.get('sonHata')?.deger ?? null,
+    aynaBildirimiSonHata: durum.get('aynaBildirimiSonHata')?.deger ?? null,
     imlecler: Object.fromEntries(db.prepare('SELECT akis, at, telafi_son_id FROM radar_imlec').all()
       .map(({ akis, at, telafi_son_id }) => {
         const { ardisikBos, basAt } = bosAkisOku(durum, akis);
@@ -44,6 +47,8 @@ function saglikOku(db, simdi = Date.now()) {
       terkAyna: say('SELECT count(*) n FROM radar_takvim WHERE ayna_bekliyor=2'),
       terkOlay: say('SELECT count(*) n FROM radar_giden WHERE terk=1'),
       olayBudanan: Number(durum.get(BUDAMA_SAYACI)?.deger ?? 0),
+      aynaBildirimi: aynaKutusuVar ? say('SELECT count(*) n FROM radar_ayna_giden WHERE veri IS NOT NULL AND terk=0') : 0,
+      terkAynaBildirimi: aynaKutusuVar ? say('SELECT count(*) n FROM radar_ayna_giden WHERE terk=1') : 0,
     },
   };
 }
@@ -54,11 +59,15 @@ async function semayiKur() {
     if (!h.prepare("SELECT 1 FROM pragma_table_info('radar_takvim') WHERE name='takipsiz_at'").get()) {
       h.exec('ALTER TABLE radar_takvim ADD COLUMN takipsiz_at INTEGER');
     }
-    for (const [tablo, kolon] of [['radar_takvim','kaynak_at'], ['radar_is','terk'], ['radar_giden','terk']]) {
+    for (const [tablo, kolon] of [['radar_takvim','kaynak_at'], ['radar_is','terk'], ['radar_giden','terk'],
+      ['radar_ayna_giden','deneme'], ['radar_ayna_giden','cakisma_deneme'], ['radar_ayna_giden','hazir_at']]) {
       if (!h.prepare(`PRAGMA table_info(${tablo})`).all().some((r) => r.name === kolon)) {
         h.exec(`ALTER TABLE ${tablo} ADD COLUMN ${kolon} INTEGER NOT NULL DEFAULT 0`);
       }
     }
+    h.exec(`DROP INDEX IF EXISTS radar_ayna_giden_hazir;
+      CREATE INDEX IF NOT EXISTS radar_ayna_giden_hazir_at ON radar_ayna_giden(hazir_at,tur,trakt_id)
+      WHERE veri IS NOT NULL AND terk=0`);
   });
 }
 
@@ -150,6 +159,13 @@ function depoKur(db, islem, yaz) {
   const durumYaz = (anahtar, deger) => islem(() => deger === null
     ? sql('DELETE FROM radar_durum WHERE anahtar=?').run(anahtar)
     : sql('INSERT OR REPLACE INTO radar_durum VALUES (?,?)').run(anahtar, deger));
+  const hataSay = (kod) => sql(`INSERT INTO radar_durum VALUES (?, '1')
+    ON CONFLICT(anahtar) DO UPDATE SET deger=CAST(deger AS INTEGER)+1`).run('hata:' + kod);
+  const aynaBildirimiYaz = (kaynak) => sql(`INSERT INTO radar_ayna_giden(tur,trakt_id,takvim_rev,veri,hazir_at)
+    SELECT tur,trakt_id,takvim_rev,veri,? FROM (${kaynak}) WHERE true
+    ON CONFLICT(tur,trakt_id) DO UPDATE SET takvim_rev=excluded.takvim_rev,veri=excluded.veri,
+      hazir_at=excluded.hazir_at,deneme=0,cakisma_deneme=0,terk=0
+    WHERE excluded.takvim_rev>radar_ayna_giden.takvim_rev`);
 
   return {
     db, islem, imlec,
@@ -157,8 +173,7 @@ function depoKur(db, islem, yaz) {
     akisDevriYaz: (akis, devir) => durumYaz(AKIS_DEVRI_ONEKI + akis, devir === null ? null : JSON.stringify(devir)),
     saglik: () => saglikOku(db),
     durumYaz,
-    hataSay: (kod) => islem(() => sql(`INSERT INTO radar_durum VALUES (?, '1')
-      ON CONFLICT(anahtar) DO UPDATE SET deger=CAST(deger AS INTEGER)+1`).run('hata:' + kod)),
+    hataSay: (kod) => islem(() => hataSay(kod)),
     takipDegistir: (satirlar, simdi) => islem(() => {
       // Geçersiz/tekrarlı görüntüde PRIMARY KEY işlemin tamamını geri alır.
       db.exec(`CREATE TEMP TABLE IF NOT EXISTS radar_yeni_takip AS SELECT * FROM radar_takip WHERE 0;
@@ -216,16 +231,51 @@ function depoKur(db, islem, yaz) {
       'UPDATE radar_is SET deneme=deneme+?,terk=(deneme+?>=?),hazir_at=? WHERE tur=? AND trakt_id=?'
     ).run(Number(say), Number(say), DENEME_TAVANI, simdi + Math.max(ms, gecikme(is.deneme)), is.tur, is.trakt_id)),
     takvim: ({ tur, trakt_id }) => sql('SELECT * FROM radar_takvim WHERE tur=? AND trakt_id=?').get(tur, trakt_id),
-    bekleyenAynalar: (simdi, limit) => sql(`SELECT kaymak_id,takvim_rev,ayna_deneme FROM radar_takvim
+    bekleyenAynalar: (simdi, limit) => sql(`SELECT kaymak_id,takvim_rev,ayna_deneme,veri FROM radar_takvim
       JOIN radar_takip USING(tur,trakt_id) LEFT JOIN radar_is USING(tur,trakt_id)
       WHERE ayna_bekliyor=1 AND coalesce(radar_is.terk,0)=0 AND ayna_hazir_at<=? ORDER BY ayna_hazir_at LIMIT ?`).all(simdi, limit),
-    aynaOnayla: (r) => islem(() => sql(`UPDATE radar_takvim SET aynalanan_rev=max(aynalanan_rev,?),
-      ayna_bekliyor=CASE WHEN takvim_rev=? THEN 0 ELSE 1 END
-      WHERE kaymak_id=? AND takvim_rev>=?`).run(r.takvim_rev, r.takvim_rev, r.kaymak_id, r.takvim_rev)),
+    aynaOnayla: (r, simdi = Date.now()) => islem(() => {
+      const takvim = sql('SELECT * FROM radar_takvim WHERE kaymak_id=?').get(r.kaymak_id);
+      sql(`UPDATE radar_takvim SET aynalanan_rev=max(aynalanan_rev,?),
+        ayna_bekliyor=CASE WHEN takvim_rev=? THEN 0 ELSE 1 END
+        WHERE kaymak_id=? AND takvim_rev>=?`).run(r.takvim_rev, r.takvim_rev, r.kaymak_id, r.takvim_rev);
+      if (!takvim || r.takvim_rev <= takvim.aynalanan_rev || r.takvim_rev > takvim.takvim_rev) return;
+      const goruntu = r.goruntu?.takvim_rev === r.takvim_rev ? r.goruntu : takvim;
+      if (goruntu.takvim_rev !== r.takvim_rev || typeof goruntu.veri !== 'string') {
+        hataSay('ayna_goruntusu_yok');
+        return;
+      }
+      try {
+        aynaBildirimiYaz('SELECT ? AS tur,? AS trakt_id,? AS takvim_rev,? AS veri')
+          .run(simdi, takvim.tur, takvim.trakt_id, r.takvim_rev, goruntu.veri);
+      } catch {
+        hataSay('ayna_bildirimi_yazim');
+      }
+    }),
     aynaErtele: (r, at, yenidenAt = 0, satirReddi = false) => islem(() => sql(`UPDATE radar_takvim SET ayna_deneme=ayna_deneme+1,ayna_hazir_at=?,
       ayna_bekliyor=CASE WHEN ? AND ayna_deneme+1>=? THEN 2 ELSE 1 END
       WHERE kaymak_id=? AND takvim_rev=?`).run(Math.max(at + gecikme(r.ayna_deneme), yenidenAt), Number(satirReddi), DENEME_TAVANI, r.kaymak_id, r.takvim_rev)),
     gidenKutusuBuda: (simdi, olayAcik) => islem(() => gidenKutusuBuda(db, simdi, olayAcik)),
+    aynaBildirimleriniDoldur: (simdi, limit) => islem(() => aynaBildirimiYaz(`
+      SELECT t.tur,t.trakt_id,t.takvim_rev,t.veri FROM radar_takip a JOIN radar_takvim t USING(tur,trakt_id)
+      LEFT JOIN radar_ayna_giden g USING(tur,trakt_id)
+      WHERE t.aynalanan_rev=t.takvim_rev AND t.takvim_rev>coalesce(g.takvim_rev,0)
+      ORDER BY a.tur,a.trakt_id LIMIT ?`).run(simdi, limit).changes),
+    bekleyenAynaBildirimleri: (limit, simdi = Date.now()) => sql(`SELECT tur,trakt_id,takvim_rev,veri,deneme,cakisma_deneme FROM radar_ayna_giden
+      WHERE veri IS NOT NULL AND terk=0 AND hazir_at<=? ORDER BY hazir_at,tur,trakt_id LIMIT ?`).all(simdi, limit),
+    aynaBildirimiOnayla: (parti) => islem(() => {
+      const onayla = sql('UPDATE radar_ayna_giden SET veri=NULL WHERE tur=? AND trakt_id=? AND takvim_rev=?');
+      for (const r of parti) onayla.run(r.tur, r.trakt_id, r.takvim_rev);
+    }),
+    aynaBildirimiTerk: (r) => islem(() => sql(`UPDATE radar_ayna_giden SET terk=1
+      WHERE tur=? AND trakt_id=? AND takvim_rev=? AND veri IS NOT NULL`).run(r.tur, r.trakt_id, r.takvim_rev)),
+    aynaBildirimiErtele: (parti, simdi, ms, cakisma) => islem(() => {
+      const ertele = sql(`UPDATE radar_ayna_giden SET deneme=deneme+?,cakisma_deneme=cakisma_deneme+?,hazir_at=?,terk=(? AND deneme+1>=?)
+        WHERE tur=? AND trakt_id=? AND takvim_rev=? AND veri IS NOT NULL AND terk=0`);
+      for (const r of parti) ertele.run(Number(!cakisma), Number(cakisma),
+        simdi + Math.max(ms, gecikme(r.deneme + r.cakisma_deneme + 1)), Number(!cakisma),
+        DENEME_TAVANI, r.tur, r.trakt_id, r.takvim_rev);
+    }),
     bekleyenOlaylar: (limit) => sql(`SELECT g.id,g.olay FROM radar_giden g
       JOIN radar_takvim t ON t.tur=g.icerik_tur AND t.trakt_id=g.trakt_id
       JOIN radar_takip a ON a.tur=t.tur AND a.trakt_id=t.trakt_id
