@@ -108,8 +108,11 @@ const yedekleSonuclandir = async (type: 'show' | 'movie', tmdbId: number, cacheK
 
 // TMDB'ye HER ZAMAN proxy üzerinden gidilir (native dahil) — anahtar yalnızca
 // sunucu tarafında (`server.js` → `TMDB_API_KEY`) tutulur.
-export const fetchFromTmdb = async (endpoint: string, params: any = {}) => {
-  return axios.get(TMDB_PROXY_URL, { params: { ...params, endpoint } });
+export const fetchFromTmdb = async (endpoint: string, params: any = {}, timeout?: number) => {
+  return axios.get(TMDB_PROXY_URL, {
+    params: { ...params, endpoint },
+    ...(timeout === undefined ? {} : { timeout }),
+  });
 };
 
 export const getShowPoster = async (tmdbId: number): Promise<string | null> => {

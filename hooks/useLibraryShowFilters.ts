@@ -1,6 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLibrarySelector } from '../context/LibraryContext';
+import { loadShowFilterMetadata, normalizeShowStatus } from '../services/library/showFilterMetadata';
 import { categorizeShows } from '../store/tracking/trackingLogic';
+import { gorunenBaslik } from '../utils/gorunenBaslik';
+import { useKaymakYetenekleri } from './useKaymakYetenekleri';
 import type { LibraryItem } from './useLibraryTypeData';
 import {
   emptyStatusIndex,
@@ -9,47 +13,17 @@ import {
   type MediaStatusIndex,
   type UseLibraryFiltersResult,
 } from './libraryFilterCore';
-import { gorunenBaslik } from '../utils/gorunenBaslik';
-import { useTranslation } from 'react-i18next';
 
-/**
- * Kütüphane "Diziler" ekranının lokal süzme hook'u.
- *
- * Arama/taslak seçim/süzme algoritmasının tamamı `libraryFilterCore`'da (filmlerle
- * ORTAK). Buradaki tek iş, dizilere özgü kategori indeksini üretmek — o da takip
- * modülünün tek gerçek kaynağı `categorizeShows`'tan türetilir, böylece "Aktif
- * İzlenenler" burada ve takip ekranında ASLA farklı anlama gelmez.
- */
-// 'caughtUp' = "Bitirilenler" filtresi. Anahtar adı BİLİNÇLİ OLARAK
-// `categorizeShows`'un ürettiği kova adıyla (`caughtUp`) BİREBİR aynı tutuldu:
-// izlenmeye başlanmış AMA şu an izlenmeye hazır bir sonraki bölümü olmayan
-// diziler (dizi bitmiş ya da yeni sezon henüz yayınlanmamış) — bkz.
-// store/tracking/trackingLogic.ts kural 2. Bu kova zaten hesaplanıyordu ama
-// hiçbir UI onu tüketmiyordu (Takip panosu kendi ekranında BİLİNÇLİ OLARAK
-// göstermiyor — "Yapılacaklar" panosu felsefesi, bkz. o dosyanın notu);
-// Kütüphane filtresi ayrı bir ekran ve ayrı bir ihtiyaç ("bu diziyi
-// bitirdim mi, bulabiliyor muyum") — burada göstermek o kararla ÇELİŞMEZ.
-export type ShowStatusKey = 'upNext' | 'paused' | 'notStarted' | 'caughtUp' | 'hidden';
+export const SHOW_STATUS_KEYS = ['upNext', 'paused', 'upToDate', 'notStarted', 'finished', 'hidden'] as const;
+export type ShowStatusKey = typeof SHOW_STATUS_KEYS[number];
 
-/** Filtre menüsündeki sıra da budur (Aktif / Ara Verilen / Başlanmadı /
- * Bitirilen / Gizlenen). "Gizlenenler/Bırakılanlar" bilinçli olarak EN
- * SONDA — takip panosunun ana vitrininden çıkarılan bu diziler, kullanıcı
- * bilinçli olarak arayana kadar göz önünde olmamalı. */
-export const SHOW_STATUS_KEYS: readonly ShowStatusKey[] = ['upNext', 'paused', 'notStarted', 'caughtUp', 'hidden'] as const;
-
-// `categorizeShows` etiketleri yalnızca kart ÜZERİNDEKİ metinler için kullanılır;
-// burada sadece kategori üyeliği okunduğundan sabit boş değerler yeterli. Çeviri
-// fonksiyonunu bağımlılığa almamak, dil değişiminde bu ağır memo'nun boşuna
-// yeniden hesaplanmasını da önler.
+const TRACKING_KEYS = ['upNext', 'paused', 'notStarted', 'hidden'] as const;
 const STATIC_LABELS = { dil: '', unnamedShow: '', notStarted: '', caughtUp: '' };
-
 const EMPTY_INDEX = emptyStatusIndex<ShowStatusKey>();
+const METADATA_BATCH_SIZE = 3;
+type ShowFilterMetadata = Awaited<ReturnType<typeof loadShowFilterMetadata>>;
 
-/**
- * Kategori indeksi. `enabled` false iken (kullanıcı hiç kategori seçmemişse)
- * kategorizasyon HİÇ çalıştırılmaz — 600+ öğelik kütüphanelerde bedava bir kazanç.
- */
-function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
+function useShowStatusIndex(enabled: boolean, shouldResolveStatus: boolean): MediaStatusIndex<ShowStatusKey> {
   const { watchedShows, watchlistShows, showProgressMap, hiddenShowIds } = useLibrarySelector((s) => ({
     watchedShows: s.watchedShows,
     watchlistShows: s.watchlistShows,
@@ -58,9 +32,11 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
   }));
 
   const { i18n } = useTranslation();
+  const { kaymakHesabi } = useKaymakYetenekleri();
+  const [metadataById, setMetadataById] = useState(() => new Map<number, ShowFilterMetadata>());
 
-  return useMemo(() => {
-    if (!enabled) return EMPTY_INDEX;
+  const tracking = useMemo(() => {
+    if (!enabled) return null;
 
     const categories = categorizeShows({
       watchedShows: watchedShows || [],
@@ -70,33 +46,68 @@ function useShowStatusIndex(enabled: boolean): MediaStatusIndex<ShowStatusKey> {
       labels: STATIC_LABELS,
     });
 
-    const statusOf = new Map<number, ShowStatusKey>();
-    for (const key of SHOW_STATUS_KEYS) {
-      for (const card of categories[key]) statusOf.set(card.id, key);
-    }
-
-    // Ekran `watchedShows` tabanlı; yalnızca izleme listesinde olan diziler orada
-    // HİÇ bulunmaz. Havuza katılmasalardı "Henüz Başlanmadı" seçeneği hiçbir
-    // zaman sonuç döndüremezdi.
-    const watchedIds = new Set<number>();
+    const statusById = new Map<number, string | undefined>();
     for (const item of watchedShows || []) {
       const id = item?.show?.ids?.trakt;
-      if (id != null) watchedIds.add(id);
+      if (id != null && !statusById.has(id)) statusById.set(id, normalizeShowStatus(item.show.status));
     }
 
-    const seen = new Set<number>();
+    // Yalnızca izleme listesinde bulunan dizileri filtre havuzuna ekle.
     const extraPool: LibraryItem[] = [];
     for (const item of watchlistShows || []) {
       const show = item?.show;
       const id = show?.ids?.trakt;
-      if (id == null || watchedIds.has(id) || seen.has(id)) continue;
-      seen.add(id);
-      // Anahtar öneki kütüphane öğeleriyle ÇAKIŞMAMALI ('show-…' onların).
-      extraPool.push({ key: `wlist-${id}`, id, title: gorunenBaslik(show, i18n.language), tmdbId: show?.ids?.tmdb });
+      if (id == null || statusById.has(id)) continue;
+      statusById.set(id, normalizeShowStatus(show.status));
+      extraPool.push({ key: `wlist-${id}`, id, title: gorunenBaslik(show, i18n.language), tmdbId: show.ids.tmdb });
+    }
+
+    return { categories, statusById, extraPool };
+  }, [enabled, watchedShows, watchlistShows, showProgressMap, hiddenShowIds, i18n.language]);
+
+  useEffect(() => {
+    if (!kaymakHesabi || !shouldResolveStatus || !tracking) return;
+    const candidates = tracking.categories.caughtUp.filter(({ id }) =>
+      !tracking.statusById.get(id) && !showProgressMap?.[id]?.next_episode
+    );
+    let cancelled = false;
+    const resolveStatuses = async () => {
+      for (let i = 0; i < candidates.length && !cancelled; i += METADATA_BATCH_SIZE) {
+        const batch = candidates.slice(i, i + METADATA_BATCH_SIZE);
+        const results = await Promise.all(batch.map(async ({ id, tmdbId }) =>
+          [id, await loadShowFilterMetadata(id, tmdbId)] as const
+        ));
+        if (!cancelled) setMetadataById((previous) => new Map([...previous, ...results]));
+      }
+    };
+    void resolveStatuses();
+    return () => { cancelled = true; };
+  }, [kaymakHesabi, shouldResolveStatus, tracking, showProgressMap]);
+
+  return useMemo(() => {
+    if (!tracking) return EMPTY_INDEX;
+
+    const { categories, statusById, extraPool } = tracking;
+    const statusOf = new Map<number, ShowStatusKey>();
+    for (const key of TRACKING_KEYS) {
+      for (const card of categories[key]) statusOf.set(card.id, key);
+    }
+
+    const now = Date.now();
+    for (const { id } of categories.caughtUp) {
+      const metadata = kaymakHesabi ? metadataById.get(id) : null;
+      const status = statusById.get(id) ?? metadata?.status;
+      const terminal = status === 'ended' || status === 'canceled' || status === 'cancelled';
+      // caughtUp üyeliği, ilerlemedeki sıradaki bölümün henüz izlenemediğini gösterir.
+      const nextAirDate = metadata?.nextAirDate;
+      const announced = showProgressMap?.[id]?.next_episode
+        || nextAirDate === null
+        || (nextAirDate !== undefined && Date.parse(nextAirDate) > now);
+      statusOf.set(id, terminal && !announced ? 'finished' : 'upToDate');
     }
 
     return { statusOf, extraPool };
-  }, [enabled, watchedShows, watchlistShows, showProgressMap, hiddenShowIds, i18n.language]);
+  }, [tracking, showProgressMap, kaymakHesabi, metadataById]);
 }
 
 export type UseLibraryShowFiltersResult = UseLibraryFiltersResult<ShowStatusKey>;
@@ -106,7 +117,12 @@ export function useLibraryShowFilters(
   enabled: boolean,
   initialStatuses?: readonly string[]
 ): UseLibraryShowFiltersResult {
-  const state = useMediaFilterState(SHOW_STATUS_KEYS, enabled, initialStatuses);
-  const index = useShowStatusIndex(enabled && state.activeStatuses.length > 0);
+  // Eski URL önseçimi iki yeni filtreyi birlikte açar.
+  const initial = initialStatuses?.includes('caughtUp')
+    ? [...initialStatuses, 'upToDate', 'finished']
+    : initialStatuses;
+  const state = useMediaFilterState(SHOW_STATUS_KEYS, enabled, initial);
+  const shouldResolveStatus = state.activeStatuses.includes('upToDate') || state.activeStatuses.includes('finished');
+  const index = useShowStatusIndex(enabled && state.activeStatuses.length > 0, shouldResolveStatus);
   return useFilterResult(data, enabled, state, index);
 }
