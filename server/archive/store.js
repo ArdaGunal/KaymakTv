@@ -22,7 +22,8 @@
 
 const zlib = require('zlib');
 const { promisify } = require('util');
-const { getDb, islemDisiYaz, islemIcindeMi, islemAcikMi } = require('./db');
+const { getDb, islemDisiYaz, islemIcindeMi, islemAcikMi, transactionAsync } = require('./db');
+const { diziDurumunuYaz, durumAilesiMi } = require('./diziDurumu');
 
 // 🔴 ASENKRON SIKIŞTIRMA — ÖLÇÜMDEN DOĞDU (2026-08-29).
 // `zlib.gzipSync` olay döngüsünü BLOKLAR. Ölçüm (`general-hospital`
@@ -62,10 +63,10 @@ const DILSIZ = '-';
  */
 async function payloadHazirla(data) {
   const ham = Buffer.from(JSON.stringify(data));
-  return { gz: await gzipAsync(ham), bytesRaw: ham.length };
+  return { gz: await gzipAsync(ham), bytesRaw: ham.length, hamDurum: data?.status };
 }
 
-function hazirPayloadYaz(db, { kaymakId, provider, endpoint, lang = DILSIZ, fetchedAt, gz, bytesRaw }) {
+function hazirPayloadYaz(db, { kaymakId, provider, endpoint, lang = DILSIZ, fetchedAt, gz, bytesRaw, hamDurum }) {
   const sonuc = db.prepare(
       `INSERT INTO payloads (kaymak_id, provider, endpoint, lang, body, bytes_raw, bytes_gz, fetched_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -82,7 +83,8 @@ function hazirPayloadYaz(db, { kaymakId, provider, endpoint, lang = DILSIZ, fetc
     ).run(kaymakId, provider, endpoint, lang || DILSIZ, gz, bytesRaw, gz.length, fetchedAt, Date.now());
   // `changes === 0` → satır vardı ve DAHA YENİSİYDİ; yazılmadı. Hata değil, sonuç.
   if (sonuc.changes === 0) return { ok: true, atlandi: 'daha_yeni_var', bytesRaw: bytesRaw, bytesGz: gz.length };
-  return { ok: true, bytesRaw: bytesRaw, bytesGz: gz.length };
+  const durumDegisti = durumAilesiMi(provider, endpoint) && diziDurumunuYaz(db, { kaymakId, provider, endpoint, fetchedAt, hamDurum });
+  return { ok: true, bytesRaw: bytesRaw, bytesGz: gz.length, ...(durumDegisti ? { durumDegisti } : {}) };
 }
 
 async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data, fetchedAt = Date.now() }) {
@@ -96,7 +98,8 @@ async function upsertPayload({ kaymakId, provider, endpoint, lang = DILSIZ, data
     // hemen yazılır. İşlem DIŞINDAN çağrıldıysa tek yazım kapısından geçer — başkasının açık işlemine
     // katılıp onunla birlikte geri alınmasın (yeniden üretildi: TMDB künyesi KAYBOLUYORDU).
     const yaz = (h) => hazirPayloadYaz(h, { kaymakId, provider, endpoint, lang, fetchedAt, ...hazir });
-    return islemIcindeMi() ? yaz(db) : await islemDisiYaz(yaz);
+    if (islemIcindeMi()) return yaz(db);
+    return durumAilesiMi(provider, endpoint) ? await transactionAsync(yaz) : await islemDisiYaz(yaz);
   } catch (error) {
     // Kendi hatamızı kendi loguzmuza yazmayı da deneriz — o da patlarsa
     // sessizce vazgeçeriz, çünkü bu yol İSTEĞİ ASLA DÜŞÜREMEZ.

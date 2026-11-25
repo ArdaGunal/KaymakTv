@@ -17,11 +17,8 @@
 // şeyi silmez. Eşlemesi olmayan yanıt `trakt_kimligi_yok` ile ATLANIR —
 // yapım Trakt üzerinden arşive girince sonraki TMDB çekimi yazılır.
 //
-// 🔴 ANLIK AKTARIMI TETİKLEMEZ. Kuyruk, başarılı yazımdan sonra sonuçtaki
-// `kaymakId`/`showKaymakId` ile Supabase'e aktarım başlatır
-// (`anlikAktarim.yazimSonrasi`). TMDB yazımı kimlik değiştirmez; tetikleseydi
-// her afiş MISS'i Worker'a gereksiz bir çağrı olurdu. Bu yüzden kimlik
-// `arsivId` adıyla döner.
+// Kimlik arsivId adıyla döner. Yalnız dizi yayın durumu değişmişse
+// kaymakId de döner ve mevcut anlık ayna kuyruğu kökü taşır.
 
 const { getDb, transactionAsync } = require('./db');
 const { findByExternal } = require('./identity');
@@ -78,7 +75,8 @@ async function tmdbYaz({ family, kimlik, data, lang, fetchedAt }) {
   const varlik = getDb() && getDb().prepare('SELECT type FROM entities WHERE kaymak_id = ?').get(kaymakId);
   if (!varlik || varlik.type !== beklenen) return { ok: false, reason: 'tur_uyusmuyor' };
   const yazim = await upsertPayload({ kaymakId, provider: 'tmdb', endpoint: family, lang, data, fetchedAt });
-  return yazim.ok ? { ok: true, arsivId: kaymakId } : { ok: false, reason: yazim.reason };
+  if (!yazim.ok) return { ok: false, reason: yazim.reason };
+  return { ok: true, arsivId: kaymakId, ...(yazim.durumDegisti ? { kaymakId } : {}) };
 }
 
 /** Geri düşüş okuyucusu (`reader.readCatalogFromArchive` yönlendirir). Throw etmez. */

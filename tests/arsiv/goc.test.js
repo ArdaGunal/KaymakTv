@@ -94,7 +94,7 @@ T.ok('Arsiv acildi', durum.enabled, durum.reason || durum.dbPath);
 
 const bag = db.getDb();
 const surum = bag.prepare("SELECT value v FROM meta WHERE key='schema_version'").get().v;
-T.ok('Sema surumu 3 oldu', surum === '3', 'surum=' + surum);
+T.ok('Sema surumu 4 oldu', surum === '4', 'surum=' + surum);
 T.ok('db.js hedef surumuyle TUTARLI', Number(surum) === db.HEDEF_SEMA_SURUMU,
   'meta=' + surum + ' kod=' + db.HEDEF_SEMA_SURUMU);
 
@@ -144,7 +144,7 @@ T.ok('🔴 ...ama UYARI verildi', uyarilar.length === 1 && /TANINMAYAN olay/.tes
   uyarilar[0] || 'uyari YOK');
 
 // ====================================================================
-T.H('🔴 v1 arsivi TEK ACILISTA v3 e cikiyor');
+T.H('🔴 v1 arsivi TEK ACILISTA v4 e cikiyor');
 // ====================================================================
 // Eski göç kodu v1 -> v2 adımından sonra `return` ediyordu. v3 gelince bu,
 // v1'deki bir arşivi 2'de bırakıp v3'ün beklediği şemayı HİÇ kurmazdı.
@@ -158,7 +158,7 @@ const durum1 = db.initArchive();
 T.ok('v1 arsivi acildi', durum1.enabled, durum1.reason || '');
 const bag1 = db.getDb();
 const surum1 = bag1.prepare("SELECT value v FROM meta WHERE key='schema_version'").get().v;
-T.ok('🔴 v1 -> 3 (tek acilista, iki adim ardisik kostu)', surum1 === '3', 'surum=' + surum1);
+T.ok('🔴 v1 -> 4 (tek acilista tum goc adimlari)', surum1 === '4', 'surum=' + surum1);
 T.ok('v1 -> v2 adimi da kostu (retired_at kolonu geldi)',
   bag1.prepare('PRAGMA table_info(external_ids)').all().some((k) => k.name === 'retired_at'));
 T.ok('v1 satiri kaybolmadi',
@@ -173,8 +173,8 @@ db.closeArchive();
 const tekrar = db.initArchive();
 T.ok('Ikinci acilis sorunsuz', tekrar.enabled, tekrar.reason || '');
 const bag2 = db.getDb();
-T.ok('Surum hala 3',
-  bag2.prepare("SELECT value v FROM meta WHERE key='schema_version'").get().v === '3');
+T.ok('Surum hala 4',
+  bag2.prepare("SELECT value v FROM meta WHERE key='schema_version'").get().v === String(db.HEDEF_SEMA_SURUMU));
 const kalan2 = bag2.prepare('SELECT count(*) c FROM sync_log').get().c;
 T.ok('Satirlar hala yerinde (2)', kalan2 === 2, kalan2 + ' satir');
 

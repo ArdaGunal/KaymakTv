@@ -21,6 +21,7 @@
 // yerine geçen kolon).
 
 const zlib = require('node:zlib');
+const { durumAynaAlanlari } = require('./diziDurumu');
 const { diller: DILLER } = require('../../locales/diller.json');
 const { adTemizle, ceviriAdi } = require('../../locales/baslikElemesi.js');
 
@@ -264,6 +265,7 @@ function varlikSatiri(e, h) {
     // ⚠️ NULL = "bilinmiyor", "yayınlanmadı" DEĞİL (bkz. 039).
     first_aired: h.firstAired.get(e.kaymak_id) ?? null,
     ...baslikAlanlari(e, h),
+    ...durumAynaAlanlari(e),
   };
 }
 
@@ -294,7 +296,7 @@ function altAgacFazlari(db, kokler) {
   for (const tipler of TIP_SIRASI) {
     const yer = tipler.map(() => '?').join(',');
     const satirlar = db.prepare(
-      `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year
+      `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year, yayin_durumu, durum_kaynak, durum_at
          FROM entities WHERE type IN (${yer}) AND kaymak_id IN (SELECT value FROM json_each(?))
         ORDER BY updated_at`
     ).all(...tipler, kimlikJ).map((e) => varlikSatiri(e, h));
@@ -319,7 +321,7 @@ function altAgacFazlari(db, kokler) {
 async function kokSatirlari(db) {
   const h = await haritalariKurAsync(db);
   return db.prepare(
-    `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year
+    `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year, yayin_durumu, durum_kaynak, durum_at
        FROM entities WHERE type IN ('show','movie') ORDER BY updated_at`
   ).all().map((e) => varlikSatiri(e, h));
 }

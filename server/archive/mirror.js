@@ -218,7 +218,8 @@ async function aynaTuru({ tamAyna = false, tavan = TUR_TAVANI } = {}) {
     for (const tipler of TIP_SIRASI) {
       const yer = tipler.map(() => '?').join(',');
       const satirlar = db.prepare(
-        `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year, updated_at
+        `SELECT kaymak_id, type, parent_id, season_number, episode_number, title, year, updated_at,
+                yayin_durumu, durum_kaynak, durum_at
            FROM entities WHERE type IN (${yer}) AND (updated_at > ? OR kaymak_id IN (
              -- BASLIK: TMDB yazımı varlığa dokunmuyor ve anlık aktarımı tetiklemiyor (tmdbArsiv.js);
              -- çeviri sözlüğü Supabase'e bu turda gider. Yalnız dizi/film satırı eşleşir.

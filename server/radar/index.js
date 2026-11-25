@@ -36,6 +36,7 @@ function radariBaslat({
         const { createTraktCatalogFetcher } = require('../lazyfetch/providers/trakt');
         tur = require('./tur').radarTuruKur({
           kapilar, depo, gunluk,
+          durumIsleri: ortam.DIZI_DURUMU_BACKFILL === '1' ? require('./diziDurumuBackfill') : null,
           worker: istemci({ workerUrl, sir: ortam.RADAR_SIR }),
           saglayicilar: saglayicilar || {
             tmdb: ortam.TMDB_API_KEY ? createTmdbFetcher(ortam.TMDB_API_KEY) : null,

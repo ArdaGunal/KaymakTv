@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS meta (
   value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '3');
+INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '4');
 INSERT OR IGNORE INTO meta (key, value) VALUES ('created_at', CAST(strftime('%s','now') AS TEXT));
 
 -- ==========================================================================
@@ -91,6 +91,9 @@ CREATE TABLE IF NOT EXISTS entities (
   title          TEXT,
   year           INTEGER,
   status         TEXT,
+  yayin_durumu   TEXT CHECK (yayin_durumu IN ('devam','bitti','iptal','yapimda','planli','bilinmiyor')),
+  durum_kaynak   TEXT CHECK (durum_kaynak IN ('tmdb','trakt')),
+  durum_at       INTEGER,
 
   created_at     INTEGER NOT NULL,
   updated_at     INTEGER NOT NULL,

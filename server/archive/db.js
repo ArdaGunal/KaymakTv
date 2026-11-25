@@ -56,7 +56,7 @@ const SEMA_YOLU = path.join(__dirname, 'schema.sql');
 
 // Şemanın beklediği sürüm. Artırıldığında `GOCLER` tablosuna karşılık
 // gelen adım eklenmeli — yoksa açılış "bilinmeyen sürüm" diye durur.
-const HEDEF_SEMA_SURUMU = 3;
+const HEDEF_SEMA_SURUMU = 4;
 
 let durum = null; // { enabled, db, dbPath } | { enabled: false, reason }
 
@@ -245,6 +245,22 @@ function semayiGocEt(db) {
     }
     console.log(`[Arsiv] sema v2 -> v3: sync_log.event CHECK kaldirildi (${oncesi} satir tasindi).`);
     surum = 3;
+  }
+
+  if (surum === 3) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const kolonlar = new Set(db.prepare('PRAGMA table_info(entities)').all().map((k) => k.name));
+      if (!kolonlar.has('yayin_durumu')) db.exec("ALTER TABLE entities ADD COLUMN yayin_durumu TEXT CHECK (yayin_durumu IN ('devam','bitti','iptal','yapimda','planli','bilinmiyor'))");
+      if (!kolonlar.has('durum_kaynak')) db.exec("ALTER TABLE entities ADD COLUMN durum_kaynak TEXT CHECK (durum_kaynak IN ('tmdb','trakt'))");
+      if (!kolonlar.has('durum_at')) db.exec('ALTER TABLE entities ADD COLUMN durum_at INTEGER');
+      db.exec("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+    surum = 4;
   }
 
   if (surum !== HEDEF_SEMA_SURUMU) {

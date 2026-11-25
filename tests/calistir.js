@@ -45,6 +45,7 @@ const TAKIMLAR = [
   { ad: 'katalog', grup: 'lazyfetch', dosya: 'lazyfetch/katalog-gecidi.test.js', aciklama: 'L7/L7+: beyaz liste, no-store, denetci' },
   { ad: 'tmdb-izin', grup: 'lazyfetch', dosya: 'lazyfetch/tmdb-izin-listesi.test.js', aciklama: 'G-11: /api/tmdb yol + parametre izin listesi (400), anahtar ayrac kacisi, TMDB anahtar surumu 2' },
   { ad: 'sema', grup: 'arsiv', dosya: 'arsiv/sema.test.js', aciklama: 'A1: sema, kimlik cozumleme, payload' },
+  { ad: 'dizi-durumu', grup: 'arsiv', dosya: 'arsiv/dizi-durumu.test.js', aciklama: 'K-54: kaynak onceligi, GNL arşivi, katalog aynasi ve Radar backfill' },
   { ad: 'goc', grup: 'arsiv', dosya: 'arsiv/goc.test.js', aciklama: 'A1: sema gocu v1 -> v2 -> v3 (C16)' },
   { ad: 'sayac', grup: 'arsiv', dosya: 'arsiv/sayac.test.js', aciklama: 'A2.6: gecelik satir sayimi, dusus alarmi (C22)' },
   { ad: 'yazici', grup: 'arsiv', dosya: 'arsiv/yazici.test.js', aciklama: 'A2: hiyerarsi acma, tek transaction, rollback' },

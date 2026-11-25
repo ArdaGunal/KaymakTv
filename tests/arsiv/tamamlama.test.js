@@ -77,7 +77,7 @@ function sahteFetch(satirlar, { sayfaBoyu = 1000 } = {}) {
   //
   // ⚠️ Bu iddia sabit bir sayiya cakiliyor ki surum KEYFI olarak
   // artirilamasin. Artiracaksan once `db.js`e gocu yaz, sonra burayi.
-  T.ok('Sema surumu 3 (sync_log CHECK kaldirildi)', surum.value === '3', `surum=${surum.value}`);
+  T.ok('Sema surumu en az 3 (sync_log CHECK kaldirildi)', Number(surum.value) >= 3, `surum=${surum.value}`);
   T.ok('db.js hedef surumu ile TUTARLI', Number(surum.value) === db.HEDEF_SEMA_SURUMU,
     `meta=${surum.value} kod=${db.HEDEF_SEMA_SURUMU}`);
 

@@ -7,7 +7,7 @@ const { aynalariGonder } = require('./ayna');
 
 function radarTuruKur({
   kapilar, depo, worker, saglayicilar, saat = Date.now, gunluk = console,
-  yaz = radarYaz, aynala = aynalariGonder,
+  yaz = radarYaz, aynala = aynalariGonder, durumIsleri = null,
 }) {
   let takipAt = null;
   let takipSonra = 0;
@@ -16,6 +16,9 @@ function radarTuruKur({
   let aynaSozlesmeSonra = 0;
   let aynaSozlesmeDeneme = 0;
   let budamaSonra = 0;
+  let durumBackfill = durumIsleri?.diziDurumuBackfillAdimi;
+  let durumAynasi = durumIsleri?.diziDurumuBackfillAynala;
+  let durumAynaSonra = 0;
   const gecmisSezonlar = new Map();
   const sonrakiAkis = new Map();
   const saglayiciSonra = new Map();
@@ -117,6 +120,14 @@ function radarTuruKur({
           aynaHazir = true;
         }
       }
+      if (kapilar.yaz && durumBackfill) {
+        dur();
+        try {
+          const sonuc = await durumBackfill(saat(), takipAt !== null);
+          if (sonuc?.asama) gunluk.info(`[Radar] dizi_durumu_backfill ${JSON.stringify(sonuc)}`);
+          if (sonuc?.bitti || !sonuc) durumBackfill = null;
+        } catch (error) { hata('dizi_durumu_backfill', error); }
+      }
       if (kapilar.olay && saat() >= olaySonra) {
         dur();
         try { await olayGonder(depo, worker, dur); } catch (error) {
@@ -184,6 +195,21 @@ function radarTuruKur({
       try { await aynala(depo, saat, dur); } catch (error) {
         if (hataKodu(error) === 'gece_isi') return;
         await hataYaz('ayna', error);
+      }
+    }
+    if (durumAynasi && !geceBekliyor() && saat() >= durumAynaSonra) {
+      try {
+        const sonuc = await durumAynasi({ simdi: saat() });
+        if (sonuc?.bitti) {
+          if (sonuc.yazilan !== undefined) gunluk.info(`[Radar] dizi_durumu_aynasi ${JSON.stringify(sonuc)}`);
+          durumAynasi = null;
+        } else if (sonuc) {
+          durumAynaSonra = saat() + 5 * DAKIKA;
+          await hataYaz('dizi_durumu_aynasi', new RadarHatasi(sonuc.neden));
+        }
+      } catch (error) {
+        durumAynaSonra = saat() + 5 * DAKIKA;
+        await hataYaz('dizi_durumu_aynasi', error);
       }
     }
     if (!kapilar.olay || geceBekliyor() || saat() < aynaSozlesmeSonra) return;

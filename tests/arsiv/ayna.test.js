@@ -82,7 +82,7 @@ function sahteAg() {
       && fazlar[3].startsWith('external_ids:'),
     fazlar.join(' | '));
 
-  const ANAHTARLAR = 'episode_number,first_aired,genres,kaymak_id,original_language,original_title,parent_id,runtime,season_number,title,titles,tmdb_id,type,year';
+  const ANAHTARLAR = 'durum_at,durum_kaynak,episode_number,first_aired,genres,kaymak_id,original_language,original_title,parent_id,runtime,season_number,title,titles,tmdb_id,type,yayin_durumu,year';
   const hepsi = partiler.filter((p) => p.faz === 'entities').flatMap((p) => p.satirlar);
   T.ok('Her varlik satiri AYNI anahtar kumesi (PGRST102 kalkani)',
     hepsi.every((s) => Object.keys(s).sort().join(',') === ANAHTARLAR),
