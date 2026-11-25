@@ -1,4 +1,5 @@
-import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
+import { nativeColor } from '../constants/mobilePalette';
+import { PROGRESS_BAR_COLOR } from '../constants/progressBarColors';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
@@ -28,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { generateMediaSlug } from '../utils/slugHelper';
 import { useLibraryTypeData, getLibraryTitleKey, LibraryItem } from '../hooks/useLibraryTypeData';
 import { useLibraryFilters } from '../hooks/useLibraryFilters';
+import { useShowProgressStatuses } from '../hooks/useTrackingShows';
 import LibraryFilterBar from '../components/library/LibraryFilterBar';
 import LibraryFilterModal from '../components/library/LibraryFilterModal';
 
@@ -43,6 +45,7 @@ const NUM_COLUMNS = 3;
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const { type, status } = useLocalSearchParams();
+  const progressStatuses = useShowProgressStatuses(type === 'shows' || type === 'favShows');
   const router = useRouter();
   const handleBack = useAppBack();
   const { accessToken } = useAuth();
@@ -135,7 +138,8 @@ export default function LibraryScreen() {
     const birakildi = !!item.id && !!hiddenShowIds?.includes?.(item.id);
     // 🔑 Hesap TEK KAYNAKTAN (`utils/ilerlemeCubugu.ts`) — eskiden bu üç satır
     // her çağıranın içine kopyalanıyordu ve §C17.1 o yüzden dört tur açıldı.
-    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, MOBILE_PALETTE.steel);
+    const durum = item.id == null ? undefined : progressStatuses.get(item.id);
+    const { yuzde, renk } = cubukVerisi(ilerleme, birakildi, PROGRESS_BAR_COLOR.paused, durum);
     return (
       <LibraryGridItem
         item={item}
@@ -146,7 +150,7 @@ export default function LibraryScreen() {
         renk={renk}
       />
     );
-  }, [type, cardStyle, handleItemPress, showProgressMap, hiddenShowIds]);
+  }, [type, cardStyle, handleItemPress, showProgressMap, hiddenShowIds, progressStatuses]);
 
   const keyExtractor = useCallback((item: LibraryItem) => item.key, []);
 

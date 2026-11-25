@@ -148,6 +148,7 @@ const TAKIMLAR = [
   { ad: 'play-indir', grup: 'arayuz', dosya: 'arayuz/play-indirme.test.mjs', aciklama: 'PLAY-INDIR-01: Play baglantisi, QR hedefi, eski dagitim yolunun temizligi ve TR/EN metinleri' },
   { ad: 'bitis', grup: 'arayuz', dosya: 'arayuz/bitis-ani.test.mjs', aciklama: '2.6.8 KUTLAMA-01 + BITIS-01: duyurulmus bolum varken bitis yok; kart yerinde mavi «bitti», pencere/konfeti yok' },
   { ad: 'ara-verilenler', grup: 'arayuz', dosya: 'arayuz/ara-verilenler.test.mjs', aciklama: '2.6.5 madde 7: yeni cikan bolumu olan dizi Ara Verilenler\'e dusmez' },
+  { ad: 'filtre-guncel', grup: 'arayuz', dosya: 'arayuz/filtre-guncel.test.mjs', aciklama: 'Dizi kutuphanesinde Guncel ve Bitirilenler, Google katalog tamamlama, sira ve rozet' },
   { ad: 'app-links', grup: 'arayuz', dosya: 'arayuz/app-links.test.mjs', aciklama: '2.6.5 madde 6: assetlinks.json + intentFilters paylasim yollarini kapsar' },
   { ad: 'oyuncu-penceresi', grup: 'arayuz', dosya: 'arayuz/oyuncu-penceresi.test.mjs', aciklama: '2.6.5 madde 9: oyuncu bilgisi uygulama ici pencere (TMDB, atif, geri tusu)' },
   { ad: 'trakt-cihaz', grup: 'arayuz', dosya: 'arayuz/trakt-cihaz.test.mjs', aciklama: 'M620: Trakt cihaz kodu girisi (bekleyen oturum, yoklama, Worker siniflari, temizlik)' },

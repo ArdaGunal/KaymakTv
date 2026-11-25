@@ -1,4 +1,4 @@
-import { getProgressBarColor } from './progressBarColor';
+import { getProgressBarColor, type ShowProgressStatus } from './progressBarColor';
 
 /**
  * İLERLEME ÇUBUĞUNUN TEK HESAP YERİ.
@@ -45,7 +45,8 @@ export interface CubukVerisi {
 export function cubukVerisi(
   ilerleme: IlerlemeGirdisi | null | undefined,
   birakildi: boolean,
-  aktifRenk?: string,
+  varsayilanRenk?: string,
+  durum?: ShowProgressStatus,
 ): CubukVerisi {
   const aired = ilerleme?.aired ?? 0;
   const completed = ilerleme?.completed ?? 0;
@@ -53,6 +54,6 @@ export function cubukVerisi(
   const bitti = varMi && completed >= aired;
   return {
     yuzde: varMi ? (completed / aired) * 100 : 0,
-    renk: getProgressBarColor(birakildi, bitti, aktifRenk),
+    renk: getProgressBarColor(birakildi, bitti, varsayilanRenk, durum),
   };
 }

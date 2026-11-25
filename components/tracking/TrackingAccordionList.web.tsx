@@ -122,7 +122,7 @@ const SectionBlockView = memo(function SectionBlockView({
         <View style={[styles.grid, compact && styles.gridMobile]}>
           {block.items.map((card) => (
             <View key={`${block.key}-${card.id}`} style={[styles.gridCell, compact && styles.gridCellMobile]}>
-              <EpisodeCard data={card} onToggleDropped={onToggleDropped} />
+              <EpisodeCard data={card} progressStatus={block.key} onToggleDropped={onToggleDropped} />
             </View>
           ))}
         </View>

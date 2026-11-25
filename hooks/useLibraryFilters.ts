@@ -22,11 +22,9 @@ import type { FilterOption } from '../components/library/LibraryFilterModal';
 const SHOW_LABEL_KEYS: Record<ShowStatusKey, string> = {
   upNext: 'upNext',
   paused: 'paused',
+  upToDate: 'filterUpToDate',
   notStarted: 'notStarted',
-  // `caughtUp` kovasının KENDİ i18n anahtarı ("caughtUp": "Yeni bölüm
-  // bekleniyor") kart ÜZERİNDEKİ metin için — filtre menüsünde YANLIŞ
-  // görünürdü. Bu yüzden ayrı, filtreye özgü bir etiket: 'filterFinished'.
-  caughtUp: 'filterFinished',
+  finished: 'filterFinished',
   hidden: 'hiddenProgress',
 };
 

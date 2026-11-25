@@ -9,16 +9,18 @@ import TrackingCardMenu from './tracking/TrackingCardMenu';
 import BitisIcerigi, { BITIS_RENK } from './tracking/BitisIcerigi';
 import { useTranslation } from 'react-i18next';
 import { generateMediaSlug, generateEpisodeSlug } from '../utils/slugHelper';
-import { getProgressBarColor, ilerlemeYuzdesi } from '../utils/progressBarColor';
+import { getProgressBarColor, ilerlemeYuzdesi, type ShowProgressStatus } from '../utils/progressBarColor';
 import { MOBILE_PALETTE, nativeColor } from '../constants/mobilePalette';
+import { PROGRESS_BAR_COLOR } from '../constants/progressBarColors';
 
 interface EpisodeCardProps {
   data: any;
+  progressStatus?: ShowProgressStatus;
   /** Verilirse posterin üzerinde 3-nokta menüsü (Bırakılanlara Ekle/Çıkar) gösterilir. */
   onToggleDropped?: (id: number) => void;
 }
 
-const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
+const EpisodeCard = memo(({ data, progressStatus, onToggleDropped }: EpisodeCardProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
   // Başarı ekranında gösterilecek bölüm kodu — basılma anında yakalanır,
   // çünkü store güncellenince `data` çoktan sıradaki bölüme kaymış olur.
@@ -87,7 +89,9 @@ const EpisodeCard = memo(({ data, onToggleDropped }: EpisodeCardProps) => {
   // "Bırak" ile gizlenmiş yapımlar bu kartın beslendiği hiçbir listede
   // (takip panosu kategorileri / yaklaşanlar) görünmez — bu yüzden burada
   // "bırakıldı" rengi diye bir durum yoktur.
-  const progressColor = getProgressBarColor(false, !!data.tags?.includes('TAMAMLANDI'), MOBILE_PALETTE.steel);
+  const progressColor = getProgressBarColor(
+    false, !!data.tags?.includes('TAMAMLANDI'), PROGRESS_BAR_COLOR.paused, progressStatus
+  );
 
   const episodeCode = !data.isCalculating && data.season !== undefined
     ? `S${String(data.season).padStart(2, '0')} | E${String(data.episode).padStart(2, '0')}`

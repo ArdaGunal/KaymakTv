@@ -1,27 +1,20 @@
-/**
- * Uygulama genelindeki TÜM ilerleme çubuklarının (afiş altı, dizi sayfası,
- * bölüm sayfası, keşfet listesi) renk kuralı — tek yerde, tek kaynak:
- *   - Manuel "Bırakıldı" işaretlenmiş → turuncu
- *   - Tüm yayınlanan bölümler tamamlanmış → yeşil
- *   - Aksi halde (aktif izleniyor VEYA ara verilmiş — ikisi de "devam ediyor"
- *     sayılır, ayrı bir renge ihtiyaç yok çünkü kategori grubu zaten ayırıyor) → mavi
- */
-export const PROGRESS_BAR_COLOR = {
-  active: '#3b82f6',
-  dropped: '#fb923c',
-  finished: '#10b981',
-} as const;
+import { PROGRESS_BAR_COLOR } from '../constants/progressBarColors';
+import type { ShowCategories } from '../store/tracking/trackingLogic';
 
-// Native ekran aktif çizgiyi kendi paletiyle çizebilir; tamamlandı/ bırakıldı
-// durumlarının semantik renkleri aynı kalır.
+export type ShowProgressStatus = keyof ShowCategories | 'upToDate' | 'finished';
+
+/** Afiş altı şeritlerde kategori biliniyorsa iki mavi tonu duruma göre seçilir. */
 export function getProgressBarColor(
   isDropped: boolean,
   isFinished: boolean,
-  activeColor: string = PROGRESS_BAR_COLOR.active
+  fallbackColor: string = PROGRESS_BAR_COLOR.active,
+  status?: ShowProgressStatus,
 ): string {
   if (isDropped) return PROGRESS_BAR_COLOR.dropped;
   if (isFinished) return PROGRESS_BAR_COLOR.finished;
-  return activeColor;
+  if (status === 'upNext') return PROGRESS_BAR_COLOR.active;
+  if (status === 'paused') return PROGRESS_BAR_COLOR.paused;
+  return fallbackColor;
 }
 
 /**

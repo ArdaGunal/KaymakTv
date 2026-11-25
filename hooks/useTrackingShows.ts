@@ -39,12 +39,17 @@ export interface UseTrackingShowsResult {
 //   2. Uygulama arka plandan öne her geldiğinde (kullanıcı saatlerce/günlerce
 //      uzak kalmış olabilir, ekrana döner dönmez kategoriler güncel olmalı).
 const NOW_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 saat
+const EMPTY_CATEGORIES: ShowCategories = { upNext: [], paused: [], notStarted: [], caughtUp: [], hidden: [] };
+const EMPTY_PROGRESS_STATUSES: ReadonlyMap<number, 'upNext' | 'paused'> = new Map();
 
-function useTrackingNow(): number {
+function useTrackingNow(enabled: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
+    if (!enabled) return;
+    setNow(Date.now());
+    appStateRef.current = AppState.currentState;
     const interval = setInterval(() => setNow(Date.now()), NOW_REFRESH_INTERVAL_MS);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -59,22 +64,14 @@ function useTrackingNow(): number {
       clearInterval(interval);
       subscription.remove();
     };
-  }, []);
+  }, [enabled]);
 
   return now;
 }
 
-/**
- * Dizi takip ekranının TEK veri kaynağı. Ham kütüphane dilimlerini okuyup
- * `categorizeShows` (saf, tek gerçek kaynak) ile kategorilere ayırır.
- *
- * Loading mantığı türetilmiştir (ayrı bir state + effect değil): veri geldiği
- * an isLoading kendiliğinden false olur, bu yüzden "yükleniyor state'inde
- * kalma" hatası yapısal olarak imkânsızdır.
- */
-export function useTrackingShows(): UseTrackingShowsResult {
+function useTrackingShowCategories(enabled: boolean) {
   const { t, i18n } = useTranslation('media');
-  const now = useTrackingNow();
+  const now = useTrackingNow(enabled);
   const pendingShowIds = useWatchedOutboxStore((s) => s.pendingShowIds);
   // BITIS-01: az önce biten diziler kart yerinde «bitti» görünümüyle kalsın.
   const bitisKayitlari = useBitisAniStore((s) => s.kayitlar);
@@ -88,10 +85,8 @@ export function useTrackingShows(): UseTrackingShowsResult {
     isLibraryLoading: s.isLoading,
   }));
 
-  const { toggleHiddenFromProgress } = useLibraryActions();
-
   const categories = useMemo(
-    () =>
+    () => enabled ?
       categorizeShows({
         watchedShows: watchedShows || [],
         watchlistShows: watchlistShows || [],
@@ -106,11 +101,29 @@ export function useTrackingShows(): UseTrackingShowsResult {
           notStarted: t('notStarted', 'Henüz Başlanmadı'),
           caughtUp: t('caughtUp', 'Yeni bölüm bekleniyor'),
         },
-      }),
+      }) : EMPTY_CATEGORIES,
     // showProgressMap referansı store setter'larında yenilendiği için güvenli.
-    [watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, bitenIds, now, t, i18n.language]
+    [enabled, watchedShows, watchlistShows, showProgressMap, hiddenShowIds, pendingShowIds, bitenIds, now, t, i18n.language]
   );
 
+  return { categories, isLibraryLoading };
+}
+
+/** Kategori başlığı olmayan poster listeleri için Trakt kimliğine göre durum. */
+export function useShowProgressStatuses(enabled = true): ReadonlyMap<number, 'upNext' | 'paused'> {
+  const { categories } = useTrackingShowCategories(enabled);
+  return useMemo(() => {
+    if (categories.upNext.length === 0 && categories.paused.length === 0) return EMPTY_PROGRESS_STATUSES;
+    const statuses = new Map<number, 'upNext' | 'paused'>();
+    for (const { id } of categories.upNext) statuses.set(id, 'upNext');
+    for (const { id } of categories.paused) statuses.set(id, 'paused');
+    return statuses;
+  }, [categories]);
+}
+
+export function useTrackingShows(): UseTrackingShowsResult {
+  const { categories, isLibraryLoading } = useTrackingShowCategories(true);
+  const { toggleHiddenFromProgress } = useLibraryActions();
   const totalCount = categories.upNext.length + categories.paused.length + categories.notStarted.length;
   const isEmpty = totalCount === 0;
   const isLoading = isEmpty && isLibraryLoading;
