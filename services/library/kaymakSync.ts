@@ -70,7 +70,7 @@ export const kaymakKutuphaneSenkronu = async (): Promise<boolean> => {
   // 🔒 M538 — istek yoldayken çıkış/hesap silme olduysa yanıt (başarı da hata da) yazılmaz (D8).
   const kusak = oturumKusagi();
   try {
-    const yanit = await syncLibrary();
+    const yanit = await syncLibrary(true);
     if (kusak !== oturumKusagi()) return false;
     if (!yanit.success) {
       // Sunucu "başarısız" dedi ama HTTP hata vermedi — yine de hata.

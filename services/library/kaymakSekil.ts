@@ -49,7 +49,13 @@ const yapimNesnesi = (k: {
  */
 export const yanitiSekillendir = (yanit: KutuphaneYaniti) => {
   const watchedShows = (yanit.diziler || []).map((d) => ({
-    show: yapimNesnesi(d),
+    show: {
+      ...yapimNesnesi(d),
+      yayin_durumu: d.yayin_durumu,
+      sonraki_yayin_at: d.sonraki_yayin_at,
+      sonraki_yayin_sezon: d.sonraki_yayin_sezon,
+      sonraki_yayin_bolum: d.sonraki_yayin_bolum,
+    },
     // `trackingLogic` "Ara Verilenler" kovasını bu tarihe göre ayırıyor
     // (45 günden eski). `null` bırakmak diziyi yanlış kovaya atardı.
     last_watched_at: d.ilerleme?.last_watched_at ?? null,

@@ -1,4 +1,5 @@
 import { buyukBaslik } from '../../utils/gorunenBaslik';
+import type { DiziYayinBilgisi } from '../../utils/diziYayinDurumu';
 /**
  * Dizi Takip (Tracking) modülünün TEK GERÇEK KAYNAĞI (single source of truth).
  *
@@ -67,6 +68,8 @@ export interface TrackingCard {
   lastWatchedAt?: string;
   /** 2.6.8 BITIS-01: dizi az önce bitti — kart birkaç saniye yerinde mavi «bitti» görünümünde kalır. */
   bitti?: boolean;
+  sonrakiYayinAt?: string | null;
+  yayinBilgisiVar?: boolean;
 }
 
 export interface ShowCategories {
@@ -84,6 +87,8 @@ export interface ShowCategories {
    * kullanılabilecek mantıksal bir etiket olarak burada tutulur — `hidden`
    * gibi "Bırak" ile ilişkili DEĞİLDİR, tamamen otomatik ve zamana bağlıdır. */
   caughtUp: TrackingCard[];
+  upToDate: TrackingCard[];
+  finished: TrackingCard[];
   /** "Bırak" ile Trakt'ta gizlenmiş diziler — izleme geçmişi/puanları KORUNUR,
    * sadece ana vitrin listelerinden (Aktif İzlenenler, Takvim, Sıradaki
    * Bölümler) çıkarılırlar. Yalnızca Kütüphane'nin "Gizlenenler/Bırakılanlar"
@@ -107,6 +112,7 @@ export interface CategorizeOptions {
   watchlistShows: any[];
   showProgressMap: Record<string, any>;
   labels: TrackingLabels;
+  yayinBilgileri?: ReadonlyMap<number, DiziYayinBilgisi>;
   /** Trakt'ta "İlerlemeyi Gizle" (= "Bırak") ile gizlenmiş dizilerin trakt id'leri (bkz. `hiddenShowIds` store dilimi). */
   hiddenShowIds?: number[] | Set<number>;
   /** Yazma + tam sunucu teyidi bekleyen diziler. Eksik katalogla kartı gizleme. */
@@ -175,11 +181,24 @@ export const sonHareketAni = (lastWatchedAt: string | undefined, progress: any, 
  * Her dizi trakt id'siyle tekilleştirilir; watched + watchlist havuzları
  * birleştirilip her kimlik yalnızca BİR kez işlenir.
  */
+// Kaymak ilerlemesindeki normal sezonlar yayınlanmamış bölümleri de taşır.
+function katalogdanYayinlananBolum(progress: any, tarih: string | null | undefined, now: number) {
+  const an = tarih ? Date.parse(tarih) : NaN;
+  if (!Number.isFinite(an) || an > now) return null;
+  for (const sezon of progress?.seasons ?? []) {
+    if (!(sezon.number > 0)) continue;
+    const bolum = sezon.episodes?.find((e: any) => e.completed === false && Date.parse(e.first_aired) === an);
+    if (bolum) return { ...bolum, season: sezon.number };
+  }
+  return null;
+}
+
 export function categorizeShows({
   watchedShows,
   watchlistShows,
   showProgressMap,
   labels,
+  yayinBilgileri,
   hiddenShowIds = [],
   pendingShowIds = [],
   bitenIds,
@@ -212,6 +231,7 @@ export function categorizeShows({
   const paused: TrackingCard[] = [];
   const notStarted: TrackingCard[] = [];
   const caughtUp: TrackingCard[] = [];
+  const biten = new Set<number>();
   const hidden: TrackingCard[] = [];
 
   for (const [id, entry] of byId) {
@@ -219,7 +239,18 @@ export function categorizeShows({
     const progress = showProgressMap[id];
     const completed = progress?.completed ?? 0;
     const aired = progress?.aired ?? 0;
-    const next = progress?.next_episode ?? null;
+    const ekBilgi = yayinBilgileri?.get(id);
+    const katalogDurumu = show?.yayin_durumu === undefined ? ekBilgi?.yayin_durumu : show.yayin_durumu;
+    const yayin = show?.sonraki_yayin_at === undefined ? ekBilgi : show;
+    const katalogTarihi = yayin?.sonraki_yayin_at;
+    const ilerlemedekiSonraki = progress?.next_episode;
+    // Aynı bölümün tarihi değişebilir. Başka bir izlenmemiş bölümü gizleme.
+    const ayniBolum = ilerlemedekiSonraki && katalogTarihi &&
+      ilerlemedekiSonraki.season === yayin.sonraki_yayin_sezon &&
+      ilerlemedekiSonraki.number === yayin.sonraki_yayin_bolum;
+    const next = ayniBolum
+      ? { ...ilerlemedekiSonraki, first_aired: katalogTarihi }
+      : ilerlemedekiSonraki ?? katalogdanYayinlananBolum(progress, katalogTarihi, now);
     // Trakt'ın progress uç noktası `next_episode`nin yanında `last_episode`yi
     // de döndürür (son izlenen bölüm). "Güncel" kovasındaki bir dizi için
     // anlamlı bir sezon/bölüm göstermek amacıyla kullanılır — aksi halde
@@ -297,6 +328,13 @@ export function categorizeShows({
     // hesaplanmakta olan (isCalculating) dizilerin "hesaplanıyor" spinner
     // kartını göstermeye devam etmesini garanti eder.
     if (!!progress && hasStarted && !nextReady && !pending) {
+      const yayinBilgisiVar = katalogDurumu !== undefined && katalogTarihi !== undefined;
+      const tarih = katalogTarihi === undefined ? next?.first_aired : katalogTarihi;
+      const sonrakiYayinAt = typeof tarih === 'string' && Date.parse(tarih) > now ? tarih : null;
+      const terminal = katalogDurumu === 'bitti' || katalogDurumu === 'iptal';
+      const tarihAciklanmadi = katalogTarihi === undefined && !!next;
+      if (terminal && !sonrakiYayinAt && !tarihAciklanmadi) biten.add(id);
+
       caughtUp.push({
         ...base,
         season,
@@ -304,6 +342,8 @@ export function categorizeShows({
         title,
         tags: [],
         readyToWatch: false,
+        sonrakiYayinAt,
+        yayinBilgisiVar,
       });
       continue;
     }
@@ -383,5 +423,9 @@ export function categorizeShows({
     return bt - at;
   });
 
-  return { upNext, paused, notStarted, caughtUp, hidden };
+  return {
+    upNext, paused, notStarted, caughtUp, hidden,
+    upToDate: caughtUp.filter((kart) => !biten.has(kart.id)),
+    finished: caughtUp.filter((kart) => biten.has(kart.id)),
+  };
 }

@@ -38,6 +38,7 @@ export type DilKaydi = {
   bayrak: string;
   bayrakUlke: string;
   etiket: string;
+  yayinTarihAy?: 'short' | 'long';
   alfabe: string;
   yabanciBaslik: YabanciBaslikPolitikasi;
 };

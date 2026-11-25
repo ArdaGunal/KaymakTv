@@ -39,7 +39,7 @@ export interface UseTrackingShowsResult {
 //   2. Uygulama arka plandan öne her geldiğinde (kullanıcı saatlerce/günlerce
 //      uzak kalmış olabilir, ekrana döner dönmez kategoriler güncel olmalı).
 const NOW_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 saat
-const EMPTY_CATEGORIES: ShowCategories = { upNext: [], paused: [], notStarted: [], caughtUp: [], hidden: [] };
+const EMPTY_CATEGORIES: ShowCategories = { upNext: [], paused: [], notStarted: [], caughtUp: [], upToDate: [], finished: [], hidden: [] };
 const EMPTY_PROGRESS_STATUSES: ReadonlyMap<number, 'upNext' | 'paused'> = new Map();
 
 function useTrackingNow(enabled: boolean): number {

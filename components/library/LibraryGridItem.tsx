@@ -44,6 +44,9 @@ const LibraryGridItem = memo(({ item, type, cardStyle, onPress, yuzde, renk }: G
         `overflow: 'hidden'`; akış içine konan çubuk kartın dışına taşıyıp
         KIRPILIR (M359'da profil listesinde tam bu yaşandı, cihazda hiç
         görünmedi). `ShowCard`/`HorizontalShowList` ile aynı desen. */}
+    {item.yayinEtiketi && (
+      <Text style={styles.yayinEtiketi} numberOfLines={2}>{item.yayinEtiketi}</Text>
+    )}
     {yuzde > 0 && (
       <ProgressBar percentage={yuzde} fillColor={renk} style={styles.ilerleme} />
     )}
@@ -65,6 +68,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  yayinEtiketi: {
+    position: 'absolute',
+    bottom: 8,
+    left: 4,
+    right: 4,
+    backgroundColor: nativeColor('background', '#0c1d2b'),
+    color: nativeColor('text', '#e2e8f0'),
+    padding: 4,
+    borderRadius: 4,
+    fontSize: 11,
+    textAlign: 'center',
   },
   listPlaceholder: {
     backgroundColor: nativeTint('primary', 0.08, 'rgba(59, 130, 246, 0.08)'),

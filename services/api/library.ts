@@ -10,6 +10,7 @@ import * as SecureStore from '../../utils/secureStorage';
 import { geciciseBirKezDaha } from '../../utils/geciciseTekrarla';
 
 import { isKaymakSessionToken } from './traktClient';
+import type { DiziYayinBilgisi } from '../../utils/diziYayinDurumu';
 
 // HIZ-02 (M574): Worker'ın en kötü süresinden büyük (kimlik okuması 8 sn + RPC 12 sn). 15 sn'de vazgeçen istemci,
 // Worker hâlâ çalışırken ikinci isteği yolluyordu. Takılmada Worker çoğunlukla 2–7 sn'de döner.
@@ -335,6 +336,10 @@ export type KutuphaneYaniti = {
     original_title?: string | null;
     titles?: Record<string, string> | null;
     ilerleme: KutuphaneIlerlemesi;
+    yayin_durumu?: DiziYayinBilgisi['yayin_durumu'];
+    sonraki_yayin_at?: string | null;
+    sonraki_yayin_sezon?: number;
+    sonraki_yayin_bolum?: number;
   }>;
   filmler: Array<{
     traktId: number;
@@ -428,7 +433,24 @@ export const fetchTakvim = async (
   }
 };
 
-export const syncLibrary = async (): Promise<KutuphaneYaniti> => {
+export async function fetchDiziYayinBilgileri(traktIds: number[]): Promise<Array<DiziYayinBilgisi & { traktId: number }>> {
+  if (!traktIds.length) return [];
+  if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
+  const token = await SecureStore.getItemAsync('traktAccessToken');
+  if (!token) throw new Error('Oturum bulunamadı.');
+  const satirlar: Array<DiziYayinBilgisi & { traktId: number }> = [];
+  const parti = 120;
+  for (let i = 0; i < traktIds.length; i += parti) {
+    const { data } = await axios.post(`${KAYMAK_WORKER_URL}/library/yayin-durumu`, {
+      traktAccessToken: token, traktIds: traktIds.slice(i, i + parti),
+    }, { timeout: KUTUPHANE_SINIRI_MS });
+    if (!data?.success || !Array.isArray(data.diziler)) throw new Error('Yayın durumu okunamadı.');
+    satirlar.push(...data.diziler);
+  }
+  return satirlar;
+}
+
+export const syncLibrary = async (yayinDurumu = false): Promise<KutuphaneYaniti> => {
   if (!KAYMAK_WORKER_URL) throw new Error('EXPO_PUBLIC_KAYMAK_WORKER_URL tanımlı değil.');
   const token = await SecureStore.getItemAsync('traktAccessToken');
 
@@ -436,7 +458,7 @@ export const syncLibrary = async (): Promise<KutuphaneYaniti> => {
   // bir kez daha. Sarı uyarı / Trakt emniyet turu yalnız İKİNCİ deneme de düşerse (çağıran).
   const res = await geciciseBirKezDaha(() => axios.post(
     `${KAYMAK_WORKER_URL}/library/sync`,
-    { traktAccessToken: token },
+    { traktAccessToken: token, ...(yayinDurumu ? { yayinDurumu } : {}) },
     { headers: { 'Content-Type': 'application/json' }, timeout: KUTUPHANE_SINIRI_MS },
   ));
   const d = res.data || {};

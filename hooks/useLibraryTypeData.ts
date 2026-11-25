@@ -26,6 +26,7 @@ export interface LibraryItem {
   id: number | undefined;
   title: string | undefined;
   tmdbId: number | undefined;
+  yayinEtiketi?: string;
 }
 
 /**

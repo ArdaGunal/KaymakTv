@@ -58,6 +58,7 @@ const LibraryGridItemWeb = memo(({ item, type, onPress, yuzde, renk }: GridItemP
       )}
     </View>
     <Text style={styles.titleText} numberOfLines={1}>{item.title}</Text>
+    {item.yayinEtiketi && <Text style={styles.yayinEtiketi} numberOfLines={1}>{item.yayinEtiketi}</Text>}
   </TouchableOpacity>
 ));
 
@@ -308,6 +309,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0)',
     ...( { transition: 'background-color 0.3s ease' } as any)
+  },
+  yayinEtiketi: {
+    color: MOBILE_PALETTE.muted,
+    fontSize: 12,
   },
   titleText: {
     color: MOBILE_PALETTE.text,
