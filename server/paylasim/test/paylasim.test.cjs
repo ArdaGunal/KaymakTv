@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const { once } = require('node:events');
-const { mkdtemp, readFile, readdir, rm } = require('node:fs/promises');
+const { mkdtemp, readFile, readdir, rm, writeFile } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
@@ -8,7 +9,7 @@ const { test } = require('node:test');
 const { gzipSync } = require('node:zlib');
 const express = require('express');
 const Jimp = require('jimp-compact');
-const { afisOnbellegi } = require('../afis360');
+const { afisOnbellegi, kompaktJpeg } = require('../afis');
 const { katalogOku } = require('../katalogOku');
 const { paylasimRouter } = require('../router');
 
@@ -83,9 +84,28 @@ async function ornekJpeg() {
   return (await new Jimp(200, 300, 0xd05020ff)).getBufferAsync(Jimp.MIME_JPEG);
 }
 
+test('kompakt JPEG dikey görseli üstten, yatay görseli ortadan boşluksuz kırpar', async () => {
+  const kirmizi = 0xe02020ff;
+  const mavi = 0x2020e0ff;
+  const dikey = await new Jimp(200, 300, mavi);
+  dikey.composite(await new Jimp(200, 200, kirmizi), 0, 0);
+  const yatay = await new Jimp(400, 200, mavi);
+  yatay.composite(await new Jimp(200, 200, kirmizi), 100, 0);
+  for (const kaynak of [dikey, yatay]) {
+    const kare = await Jimp.read(await kompaktJpeg(await kaynak.getBufferAsync(Jimp.MIME_JPEG)));
+    assert.deepEqual([kare.bitmap.width, kare.bitmap.height], [200, 200]);
+    for (const [x, y] of [[4, 4], [195, 4], [4, 195], [195, 195]]) {
+      const { r, b } = Jimp.intToRGBA(kare.getPixelColor(x, y));
+      assert.ok(r > 180 && b < 80, `Karede boşluk ya da yanlış kırpma: ${x},${y}`);
+    }
+  }
+});
+
 test('aynı afiş için eşzamanlı istekler tek CDN çağrısı yapar ve kare JPEG yeniden başlatma sonrası diskten okunur', async (t) => {
   const dizin = await testDizini(t);
   const girdi = await ornekJpeg();
+  const eski = createHash('sha256').update('w342-kare360-v1:/yerel_Afis-1.jpg').digest('hex') + '.jpg';
+  await writeFile(join(dizin, eski), girdi);
   let cagri = 0;
   const afisler = afisOnbellegi({ dizin, getir: async (url, secenek) => {
     cagri++;
@@ -95,17 +115,17 @@ test('aynı afiş için eşzamanlı istekler tek CDN çağrısı yapar ve kare J
     return new Response(girdi, { headers: { 'Content-Type': 'image/jpeg' } });
   } });
   const dosyalar = await Promise.all(Array.from({ length: 8 }, () => afisler.hazirla('/yerel_Afis-1.jpg')));
-  assert.match(dosyalar[0], /^[a-f0-9]{64}\.jpg$/);
+  assert.match(dosyalar[0], /^200-[a-f0-9]{64}\.jpg$/);
   assert.equal(new Set(dosyalar).size, 1);
   assert.equal(cagri, 1);
-  assert.deepEqual(await readdir(dizin), [dosyalar[0]]);
+  assert.deepEqual((await readdir(dizin)).sort(), [dosyalar[0], eski].sort());
   const disk = afisOnbellegi({ dizin, getir: () => assert.fail('Disk doluyken ağ çağrılmaz') });
   assert.equal(await disk.hazirla('/yerel_Afis-1.jpg'), dosyalar[0]);
   const kare = await Jimp.read(await disk.oku(dosyalar[0]));
-  assert.equal(kare.bitmap.width, 360);
-  assert.equal(kare.bitmap.height, 360);
-  assert.equal(kare.getPixelColor(45, 180), 0x181818ff);
+  assert.equal(kare.bitmap.width, 200);
+  assert.equal(kare.bitmap.height, 200);
   assert.equal(kare.getPixelColor(180, 180) >>> 24, 0xd0);
+  assert.deepEqual(await disk.oku(eski), girdi);
 });
 
 test('geçersiz yollar, hatalı yanıtlar ve zaman aşımı disk çıktısı üretmez', async (t) => {
@@ -168,13 +188,15 @@ test('Express router özeti yetkilendirir, sosyal hedefi okumaz ve genel kare g�
   assert.deepEqual(await yanit.json(), { baslik: 'Dizi', aciklama: 'Ozet', gorsel: null });
   assert.equal((await ozet('/show/404')).status, 404);
 
-  const afis = await fetch(`${kok}/afis/kaymaktv-360.jpg`);
-  assert.match(afis.headers.get('content-type'), /^image\/jpeg/);
-  const gorsel = await Jimp.read(Buffer.from(await afis.arrayBuffer()));
-  assert.equal(gorsel.bitmap.width, 360);
-  assert.equal(gorsel.bitmap.height, 360);
-  const kayip = await fetch(`${kok}/afis/${'a'.repeat(64)}.jpg`, { redirect: 'manual' });
-  assert.equal(kayip.headers.get('location'), '/api/paylasim/afis/kaymaktv-360.jpg');
-  assert.equal(kayip.headers.get('cache-control'), 'no-store');
+  for (const [boyut, onek] of [[200, '200-'], [360, '']]) {
+    const yedek = `kaymaktv-${boyut}.jpg`;
+    const afis = await fetch(`${kok}/afis/${yedek}`);
+    assert.match(afis.headers.get('content-type'), /^image\/jpeg/);
+    const gorsel = await Jimp.read(Buffer.from(await afis.arrayBuffer()));
+    assert.deepEqual([gorsel.bitmap.width, gorsel.bitmap.height], [boyut, boyut]);
+    const kayip = await fetch(`${kok}/afis/${onek}${'a'.repeat(64)}.jpg`, { redirect: 'manual' });
+    assert.equal(kayip.headers.get('location'), `/api/paylasim/afis/${yedek}`);
+    assert.equal(kayip.headers.get('cache-control'), 'no-store');
+  }
   assert.equal(afisIstegi, 1);
 });

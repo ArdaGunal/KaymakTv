@@ -2,10 +2,11 @@ const { timingSafeEqual } = require('node:crypto');
 const { join } = require('node:path');
 const express = require('express');
 const { paylasimUrlAyristir } = require('../../utils/paylasimUrl.ts');
+const { OG_AFIS_YOLU, OG_KARE_DOSYASI, OG_YEDEK_DOSYA } = require('../../utils/paylasimGorseli.mjs');
 const { katalogOku } = require('./katalogOku');
-const { afisOnbellegi } = require('./afis360');
+const { afisOnbellegi } = require('./afis');
 
-const OG_YOLU = '/api/paylasim';
+const ESKI_YEDEK_DOSYA = 'kaymaktv-360.jpg';
 
 function ayniYetki(gelen, beklenen) {
   if (!gelen || !beklenen) return false;
@@ -32,30 +33,28 @@ function paylasimRouter({ afisDizini, ogSir, okuKatalog = katalogOku, afisler = 
       return res.json({
         baslik: Array.from(ozet.baslik).slice(0, 120).join(''),
         aciklama: Array.from(ozet.aciklama ?? '').slice(0, 160).join(''),
-        gorsel: dosya ? `${OG_YOLU}/afis/${dosya}` : null,
+        gorsel: dosya ? OG_AFIS_YOLU + dosya : null,
       });
     } catch {
       return res.sendStatus(503);
     }
   });
 
-  router.get('/afis/kaymaktv-360.jpg', (_req, res) => {
-    return res.sendFile(join(__dirname, 'assets', 'kaymaktv-360.jpg'), { maxAge: '1h' });
-  });
+  for (const dosya of [OG_YEDEK_DOSYA, ESKI_YEDEK_DOSYA]) {
+    router.get(`/afis/${dosya}`, (_req, res) => {
+      return res.sendFile(join(__dirname, 'assets', dosya), { maxAge: '1h' });
+    });
+  }
 
   router.get('/afis/:dosya', async (req, res) => {
-    try {
-      const jpeg = await afisler.oku(req.params.dosya);
-      if (!jpeg) {
-        res.set('Cache-Control', 'no-store');
-        return res.redirect(302, `${OG_YOLU}/afis/kaymaktv-360.jpg`);
-      }
-      res.set('Cache-Control', 'public, max-age=31536000, immutable');
-      return res.type('jpeg').send(jpeg);
-    } catch {
+    const yedek = OG_KARE_DOSYASI.test(req.params.dosya) ? OG_YEDEK_DOSYA : ESKI_YEDEK_DOSYA;
+    const jpeg = await afisler.oku(req.params.dosya).catch(() => null);
+    if (!jpeg) {
       res.set('Cache-Control', 'no-store');
-      return res.redirect(302, `${OG_YOLU}/afis/kaymaktv-360.jpg`);
+      return res.redirect(302, OG_AFIS_YOLU + yedek);
     }
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.type('jpeg').send(jpeg);
   });
 
   return router;

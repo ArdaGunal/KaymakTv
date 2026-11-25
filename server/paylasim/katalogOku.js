@@ -2,7 +2,7 @@ const { promisify } = require('node:util');
 const { gunzip } = require('node:zlib');
 const { openReadOnly } = require('../archive/db');
 const { parseEpisodeSlug } = require('../../utils/slugHelper.ts');
-const { afisYoluGecerli } = require('./afis360');
+const { afisYoluGecerli } = require('./afis');
 
 const ac = promisify(gunzip);
 const MAKS_PAYLOAD = 2 * 1024 * 1024;

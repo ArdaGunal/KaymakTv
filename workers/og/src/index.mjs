@@ -11,7 +11,7 @@ async function katalogMetasi(kanonik, dil, env, ctx) {
   const onbellekAnahtari = new Request(ozetUrl);
 
   try {
-    const onbellek = await caches.open('kaymaktv-og-ozet-v1');
+    const onbellek = await caches.open('kaymaktv-og-ozet-v2');
     const kayit = await onbellek.match(onbellekAnahtari);
     if (kayit) return katalogMetasiniDogrula(await kayit.json());
 

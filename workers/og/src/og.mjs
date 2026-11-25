@@ -1,6 +1,7 @@
+import { OG_AFIS_YOLU, OG_KARE_BOYUTU, OG_KARE_DOSYASI, OG_YEDEK_DOSYA } from '../../../utils/paylasimGorseli.mjs';
+
 const OG_KOKENI = 'https://kaymaktv.com';
-const AFIS_YOLU = '/api/paylasim/afis/';
-const VARSAYILAN_AFIS = `${OG_KOKENI}${AFIS_YOLU}kaymaktv-360.jpg`;
+const VARSAYILAN_AFIS = OG_KOKENI + OG_AFIS_YOLU + OG_YEDEK_DOSYA;
 
 const METINLER = {
   tr: { locale: 'tr_TR', aciklama: 'Dizilerini ve filmlerini KaymakTV ile takip et.' },
@@ -20,7 +21,9 @@ function tekSatir(deger, sinir) {
 export function katalogMetasiniDogrula(ozet) {
   const baslik = tekSatir(ozet?.baslik, 120);
   if (!baslik) return null;
-  const afis = /^\/api\/paylasim\/afis\/[a-f0-9]{64}\.jpg$/.test(ozet.gorsel) ? ozet.gorsel : null;
+  const yol = ozet.gorsel;
+  const afis = typeof yol === 'string' && yol.startsWith(OG_AFIS_YOLU) &&
+    OG_KARE_DOSYASI.test(yol.slice(OG_AFIS_YOLU.length)) ? yol : null;
   return { baslik, aciklama: tekSatir(ozet.aciklama, 80), gorsel: afis };
 }
 
@@ -37,8 +40,8 @@ export function ogEkle(yanit, kanonik, dil, ozet) {
     'og:locale': metin.locale,
     'og:image': gorsel,
     'og:image:type': 'image/jpeg',
-    'og:image:width': '360',
-    'og:image:height': '360',
+    'og:image:width': String(OG_KARE_BOYUTU),
+    'og:image:height': String(OG_KARE_BOYUTU),
     'og:image:alt': ozet?.gorsel ? baslik : 'KaymakTV',
   };
 

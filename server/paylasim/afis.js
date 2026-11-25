@@ -1,13 +1,13 @@
 const { createHash, randomUUID } = require('node:crypto');
 const { mkdir, readFile, rename, unlink, writeFile } = require('node:fs/promises');
 const { join, isAbsolute } = require('node:path');
+const { OG_KARE_BOYUTU, OG_KARE_DOSYASI, OG_KARE_ONEKI } = require('../../utils/paylasimGorseli.mjs');
 
-const BOYUT = 360;
 const MAKS_GIRIS = 1024 * 1024;
 const MAKS_ETKIN = 4;
 const HATA_BEKLEME_MS = 60_000;
 const AFIS_YOLU = /^\/[a-zA-Z0-9_-]{1,100}\.jpg$/;
-const KARE_DOSYASI = /^[a-f0-9]{64}\.jpg$/;
+const ESKI_KARE_DOSYASI = /^[a-f0-9]{64}\.jpg$/;
 
 function afisYoluGecerli(deger) {
   return typeof deger === 'string' && AFIS_YOLU.test(deger);
@@ -55,12 +55,12 @@ async function afisiIndir(afisYolu, getir, zamanAsimiMs) {
   return jpegBoyutuUygun(girdi) ? girdi : null;
 }
 
-async function kareJpeg(girdi) {
+async function kompaktJpeg(girdi) {
   const Jimp = require('jimp-compact');
-  const afis = (await Jimp.read(girdi)).scaleToFit(BOYUT, BOYUT);
-  const kare = await new Jimp(BOYUT, BOYUT, 0x181818ff);
-  kare.composite(afis, Math.floor((BOYUT - afis.bitmap.width) / 2), Math.floor((BOYUT - afis.bitmap.height) / 2));
-  return kare.quality(82).getBufferAsync(Jimp.MIME_JPEG);
+  const gorsel = await Jimp.read(girdi);
+  return gorsel
+    .cover(OG_KARE_BOYUTU, OG_KARE_BOYUTU, Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_TOP)
+    .quality(82).getBufferAsync(Jimp.MIME_JPEG);
 }
 
 function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 }) {
@@ -69,7 +69,7 @@ function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 })
   const hatalar = new Map();
 
   async function oku(dosya) {
-    if (typeof dosya !== 'string' || !KARE_DOSYASI.test(dosya)) return null;
+    if (typeof dosya !== 'string' || (!OG_KARE_DOSYASI.test(dosya) && !ESKI_KARE_DOSYASI.test(dosya))) return null;
     try {
       return await readFile(join(dizin, dosya));
     } catch (hata) {
@@ -82,7 +82,7 @@ function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 })
     if (await oku(dosya)) return dosya;
     const girdi = await afisiIndir(afisYolu, getir, zamanAsimiMs);
     if (!girdi) return null;
-    const cikti = await kareJpeg(girdi);
+    const cikti = await kompaktJpeg(girdi);
     await mkdir(dizin, { recursive: true });
     const gecici = join(dizin, `.${dosya}.${randomUUID()}.tmp`);
     try {
@@ -96,7 +96,8 @@ function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 })
 
   async function hazirla(afisYolu) {
     if (!afisYoluGecerli(afisYolu)) return null;
-    const dosya = createHash('sha256').update(`w342-kare360-v1:${afisYolu}`).digest('hex') + '.jpg';
+    const ozet = createHash('sha256').update(`w342-cover-ust-orta-v1:${afisYolu}`).digest('hex');
+    const dosya = `${OG_KARE_ONEKI}${ozet}.jpg`;
     try {
       if (await oku(dosya)) return dosya;
     } catch {
@@ -125,4 +126,4 @@ function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 })
   return { hazirla, oku };
 }
 
-module.exports = { afisOnbellegi, afisYoluGecerli };
+module.exports = { afisOnbellegi, afisYoluGecerli, kompaktJpeg };

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import worker from '../src/index.mjs';
 
 const SITE = 'https://kaymaktv.com';
-const AFIS = '/api/paylasim/afis/' + '1'.repeat(64) + '.jpg';
+const AFIS = '/api/paylasim/afis/200-' + '1'.repeat(64) + '.jpg';
 
 function kur(t, ozet) {
   const yazilan = new Map();
@@ -23,7 +23,8 @@ function kur(t, ozet) {
     });
   });
   t.after(() => { delete globalThis.caches; delete globalThis.HTMLRewriter; });
-  globalThis.caches = { async open() {
+  globalThis.caches = { async open(ad) {
+    assert.equal(ad, 'kaymaktv-og-ozet-v2');
     return {
       async match(istek) { return yazilan.get(istek.url)?.clone(); },
       async put(istek, yanit) { yazilan.set(istek.url, yanit); },
@@ -80,8 +81,8 @@ test('eski URL kanonik sezon anahtarına döner, dil ve cache doğru, SPA ve eti
   });
   assert.match(html, /Dizi &quot;A&quot; &lt;b&gt;&amp;/);
   assert.match(html, /og:url" content="https:\/\/kaymaktv\.com\/show\/1390\?season=3"/);
-  assert.match(html, /og:image:width" content="360"/);
-  assert.match(html, /og:image:height" content="360"/);
+  assert.match(html, /og:image:width" content="200"/);
+  assert.match(html, /og:image:height" content="200"/);
   assert.match(html, /name="twitter:card" content="summary"/);
   assert.ok(html.includes(SITE + AFIS));
   assert.ok(html.includes('<title>SPA</title></head><body>Uygulama'));
@@ -111,7 +112,7 @@ test('profil, akış ve eşleşmeyen yollar özet isteği başlatmaz', async (t)
   for (const yol of ['/u/10337897', '/activity/12345678-1234-4abc-8def-abcdef123456']) {
     const { html } = await sistem.ac(yol);
     assert.match(html, /og:title" content="KaymakTV"/);
-    assert.match(html, /kaymaktv-360\.jpg/);
+    assert.match(html, /kaymaktv-200\.jpg/);
   }
   for (const [yol, secenek] of [['/settings'], ['/show/hatalı'], ['/show/1390', { method: 'HEAD' }], ['/show/css']]) {
     const { html } = await sistem.ac(yol, secenek);
@@ -125,7 +126,7 @@ test('özet hataları genel karta döner ve kişiselleştirilmiş HTML önbelle�
   const sistem = kur(t, () => { throw new DOMException('Zaman doldu', 'TimeoutError'); });
   const { html } = await sistem.ac('/movie/12');
   assert.match(html, /og:title" content="KaymakTV"/);
-  assert.match(html, /kaymaktv-360\.jpg/);
+  assert.match(html, /kaymaktv-200\.jpg/);
   assert.equal(sistem.yazilan.size, 0);
 });
 
@@ -133,7 +134,14 @@ test('harici görsel reddedilir, katalog başlığı genel kareyle gösterilir',
   const sistem = kur(t, { baslik: 'Film', gorsel: 'https://example.org/afis.jpg' });
   const { html } = await sistem.ac('/movie/12');
   assert.match(html, /og:title" content="Film"/);
-  assert.match(html, /kaymaktv-360\.jpg/);
+  assert.match(html, /kaymaktv-200\.jpg/);
   assert.doesNotMatch(html, /example\.org/);
   assert.equal([...sistem.yazilan.values()][0].headers.get('cache-control'), 'public, max-age=30');
+});
+
+test('eski 360 afiş yolu 200 boyutlu kartta genel kareye döner', async (t) => {
+  const eski = AFIS.replace('/200-', '/');
+  const { html } = await kur(t, { baslik: 'Film', gorsel: eski }).ac('/movie/12');
+  assert.match(html, /kaymaktv-200\.jpg/);
+  assert.ok(!html.includes(eski));
 });
