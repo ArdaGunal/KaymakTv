@@ -1,0 +1,17 @@
+{
+  "name": "kaymaktv-og",
+  "account_id": "e237ed5f061ebabb8bcfbae195e2ee23",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-11-25",
+  "workers_dev": false,
+  "preview_urls": false,
+  "upload_source_maps": true,
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "routes": [
+    { "pattern": "kaymaktv.com/show/*", "zone_name": "kaymaktv.com" },
+    { "pattern": "kaymaktv.com/movie/*", "zone_name": "kaymaktv.com" },
+    { "pattern": "kaymaktv.com/episode/*", "zone_name": "kaymaktv.com" },
+    { "pattern": "kaymaktv.com/activity/*", "zone_name": "kaymaktv.com" },
+    { "pattern": "kaymaktv.com/u/*", "zone_name": "kaymaktv.com" }
+  ]
+}
