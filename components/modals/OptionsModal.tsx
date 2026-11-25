@@ -1,12 +1,12 @@
 import { nativeColor } from '../../constants/mobilePalette';
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { PauseCircle, PlayCircle, Share2, CheckCheck, Trash2 } from '../icons';
 import { useTranslation } from 'react-i18next';
 import { gorunenBaslik } from '../../utils/gorunenBaslik';
 import { useAppBack } from '../../hooks/useAppBack';
 import { useAuth } from '../../context/AuthContext';
-import { generateMediaSlug } from '../../utils/slugHelper';
+import { usePaylasim } from '../../hooks/usePaylasim';
 import { confirmAsync, notify } from '../../utils/confirmDialog';
 import OrtaPencere from './OrtaPencere';
 
@@ -43,21 +43,15 @@ export default function OptionsModal({
   onRewatch,
 }: OptionsModalProps) {
   const { t, i18n } = useTranslation(['media', 'common']);
+  const paylasHedefi = usePaylasim();
   const { isGuest } = useAuth();
   const handleBack = useAppBack();
 
   const handleShare = async () => {
-    try {
-      const slug = generateMediaSlug(data.ids.trakt, data.ids.slug, data.title);
-      const url = `https://kaymaktv.com/${type}/${slug}`;
-        
-      await Share.share({
-        message: `${gorunenBaslik(data, i18n.language)} ${type === 'show' ? t('shareShowMsg') : t('shareMovieMsg')}\n${url}`,
-      });
-      onClose();
-    } catch (error) {
-      console.log(error);
-    }
+    const baslik = gorunenBaslik(data, i18n.language);
+    const metin = t(type === 'show' ? 'shareShowMsg' : 'shareMovieMsg');
+    const sonuc = await paylasHedefi({ tur: type, id: data?.ids?.trakt }, `${baslik} ${metin}`);
+    if (sonuc !== 'basarisiz') onClose();
   };
 
   const handleHideProgress = async () => {

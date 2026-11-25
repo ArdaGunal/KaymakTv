@@ -1,3 +1,5 @@
+import { paylasimUrl } from './paylasimUrl';
+
 /**
  * KaymakNo görünümü (Kimlik birliği Faz 2 · 066 · plan D9): `#48291735`.
  * SAF — numara 8 haneli aralıkta değilse `null` (066 öncesi / eski Worker → gösterilmez).
@@ -13,5 +15,5 @@ export function kaymakNoMetni(no: number | null | undefined): string | null {
  * Açan kişi giriş yapmamışsa giriş ekranına gider (D6); `/user/<ad>` bağlantıları da çalışmaya devam eder.
  */
 export function profilPaylasimLinki(no: number | null | undefined): string | null {
-  return kaymakNoMetni(no) ? `https://kaymaktv.com/u/${no}` : null;
+  return paylasimUrl({ tur: 'u', id: no });
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Share } from 'react-native';
+import { usePaylasim } from '../../../hooks/usePaylasim';
 import { notify } from '../../../utils/confirmDialog';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -38,6 +38,7 @@ export function useActivityActions(
 ) {
   const { onLocalPatch } = options;
   const { t } = useTranslation('feed');
+  const paylasHedefi = usePaylasim();
   const router = useRouter();
   const { accessToken, isGuest } = useAuth();
   const myUserId = useMyUserId();
@@ -110,15 +111,9 @@ export function useActivityActions(
     }
   };
 
-  // Paylaşım linki — hedef `app/activity/[id].tsx` (herkese açık kalıcı bağlantı).
   const share = useCallback(async () => {
-    try {
-      const url = `https://kaymaktv.com/activity/${activity.id}`;
-      await Share.share({ message: `${t('shareActivityMsg')}\n${url}` });
-    } catch (error) {
-      console.log(error);
-    }
-  }, [activity.id, t]);
+    await paylasHedefi({ tur: 'activity', id: activity.id }, t('shareActivityMsg'));
+  }, [paylasHedefi, activity.id, t]);
 
   // Takip durumu kanonik slug ile anahtarlı ama rota kullanıcı adıyla çözülüyor
   // (bkz. eski FeedCard notu) — davranış aynen korunur.

@@ -9,7 +9,6 @@ import {
   Modal,
   Pressable,
   Platform,
-  Share,
   useWindowDimensions,
 } from 'react-native';
 import { notify } from '../../utils/confirmDialog';
@@ -19,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { useAuth } from '../../context/AuthContext';
 import { useKaymakYetenekleri } from '../../hooks/useKaymakYetenekleri';
-import { generateMediaSlug } from '../../utils/slugHelper';
+import { usePaylasim } from '../../hooks/usePaylasim';
 import AddToListModal from '../AddToListModal';
 
 interface TrackingCardMenuProps {
@@ -70,6 +69,7 @@ const ROW_COUNT_TAM = 5; // Bırakılanlara Ekle, Listeye Ekle, Favorilere Ekle,
 const TrackingCardMenu = memo(
   ({ id, title, mediaType, tmdbId, slug, onToggleDropped, style }: TrackingCardMenuProps) => {
     const { t } = useTranslation(['media', 'common']);
+    const paylasHedefi = usePaylasim();
     const { isGuest } = useAuth();
     const { ozelListeler } = useKaymakYetenekleri();
     const insets = useSafeAreaInsets();
@@ -125,14 +125,8 @@ const TrackingCardMenu = memo(
 
     const handleShare = async () => {
       closeMenu();
-      try {
-        const mediaSlug = generateMediaSlug(id, slug, title);
-        const url = `https://kaymaktv.com/${mediaType}/${mediaSlug}`;
-        const shareMsgKey = mediaType === 'show' ? 'shareShowMsg' : 'shareMovieMsg';
-        await Share.share({ message: `${title} ${t(shareMsgKey)}\n${url}` });
-      } catch (e) {
-        console.log(e);
-      }
+      const shareMsgKey = mediaType === 'show' ? 'shareShowMsg' : 'shareMovieMsg';
+      await paylasHedefi({ tur: mediaType, id }, `${title} ${t(shareMsgKey)}`);
     };
 
     const openListModal = () => {

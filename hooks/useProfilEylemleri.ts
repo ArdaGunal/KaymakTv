@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Share, ToastAndroid } from 'react-native';
+import { Platform, ToastAndroid } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
 import { logError } from '../utils/errorLog';
 import { profilPaylasimLinki } from '../utils/kaymakNo';
+import { usePaylasim } from './usePaylasim';
 
 /** Satır içi «kopyalandı» bildiriminin ekranda kaldığı süre. */
 const BILDIRIM_MS = 1500;
@@ -51,22 +52,13 @@ export function useKullaniciAdiKopyala(kullaniciAdi: string | null | undefined) 
 export function useProfilPaylas(kaymakNo: number | null | undefined) {
   const { t } = useTranslation('common');
   const [linkKopyalandi, isaretle] = useKisaBayrak();
+  const paylasHedefi = usePaylasim();
   const link = profilPaylasimLinki(kaymakNo);
   const paylas = async () => {
     if (!link) return;
-    try {
-      const nav: any = Platform.OS === 'web' ? (globalThis as any).navigator : null;
-      if (Platform.OS !== 'web') {
-        await Share.share({ message: `${t('profilPaylasMesaj')}\n${link}` });
-      } else if (nav?.share) {
-        await nav.share({ url: link, text: t('profilPaylasMesaj') });
-      } else {
-        await Clipboard.setStringAsync(link);
-        isaretle();
-      }
-    } catch (error) {
-      logError('profil.paylas', error);
-    }
+    const sonuc = await paylasHedefi({ tur: 'u', id: kaymakNo }, t('profilPaylasMesaj'),
+      (hata) => logError('profil.paylas', hata));
+    if (sonuc === 'kopyalandi') isaretle();
   };
   return { link, paylas, linkKopyalandi };
 }
