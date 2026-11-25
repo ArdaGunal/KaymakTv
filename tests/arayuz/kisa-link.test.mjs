@@ -29,7 +29,62 @@ T.H('Paylasim + App Links');
 // 1.0.1 Dal 2 (2026-11-15): paylas numara etiketinden «Profili Duzenle» / «Takip Et» yanindaki
 // ayri dugmeye tasindi; mantik `hooks/useProfilEylemleri.ts` (`useProfilPaylas`).
 const paylas = oku('hooks/useProfilEylemleri.ts');
-T.ok('Profil paylas: native Share, web share ya da panoya', /profilPaylasimLinki\(kaymakNo\)/.test(paylas) && /Share\.share\(/.test(paylas) && /nav\.share\(/.test(paylas) && /Clipboard\.setStringAsync\(link\)/.test(paylas));
+T.ok('Profil paylasimi ortak adaptoru ve panoya kopyalandi geri bildirimini kullanir',
+  /usePaylasim\(\)/.test(paylas) && /paylasHedefi\(\{ tur: 'u', id: kaymakNo \}/.test(paylas) && /sonuc === 'kopyalandi'/.test(paylas));
+
+T.H('Paylasim adaptoru birim testleri');
+const hedef = { tur: 'u', id: 10337897 };
+const link = profilPaylasimLinki(hedef.id);
+const metin = 'KaymakTV';
+function adaptor(platform, navigator, { nativeShare, kopyala } = {}) {
+  const yukle = tsLoader(root, {
+    react: { useCallback: (callback) => callback },
+    'react-native': { Platform: { OS: platform }, Share: { share: nativeShare, dismissedAction: 'dismissedAction' } },
+    'expo-clipboard': { setStringAsync: kopyala },
+  }, { navigator });
+  return yukle('hooks/usePaylasim.ts').usePaylasim();
+}
+
+let nativeMesaj;
+const native = adaptor('android', undefined, {
+  nativeShare: async ({ message }) => { nativeMesaj = message; return { action: 'sharedAction' }; },
+});
+T.ok('Android sistem paylasimi metni ve HTTPS baglantisini alir',
+  await native(hedef, metin) === 'paylasildi' && nativeMesaj === metin + '\n' + link);
+
+const nativeIptal = adaptor('android', undefined, { nativeShare: async () => ({ action: 'dismissedAction' }) });
+T.ok('Sistem paylasim sayfasi kapatilinca iptal doner', await nativeIptal(hedef, metin) === 'iptal');
+
+let webVerisi;
+const web = adaptor('web', { share: async (veri) => { webVerisi = veri; } });
+T.ok('Web Share metni ve URL alanini ayri alir',
+  await web(hedef, metin) === 'paylasildi' && webVerisi?.url === link && webVerisi?.text === metin);
+
+let kopyalanan;
+const pano = adaptor('web', { canShare: () => false, share: () => { throw new Error('Desteklenmiyor'); } }, {
+  kopyala: async (veri) => { kopyalanan = veri; return true; },
+});
+T.ok('Web Share desteklenmiyorsa sadece URL panoya yazilir',
+  await pano(hedef, metin) === 'kopyalandi' && kopyalanan === link);
+
+const eksik = adaptor('web', undefined, { kopyala: async () => false });
+T.ok('Pano yazimi basarisizsa kopyalandi sonucu donmez', await eksik(hedef, metin) === 'basarisiz');
+
+let iptaldeKopyalandi = false;
+const iptal = adaptor('web', { share: async () => { throw new DOMException('Iptal', 'AbortError'); } }, {
+  kopyala: async () => { iptaldeKopyalandi = true; return true; },
+});
+T.ok('Web paylasim iptalinde panoya yazilmaz', await iptal(hedef, metin) === 'iptal' && !iptaldeKopyalandi);
+
+const paylasimHatasi = new Error('Paylasim hatasi');
+let kaydedilenHata;
+const hataliPaylasim = adaptor('web', { share: async () => { throw paylasimHatasi; } });
+T.ok('Paylasim hatasi cagiranin hata kaydina gider',
+  await hataliPaylasim(hedef, metin, (hata) => { kaydedilenHata = hata; }) === 'basarisiz' && kaydedilenHata === paylasimHatasi);
+
+kopyalanan = undefined;
+T.ok('Gecersiz hedef panoya yazilmaz',
+  await pano({ tur: 'u', id: 123 }, metin) === 'basarisiz' && kopyalanan === undefined);
 const app = JSON.parse(oku('app.json')).expo.android;
 T.ok('App Links /u/ (uygulama yukluyse baglanti uygulamada acilir)', app.intentFilters[0].data.some((d) => d.pathPrefix === '/u/' && d.host === 'kaymaktv.com'));
 

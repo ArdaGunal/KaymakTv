@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
 import DetailHeroSkeleton from '../../components/skeletons/DetailHeroSkeleton';
 
@@ -12,6 +12,7 @@ import { useMediaReviews } from '../../hooks/useMediaReviews';
 import { useShowTmdbGorselleri } from '../../hooks/useShowTmdbGorselleri';
 import { useLibrarySelector, useLibraryActions } from '../../context/LibraryContext';
 import { parseMediaSlug } from '../../utils/slugHelper';
+import { paylasimSezonunuAyristir } from '../../utils/paylasimUrl';
 import { eylemHatasiGoster } from '../../utils/eylemHatasi';
 import MediaHero from '../../components/MediaHero';
 import { useAppBack } from '../../hooks/useAppBack';
@@ -41,7 +42,7 @@ export default function ShowDetailScreen() {
   const handleBack = useAppBack();
   // Masaustu web'de duzen cift sutuna gecer; native'de HER ZAMAN false.
   const layout = useDetailLayout();
-  const { id, tmdbId } = useLocalSearchParams(); // id is traktId
+  const { id, tmdbId, season } = useLocalSearchParams(); // id is traktId
   const { t, i18n } = useTranslation('media');
 
   const idStr = Array.isArray(id) ? id[0] : id;
@@ -93,7 +94,13 @@ export default function ShowDetailScreen() {
 
   const { backdrop, poster, trailerId } = useShowTmdbGorselleri(etkinTmdbId);
 
-  const [expandedSeasons, setExpandedSeasons] = useState<any>({});
+  const sezonOdagi = paylasimSezonunuAyristir(season);
+  const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({});
+  // Sezon listesi geldiğinde yalnız mevcut sezonlar çizilir. Veri yenilemesi,
+  // kullanıcının daha sonra açtığı veya kapattığı sezonlara dokunmaz.
+  useEffect(() => {
+    setExpandedSeasons(sezonOdagi === null ? {} : { [sezonOdagi]: true });
+  }, [traktIdNum, sezonOdagi]);
   const [selectedEpisode, setSelectedEpisode] = useState<SelectedEpisode | null>(null);
   const [episodeRatingModalVisible, setEpisodeRatingModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -177,7 +184,7 @@ export default function ShowDetailScreen() {
 
   const toggleSeason = (seasonNum: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedSeasons((prev: any) => ({ ...prev, [seasonNum]: !prev[seasonNum] }));
+    setExpandedSeasons((prev) => ({ ...prev, [seasonNum]: !prev[seasonNum] }));
   };
 
   // Sayısal kimliksiz bağlantıda kanca ağa hiç çıkmaz; iskelet sonsuza dek kalırdı (C34).

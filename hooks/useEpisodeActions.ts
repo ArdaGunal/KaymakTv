@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ilerlemedenBolumSayisi } from '../utils/izlemeSayisi';
 import { geriAlmaSor } from '../utils/izlemeGeriAlma';
-import { Share } from 'react-native';
+import { usePaylasim } from './usePaylasim';
 import { chooseAsync, notify } from '../utils/confirmDialog';
 import { useTranslation } from 'react-i18next';
 import { useLibrary } from '../context/LibraryContext';
@@ -68,6 +68,7 @@ export function useEpisodeActions({
   tumSezonlar,
 }: UseEpisodeActionsArgs) {
   const { t } = useTranslation('media');
+  const paylasHedefi = usePaylasim();
   const { isGuest } = useAuth();
   const {
     setLocalRating,
@@ -187,15 +188,11 @@ export function useEpisodeActions({
   }, [isGuest, season, episode, isWatchedLocal, playCount, showProgressMap, showTraktId, unwatchEpisode, unwatchLastEpisodePlay, markEpisodeAsWatched, planiIsaretle, t, tumSezonlar]);
 
   const share = useCallback(async () => {
-    try {
-      const url = `https://kaymaktv.com/episode/${slug}`;
-      await Share.share({
-        message: `${showName} S${season} E${episode} ${t('shareEpisodeMsg', 'bölümüne göz at!')}\n${url}`,
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  }, [slug, showName, season, episode, t]);
+    await paylasHedefi(
+      { tur: 'episode', id: slug },
+      `${showName} S${season} E${episode} ${t('shareEpisodeMsg', 'bölümüne göz at!')}`,
+    );
+  }, [paylasHedefi, slug, showName, season, episode, t]);
 
   /** Misafirse uyarır ve `false` döner — puanlama yüzeyleri bunu kullanır. */
   const guardGuest = useCallback(() => {
