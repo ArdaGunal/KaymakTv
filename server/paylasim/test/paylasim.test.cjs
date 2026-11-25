@@ -27,6 +27,7 @@ async function gercekArsiv(t) {
     INSERT INTO entities(kaymak_id,type,parent_id,season_number,episode_number,title,year,created_at,updated_at)
     VALUES ('d1','show',NULL,NULL,NULL,'Dizi',2025,1,1),
            ('s3','season','d1',3,NULL,NULL,NULL,1,1),
+           ('s2','season','d1',2,NULL,NULL,NULL,1,1),
            ('e5','episode','s3',3,5,'Spoiler',NULL,1,1),
            ('f1','movie',NULL,NULL,NULL,'Film',2022,1,1),
            ('d2','show',NULL,NULL,NULL,'Diger Dizi',2020,1,1),
@@ -42,7 +43,8 @@ async function gercekArsiv(t) {
     VALUES (?,'tmdb',?,?,?,?,?,1,1)
   `);
   for (const [id, aile, dil, meta] of [
-    ['d1', 'tv_detail', 'tr', { overview: 'Turkce ozet', poster_path: '/dizi.jpg' }],
+    ['d1', 'tv_detail', 'tr', { overview: 'Turkce ozet', poster_path: '/dizi.jpg',
+      seasons: [{ season_number: 3, poster_path: '/sezon.jpg' }] }],
     ['d1', 'tv_detail', 'en', { overview: 'English overview', poster_path: '/other.jpg' }],
     ['f1', 'movie_detail', '-', { overview: 'Film summary', poster_path: '/film.jpg' }],
   ]) {
@@ -63,7 +65,10 @@ test('salt okunur arşiv dizi, film, sezon ve bölüm özetini çözer', async (
   assert.deepEqual(await oku({ tur: 'movie', id: 12 }, 'en'), {
     baslik: 'Film (2022)', aciklama: 'Film summary', afis: '/film.jpg',
   });
-  assert.equal((await oku({ tur: 'season', id: 1390, season: 3 }, 'en')).aciklama, 'Season 3');
+  assert.deepEqual(await oku({ tur: 'season', id: 1390, season: 3 }, 'en'), {
+    baslik: 'Dizi (2025)', aciklama: 'Season 3', afis: '/sezon.jpg',
+  });
+  assert.equal((await oku({ tur: 'season', id: 1390, season: 2 }, 'en')).afis, '/other.jpg');
   assert.deepEqual(await oku({ tur: 'episode', id: '1390-ornek-s3e5-123' }, 'tr'), {
     baslik: 'Dizi (2025)', aciklama: '3. sezon · 5. bölüm', afis: '/dizi.jpg',
   });

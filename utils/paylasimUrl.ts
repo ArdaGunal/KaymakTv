@@ -1,5 +1,5 @@
 const PAYLASIM_KOKENI = 'https://kaymaktv.com';
-const MEDYA_YOLU = /^([1-9]\d*)(?:-[a-z0-9_-]+)?$/i;
+const MEDYA_YOLU = /^([1-9]\d*)(?:-[a-z0-9_-]*)?$/i;
 const BOLUM_YOLU = /^([1-9]\d*)-[a-z0-9_-]*-s(\d+)e(\d+)-([1-9]\d*)$/i;
 const AKIS_KIMLIGI = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
 const KAYMAK_NO = /^[1-9]\d{7}$/;

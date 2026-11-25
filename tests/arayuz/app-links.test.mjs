@@ -53,6 +53,7 @@ for (const [hedef, yol] of ornekler) {
 
 const eskiAdresler = [
   ['/show/1390-dizi-adi?tmdbId=12', '/show/1390'],
+  ['/show/1390-?tmdbId=12', '/show/1390'],
   ['/show/1390-dizi-adi?tmdbId=12&season=3', '/show/1390?season=3'],
   ['/movie/12-film-adi?tmdbId=23', '/movie/12'],
   ['/episode/1390-dizi-adi-s3e5-123?showTmdbId=12', '/episode/1390-dizi-adi-s3e5-123'],

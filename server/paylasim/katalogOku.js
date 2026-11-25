@@ -2,6 +2,7 @@ const { promisify } = require('node:util');
 const { gunzip } = require('node:zlib');
 const { openReadOnly } = require('../archive/db');
 const { parseEpisodeSlug } = require('../../utils/slugHelper.ts');
+const { afisYoluGecerli } = require('./afis360');
 
 const ac = promisify(gunzip);
 const MAKS_PAYLOAD = 2 * 1024 * 1024;
@@ -35,7 +36,7 @@ function hedefiCoz(db, hedef) {
   return { kok, sezonNo, bolumNo: bolum?.episode };
 }
 
-async function tmdbOzeti(db, kok, dil) {
+async function tmdbOzeti(db, kok, dil, sezonNo) {
   const aile = kok.type === 'movie' ? 'movie_detail' : 'tv_detail';
   const ara = db.prepare(`
     SELECT body FROM payloads
@@ -44,19 +45,24 @@ async function tmdbOzeti(db, kok, dil) {
   const diller = [...new Set([dil, 'en', '-', 'tr'])];
   let ozet;
   let afis;
+  let sezonAfisi;
   for (const aday of diller) {
     const satir = ara.get(kok.kaymak_id, aile, aday, MAKS_PAYLOAD);
     if (!satir) continue;
     try {
       const veri = JSON.parse(await ac(satir.body, { maxOutputLength: MAKS_PAYLOAD }));
       if (aday === dil || (dil === 'en' && aday === '-')) ozet ||= veri?.overview;
-      afis ||= veri?.poster_path;
-      if (ozet && afis) break;
+      if (!afis && afisYoluGecerli(veri?.poster_path)) afis = veri.poster_path;
+      if (sezonNo !== undefined && !sezonAfisi && Array.isArray(veri?.seasons)) {
+        const yol = veri.seasons.find((sezon) => sezon?.season_number === sezonNo)?.poster_path;
+        if (afisYoluGecerli(yol)) sezonAfisi = yol;
+      }
+      if (ozet && (sezonNo === undefined ? afis : sezonAfisi)) break;
     } catch {
       // Bozuk bir dil kaydı diğer arşiv kayıtlarının okunmasını engellemez.
     }
   }
-  return { ozet, afis };
+  return { ozet, afis: sezonAfisi || afis };
 }
 
 async function katalogOku(hedef, dil, arsiviAc = openReadOnly) {
@@ -67,7 +73,7 @@ async function katalogOku(hedef, dil, arsiviAc = openReadOnly) {
     const kok = hedefKaydi?.kok;
     if (!kok?.title?.trim()) return null;
     const { sezonNo, bolumNo } = hedefKaydi;
-    const { ozet, afis } = await tmdbOzeti(baglanti.db, kok, dil);
+    const { ozet, afis } = await tmdbOzeti(baglanti.db, kok, dil, hedef.tur === 'season' ? sezonNo : undefined);
 
     let aciklama = ozet;
     if (sezonNo !== undefined) {

@@ -174,6 +174,12 @@ app.use('/api/health', require('./server/saglik'));
 // K1(b) (M532) — TMDB afişi yoksa arşivdeki Trakt afiş adresi (salt okuma, ağa çıkmaz).
 app.use('/api/afis-yedek', require('./server/afisYedek'));
 
+const { paylasimRouter } = require('./server/paylasim/router');
+app.use('/api/paylasim', paylasimRouter({
+    afisDizini: process.env.OG_AFIS_DIZINI || path.join(require('node:os').tmpdir(), 'kaymaktv-og'),
+    ogSir: process.env.OG_ORIGIN_KEY,
+}));
+
 // Trakt köprü yolları (GET/POST/DELETE/PUT + OAuth): `server/traktProxyYollari.js`.
 require('./server/traktProxyYollari')(app, { traktAuthLimiter, redirectUriGuard });
 

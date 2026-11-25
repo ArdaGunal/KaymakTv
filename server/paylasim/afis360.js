@@ -9,6 +9,10 @@ const HATA_BEKLEME_MS = 60_000;
 const AFIS_YOLU = /^\/[a-zA-Z0-9_-]{1,100}\.jpg$/;
 const KARE_DOSYASI = /^[a-f0-9]{64}\.jpg$/;
 
+function afisYoluGecerli(deger) {
+  return typeof deger === 'string' && AFIS_YOLU.test(deger);
+}
+
 function jpegBoyutuUygun(girdi) {
   if (girdi.length < 4 || girdi.readUInt16BE(0) !== 0xffd8) return false;
   // SOF boyutlarını tam çözmeden önce kontrol et. TMDB w342 bir JPEG döndürür.
@@ -52,7 +56,6 @@ async function afisiIndir(afisYolu, getir, zamanAsimiMs) {
 }
 
 async function kareJpeg(girdi) {
-  // M-B birleşiminde jimp-compact doğrudan bağımlılık olarak eklenmeli.
   const Jimp = require('jimp-compact');
   const afis = (await Jimp.read(girdi)).scaleToFit(BOYUT, BOYUT);
   const kare = await new Jimp(BOYUT, BOYUT, 0x181818ff);
@@ -92,7 +95,7 @@ function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 })
   }
 
   async function hazirla(afisYolu) {
-    if (typeof afisYolu !== 'string' || !AFIS_YOLU.test(afisYolu)) return null;
+    if (!afisYoluGecerli(afisYolu)) return null;
     const dosya = createHash('sha256').update(`w342-kare360-v1:${afisYolu}`).digest('hex') + '.jpg';
     try {
       if (await oku(dosya)) return dosya;
@@ -122,4 +125,4 @@ function afisOnbellegi({ dizin, getir = globalThis.fetch, zamanAsimiMs = 2500 })
   return { hazirla, oku };
 }
 
-module.exports = { afisOnbellegi };
+module.exports = { afisOnbellegi, afisYoluGecerli };
