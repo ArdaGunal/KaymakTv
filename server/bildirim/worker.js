@@ -100,19 +100,44 @@ const UCLAR = Object.freeze({
   push: ['/ic/push', 'POST'],
 });
 
-function workerIstemcisi({ workerUrl, motorSir, pushSir, fetch = globalThis.fetch }) {
+const GECICI_DURUMLAR = new Set([502, 503, 504, 520, 521, 522, 523, 524]);
+const AG_HATALARI = new Set(['TypeError', 'AbortError', 'TimeoutError']);
+
+function geciciWorkerHatasi(hata) {
+  if (hata?.uc == null || hata.message === 'worker_sayfa') return false;
+  return Number.isInteger(hata?.status) ? GECICI_DURUMLAR.has(hata.status) : Boolean(hata?.ag);
+}
+
+function workerIstemcisi({ workerUrl, motorSir, pushSir, fetch = globalThis.fetch, saat = Date.now }) {
   return Object.fromEntries(Object.entries(UCLAR).map(([ad, [yol, method]]) => [ad, async (girdi) => {
-    const yanit = await fetch(new URL(yol, workerUrl), {
-      method, redirect: 'error', signal: saglayiciSecenekleri().signal,
-      headers: { 'x-kaymak-sync-secret': ad === 'push' ? pushSir : motorSir, 'Content-Type': 'application/json' },
-      body: girdi === undefined ? undefined : JSON.stringify(girdi),
-    });
-    if (!yanit.ok) {
-      const hata = new Error('worker_http');
-      hata.status = yanit.status;
-      throw hata;
+    const basladi = saat();
+    let agda = false;
+    try {
+      const adres = new URL(yol, workerUrl);
+      const secenekler = {
+        method, redirect: 'error', signal: saglayiciSecenekleri().signal,
+        headers: { 'x-kaymak-sync-secret': ad === 'push' ? pushSir : motorSir, 'Content-Type': 'application/json' },
+        body: girdi === undefined ? undefined : JSON.stringify(girdi),
+      };
+      agda = true;
+      const yanit = await fetch(adres, secenekler);
+      if (!yanit.ok) {
+        const hata = new Error('worker_http');
+        hata.status = yanit.status;
+        throw hata;
+      }
+      return await yanit.json();
+    } catch (hata) {
+      const status = hata?.status;
+      const adHatasi = hata?.name;
+      const istekHatasi = hata !== null && typeof hata === 'object' && Object.isExtensible(hata)
+        ? hata : new Error('worker_istek', { cause: hata });
+      istekHatasi.uc = ad;
+      istekHatasi.sure = saat() - basladi;
+      if (istekHatasi !== hata && Number.isInteger(status)) istekHatasi.status = status;
+      if (agda && !Number.isInteger(status) && AG_HATALARI.has(adHatasi)) istekHatasi.ag = `ag_${adHatasi}`;
+      throw istekHatasi;
     }
-    return yanit.json();
   }]));
 }
 
@@ -132,4 +157,4 @@ async function* sayfalariOku(oku, girdi, dur) {
   } while (sonraki !== null);
 }
 
-module.exports = { UCLAR, workerIstemcisi, sayfalariOku };
+module.exports = { UCLAR, workerIstemcisi, sayfalariOku, geciciWorkerHatasi };

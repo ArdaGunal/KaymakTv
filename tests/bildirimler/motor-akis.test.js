@@ -12,6 +12,7 @@ const { arsivTakvimi, takvimiDogrula } = require('../../server/bildirim/depo');
 const { gonderimKarari, gonderimTuru } = require('../../server/bildirim/gonderici');
 const { planTuru } = require('../../server/bildirim/planTuru');
 const { motorDurumuAc } = require('../../server/bildirim/durum');
+require('./motor-yeniden.test');
 
 const simdi = Date.parse('2026-11-22T12:00:00Z');
 const tarih = '2026-11-22T12:15:00.000Z';

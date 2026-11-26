@@ -1,5 +1,5 @@
 const { DAKIKA, motorKapilari } = require('./ayar');
-const { workerIstemcisi } = require('./worker');
+const { workerIstemcisi, geciciWorkerHatasi } = require('./worker');
 const { arsivTakvimi, takvimiDogrula } = require('./depo');
 const { sablonHavuzu } = require('./sablon');
 const { filmTurleriniKur, planTuru } = require('./planTuru');
@@ -7,11 +7,13 @@ const { gonderimTuru } = require('./gonderici');
 const { motorDurumuAc } = require('./durum');
 
 let motor = null;
+const YENIDEN_DENEME_MS = 30_000;
 const sirVar = (sir) => typeof sir === 'string' && sir.length >= 32;
 
 function motoruBaslat({
   ortam = process.env, gunluk = console, saat = Date.now, istemci = workerIstemcisi,
   takvimOku = arsivTakvimi, durumAc = motorDurumuAc, aralik = setInterval, ilk = setImmediate, aralikSil = clearInterval,
+  zamanAsimi = setTimeout, zamanAsimiSil = clearTimeout,
 } = {}) {
   const kapilar = motorKapilari(ortam);
   if (!kapilar.planla) return null;
@@ -27,7 +29,7 @@ function motoruBaslat({
   }
   const gonder = kapilar.gonder && sirVar(ortam.ICPUSH_SIR);
   if (kapilar.gonder && !gonder) gunluk.warn('[Bildirim] ICPUSH_SIR eksik, yalnız planlama açık.');
-  const worker = istemci({ workerUrl, motorSir: ortam.MOTOR_SIR, pushSir: ortam.ICPUSH_SIR });
+  const worker = istemci({ workerUrl, motorSir: ortam.MOTOR_SIR, pushSir: ortam.ICPUSH_SIR, saat });
   let tmdbCek;
   if (ortam.TMDB_API_KEY) {
     const { createTmdbFetcher } = require('../lazyfetch/providers/tmdb');
@@ -39,13 +41,27 @@ function motoruBaslat({
   }
   const filmTurleriniCoz = filmTurleriniKur(tmdbCek, saat);
   const sablonlar = sablonHavuzu(async () => (await worker.sablonlar()).satirlar, saat);
-  const durum = { zamanlayicilar: [], ucuslar: new Map(), duruyor: false, aralikSil };
+  const durum = { zamanlayicilar: [], ucuslar: new Map(), duruyor: false, aralikSil, yenidenDenemeyiSil };
+  let yenidenDeneme = null;
   motor = durum;
 
+  function yenidenDenemeyiSil() {
+    if (yenidenDeneme === null) return;
+    zamanAsimiSil(yenidenDeneme);
+    yenidenDeneme = null;
+  }
+
   function kur(ad, ms, tur) {
-    const dur = () => durum.duruyor || !motorKapilari(ortam)[ad];
-    function calis() {
+    const planlama = ad === 'planla';
+    const dur = () => {
+      const kapilar = motorKapilari(ortam);
+      if (durum.duruyor || !kapilar.planla) yenidenDenemeyiSil();
+      return durum.duruyor || !kapilar[ad];
+    };
+    function calis(deneme) {
       if (dur() || durum.ucuslar.has(ad)) return durum.ucuslar.get(ad);
+      if (planlama && yenidenDeneme !== null) return;
+      const basladi = saat();
       const ucus = Promise.resolve().then(() => {
         if (dur()) return null;
         durum.kilit ??= durumAc(ortam, saat());
@@ -56,17 +72,29 @@ function motoruBaslat({
           gunluk.log(`[Bildirim] ${ad} ${JSON.stringify(sonuc)}`);
         }
       }).catch((hata) => {
-        const kod = Number.isInteger(hata.status) ? `http_${hata.status}` : 'tur_hatasi';
-        gunluk.warn(`[Bildirim] ${ad} ${kod}`);
+        const kod = Number.isInteger(hata?.status) ? `http_${hata.status}` : hata?.ag ??
+          (hata?.message === 'worker_sayfa' ? 'worker_sayfa' : 'tur_hatasi');
+        const nedenKodu = hata?.cause?.code ?? hata?.code;
+        const neden = typeof nedenKodu === 'string' && /^[A-Z0-9_]{2,40}$/.test(nedenKodu) ? nedenKodu : '-';
+        gunluk.warn(`[Bildirim] ${ad} ${kod} uc=${hata?.uc ?? '-'} sure=${hata?.sure ?? saat() - basladi} deneme=${deneme} neden=${neden}`);
+        // Gönderim çift push riski nedeniyle yalnız kendi periyodunda çalışır.
+        if (planlama && deneme === 1 && geciciWorkerHatasi(hata) && !dur()) {
+          yenidenDeneme = zamanAsimi(() => {
+            yenidenDeneme = null;
+            return calis(2);
+          }, YENIDEN_DENEME_MS);
+          yenidenDeneme?.unref?.();
+        }
       }).finally(() => durum.ucuslar.delete(ad));
       durum.ucuslar.set(ad, ucus);
       return ucus;
     }
-    const zamanlayici = aralik(calis, ms);
+    const normalTur = () => calis(1);
+    const zamanlayici = aralik(normalTur, ms);
     durum.zamanlayicilar.push(zamanlayici);
     zamanlayici?.unref?.();
-    ilk(calis)?.unref?.();
-    return calis;
+    ilk(normalTur)?.unref?.();
+    return normalTur;
   }
 
   const planla = kur('planla', 15 * DAKIKA, (baglam) => planTuru({ ...baglam, arsivTakvimi: takvimOku, filmTurleriniCoz }));
@@ -84,6 +112,7 @@ async function motoruDurdur() {
   if (!motor) return;
   const durum = motor;
   durum.duruyor = true;
+  durum.yenidenDenemeyiSil();
   for (const zamanlayici of durum.zamanlayicilar) durum.aralikSil(zamanlayici);
   await Promise.allSettled(durum.ucuslar.values());
   if (motor === durum) {

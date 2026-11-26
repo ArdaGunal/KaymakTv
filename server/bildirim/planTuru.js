@@ -1,7 +1,7 @@
 const { UFUK, DUYURU_TTL, DAKIKA, SAAT, GUN } = require('./ayar');
 const { iso } = require('./zaman');
 const { kokKimligi, planlariHesapla } = require('./planlayici');
-const { sayfalariOku } = require('./worker');
+const { sayfalariOku, geciciWorkerHatasi } = require('./worker');
 
 function filmTuru(veri, tarih) {
   const turler = new Set();
@@ -62,6 +62,7 @@ async function planTuru({ worker, arsivTakvimi, filmTurleriniCoz, saat, dur, mot
     hata: 0, terk: 0, kategori: {} };
   const istek = { simdi: iso(simdi), ufuk: iso(simdi + UFUK), olay_baslangici: iso(Math.max(motorBaslangic, simdi - DUYURU_TTL)) };
   const terkEt = () => { sayac.hata++; sayac.terk++; };
+  let ardisikGeciciYazmaHatasi = 0;
   for await (const sayfa of sayfalariOku(worker.planGirdisi, istek, dur)) {
     const kimlikler = new Map();
     const girdiler = [];
@@ -83,12 +84,20 @@ async function planTuru({ worker, arsivTakvimi, filmTurleriniCoz, saat, dur, mot
     await filmTurleriniCoz(kokler, simdi, dur);
     for (const { girdi, kullaniciKokleri } of girdiler) {
       if (dur()) return sayac;
+      let plan;
       try {
         if (kullaniciKokleri.some((k) => kokler.get(kokKimligi(k))?.bozuk)) throw new Error('takvim_bozuk');
-        const { planlar, duzeltmeler, korunanlar } = planlariHesapla({ girdi, kokler, simdi, motorBaslangic });
-        sayac.aday += planlar.length;
-        for (const { kategori } of planlar) sayac.kategori[kategori] = (sayac.kategori[kategori] ?? 0) + 1;
+        plan = planlariHesapla({ girdi, kokler, simdi, motorBaslangic });
+      } catch {
+        terkEt();
+        continue;
+      }
+      const { planlar, duzeltmeler, korunanlar } = plan;
+      sayac.aday += planlar.length;
+      for (const { kategori } of planlar) sayac.kategori[kategori] = (sayac.kategori[kategori] ?? 0) + 1;
+      try {
         const sonuc = await worker.planYaz({ user_id: girdi.user_id, goruntu: girdi.goruntu, planlar, duzeltmeler, korunanlar });
+        ardisikGeciciYazmaHatasi = 0;
         if (sonuc?.durum === 'cakisma') {
           sayac.cakisma++;
           continue;
@@ -98,8 +107,10 @@ async function planTuru({ worker, arsivTakvimi, filmTurleriniCoz, saat, dur, mot
           throw new Error('plan_yaniti');
         }
         for (const alan of alanlar) sayac[alan] += sonuc[alan];
-      } catch {
+      } catch (hata) {
         terkEt();
+        ardisikGeciciYazmaHatasi = geciciWorkerHatasi(hata) ? ardisikGeciciYazmaHatasi + 1 : 0;
+        if (ardisikGeciciYazmaHatasi === 3) throw hata;
       }
     }
   }
